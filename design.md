@@ -2,7 +2,9 @@
 
 Documento base para a construção do design da aplicação no Pencil (pen.dev).
 
-Fonte de verdade: os PRDs de **Identity**, **Curriculum**, **Learning**, **Intelligence** e **Gamification** publicados no Confluence do espaço Shifu. Toda regra de comportamento citada aqui vem de um PRD. Quando este documento propõe algo que os PRDs não definem (cores, tipografia, densidade, escolha de componente), isso está marcado como **[proposta]** e pode ser alterado pelo time sem contrariar requisito.
+Fonte de verdade: os PRDs de **Identity**, **Curriculum**, **Learning**, **Intelligence** e **Gamification** publicados no Confluence do espaço Shifu. Toda regra de comportamento citada aqui vem de um PRD. Quando este documento propõe algo que os PRDs não definem, isso é decisão de design deste documento e pode ser alterado pelo time sem contrariar requisito.
+
+A direção de marca está fechada na seção 3: **Dojo**, derivada da direção de arte do jogo Sifu, com três matizes de papel fixo e contraste verificado.
 
 ---
 
@@ -61,90 +63,118 @@ Cadastro, entrada, reenvio de confirmação e recuperação de senha nunca revel
 
 ## 3. Design tokens
 
-Nomes prontos para virar variáveis no Pencil.
+Direção de marca: **Dojo**, derivada da direção de arte do jogo Sifu. Fundo quase preto, três matizes com papéis fixos, cantos duros, display condensado em caixa alta.
 
-### 3.1 Cor — **[proposta]**
+O produto é **dark only** no MVP. Nenhum PRD pede tema claro, e manter um só tema evita dobrar o custo de verificação de contraste.
 
-O time pode trocar a matiz da marca. A estrutura da escala e os papéis semânticos devem ficar.
+### 3.1 A regra das três matizes
 
-**Marca (jade)** — ação primária, foco, elementos de aprendizagem
-```
---brand-50   #ECF6F1
---brand-100  #CDE9DD
---brand-300  #6FC5A3
---brand-500  #1F8A63   <- primária
---brand-600  #176E4F
---brand-700  #11543D
-```
+O sistema tem exatamente três cores. Cada uma tem um papel e não empresta esse papel para nenhuma outra função.
 
-**Acento (âmbar)** — exclusivo de Gamification (XP, nível, sequência, conquistas)
-```
---accent-100 #FDF1D8
---accent-400 #F5B942
---accent-500 #E09B18
---accent-600 #B0770F
-```
+| Matiz | Papel | Onde aparece |
+|---|---|---|
+| **Jade** | Aprendizagem | Progresso, domínio, situação da Competência, sucesso |
+| **Selo** | Ação, marca e erro | Botão primário, Competência em foco, logotipo, falha |
+| **Latão** | Gamificação | XP, nível, sequência, conquistas, calendário |
+
+Estados que não sejam sucesso ou erro usam **neutro mais ícone**, nunca uma quarta matiz. Aviso de cota, avaliação pausada e conteúdo bloqueado são neutros. Isso é deliberado: inflacionar matizes é o que faz um sistema perder significado.
+
+Consequência direta do princípio P1: como latão nunca toca em nada pedagógico e jade nunca toca em recompensa, a separação entre aprendizagem e engajamento acontece sozinha, sem depender de disciplina de layout.
+
+### 3.2 Cor
 
 **Neutros**
 ```
---ink-900    #10151A   texto principal
---ink-700    #2C353D   texto secundário forte
---ink-500    #5A6672   texto secundário
---ink-300    #97A2AD   texto desabilitado, ícones neutros
---ink-200    #C9D1D9   bordas
---ink-100    #E6EAEE   divisores
---ink-50     #F4F6F8   fundo de bloco
---surface    #FFFFFF   cards
---canvas     #F7F9FA   fundo da página
+--page              #121316   fundo da aplicação
+--surface           #1E2025   cartões, listas
+--raised            #262930   trilho de barra, campo, estado hover
+--divider           #333740   linha decorativa, sem exigência de contraste
+--control-border    #737A87   borda de campo, caixa, controle  [3,77:1]
+--text-disabled     #6E747F   apenas desabilitado
+--text-muted        #9AA0AB   metadado, legenda              [6,20:1]
+--text-secondary    #C4C9D1   texto de apoio                 [9,80:1]
+--text-primary      #F2F0EA   texto principal, branco quente [14,30:1]
 ```
 
-**Semânticos**
+**Jade — aprendizagem**
 ```
---success    #2E9E5B
---warning    #C77700
---danger     #C0392B
---info       #2B6CB0
-```
-
-**Situação da Competência** — sempre acompanhada de ícone e rótulo
-```
-Em aprendizagem    --ink-300     ícone: círculo vazio
-Em desenvolvimento --info        ícone: círculo com um quarto
-Proficiente        --brand-300   ícone: círculo com três quartos
-Dominada           --brand-600   ícone: círculo preenchido com check
+--jade-tint         #0C2A24   fundo de selo
+--jade-fill         #2F8C72   preenchimento de barra
+--jade-solid        #45A98B   barra concluída, ícone         [5,67:1]
+--jade-text         #6FC7AA   texto sobre escuro             [8,09:1]
+--on-jade           #121316   texto sobre jade-solid         [6,46:1]
 ```
 
-### 3.2 Tipografia — **[proposta]**
-
-Interface: **Inter**. Código: **JetBrains Mono**.
-
-| Papel | Tamanho / Altura | Peso |
-|---|---|---|
-| Display | 32 / 40 | 700 |
-| Título 1 | 24 / 32 | 700 |
-| Título 2 | 20 / 28 | 600 |
-| Título 3 | 17 / 24 | 600 |
-| Corpo | 15 / 24 | 400 |
-| Corpo forte | 15 / 24 | 600 |
-| Pequeno | 13 / 20 | 400 |
-| Legenda | 12 / 16 | 500 |
-| Numérico | 28 / 32 | 700, tabular |
-| Código | 14 / 22 | 400, mono |
-
-Material de apoio usa corpo 16 / 28 e largura máxima de 68 caracteres.
-
-### 3.3 Espaçamento, raio, elevação
-
+**Selo — ação, marca e erro**
 ```
-Espaço   4  8  12  16  24  32  48  64
-Raio     sm 6   md 10   lg 16   pill 999
-Sombra   sm 0 1 2 rgba(16,21,26,.06)
-         md 0 4 12 rgba(16,21,26,.08)
-         lg 0 12 32 rgba(16,21,26,.12)
-Foco     anel de 2px em --brand-500 com offset de 2px
+--selo-tint         #3A1210   fundo de selo
+--selo-fill         #C63A2E   botão primário, marca
+--selo-text         #E8877B   texto de erro, anel de foco    [6,35:1]
+--on-selo           #FFFFFF   texto sobre selo-fill          [5,19:1]
 ```
 
-### 3.4 Breakpoints e shell
+**Latão — gamificação**
+```
+--latao-tint        #3A2C10   fundo de selo, borda de cartão
+--latao-fill        #C08A22   preenchimento
+--latao-solid       #DCA845   número de XP, nível, sequência [7,55:1]
+--latao-text        #EFC877   texto sobre escuro            [10,24:1]
+--on-latao          #121316   texto sobre latao-solid        [8,61:1]
+```
+
+Todos os valores entre colchetes são razões de contraste medidas contra `--surface`, exceto `--on-*`, medidas contra o próprio preenchimento. Todas passam em AA para texto normal. `--divider` fica abaixo de 3:1 de propósito: é ornamento, não delimita controle. Onde a borda delimita um controle, usar `--control-border`.
+
+### 3.3 Como resolver ação destrutiva
+
+Selo é a cor de ação primária. Se ação destrutiva também fosse selo preenchido, o usuário não distinguiria continuar de apagar. A regra:
+
+- **Só a ação primária usa selo preenchido.** Uma por tela.
+- **Destrutiva nunca é preenchida.** Superfície neutra, rótulo em `--selo-text`, borda em `--selo-text`, e sempre com ícone.
+- **Destrutiva sempre vive dentro de confirmação.** Os PRDs já exigem isso em excluir conta, remover Objetivo e remover Habilidade, então a regra não custa nada.
+
+### 3.4 Tipografia
+
+Par de display condensado com sans neutra, o padrão observado em boot.dev, MasterClass e Brilliant.
+
+- **Display:** Oswald, 600, caixa alta, entreletra +1,2. Só em logotipo, título de tela e etiqueta de seção.
+- **Interface:** Inter. Todo o resto.
+- **Numérico e código:** JetBrains Mono. Nota, progresso, XP, nível, sequência, editor.
+
+Todas do Google Fonts, sem custo de licença.
+
+| Papel | Família | Tamanho / Altura | Peso |
+|---|---|---|---|
+| Logotipo | Oswald | 26 / 32 | 600 |
+| Título de tela | Oswald | 15 / 20 | 600 |
+| Etiqueta de seção | Oswald | 11 / 16 | 600 |
+| Título 1 | Inter | 24 / 32 | 600 |
+| Título 2 | Inter | 18 / 26 | 600 |
+| Corpo | Inter | 14 / 22 | 400 |
+| Corpo forte | Inter | 14 / 22 | 500 |
+| Pequeno | Inter | 13 / 20 | 400 |
+| Legenda | Inter | 11 / 16 | 500 |
+| Numérico | JetBrains Mono | 20 / 26 | 600 |
+| Código | JetBrains Mono | 13 / 21 | 400 |
+
+Material de apoio é exceção: Inter 16 / 28, largura máxima de 68 caracteres.
+
+**Caractere chinês.** 師父 aparece **apenas no logotipo**, em `--selo-fill`, ao lado do nome. Não usar caracteres como ornamento em cabeçalho de seção. O nome do produto já é uma palavra chinesa, então na marca ele é significado; espalhado pela interface vira figurino. Se usados, manter tradicional, nunca misturar com simplificado.
+
+### 3.5 Espaçamento, raio, elevação
+
+```
+Espaço    4  8  12  16  24  32  48
+Raio      none 0    controle e cartão 2    modal 4
+          A barra de progresso é retangular, raio 0. É um medidor, não uma pílula.
+          Nada no sistema usa pill.
+Borda     1px, sempre. Sem borda de 2px, exceto a marca de foco da Competência.
+Elevação  Sem sombra. Hierarquia por superfície: page, surface, raised.
+Foco      Anel de 2px em --selo-text com deslocamento de 2px.
+```
+
+O raio duro é a decisão de marca mais visível depois da cor. É o que separa isto de um template. Não relaxar para 8 ou 12 no meio do caminho.
+
+### 3.6 Breakpoints e shell
 
 ```
 mobile   < 640
@@ -152,13 +182,10 @@ tablet   640 a 1023
 desktop  >= 1024
 ```
 
-**Desktop:** barra lateral fixa de 260px + conteúdo com largura máxima de 1120px.
-**Tablet:** barra lateral colapsa em ícones (72px).
+**Desktop:** trilho lateral fixo de 52px, só ícones, com 師 no topo. Conteúdo com largura máxima de 1120px.
 **Mobile:** barra inferior com 4 itens — Objetivos, Progresso, Mentor, Conta.
 
-O Mentor é um painel lateral de 400px no desktop e uma folha em tela cheia no mobile. Ele abre **de qualquer área** (Intelligence RP-04) sem tirar o usuário da tela atual.
-
----
+O Mentor é painel lateral de 400px no desktop e folha em tela cheia no mobile. Abre de qualquer área, conforme Intelligence RP-04.
 
 ## 4. Biblioteca de componentes
 
@@ -462,7 +489,7 @@ Se uma avaliação concluir a Habilidade, o usuário vê **primeiro o resultado 
 ### 6.5 Gamification
 
 #### T30 — Resumo no shell
-Nível atual, XP total, sequência atual. Sempre em âmbar, nunca em jade.
+Nível atual, XP total, sequência atual. Sempre em latão, nunca em jade.
 Abre a área completa.
 
 #### T31 — Área de Progresso
@@ -577,7 +604,10 @@ Requisito explícito nos PRDs de Identity, Learning, Intelligence e Gamification
 - Carregamento, erro, sucesso e recuperação **compreensíveis por tecnologia assistiva**
 - As etapas do lote precisam anunciar de forma acessível qual é a atual e quais já foram respondidas
 - O grafo de Habilidades **não pode ser a única forma** de descobrir nomes, situações ou caminhos — a visão em lista é obrigatória
-- Contraste mínimo AA. Alvo de toque mínimo de 44px no mobile
+- **Contraste AA verificado, não presumido.** Todos os pares de texto da seção 3.2 foram medidos. O menor é `--jade-solid` sobre `--surface` em 5,67:1, e o menor de texto sobre preenchimento é `--on-selo` sobre `--selo-fill` em 5,19:1. Ambos passam com folga em AA
+- `--divider` fica abaixo de 3:1 de propósito e por isso **nunca** delimita um controle. Borda de campo, caixa de seleção e alvo clicável usam `--control-border`, medido em 3,77:1, acima do mínimo de 1.4.11
+- `--text-disabled` fica em 3,47:1 e por isso é **exclusivo de estado desabilitado**. Nenhum texto informativo pode usá-lo
+- Alvo de toque mínimo de 44px no mobile
 
 ---
 
@@ -630,5 +660,5 @@ Precisam de decisão do time ou dos PRDs antes de virarem tela definitiva.
 |---|---|---|
 | 1 | Como o usuário escolhe e atualiza o fuso horário | Identity RP-06 declara a dependência e não define o mecanismo |
 | 2 | Valor absoluto da cota mensal de IA | Intelligence RP-02 não fixa o número. A tela mostra só percentual, então isso não bloqueia o design |
-| 3 | Matiz da marca e escolha tipográfica | Proposta deste documento, aberta ao time |
+| 3 | Ilustração e textura da marca | A paleta e a tipografia estão fechadas na seção 3. Falta decidir se existe ilustração, e em que grau, sem cair na estética de videogame |
 | 4 | Janela de atribuição da métrica de continuidade após o Mentor | Intelligence seção 4, sem impacto em tela |
