@@ -7,10 +7,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=apps/web",
-    "build:web": "npm run build --workspace=apps/web",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "dev:web": "pnpm dev --workspace=apps/web",
+    "build:web": "pnpm build --workspace=apps/web",
+    "typecheck": "pnpm typecheck --workspaces --if-present",
+    "test": "pnpm test --workspaces --if-present",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "prepare": "husky"

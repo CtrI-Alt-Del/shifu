@@ -1,106 +1,74 @@
-import Axios, { type AxiosInstance } from 'axios'
-import type {
-  RestClient,
-  RestClientRequestConfig,
-} from '@/core/global/interfaces/rest-client'
-import { RestResponse } from '@/core/global/responses/rest-response'
+import axios from 'axios'
 
-export const createAxiosRestClient = (baseUrl = ''): RestClient => {
-  const axios: AxiosInstance = Axios.create({
+import { request } from '@/rest/axios/utils'
+import type { RestClient, RestRequestOptions } from '@/core/shared/interfaces/rest-client'
+
+const REST_REQUEST_TIMEOUT_MS = 15_000
+
+export const AxiosRestClient = (baseUrl?: string): RestClient => {
+  const client = axios.create({
     baseURL: baseUrl,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    timeout: REST_REQUEST_TIMEOUT_MS,
+    withCredentials: true,
   })
 
+  function get<ResponseBody>(url: string, options: RestRequestOptions) {
+    return request<ResponseBody>(client, {
+      method: 'get',
+      url,
+      params: options?.params,
+    })
+  }
+
   return {
-    async get<T>(
-      url: string,
-      config?: RestClientRequestConfig,
-    ): Promise<RestResponse<T>> {
-      try {
-        const res = await axios.get<T>(url, config)
-        return new RestResponse<T>({
-          body: res.data,
-          statusCode: res.status,
-        })
-      } catch (err: any) {
-        return new RestResponse<T>({
-          errorMessage: err.response?.data?.message || err.message,
-          statusCode: err.response?.status || 500,
-        })
-      }
+    get,
+
+    getFile(url) {
+      return request<File>(client, {
+        method: 'get',
+        url,
+        responseType: 'blob',
+      })
     },
 
-    async post<T>(
-      url: string,
-      body?: unknown,
-      config?: RestClientRequestConfig,
-    ): Promise<RestResponse<T>> {
-      try {
-        const res = await axios.post<T>(url, body, config)
-        return new RestResponse<T>({
-          body: res.data,
-          statusCode: res.status,
-        })
-      } catch (err: any) {
-        return new RestResponse<T>({
-          errorMessage: err.response?.data?.message || err.message,
-          statusCode: err.response?.status || 500,
-        })
-      }
+    post<ResponseBody>(url: string, body?: unknown) {
+      return request<ResponseBody>(client, {
+        method: 'post',
+        url,
+        data: body,
+      })
     },
 
-    async patch<T>(
-      url: string,
-      body?: unknown,
-      config?: RestClientRequestConfig,
-    ): Promise<RestResponse<T>> {
-      try {
-        const res = await axios.patch<T>(url, body, config)
-        return new RestResponse<T>({
-          body: res.data,
-          statusCode: res.status,
-        })
-      } catch (err: any) {
-        return new RestResponse<T>({
-          errorMessage: err.response?.data?.message || err.message,
-          statusCode: err.response?.status || 500,
-        })
-      }
+    postFormData<ResponseBody>(url: string, body: FormData) {
+      return request<ResponseBody>(client, {
+        method: 'post',
+        url,
+        data: body,
+      })
     },
 
-    async put<T>(
-      url: string,
-      body?: unknown,
-      config?: RestClientRequestConfig,
-    ): Promise<RestResponse<T>> {
-      try {
-        const res = await axios.put<T>(url, body, config)
-        return new RestResponse<T>({
-          body: res.data,
-          statusCode: res.status,
-        })
-      } catch (err: any) {
-        return new RestResponse<T>({
-          errorMessage: err.response?.data?.message || err.message,
-          statusCode: err.response?.status || 500,
-        })
-      }
+    patch<ResponseBody>(url: string, body?: unknown) {
+      return request<ResponseBody>(client, {
+        method: 'patch',
+        url,
+        data: body,
+      })
     },
 
-    async delete(url: string, config?: RestClientRequestConfig): Promise<RestResponse> {
-      try {
-        const res = await axios.delete(url, config)
-        return new RestResponse({
-          statusCode: res.status,
-        })
-      } catch (err: any) {
-        return new RestResponse({
-          errorMessage: err.response?.data?.message || err.message,
-          statusCode: err.response?.status || 500,
-        })
-      }
+    put<ResponseBody>(url: string, body?: unknown) {
+      return request<ResponseBody>(client, {
+        method: 'put',
+        url,
+        data: body,
+      })
+    },
+
+    delete<ResponseBody>(url: string, body?: unknown) {
+      return request<ResponseBody>(client, {
+        method: 'delete',
+        url,
+        data: body,
+      })
     },
   }
 }

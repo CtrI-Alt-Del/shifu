@@ -1,15 +1,22 @@
+import { defineConfig, loadEnv } from 'vite'
+import { fileURLToPath } from 'node:url'
+import { devtools } from '@tanstack/devtools-vite'
+
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-import { defineConfig } from 'vite'
+
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { nitro } from 'nitro/vite'
 
-export default defineConfig({
-  server: {
-    port: 3000,
-  },
-  resolve: {
-    tsconfigPaths: true,
-  },
-  plugins: [tailwindcss(), tanstackStart(), viteReact(), nitro()],
+const ROOT_ENV_DIR = fileURLToPath(new URL('../../', import.meta.url))
+
+const config = defineConfig(({ mode }) => {
+  const env = loadEnv(mode, ROOT_ENV_DIR, '')
+
+  return {
+    resolve: { tsconfigPaths: true },
+    server: { port: Number(env.SHIFU_WEB_PORT) || 3000 },
+    plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
+  }
 })
+
+export default config
