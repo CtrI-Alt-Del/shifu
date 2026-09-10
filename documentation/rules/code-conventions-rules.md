@@ -1,14 +1,15 @@
 ---
-description: Shared source-code conventions for naming, declarations, factories, barrels, and tooling in the HMS monorepo.
+description: TypeScript and JavaScript conventions for the Shifu web application and tooling.
 ---
 
 # Code Conventions
 
-Code conventions are the rules and practices used to keep the HMS codebase
+Code conventions are the rules and practices used to keep the Shifu codebase
 consistent, readable, and maintainable by everyone on the project.
 
-These conventions apply to TypeScript and JavaScript source code in `apps/`,
-`packages/`, and repository tooling unless a more specific rule refines them.
+These conventions apply to TypeScript and JavaScript source code in `apps/web/`, future
+TypeScript packages, and repository tooling unless a more specific rule refines them.
+Python code follows [`python-code-conventions-rules.md`](python-code-conventions-rules.md).
 
 ## Language
 

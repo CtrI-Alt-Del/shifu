@@ -1,187 +1,139 @@
 ---
-description: Source organization rules for the shared core domain package.
+description: Framework-independent domain organization and dependency rules for Python core modules.
 ---
 
-# Core Package Rules
+# Core Domain Rules
 
-These rules apply to TypeScript source files under `packages/core`.
+These rules apply to `apps/server/src/shifu/<module>/core` and shared domain primitives
+under `apps/server/src/shifu/shared/core`.
 
-## One exported type per file
+## Core is framework-independent
 
-Every declaration written with `export type` must live in its own source file.
-The filename must describe that exported type using kebab-case.
+Core code may use the Python standard library and provider-neutral domain abstractions.
+It must not import FastAPI, Pydantic request models, SQLAlchemy, Inngest, HTTP clients,
+environment settings, or vendor SDKs.
 
-Do not declare two or more exported types in the same file:
+Each business module owns its core:
 
-```ts
-// legal-catalog.ts — invalid
-export type LegalArea = {
-  id: string
-  name: string
-}
-
-export type LegalTopic = {
-  id: string
-  name: string
-}
+```text
+<module>/core/
+├── domain/
+│   ├── entities/
+│   ├── structures/
+│   ├── errors/
+│   └── events/
+├── interfaces/
+└── use_cases/
 ```
 
-Create one file for each exported type instead:
+Do not move module-specific behavior into `shared`. Shared core contains only stable
+primitives and contracts genuinely used by multiple modules.
 
-```ts
-// legal-area.ts
-export type LegalArea = {
-  id: string
-  name: string
-}
+## Entities own identity and behavior
+
+Entities have stable identity and encapsulate state transitions that are valid for one
+instance. Construct them through a `create` classmethod or another explicit named
+factory that validates and normalizes input.
+
+Entity equality is based on domain identity. Do not expose SQLAlchemy models as domain
+entities, and do not make an entity inherit from Pydantic or SQLAlchemy classes.
+
+An entity may protect its own invariants, such as a valid state transition. Decisions
+that coordinate repositories, providers, several aggregates, permissions, or external
+effects belong in a use case.
+
+## Structures are immutable values
+
+Structures and value objects represent validated values, states, filters, snapshots,
+or relationships without independent identity. Keep them immutable and compare them by
+value. Use explicit factories such as `Id.create`, `Email.create`, or
+`LearningStatus.normalize` to validate primitive input.
+
+Only entities own a bare `id`. A structure may carry an explicitly named reference such
+as `objective_id` or `learner_id`.
+
+DTOs are serializable data carriers. They do not validate business policy or perform
+I/O. Domain objects may expose a `dto` projection, but HTTP schemas and persistence
+models remain outside core.
+
+## Use cases own application actions
+
+Create one use-case class per application action under `core/use_cases`. Name it with a
+business verb and the `UseCase` suffix, and expose one `execute` method.
+
+Use cases:
+
+- normalize primitive input into domain structures;
+- enforce authorization and cross-entity business rules;
+- coordinate entities, repositories, providers, and events;
+- return a domain DTO, structure, primitive, or `None`;
+- raise typed domain errors for expected failures.
+
+Use cases must not receive `Request`, `Session`, FastAPI dependencies, SQLAlchemy
+models, Inngest contexts, or vendor clients.
+
+## Interfaces are structural ports
+
+Repository, provider, broker, storage, AI workflow, clock, and external-service
+contracts belong in the owning module's `core/interfaces` directory. Define them as
+`typing.Protocol` unless a shared implementation base contains real reusable behavior.
+
+```python
+from typing import Protocol
+
+
+class ObjectivesRepository(Protocol):
+    def find_by_id(self, objective_id: Id) -> Objective | None: ...
+
+    def add(self, objective: Objective) -> None: ...
 ```
 
-```ts
-// legal-topic.ts
-export type LegalTopic = {
-  id: string
-  name: string
-}
+Keep ports narrow and domain-oriented. They must not expose query builders, database
+sessions, HTTP responses, Inngest events, or SDK-specific types. Implementations live
+in database, provider, messaging, or AI adapter layers.
+
+## Domain errors are transport-neutral
+
+Expected failures derive from the shared `AppError` hierarchy or a module-specific
+subclass. Errors expose stable domain meaning and a safe user-facing message; they do
+not contain HTTP status codes or FastAPI response objects.
+
+The REST layer maps domain error classes to HTTP responses. Jobs decide which failures
+are retryable without changing the domain error itself.
+
+## Events describe facts or requests
+
+Domain events belong to the module that owns their meaning. Each event declares its
+name once and owns a typed, serializable payload. Names use a stable namespace such as:
+
+```text
+learning/activity-submission.requested
+learning/activity-evaluated
+identity/account-deletion.requested
 ```
 
-Non-exported helper types may remain in the file where they are used. Barrel files named
-`index.ts` must only re-export declarations and must not declare types of their own.
+Publishers and consumers import the event class; they do not repeat event-name literals
+or rebuild payload dictionaries independently. Payloads contain identifiers and
+immutable snapshots needed by the consumer, never ORM models or secrets.
 
-## Domain faker conventions
+## Module boundaries remain explicit
 
-Test fakers for core entities belong under the owning module's
-`domain/entities/fakers` directory. Keep one faker class per entity and name it
-`<EntityName>Faker`:
+A module may consume another module through identifiers, public contracts, and domain
+events described in `documentation/modules.md`. It must not import another module's
+entities, repositories, database models, or implementation details merely to avoid a
+contract.
 
-```ts
-import { faker } from '@faker-js/faker'
+Learning remains authoritative for learner progress and official evaluation;
+Curriculum for official content; Identity for account state; Gamification for rewards;
+and Intelligence for AI-assisted experiences. Technical adapters do not transfer that
+authority.
 
-import type { Account } from '../account'
-import { UserProfile } from '../../structures/user-profile'
+## Fakers build valid domain objects
 
-export class AccountFaker {
-  static fake(overrides: Partial<Account> = {}): Account {
-    return {
-      id: faker.string.uuid(),
-      establishmentId: faker.string.uuid(),
-      name: faker.person.fullName(),
-      email: faker.internet.email(),
-      profile: UserProfile.Manager,
-      ...overrides,
-    }
-  }
+Domain fakers belong under `apps/server/src/shifu/fakers/<module>` and mirror entities
+or structures. Use one `<Entity>Faker` class per concept with a `fake` method and add
+`fake_many` only when collection scenarios need it repeatedly.
 
-  static fakeMany(count = 10): Account[] {
-    return Array.from({ length: count }, () => AccountFaker.fake())
-  }
-}
-```
-
-Every core faker must expose both methods:
-
-- `static fake(overrides: Partial<Entity> = {})` returns one valid entity;
-- `static fakeMany(count = 10)` returns exactly `count` independently generated
-  entities by delegating to `fake()`.
-
-Use `@faker-js/faker` for generated identity fields and realistic values. Keep
-defaults valid for the entity and stable where time-sensitive assertions depend
-on them. Apply overrides last so tests can express the state under examination
-without rebuilding unrelated entity fields. When a scenario contains related
-entities, override their IDs explicitly so the relationship remains coherent.
-
-Do not export free functions such as `fakeAccount()` or place faker logic in
-production entities, structures, use cases, interfaces, or application layers.
-Faker classes are test data builders only and must not add business behavior.
-Export every faker class from the module's `fakers/index.ts` barrel, and import
-it by class name in tests:
-
-```ts
-import { AccountFaker } from '#identity/domain/entities/fakers/index.ts'
-
-const manager = AccountFaker.fake({ profile: UserProfile.Manager })
-const operators = AccountFaker.fakeMany(3)
-```
-
-Do not scatter hand-written complete entities through tests when a core faker
-exists. Keep only the behavior-specific overrides in the test, and add or
-update the faker when a new valid default or entity state is needed.
-
-## Business rules belong to use cases
-
-Every business rule in `packages/core` must be implemented exclusively inside a
-use case class under the owning module's `use-cases` directory.
-
-Entities and structures describe domain state and valid data shapes. They must not
-implement business decisions through methods, exported functions, computed getters,
-validators, policies, specifications, or rule objects.
-
-Do not create `domain/rules`, `domain/policies`, or `domain/services` directories to
-hold business rules. For example, whether a document package can be confirmed must
-be checked by a `ConfirmDocumentPackage` use case class, not by a
-`canConfirmDocumentPackage` function.
-
-Use cases may coordinate entities, structures, interfaces, errors, and events while
-enforcing the rules required by one application action. Keep one exported use case
-class per file and use a verb-led name that describes the action.
-
-## Contracts belong to interfaces directories
-
-Every contract exposed by `packages/core` must live in an `interfaces` directory
-under the module that owns it. Never create a directory named `providers` inside
-`packages/core`.
-
-This rule applies to provider, repository, gateway, storage, and other contracts
-implemented outside the core. Their declaration names must continue to describe
-their specific roles, such as `ClientLookupProvider`, `DocumentBatchRepository`, or
-`FileStorageProvider`; `interfaces` is the name of the organizational directory,
-not a required suffix for each contract.
-
-Place a contract in `shared/interfaces` only when it is intentionally shared by
-multiple modules. An `interfaces/index.ts` barrel must only re-export declarations.
-Implementations and infrastructure-specific details must remain outside
-`packages/core`.
-
-Identity authentication follows the same separation:
-
-- `AuthProvider` is the behavioral contract and belongs in
-  `packages/core/src/identity/interfaces`;
-- `AuthCredentials`, `AuthSession`, `AuthStateChange`,
-  `AuthStateChangeListener`, and `AuthUser` are shared data structures and belong
-  in `packages/core/src/identity/domain/structures`;
-- authentication-provider implementations belong in an application provision
-  layer, not in the core package.
-
-Consumers must import auth data structures from the structures barrel and the
-provider contract from the interfaces barrel. Do not place provider-specific
-types or Better Auth imports in `packages/core`.
-
-Transactional email is owned by Communication. Its provider-neutral
-`EmailProvider` contract belongs under
-`packages/core/src/communication/interfaces`; Identity publishes authoritative
-domain events and must not import that interface or a Resend, SMTP, or Mailpit
-implementation.
-
-When an approved atomic-delivery requirement applies, Core use cases call
-`scope.eventsRepository.add(event)` while the owning database transaction is
-active. The `EventsRepository` contract accepts only a typed domain `Event`; it
-must not expose SQL rows, transaction objects, polling, Inngest, or provider
-types. Shared server infrastructure implements transaction-aware event
-persistence and the post-commit `InngestBroker` relay.
-
-## Only entities have identity
-
-Only declarations inside an `entities` directory may own a local domain identity
-field named `id`. A structure represents a value, state, configuration, or
-relationship without an identity of its own and therefore normally must not
-declare an `id` property.
-
-If a domain concept needs an `id` so it can be referenced, edited, removed, or tracked
-independently, model it as an entity instead of a structure. Do not remove a necessary
-identity merely to keep the declaration in `structures`.
-
-Structures may contain explicitly named references to entities, such as
-`consultationId` or `legalAreaId`. External identity projections are the narrow
-exception: `AuthUser` may expose the provider's subject `id` because it represents
-an external authentication identity, not a core aggregate entity. No other
-structure should add a bare `id` field without documenting the same external
-identity rationale.
+Defaults must produce valid domain objects. Allow explicit keyword overrides so tests
+state only the behavior-specific differences. Fakers contain no business behavior and
+never replace repository or provider mocks.

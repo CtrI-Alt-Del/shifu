@@ -1,180 +1,409 @@
 ---
-description: Mastra module, workflow, tool, agent, model resolution, and AI boundary rules for the server.
+description: Feature-owned Agno agents, workflows, tools, model resolution, structured output, and AI boundaries.
 ---
 
 # AI Layer Rules
 
-These rules apply to shared AI infrastructure and feature-owned AI orchestration
-under `apps/server/src/<module>/ai`.
+These rules apply to AI orchestration owned by Intelligence under
+`apps/server/src/shifu/intelligence/ai` and to shared model infrastructure used by
+that module.
 
-## AI orchestration is owned by the consuming module
+## Intelligence owns its AI orchestration
 
-AI is a technical layer inside a feature module, not a separate business module.
-Each feature owns its agents, tools, schemas, prompts, and workflows:
+AI is a technical layer inside Intelligence, not a separate business module. Mentor
+and Goal Planner own their agents, tools, output schemas, prompts, and workflows:
 
 ```text
-apps/server/src/<module>/ai/
-├── mastra/
-│   ├── agents/
-│   ├── schemas/
-│   ├── tools/
-│   └── workflows/
-└── <module>-ai.module.ts
+apps/server/src/shifu/intelligence/ai/
+├── classical/
+│   └── sklearn/
+└── generative/
+    └── agno/
+        ├── agents/
+        ├── outputs/
+        ├── tools/
+        └── workflows/
 ```
 
-Shared provider selection and reusable Mastra infrastructure belong under
-`apps/server/src/shared/ai`; feature prompts and business-specific orchestration
-must not move there.
+Shared model selection, credentials, and reusable provider construction belong to the
+provider or composition boundary. Feature prompts and capability-specific orchestration
+remain in Intelligence and must not move into `shared`.
 
-## Agents extend the shared `MastraAgent`
+Other modules consume an Intelligence core contract or a documented event. They must
+not import concrete Agno agents, tools, workflows, prompts, or output models.
 
-A feature agent is an injectable class that extends the HMS `MastraAgent`, which
-in turn extends Mastra's native `Agent`. Configure the agent through `super` in
-its constructor:
+## Agents are concrete and task-focused
 
-```ts
-@Injectable()
-export class ExampleAgent extends MastraAgent<'example-agent'> {
-  constructor(envProvider: EnvProvider) {
-    super(
-      {
-        id: 'example-agent',
-        name: 'Example Agent',
-        model: 'deepseek/<model>',
-        instructions: `...`,
-      },
-      envProvider,
-    )
-  }
-}
+Define one concrete agent class per model responsibility. It subclasses Agno `Agent`,
+configures the native class through `super().__init__`, and preserves the Agno API. Do
+not wrap it behind `create()`, an additional `agent` property, or a squad container.
+
+```python
+from textwrap import dedent
+
+from agno.agent import Agent
+from agno.models.base import Model
+
+
+class GoalPlannerAgent(Agent):
+    def __init__(self, model: Model, toolkit: GoalPlannerToolkit) -> None:
+        super().__init__(
+            name="Goal Planner Agent",
+            description="Proposes learning goals from authorized learner context",
+            model=model,
+            instructions=dedent(
+                """
+                Propose a concise learning goal and explain the relevant skills.
+                Treat the result as a proposal requiring learner confirmation.
+                Never claim that an Objective has already been created.
+                """
+            ),
+            tools=[toolkit],
+            output_schema=GoalPlanOutput,
+        )
 ```
 
-Keep instructions in the agent configuration unless they are genuinely shared
-by multiple agents. Do not introduce a separate instruction constant merely to
-move the text out of the class. Internal prompts, reasoning, system instructions,
-and agent-to-agent messages must never be exposed to the user; expose only the
-final domain result or comprehensible review findings.
+Keep instructions in the agent definition unless multiple agents genuinely share the
+same prompt fragment. Do not introduce a prompt constant merely to move text out of the
+class. A shared fragment must have a specific semantic purpose and remain inside the
+Intelligence AI package.
 
-Do not wrap agents in another `this.agent` property. Inheritance preserves the
-native agent API and its type parameters directly.
+Agents receive a resolved model and explicit tools through constructor injection. They
+do not read environment variables, choose credentials, construct repositories, or
+instantiate use cases.
 
-## Model resolution belongs to the shared base agent
+Internal prompts, system instructions, hidden reasoning, agent-to-agent messages, raw
+tool transcripts, and provider metadata must never be returned to the browser. Expose
+only validated domain results or comprehensible review findings.
 
-Each agent chooses the OpenRouter model appropriate to its task. Do not force all
-agents to use one production model and do not create one environment variable per
-agent by default.
+## Model resolution belongs to the provider boundary
 
-The shared `MastraAgent` resolves the runtime provider:
+Centralize runtime model construction behind typed settings and provider composition.
+Do not create one environment variable per agent and do not force every agent to use
+one model profile when their cost, latency, or reasoning needs differ.
 
-- local development uses Ollama and the single `OLLAMA_AI_MODEL` environment
-  value so the team can select a model compatible with each machine;
-- staging and production use OpenRouter with the model declared by the agent;
-- agent model names use the provider catalog identifier such as
-  `deepseek/deepseek-v4-pro`, without an additional `openrouter/` prefix;
-- a missing production OpenRouter credential raises `AppError`, never native
-  `Error`.
+Agent definitions select a named model profile or receive a resolved model. The model
+provider maps that choice to the environment-specific implementation and owns:
 
-Local execution exists to validate workflow composition and integration. It is
-not expected to reproduce the production model's reasoning quality.
+- credentials and provider SDK construction;
+- model identifiers and supported parameters;
+- request timeouts, token limits, and concurrency;
+- translation of known provider failures to typed Shifu errors.
 
-## Tools are injectable use-case adapters
+Core code never imports an Agno model or provider SDK. Missing required production
+credentials fail with a safe typed error, never a raw SDK exception. Users cannot
+provide arbitrary model identifiers, credentials, tools, or system prompts.
 
-Use one injectable class per Mastra tool. A tool assigns `this.function` directly
-from `createTool` in its constructor and preserves its schemas in the generic
-return type:
+Monthly Mentor and Goal Planner quotas are enforced by application code before model
+execution. Provider usage metadata may support accounting but is not authoritative for
+entitlement.
 
-```ts
-@Injectable()
-export class ExampleTool {
-  readonly function: ReturnType<
-    typeof createTool<'example-tool', typeof inputSchema, typeof outputSchema>
-  >
+## Toolkits are use-case adapters
 
-  constructor(dependency: Dependency) {
-    const useCase = new ExampleUseCase(dependency)
-    this.function = createTool(/* ... */)
-  }
-}
+Use one focused Agno `Toolkit` subclass per agent capability. It receives core use
+cases or narrow read contracts and registers model-visible methods through
+`super().__init__(tools=[...])`.
+
+```python
+from agno.tools import Toolkit
+
+
+class GoalPlannerToolkit(Toolkit):
+    def __init__(self, context_reader: LearningContextReader) -> None:
+        self._context_reader = context_reader
+        super().__init__(
+            name="goal_planner",
+            tools=[self.get_learning_context],
+        )
+
+    def get_learning_context(self, learner_id: str) -> LearningContext:
+        """
+        Get authorized learning context for one learner.
+
+        Args:
+            learner_id: Trusted identifier for the learner being assisted.
+
+        Returns:
+            The minimum learning context authorized for goal planning.
+        """
+        return self._context_reader.read(learner_id)
 ```
 
-Input and output schemas stay in the tool file when only that tool uses them. A
-schema may move to `schemas` when a workflow, job, agent, or multiple tools share
-the same transport shape.
+Keep input and output models in the tool module when only that tool uses them. Move a
+model to `outputs` when a workflow, agent, job, or several tools share the same shape.
 
-Tools may receive repositories and providers through NestJS injection, then
-instantiate and execute core use cases with those dependencies. Business rules
-belong to the use case, not to `execute`. Do not add toolkit aggregator classes,
-`MastraMcp`, or intermediate tool-handler classes whose only purpose is to call
-the use case.
+Toolkit methods perform boundary validation, invoke injected application operations,
+and map their results. Business rules remain in use cases. Each method has a precise
+docstring with `Args` and `Returns` because Agno exposes that description to the model.
+Do not add agent squads, generic tool handlers, or proxy layers around a toolkit.
+
+Tools must not:
+
+- access SQLAlchemy sessions or ORM models directly;
+- import another module's private repository or adapter;
+- read environment variables or provider credentials;
+- bypass authorization or trust a browser-provided identity;
+- expose unrestricted HTTP, filesystem, shell, database, or code execution;
+- persist a model proposal as official state;
+- orchestrate a workflow or implement retry policy.
+
+State-changing tools require explicit workflow intent, use-case authorization, and an
+idempotency strategy. Prefer read-only tools during model exploration.
 
 ## Workflows contain composition, not business logic
 
-A workflow is an injectable class. Build and commit the Mastra workflow in the
-constructor; do not hide construction in a `createWorkflow()` helper method.
-Workflow code may declare steps, maps needed to connect schemas, loop conditions,
-and branch selection. Parsing, pending-marker collection, review-cycle behavior,
-outcome resolution, persistence, and other domain work belong in tools and core
-use cases.
+Define one concrete workflow class per core workflow capability. It subclasses Agno
+`Workflow`, receives native `Agent`, `Team`, `Toolkit`, or `Step` dependencies, and
+configures its stable composition through `super().__init__` in the constructor.
+Avoid a generic `create_workflow()` helper that hides the composition. If Agno requires
+run-specific state at construction time, keep a clearly named private builder limited
+to binding that state; the step graph remains visible in the workflow class.
 
-Create Mastra steps from the injected tool function:
+Workflow code may define steps, maps between structured outputs, branches, parallel
+work, and bounded review loops. Parsing domain state, authorization, outcome resolution,
+persistence, progress transitions, rewards, and quota decisions belong to tools and
+core use cases.
 
-```ts
-const step = createStep(this.exampleTool.function)
+Do not recreate tool behavior in anonymous inline steps. A deterministic step with
+reusable application meaning should be a core operation exposed through a tool. A
+purely mechanical map between workflow schemas may remain in the workflow.
+
+Use the smallest Agno primitive that represents the flow:
+
+- one `Agent` for one bounded model responsibility;
+- a `Team` only when agents genuinely collaborate or delegate;
+- a `Workflow` for explicit sequencing, branching, parallel execution, or review loops;
+- ordinary Python for deterministic work that does not need a model.
+
+Loops have an explicit maximum and terminal condition. Parallel steps must be
+independent and define their merge behavior. Let workflow and agent failures propagate
+to the controller or Inngest job so the owning boundary can map or retry them. Do not
+catch and rethrow without adding a meaningful recovery or error translation.
+
+### Example: single-agent workflow
+
+Use a small `Workflow` specialization when one agent is sufficient. It converts the
+Agno result to a core output and does not expose Agno run types:
+
+```python
+from agno.workflow.workflow import Workflow
+
+
+class AgnoPlanLearningGoalWorkflow(Workflow):
+    def __init__(self, agent: GoalPlannerAgent) -> None:
+        super().__init__(name="plan-learning-goal", steps=[agent])
+
+    def run(self, request: GoalPlanningRequest) -> GoalPlan:
+        response = super().run(input=request.model_dump_json())
+        output = GoalPlanOutput.model_validate(response.content)
+        return GoalPlan.from_output(output)
 ```
 
-Do not recreate tool logic as inline workflow steps. Let workflow and agent
-errors propagate to the owning job so Inngest can apply its retry behavior; do
-not surround the workflow run with a catch-and-rethrow block. Known failures
-raised by HMS code still use `AppError` or a module-specific subclass.
+Converting `GoalPlanOutput` to `GoalPlan` is boundary mapping. Checking that requested
+skills exist and may be attached to an Objective remains a Learning use-case rule.
 
-## Workflow contracts are exported through Core interfaces
+### Example: writer-reviewer workflow
 
-Every workflow consumed outside its AI module implements a core interface owned
-by the feature. Its input is a core structure; Mastra-specific schemas and output
-details remain internal when callers do not need them.
+Use Agno `Workflow` when the capability requires explicit orchestration:
 
-Because TypeScript interfaces do not exist at runtime, the AI module binds the
-concrete workflow to a feature token with `useExisting` and exports only that
-token:
+```python
+from agno.workflow.step import Step
+from agno.workflow.workflow import Workflow
 
-```ts
-{
-  provide: MODULE_WORKFLOWS.example,
-  useExisting: MastraExampleWorkflow,
-}
+
+class AgnoAnswerMentorMessageWorkflow(Workflow):
+    def __init__(self, writer: MentorWriterAgent, reviewer: MentorReviewerAgent) -> None:
+        super().__init__(
+            name="answer-mentor-message",
+            steps=[
+                Step(name="draft-answer", agent=writer),
+                Step(name="review-answer", agent=reviewer),
+            ],
+        )
+
+    def run(self, request: MentorMessageRequest) -> MentorAnswer:
+        response = super().run(input=request.model_dump_json())
+        reviewed = ReviewedMentorAnswer.model_validate(response.content)
+        return MentorAnswer.from_reviewed_output(reviewed)
 ```
 
-Consumers inject the token and type the dependency with the core interface. They
-must not import the concrete Mastra workflow class.
+If revision is required, add an explicit loop with a documented maximum. The reviewer
+does not authorize access, determine Learning state, or persist the answer.
 
-```ts
-@Inject(MODULE_WORKFLOWS.example)
-workflow: ExampleWorkflow
+## Workflow contracts are exported through core interfaces
+
+Every AI workflow consumed outside the AI package implements a `Protocol` under
+`intelligence/core/interfaces`. Its inputs and outputs are domain primitives,
+structures, or DTOs; Agno-specific schemas remain internal when callers do not need
+them.
+
+```python
+from typing import Protocol
+
+
+class PlanLearningGoalWorkflow(Protocol):
+    def run(self, request: GoalPlanningRequest) -> GoalPlan: ...
 ```
 
-Agents and tools remain internal providers unless another explicitly documented
-module boundary requires a public contract.
+Dependency pipes construct the concrete workflow and return the core protocol.
+Controllers inject the protocol and do not import the Agno implementation. An Inngest
+job may compose the concrete adapter at its outer boundary, but the use case still
+receives only the protocol.
+
+```text
+intelligence/core/interfaces/                  public workflow contracts
+intelligence/ai/generative/agno/               private implementations
+intelligence/pipes/                            FastAPI dependency composition
+intelligence/rest/controllers/                 protocol consumers
+intelligence/messaging/jobs/                   durable protocol consumers
+```
+
+Agents and tools remain internal implementation details unless an explicitly documented
+module contract requires otherwise.
+
+### Example: FastAPI composition pipe
+
+The pipe is the only request-side code that sees all concrete AI dependencies:
+
+```python
+from typing import Annotated
+
+from agno.models.base import Model
+from fastapi import Depends
+
+
+class IntelligencePipe:
+    @staticmethod
+    def get_plan_learning_goal_workflow(
+        context_reader: Annotated[
+            LearningContextReader,
+            Depends(LearningPipe.get_context_reader),
+        ],
+        model: Annotated[Model, Depends(ModelPipe.get_goal_planner_model)],
+    ) -> PlanLearningGoalWorkflow:
+        toolkit = GoalPlannerToolkit(context_reader)
+        agent = GoalPlannerAgent(model, toolkit)
+        return AgnoPlanLearningGoalWorkflow(agent)
+```
+
+A controller injects `PlanLearningGoalWorkflow` from this pipe and invokes the core use
+case. It does not assemble the tool, agent, or model itself.
 
 ## Source context comes from the originating module
 
-An AI workflow must not access repositories owned by another business module to
-assemble its prompt context. The originating module validates access, loads its
-own data, and places an immutable normalized snapshot in the domain event.
+An AI workflow must not access another business module's private repositories to build
+prompt context. The originating module authenticates access, loads its own state, and
+passes the minimum immutable normalized snapshot through a contract or domain event.
 
-Document Production receives `DocumentGenerationSource` from Consulta,
-Formalização, or Caso, persists it for traceability, and passes that same snapshot
-to its writing and review agents. It loads only data it owns, such as the selected
-document model. Reprocessing uses the persisted/requested snapshots rather than
-silently incorporating later changes from the source module.
+Do not trust browser-provided progress, Curriculum answers, grades, XP, permissions,
+account state, or official answers. Reprocessing uses the persisted or requested source
+snapshot rather than silently incorporating later source changes unless the product
+contract explicitly requires fresh context.
+
+Mentor obeys the Learning state supplied through the authorized contract: no prohibited
+help during a diagnostic, progressively specific hints during learning, and a complete
+reference solution only after Learning confirms that completion rules allow it.
+
+Goal Planner output is a proposal. Only explicit learner confirmation followed by
+Learning validation may create an Objective. AI never directly changes official
+attempts, progress, mastery, Objectives, XP, streaks, achievements, account state, or
+Curriculum content.
 
 ## AI output is structured and reviewed
 
-Agent results use Zod structured output. Never parse free-form model text as the
-primary success path when a schema can express the expected result. The schema
-must constrain the content that crosses from the model into application code.
+Use Pydantic structured output for every model result consumed by application code.
+Configure the Agno output schema instead of parsing free-form model text as the primary
+success path. The schema constrains types, required fields, lengths, and bounded values;
+the owning use case validates domain meaning and authority.
 
-AI-generated legal documents pass through a reviewer loop owned by the feature
-workflow. Review findings exposed outside the AI layer use domain categories and
-plain, comprehensible language. Agent instructions and hidden reasoning are not
-part of the domain output.
+Use a reviewer loop when a capability has material quality, safety, or correctness
+criteria that can be evaluated before delivery. The feature workflow owns the bounded
+review cycle. Review findings crossing the AI boundary use domain categories and plain,
+comprehensible language—not hidden reasoning or internal instructions.
 
+### Example: constrained output schema
+
+```python
+from pydantic import BaseModel, Field
+
+
+class SkillRationaleOutput(BaseModel):
+    skill_id: str
+    rationale: str = Field(min_length=1, max_length=500)
+
+
+class GoalPlanOutput(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=1_000)
+    skills: list[SkillRationaleOutput] = Field(min_length=1, max_length=10)
+```
+
+This schema constrains generated shape and size. It does not prove that a `skill_id`
+exists, that the learner may use it, or that an Objective may be created. Those domain
+validations happen after the workflow returns.
+
+Reject malformed or semantically invalid output with a typed error. Streaming endpoints
+emit stable user-facing Shifu events and never raw Agno or provider events.
+
+## FastAPI and Inngest own execution lifecycles
+
+FastAPI owns AI work that participates in the current request or SSE stream. Disconnects
+and cancellation should stop unnecessary model work when safe.
+
+Inngest owns durable, scheduled, retryable, fan-out, or long-running AI work. Events
+carry stable identifiers or immutable snapshots, and effects use idempotency keys. A
+workflow does not implement its own scheduler, background task runner, or durable retry
+loop.
+
+## Privacy and observability
+
+Record workflow identity, run identity, model profile, duration, token usage, tool name,
+outcome category, and typed failure class when operationally useful. Correlate FastAPI,
+Inngest, and provider runs without placing prompt content in correlation metadata.
+
+Do not log or persist credentials, tokens, full prompts, hidden answers, chain-of-thought,
+private tool arguments, unrelated learner context, or unrestricted model responses.
+Evaluation datasets and traces follow the source data's access, retention, and deletion
+requirements.
+
+## Classical NLP remains reproducible
+
+TF-IDF, cosine similarity, and scikit-learn classifiers live under
+`intelligence/ai/classical/sklearn`. Persist or version the vocabulary, preprocessing,
+model artifact, thresholds, and training-data identity required to reproduce results.
+
+Training and reindexing run asynchronously. Request handlers may query a ready artifact
+but never train a model or rebuild an index synchronously. Agno workflows consume
+classical NLP results only through typed contracts.
+
+## Tests follow the AI boundary
+
+Keep focused agent, tool, output-schema, and workflow tests below the Intelligence AI
+package. Use-case tests mock core workflow protocols. Tool tests mock injected use cases
+or read contracts. Workflow tests use deterministic model and tool doubles to verify:
+
+- structured input and output contracts;
+- agent instructions and allowed tools;
+- step order, branches, parallel joins, and review-loop limits;
+- authorization-context minimization and user isolation;
+- timeout, cancellation, quota, retry, and typed error behavior;
+- suppression of prompts, tool traces, and hidden reasoning from public output.
+
+Provider behavior remains covered at its provider boundary. Real-model tests are opt-in,
+never the only coverage, and never use production data.
+
+## Review checklist
+
+- [ ] The AI implementation is owned by Intelligence, not a generic shared feature.
+- [ ] Each agent subclasses `Agent`, has one responsibility, and configures `super()`.
+- [ ] Instructions remain with the agent unless a prompt fragment is genuinely shared.
+- [ ] Each toolkit subclasses `Toolkit` and wraps narrow use cases or read contracts.
+- [ ] Toolkit methods have accurate `Args` and `Returns` docstrings.
+- [ ] No squad, generic tool handler, or forwarding-only wrapper was introduced.
+- [ ] Each workflow subclasses `Workflow` and contains composition, not business rules.
+- [ ] External consumers depend on a core `Protocol`, never a concrete Agno class.
+- [ ] Model resolution and credentials remain in typed provider composition.
+- [ ] Source context is authorized, immutable, normalized, and minimal.
+- [ ] Machine-consumed output is structured and validated.
+- [ ] Review loops and retries are bounded and owned by the correct layer.
+- [ ] No AI code imports FastAPI, SQLAlchemy, REST controllers, or messaging transports.

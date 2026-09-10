@@ -1,197 +1,116 @@
 ---
-description: Domain-event, broker, Inngest job, fan-out, and NestJS messaging composition rules.
+description: Python domain-event, broker, Inngest registration, durable-step, and delivery rules.
 ---
 
 # Messaging Layer Rules
 
-These rules apply to shared messaging infrastructure, module-owned messaging
-adapters, domain events consumed asynchronously, and application composition of
-Inngest functions.
+These rules apply to module-owned messaging code under
+`apps/server/src/shifu/<module>/messaging`, shared Inngest infrastructure, and domain
+events consumed asynchronously.
 
-## Core owns domain events and the broker contract
+## Core owns events and the broker port
 
-Domain events belong to the module that defines their meaning under:
+Domain events live in the originating module's `core/domain/events`. Each event class
+declares one stable `name` and constructs a typed, serializable payload. Publishers,
+jobs, and tests import the event class instead of repeating its name or payload shape.
+
+The shared core exposes a narrow broker protocol:
+
+```python
+class Broker(Protocol):
+    def publish(self, event: Event[object]) -> None: ...
+```
+
+Use cases depend on the protocol, never on the Inngest SDK. The concrete
+`InngestBroker` converts a domain event to an Inngest event at the infrastructure
+boundary.
+
+## Event data is authoritative and serializable
+
+The originating module authenticates the actor, validates permission, loads its own
+state, and builds the event. A browser cannot supply an authoritative domain snapshot.
+
+Payloads contain only the identifiers and immutable data required by consumers. Use
+JSON-safe primitives and ISO 8601 UTC strings at the transport boundary. Do not include
+ORM models, open sessions, provider clients, secrets, or mutable domain objects.
+
+Consumers normalize and validate payloads before doing work. They must not reach into
+another module's private repositories to reconstruct missing event data.
+
+## Shared infrastructure owns one Inngest endpoint
+
+Shared messaging creates the Inngest client, broker adapter, base job helpers, and one
+FastAPI endpoint. Application composition registers every module-owned function with
+that endpoint.
+
+Modules own their jobs:
 
 ```text
-packages/core/src/<module>/domain/events/
+<module>/messaging/inngest/jobs/
+├── evaluate_activity_submission_job.py
+└── award_learning_rewards_job.py
 ```
 
-Each event is a class that extends the shared `Event`, declares a static `_NAME`,
-and types its complete payload. Event names must describe the domain occurrence;
-do not expose an implementation detail such as the AI provider in the name.
+A module must not create another Inngest HTTP endpoint or register jobs as an import
+side effect.
 
-```ts
-export class DocumentGenerationRequestedEvent extends Event<Payload> {
-  static readonly _NAME = 'document-production/document.generation-requested'
-}
-```
+## Jobs expose explicit functions
 
-Publishers and consumers import `_NAME`; they must not repeat the event-name
-literal. When a job creates a child event, instantiate the domain event and send
-its `name` and `payload` instead of recreating an untyped object.
+Use one `<Action>Job` class per file. The class declares a stable `FUNCTION_ID` and a
+static `handle(inngest)` method that returns the SDK function created with
+`inngest.create_function`.
 
-The shared event repository contract remains deliberately small:
+Jobs translate events into durable work. They may:
 
-```ts
-export interface EventsRepository {
-  add(event: Event): Promise<void>
-}
-```
+- normalize a payload;
+- open explicit infrastructure scopes;
+- execute core use cases or AI workflows;
+- publish follow-up domain events;
+- map terminal failure to a recoverable domain status.
 
-Core use cases depend on their module database and call
-`scope.eventsRepository.add(event)`, never on `InngestClient`. The repository is
-available in every module database scope and inserts one pending row in the shared
-`events` table through that transaction. `InngestBroker` is the shared Server
-relay: it listens for committed rows and sends them directly through
-`InngestClient`; it is not injected into use cases.
+Jobs do not reproduce business rules from use cases. Do not call one job's callback
+directly from another job; publish an event or use an explicitly modeled child function.
 
-## The originating module builds authoritative event data
+## Durable steps are small and idempotent
 
-A module that requests asynchronous work must load and authorize its own data
-before publishing the event. Consumers must not reach into repositories owned by
-the originating module merely to reconstruct the request.
+Place independently retryable side effects in named `context.step.run` calls. Step names
+are stable identifiers, not prose that changes casually. Normalize transport data in an
+early step before constructing domain structures.
 
-For document generation, Consulta, Formalização, or Caso builds the complete
-`DocumentGenerationSource` snapshot before publishing. The snapshot contains a
-discriminated `type`, the owning entity reference, and its unstructured `data`.
-Document Production may persist that snapshot for traceability, but it must not
-replace it by reading repositories from those modules.
+A retried step must not duplicate official attempts, progress, XP, achievements,
+notifications, or files. Use domain idempotency keys, unique constraints, expected
+state, or compare-and-set persistence where necessary.
 
-Do not accept an authoritative source snapshot assembled by the browser. A
-controller receives references and action options; its module use case validates
-permission, loads domain data, builds the snapshot, and then publishes.
+Synchronous SQLAlchemy and blocking SDK work must not block the async event loop. Run
+it in a worker thread or use a synchronous execution boundary supported by the SDK.
+Each durable database step opens its own session context and commits the state needed by
+later steps.
 
-## Shared messaging owns the Inngest infrastructure
+## Fan-out publishes individual events
 
-Shared infrastructure belongs under:
+Batch work uses one fan-out job that emits an existing individual event per item. Each
+child remains independently retryable and observable. Do not process an unbounded
+collection in one step or erase successful siblings when one item fails.
 
-```text
-apps/server/src/shared/messaging/
-├── inngest/
-│   ├── inngest-client.ts
-│   ├── inngest-job.ts
-│   ├── inngest-options.ts
-│   ├── jobs/
-│   │   └── inngest-broker.ts
-│   └── inngest.module.ts
-└── shared-messaging.module.ts
-```
+## Mutation and publication must be reliable
 
-There is exactly one Inngest HTTP endpoint, served by the controller under the
-shared REST layer. A feature must not create its own Inngest controller or reuse
-another feature's controller. Adding a job must not alter the behavior or route
-of existing jobs such as WhatsApp processing.
+When an operation changes official state and must publish a corresponding event, the
+state mutation and event record belong in one database transaction through a
+transactional outbox. An Inngest relay publishes committed outbox rows and marks them
+delivered only after acknowledgement.
 
-The application composition registers every exported Inngest job function in the
-single Inngest endpoint. A feature messaging module owns and exports its jobs; the
-feature root module imports that messaging module. Database-triggered workers are
-Nest providers, not Inngest functions: they do not expose `this.function` and are
-not added to the Inngest function registry. An environment-gated recovery function
-may be provided by the application root when its owning shared module must remain
-free of that provider in environments where recovery is disabled; the root must
-use the validated environment mode for both provider construction and function
-registration so the two sets cannot diverge.
+Direct broker publication is acceptable only for explicitly best-effort effects or
+operations with no coupled database mutation. Do not publish before a request
+transaction commits and assume that this is atomic.
 
-## Inngest jobs expose `this.function`
+Consumers remain idempotent because delivery can occur more than once. Failed outbox
+rows remain visible and retryable with bounded backoff; they are not silently dropped.
 
-Every Inngest job is an injectable class that extends `InngestJob` and assigns a
-typed function in its constructor:
+## Failures preserve domain truth
 
-```ts
-@Injectable()
-export class ExampleJob extends InngestJob {
-  readonly function: InngestFunction.Like
+Known invalid input or terminal domain state is non-retriable. Transient database,
+network, rate-limit, or provider failures remain retriable. Configure finite retries and
+use a failure handler when the domain needs a visible failed state.
 
-  constructor(inngest: InngestClient, dependency: Dependency) {
-    super(inngest)
-    this.function = this.inngest.createFunction(/* ... */)
-  }
-}
-```
-
-Do not put a generic `handle(context)` method in the base class and do not pass a
-handler through `super`. Those shapes erase the event-specific inference that
-`createFunction` provides. Dependencies, including repository tokens or core
-interfaces, may be injected normally through NestJS.
-
-Jobs coordinate durable execution and translation between events. Business
-decisions belong to core use cases. A job may invoke a workflow or use case, but
-must not reproduce its rules inline.
-
-## Event schemas validate transport payloads
-
-An Inngest trigger uses `eventType` with the domain event's `_NAME` and a Zod
-schema for its serialized payload. Dates cross the transport boundary as ISO
-date-time strings and are converted back to `Date` only when constructing a
-domain event or domain input that requires it.
-
-The transport schema and domain payload must describe the same fields. A job
-must forward the full validated input required by the next workflow rather than
-silently loading an alternative payload from unrelated modules.
-
-## Fan-out publishes individual domain events
-
-Batch work uses a dedicated batch domain event and a dedicated fan-out job. The
-fan-out job publishes one existing individual event per item with
-`step.sendEvent`; it does not call another job's function directly and does not
-use `step.invoke`.
-
-```text
-DocumentBatchGenerationRequestedEvent
-  -> GenerateDocumentsInBatchJob
-      -> DocumentGenerationRequestedEvent (one per document)
-          -> GenerateDocumentJob
-```
-
-Use the array form of `step.sendEvent` so the fan-out is a durable, memoized
-Inngest step. Each child event must remain independently retryable and
-reprocessable. Success or failure of one child must not erase successful sibling
-work.
-
-## Transactional event persistence is the reliability boundary
-
-The originating module persists events through its database scope. Do not publish
-directly from a use case after the transaction commits, because a process failure
-between the mutation and publication could lose the event.
-
-When an approved requirement does require atomic mutation and publication, call
-`scope.eventsRepository.add(event)` while the originating module's database
-transaction is active. The module-scoped EventsRepository persists the complete
-event through that transaction.
-Shared database owns the `events` outbox model and persistence types under
-`apps/server/src/shared/database/drizzle/outbox/`, and the Drizzle adapter at
-`apps/server/src/shared/database/drizzle/drizzle-outbox-database.ts`, while the
-provider-neutral `OutboxDatabase` contract belongs in
-`packages/core/src/shared/interfaces/`; shared messaging owns `InngestBroker`.
-The Server composition layer owns the Nest worker that listens to a PostgreSQL
-`LISTEN/NOTIFY` channel emitted after an outbox
-insert commits, reads and reserves pending rows through a database interface,
-publishes each row directly through `InngestClient` with the event row ID as the
-external event ID, then marks the row published only after acknowledgement. It
-must not write a second event row. Notifications
-are a latency optimization and are not the durability boundary: startup and
-reconnect drain pending rows, while `ReprocessEventsJob` remains the periodic
-recovery path. Inngest owns consumer retries; the outbox does not track
-per-consumer delivery.
-The consuming feature still owns its jobs and business side effects, and the
-outbox does not move Communication email ownership into Identity or shared
-infrastructure.
-
-Shared database infrastructure provides the singleton `DatabaseTransactionContext`.
-Shared messaging imports that database module and owns `InngestBroker`,
-`InngestClient`, and publish/reprocessing/cleanup jobs in one acyclic module; do not
-create an outbox module that imports its parent messaging module. `InngestBroker` claims
-only pending rows. Failed publication uses bounded backoff and a finite automatic
-attempt cap; a separate reprocessing job returns only eligible failed or
-expired-reservation rows to pending, while terminal failures remain visible for operator
-action.
-
-`ReprocessEventsJob` is registered and scheduled only in local and test environments.
-Staging and production rely on startup/reconnect draining; environment composition
-must not instantiate or register the reprocessor in `stg` or `prod`.
-
-Call the expiring worker ownership a `reservation`, not a lease or database lock.
-Reservation columns use `reserved_by` and `reservation_expires_at`; guarded completion
-updates must match the current reservation owner. Feature Specs fix batch size,
-reservation duration, ownership format, operational signals, and any manual recovery
-contract when those details affect concurrency or recovery evidence.
+Never mark an operation successful before its required durable effects complete.
+Preserve previously committed successful steps when a later step fails.

@@ -1,9 +1,177 @@
 [project]
-name = "server"
-version = "0.1.0"
+name = "shifu"
+version = "1.38.1"
 description = "Add your description here"
-readme = "README.md"
 requires-python = ">=3.13"
-dependencies = [
-    "fastapi[standard]>=0.141.1",
+dependencies = ["fastapi[standard]>=0.128.7"]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.38.2",
+    "poethepoet>=0.41.0",
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.15.0",
 ]
+
+[project.scripts]
+dev = "main:main"
+
+[tool.poe.tasks."dev"]
+cmd = "uv run dev"
+
+[tool.poe.tasks."pubsub"]
+cmd = "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:8080/api/inngest"
+
+[tool.poe.tasks."db:migrate"]
+cmd = "alembic revision --autogenerate -m \"${message}\""
+args = [{ name = "message", positional = true }]
+
+[tool.poe.tasks."db:upgrade"]
+cmd = "alembic upgrade ${target}"
+args = [{ name = "target", positional = true, default = "head" }]
+
+[tool.poe.tasks."db:downgrade"]
+cmd = "alembic downgrade ${target}"
+args = [{ name = "target", positional = true, default = "-1" }]
+
+[tool.poe.tasks."db:sync"]
+cmd = "alembic stamp head"
+
+[tool.poe.tasks."db:current"]
+cmd = "alembic current"
+
+[tool.poe.tasks."db:seed"]
+cmd = "uv run python -c \"from animus.database.sqlalchemy.seed import seed; seed()\""
+
+[tool.poe.tasks.test]
+cmd = "pytest -s -x -vv"
+
+[tool.poe.tasks.typecheck]
+cmd = "basedpyright"
+
+[tool.poe.tasks.codecheck]
+shell = "ruff check --fix src tests && ruff format src tests && ruff format --check src tests"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+fix = true
+show-fixes = true
+indent-width = 4
+exclude = [
+    "venv",
+    ".venv",
+    "env",
+    ".env",
+    "node_modules",
+    "__pycache__",
+    "alembic",
+]
+
+[tool.ruff.lint]
+select = [
+    "ASYNC",
+    "A",
+    "ANN",
+    "B",
+    "BLE",
+    "C4",
+    "C90",
+    "COM",
+    "E",
+    "EM",
+    "ERA",
+    "EXE",
+    "F",
+    "FBT",
+    "FIX",
+    "I",
+    "ICN",
+    "ISC",
+    "RET",
+    "RSE",
+    "S",
+    "SIM",
+    "SLF",
+    "T10",
+    "T20",
+    "TC",
+    "TD",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+    "RUF",
+    "N",
+]
+ignore = [
+    "T201",
+    "COM812",
+    "ANN201",
+    "I001",
+    "Q000",
+    "RUF022",
+    "TRY003",
+    "EM102",
+    "E501",
+    "A002",
+    "EM101",
+    "F821",
+    "FBT001",
+    "FBT002",
+    "ANN205",
+    "ANN401",
+    "B008",
+    "RUF006",
+    "S105",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN201", "S101"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.ruff.lint.isort]
+known-first-party = ["animus"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.13"
+include = ["src", "tests"]
+stubPath = "stubs"
+reportMissingTypeStubs = false
+exclude = [
+    "**/venv",
+    "**/.venv",
+    "**/env",
+    "**/.env",
+    "**/node_modules",
+    "**/__pycache__",
+]
+venv = ".venv"
+venvPath = "."
+executionEnvironments = [{ root = "src" }]
+
+[tool.pytest.ini_options]
+addopts = "-s --color=yes --tb=short"
+pythonpath = [".", "src"]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20:inngest.*",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }

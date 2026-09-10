@@ -1,42 +1,80 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # Dependencies
-node_modules
+**/node_modules/
+.pnpm-store/
 .pnp
 .pnp.js
+
+# Python / uv
 **/.venv/
+**/venv/
 **/__pycache__/
 *.py[cod]
-.pytest_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.pyright/
 
-# Local env files
+# Local environment files
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.*.example
 
-# Testing
-coverage
+# Test and coverage output
+coverage/
+htmlcov/
+.coverage
+.coverage.*
 
-# Turbo
-.turbo
+# JavaScript / frontend build output
+.turbo/
+**/.turbo/
+**/.next/
+**/.tanstack/
+**/.vinxi/
+**/.nitro/
+**/.wrangler/
+**/.output/
+**/dist/
+**/build/
+**/out/
 
-# Vercel
-.vercel
+# Deployment and framework output
+.vercel/
 
-# Build Outputs
-.next/
-out/
-build
-dist
-
-
-# Debug
+# Logs
+*.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Misc
+# Editors and OS files
+.idea/
 .DS_Store
+*.swp
+*.swo
+
+# Local certificates and keys
 *.pem
+*.key
+
+# Agents
+.agent/
+.agents/
+.cursor/
+.codex/
+.claude/
+.context/
+.serena/
+.opencode/
+.obsidian/
+.codegraph/
+opencode.json
+.mcp.json
+prompt.md
+issue.md
+CLAUDE.md
+GEMINI.md
+AGENTS.local.md
+.playwright-cli

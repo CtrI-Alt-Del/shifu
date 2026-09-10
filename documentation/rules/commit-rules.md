@@ -62,8 +62,8 @@ The type must be **lowercase**.
 The scope is the area of the codebase affected. In this monorepo prefer:
 
 - `web` — the TanStack Start frontend (`apps/web`)
-- `server` — the NestJS backend (`apps/server`)
-- `core` — the shared domain package (`packages/core`)
+- `server` — the FastAPI backend (`apps/server`)
+- `core` — framework-independent domain code inside the server modules
 
 You may use a more specific scope when it adds clarity, but keep it short and
 lowercase. Omit the scope only when the change is genuinely cross-cutting

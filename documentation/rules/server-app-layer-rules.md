@@ -1,70 +1,83 @@
 ---
-description: NestJS layer-module boundaries for feature-owned provision, messaging, and AI adapters.
+description: FastAPI application composition, router registration, middleware, and dependency-pipe rules.
 ---
 
-# Server App Layer Rules
+# Server Application Rules
 
-These rules apply to technical layers owned by feature modules under
-`apps/server/src/<module>`.
+These rules apply to the FastAPI entrypoint, application factory, composition layer,
+routers, middleware registration, and dependency pipes under `apps/server/src/shifu`.
 
-## Technical layer directories own Nest modules
+## Keep the entrypoint minimal
 
-A feature-owned `provision`, `messaging`, or `ai` directory must expose its own NestJS
-module. These directories are application layers, not folders whose providers are
-registered individually by the feature root module.
+`apps/server/src/main.py` exports the application created by `shifu.app`. It must not
+construct repositories, register individual controllers, or contain business logic.
 
-Use this structure:
+`shifu.app.create_app` owns FastAPI creation and top-level registration. Keep it safe to
+call repeatedly in tests; do not hide global mutable application state in imports.
 
-```text
-apps/server/src/<module>/
-├── ai/
-│   ├── mastra/
-│   └── <module>-ai.module.ts
-├── provision/
-│   ├── <technology>-provider.ts
-│   └── <module>-provision.module.ts
-└── messaging/
-    ├── inngest/jobs/
-    └── <module>-messaging.module.ts
-```
+## Composition owns concrete wiring
 
-The feature root module imports these layer modules. It must not duplicate their
-provider or job registrations.
+Composition is the only layer allowed to know the complete set of modules and concrete
+adapters. It registers:
 
-Detailed agent, tool, workflow, and public AI contract rules live in
-[`ai-layer-rules.md`](ai-layer-rules.md). Detailed domain-event, job, and fan-out
-rules live in [`messaging-layer-rules.md`](messaging-layer-rules.md).
+- module routers;
+- global exception handlers;
+- middleware in deliberate order;
+- shared lifecycle hooks;
+- the single Inngest endpoint;
+- environment-specific infrastructure.
 
-## Provision modules encapsulate feature adapters
+Business modules must not import the application factory or another module's
+composition code.
 
-The feature provision module:
+## Routers group controllers
 
-- registers concrete provider implementations;
-- binds module provider tokens with `useExisting` when consumers depend on a core
-  interface;
-- exports the token rather than the concrete implementation;
-- imports shared provision capabilities only when its providers require them.
+Each business module exposes one top-level router from its `rest/router.py`. A router
+sets the module prefix and tags, then registers controller classes through their
+`handle(router)` methods. Large modules may compose smaller routers by resource.
 
-Provider files use the technology or adapter name followed by `-provider.ts`, and
-classes use the corresponding `<Name>Provider` form. For example,
-`docx-provider.ts` contains `DocxProvider`.
+Routers contain no use cases, validation, persistence, or business rules. Route
+registration remains explicit so the application surface can be reviewed from the
+composition tree.
 
-Shared capabilities used by several feature modules remain in
-`apps/server/src/shared/provision`; do not recreate them in a feature provision
-module.
+## Pipes provide FastAPI dependencies
 
-## Messaging modules own jobs and messaging dependencies
+Dependency factories belong in the owning module's `pipes` package or in
+`shifu/shared/pipes` when genuinely shared. A pipe may:
 
-The feature messaging module:
+- obtain a request-scoped SQLAlchemy session or Inngest client;
+- construct a concrete adapter behind a core `Protocol`;
+- validate authentication and return a trusted identity;
+- load and authorize a resource reused by several controllers;
+- construct an AI workflow or external provider.
 
-- registers the feature's jobs;
-- imports `SharedMessagingModule` for shared brokers and Inngest infrastructure;
-- imports application modules required by the jobs, such as the feature AI module;
-- exports only jobs or messaging entry points consumed by application composition.
+Use `typing.Annotated` with `fastapi.Depends` at controller boundaries. Dependency
+return types are core interfaces or domain values whenever possible.
 
-The feature root module imports the messaging module instead of registering jobs
-directly. The application composition may import the feature root module or its
-exported messaging module when collecting jobs for the shared Inngest endpoint.
+Pipes are application wiring. They may perform authentication and reusable resource
+authorization, but must not become a general home for use-case business logic.
 
-Creating a feature messaging module must not create another Inngest controller or
-endpoint. HTTP serving remains centralized in the shared messaging infrastructure.
+## Middleware owns request-wide lifecycle
+
+Middleware may manage technical concerns that must wrap the complete request. A
+request-scoped SQLAlchemy middleware:
+
+1. creates the session;
+2. places it on `request.state`;
+3. calls the next handler;
+4. commits only after a successful response path;
+5. rolls back when an exception escapes;
+6. always closes the session.
+
+Do not create or close the request session inside each repository or controller.
+Middleware must not swallow domain exceptions or serialize application errors.
+
+## Lifecycles are explicit
+
+Use FastAPI lifespan hooks for process-owned resources such as pools, clients, and
+background relays. Request-owned resources belong in dependencies or middleware.
+Importing a module must not open network connections, run migrations, seed data, or
+start workers.
+
+Application bootstrap never resets or seeds a database. Migrations and seed commands
+remain explicit operational commands.

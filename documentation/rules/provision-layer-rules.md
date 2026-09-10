@@ -1,133 +1,89 @@
 ---
-description: Rules for infrastructure providers and external adapters used by server and web modules.
+description: Python provider adapters, external SDK boundaries, dependency pipes, and environment rules.
 ---
 
-# Provision Layer Rules
+# Provider Layer Rules
 
-These rules apply to shared providers under
-`apps/server/src/shared/provision` and external adapters under
-`apps/web/src/provision`.
+These rules apply to `apps/server/src/shifu/<module>/providers`, shared providers, and
+the dependency pipes that expose them to FastAPI controllers or jobs.
 
-## Shared providers have one server implementation
+## Core owns provider contracts
 
-A technical capability used by more than one module must have a single
-implementation under:
+Every external capability used by a use case has a narrow `Protocol` in the owning
+module's `core/interfaces` package. Examples include clocks, token verification, object
+storage, code execution, email delivery, model inference, cache access, and HTTP
+gateways.
 
-```text
-apps/server/src/shared/provision/<concern>/
-```
+The contract uses domain structures and primitives. It must not expose vendor clients,
+HTTP response classes, environment objects, or SDK exceptions.
 
-For example, date and time access belongs in:
+## Adapters name technology and capability
 
-```text
-apps/server/src/shared/provision/datetime/datetime-provider.ts
-```
-
-Do not create one copy of the same provider inside each feature module.
-Module-specific gateways and integrations remain owned by their module unless the
-capability is intentionally shared.
-
-## Core declares the contract
-
-The infrastructure-independent contract belongs in
-`packages/core/src/shared/interfaces`. The server provider implements that
-contract.
-
-```ts
-@Injectable()
-export class DatetimeProvider implements DatetimeProviderContract {
-  now(): Date {
-    return new Date()
-  }
-}
-```
-
-Core code must depend on the contract, never on NestJS, configuration services, or
-the concrete server provider.
-
-Provider methods must expose the smallest capability the domain needs. For date
-and time, use `now(): Date`; do not expose an entire third-party date library.
-
-## ProvisionModule owns registration
-
-The shared `ProvisionModule` must register and export shared provider
-implementations. Feature modules import `ProvisionModule` to make them available
-to controllers and other server adapters.
-
-Do not register duplicate provider implementations in feature modules and do not
-instantiate providers manually in controllers.
-
-## Business time comes from DatetimeProvider
-
-Use cases that create or change business timestamps must receive a datetime
-provider through their constructor and call `now()`. Do not call `new Date()` or
-`Date.now()` inside a use case.
-
-This rule makes time explicit, deterministic in unit tests, and replaceable
-without changing domain behavior.
-
-## Providers contain infrastructure concerns only
-
-Provision-layer classes may wrap framework or environment APIs, normalize their
-outputs, and expose them through core contracts. They must not implement business
-rules or orchestrate module use cases.
-
-Environment access must be wrapped by the shared environment provider instead of
-reading `process.env` throughout feature modules.
-
-## Web integrations use a client plus a factory
-
-Web integrations with third-party services use this shape:
+Concrete adapters live beneath the module that owns the integration:
 
 ```text
-apps/web/src/provision/<concern>/<provider>/
-├── <provider>-client.ts
-└── <provider>-provider.ts
+identity/providers/auth/jwt/jwks/jwks_jwt_provider.py
+intelligence/providers/embeddings/sklearn/tfidf_embeddings_provider.py
+learning/providers/code_execution/<sandbox>/sandbox_code_execution_provider.py
+shared/providers/cache/redis/redis_cache_provider.py
 ```
 
-The client file creates the configured singleton client. The provider file is a
-factory that receives an optional client dependency, defaulting to that singleton,
-and returns the application or core contract implemented by the integration:
+Class names identify the implementation, such as `JwksJwtProvider` or
+`RedisCacheProvider`, and implement the matching core protocol. Do not name a concrete
+class only `Provider` or place every integration in `shared`.
 
-```ts
-export const CookieAuthProvider = (
-  client: AuthClient = authClient,
-): AuthProvider => {
-  return {
-    // adapter operations
-  }
-}
+## Providers translate infrastructure
+
+A provider may configure an SDK, perform external I/O, normalize vendor responses, map
+known vendor failures, and return domain values. It must not decide learning progress,
+award XP, authorize another module's data, or orchestrate unrelated use cases.
+
+Contain untyped SDK behavior, retries, pagination tokens, headers, and transport details
+inside the adapter. Raise a typed application/infrastructure error without leaking
+credentials or raw vendor payloads.
+
+## Pipes construct replaceable dependencies
+
+FastAPI dependency factories live in the owning module's `pipes` package or
+`shifu/shared/pipes`. They construct a concrete provider and return the core protocol:
+
+```python
+class ProvidersPipe:
+    @staticmethod
+    def get_clock() -> ClockProvider:
+        return SystemClockProvider()
 ```
 
-This keeps the provider replaceable in tests and keeps third-party calls out of
-contexts, widgets, route middleware, and services. Web authentication uses
-credentialed requests and an `HttpOnly` cookie issued by the server; browser
-code must not read, persist, or synthesize session tokens. Better Auth secrets
-and email-provider credentials belong to server infrastructure and must never be
-bundled into the web app.
+Controllers use `Annotated[ClockProvider, Depends(ProvidersPipe.get_clock)]`. Do not
+instantiate a concrete external provider in a core use case. Jobs may construct an
+adapter at their outer boundary when no request dependency graph exists, but the use
+case still receives only its protocol.
 
-Transactional email adapters belong to Communication provision. A
-Communication-owned `EmailProvider` contract may have a Resend implementation
-for staging/production and an SMTP implementation for local Mailpit. Identity
-publishes its facts through domain events and must not depend on either adapter.
+Long-lived clients should be created once through FastAPI lifespan and returned by a
+dependency; do not create a new connection pool or expensive SDK client per request.
 
-The provider should map third-party responses to core structures and preserve the
-core provider contract. The shared auth context consumes the factory result and
-owns only React state and subscription lifecycle.
+## Environment settings are centralized
 
-## Provider tests use mocks, not fakers
+Read and validate environment values through one settings boundary based on
+`pydantic-settings` or an equivalent typed mechanism. Application composition and
+providers consume that object. Core code never reads environment variables.
 
-Use-case unit tests must mock provider contracts with
-`vitest-mock-extended`. Do not create faker factories for datetime, environment,
-storage, or other providers.
+Required production configuration fails fast with a safe message. Local defaults are
+allowed only for explicitly local services. Secrets never receive committed defaults,
+appear in logs, or cross into browser bundles.
 
-Configure mocked provider methods with explicit deterministic values:
+## Time, IDs, and randomness are explicit
 
-```ts
-const datetimeProvider = mock<DatetimeProviderContract>()
-const now = new Date('2026-07-24T12:00:00.000Z')
+Business time, generated identifiers, OTPs, and random selection use provider ports
+when determinism or replacement matters. Use-case tests inject deterministic
+autospecced mocks rather than patching global functions.
 
-datetimeProvider.now.mockReturnValue(now)
-```
+## Provider tests match risk
 
-Domain fakers are reserved for entities and structures.
+Use-case tests mock provider protocols. Test a provider adapter directly when its
+translation, security, serialization, or failure mapping contains meaningful logic.
+Prefer local emulators or Testcontainers for network services. A mock-only adapter test
+does not prove compatibility with the real service.
+
+Sandbox and authentication providers require explicit negative-path coverage for
+isolation, invalid credentials, timeouts, and secret handling.

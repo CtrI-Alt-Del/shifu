@@ -1,302 +1,135 @@
 ---
-description: Organization and implementation rules for module-owned database layers.
+description: SQLAlchemy models, sessions, mappers, repositories, migrations, and seeding rules.
 ---
 
 # Database Layer Rules
 
-These rules apply to database code under `apps/server/src`.
+These rules apply to module persistence under
+`apps/server/src/shifu/<module>/database/sqlalchemy`, shared SQLAlchemy infrastructure,
+Alembic migrations, and database test fixtures.
 
-## Database code belongs to the owning module
+## Modules own persistence adapters
 
-Each module must own its persistence implementation under:
-
-```text
-apps/server/src/<module>/database/
-├── drizzle/
-│   ├── mappers/
-│   ├── models/
-│   ├── repositories/
-│   └── types/
-├── <module>-database.module.ts
-└── <module>-seeder.ts
-```
-
-A module must not define or import another module's tables, repositories, mappers,
-or seed data. Cross-module relationships must use identifiers and the integration
-mechanisms defined by the owning domains.
-
-Every directory that exposes declarations must have an `index.ts` barrel. Barrel
-files must only re-export declarations.
-
-## Drizzle models are declarations, not classes
-
-Drizzle schema declarations belong in
-`database/drizzle/models`. Do not create schema classes or a module-local
-`schema.ts`.
-
-Declare each `pgTable`, `pgEnum`, or equivalent PostgreSQL declaration in its own
-file. Model filenames must end in `-model.ts`, and exported values must end in
-`Model`:
-
-```ts
-// intake-model.ts
-export const intakeModel = pgTable('intakes', {
-  // ...
-})
-
-// intake-status-model.ts
-export const intakeStatusModel = pgEnum('intake_status', [
-  // ...
-])
-```
-
-Shared infrastructure may own persistence that has no business-module owner. For
-example, the shared transactional outbox may keep its Drizzle models under
-`apps/server/src/shared/database/drizzle/outbox/` because the outbox is a
-transport boundary rather than an Identity, MRP, PDV, Billing or Communication
-aggregate. It must still use `*-model.ts` declarations, persistence-only
-`Drizzle*` types under a `types/entities/` subtree, and barrels at each exported
-directory; the exception does not permit Core or feature modules to import those
-Drizzle declarations. Its provider-neutral `OutboxDatabase` contract is intentionally shared by
-the publisher and reprocessor and therefore belongs in `packages/core/src/shared/interfaces/`;
-the Nest runtime injection token and Drizzle-specific implementation remain in Server infrastructure.
-
-The shared database schema used by Drizzle and migration tooling must re-export
-the models owned by every module. Models remain defined in their module.
-
-Migrations belong to the shared database migration infrastructure and must be
-generated from that shared schema barrel. Do not hand-maintain a second schema
-representation inside a feature module.
-
-## Persistence types translate Drizzle records
-
-Types that represent rows returned by Drizzle belong in:
+Use this structure for a persisted module:
 
 ```text
-database/drizzle/types/entities/
+<module>/database/sqlalchemy/
+├── models/
+├── mappers/
+└── repositories/
 ```
 
-Shared outbox persistence types use the equivalent
-`apps/server/src/shared/database/drizzle/outbox/types/entities/` subtree.
+Models, mappers, and repositories remain in the module that owns the data. Shared
+database code owns the engine, session factory, declarative base, migration metadata,
+and infrastructure with no business owner.
 
-Name them with the `Drizzle` prefix and infer them from the corresponding model:
+A module must not import another module's SQLAlchemy model or repository. Cross-module
+coordination uses public contracts, identifiers, and events.
 
-```ts
-export type DrizzleIntake = InferSelectModel<typeof intakeModel>
+## Sessions define transaction boundaries
+
+Create the engine and `sessionmaker` once in shared database infrastructure. A request
+receives one SQLAlchemy `Session`, made available through `request.state` and dependency
+pipes. All repositories resolved for that request use the same session.
+
+Request middleware commits only after a successful handler, rolls back escaped
+exceptions, and always closes the session. Non-HTTP operations use a context manager
+with the same commit/rollback/close guarantees.
+
+Repositories do not call `commit`. Use cases do not receive the session. A job may use
+an explicit session context per durable step and commit at the step boundary when that
+state must survive later retries.
+
+## SQLAlchemy models are persistence-only
+
+Use SQLAlchemy 2 declarative models with `Mapped[...]` and `mapped_column`. One model
+class belongs in one `*_model.py` module and ends in `Model`.
+
+```python
+class ObjectiveModel(Model):
+    __tablename__ = 'objectives'
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
 ```
 
-Do not leak a Drizzle row type into `packages/core` or use it as a domain entity.
-Persistence-only insert, join, or projection types must stay under the module's
-`database/drizzle/types`.
+Models define columns, constraints, indexes, foreign keys, and ORM relationships needed
+for persistence. They do not expose domain methods or inherit from domain entities.
+Store timestamps as timezone-aware UTC values.
 
-## Mappers define the persistence boundary
+Keep database nullability and defaults explicit. Enforce invariants that protect data
+integrity with database constraints in addition to domain validation where appropriate.
 
-Every repository that returns domain data must use a mapper from
-`database/drizzle/mappers`.
+## Mappers isolate representations
 
-A mapper must expose `toDomain` when converting a persisted record into a domain
-object. Do not add `toDrizzle` merely to copy an object unchanged. Add a write-side
-mapping method only when the database representation genuinely differs from the
-domain input.
+Every repository returning domain objects uses a mapper from `mappers`. Mappers expose
+explicit methods such as `to_entity` and `to_model`; projection-specific names are
+allowed when a query does not hydrate a complete entity.
 
-The mapper is responsible for representation differences, including converting
-database `null` values to domain `undefined` values when the domain declares a
-property as optional.
+Mappers translate IDs, enums, timestamps, nullability, nested values, and persistence
+representations. They do not query the database, publish events, or make business
+decisions.
 
-```ts
-export class DrizzleIntakeMapper {
-  static toDomain(record: DrizzleIntake): Intake {
-    return {
-      ...record,
-      closedAt: record.closedAt ?? undefined,
-    }
-  }
-}
-```
+Never return an ORM model outside the database adapter. Never accept an ORM model in a
+core interface.
 
-Mappers must not contain business rules. Business decisions belong to core use
-cases.
+## Repositories implement core Protocols
 
-## Repository contracts belong to core
+Concrete classes use names such as `SqlalchemyObjectivesRepository` and implement the
+owning core `Protocol`. Inject the session through the constructor and keep it private.
 
-Repository interfaces must be declared by the owning module under:
+Repository methods describe persistence capabilities:
 
-```text
-packages/core/src/<module>/interfaces/
-```
+- `find_by_id` or a semantically precise `find_*` returns one value or `None`;
+- `find_many_*` returns a typed collection or pagination structure;
+- `add` inserts one domain object;
+- `add_many` inserts a collection in one efficient operation where supported;
+- `replace` updates an existing domain object;
+- `remove` deletes one record;
+- `remove_all` is reserved for explicit test or seed maintenance.
 
-Repository names are plural, such as `IntakesRepository`. Method and parameter
-names must describe the operation and target explicitly.
+Do not use ambiguous `save` methods. Do not encode business actions such as
+`complete_objective` in a repository. Atomic compare-and-set, locking, uniqueness, and
+pagination are valid persistence concerns when declared by the core port.
 
-Repository methods describe persistence capabilities, not business actions or
-use-case vocabulary. A use case translates domain intent into the generic
-persistence operation before calling the repository. For example, Entry and
-Write-off map to positive and negative quantities respectively, while an
-accumulator repository exposes `add`; it must not expose methods named
-`entry`, `writeOff`, `adjustStock`, or accept a domain operation enum merely to
-decide the arithmetic direction.
+Queries use SQLAlchemy expressions and parameter binding. Do not concatenate SQL from
+request values or expose query objects to callers.
 
-Use the following write vocabulary:
+## Migrations are the schema history
 
-- `add(input)` inserts one record.
-- `add(target, signedQuantity, constraints?)` atomically adds a signed numeric
-  quantity when the repository owns an accumulator or balance. Positive and
-  negative values express arithmetic direction; domain intent is mapped by the
-  caller. Optional persistence constraints may guard the resulting value.
-- `addMany(inputs)` inserts several records.
-- `replace(id, changes, ...)` updates an existing record.
-- `remove(id)` removes one record.
-- `removeAll()` removes all records, only for explicit maintenance or seed
-  workflows that require a full reset.
+Alembic owns schema changes. Generate a migration, review it, and test both upgrade and
+applicable downgrade behavior. Do not use `metadata.create_all` as an application
+migration strategy.
 
-Do not use the ambiguous method name `save` for inserts or updates. Use explicit
-parameter names such as `intakeId`, `changes`, and `expectedVersion` instead of
-generic names such as `id`, `data`, or `value` when context would otherwise be
-lost.
+Migration revisions must:
 
-Do not use `delete` or `deleteAll` as repository method names; use `remove` or
-`removeAll` instead.
+- contain only the intended schema/data transition;
+- use stable, descriptive names;
+- preserve existing data or document the approved destructive behavior;
+- add constraints and indexes deliberately;
+- avoid importing application runtime code whose behavior can drift later.
 
-Creation and update inputs are domain types, not database types. A repository
-must not accept a Drizzle model or expose query-builder details in its contract.
+Tests may use `metadata.create_all` only for a narrowly scoped fixture while migration
+coverage is being established. The production-like integration path runs Alembic.
 
-Do not overload one repository's `add` method with both insertion and numeric
-addition. Choose the form that matches the resource represented by that
-repository. Numeric-add parameters must be explicit—such as `signedQuantity`
-and `minimumQuantity`—rather than generic `value` or a domain-specific command.
-The implementation must perform the addition atomically in the database; it
-must not read the current value and then issue an absolute replacement.
+## Seeders use application adapters
 
-`addMany` must:
+Each persisted module may expose a `<Module>Seeder` that receives repository and
+provider ports. Seeders create valid domain objects through domain factories/fakers and
+write through repositories. They do not duplicate SQLAlchemy insert statements.
 
-- return an empty array without querying the database when its input is empty;
-- perform one batch insert rather than one insert per item;
-- return all inserted records mapped to domain objects.
+A shared seed entrypoint coordinates module seeders in dependency order and uses one
+explicit session boundary. Seeding is an explicit command, never application startup.
+Destructive reset is allowed only in approved local/test environments and must be
+guarded before deleting data.
 
-## Drizzle repositories implement core contracts
+Never embed production credentials or real user data in seeders.
 
-Concrete repositories belong in `database/drizzle/repositories` and use the
-`Drizzle<Plural>Repository` naming pattern:
+## Persistence is tested through behavior
 
-```ts
-@Injectable()
-export class DrizzleIntakesRepository implements IntakesRepository {
-  // ...
-}
-```
+Use-case unit tests mock repository protocols. Controller and job integration tests
+exercise concrete SQLAlchemy repositories against PostgreSQL. Add a repository-focused
+test only for complex persistence semantics that cannot be observed clearly through an
+application boundary, such as a concurrency primitive or database-specific query.
 
-They must use the shared Drizzle database infrastructure, map returned rows to the
-domain, and implement exactly the semantics declared by the core contract.
-Repositories may compose queries and enforce persistence concerns such as
-optimistic version matching, but they must not decide business policy.
-
-## Repositories do not receive tests
-
-Do not create test files for repository implementations, mappers, Drizzle models,
-or database adapters. This prohibition applies to both isolated unit tests and
-Testcontainers integration tests whose direct subject is a repository.
-
-Business behavior must be covered by core use-case tests with mocked repository
-contracts. Database behavior is validated indirectly through the server integration
-tests for controllers or complete application flows that consume the repository.
-Do not expose a concrete repository through a fixture solely to test it directly.
-
-## Shared transaction context coordinates infrastructure participants
-
-`DatabaseTransactionContext` is shared database infrastructure. It binds the
-current Drizzle transaction to one asynchronous execution chain so independently
-injected repositories and infrastructure participants can reuse the same commit
-boundary without placing those participants in a feature database-scope object.
-The implementation must isolate concurrent requests, support nested access to the
-same transaction, clear context after completion, and never expose Drizzle types
-to Core.
-
-A use case that requires state/event atomicity must call
-`scope.eventsRepository.add(event)` inside its owning `database.run` callback.
-The provider-neutral `EventsRepository` is part of every module database scope;
-its Server implementation writes through the active transaction. Do not use
-process-global mutable transaction variables or pass transaction objects through
-Core contracts. Messaging/application integration tests must prove shared commit,
-rollback, concurrent isolation, and the standalone behavior; do not create a
-repository-only test that violates this Rule's testing boundary.
-
-## Repository injection uses module tokens
-
-Each module must declare its repository tokens under
-`apps/server/src/<module>/constants`, following this shape:
-
-```ts
-export const INTAKE_REPOSITORIES = {
-  intakes: Symbol('INTAKE_REPOSITORIES.intakes'),
-} as const
-```
-
-All repository tokens must be `Symbol` values. Do not use string tokens such as
-`'identity:clients-repository'`, even when the string is namespaced. Consumers
-must always import and use the exported token constant; they must not recreate a
-symbol or use a token literal directly.
-
-The module database provider must register the concrete repository and bind the
-token with `useExisting`. Export the token so consumers inject the interface
-without depending on the Drizzle implementation:
-
-```ts
-{
-  provide: INTAKE_REPOSITORIES.intakes,
-  useExisting: DrizzleIntakesRepository,
-}
-```
-
-Consumers must use `@Inject(INTAKE_REPOSITORIES.intakes)` with the core repository
-interface as the TypeScript type. Never inject the concrete Drizzle repository
-outside database infrastructure.
-
-## Every module owns a seeder
-
-Every persisted module must provide an injectable seeder at:
-
-```text
-apps/server/src/<module>/database/<module>-seeder.ts
-```
-
-The seeder must receive the module repository through its repository token and
-delegate bulk insertion to `addMany`. It receives domain creation records; it must
-not duplicate insert queries, construct Drizzle rows, or invent identifiers owned
-by another module.
-
-Register and export the seeder from the module's database module so application
-bootstrap and integration tests can reuse the same entry point.
-
-Seeders must also follow these rules:
-
-- expose `clear()` for destructive reset and `run()` for data insertion;
-- implement `clear()` through the injected repository contracts and their
-  `removeAll()` methods; never import `DrizzleClient`, `DrizzleDB`, models,
-  query builders, or SQL into a seeder or the seed orchestration entrypoint;
-- make `clear()` a complete module reset: every table owned by the module must
-  be emptied before any module `run()` begins. Delete dependent rows in
-  reverse foreign-key order, including rows protected by `RESTRICT`; clearing
-  only a root table or relying on database cascades is insufficient;
-- implement `run()` through repository methods, normally `addMany()`, and pass
-  domain creation records rather than persistence rows;
-- use domain fakers for generated development records. Fixed credentials or
-  other values required to make a development account usable may remain
-  explicit;
-- keep cleanup ownership inside module seeders. The central orchestrator must
-  call every module `clear()` before calling any module `run()`, and must call
-  module clears and runs in dependency order when cross-module foreign keys
-  require it;
-- centralize execution in `apps/server/src/shared/database/seed.ts`. It must
-  verify `HMS_SERVER_APP_MODE` is `dev` or `stg` before any cleanup or insertion,
-  abort in every other mode, require `HMS_USER_SEED_PASSWORD` in `dev` and `stg`, and
-  close the Nest application context in a `finally` block;
-- expose the operation through the server's `db:seed` command. Running seeds
-  must never be part of application bootstrap or production deployment. Staging
-  deployment explicitly runs the seed after migrations, so its database is
-  reset and repopulated on every server deployment.
-
-## Server imports use aliases
-
-Imports between files inside `apps/server/src` must use the `@/` alias. Keep
-package imports such as `@nestjs/common` and `@hms/core/...` unchanged. Do not
-introduce long relative imports between server modules.
+Integration fixtures isolate tests, clean tables in reverse dependency order, and do
+not leak sessions or containers.

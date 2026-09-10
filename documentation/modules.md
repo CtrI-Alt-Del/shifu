@@ -9,6 +9,11 @@ repositories, database models, or implementation details.
 The MVP serves one user type: the individual learner. The product is private,
 responsive on desktop and mobile, accessible, and presented in pt-BR.
 
+Each module's canonical PRD is maintained as a dedicated page under the [PRD's
+Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDvB). The
+Google Docs remain origin/reference material; when they disagree, use the current
+Confluence page and surface the conflict.
+
 ## Identity
 
 Identity owns the user's account and access to Shifu. It is responsible for:
@@ -29,7 +34,7 @@ Identity does not own social login, e-mail changes, two-factor authentication,
 roles, advanced device management, or temporary account deactivation in the
 MVP.
 
-Source: [PRD — Identity](https://docs.google.com/document/d/1kjAyA7kWU4i9PDEYf7jMuNgyoVVzWrnO0H0-UYa4GN0/edit)
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDyB) · Origin: [Google Doc](https://docs.google.com/document/d/1kjAyA7kWU4i9PDEYf7jMuNgyoVVzWrnO0H0-UYa4GN0/edit)
 
 ## Curriculum
 
@@ -53,7 +58,7 @@ The MVP validation case is programming logic with practical programming
 activities. Curriculum authoring, versioning, dynamically generated content,
 and user-specific reordering are out of scope.
 
-Source: [PRD — Curriculum](https://docs.google.com/document/d/1gw8l7mUGIEiyb9XGFIL3UdynKHQ-58rHcFD_8zXjWAA/edit)
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQDzB) · Origin: [Google Doc](https://docs.google.com/document/d/1gw8l7mUGIEiyb9XGFIL3UdynKHQ-58rHcFD_8zXjWAA/edit)
 
 ## Learning
 
@@ -78,7 +83,7 @@ may assist with planning or configured AI evaluations, and Gamification may
 recognize confirmed learning facts, but neither may change Learning's official
 results or decisions.
 
-Source: [PRD — Learning](https://docs.google.com/document/d/1MGJR-hp4oU5OrdrJSDynMfm_nS5BpP1N0jev-A9WnG0/edit)
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB) · Origin: [Google Doc](https://docs.google.com/document/d/1MGJR-hp4oU5OrdrJSDynMfm_nS5BpP1N0jev-A9WnG0/edit)
 
 ## Gamification
 
@@ -103,7 +108,7 @@ The Mentor may read the current XP, level, streak, and achievements for
 motivational context. Rankings, social competition, external rewards,
 proactive reminders, and user-configurable reward rules are out of scope.
 
-Source: [PRD — Gamification](https://docs.google.com/document/d/1Y8HFrHP9I-7afjNpckUsQt02UROiOMx9EjEKzvMNu5s/edit)
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AgDxB) · Origin: [Google Doc](https://docs.google.com/document/d/1Y8HFrHP9I-7afjNpckUsQt02UROiOMx9EjEKzvMNu5s/edit)
 
 ## Intelligence
 
@@ -132,7 +137,7 @@ proposal to Learning but does not become the authority for learning state.
 Mentor and Planner share a monthly AI quota. The Shifu supplies the AI; users
 do not configure models, parameters, or credentials in the MVP.
 
-Source: [PRD — Intelligence](https://docs.google.com/document/d/1dp3XQcj0l68ekad1yk3ns-NVOQWTzEQo8jTylqcpNzw/edit)
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQD0B) · Origin: [Google Doc](https://docs.google.com/document/d/1dp3XQcj0l68ekad1yk3ns-NVOQWTzEQo8jTylqcpNzw/edit)
 
 ## Dependency Graph
 
