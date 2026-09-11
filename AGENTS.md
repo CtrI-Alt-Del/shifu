@@ -106,6 +106,27 @@ manifests, lockfiles, configuration, and project rules first. Context7
 supplements local evidence and must not be used to copy another project's
 package names, commands, or architecture into Shifu.
 
+## GitHub CLI
+
+Use the authenticated GitHub CLI (`gh`) for GitHub repositories, pull requests,
+issues, releases, and API access. Prefer it over unauthenticated `curl`, `wget`,
+WebFetch, or MCP fetch requests to GitHub.
+
+Use repository-local files when possible. If remote GitHub context is required,
+prefer commands such as:
+
+```sh
+gh repo view owner/repo
+gh pr view 123 --repo owner/repo
+gh pr list --repo owner/repo
+gh issue view 123 --repo owner/repo
+gh api repos/owner/repo/pulls
+```
+
+Do not use GitHub API `/contents/` endpoints as a substitute for cloning a
+repository and reading its files locally. Confirm authentication with `gh auth
+status` before operations that require private or elevated GitHub access.
+
 ## CodeGraph MCP
 
 When a `.codegraph/` directory exists at repository root, use CodeGraph before
