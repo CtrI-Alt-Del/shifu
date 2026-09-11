@@ -1,0 +1,307 @@
+---
+description: Developer tooling for installing, running, validating, and testing the Shifu applications and local infrastructure.
+---
+
+# Tooling
+
+This document describes the tooling currently available in the Shifu repository.
+For architecture and technology decisions, see
+[`architecture.md`](architecture.md). For path-specific engineering constraints,
+see [`rules.md`](rules.md).
+
+## Requirements
+
+- **Node.js** `24.20.0`, selected by `.node-version`.
+- **pnpm**, used by the web application and the JavaScript workspace.
+  The repository does not currently pin a pnpm version in `package.json`.
+- **Python** `3.13.5`, selected by `.python-version`.
+- **uv**, used for server dependencies, virtual environments, and builds.
+- **Docker Engine with Docker Compose**, required for PostgreSQL, Inngest,
+  Mailpit, and the local SonarQube stack.
+
+Check the runtime files before upgrading a local tool. Lockfiles and manifests are
+the source of truth for exact dependency versions.
+
+## Repository layout
+
+Shifu is a pnpm workspace with two applications:
+
+```text
+apps/
+├── web/       TanStack Start / React frontend
+└── server/    FastAPI backend
+
+packages/      Reserved for independently reusable packages
+documentation/ Project and engineering documentation
+```
+
+The web application owns `apps/web/package.json`. The server owns
+`apps/server/pyproject.toml` and `apps/server/uv.lock`. Do not copy package names,
+scripts, ports, or environment variables from another repository.
+
+## Installation
+
+Install JavaScript dependencies from the repository root:
+
+```bash
+corepack enable
+pnpm install
+```
+
+Install and synchronize Python dependencies from the server directory:
+
+```bash
+cd apps/server
+uv sync
+```
+
+Add web dependencies with pnpm from the repository root:
+
+```bash
+pnpm --filter web add <package>
+pnpm --filter web add --save-dev <package>
+```
+
+Add server dependencies with uv from `apps/server`:
+
+```bash
+uv add <package>
+uv add --dev <package>
+```
+
+Commit the relevant lockfile whenever dependencies change:
+
+- JavaScript changes update the root `pnpm-lock.yaml`.
+- Python changes update `apps/server/uv.lock`.
+
+Do not create an npm, yarn, or pip lockfile for this repository.
+
+## Environment configuration
+
+The root `.env.example` configures Docker Compose. Each application owns its local
+environment file and port settings:
+
+```bash
+cp .env.example .env
+cp apps/web/.env.example apps/web/.env.local
+cp apps/server/.env.example apps/server/.env.local
+```
+
+Never commit credentials, tokens, private keys, local database files, or real service
+credentials. The `.env.local` files are ignored by Git.
+
+Important local variables include:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SHIFU_POSTGRES_PORT` | `54322` | PostgreSQL host port |
+| `SHIFU_INNGEST_PORT` | `18288` | Inngest UI/API host port |
+| `SHIFU_SONAR_PORT` | `19000` | SonarQube web/API host port |
+| `SHIFU_MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
+
+Only browser-safe variables may be exposed through `VITE_` variables.
+
+## Local infrastructure with Docker Compose
+
+Start the local services from the repository root:
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs -f
+```
+
+The Compose stack provides:
+
+- PostgreSQL 17 for application data;
+- Inngest development server;
+- Mailpit for local mail capture; and
+- SonarQube with its PostgreSQL database.
+
+Default endpoints are:
+
+| Service | URL or address |
+| --- | --- |
+| PostgreSQL | `postgresql://shifu:change-me@localhost:54322/shifu` |
+| Inngest | `http://localhost:18288` |
+| Mailpit UI | `http://localhost:54326` |
+| Mailpit SMTP | `localhost:1026` |
+| SonarQube | `http://localhost:19000` |
+| Web application | `http://localhost:6000` |
+| FastAPI application | `http://localhost:9000` |
+
+Stop containers without deleting named volumes:
+
+```bash
+docker compose down
+```
+
+Do not delete Docker volumes or reset local databases unless explicitly requested.
+
+The repository currently has no registered Inngest application functions or complete
+database migration workflow. The Compose services may be available for future work,
+but their presence does not mean an application integration is implemented.
+
+## Running the applications
+
+Set each application port in its ignored app-local `.env.local` file:
+
+```dotenv filename="apps/web/.env.local"
+SHIFU_WEB_APP_PORT=6000
+VITE_SHIFU_SERVER_URL=http://localhost:9000
+```
+
+```dotenv filename="apps/server/.env.local"
+SHIFU_SERVER_APP_PORT=9000
+```
+
+Vite reads the web values from `apps/web/.env.local`. The server launcher reads
+`SHIFU_SERVER_APP_PORT` from `apps/server/.env.local`.
+
+Start the web application from the repository root:
+
+```bash
+pnpm --filter web dev
+```
+
+The web port is `6000` by default and can be changed with `SHIFU_WEB_APP_PORT`.
+Regenerate TanStack route metadata when route files change:
+
+```bash
+pnpm --filter web generate-routes
+```
+
+The generated `apps/web/src/routeTree.gen.ts` file is tool-owned and must not be
+edited manually.
+
+Start the FastAPI application from `apps/server`:
+
+```bash
+uv run --env-file .env.local python src/main.py
+```
+
+The application exposes the shared health endpoint at `GET /health`.
+
+## Web tooling
+
+The web stack uses TypeScript, React, TanStack Start/Router, Vite, Tailwind CSS,
+Axios, Zod, and Biome. The test stack uses Vitest, Testing Library, jsdom, and
+Playwright.
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm --filter web dev` | Start the development server |
+| `pnpm --filter web generate-routes` | Generate TanStack route metadata |
+| `pnpm --filter web check:types` | Run TypeScript strict no-emit checking |
+| `pnpm --filter web check:lint` | Run Biome checks |
+| `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
+| `pnpm --filter web test:unit` | Run Vitest unit tests |
+| `pnpm --filter web test:integration` | Run Playwright browser tests |
+| `pnpm --filter web build` | Build the TanStack Start application |
+| `pnpm --filter web preview` | Preview the Vite production build |
+
+Biome is configured centrally in the root `biome.json`. Formatting uses two spaces,
+a 90-character line width,
+single quotes, JSX single quotes, and semicolons only when required. Biome does
+not own generated route metadata.
+
+Dependency Cruiser uses `apps/web/dependency-cruiser.config.cjs` to reject circular
+dependencies and invalid web layer direction. Keep routes, UI, core contracts, and
+REST adapters within the boundaries described in `architecture.md` and the selected
+rules under `documentation/rules`.
+
+Install the Playwright browser on a new machine when browser tests are required:
+
+```bash
+pnpm --filter web exec playwright install chromium
+```
+
+Use the repository's Playwright configuration for committed browser tests. For
+manual browser inspection, use the Playwright CLI workflow described by the local
+agent instructions. Browser output and screenshots are temporary validation artifacts
+and must not be committed.
+
+## Server tooling
+
+The server uses Python 3.13, FastAPI, Pydantic, uv, Poe the Poet, Ruff,
+basedpyright, pytest, and Tach.
+
+Run commands from `apps/server` through uv:
+
+| Command | Purpose |
+| --- | --- |
+| `uv run poe check:types` | Run strict basedpyright checking |
+| `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
+| `uv run poe check:architecture` | Validate Tach module dependencies |
+| `uv run poe test:unit` | Run use-case unit tests under `tests/core/**/use_cases` |
+| `uv run poe test:integration` | Run REST integration tests under `tests/rest` |
+| `uv run poe test` | Run the complete pytest suite with verbose output |
+| `uv run poe build` | Build source and wheel distributions with uv |
+| `uv run --env-file .env.local python src/main.py` | Start the API locally |
+
+The server's module boundaries are declared in `apps/server/tach.toml`. The current
+module policy keeps business modules dependent on shared code while application
+composition may assemble the module routers.
+
+Ruff is intentionally invoked with `--no-fix` in the CI-facing `check:lint` task.
+Validation must not rewrite source files. Use an explicit formatter command when a
+formatting change is intended:
+
+```bash
+uv run ruff format src tests
+```
+
+FastAPI controller integration tests use `TestClient` through the shared fixture in
+`apps/server/tests/conftest.py`. Test HTTP behavior through the application boundary;
+do not call nested controller handlers directly. All server pytest cases are methods
+on a `Test<Subject>` class; top-level `test_*` functions are not used.
+
+## Architecture and quality checks
+
+Run the affected application gates before handing off a change:
+
+```bash
+pnpm --filter web check:lint
+pnpm --filter web check:architecture
+pnpm --filter web check:types
+pnpm --filter web test:unit
+pnpm --filter web build
+
+cd apps/server
+uv run poe check:lint
+uv run poe check:architecture
+uv run poe check:types
+uv run poe test:unit
+uv run poe test:integration
+uv run poe build
+```
+
+The web `check:code`/SonarQube gate is intentionally not part of the current local
+contract. SonarQube is present in Docker Compose, but CI integration and scanner
+configuration are deferred.
+
+There is currently no committed `.github/workflows` directory. When CI workflows are
+added, they must call these application-owned commands, use the repository runtime
+files, and preserve the web/server path separation.
+
+## Database and asynchronous tooling status
+
+PostgreSQL and Inngest are available as local infrastructure, but the repository does
+not currently provide a complete application database migration command or a
+registered Inngest function suite. Do not document or run migration, seeding, or event
+commands copied from another project. Add those commands only with the corresponding
+implementation and validation.
+
+## Recommended handoff checklist
+
+Before handing off a change:
+
+1. Inspect `git status` and preserve unrelated user changes.
+2. Run the gates for every changed application or package.
+3. Run focused tests first, then the broader application test command.
+4. Run a real browser check for changed web routes or interaction behavior when the
+   required application services are available.
+5. Confirm generated output, caches, credentials, test reports, and build artifacts
+   are ignored and not staged.
+6. Report unavailable infrastructure or pre-existing failures explicitly instead of
+   treating skipped checks as passing.

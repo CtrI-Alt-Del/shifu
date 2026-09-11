@@ -22,11 +22,9 @@ def create_app() -> FastAPI:
     router.include_router(GamificationRouter.register())
     router.include_router(IntelligenceRouter.register())
 
-    app.include_router(router.register())
+    app.include_router(router)
 
     return app
 
 
 app = create_app()
-
-__all__ = ['app', 'create_app']

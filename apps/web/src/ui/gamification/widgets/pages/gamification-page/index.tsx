@@ -54,16 +54,24 @@ export const GamificationPage = () => {
           <p className='mt-2 text-sm leading-6 text-muted-foreground'>
             Seu hábito está ganhando forma. Uma prática curta hoje já mantém o ritmo.
           </p>
-          <div className='mt-6 flex gap-2' aria-label='Dias praticados nesta semana'>
-            {['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((day, index) => (
-              <span
+          <ul className='mt-6 flex gap-2' aria-label='Dias praticados nesta semana'>
+            {[
+              ['segunda', 'S'],
+              ['terça', 'T'],
+              ['quarta', 'Q'],
+              ['quinta', 'Q'],
+              ['sexta', 'S'],
+              ['sábado', 'S'],
+              ['domingo', 'D'],
+            ].map(([weekday, abbreviation], index) => (
+              <li
                 className={`grid size-8 place-items-center rounded-full text-xs font-bold ${index < 4 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                key={`${day}-${index}`}
+                key={weekday}
               >
-                {day}
-              </span>
+                {abbreviation}
+              </li>
             ))}
-          </div>
+          </ul>
         </article>
       </section>
 

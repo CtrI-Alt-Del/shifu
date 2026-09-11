@@ -16,6 +16,9 @@ src/shifu/identity/rest/controllers/create_account_controller.py
 tests/rest/controllers/identity/test_create_account_controller.py
 ```
 
+All pytest cases are methods on a `Test<Controller>` class. Group related route
+scenarios in that class; do not define top-level `test_*` functions.
+
 Use FastAPI `TestClient` to exercise the registered route. Do not call the controller
 callback or use case directly. The test must cover the applicable path through routing,
 Pydantic parsing, dependency wiring, use-case construction, repository adapter,

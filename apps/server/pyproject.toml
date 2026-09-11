@@ -13,13 +13,14 @@ dev = [
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
     "ruff>=0.15.0",
+    "tach==0.35.0",
 ]
 
 [project.scripts]
 dev = "main:main"
 
 [tool.poe.tasks."dev"]
-cmd = "uv run dev"
+cmd = "uv run --env-file .env.local python src/main.py"
 
 [tool.poe.tasks."pubsub"]
 cmd = "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:8080/api/inngest"
@@ -48,6 +49,24 @@ cmd = "uv run python -c \"from animus.database.sqlalchemy.seed import seed; seed
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"
 
+[tool.poe.tasks."test:unit"]
+shell = "if find tests/core -path '*/use_cases/test_*.py' -print -quit | grep -q .; then pytest tests/core; else echo 'No use-case unit tests found'; fi"
+
+[tool.poe.tasks."test:integration"]
+cmd = "pytest tests/rest"
+
+[tool.poe.tasks."check:types"]
+cmd = "basedpyright"
+
+[tool.poe.tasks."check:lint"]
+shell = "ruff check --no-fix src tests && ruff format --check src tests"
+
+[tool.poe.tasks."check:architecture"]
+cmd = "tach check --dependencies"
+
+[tool.poe.tasks.build]
+cmd = "uv build"
+
 [tool.poe.tasks.typecheck]
 cmd = "basedpyright"
 
@@ -58,7 +77,6 @@ shell = "ruff check --fix src tests && ruff format src tests && ruff format --ch
 typeCheckingMode = "strict"
 pythonVersion = "3.13"
 include = ["src", "tests"]
-stubPath = "stubs"
 reportMissingTypeStubs = false
 exclude = [
     "**/venv",

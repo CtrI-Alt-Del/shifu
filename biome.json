@@ -93,6 +93,15 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/web/src/routeTree.gen.ts"],
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      }
     }
   ],
   "vcs": {

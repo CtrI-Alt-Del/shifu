@@ -1,2 +1,1 @@
 """Shifu API application package."""
-

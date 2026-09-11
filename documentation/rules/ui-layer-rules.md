@@ -461,8 +461,8 @@ that is not a UI interaction. Declarative internal links use `Anchor`.
 
 ## Sidebar configuration is profile-driven
 
-Sidebar entries belong in the app-layout behavior boundary, not inside the
-layout markup. Every item contains a label, a `RouteName`, and an `IconName`.
+Sidebar entries belong in `apps/web/src/constants/sidebar-items.ts`, not inside
+the layout. Every item contains a label, a `RouteName`, and an `IconName`.
 
 `SIDEBAR_ITEMS` must define an entry for every current `UserProfile`. Reuse shared
 item collections where Manager and Operator have the same destinations instead of
@@ -539,6 +539,25 @@ encapsulated by a domain-specific hook that owns subscribe, unsubscribe, event
 mapping, and cleanup. It does not need to be forced through TanStack Query when
 the concern is a live subscription rather than request caching.
 
+Feature-owned realtime hooks must expose application-level domain values and actions,
+not transport controls or event-source details. For example,
+`apps/web/src/ui/communication/hooks/use-notification-realtime.ts` owns the
+notification stream's `EventSource` lifecycle, event parsing and validation, domain
+mapping, retry schedule, fan-out and cleanup. Its public contract is limited to the
+notification scope, such as eligibility and a notification-created callback; consumers
+must not manage `EventSource`, reconnect timers, raw event names or serialized payloads.
+Keep the browser transport construction seam under `apps/web/src/provision`, while
+keeping lifecycle and transport error handling inside the feature-owned realtime hook.
+
+Realtime hooks, realtime providers and their transport adapters are verified through
+the consumer boundary that observes their behavior. Do not add dedicated test files
+for `useNotificationRealtime` or the native `EventSource` adapter. Cover notification
+delivery, validation, retry, cleanup, eligibility and no-replay behavior through the
+notification context consumer, owning widgets and the browser route suite. A context
+provider hook that owns broader UI state, such as notification queue, selection or
+dropdown pinning, remains tested at its context boundary; that test must not duplicate
+the transport implementation.
+
 ## React contexts follow one composition pattern
 
 Use React Context for dependencies or state that must be shared by distant
@@ -560,8 +579,55 @@ Use this structure:
 ├── index.tsx
 ├── types/
 │   └── <context-name>-value.ts
-└── use-<context-name>-provider.ts
+├── use-<context-name>-provider.ts
+└── tests/
+    └── use-<context-name>-provider.test.ts
 ```
+
+This structure is mandatory for every new or relocated context. Do not keep a
+flat `<context-name>.ts` or `<context-name>.tsx` file inside a widget, layout,
+page, or generic hooks directory. The context directory is the single ownership
+boundary:
+
+- `index.tsx` owns the `createContext` call and the named provider component;
+  it may accept a typed `value` prop when the owning layout assembles the value,
+  but it must not contain consumer behavior or business rules.
+- `types/<context-name>-value.ts` owns the complete `<ContextName>Value` type;
+  export it through `types/index.ts` when the context has a types barrel.
+- `use-<context-name>-provider.ts` owns provider construction, state, effects,
+  and derived values when the context itself owns that behavior.
+- `tests/use-<context-name>-provider.test.ts` owns the provider hook's behavior
+  matrix when the provider hook owns state, effects, subscriptions, or derived
+  context values. Keep this test inside the context directory rather than in a
+  widget or generic hooks directory.
+- Consumer hooks belong under `ui/shared/hooks` for shared contexts or the
+  feature's `hooks` directory for feature contexts. A consumer hook is the only
+  boundary allowed to call `useContext` and import the raw context object;
+  components, layouts, and other consumers must import the named hook instead.
+
+When a context provider owns state, subscriptions, effects, or derived values,
+keep that behavior in the context directory's `use-<context-name>-provider.ts`
+hook and render the context directory's provider component at the narrowest
+stable layout boundary. A layout may assemble an already-owned context value,
+but it must not become the provider hook's ownership boundary. The consumer-hook
+boundary still applies; this does not justify placing the context declaration or
+provider hook back under a layout.
+
+Feature-specific realtime context belongs under the feature's context boundary. The
+notification shell context therefore lives under:
+
+```text
+apps/web/src/ui/communication/contexts/notification-shell-context/
+```
+
+Keep `useNotificationShellProvider` in that directory as the provider-value builder,
+and expose a named consumer hook such as `useNotificationShellContext` from the
+feature hooks boundary. The consumer hook is the only UI boundary that reads the raw
+context object; components use its named, high-level notification state and actions.
+Compose `NotificationShellContextProvider`, `useNotificationShellProvider` and
+`useNotificationRealtime` directly in `AppLayout`, which is the stable authenticated
+notification scope. Do not add or retain a notification-specific layout wrapper just
+to mount the context or realtime hook.
 
 The public context file owns the context object, its named provider props, and the
 provider component. Contexts start with `null`; do not cast an empty object into
@@ -650,6 +716,22 @@ Mount each provider at the narrowest stable layout or application boundary that
 contains all intended consumers. When adding or removing a context value, update
 the value type, provider hook, provider composition, and affected consumers as one
 change.
+
+### Feature notification presentation constants
+
+When multiple notification widgets need the same kind-to-icon, tint or semantic
+presentation, define one typed, exhaustive mapping under:
+
+```text
+apps/web/src/ui/communication/constants/
+```
+
+Keep distinct semantic constant groups in their own kebab-case files, such as
+`notification-presentation.ts` and `notification-semantic-styles.ts`. Key mappings
+by the canonical `NotificationKind`, use existing `IconName` and design-system
+tokens, and compose the mapping in `NotificationRow` and `NotificationToast`. Do
+not duplicate kind conditionals or introduce widget-local presentation literals when
+the shared notification constant applies.
 
 ## REST adapters are factories
 

@@ -69,9 +69,9 @@ break a proven import cycle or defer an expensive optional adapter.
 
 ## Keep package exports explicit
 
-An `__init__.py` may re-export the small public surface of its package. It must define
-`__all__` when it re-exports names and must not perform registration, I/O, environment
-loading, or other side effects.
+An `__init__.py` may re-export the small public surface of its package, but Python
+modules must not define `__all__`. Package initializers must not perform registration,
+I/O, environment loading, or other side effects.
 
 Consumers may import from a package barrel when the declaration is intentionally
 public. Internal declarations should be imported from their defining module.
@@ -101,4 +101,3 @@ private user data, or sandbox secrets.
 Do not add broad Ruff `noqa`, Pyright ignores, or pytest warning filters. Place a
 suppression on the exact expression that requires it and name the diagnostic whenever
 the tool supports that. Delete obsolete suppressions during nearby refactors.
-

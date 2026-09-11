@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const BROWSER_ENV_SCHEMA = z.object({
-  shifuApiUrl: z.string().url().default('http://localhost:8000'),
+  shifuApiUrl: z.string().url().default('http://localhost:9000'),
 })
 
 const BROWSER_ENV_INPUT = {

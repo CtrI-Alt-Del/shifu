@@ -1,14 +1,15 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 
-from shifu.shared.rest.schemas.health_schema import HealthSchema
+
+class Response(BaseModel):
+    status: str
+    name: str
 
 
 class CheckHealthController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.get("/health", response_model=HealthSchema, status_code=200)
-        def check_health() -> HealthSchema:
-            return HealthSchema(status="ok")
-
-
-__all__ = ["CheckHealthController"]
+        @router.get('/health', response_model=Response, status_code=200)
+        def _() -> Response:
+            return Response(status='ok', name='Shifu API')

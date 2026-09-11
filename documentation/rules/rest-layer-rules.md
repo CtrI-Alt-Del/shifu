@@ -1,118 +1,153 @@
 ---
-description: FastAPI controller, routing, Pydantic transport, dependency wiring, and error-mapping rules.
+description: FastAPI controller, route grouping, dependency wiring, and HTTP boundary rules.
 ---
 
 # REST Layer Rules
 
-These rules apply to `apps/server/src/shifu/<module>/rest`, shared REST infrastructure,
-and the web adapter consuming the API.
+These rules apply to FastAPI code under `apps/server/src/shifu/*/rest` and its
+matching tests under `apps/server/tests/rest`.
 
-## One controller represents one action
+## Routers own module prefixes
 
-Create one `<Action>Controller` class per HTTP action. It exposes a static
-`handle(router: APIRouter) -> None` method that registers exactly one route:
+Each module exposes a router class ending in `Router`. Its static `register` method
+creates and returns an `APIRouter`, including the module prefix and tags when
+applicable. The application factory composes these routers; controllers must not
+create applications or include module routers directly.
 
 ```python
-class CreateObjectiveController:
+class LearningRouter:
     @staticmethod
-    def handle(router: APIRouter) -> None:
-        @router.post('/objectives', status_code=201, response_model=ObjectiveDto)
-        def _(
-            body: _Body,
-            learner_id: Annotated[Id, Depends(AuthPipe.get_learner_id)],
-            objectives_repository: Annotated[
-                ObjectivesRepository,
-                Depends(DatabasePipe.get_objectives_repository),
-            ],
-        ) -> ObjectiveDto:
-            use_case = CreateObjectiveUseCase(objectives_repository)
-            return use_case.execute(
-                learner_id=learner_id.value,
-                title=body.title,
-            )
+    def register() -> APIRouter:
+        router = APIRouter(prefix='/learning', tags=['learning'])
+        StartSessionController.handle(router)
+        return router
 ```
 
-The controller receives transport input, resolves dependencies, constructs the use
-case, calls `execute`, and returns its result. It does not query SQLAlchemy directly,
-call a vendor SDK, or implement domain policy.
+Router registration must be safe when `create_app()` is called repeatedly. Do not
+store mutable routers or application instances in controller class state.
 
-## Use local Pydantic request schemas
+## Controllers register routes consistently
 
-Define a private `_Body`, `_Query`, or `_Response` Pydantic model in the controller
-module when only that route uses it. Move a schema to `rest/schemas` only when several
-controllers share the same transport shape.
+Controller modules follow the structure established by
+`shifu/shared/rest/controllers/check_health_controller.py`:
 
-Pydantic validates HTTP representation and basic shape. Business validation belongs in
-domain structures and use cases. Do not expose SQLAlchemy models as request or response
-models.
+- expose a controller class ending in `Controller`;
+- expose a `@staticmethod` named `handle` that receives an `APIRouter` and returns
+  `None`;
+- register routes through nested functions declared inside `handle`;
+- name nested route handlers `_`; multiple `_` declarations are allowed because
+  FastAPI retains each decorated function when it is registered;
+- declare the path, `response_model`, and numeric `status_code` explicitly on each
+  route decorator;
+- return the declared Pydantic response model instead of an ad hoc dictionary; and
+- never define `__all__`.
 
-Use `response_model` for JSON responses so FastAPI generates an accurate OpenAPI
-contract and filters unexpected fields. Never return passwords, tokens, private model
-prompts, or infrastructure details from domain DTOs.
+```python
+from fastapi import APIRouter
+from pydantic import BaseModel
 
-## Dependencies use Annotated ports
 
-Declare dependencies with `Annotated[T, Depends(...)]`. Type repository and provider
-parameters with core `Protocol` interfaces, not concrete adapters. Authentication pipes
-return trusted domain identifiers or authorized entities rather than raw JWT payloads.
+class Response(BaseModel):
+    status: str
 
-Construct the use case inside the route callback from those dependencies. Do not make
-use cases FastAPI dependencies and do not store request-scoped dependencies on global
-controller instances.
 
-## Routes use resource language
+class CheckHealthController:
+    @staticmethod
+    def handle(router: APIRouter) -> None:
+        @router.get('/health', response_model=Response, status_code=200)
+        def _() -> Response:
+            return Response(status='ok')
+```
 
-- collection paths use plural nouns;
-- dynamic parameters use semantic names such as `{objective_id}` or `{activity_id}`;
-- nested resources express ownership only when the relationship matters to the API;
-- action endpoints use a domain verb when ordinary HTTP resource semantics are not
-  sufficient;
-- route parameter names match controller arguments exactly.
+## Response models stay with their controllers
 
-Routers own prefixes and tags. Controllers register relative paths and do not repeat the
-module prefix.
+Declare HTTP response models in the controller module and name the response model
+`Response`. Keep one response contract per controller.
 
-## Status codes and errors are explicit
+Response models own transport validation and serialization only. They must not
+authorize requests, access persistence, execute business rules, or become domain
+entities. Nested response objects may use additional private controller-local
+Pydantic models when needed.
 
-Declare the successful `status_code` on every write route and use conventional HTTP
-semantics: `200` for successful reads/updates with a body, `201` for creation, `202` for
-accepted asynchronous work, and `204` for successful responses without a body.
+## Controllers remain HTTP adapters
 
-Register one shared exception handler that maps transport-neutral domain errors:
+A business controller normally represents one application action. It may only:
 
-- validation errors to `400`;
-- authentication errors to `401`;
-- authorization errors to `403`;
-- not-found errors to `404`;
-- conflicts to `409`;
-- invalid preconditions or transitions to `422` when appropriate;
-- unknown exceptions to `500` with a generic message.
+- receive and validate HTTP input;
+- obtain dependencies through FastAPI dependency injection;
+- translate transport input into a use-case request;
+- execute the use case; and
+- translate the result or expected failure into the declared HTTP response.
 
-The error body contains stable `title` and `message` fields. Log expected application
-errors without stack-trace noise; log unexpected errors with diagnostic context but
-never leak their implementation details to clients.
+Validation beyond transport shape, authorization decisions, persistence operations,
+domain mapping, and business rules belong outside controllers.
 
-## Sync and async must match dependencies
+## Dependencies point inward
 
-Use a synchronous route callback when it executes synchronous SQLAlchemy repositories
-or blocking providers. Use `async def` only for genuinely awaitable work. Never call a
-blocking database or SDK operation directly from an async callback.
+Controllers depend on core interfaces and use cases, never concrete database,
+messaging, or provider implementations. FastAPI dependency functions may resolve
+infrastructure implementations, but the value received by the controller remains
+typed by the core interface.
 
-Long-running AI, indexing, email, or sandbox work returns an accepted response and
-publishes an event for Inngest instead of holding the HTTP request open.
+Construct a use case from its required interfaces at the boundary unless an approved
+application-layer factory owns that construction. Do not place use cases, repositories,
+or sessions in module-level mutable state.
 
-## Web transport preserves the boundary
+## Inputs use semantic names and Pydantic validation
 
-The web REST client owns base URL, headers, credentials, timeouts, and transport-error
-normalization. Feature services map typed operations to API methods and paths without
-reimplementing backend business rules.
+Dynamic route parameters identify the represented resource or relationship. Use
+names such as `{account_id}`, `{session_id}`, and `{lesson_id}`; never use a generic
+`{id}`. The handler argument and tests must use the same name.
 
-Browser code must not read or persist access tokens. Authenticated browser traffic uses
-the BFF/session strategy defined in `documentation/architecture.md`; server-side BFF
-calls attach the API credential at the trusted boundary.
+Use Pydantic request models for JSON bodies. Query and path primitives may remain
+typed handler parameters when no reusable validation object is needed. Transport
+models must not duplicate domain behavior or expose persistence models.
 
-## Keep API examples synchronized
+## HTTP contracts are explicit
 
-When an endpoint changes, update its controller test, OpenAPI-facing schema, web
-adapter, and any committed HTTP example in the same task. The controller integration
-test is the authoritative executable HTTP contract.
+Use plural resource paths for collections and nest resources beneath their owner
+when ownership matters. Keep module prefixes in routers and action-specific path
+segments in controllers.
+
+Every endpoint must define its successful response model and status. Document and
+test expected error statuses. Do not expose exception details, credentials,
+authorization headers, database errors, or internal implementation names in error
+responses.
+
+Health endpoints must remain deterministic and must not perform destructive checks.
+Readiness checks may inspect required dependencies but must use bounded operations
+and report only safe status information.
+
+## Async handlers require async work
+
+Use `async def` only when the handler awaits non-blocking operations. Keep handlers
+synchronous when their dependency chain is synchronous. Never run synchronous
+SQLAlchemy sessions or blocking SDK calls directly on the event loop.
+
+## Controller tests use HTTP
+
+Place controller integration tests under
+`apps/server/tests/rest/controllers/<module>/`. Keep one test file per controller
+route contract. Tests must use FastAPI `TestClient` or the project-approved async HTTP
+client against an application created by `create_app()`; do not call nested handlers
+or controller methods directly.
+
+Controller tests cover, as applicable:
+
+- the successful status and serialized body;
+- request validation failures;
+- authentication and authorization outcomes;
+- expected use-case error translation; and
+- dependency overrides without real network or persistence access.
+
+Define shared application and HTTP-client fixtures in `apps/server/tests/conftest.py`.
+Keep scenario-specific dependency overrides near the owning tests and ensure they are
+cleared after each scenario.
+
+## Keep contracts synchronized
+
+When a route path, parameter, request body, response model, or status changes, update
+its router registration, controller tests, API examples, web REST client contract,
+and applicable Spec in the same delivery. A mocked controller test does not prove a
+real database, authentication, message, or streaming integration; validate those
+boundaries at the narrowest real integration level that can establish the criterion.

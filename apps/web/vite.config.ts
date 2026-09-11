@@ -7,14 +7,14 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-const ROOT_ENV_DIR = fileURLToPath(new URL('../../', import.meta.url))
+const APP_ENV_DIR = fileURLToPath(new URL('.', import.meta.url))
 
 const config = defineConfig(({ mode }) => {
-  const env = loadEnv(mode, ROOT_ENV_DIR, '')
+  const env = loadEnv(mode, APP_ENV_DIR, '')
 
   return {
     resolve: { tsconfigPaths: true },
-    server: { port: Number(env.SHIFU_WEB_PORT) || 3000 },
+    server: { port: Number(env.SHIFU_WEB_APP_PORT) || 3000 },
     plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
   }
 })

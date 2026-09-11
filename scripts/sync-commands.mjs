@@ -35,15 +35,7 @@ function readGeneratedPromptSource(filePath) {
 
 function removeIfGenerated(filePath, source, reason) {
   fs.rmSync(filePath, { force: true })
-  console.log(
-    'removed: ' +
-      relativePath(filePath) +
-      ' (' +
-      reason +
-      ': ' +
-      source +
-      ')',
-  )
+  console.log('removed: ' + relativePath(filePath) + ' (' + reason + ': ' + source + ')')
 }
 
 function cleanupStaleGeneratedArtifacts() {
@@ -82,9 +74,7 @@ function cleanupStaleGeneratedArtifacts() {
     try {
       fs.rmdirSync(skillDirectory)
     } catch {}
-    console.log(
-      'removed: ' + relativePath(skillDirectory) + ' (missing source)',
-    )
+    console.log('removed: ' + relativePath(skillDirectory) + ' (missing source)')
   }
 }
 
@@ -93,9 +83,7 @@ function linkOrCopy(source, destination) {
   fs.rmSync(destination, { force: true })
   try {
     fs.symlinkSync(relativeSource, destination)
-    console.log(
-      'linked:  ' + relativePath(destination) + ' -> ' + relativeSource,
-    )
+    console.log('linked:  ' + relativePath(destination) + ' -> ' + relativeSource)
   } catch {
     const content =
       '<!-- Auto-generated from ' +
@@ -103,9 +91,7 @@ function linkOrCopy(source, destination) {
       ' (symlink not available) -->\n\n' +
       fs.readFileSync(source, 'utf8')
     fs.writeFileSync(destination, content, 'utf8')
-    console.log(
-      'copied:  ' + relativePath(destination) + ' <- ' + relativePath(source),
-    )
+    console.log('copied:  ' + relativePath(destination) + ' <- ' + relativePath(source))
   }
 }
 
@@ -135,9 +121,7 @@ function syncSkill(source, name, description) {
     ' -->\n\n' +
     fs.readFileSync(source, 'utf8')
   fs.writeFileSync(skillFile, content, 'utf8')
-  console.log(
-    'synced:  ' + relativePath(skillFile) + ' <- ' + relativePath(source),
-  )
+  console.log('synced:  ' + relativePath(skillFile) + ' <- ' + relativePath(source))
 }
 
 if (!fs.existsSync(promptsDirectory)) {

@@ -74,7 +74,11 @@ function parseFrontmatter(agentPath) {
     fail("Invalid agent name '" + name + "' in " + relativeAgentPath)
   }
 
-  const body = lines.slice(frontmatterEnd + 1).join('\n').trim() + '\n'
+  const body =
+    lines
+      .slice(frontmatterEnd + 1)
+      .join('\n')
+      .trim() + '\n'
   if (!body.trim()) fail('Missing agent instructions in ' + relativeAgentPath)
   return { name, description, body, source: agentPath }
 }
@@ -147,7 +151,11 @@ if (!agents.length) {
   fail('No agent definitions found in documentation/agents/*-agent.md')
 }
 
-const validNames = new Set(agents.map(function getName(agent) { return agent.name }))
+const validNames = new Set(
+  agents.map(function getName(agent) {
+    return agent.name
+  }),
+)
 cleanupStale(codexAgentsDirectory, '.toml', validNames)
 cleanupStale(opencodeAgentsDirectory, '.md', validNames)
 cleanupStale(claudeAgentsDirectory, '.md', validNames)
@@ -242,11 +250,7 @@ codexRoles.push('', currentEndMarker)
 let existingConfig = fs.existsSync(codexConfigPath)
   ? fs.readFileSync(codexConfigPath, 'utf8')
   : ''
-existingConfig = removeGeneratedBlock(
-  existingConfig,
-  legacyBeginMarker,
-  legacyEndMarker,
-)
+existingConfig = removeGeneratedBlock(existingConfig, legacyBeginMarker, legacyEndMarker)
 existingConfig = removeGeneratedBlock(
   existingConfig,
   currentBeginMarker,
