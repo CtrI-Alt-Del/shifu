@@ -55,6 +55,17 @@ cd apps/server
 uv sync
 ```
 
+Run repository synchronization scripts from the root:
+
+```bash
+pnpm sync:agents
+pnpm sync:commands
+```
+
+`sync:agents` updates generated agent configuration for supported coding tools.
+`sync:commands` synchronizes prompt commands and skills from
+`documentation/prompts`.
+
 Add web dependencies with pnpm from the repository root:
 
 ```bash
