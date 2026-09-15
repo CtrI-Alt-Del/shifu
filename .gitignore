@@ -73,6 +73,7 @@ yarn-error.log*
 .opencode/
 .obsidian/
 .codegraph/
+.impeccable/
 opencode.json
 .mcp.json
 prompt.md
