@@ -4,7 +4,7 @@ Documento base para a construção do design da aplicação no Pencil (pen.dev).
 
 Fonte de verdade: os PRDs de **Identity**, **Curriculum**, **Learning**, **Intelligence** e **Gamification** publicados no Confluence do espaço Shifu. Toda regra de comportamento citada aqui vem de um PRD. Quando este documento propõe algo que os PRDs não definem, isso é decisão de design deste documento e pode ser alterado pelo time sem contrariar requisito.
 
-A direção de marca está fechada na seção 3: **Dojo**, derivada da direção de arte do jogo Sifu, com três matizes de papel fixo e contraste verificado.
+A direção de marca está fechada na seção 3: **Dojo editorial**, com a sobriedade e a disciplina visual de um dojo traduzidas por uma tipografia serifada expressiva, superfícies escuras quentes, grid estrutural e três matizes de papel fixo com contraste verificado.
 
 ---
 
@@ -63,7 +63,7 @@ Cadastro, entrada, reenvio de confirmação e recuperação de senha nunca revel
 
 ## 3. Design tokens
 
-Direção de marca: **Dojo**, derivada da direção de arte do jogo Sifu. Fundo quase preto, três matizes com papéis fixos, cantos duros, display condensado em caixa alta.
+Direção de marca: **Dojo editorial**. Fundo quase preto e quente, grid estrutural discreto, três matizes com papéis fixos, serifada expressiva nos momentos de identidade e sans neutra na operação cotidiana. A referência ao dojo aparece por disciplina, ritmo e precisão, sem transformar a aplicação em interface de videogame.
 
 O produto é **dark only** no MVP. Nenhum PRD pede tema claro, e manter um só tema evita dobrar o custo de verificação de contraste.
 
@@ -85,44 +85,48 @@ Consequência direta do princípio P1: como latão nunca toca em nada pedagógic
 
 **Neutros**
 ```
---page              #121316   fundo da aplicação
---surface           #1E2025   cartões, listas
---raised            #262930   trilho de barra, campo, estado hover
---divider           #333740   linha decorativa, sem exigência de contraste
---control-border    #737A87   borda de campo, caixa, controle  [3,77:1]
---text-disabled     #6E747F   apenas desabilitado
---text-muted        #9AA0AB   metadado, legenda              [6,20:1]
---text-secondary    #C4C9D1   texto de apoio                 [9,80:1]
---text-primary      #F2F0EA   texto principal, branco quente [14,30:1]
+--page              #0A0A0C   fundo da aplicação
+--surface           #161513   cartões, listas
+--surface-alt       #1D1E22   superfície alternativa
+--raised            #1E1C18   trilho de barra, campo, estado hover
+--divider           #FFFFFF14 linha decorativa, sem exigência de contraste
+--control-border    #FFFFFF54 borda de campo, caixa, controle  [3,01:1]
+--glass-fill        #FFFFFF08 superfície translúcida
+--glass-border      #FFFFFF1F borda translúcida decorativa
+--grid-line         #FFFFFF24 grid estrutural decorativo
+--text-disabled     #6B665E   apenas desabilitado             [3,20:1]
+--text-muted        #9A958D   metadado, legenda               [6,13:1]
+--text-secondary    #C4BFB6   texto de apoio                  [9,97:1]
+--text-primary      #F4F2EC   texto principal, branco quente [16,30:1]
 ```
 
 **Jade — aprendizagem**
 ```
---jade-tint         #0C2A24   fundo de selo
 --jade-fill         #2F8C72   preenchimento de barra
---jade-solid        #45A98B   barra concluída, ícone         [5,67:1]
---jade-text         #6FC7AA   texto sobre escuro             [8,09:1]
---on-jade           #121316   texto sobre jade-solid         [6,46:1]
+--jade-tint         #0E2E26   fundo de selo
+--jade-solid        #3FA98A   barra concluída, ícone          [6,30:1]
+--jade-text         #7BD3B6   texto sobre escuro             [10,28:1]
+--on-jade           #0F0F12   texto sobre jade-solid          [6,61:1]
 ```
 
 **Selo — ação, marca e erro**
 ```
---selo-tint         #3A1210   fundo de selo
---selo-fill         #C63A2E   botão primário, marca
---selo-text         #E8877B   texto de erro, anel de foco    [6,35:1]
---on-selo           #FFFFFF   texto sobre selo-fill          [5,19:1]
+--selo-tint         #3D1414   fundo de selo
+--selo-fill         #DC2F2F   botão primário, marca
+--selo-text         #F28B8B   texto de erro, anel de foco     [7,68:1]
+--on-selo           #FFFFFF   texto sobre selo-fill           [4,68:1]
 ```
 
 **Latão — gamificação**
 ```
 --latao-tint        #3A2C10   fundo de selo, borda de cartão
 --latao-fill        #C08A22   preenchimento
---latao-solid       #DCA845   número de XP, nível, sequência [7,55:1]
---latao-text        #EFC877   texto sobre escuro            [10,24:1]
---on-latao          #121316   texto sobre latao-solid        [8,61:1]
+--latao-solid       #D9A441   número de XP, nível, sequência  [8,11:1]
+--latao-text        #F0C36A   texto sobre escuro             [11,05:1]
+--on-latao          #0F0F12   texto sobre latao-solid         [8,51:1]
 ```
 
-Todos os valores entre colchetes são razões de contraste medidas contra `--surface`, exceto `--on-*`, medidas contra o próprio preenchimento. Todas passam em AA para texto normal. `--divider` fica abaixo de 3:1 de propósito: é ornamento, não delimita controle. Onde a borda delimita um controle, usar `--control-border`.
+Todos os valores entre colchetes são razões de contraste medidas contra `--surface`, exceto `--on-*`, medidas contra o próprio preenchimento, e `--control-border`, medido contra `--raised`. Todas as combinações de texto ativo passam em AA para texto normal. `--divider`, `--glass-border` e `--grid-line` são ornamentais e não delimitam controles. Onde a borda comunica o limite de um controle, usar `--control-border`.
 
 ### 3.3 Como resolver ação destrutiva
 
@@ -134,29 +138,29 @@ Selo é a cor de ação primária. Se ação destrutiva também fosse selo preen
 
 ### 3.4 Tipografia
 
-Par de display condensado com sans neutra, o padrão observado em boot.dev, MasterClass e Brilliant.
+Par editorial com uma serifada expressiva e uma sans neutra. A serifada dá presença à marca e às entradas de seção; a sans mantém formulários, navegação e estados legíveis e discretos.
 
-- **Display:** Oswald, 600, caixa alta, entreletra +1,2. Só em logotipo, título de tela e etiqueta de seção.
-- **Interface:** Inter. Todo o resto.
+- **Display:** Instrument Serif. Logotipo, título de tela e títulos editoriais curtos, em caixa normal e sem rastreamento artificial.
+- **Interface:** DM Sans. Navegação, formulários, corpo, rótulos e ações.
 - **Numérico e código:** JetBrains Mono. Nota, progresso, XP, nível, sequência, editor.
 
 Todas do Google Fonts, sem custo de licença.
 
 | Papel | Família | Tamanho / Altura | Peso |
 |---|---|---|---|
-| Logotipo | Oswald | 26 / 32 | 600 |
-| Título de tela | Oswald | 15 / 20 | 600 |
-| Etiqueta de seção | Oswald | 11 / 16 | 600 |
-| Título 1 | Inter | 24 / 32 | 600 |
-| Título 2 | Inter | 18 / 26 | 600 |
-| Corpo | Inter | 14 / 22 | 400 |
-| Corpo forte | Inter | 14 / 22 | 500 |
-| Pequeno | Inter | 13 / 20 | 400 |
-| Legenda | Inter | 11 / 16 | 500 |
+| Logotipo | Instrument Serif | 26 / 32 | 400 |
+| Título de tela | Instrument Serif | 30 / 36 | 400 |
+| Título editorial curto | Instrument Serif | 17 / 24 | 700 |
+| Título 1 | DM Sans | 24 / 32 | 600 |
+| Título 2 | DM Sans | 18 / 26 | 600 |
+| Corpo | DM Sans | 15 / 22 | 400 |
+| Corpo forte | DM Sans | 15 / 22 | 600 |
+| Pequeno | DM Sans | 13 / 20 | 400 |
+| Legenda | DM Sans | 12 / 16 | 500 |
 | Numérico | JetBrains Mono | 20 / 26 | 600 |
 | Código | JetBrains Mono | 13 / 21 | 400 |
 
-Material de apoio é exceção: Inter 16 / 28, largura máxima de 68 caracteres.
+Material de apoio é exceção: DM Sans 16 / 28, largura máxima de 68 caracteres.
 
 **Caractere chinês.** 師父 aparece **apenas no logotipo**, em `--selo-fill`, ao lado do nome. Não usar caracteres como ornamento em cabeçalho de seção. O nome do produto já é uma palavra chinesa, então na marca ele é significado; espalhado pela interface vira figurino. Se usados, manter tradicional, nunca misturar com simplificado.
 
@@ -164,15 +168,16 @@ Material de apoio é exceção: Inter 16 / 28, largura máxima de 68 caracteres.
 
 ```
 Espaço    4  8  12  16  24  32  48
-Raio      none 0    controle e cartão 2    modal 4
+Raio      none 0    controle 6    cartão 10    modal 14
           A barra de progresso é retangular, raio 0. É um medidor, não uma pílula.
-          Nada no sistema usa pill.
+          Selos de estado usam raio de controle, nunca raio 999.
 Borda     1px, sempre. Sem borda de 2px, exceto a marca de foco da Competência.
 Elevação  Sem sombra. Hierarquia por superfície: page, surface, raised.
+Vidro     `glass-fill` + `glass-border` e blur 14 apenas quando a transparência ajuda a separar conteúdo do grid.
 Foco      Anel de 2px em --selo-text com deslocamento de 2px.
 ```
 
-O raio duro é a decisão de marca mais visível depois da cor. É o que separa isto de um template. Não relaxar para 8 ou 12 no meio do caminho.
+O arredondamento é contido: suaviza formulários e cartões sem produzir a estética de cartões inflados. Controles, cartões e modais possuem raios diferentes; não aplicar um único raio a toda a interface.
 
 ### 3.6 Breakpoints e shell
 
@@ -604,9 +609,9 @@ Requisito explícito nos PRDs de Identity, Learning, Intelligence e Gamification
 - Carregamento, erro, sucesso e recuperação **compreensíveis por tecnologia assistiva**
 - As etapas do lote precisam anunciar de forma acessível qual é a atual e quais já foram respondidas
 - O grafo de Habilidades **não pode ser a única forma** de descobrir nomes, situações ou caminhos — a visão em lista é obrigatória
-- **Contraste AA verificado, não presumido.** Todos os pares de texto da seção 3.2 foram medidos. O menor é `--jade-solid` sobre `--surface` em 5,67:1, e o menor de texto sobre preenchimento é `--on-selo` sobre `--selo-fill` em 5,19:1. Ambos passam com folga em AA
-- `--divider` fica abaixo de 3:1 de propósito e por isso **nunca** delimita um controle. Borda de campo, caixa de seleção e alvo clicável usam `--control-border`, medido em 3,77:1, acima do mínimo de 1.4.11
-- `--text-disabled` fica em 3,47:1 e por isso é **exclusivo de estado desabilitado**. Nenhum texto informativo pode usá-lo
+- **Contraste AA verificado, não presumido.** Todos os pares de texto da seção 3.2 foram medidos. O menor par de texto ativo é `--on-selo` sobre `--selo-fill` em 4,68:1; `--jade-solid` sobre `--surface` mede 6,30:1. Ambos passam em AA para texto normal
+- `--divider`, `--glass-border` e `--grid-line` ficam abaixo de 3:1 de propósito e por isso **nunca** delimitam um controle. Borda de campo, caixa de seleção e alvo clicável usam `--control-border`, medido em 3,01:1 contra `--raised`, acima do mínimo de 1.4.11
+- `--text-disabled` fica em 3,20:1 e por isso é **exclusivo de estado desabilitado**. Nenhum texto informativo pode usá-lo
 - Alvo de toque mínimo de 44px no mobile
 
 ---

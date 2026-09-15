@@ -1,24 +1,29 @@
 ---
 name: create-chore-ticket
-description: Create a Shifu Jira Logical Task for non-code technical or operational work.
+description: Create a Shifu Jira Logical Task for technical, maintenance, or operational work outside the scope of a canonical PRD, including code changes when they do not implement product requirements.
 ---
 
 # Create a Jira chore ticket
 
 Use Atlassian Shifu MCP only when ticket creation is explicit. In the Shifu
-Jira project, create a `Logical Task` for work that does not involve writing
-application code directly. A Logical Task is not a product-requirements,
-PRD, or business-rules ticket.
+Jira project, create a `Logical Task` for technical, maintenance, or operational
+work that is not governed by a canonical PRD. The work may include application
+code, but it must not implement or change product requirements, user journeys,
+permissions, validation, or business rules owned by a PRD.
 
 ## Duplicate and scope checks
 
-1. Describe the concrete non-code outcome: for example, a prototype, a
-   technical design decision, a CI/CD or environment configuration, or
-   technical documentation.
-2. Search Jira for an existing or equivalent `SHIFU` Logical Task before
+1. Describe the concrete technical or operational outcome: for example, shared
+   UI infrastructure, a prototype, a technical design decision, a CI/CD or
+   environment configuration, maintenance code, or technical documentation.
+2. Verify whether a canonical PRD governs the requested outcome. If it does,
+   stop this workflow and use `create-feat-ticket` instead. Do not use a
+   `Logical Task` to bypass product traceability merely because the work also
+   contains technical implementation.
+3. Search Jira for an existing or equivalent `SHIFU` Logical Task before
    creating anything. If a matching ticket exists, report it instead of
    creating a duplicate.
-3. Do not create a Story, Dev Task, Management Task, Epic, or child task as an
+4. Do not create a Story, Dev Task, Management Task, Epic, or child task as an
    implicit side effect.
 
 ## Grilling protocol
@@ -76,7 +81,7 @@ Descreva o que precisa ser produzido ou decidido.
 ## 📦 Entregável Esperado
 
 Descreva o resultado verificável e onde ele será registrado
-(por exemplo, Figma, wiki, ADR ou arquivo de configuração versionado).
+(por exemplo, código versionado, Pencil, wiki, ADR ou configuração).
 
 ## ✅ DoR Checklist
 
@@ -101,9 +106,11 @@ Set the Jira fields as follows:
   deliverable, destination, scope, dependencies, and validation evidence.
 
 Keep product intent, user-facing acceptance criteria, and business rules in
-the appropriate product artifacts. Keep implementation work that requires
-writing application code in a `Dev Task`. Keep meetings, ceremonies, and
-slides in a `Management Task`.
+the appropriate product artifacts. Use a `Dev Task` for code that implements
+or changes a PRD-scoped product requirement. A `Logical Task` may include code
+only when the outcome is not governed by a PRD and does not introduce product
+requirements or business rules. Keep meetings, ceremonies, and slides in a
+`Management Task`.
 
 After creation, read the Jira ticket back and verify its issue type,
 description, and `Requisito` value when one was supplied. Report the

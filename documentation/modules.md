@@ -1,6 +1,6 @@
 # Business Modules
 
-Shifu is divided into five cohesive business modules. Each module owns its
+Shifu is divided into six cohesive business modules. Each module owns its
 domain rules, use cases, persistence adapters, application endpoints, and
 user-facing experience. Modules exchange identifiers, explicit contracts, and
 business events; they must not import another module's internal entities,
@@ -34,7 +34,37 @@ Identity does not own social login, e-mail changes, two-factor authentication,
 roles, advanced device management, or temporary account deactivation in the
 MVP.
 
+Identity decides when account communications are required, whether the user is
+eligible to receive them, and owns the tokens, validity periods, resend limits,
+and account-state changes involved. Communication owns composition and delivery
+of the resulting transactional messages.
+
 Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDyB) · Origin: [Google Doc](https://docs.google.com/document/d/1kjAyA7kWU4i9PDEYf7jMuNgyoVVzWrnO0H0-UYa4GN0/edit)
+
+## Communication
+
+Communication owns reliable delivery of transactional messages requested by
+authorized Shifu modules. The MVP supports e-mail for Identity's account
+confirmation and password-recovery journeys. It is responsible for:
+
+- the controlled catalog and pt-BR composition of transactional messages;
+- asynchronous delivery, retry behavior, and idempotent processing;
+- delivery-state tracking, permanent-failure reporting, and operational
+  metadata; and
+- protecting message data and removing active account associations after
+  account deletion.
+
+The requesting module remains authoritative for why and when a communication
+exists, recipient eligibility, business cooldowns, tokens, link validity, and
+the domain state changed by the journey. It supplies the recipient and the
+minimum typed data required; Communication does not inspect another module's
+internal entities to discover them.
+
+SMS, push notifications, in-product notifications, marketing communication,
+user communication preferences, visible message history, arbitrary content,
+public sending endpoints, and localization beyond pt-BR are outside the MVP.
+
+Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/86114306/Shifu+PRD+Communication)
 
 ## Curriculum
 
@@ -146,6 +176,10 @@ The product dependencies are:
 - Identity → Learning: trusted user identity and account status.
 - Identity → Intelligence: user identity and account status.
 - Identity → Gamification: user identity, account status, and time zone.
+- Identity → Communication: eligible transactional-message requests,
+  recipient, message type, and minimum required data.
+- Communication → Identity: known delivery status, permanent failures, and
+  rejections for account-confirmation and password-recovery messages.
 - Curriculum → Learning: Habilidades, Competências, materials, Atividades,
   and evaluation rules.
 - Curriculum → Intelligence: Habilidades and relationships for the Planner,
@@ -164,6 +198,7 @@ for official content, and Gamification remains motivational only.
 
 All modules that own user data participate in the Identity account-deletion
 flow. Their data must become inaccessible before Identity reports the account
-deletion as complete.
+deletion as complete. Communication removes active account associations and
+retains only the minimum operational metadata allowed by its product contract.
 
 The complete source set is available in the [Shifu PRD folder](https://drive.google.com/drive/folders/1AuEjLUrJSIl-1YS-1CKuDXzHD5qze0tq).
