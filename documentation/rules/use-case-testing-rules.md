@@ -4,8 +4,13 @@ description: Pytest unit-testing rules for Python core use cases and domain fake
 
 # Use Case Testing Rules
 
-These rules apply to use cases under `apps/server/src/shifu/<module>/core/use_cases`
-and their tests under `apps/server/tests/core/<module>/use_cases`.
+These rules apply to unit tests under `apps/server/tests/core`. Only use cases receive
+dedicated unit tests, placed under `apps/server/tests/core/<module>/use_cases`.
+
+Do not create dedicated unit tests for domain entities, structures, enums, errors,
+events, decorators, interfaces, repositories, providers, fakers, or adapters. Exercise
+those declarations through the use cases that consume them; use strict static typing,
+architecture checks, and adapter-level integration tests for their other boundaries.
 
 ## One test module per use case
 

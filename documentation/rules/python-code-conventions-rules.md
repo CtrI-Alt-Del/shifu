@@ -31,7 +31,12 @@ those project commands instead of maintaining parallel flag lists.
 
 Use one primary public class per module and name the file after it in `snake_case`.
 Small private dataclasses or helpers used only by that class may remain in the same
-module.
+module. A tightly coupled immutable companion contract may remain beside its primary
+Protocol when it exists only to define that Protocol's input, output, or yielded
+context; export both from the same module rather than creating a one-class file with
+no independent responsibility. A public domain event and its public immutable payload
+are the other deliberate exception: declare and export that pair from the same
+`*_event.py` module.
 
 ## Type all boundaries
 

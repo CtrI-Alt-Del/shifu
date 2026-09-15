@@ -19,6 +19,7 @@ Web — TanStack Start / React
    ↓
 Server — FastAPI
    ├── Identity
+   ├── Communication
    ├── Curriculum
    ├── Learning
    ├── Intelligence
@@ -91,6 +92,7 @@ shifu/
 │               ├── composition/
 │               ├── shared/
 │               ├── identity/
+│               ├── communication/
 │               ├── curriculum/
 │               ├── learning/
 │               ├── intelligence/
@@ -358,6 +360,7 @@ registers every module router. Each module may evolve through the following laye
 │   ├── domain/
 │   │   ├── entities/
 │   │   ├── structures/
+│   │   ├── enums/
 │   │   ├── errors/
 │   │   └── events/
 │   ├── interfaces/
@@ -380,6 +383,11 @@ registers every module router. Each module may evolve through the following laye
 The module core does not depend on FastAPI, SQLAlchemy, Inngest, or other adapters.
 Controllers translate HTTP transport into use-case calls. Repositories, brokers, and
 providers implement interfaces defined by the core or by explicit shared contracts.
+
+Module use cases obtain their module-owned repository group from a database transaction
+context manager. That context manager is the sole transaction owner for its execution
+path; request middleware must not also manage the same transaction. Concrete adapters
+later prove commit, rollback, and close behavior through integration tests.
 
 ### Agentic workflow composition
 
@@ -434,9 +442,10 @@ use cases, persistence, endpoints, and user experience.
   Learning or Gamification state.
 - **Shared**: reusable technical infrastructure without business rules.
 
-Modules exchange identifiers, explicit contracts, and business events. A module must
-not import another module's internal entities, database models, repositories, or
-implementation details.
+Business modules do not import one another. They exchange identifiers, stable Shared
+contracts, and business events through application composition and adapters. Shared
+contains `AuthenticationProvider` and immutable `AuthenticatedUser`; Identity supplies
+the implementation while protected modules depend only on that Shared contract.
 
 ### Business dependencies
 

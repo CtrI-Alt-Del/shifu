@@ -47,7 +47,7 @@ Dependency factories belong in the owning module's `pipes` package or in
 
 - obtain a request-scoped SQLAlchemy session or Inngest client;
 - construct a concrete adapter behind a core `Protocol`;
-- validate authentication and return a trusted identity;
+- invoke the shared `AuthenticationProvider` and return `AuthenticatedUser`;
 - load and authorize a resource reused by several controllers;
 - construct an AI workflow or external provider.
 
@@ -57,10 +57,10 @@ return types are core interfaces or domain values whenever possible.
 Pipes are application wiring. They may perform authentication and reusable resource
 authorization, but must not become a general home for use-case business logic.
 
-## Middleware owns request-wide lifecycle
+## Request-wide lifecycle has one owner
 
-Middleware may manage technical concerns that must wrap the complete request. A
-request-scoped SQLAlchemy middleware:
+Middleware may manage technical concerns that must wrap the complete request. When a
+request-scoped SQLAlchemy middleware is selected as the transaction owner, it:
 
 1. creates the session;
 2. places it on `request.state`;
@@ -71,6 +71,12 @@ request-scoped SQLAlchemy middleware:
 
 Do not create or close the request session inside each repository or controller.
 Middleware must not swallow domain exceptions or serialize application errors.
+
+A module may instead expose a database context manager as the sole transaction owner
+for an operation. In that model, application composition provides the database port,
+the use case enters the context manager, and no middleware creates, commits, rolls
+back, or closes the same transaction. Never combine the two ownership models in one
+execution path.
 
 ## Lifecycles are explicit
 
