@@ -1,0 +1,4 @@
+from .communication_channel import CommunicationChannel as CommunicationChannel
+from .communication_status import CommunicationStatus as CommunicationStatus
+from .communication_type import CommunicationType as CommunicationType
+from .delivery_attempt_status import DeliveryAttemptStatus as DeliveryAttemptStatus
