@@ -138,7 +138,7 @@ Default endpoints are:
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
 | SonarQube | `http://localhost:19000` |
-| Web application | `http://localhost:6000` |
+| Web application | `http://localhost:7000` |
 | FastAPI application | `http://localhost:9000` |
 
 Stop containers without deleting named volumes:
@@ -168,7 +168,7 @@ It is never run during FastAPI startup.
 Set each application port in its ignored app-local `.env.local` file:
 
 ```dotenv filename="apps/web/.env.local"
-SHIFU_WEB_APP_PORT=6000
+SHIFU_WEB_APP_PORT=7000
 VITE_SHIFU_SERVER_URL=http://localhost:9000
 ```
 
@@ -185,7 +185,7 @@ Start the web application from the repository root:
 pnpm --filter web dev
 ```
 
-The web port is `6000` by default and can be changed with `SHIFU_WEB_APP_PORT`.
+The web port is `7000` by default and can be changed with `SHIFU_WEB_APP_PORT`.
 Regenerate TanStack route metadata when route files change:
 
 ```bash
