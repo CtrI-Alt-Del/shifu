@@ -9,6 +9,39 @@ integration tests under `apps/web/tests`. They define which UI boundaries receiv
 tests, how those tests are named, how dependencies are mocked, and the minimum
 evidence required before a widget is considered covered.
 
+## Browser integration suites follow module ownership
+
+Playwright integration tests cover routed pages and layouts through the real
+application composition. Organize them under `apps/web/tests/<module>/`, where
+`<module>` is the module that owns the page or the shared boundary:
+
+```text
+apps/web/tests/
+├── identity/
+│   └── account-page.test.ts
+└── shared/
+    └── app-layout.test.ts
+```
+
+Feature page suites belong under their owning business module, such as
+`tests/identity/account-page.test.ts`. Shared application shells and layouts
+belong under `tests/shared`, such as `tests/shared/app-layout.test.ts`. Do not
+place these suites in a generic `tests/integration/` directory, in a flat test
+directory, or under a module that does not own the route or layout.
+
+The Playwright configuration must scan `./tests` so every module directory is
+discovered. Browser integration files use `.test.ts` or `.test.tsx`, matching the
+repository-wide test naming convention. Their Playwright ownership is determined
+by their location under `apps/web/tests`, while colocated Vitest widget and hook
+tests remain under the owning widget's `tests/` directory.
+
+Each page or layout integration suite must exercise the actual route and assert
+the user-visible boundary it owns. For navigation and responsive layout flows,
+assert the final URL, visible destination content, active accessibility state,
+and the relevant keyboard or pointer interaction. Do not replace the owning
+widget's colocated Vitest tests with a browser suite, and do not count a test that
+only renders a mocked component or intercepts a request as route integration.
+
 ## Test public behavior at the owning widget boundary
 
 Tests exercise the smallest public widget or layout that owns a user-visible
@@ -133,14 +166,16 @@ hook implementation. Passing the test-integrity ownership check does not waive
 this directory-placement rule; ownership and test placement are separate
 requirements.
 
-Do not place widget tests in a parent page's `tests/` directory, a feature-level
-`tests/` directory, or a generic shared test folder. If a nested widget warrants
-its own test, place it in that nested widget's `tests/` directory. Tests for a
-widget's own behavior hook use the same directory. Query/action hooks do not
-receive test files.
+Do not place Vitest widget tests in a parent page's `tests/` directory, a
+feature-level test directory, or a generic shared test folder. If a nested widget
+warrants its own test, place it in that nested widget's `tests/` directory. Tests
+for a widget's own behavior hook use the same directory. Query/action hooks do
+not receive test files.
 
 Use `.test.tsx` for React component tests and `.test.ts` for hook or non-React
-tests. Do not use `.spec.ts` or `.spec.tsx`.
+Vitest tests. Playwright browser integration tests use the same `.test.ts` or
+`.test.tsx` convention and are identified by their module-owned location under
+`apps/web/tests`.
 
 All `describe` labels and test-case descriptions are written in English. Use the
 exported widget or hook name for the top-level `describe`:

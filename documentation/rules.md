@@ -43,12 +43,12 @@ and surface the discrepancy before silently copying the implementation.
 
 | Rule | Read when | Common path signals |
 | --- | --- | --- |
-| [`code-conventions-rules.md`](rules/code-conventions-rules.md) | Creating, changing, or reviewing TypeScript/JavaScript source and tooling. | `apps/web/**`, `packages/**/*.ts`, repository TypeScript tooling |
-| [`python-code-conventions-rules.md`](rules/python-code-conventions-rules.md) | Creating, changing, or reviewing Python source, tests, typing, imports, naming, or Python tooling. | `apps/server/**/*.py`, `apps/server/pyproject.toml`, `apps/server/tests/**` |
+| [`typescript-conventions-rules.md`](rules/typescript-conventions-rules.md) | Creating, changing, or reviewing TypeScript/JavaScript source and tooling. | `apps/web/**`, `packages/**/*.ts`, repository TypeScript tooling |
+| [`python-conventions-rules.md`](rules/python-conventions-rules.md) | Creating, changing, or reviewing Python source, tests, typing, imports, naming, or Python tooling. | `apps/server/**/*.py`, `apps/server/pyproject.toml`, `apps/server/tests/**` |
 | [`ui-layer-rules.md`](rules/ui-layer-rules.md) | Creating or changing web UI, widgets, layouts, hooks, contexts, browser environment values, or web REST adapters. | `apps/web/src/ui/**`, `apps/web/src/constants/**`, `apps/web/src/rest/**` |
 | [`web-app-routing-rules.md`](rules/web-app-routing-rules.md) | Creating or changing TanStack routes, route constants, middleware, search validation, or generated route metadata. | `apps/web/src/routes/**`, `apps/web/src/constants/routes.ts`, `apps/web/src/routeTree.gen.ts` |
 | [`widget-testing-rules.md`](rules/widget-testing-rules.md) | Creating or changing React widget, layout, hook, page, navigation, or browser tests. | `apps/web/src/**/*.test.ts`, `apps/web/src/**/*.test.tsx`, `apps/web/tests/**` |
-| [`core-package-rules.md`](rules/core-package-rules.md) | Changing Python domain entities, structures, errors, events, interfaces, use cases, or module boundaries. | `apps/server/src/shifu/**/core/**` |
+| [`core-layer-rules.md`](rules/core-layer-rules.md) | Changing Python domain entities, structures, errors, events, interfaces, use cases, or module boundaries. | `apps/server/src/shifu/**/core/**` |
 | [`email-package-rules.md`](rules/email-package-rules.md) | Creating, changing, exporting, or consuming the standalone Communication-owned React Email package, templates, or HTML render helpers. | `packages/email/**`, `@scoops/email/templates` |
 | [`validation-package-rules.md`](rules/validation-package-rules.md) | Creating or consuming reusable web Zod schemas. Backend HTTP schemas follow the REST rules instead. | `packages/validation/**`, web Zod schemas |
 | [`use-case-testing-rules.md`](rules/use-case-testing-rules.md) | Creating or changing Python core use cases, unit tests, domain fakers, or mocked ports. | `apps/server/src/shifu/**/core/use_cases/**`, `apps/server/tests/core/**` |

@@ -83,6 +83,33 @@ state, effects, refs, form behavior, derived state, or event logic. Nested widge
 follow the same rule and receive their own directory, `index.tsx`, and hook when
 they own behavior.
 
+### One widget per entrypoint
+
+Each widget directory has exactly one widget entrypoint in `index.tsx`. Do not
+define multiple widgets, local component declarations, or unrelated exported
+components in the same entrypoint. `index.tsx` may declare the widget's exported
+props type and render its composition, but every additional visual or interactive
+boundary must be promoted to an internal widget with its own directory and
+`index.tsx`:
+
+```text
+app-layout/
+├── index.tsx
+├── use-app-layout.ts
+├── desktop-header/
+│   └── index.tsx
+├── mobile-header/
+│   ├── index.tsx
+│   └── use-mobile-header.ts
+└── navigation/
+    └── index.tsx
+```
+
+An internal widget remains owned by its parent layout or page; the internal
+boundary does not make it a public shared widget. Import internal widgets from
+the parent entrypoint and keep each widget's props contract explicit. Do not
+create a second widget in the parent's file merely because it is used once.
+
 ## UI implementation conventions
 
 ### Prefer shadcn components for UI elements
@@ -119,7 +146,7 @@ handlers, URLs and services.
 
 ### Shared code conventions
 
-Apply [`code-conventions-rules.md`](code-conventions-rules.md) for function
+Apply [`typescript-conventions-rules.md`](typescript-conventions-rules.md) for function
 declarations, naming, handler prefixes, and the order of values and functions in
 hook-result destructuring. The UI-specific rules below refine those shared
 conventions where necessary.

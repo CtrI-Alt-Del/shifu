@@ -89,7 +89,7 @@ Repository methods describe persistence capabilities:
 - `find_many_*` returns a typed collection or pagination structure;
 - `add` inserts one domain object;
 - `add_many` inserts a collection in one efficient operation where supported;
-- `replace` updates an existing domain object;
+- `update` updates an existing domain object;
 - `remove` deletes one record;
 - `remove_all` is reserved for explicit test or seed maintenance.
 

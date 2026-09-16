@@ -9,7 +9,7 @@ consistent, readable, and maintainable by everyone on the project.
 
 These conventions apply to TypeScript and JavaScript source code in `apps/web/`, future
 TypeScript packages, and repository tooling unless a more specific rule refines them.
-Python code follows [`python-code-conventions-rules.md`](python-code-conventions-rules.md).
+Python code follows [`python-conventions-rules.md`](python-conventions-rules.md).
 
 ## Language
 
