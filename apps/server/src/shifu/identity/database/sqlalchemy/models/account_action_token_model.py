@@ -3,10 +3,10 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class AccountActionTokenModel(Base):
+class AccountActionTokenModel(Model):
     __tablename__ = 'identity_account_action_tokens'
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)

@@ -1,10 +1,10 @@
 from sqlalchemy import ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class ActivityModel(Base):
+class ActivityModel(Model):
     __tablename__ = 'curriculum_activities'
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)

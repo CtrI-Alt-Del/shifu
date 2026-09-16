@@ -7,7 +7,7 @@ from shifu.communication.database.sqlalchemy import models as communication_mode
 from shifu.curriculum.database.sqlalchemy import models as curriculum_models
 from shifu.identity.database.sqlalchemy import models as identity_models
 from shifu.learning.database.sqlalchemy import models as learning_models
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 from shifu.shared.database.sqlalchemy.settings import DatabaseSettings
 
 
@@ -22,7 +22,7 @@ _MODEL_MODULES = (
 if context.config.config_file_name is not None:
     fileConfig(context.config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = Model.metadata
 
 
 def run_migrations_offline() -> None:

@@ -1,10 +1,10 @@
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class SkillFoundationModel(Base):
+class SkillFoundationModel(Model):
     __tablename__ = 'curriculum_skill_foundations'
 
     skill_id: Mapped[str] = mapped_column(

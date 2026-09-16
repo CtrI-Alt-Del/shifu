@@ -4,10 +4,10 @@ from decimal import Decimal
 from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class ActivityEvaluationModel(Base):
+class ActivityEvaluationModel(Model):
     __tablename__ = 'learning_activity_evaluations'
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)

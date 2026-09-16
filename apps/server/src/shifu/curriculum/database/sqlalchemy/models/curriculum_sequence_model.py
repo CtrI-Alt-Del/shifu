@@ -1,10 +1,10 @@
 from sqlalchemy import ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class CurriculumSequenceModel(Base):
+class CurriculumSequenceModel(Model):
     __tablename__ = 'curriculum_sequences'
 
     competency_id: Mapped[str] = mapped_column(

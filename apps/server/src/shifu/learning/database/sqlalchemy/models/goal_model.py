@@ -3,10 +3,10 @@ from datetime import datetime
 from sqlalchemy import DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from shifu.shared.database.sqlalchemy.base import Base
+from shifu.shared.database.sqlalchemy.base import Model
 
 
-class GoalModel(Base):
+class GoalModel(Model):
     __tablename__ = 'learning_goals'
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
