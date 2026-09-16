@@ -6339,15 +6339,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "RxHwM",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "snTKR",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "c6naeE",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -8878,15 +8911,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "BIfFg",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 2",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 2",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "OAB12",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "x7SW6P",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -37119,15 +37185,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "I4fr4",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 1",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 1",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "CwvoV",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "wsGPk",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -40662,50 +40761,6 @@
     },
     {
       "type": "frame",
-      "id": "bMn7g",
-      "x": 0,
-      "y": 7891,
-      "name": "V2/FAB/Mentor",
-      "reusable": true,
-      "width": 126,
-      "height": 56,
-      "fill": "$selo-fill",
-      "cornerRadius": "$radius-pill",
-      "stroke": "$selo-text",
-      "strokeWidth": 1,
-      "strokeAlignment": "inner",
-      "gap": "$space-2",
-      "padding": [
-        0,
-        18
-      ],
-      "justifyContent": "center",
-      "alignItems": "center",
-      "children": [
-        {
-          "type": "icon",
-          "id": "QMBiv",
-          "name": "Mentor AI icon",
-          "width": 20,
-          "height": 20,
-          "icon": "sparkles",
-          "library": "lucide",
-          "fill": "$on-selo"
-        },
-        {
-          "type": "text",
-          "id": "nZEMi",
-          "name": "Mentor FAB label",
-          "fill": "$on-selo",
-          "content": "Mentor",
-          "fontFamily": "$font-ui",
-          "fontSize": 14,
-          "fontWeight": "600"
-        }
-      ]
-    },
-    {
-      "type": "frame",
       "id": "MiMJC",
       "x": 21560,
       "y": -6411,
@@ -41209,15 +41264,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "aoKqh",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "l0ttgq",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "XpMPG",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -41901,15 +41989,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "qX8XC",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "alXLs",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "kE2EZ",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -42430,15 +42551,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "tFE6u",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "OVycB",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "Bu60Q",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -42868,15 +43022,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "V25Gk",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "hrqsX",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "jd8lU",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -43253,15 +43440,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "xsdw8",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "GJayX",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "D6HGZG",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -43639,15 +43859,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "QrukG",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "emRZE",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "Wmvxy",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -44025,15 +44278,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "x1Htq",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "XlaQv",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "Nnbg2",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -44675,15 +44961,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "x16vY",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "p7lype",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "f0ZFZA",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -44986,15 +45305,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "Tt72P",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "J7hYt",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "YP7FB",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -45499,15 +45851,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "vkozC",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "nl6rB",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "a59May",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -46047,15 +46432,48 @@
           ]
         },
         {
+          "type": "frame",
           "id": "gQT4L",
-          "type": "ref",
-          "ref": "bMn7g",
-          "name": "Mentor FAB · question 3",
           "layoutPosition": "absolute",
           "x": 48,
           "y": 762,
+          "name": "Mentor FAB · question 3",
           "width": 126,
-          "height": 56
+          "height": 56,
+          "fill": "$selo-fill",
+          "cornerRadius": "$radius-pill",
+          "stroke": "$selo-text",
+          "strokeWidth": 1,
+          "strokeAlignment": "inner",
+          "gap": "$space-2",
+          "padding": [
+            0,
+            18
+          ],
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "icon",
+              "id": "A0cmuP",
+              "name": "Mentor AI icon",
+              "width": 20,
+              "height": 20,
+              "icon": "sparkles",
+              "library": "lucide",
+              "fill": "$on-selo"
+            },
+            {
+              "type": "text",
+              "id": "E9aC1X",
+              "name": "Mentor FAB label",
+              "fill": "$on-selo",
+              "content": "Mentor",
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "600"
+            }
+          ]
         }
       ]
     },
@@ -50302,6 +50720,50 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "ycX9o",
+      "x": 1877,
+      "y": 991,
+      "name": "V2/FAB/Mentor",
+      "reusable": true,
+      "width": 126,
+      "height": 56,
+      "fill": "$selo-fill",
+      "cornerRadius": "$radius-pill",
+      "stroke": "$selo-text",
+      "strokeWidth": 1,
+      "strokeAlignment": "inner",
+      "gap": "$space",
+      "padding": [
+        0,
+        18
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "kTTMb",
+          "name": "Mentor AI icon",
+          "width": 20,
+          "height": 20,
+          "icon": "sparkles",
+          "library": "lucide",
+          "fill": "$on-selo"
+        },
+        {
+          "type": "text",
+          "id": "GEAuN",
+          "name": "Mentor FAB label",
+          "fill": "$on-selo",
+          "content": "Mentor",
+          "fontFamily": "$font-ui",
+          "fontSize": 14,
+          "fontWeight": "600"
+        }
+      ]
     }
   ],
   "variables": {
@@ -50588,6 +51050,10 @@
     "surface-alt": {
       "type": "color",
       "value": "#1D1E22"
+    },
+    "space": {
+      "type": "number",
+      "value": 8
     }
   },
   "fileToken": "a160dd0d-d04d-4dbf-ad93-f61539ec8580"
