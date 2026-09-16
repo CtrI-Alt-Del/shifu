@@ -28,13 +28,16 @@ coordination uses public contracts, identifiers, and events.
 
 ## Sessions define transaction boundaries
 
-Create the engine and `sessionmaker` once in shared database infrastructure. A request
-receives one SQLAlchemy `Session`, made available through `request.state` and dependency
-pipes. All repositories resolved for that request use the same session.
+Create the engine and `sessionmaker` once in shared database infrastructure. Every
+execution path has exactly one transaction owner and all repositories participating in
+that operation use the same SQLAlchemy `Session`.
 
-Request middleware commits only after a successful handler, rolls back escaped
-exceptions, and always closes the session. Non-HTTP operations use a context manager
-with the same commit/rollback/close guarantees.
+A module database context manager may own the operation boundary for HTTP and non-HTTP
+use cases: it creates the shared-session repository group, commits only on normal exit,
+rolls back escaped exceptions, and always closes the session. Alternatively, an HTTP
+application may select request middleware as that sole owner and make one session
+available through `request.state` and dependency pipes. Never combine both ownership
+models in one execution path or allow both middleware and a use case to commit.
 
 Repositories do not call `commit`. Use cases do not receive the session. A job may use
 an explicit session context per durable step and commit at the step boundary when that
@@ -128,8 +131,9 @@ Never embed production credentials or real user data in seeders.
 
 Use-case unit tests mock repository protocols. Controller and job integration tests
 exercise concrete SQLAlchemy repositories against PostgreSQL. Add a repository-focused
-test only for complex persistence semantics that cannot be observed clearly through an
-application boundary, such as a concurrency primitive or database-specific query.
+integration test outside `apps/server/tests/core` only for complex persistence
+semantics that cannot be observed clearly through an application boundary, such as a
+concurrency primitive or database-specific query.
 
 Integration fixtures isolate tests, clean tables in reverse dependency order, and do
 not leak sessions or containers.

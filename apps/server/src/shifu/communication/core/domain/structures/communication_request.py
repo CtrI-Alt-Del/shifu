@@ -1,0 +1,17 @@
+from shifu.communication.core.domain.enums import (
+    CommunicationChannel,
+    CommunicationType,
+)
+from shifu.communication.core.domain.structures.message_content import MessageContent
+from shifu.shared.core.domain.structures import structure
+
+
+@structure
+class CommunicationRequest:
+    account_id: str | None
+    type: CommunicationType
+    channel: CommunicationChannel
+    recipient_email: str
+    recipient_name: str | None
+    content: MessageContent
+    idempotency_key: str

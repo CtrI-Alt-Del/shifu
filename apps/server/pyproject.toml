@@ -3,7 +3,12 @@ name = "shifu"
 version = "1.38.1"
 description = "Add your description here"
 requires-python = ">=3.13"
-dependencies = ["fastapi[standard]>=0.128.7"]
+dependencies = [
+    "faker>=40.39.0",
+    "fastapi[standard]>=0.128.7",
+    "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
+]
 
 [dependency-groups]
 dev = [
@@ -50,7 +55,7 @@ cmd = "uv run python -c \"from animus.database.sqlalchemy.seed import seed; seed
 cmd = "pytest -s -x -vv"
 
 [tool.poe.tasks."test:unit"]
-shell = "if find tests/core -path '*/use_cases/test_*.py' -print -quit | grep -q .; then pytest tests/core; else echo 'No use-case unit tests found'; fi"
+shell = "if find tests/core -path '*/use_cases/test_*.py' -print -quit | grep -q .; then find tests/core -path '*/use_cases/test_*.py' -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
 
 [tool.poe.tasks."test:integration"]
 cmd = "pytest tests/rest"
