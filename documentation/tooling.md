@@ -105,10 +105,10 @@ Important local variables include:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SHIFU_POSTGRES_PORT` | `54322` | PostgreSQL host port |
-| `SHIFU_INNGEST_PORT` | `18288` | Inngest UI/API host port |
-| `SHIFU_SONAR_PORT` | `19000` | SonarQube web/API host port |
-| `SHIFU_MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
+| `POSTGRES_PORT` | `54344` | PostgreSQL host port |
+| `INNGEST_PORT` | `18288` | Inngest UI/API host port |
+| `SONAR_PORT` | `19000` | SonarQube web/API host port |
+| `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
 
 Only browser-safe variables may be exposed through `VITE_` variables.
 
@@ -133,7 +133,7 @@ Default endpoints are:
 
 | Service | URL or address |
 | --- | --- |
-| PostgreSQL | `postgresql://shifu:change-me@localhost:54322/shifu` |
+| PostgreSQL | `postgresql://shifu:change-me@localhost:54344/shifu` |
 | Inngest | `http://localhost:18288` |
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
@@ -149,9 +149,19 @@ docker compose down
 
 Do not delete Docker volumes or reset local databases unless explicitly requested.
 
-The repository currently has no registered Inngest application functions or complete
-database migration workflow. The Compose services may be available for future work,
-but their presence does not mean an application integration is implemented.
+The repository currently has no registered Inngest application functions. The server
+database has an Alembic migration workflow and an explicit local seed command;
+the Compose services may still be unavailable even when those commands are defined.
+
+From `apps/server`, configure `DATABASE_URL` and run:
+
+```bash
+uv run poe db:upgrade
+uv run poe db:seed
+```
+
+`db:seed` is destructive for the application tables and is guarded to `local` mode.
+It is never run during FastAPI startup.
 
 ## Running the applications
 

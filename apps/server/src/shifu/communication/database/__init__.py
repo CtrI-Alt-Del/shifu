@@ -1,0 +1,1 @@
+from .communication_seeder import CommunicationSeeder as CommunicationSeeder

@@ -7,11 +7,11 @@ services:
     pull_policy: missing
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${SHIFU_POSTGRES_DB:-shifu}
-      POSTGRES_USER: ${SHIFU_POSTGRES_USER:-shifu}
-      POSTGRES_PASSWORD: ${SHIFU_POSTGRES_PASSWORD:-shifu-local}
+      POSTGRES_DB: ${POSTGRES_DB:-shifu}
+      POSTGRES_USER: ${POSTGRES_USER:-shifu}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shifu-local}
     ports:
-      - "${SHIFU_POSTGRES_PORT:-54322}:5432"
+      - "${POSTGRES_PORT:-54344}:5432"
     volumes:
       - shifu-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -39,8 +39,8 @@ services:
       - --no-discovery
       - --persist
     ports:
-      - "${SHIFU_INNGEST_PORT:-18288}:8288"
-      - "${SHIFU_INNGEST_GATEWAY_PORT:-18289}:8289"
+      - "${INNGEST_PORT:-18288}:8288"
+      - "${INNGEST_GATEWAY_PORT:-18289}:8289"
     volumes:
       - shifu-inngest-data:/var/lib/inngest
 
@@ -51,8 +51,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: sonarqube
-      POSTGRES_USER: ${SHIFU_SONAR_DB_USER:-sonarqube}
-      POSTGRES_PASSWORD: ${SHIFU_SONAR_DB_PASSWORD:-sonarqube-local}
+      POSTGRES_USER: ${SONAR_DB_USER:-sonarqube}
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:-sonarqube-local}
     volumes:
       - shifu-sonarqube-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -69,11 +69,11 @@ services:
     restart: unless-stopped
     environment:
       SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonarqube
-      SONAR_JDBC_USERNAME: ${SHIFU_SONAR_DB_USER:-sonarqube}
-      SONAR_JDBC_PASSWORD: ${SHIFU_SONAR_DB_PASSWORD:-sonarqube-local}
+      SONAR_JDBC_USERNAME: ${SONAR_DB_USER:-sonarqube}
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:-sonarqube-local}
       SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
     ports:
-      - "${SHIFU_SONAR_PORT:-19000}:9000"
+      - "${SONAR_PORT:-19000}:9000"
     volumes:
       - shifu-sonarqube-data:/opt/sonarqube/data
       - shifu-sonarqube-extensions:/opt/sonarqube/extensions
@@ -93,8 +93,8 @@ services:
     pull_policy: missing
     restart: unless-stopped
     ports:
-      - "${SHIFU_MAILPIT_SMTP_PORT:-1026}:1025"
-      - "${SHIFU_MAILPIT_UI_PORT:-54326}:8025"
+      - "${MAILPIT_SMTP_PORT:-1026}:1025"
+      - "${MAILPIT_UI_PORT:-54326}:8025"
 
 volumes:
   shifu-postgres-data:

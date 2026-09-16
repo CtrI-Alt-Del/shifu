@@ -79,6 +79,9 @@ core interface.
 
 Concrete classes use names such as `SqlalchemyObjectivesRepository` and implement the
 owning core `Protocol`. Inject the session through the constructor and keep it private.
+Each concrete repository class has its own `<entity>_repository.py` module; do not
+combine multiple repository classes in a shared `repositories.py` file. The package
+`__init__.py` may re-export the canonical repository classes for composition imports.
 
 Repository methods describe persistence capabilities:
 
@@ -122,7 +125,7 @@ write through repositories. They do not duplicate SQLAlchemy insert statements.
 
 A shared seed entrypoint coordinates module seeders in dependency order and uses one
 explicit session boundary. Seeding is an explicit command, never application startup.
-Destructive reset is allowed only in approved local/test environments and must be
+Destructive reset is allowed only in the approved `local` environment and must be
 guarded before deleting data.
 
 Never embed production credentials or real user data in seeders.

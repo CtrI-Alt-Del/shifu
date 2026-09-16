@@ -4,8 +4,11 @@ version = "1.38.1"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.16",
     "faker>=40.39.0",
     "fastapi[standard]>=0.128.7",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy>=2.0",
 ]
 
 [dependency-groups]
@@ -47,7 +50,7 @@ cmd = "alembic stamp head"
 cmd = "alembic current"
 
 [tool.poe.tasks."db:seed"]
-cmd = "uv run python -c \"from animus.database.sqlalchemy.seed import seed; seed()\""
+cmd = "uv run --env-file .env.local python -m shifu.composition.seed"
 
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"
