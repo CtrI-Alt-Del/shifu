@@ -62,7 +62,7 @@ class SqlalchemyCommunicationsRepository:
         )
         self._session.flush()
 
-    def replace(self, communication: Communication) -> None:
+    def update(self, communication: Communication) -> None:
         self._session.merge(CommunicationMapper.to_model(communication))
 
     def remove_all(self) -> None:

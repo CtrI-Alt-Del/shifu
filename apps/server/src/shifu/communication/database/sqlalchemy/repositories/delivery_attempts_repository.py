@@ -32,7 +32,7 @@ class SqlalchemyDeliveryAttemptsRepository:
         )
         self._session.flush()
 
-    def replace(self, attempt: DeliveryAttempt) -> None:
+    def update(self, attempt: DeliveryAttempt) -> None:
         self._session.merge(DeliveryAttemptMapper.to_model(attempt))
 
     def remove_all(self) -> None:

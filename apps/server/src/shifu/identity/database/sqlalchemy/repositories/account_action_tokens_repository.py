@@ -48,7 +48,7 @@ class SqlalchemyAccountActionTokensRepository:
         )
         self._session.flush()
 
-    def replace(self, token: AccountActionToken) -> None:
+    def update(self, token: AccountActionToken) -> None:
         self._session.merge(AccountActionTokenMapper.to_model(token))
 
     def remove_all(self) -> None:

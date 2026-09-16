@@ -49,7 +49,7 @@ class SqlalchemyAccountsRepository:
         self._session.add_all([AccountMapper.to_model(account) for account in accounts])
         self._session.flush()
 
-    def replace(self, account: Account) -> None:
+    def update(self, account: Account) -> None:
         self._session.merge(AccountMapper.to_model(account))
 
     def remove_all(self) -> None:

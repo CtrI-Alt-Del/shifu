@@ -51,7 +51,7 @@ class SqlalchemySkillExperiencesRepository:
         )
         self._session.flush()
 
-    def replace(self, skill_experience: SkillExperience) -> None:
+    def update(self, skill_experience: SkillExperience) -> None:
         self._session.merge(SkillExperienceMapper.to_model(skill_experience))
 
     def remove(self, skill_experience: SkillExperience) -> None:

@@ -84,7 +84,7 @@ class SqlalchemyActivityEvaluationsRepository:
         )
         self._session.flush()
 
-    def replace(self, evaluation: ActivityEvaluation) -> None:
+    def update(self, evaluation: ActivityEvaluation) -> None:
         self._session.merge(ActivityEvaluationMapper.to_model(evaluation))
 
     def remove_all(self) -> None:

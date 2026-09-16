@@ -29,7 +29,7 @@ class SqlalchemyGoalsRepository:
         self._session.add_all([GoalMapper.to_model(goal) for goal in goals])
         self._session.flush()
 
-    def replace(self, goal: Goal) -> None:
+    def update(self, goal: Goal) -> None:
         self._session.merge(GoalMapper.to_model(goal))
 
     def remove(self, goal: Goal) -> None:

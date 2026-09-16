@@ -54,7 +54,7 @@ class SqlalchemyCompetencyProgressesRepository:
         )
         self._session.flush()
 
-    def replace(self, competency_progress: CompetencyProgress) -> None:
+    def update(self, competency_progress: CompetencyProgress) -> None:
         self._session.merge(CompetencyProgressMapper.to_model(competency_progress))
 
     def remove_all(self) -> None:
