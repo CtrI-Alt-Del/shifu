@@ -4,10 +4,7 @@ from shifu.learning.core.domain.entities import ActivityEvaluation
 from shifu.learning.core.domain.enums import ActivityEvaluationStatus
 from shifu.learning.core.domain.structures import EvaluationPartResult
 from shifu.learning.database.sqlalchemy.models import ActivityEvaluationModel
-from shifu.shared.database.sqlalchemy.serialization import (
-    deserialize_value,
-    serialize_value,
-)
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class ActivityEvaluationMapper:
@@ -19,7 +16,9 @@ class ActivityEvaluationMapper:
             status=ActivityEvaluationStatus(model.status),
             parts=cast(
                 'tuple[EvaluationPartResult, ...]',
-                deserialize_value(model.parts, tuple[EvaluationPartResult, ...]),
+                Serialization.deserialize_value(
+                    model.parts, tuple[EvaluationPartResult, ...]
+                ),
             ),
             started_at=model.started_at,
             score=model.score,
@@ -34,7 +33,7 @@ class ActivityEvaluationMapper:
             id=evaluation.id,
             attempt_id=evaluation.attempt_id,
             status=evaluation.status.value,
-            parts=serialize_value(evaluation.parts),
+            parts=Serialization.serialize_value(evaluation.parts),
             started_at=evaluation.started_at,
             score=evaluation.score,
             failure_code=evaluation.failure_code,

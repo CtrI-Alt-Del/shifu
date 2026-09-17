@@ -8,10 +8,7 @@ from shifu.communication.core.domain.enums import (
 )
 from shifu.communication.core.domain.structures import MessageContent
 from shifu.communication.database.sqlalchemy.models import CommunicationModel
-from shifu.shared.database.sqlalchemy.serialization import (
-    deserialize_value,
-    serialize_value,
-)
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class CommunicationMapper:
@@ -26,7 +23,7 @@ class CommunicationMapper:
             recipient_name=model.recipient_name,
             content=cast(
                 'MessageContent',
-                deserialize_value(model.content, MessageContent),
+                Serialization.deserialize_value(model.content, MessageContent),
             ),
             status=CommunicationStatus(model.status),
             idempotency_key=model.idempotency_key,
@@ -49,7 +46,7 @@ class CommunicationMapper:
             channel=communication.channel.value,
             recipient_email=communication.recipient_email,
             recipient_name=communication.recipient_name,
-            content=serialize_value(communication.content),
+            content=Serialization.serialize_value(communication.content),
             status=communication.status.value,
             idempotency_key=communication.idempotency_key,
             created_at=communication.created_at,

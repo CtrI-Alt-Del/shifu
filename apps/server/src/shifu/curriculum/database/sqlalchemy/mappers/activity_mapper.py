@@ -7,10 +7,7 @@ from shifu.curriculum.core.domain.structures import (
     EvaluationRule,
 )
 from shifu.curriculum.database.sqlalchemy.models import ActivityModel
-from shifu.shared.database.sqlalchemy.serialization import (
-    deserialize_value,
-    serialize_value,
-)
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class ActivityMapper:
@@ -25,11 +22,13 @@ class ActivityMapper:
             objective=model.objective,
             questions=cast(
                 'tuple[ActivityQuestion, ...]',
-                deserialize_value(model.questions, tuple[ActivityQuestion, ...]),
+                Serialization.deserialize_value(
+                    model.questions, tuple[ActivityQuestion, ...]
+                ),
             ),
             evaluation_rule=cast(
                 'EvaluationRule',
-                deserialize_value(model.evaluation_rule, EvaluationRule),
+                Serialization.deserialize_value(model.evaluation_rule, EvaluationRule),
             ),
         )
 
@@ -42,6 +41,6 @@ class ActivityMapper:
             difficulty=activity.difficulty.value,
             title=activity.title,
             objective=activity.objective,
-            questions=serialize_value(activity.questions),
-            evaluation_rule=serialize_value(activity.evaluation_rule),
+            questions=Serialization.serialize_value(activity.questions),
+            evaluation_rule=Serialization.serialize_value(activity.evaluation_rule),
         )

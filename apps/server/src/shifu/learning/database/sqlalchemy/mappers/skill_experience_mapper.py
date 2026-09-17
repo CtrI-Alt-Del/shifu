@@ -4,10 +4,7 @@ from shifu.learning.core.domain.entities import SkillExperience
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import SkillCompletionSummary
 from shifu.learning.database.sqlalchemy.models import SkillExperienceModel
-from shifu.shared.database.sqlalchemy.serialization import (
-    deserialize_value,
-    serialize_value,
-)
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class SkillExperienceMapper:
@@ -26,7 +23,9 @@ class SkillExperienceMapper:
             completion_summary=(
                 cast(
                     'SkillCompletionSummary',
-                    deserialize_value(model.completion_summary, SkillCompletionSummary),
+                    Serialization.deserialize_value(
+                        model.completion_summary, SkillCompletionSummary
+                    ),
                 )
                 if model.completion_summary is not None
                 else None
@@ -46,7 +45,7 @@ class SkillExperienceMapper:
             started_at=experience.started_at,
             completed_at=experience.completed_at,
             completion_summary=(
-                serialize_value(experience.completion_summary)
+                Serialization.serialize_value(experience.completion_summary)
                 if experience.completion_summary is not None
                 else None
             ),

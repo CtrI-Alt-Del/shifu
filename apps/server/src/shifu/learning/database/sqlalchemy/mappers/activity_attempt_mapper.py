@@ -4,10 +4,7 @@ from shifu.learning.core.domain.entities import ActivityAttempt
 from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.learning.core.domain.structures import ActivityAnswer
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
-from shifu.shared.database.sqlalchemy.serialization import (
-    deserialize_value,
-    serialize_value,
-)
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class ActivityAttemptMapper:
@@ -21,7 +18,9 @@ class ActivityAttemptMapper:
             kind=ActivityAttemptKind(model.kind),
             answers=cast(
                 'tuple[ActivityAnswer, ...]',
-                deserialize_value(model.answers, tuple[ActivityAnswer, ...]),
+                Serialization.deserialize_value(
+                    model.answers, tuple[ActivityAnswer, ...]
+                ),
             ),
             submitted_at=model.submitted_at,
         )
@@ -34,6 +33,6 @@ class ActivityAttemptMapper:
             competency_id=attempt.competency_id,
             activity_id=attempt.activity_id,
             kind=attempt.kind.value,
-            answers=serialize_value(attempt.answers),
+            answers=Serialization.serialize_value(attempt.answers),
             submitted_at=attempt.submitted_at,
         )
