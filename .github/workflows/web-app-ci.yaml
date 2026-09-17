@@ -78,7 +78,8 @@ jobs:
       - name: Start FastAPI
         working-directory: apps/server
         run: |
-          nohup uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port 7777 +            > "$RUNNER_TEMP/shifu-fastapi.log" 2>&1 &
+          nohup uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port 7777 \
+            > "$RUNNER_TEMP/shifu-fastapi.log" 2>&1 &
           curl --fail --retry 30 --retry-delay 2 http://127.0.0.1:7777/health
 
       - name: Set up pnpm
