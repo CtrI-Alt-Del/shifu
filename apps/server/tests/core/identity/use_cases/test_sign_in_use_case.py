@@ -3,7 +3,7 @@ from unittest.mock import create_autospec
 
 import pytest
 
-from shifu.identity.core.domain.entities.fakers import AccountFaker
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.core.domain.enums import AccountAccess, AccountStatus
 from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.identity.core.domain.structures import (

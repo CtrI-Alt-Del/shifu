@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
-from shifu.identity.core.domain.entities.fakers import AccountFaker
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.core.interfaces import IdentityDatabase, PasswordHashingProvider
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.pipes import IdentityPipe

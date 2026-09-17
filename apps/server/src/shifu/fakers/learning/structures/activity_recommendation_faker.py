@@ -7,7 +7,7 @@ from shifu.learning.core.domain.enums import (
     ActivityRecommendationType,
 )
 from shifu.learning.core.domain.structures import ActivityRecommendation
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

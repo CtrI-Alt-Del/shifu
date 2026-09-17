@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, cast
 from faker import Faker
 
 from shifu.learning.core.domain.entities import Goal
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

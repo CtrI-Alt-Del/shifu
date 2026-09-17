@@ -10,7 +10,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
     EvaluationPartResult,
 )
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,6 +54,13 @@ class ActivityEvaluationFaker:
             completed = completed or started
             resolved_score = score if score is not None else Decimal('100')
             resolved_parts = parts if parts is not None else cls._fake_parts()
+        resolved_failure_code = (
+            failure_code
+            if failure_code is not None
+            else 'provider-unavailable'
+            if status is ActivityEvaluationStatus.FAILED
+            else None
+        )
 
         return ActivityEvaluation(
             id=id or cls._id_provider.generate(),
@@ -62,7 +69,7 @@ class ActivityEvaluationFaker:
             parts=resolved_parts or (),
             started_at=started,
             score=resolved_score,
-            failure_code=failure_code,
+            failure_code=resolved_failure_code,
             completed_at=completed,
             effect_applied_at=effect_applied_at,
         )

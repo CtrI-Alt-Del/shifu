@@ -6,7 +6,7 @@ from faker import Faker
 
 from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.enums import CompetencyProgressStatus
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,6 +30,7 @@ class CompetencyProgressFaker:
         current_progress: Decimal | None = None,
         status: CompetencyProgressStatus | None = None,
         mastered_at: datetime | None = None,
+        hard_activity_score: Decimal | None = None,
     ) -> CompetencyProgress:
         created = created_at or cls._faker.date_time(tzinfo=UTC)
         initial = initial_progress if initial_progress is not None else Decimal('35')
@@ -37,7 +38,14 @@ class CompetencyProgressFaker:
         progress_status = status or CompetencyProgressStatus.LEARNING
         mastered = mastered_at
         if progress_status is CompetencyProgressStatus.MASTERED:
+            initial = (
+                initial_progress if initial_progress is not None else Decimal('90')
+            )
+            current = (
+                current_progress if current_progress is not None else Decimal('90')
+            )
             mastered = mastered or updated_at or created
+            hard_activity_score = hard_activity_score or Decimal('90')
 
         return CompetencyProgress(
             id=id or cls._id_provider.generate(),
@@ -50,6 +58,7 @@ class CompetencyProgressFaker:
             current_progress=current,
             status=progress_status,
             mastered_at=mastered,
+            hard_activity_score=hard_activity_score,
         )
 
     @classmethod

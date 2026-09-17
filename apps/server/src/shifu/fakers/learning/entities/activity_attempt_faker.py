@@ -6,7 +6,7 @@ from faker import Faker
 from shifu.learning.core.domain.entities import ActivityAttempt
 from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.learning.core.domain.structures import ActivityAnswer, SingleChoiceAnswer
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

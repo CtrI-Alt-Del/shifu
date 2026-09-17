@@ -14,7 +14,7 @@ from shifu.curriculum.core.domain.structures import (
     EvaluationRule,
     SingleChoiceQuestion,
 )
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

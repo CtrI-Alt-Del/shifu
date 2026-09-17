@@ -10,7 +10,7 @@ from shifu.learning.core.domain.structures import (
     CompetencyCompletionSummary,
     SkillCompletionSummary,
 )
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

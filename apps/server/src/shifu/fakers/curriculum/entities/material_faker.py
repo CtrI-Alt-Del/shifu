@@ -4,7 +4,7 @@ from faker import Faker
 
 from shifu.curriculum.core.domain.entities import Material
 from shifu.curriculum.core.domain.enums import MaterialType
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

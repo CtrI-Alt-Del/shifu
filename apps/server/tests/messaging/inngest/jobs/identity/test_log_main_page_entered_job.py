@@ -12,7 +12,7 @@ class TestLogMainPageEnteredJob:
             MainPageEnteredEvent,
             MainPageEnteredPayload,
         )
-        from shifu.shared.core.interfaces.fakers import IdProviderFaker
+        from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
         event_id = IdProviderFaker().generate()
 

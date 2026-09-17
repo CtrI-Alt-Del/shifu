@@ -30,26 +30,28 @@ Each business module owns its core:
 Do not move module-specific behavior into `shared`. Shared core contains only stable
 primitives and contracts genuinely used by multiple modules.
 
-## Entities are mutable identity records
+## Entities own identity and local behavior
 
-Entities are data-only declarations with stable identity. Decorate them with the shared
-`entity` decorator: the bare `id` is immutable after initialization, equality and
-hashing use the entity type and `id`, and every other declared attribute remains
-mutable. Entities do not define factories, validators, transitions, projections, or
-other business methods.
+Entities have stable identity and encapsulate state transitions that are valid for one
+instance. Decorate mutable entities with `entity` and immutable historical entities
+with `frozen_entity`: the bare `id` is immutable, equality and hashing use the entity
+type and `id`, and immutable records cannot be changed after construction.
+Construct them through a `create` classmethod or another explicit named factory that
+validates and normalizes input.
 
-Use cases create entities, normalize and validate their input, and mutate entity state
-when applying an approved transition. Do not expose SQLAlchemy models as domain
-entities, and do not make the `entity` decorator or an entity depend on Pydantic,
-SQLAlchemy, or another framework.
+An entity may protect its own invariants, such as a valid state transition. Decisions
+that coordinate repositories, providers, several aggregates, permissions, or external
+effects belong in a use case. Do not expose SQLAlchemy models as domain entities, and
+do not make the decorators or an entity depend on Pydantic, SQLAlchemy, or another
+framework.
 
 ## Structures are immutable values
 
 Structures represent composite inputs, filters, snapshots, projections, or
 relationships without independent identity. Decorate them with the shared `structure`
-decorator so every attribute is immutable and equality compares every field. Structures
-are data-only and do not define factories, validators, projections, or business
-methods. Use cases normalize and validate primitives before constructing them.
+decorator so every attribute is immutable and equality compares every field. Use
+explicit factories or `__post_init__` validation for value invariants; structures do
+not perform I/O or coordinate other aggregates.
 
 Only entities own a bare `id`. A structure may carry an explicitly named reference such
 as `objective_id` or `learner_id`.
@@ -171,15 +173,17 @@ authority.
 
 ## Fakers build valid domain objects
 
-Domain fakers belong beside the concept they build: entity fakers under
-`apps/server/src/shifu/<module>/core/domain/entities/fakers` and structure fakers under
-`apps/server/src/shifu/<module>/core/domain/structures/fakers`. Use one
-`<Entity>Faker` class per concept with a `fake` method and add `fake_many` only when
-collection scenarios need it repeatedly.
+Domain fakers belong under `apps/server/src/shifu/fakers/<module>` and mirror the
+entities or structures they build. Use one `<Entity>Faker` class per concept with a
+`fake` method and add `fake_many` only when collection scenarios need it repeatedly.
 
 Defaults must produce valid domain objects. Allow explicit keyword overrides so tests
 state only the behavior-specific differences. Fakers contain no business behavior and
 never replace repository or provider mocks.
+
+Event timestamp strings use UTC ISO 8601 with a `Z` suffix. Answer-key fields such as
+`is_correct` stay in domain contracts only; client projections must remove them when
+the product rules keep the answer hidden.
 
 Dedicated core unit tests are reserved for use cases under
 `apps/server/tests/core/<module>/use_cases`. Domain declarations, decorators, enums,

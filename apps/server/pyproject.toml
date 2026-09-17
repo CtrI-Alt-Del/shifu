@@ -6,7 +6,6 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.16",
     "argon2-cffi>=25.1",
-    "faker>=40.39.0",
     "fastapi[standard]>=0.128.7",
     "PyJWT[crypto]>=2.10",
     "psycopg[binary]>=3.2",
@@ -17,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
+    "faker>=40.39.0",
     "poethepoet>=0.41.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",

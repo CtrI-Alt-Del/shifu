@@ -8,7 +8,7 @@ from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
 )
-from shifu.shared.core.interfaces.fakers import IdProviderFaker
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -15,7 +15,7 @@ from shifu.curriculum.core.domain.entities import (
     Material,
     Skill,
 )
-from shifu.curriculum.core.domain.entities.fakers import (
+from shifu.fakers.curriculum.entities import (
     ActivityFaker,
     CompetencyFaker,
     MaterialFaker,
@@ -28,7 +28,7 @@ from shifu.curriculum.core.domain.structures import (
     SkillFoundation,
 )
 from shifu.identity.core.domain.entities import Account, AccountActionToken
-from shifu.identity.core.domain.entities.fakers import AccountFaker
+from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
     Argon2idHashProvider,
 )
@@ -39,7 +39,7 @@ from shifu.learning.core.domain.entities import (
     Goal,
     SkillExperience,
 )
-from shifu.learning.core.domain.entities.fakers import (
+from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
     ActivityEvaluationFaker,
     CompetencyProgressFaker,
