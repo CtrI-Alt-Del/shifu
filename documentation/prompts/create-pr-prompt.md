@@ -40,7 +40,9 @@ Exija autorização explícita antes de fazer commit, `push` e criar ou atualiza
 o PR. A invocação explícita deste prompt autoriza o `push` e a publicação do PR,
 mas não autoriza commits de alterações pendentes. No uso independente, invoque
 `commit-code` somente quando o usuário também autorizar os commits. Quando
-chamado por `conclude-spec`, reutilize os commits já preparados.
+chamado por `conclude-spec`, reutilize os commits preparados imediatamente pelo
+`commit-code` do mesmo handoff; não crie commits adicionais nem invoque
+`commit-code` novamente.
 
 ## Inspeção da entrega
 
