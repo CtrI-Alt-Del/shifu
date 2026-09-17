@@ -960,13 +960,13 @@ name = "shifu"
 version = "1.38.1"
 source = { editable = "." }
 dependencies = [
-    { name = "faker" },
     { name = "fastapi", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "basedpyright" },
+    { name = "faker" },
     { name = "poethepoet" },
     { name = "pyright" },
     { name = "pytest" },
@@ -976,14 +976,12 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "faker", specifier = ">=40.39.0" },
-    { name = "fastapi", extras = ["standard"], specifier = ">=0.128.7" },
-]
+requires-dist = [{ name = "fastapi", extras = ["standard"], specifier = ">=0.128.7" }]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.38.2" },
+    { name = "faker", specifier = ">=40.39.0" },
     { name = "poethepoet", specifier = ">=0.41.0" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=9.0.2" },
