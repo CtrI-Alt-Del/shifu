@@ -1,4 +1,4 @@
-import { RestError } from '@/rest/errors/rest-error'
+import { RestError } from '@/core/errors/rest-error'
 
 export class RestResponse<ResponseBody> {
   readonly body: ResponseBody | undefined

@@ -1,6 +1,6 @@
 import os
 from collections.abc import Mapping
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import (
     BaseModel,
@@ -12,15 +12,21 @@ from pydantic import (
 )
 
 
-DEFAULT_SERVER_APP_PORT = 3333
+DEFAULT_SERVER_APP_PORT = 7777
 DEFAULT_SERVER_APP_MODE = 'local'
 DEFAULT_DATABASE_URL = 'postgresql+psycopg://shifu:shifu-local@localhost:54344/shifu'
+DEFAULT_AUTH_ISSUER = 'http://localhost:7000'
+DEFAULT_AUTH_AUDIENCE = 'shifu-api'
+DEFAULT_AUTH_JWKS_URL = 'http://localhost:7000/api/auth/jwks'
 ServerAppMode = Literal['dev', 'local', 'staging', 'production']
 POSTGRES_DSN_ADAPTER = TypeAdapter(PostgresDsn)
 
 
 class EnvironmentSettings(BaseModel):
-    model_config = ConfigDict(frozen=True, validate_default=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        frozen=True,
+        validate_default=True,
+    )
 
     server_app_port: int = Field(
         default=DEFAULT_SERVER_APP_PORT,
@@ -29,6 +35,9 @@ class EnvironmentSettings(BaseModel):
     )
     server_app_mode: ServerAppMode = DEFAULT_SERVER_APP_MODE
     database_url: str = DEFAULT_DATABASE_URL
+    auth_issuer: str = DEFAULT_AUTH_ISSUER
+    auth_audience: str = DEFAULT_AUTH_AUDIENCE
+    auth_jwks_url: str = DEFAULT_AUTH_JWKS_URL
 
     @field_validator('database_url')
     @classmethod
@@ -53,6 +62,15 @@ class EnvironmentSettings(BaseModel):
                     DEFAULT_SERVER_APP_MODE,
                 ),
                 'database_url': values.get('DATABASE_URL', DEFAULT_DATABASE_URL),
+                'auth_issuer': values.get('SHIFU_AUTH_ISSUER', DEFAULT_AUTH_ISSUER),
+                'auth_audience': values.get(
+                    'SHIFU_AUTH_AUDIENCE',
+                    DEFAULT_AUTH_AUDIENCE,
+                ),
+                'auth_jwks_url': values.get(
+                    'SHIFU_AUTH_JWKS_URL',
+                    DEFAULT_AUTH_JWKS_URL,
+                ),
             }
         )
 

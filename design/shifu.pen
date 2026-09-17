@@ -50764,6 +50764,1191 @@
           "fontWeight": "600"
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "Yzifg",
+      "x": 1540,
+      "y": -2101,
+      "name": "02.1 Entrar · Mobile",
+      "clip": true,
+      "width": 375,
+      "height": 812,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "n4veB",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "VWryO",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 812
+            },
+            {
+              "type": "frame",
+              "id": "yyaWI",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                32,
+                20
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "A2Qyt0",
+                  "name": "card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 18,
+                  "padding": 24,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "lVYHn",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BoJin",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "DiQlr",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "NfEA1",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "ZvYDv",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "i3RUyA": {
+                          "content": "voce@exemplo.com"
+                        }
+                      }
+                    },
+                    {
+                      "id": "WuViz",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "••••••••"
+                        }
+                      }
+                    },
+                    {
+                      "id": "YLae1",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "width": "fill_container",
+                      "justifyContent": "center",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Entrar"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "r1iTt",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "u5wKAy",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "gQenD",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "K4sy9p",
+      "x": 1540,
+      "y": -6322,
+      "name": "02.2 Entrar · Credenciais inválidas",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "olASn",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "sKAF2",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0
+            },
+            {
+              "type": "frame",
+              "id": "wsY3h",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DoKuH",
+                  "name": "card",
+                  "width": 440,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 32,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SsPlL",
+                      "name": "Brand",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "f3x0M",
+                          "name": "Brand name",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "E1l4tc",
+                          "name": "Brand mark",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "dTUrH",
+                      "name": "Page title",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "zP3Ed",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Email input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "i3RUyA": {
+                          "content": "ana@exemplo.com",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "id": "j4YYCf",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Password input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uYniw",
+                      "name": "Credential error alert",
+                      "width": "fill_container",
+                      "fill": "$selo-tint",
+                      "cornerRadius": "$radius-control",
+                      "stroke": "$selo-fill",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": "$space-3",
+                      "padding": "$space-3",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "kQeR7",
+                          "name": "Error icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "circle-alert",
+                          "library": "lucide",
+                          "fill": "$selo-text"
+                        },
+                        {
+                          "type": "text",
+                          "id": "JIrkS",
+                          "name": "Error message",
+                          "fill": "$selo-text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "E-mail ou senha inválidos.",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "x8vhfs",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "name": "Submit button",
+                      "width": "fill_container",
+                      "justifyContent": "center",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Entrar"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eQ4Ne",
+                      "name": "Navigation links",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "gZtNz",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Forgot password link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "dmntm",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Create account link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "JGwvz",
+      "x": 16180,
+      "y": -5200,
+      "name": "02.3 Entrar · Falha de infraestrutura",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "WeN2A",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "SsMcY",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0
+            },
+            {
+              "type": "frame",
+              "id": "eWoRZ",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "PXNNn",
+                  "name": "card",
+                  "width": 440,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 32,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "C3zNEX",
+                      "name": "Brand",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QAubb",
+                          "name": "Brand name",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "w10B0",
+                          "name": "Brand mark",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "f94Bo",
+                      "name": "Page title",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "lp0GU",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Email input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "i3RUyA": {
+                          "content": "ana@exemplo.com",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "id": "M3IHx",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Password input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "••••••••",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "W6bEW7",
+                      "name": "Credential error alert",
+                      "width": "fill_container",
+                      "fill": "$selo-tint",
+                      "cornerRadius": "$radius-control",
+                      "stroke": "$selo-fill",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": "$space-3",
+                      "padding": "$space-3",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "GHEga",
+                          "name": "Error icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "circle-alert",
+                          "library": "lucide",
+                          "fill": "$selo-text"
+                        },
+                        {
+                          "type": "text",
+                          "id": "T1uk7C",
+                          "name": "Error message",
+                          "fill": "$selo-text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Não foi possível entrar agora. Tente novamente.",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "v6Zja",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "name": "Submit button",
+                      "width": "fill_container",
+                      "justifyContent": "center",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Entrar"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Xtw2p",
+                      "name": "Navigation links",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "bS7ZZ",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Forgot password link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "W6rYXk",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Create account link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "i7xhg",
+      "x": 23080,
+      "y": -5200,
+      "name": "02.4 Entrar · Enviando",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "w2KIB",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "pnHKQ",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0
+            },
+            {
+              "type": "frame",
+              "id": "leEHZ",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "n5AwDf",
+                  "name": "card",
+                  "width": 440,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 32,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "W31qG",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "oO1Vd",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "aNb8u",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "CDSU3",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "FUSp9",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "opacity": 0.55,
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "i3RUyA": {
+                          "content": "ana@exemplo.com",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "id": "FiAS2",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "opacity": 0.55,
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "••••••••",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yD3Xa",
+                      "name": "Submitting button",
+                      "opacity": 0.65,
+                      "width": "fill_container",
+                      "fill": "$selo-fill",
+                      "cornerRadius": "$radius-control",
+                      "gap": "$space-2",
+                      "padding": [
+                        10,
+                        18
+                      ],
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "KFxzo",
+                          "name": "Progress indicator",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "loader-circle",
+                          "library": "lucide",
+                          "fill": "$on-selo"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fH1Va",
+                          "name": "Submitting label",
+                          "fill": "$on-selo",
+                          "content": "Entrando...",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gb8zl",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "A3W4b",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "S8oHr",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IxLms",
+      "x": 24600,
+      "y": -5200,
+      "name": "02.5 Entrar · Foco por teclado",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "sMGaS",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "d3GeI",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0
+            },
+            {
+              "type": "frame",
+              "id": "d48pBs",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "n40Hdc",
+                  "name": "card",
+                  "width": 440,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 32,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "n6Rp1R",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "RIN9N",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PWWpU",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "B9f0XP",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "p9AtS",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "JhJYm": {
+                          "stroke": "$selo-text",
+                          "strokeWidth": 2,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "$selo-tint",
+                            "spread": 3
+                          }
+                        },
+                        "i3RUyA": {
+                          "content": "ana@exemplo.com",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "id": "q6TWw",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "••••••••"
+                        }
+                      }
+                    },
+                    {
+                      "id": "fFt8i",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "width": "fill_container",
+                      "justifyContent": "center",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Entrar"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "oxuQI",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "dFWL1",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "lF2oQ",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "U0Meh0",
+      "x": 26120,
+      "y": -5200,
+      "name": "02.6 Entrar · Credenciais inválidas · Mobile",
+      "clip": true,
+      "width": 375,
+      "height": 812,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "OXdoQ",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "ZTidw",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0,
+              "width": 375,
+              "height": 812
+            },
+            {
+              "type": "frame",
+              "id": "mBJdB",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                24,
+                20
+              ],
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "k51ise",
+                  "name": "card",
+                  "width": "fill_container",
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-card",
+                  "stroke": "$divider",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 18,
+                  "padding": 24,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Ydj5e",
+                      "name": "Brand",
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "IqWtL",
+                          "name": "Brand name",
+                          "fill": "$text-primary",
+                          "content": "Shifu",
+                          "fontFamily": "$font-display",
+                          "fontSize": 28,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "sX7NQ",
+                          "name": "Brand mark",
+                          "fill": "$selo-text",
+                          "content": "師",
+                          "fontFamily": "$font-display",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "jB73R",
+                      "name": "Page title",
+                      "fill": "$text-primary",
+                      "content": "Entrar",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "dMI62",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Email input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "E-mail"
+                        },
+                        "i3RUyA": {
+                          "content": "ana@exemplo.com",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "id": "AseUD",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "name": "Password input",
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Senha"
+                        },
+                        "i3RUyA": {
+                          "content": "",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XORY4",
+                      "name": "Credential error alert",
+                      "width": "fill_container",
+                      "fill": "$selo-tint",
+                      "cornerRadius": "$radius-control",
+                      "stroke": "$selo-fill",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": "$space-3",
+                      "padding": "$space-3",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "XmUZV",
+                          "name": "Error icon",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "circle-alert",
+                          "library": "lucide",
+                          "fill": "$selo-text"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Iovwf",
+                          "name": "Error message",
+                          "fill": "$selo-text",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "E-mail ou senha inválidos.",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "vbZBL",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "name": "Submit button",
+                      "width": "fill_container",
+                      "justifyContent": "center",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Entrar"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RmVca",
+                      "name": "Navigation links",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "children": [
+                        {
+                          "id": "bRZa2",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Forgot password link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Esqueci minha senha"
+                            }
+                          }
+                        },
+                        {
+                          "id": "mPTKi",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "name": "Create account link",
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Criar conta"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "variables": {

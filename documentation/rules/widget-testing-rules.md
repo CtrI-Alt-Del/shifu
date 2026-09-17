@@ -35,6 +35,11 @@ repository-wide test naming convention. Their Playwright ownership is determined
 by their location under `apps/web/tests`, while colocated Vitest widget and hook
 tests remain under the owning widget's `tests/` directory.
 
+Every routed Page and Layout owns one module-scoped browser integration file named
+after its widget declaration in kebab-case, such as `identity/account-page.test.ts`
+or `shared/app-layout.test.ts`. Use `.test.ts` even when the production widget is
+`.tsx`; do not name the integration after the route source file or URL segment.
+
 Each page or layout integration suite must exercise the actual route and assert
 the user-visible boundary it owns. For navigation and responsive layout flows,
 assert the final URL, visible destination content, active accessibility state,
@@ -64,6 +69,25 @@ receive dedicated tests.
 A dedicated widget test becomes appropriate only when the widget has its own
 public reuse contract or substantial behavior independent of its current owner.
 Do not create tests solely to mirror the file tree.
+
+## Infrastructure providers and plugins never own tests
+
+Do not create test files beneath `apps/web/src/provision` or
+`apps/web/tests/unit/provision`, and do not create a suite that directly targets or
+imports a concrete infrastructure provider or application plugin. Authentication
+provider behavior is tested by sending HTTP requests through the registered API
+handler and by exercising routed pages/layouts through real application composition.
+
+React context provider hooks are UI behavior boundaries, not infrastructure
+providers. A context-owned `use-<context-name>-provider.ts` may therefore have the
+colocated `tests/use-<context-name>-provider.test.ts` required by the context rules.
+That test mocks the provision adapter and verifies the context value, state, effects,
+subscriptions, or derived behavior; it must not become a back door for directly
+testing the infrastructure provider.
+
+An API-handler integration suite targets the public HTTP route, not the provider
+method behind it. Send requests through the registered route and assert status,
+headers, cookies, persistence, rollback, throttling, and safe failures as applicable.
 
 ## Do not confuse structural coverage with behavioral coverage
 
@@ -361,11 +385,12 @@ Route integration tests live under `apps/web/tests`, use the configured Playwrig
 fixture with mocked transport, and must assert more than a successful HTTP stub.
 For each critical route flow, assert the final URL, visible destination state,
 protected redirect, and the outgoing request method/path/query/body that proves
-the UI-to-API contract. The web Playwright suite does not access real backend,
-database, authentication, or external services. This deterministic browser
-coverage must not replace the widget tests' real composition coverage. Do not
-count a test as end-to-end if it never exercises the route's actual loader,
-middleware, or rendered destination.
+the UI-to-API contract. This mocked route coverage must not be confused with the
+explicit HTTP-handler integration suites outside `apps/web/tests/routes/`, which may
+use the local FastAPI service and real database state to verify a registered handler's
+HTTP, cookie, and persistence boundary. Neither suite replaces the widget tests'
+real composition coverage. Do not count a test as end-to-end if it never exercises
+the route's actual loader, middleware, or rendered destination.
 
 ## Completion criteria for a widget test suite
 

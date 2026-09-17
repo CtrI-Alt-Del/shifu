@@ -38,3 +38,7 @@ from .password_recovery_requested_event import (
     PasswordRecoveryRequestedEvent as PasswordRecoveryRequestedEvent,
     PasswordRecoveryRequestedPayload as PasswordRecoveryRequestedPayload,
 )
+from .main_page_entered_event import (
+    MainPageEnteredEvent as MainPageEnteredEvent,
+    MainPageEnteredPayload as MainPageEnteredPayload,
+)

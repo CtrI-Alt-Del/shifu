@@ -57,6 +57,11 @@ Avoid `Any`. When an untyped external SDK makes it unavoidable, contain it insid
 adapter and add the narrowest local cast or targeted Pyright suppression with a reason.
 Never weaken project-wide strictness to accommodate one dependency.
 
+Annotate every Python class attribute, including class-level constants and instance
+attributes assigned in `__init__`. Use `ClassVar` for attributes that belong to the
+class rather than each instance; ORM and framework configuration attributes should
+also declare their intended type.
+
 ## Use absolute first-party imports
 
 Imports across server modules use the installed package path:

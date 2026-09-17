@@ -5,6 +5,7 @@ export type RestRequestOptions = {
     string,
     string | number | boolean | readonly (string | number)[] | undefined
   >
+  headers?: Record<string, string>
 }
 
 export interface RestClient {
@@ -13,12 +14,28 @@ export interface RestClient {
     options?: RestRequestOptions,
   ): Promise<RestResponse<ResponseBody>>
   getFile(url: string): Promise<RestResponse<File>>
-  post<ResponseBody>(url: string, body?: unknown): Promise<RestResponse<ResponseBody>>
+  post<ResponseBody>(
+    url: string,
+    body?: unknown,
+    options?: RestRequestOptions,
+  ): Promise<RestResponse<ResponseBody>>
   postFormData<ResponseBody>(
     url: string,
     body: FormData,
   ): Promise<RestResponse<ResponseBody>>
-  patch<ResponseBody>(url: string, body?: unknown): Promise<RestResponse<ResponseBody>>
-  put<ResponseBody>(url: string, body?: unknown): Promise<RestResponse<ResponseBody>>
-  delete<ResponseBody>(url: string, body?: unknown): Promise<RestResponse<ResponseBody>>
+  patch<ResponseBody>(
+    url: string,
+    body?: unknown,
+    options?: RestRequestOptions,
+  ): Promise<RestResponse<ResponseBody>>
+  put<ResponseBody>(
+    url: string,
+    body?: unknown,
+    options?: RestRequestOptions,
+  ): Promise<RestResponse<ResponseBody>>
+  delete<ResponseBody>(
+    url: string,
+    body?: unknown,
+    options?: RestRequestOptions,
+  ): Promise<RestResponse<ResponseBody>>
 }

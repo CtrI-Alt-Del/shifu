@@ -28,12 +28,20 @@ transaction middleware, error handler, and response serialization.
 
 Database-backed controller tests use PostgreSQL through Testcontainers, run migrations,
 and construct the same SQLAlchemy repositories as production. Do not mock the
-repository in an HTTP integration test.
+repository in a normal HTTP integration test. A dedicated infrastructure-failure
+regression may replace the dependency at the composition seam to force a deterministic
+safe-error response, but it must still construct the real application against the
+fixture database and must not replace repository coverage for successful paths.
 
 Session-scoped fixtures own container and engine lifecycle. Function-scoped fixtures
 own sessions and database cleanup. Reset application tables before each test and close
 every session, engine, client, container, and overridden environment value during
 teardown.
+
+The shared `TestClient` fixture must receive the Testcontainer engine through the
+application factory (for example, `FastAPIApp.register(database_engine=...)`) so HTTP
+tests exercise production repository composition. Do not let an imported application
+singleton or the developer's `DATABASE_URL` select the database for these tests.
 
 Seed prerequisites through domain fakers, seeders, or small fixture helpers. Avoid raw
 SQL except when testing malformed legacy persistence intentionally.

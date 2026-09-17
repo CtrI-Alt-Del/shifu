@@ -13,6 +13,8 @@
   --color-accent: var(--accent);
   --color-border: var(--border);
   --color-success: var(--success);
+  --color-control-border: var(--control-border);
+  --color-selo-text: var(--selo-text);
   --shadow-card: 0 1px 3px rgb(15 23 42 / 6%);
   --shadow-brand: 0 12px 30px rgb(15 118 110 / 16%);
 }
@@ -28,6 +30,8 @@
   --primary: #dc2f2f;
   --primary-foreground: #ffffff;
   --border: #ffffff14;
+  --control-border: #ffffff54;
+  --selo-text: #f28b8b;
   --success: #7bc9a9;
 }
 
@@ -119,9 +123,13 @@ a,
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion override. */
     scroll-behavior: auto !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion override. */
     transition-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion override. */
     animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced-motion override. */
     animation-iteration-count: 1 !important;
   }
 

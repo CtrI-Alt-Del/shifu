@@ -701,6 +701,13 @@ cookie-session provider under `apps/web/src/provision/auth/`. It may own React s
 subscription lifecycle, and the value exposed to consumers, but it must not call
 Better Auth directly, read the `HttpOnly` cookie, or persist session tokens.
 
+`useAuthContextProvider` is a React UI provider-value hook, not an infrastructure
+provider. Its colocated `tests/use-auth-context-provider.test.ts` verifies construction
+of the complete context value while mocking `CookieSessionAuthProvider`. Do not create
+tests for `CookieSessionAuthProvider`, `BetterAuthProvider`, Better Auth configuration,
+or individual Better Auth plugins; exercise those through their consuming HTTP handler
+and routed page/layout integration boundaries.
+
 There is one application sidebar:
 
 ```text
@@ -787,6 +794,11 @@ Module services receive `RestClient`, implement the corresponding core service
 interface, and only map operations to HTTP methods and paths. They contain no
 business rules, caching, authentication state, or direct Axios calls.
 
+Place every module service directly in `apps/web/src/rest/services` as
+`<module>-service.ts`; do not add a redundant `<module>/` child directory. Server-only
+provision code consumes the same service factory with a server-configured `RestClient`
+rather than creating a provision-local API client.
+
 `AxiosRestClient` creates the Axios instance and returns the `RestClient` object.
 Reusable request execution, header normalization, and error extraction belong in
 `apps/web/src/rest/axios/utils`; do not simulate private class methods inside the
@@ -796,7 +808,7 @@ Dynamic identifiers may be interpolated directly when their contract guarantees
 a URL-safe format such as ULID. Do not add `encodeURIComponent` mechanically to
 ULID path segments.
 
-## REST services are composed by the context provider
+## Browser REST services are composed by the context provider
 
 `RestContextProvider` is the application composition boundary for REST services.
 Its provider hook creates `AxiosRestClient` with the validated browser API URL and
@@ -814,6 +826,11 @@ Keep `RestContextValue` aligned with the services returned by the provider and u
 `ReturnType<typeof ServiceFactory>` instead of duplicating service interfaces.
 The current provider intentionally creates its dependencies directly and does not
 use `useMemo`.
+
+Server-only REST-service consumers are the exception to browser context composition.
+Compose them inside the owning server provision boundary with a server-only base URL,
+credentials policy, and headers. They must never be added to `RestContextValue` or
+exposed to browser code merely so a Better Auth provider can consume them.
 
 ## Environment variables are validated at the boundary
 

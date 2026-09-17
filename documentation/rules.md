@@ -56,9 +56,9 @@ and surface the discrepancy before silently copying the implementation.
 | [`rest-layer-rules.md`](rules/rest-layer-rules.md) | Adding or changing FastAPI routers/controllers, Pydantic transport schemas, dependency wiring, error handlers, OpenAPI contracts, or web API adapters. | `apps/server/src/shifu/**/rest/**`, `apps/web/src/rest/**` |
 | [`controllers-testing-rules.md`](rules/controllers-testing-rules.md) | Creating or changing FastAPI controller tests, TestClient fixtures, HTTP assertions, or database-backed route setup. | `apps/server/tests/rest/controllers/**`, `apps/server/tests/fixtures/**`, `apps/server/tests/conftest.py` |
 | [`database-layer-rules.md`](rules/database-layer-rules.md) | Changing SQLAlchemy sessions, models, mappers, repositories, Alembic migrations, seeders, or database fixtures. | `apps/server/src/shifu/**/database/**`, `apps/server/migrations/**`, database fixtures under `apps/server/tests/**` |
-| [`provision-layer-rules.md`](rules/provision-layer-rules.md) | Creating or changing provider ports/adapters, external SDKs, environment settings, clocks, IDs, storage, auth, sandbox, or provider pipes. | `apps/server/src/shifu/**/providers/**`, `apps/server/src/shifu/**/pipes/**`, provider interfaces under `core/interfaces` |
-| [`messaging-layer-rules.md`](rules/messaging-layer-rules.md) | Creating or changing domain events, broker adapters, Inngest clients/endpoints, jobs, durable steps, fan-out, retries, or outbox delivery. | `apps/server/src/shifu/**/messaging/**`, domain events, shared Inngest infrastructure |
-| [`jobs-testing-rules.md`](rules/jobs-testing-rules.md) | Creating or changing Inngest job integration tests or their Docker/runtime fixtures. | `apps/server/tests/messaging/inngest/jobs/**`, Inngest fixtures under `apps/server/tests/fixtures/**` |
+| [`provision-layer-rules.md`](rules/provision-layer-rules.md) | Creating or changing provider ports/adapters, external SDKs, environment settings, clocks, IDs, storage, auth, sandbox, or provider composition. | `apps/server/src/shifu/**/providers/**`, `apps/server/src/shifu/shared/providers/**`, `apps/server/src/shifu/**/pipes/**`, `apps/web/src/provision/**`, provider interfaces under `core/interfaces` |
+| [`messaging-layer-rules.md`](rules/messaging-layer-rules.md) | Creating or changing domain events, broker adapters, Inngest clients/endpoints, jobs, durable steps, fan-out, retries, or outbox delivery. | `apps/server/src/shifu/**/messaging/**`, `apps/server/src/shifu/shared/messaging/inngest/**`, domain events, shared Inngest infrastructure |
+| [`jobs-testing-rules.md`](rules/jobs-testing-rules.md) | Creating or changing Inngest job integration tests or their Docker/runtime fixtures. | `apps/server/tests/messaging/inngest/jobs/**`, `apps/server/tests/fixtures/inngest_fixture.py`, other Inngest fixtures under `apps/server/tests/fixtures/**` |
 | [`ai-layer-rules.md`](rules/ai-layer-rules.md) | Creating or changing Mentor, Goal Planner, AI/NLP workflows, prompts, model adapters, structured outputs, TF-IDF, or classifiers. | `apps/server/src/shifu/intelligence/ai/**`, AI provider adapters and workflow interfaces |
 | [`commit-rules.md`](rules/commit-rules.md) | Writing, validating, or creating a commit; changing commitlint or commit hooks; or preparing a commit message for the user. | `.husky/**`, `commitlint.config.mjs`, commit operations or commit-message requests |
 
@@ -80,10 +80,13 @@ actual scope:
 | Add a complete FastAPI operation | Python Conventions + Core Domain + REST; add Database when persistence changes and Controller Testing + Use Case Testing for their boundaries |
 | Change a Python use case | Python Conventions + Core Domain + Use Case Testing |
 | Change FastAPI composition or middleware | Python Conventions + Server Application; add Database, Messaging, or Provider rules for each managed lifecycle |
-| Add or change a provider | Python Conventions + Provider Layer + Core Domain; add Use Case Testing when a use case consumes it |
+| Change the shared FastAPI error boundary | Python Conventions + Server Application + REST; add Core Domain when introducing a typed application error |
+| Add or change a server provider | Python Conventions + Provider Layer + Core Domain; add Use Case Testing when a use case consumes it |
+| Add or change a web provision adapter | TypeScript Conventions + Provider Layer; add UI, REST, Routing, and Widget Testing rules for each consuming boundary |
 | Add or change an Inngest job | Python Conventions + Messaging + Job Testing; add Core Domain for events/use cases and Provider or Database rules for adapters used by the job |
 | Add or change an AI workflow | Python Conventions + AI Layer + Core Domain; add Messaging for asynchronous execution and Provider for external model adapters |
 | Change a database-backed controller test | Python Conventions + REST + Controller Testing + Database |
+| Change shared database seed composition or the SQLAlchemy outbox listener | Python Conventions + Database + Messaging; add Provider for injected clocks or other infrastructure ports |
 | Create a commit | Commit Rules, plus the implementation rules already selected for validating the changed scope |
 
 ## Re-evaluate when scope changes

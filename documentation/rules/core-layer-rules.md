@@ -107,6 +107,13 @@ Keep ports narrow and domain-oriented. They must not expose query builders, data
 sessions, HTTP responses, Inngest events, or SDK-specific types. Implementations live
 in database, provider, messaging, or AI adapter layers.
 
+Shared technical provider ports belong under `shared/core/interfaces` only when more
+than one module needs the same capability. For example, `ClockProvider` and
+`IdentifierProvider` are shared protocols; their system implementations belong under
+`shared/providers/<provider_name>/`, never beside the protocol or as a flat shared
+module. Inngest delivery is not a core provider port: use cases persist events through
+`EventsRepository`, and shared messaging relays committed rows to Inngest.
+
 Persistence ports, delivery ports, and transaction ports should remain separate when
 they represent different capabilities. Module ports use only their owning module's
 domain values and shared contracts; they never import another module's entities,

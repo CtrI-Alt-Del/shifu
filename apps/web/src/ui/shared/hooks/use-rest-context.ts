@@ -1,6 +1,6 @@
 import { useContext } from 'react'
 
-import { RestError } from '@/rest/errors/rest-error'
+import { RestError } from '@/core/errors/rest-error'
 import { RestContext } from '@/ui/shared/contexts/rest-context'
 
 export function useRestContext() {

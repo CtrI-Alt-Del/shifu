@@ -389,8 +389,9 @@ or read contracts. Workflow tests use deterministic model and tool doubles to ve
 - timeout, cancellation, quota, retry, and typed error behavior;
 - suppression of prompts, tool traces, and hidden reasoning from public output.
 
-Provider behavior remains covered at its provider boundary. Real-model tests are opt-in,
-never the only coverage, and never use production data.
+Provider behavior remains covered through the consuming workflow or use-case boundary;
+providers do not own dedicated test files. Real-model tests are opt-in, never the only
+coverage, and never use production data.
 
 ## Review checklist
 

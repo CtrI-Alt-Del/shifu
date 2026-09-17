@@ -8,5 +8,5 @@ export type AnchorProps = Omit<ComponentProps<typeof Link>, 'to'> & {
 }
 
 export const Anchor = ({ route, ...props }: AnchorProps) => {
-  return <Link to={ROUTES[route]} {...props} />
+  return <Link to={ROUTES[route] as never} {...props} />
 }

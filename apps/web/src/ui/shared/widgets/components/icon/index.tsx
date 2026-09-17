@@ -1,9 +1,13 @@
 import {
   ArrowRight,
   BookOpen,
+  CircleAlert,
   CircleUserRound,
+  Eye,
+  EyeOff,
   GraduationCap,
   House,
+  LoaderCircle,
   Menu,
   Sparkles,
   Trophy,
@@ -15,8 +19,12 @@ import type { LucideProps } from 'lucide-react'
 export type IconName =
   | 'arrow-right'
   | 'book-open'
+  | 'circle-alert'
+  | 'eye'
+  | 'eye-off'
   | 'graduation-cap'
   | 'home'
+  | 'loader-circle'
   | 'menu'
   | 'sparkles'
   | 'trophy'
@@ -26,8 +34,12 @@ export type IconName =
 const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'arrow-right': ArrowRight,
   'book-open': BookOpen,
+  'circle-alert': CircleAlert,
+  eye: Eye,
+  'eye-off': EyeOff,
   'graduation-cap': GraduationCap,
   home: House,
+  'loader-circle': LoaderCircle,
   menu: Menu,
   sparkles: Sparkles,
   trophy: Trophy,
