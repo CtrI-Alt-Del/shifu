@@ -1,0 +1,67 @@
+name: Server application CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/server/**'
+      - '.github/workflows/server-app-ci.yaml'
+      - '.python-version'
+      - 'pyproject.toml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-app-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify server application
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check types
+        run: uv run poe check:types
+
+      - name: Check lint
+        run: uv run poe check:lint
+
+      - name: Check architecture
+        run: uv run poe check:architecture
+
+      - name: Run unit tests
+        run: uv run poe test:unit
+
+      - name: Run integration tests
+        run: uv run poe test:integration
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Verify distributions
+        run: |
+          test -f dist/*.tar.gz
+          test -f dist/*.whl
