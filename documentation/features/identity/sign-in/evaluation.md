@@ -677,3 +677,18 @@ criteria.
   boundary are covered. The connected Atlassian source reread was unavailable
   in this pass and is recorded as a non-blocking external-reader limitation
   above.
+
+## Delivery references
+
+- **Branch:** `feat/shifu-62`
+- **Base synchronization:** `origin/main` was merged at
+  `c94fdd299c2ee8767ca810e0a1f4e6114465bfc6`; the current branch versions
+  were retained for the Playwright configuration and dashboard page conflicts.
+- **Commits:** `648dda8` feature delivery, `e0145fb` prompt handoff
+  contract, and `f83ddd4` shared persistence consumer compatibility, followed
+  by `c94fdd2` base synchronization, `59bfaaf` delivery references,
+  `5ddeb55` web integration services, `79ed5fb` CI command correction, and
+  `6b26269` API startup readiness.
+- **Pull request:** [#5](https://github.com/CtrI-Alt-Del/shifu/pull/5),
+  head `6b26269`, base `main`. GitHub server and web checks passed on the
+  final head; the PR is open and mergeable.
