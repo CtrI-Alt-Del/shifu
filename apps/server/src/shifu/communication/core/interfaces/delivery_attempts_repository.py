@@ -1,0 +1,19 @@
+from typing import Protocol
+
+from shifu.communication.core.domain.entities import DeliveryAttempt
+
+
+class DeliveryAttemptsRepository(Protocol):
+    def find_by_communication_id_and_attempt_number(
+        self,
+        communication_id: str,
+        attempt_number: int,
+    ) -> DeliveryAttempt | None: ...
+
+    def add(self, attempt: DeliveryAttempt) -> None: ...
+
+    def add_many(self, attempts: list[DeliveryAttempt]) -> None: ...
+
+    def update(self, attempt: DeliveryAttempt) -> None: ...
+
+    def remove_all(self) -> None: ...

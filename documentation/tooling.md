@@ -105,10 +105,11 @@ Important local variables include:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `SHIFU_POSTGRES_PORT` | `54322` | PostgreSQL host port |
-| `SHIFU_INNGEST_PORT` | `18288` | Inngest UI/API host port |
-| `SHIFU_SONAR_PORT` | `19000` | SonarQube web/API host port |
-| `SHIFU_MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
+| `POSTGRES_PORT` | `54344` | PostgreSQL host port |
+| `INNGEST_PORT` | `18288` | Inngest UI/API host port |
+| `SONAR_PORT` | `19000` | SonarQube web/API host port |
+| `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
+| `INNGEST_APP_URL` | `http://host.docker.internal:7777/api/inngest` | FastAPI Inngest endpoint discovered by the existing Compose Dev Server |
 
 Only browser-safe variables may be exposed through `VITE_` variables.
 
@@ -133,13 +134,13 @@ Default endpoints are:
 
 | Service | URL or address |
 | --- | --- |
-| PostgreSQL | `postgresql://shifu:change-me@localhost:54322/shifu` |
+| PostgreSQL | `postgresql://shifu:change-me@localhost:54344/shifu` |
 | Inngest | `http://localhost:18288` |
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
 | SonarQube | `http://localhost:19000` |
-| Web application | `http://localhost:6000` |
-| FastAPI application | `http://localhost:9000` |
+| Web application | `http://localhost:7000` |
+| FastAPI application | `http://localhost:7777` (fallback) |
 
 Stop containers without deleting named volumes:
 
@@ -149,21 +150,49 @@ docker compose down
 
 Do not delete Docker volumes or reset local databases unless explicitly requested.
 
-The repository currently has no registered Inngest application functions or complete
-database migration workflow. The Compose services may be available for future work,
-but their presence does not mean an application integration is implemented.
+The existing Compose Inngest service is the development Dev Server. It starts with
+`-u ${INNGEST_APP_URL}` and reaches the host FastAPI process through the Linux
+`host-gateway` mapping. Job integration tests use disposable Testcontainers
+instead, so they do not reuse this persistent development instance. For local
+development, start FastAPI first, then verify that the application is discovered
+at `http://localhost:18288`:
+
+```bash
+docker compose up -d inngest
+curl http://localhost:18288/e/health
+```
+
+The server registers the logging-only Identity job at `/api/inngest`; no second
+Inngest process or obsolete `pubsub` task is required.
+
+From `apps/server`, configure `DATABASE_URL` and run:
+
+```bash
+uv run poe db:upgrade
+uv run poe db:seed
+```
+
+The seed command executes `shifu.shared.database.seed` and is the only supported
+entrypoint for local seed composition. Its two operational composition modules are
+the explicit Tach exclusions in `check:architecture`; do not widen that exclusion.
+
+`db:seed` is destructive for the application tables and is guarded to `local` mode.
+It is never run during FastAPI startup.
+
+The local development seed creates the active account
+`student.seed@shifu.com` with the fixed password `ShifuSeed123!`.
 
 ## Running the applications
 
 Set each application port in its ignored app-local `.env.local` file:
 
 ```dotenv filename="apps/web/.env.local"
-SHIFU_WEB_APP_PORT=6000
-VITE_SHIFU_SERVER_URL=http://localhost:9000
+SHIFU_WEB_APP_PORT=7000
+VITE_SHIFU_SERVER_URL=http://localhost:7777
 ```
 
 ```dotenv filename="apps/server/.env.local"
-SHIFU_SERVER_APP_PORT=9000
+SHIFU_SERVER_APP_PORT=7777
 ```
 
 Vite reads the web values from `apps/web/.env.local`. The server launcher reads
@@ -175,7 +204,7 @@ Start the web application from the repository root:
 pnpm --filter web dev
 ```
 
-The web port is `6000` by default and can be changed with `SHIFU_WEB_APP_PORT`.
+The web port is `7000` by default and can be changed with `SHIFU_WEB_APP_PORT`.
 Regenerate TanStack route metadata when route files change:
 
 ```bash
@@ -245,14 +274,17 @@ Run commands from `apps/server` through uv:
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
 | `uv run poe test:unit` | Run use-case unit tests under `tests/core/**/use_cases` |
-| `uv run poe test:integration` | Run REST integration tests under `tests/rest` |
+| `uv run poe test:integration` | Run REST integration tests under `tests/rest` against disposable PostgreSQL Testcontainers |
+| `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |
 | `uv run --env-file .env.local python src/main.py` | Start the API locally |
 
 The server's module boundaries are declared in `apps/server/tach.toml`. The current
 module policy keeps business modules dependent on shared code while application
-composition may assemble the module routers.
+composition may assemble the module routers. `check:architecture` intentionally
+excludes only the shared seed composition files because they coordinate feature seeders
+for an explicit local command.
 
 Ruff is intentionally invoked with `--no-fix` in the CI-facing `check:lint` task.
 Validation must not rewrite source files. Use an explicit formatter command when a
@@ -297,11 +329,12 @@ files, and preserve the web/server path separation.
 
 ## Database and asynchronous tooling status
 
-PostgreSQL and Inngest are available as local infrastructure, but the repository does
-not currently provide a complete application database migration command or a
-registered Inngest function suite. Do not document or run migration, seeding, or event
-commands copied from another project. Add those commands only with the corresponding
-implementation and validation.
+The server provides an explicit Alembic migration workflow and registers its
+module-owned Inngest functions through one `/api/inngest` endpoint. REST integration
+tests use disposable PostgreSQL Testcontainers and do not reuse the developer's
+Compose database. Docker-backed job tests use disposable PostgreSQL and Inngest
+containers; they may skip locally when Docker or the configured callback port is
+unavailable, but CI must run them on a Docker-capable runner.
 
 ## Recommended handoff checklist
 

@@ -1,11 +1,32 @@
 ---
-description: FastAPI controller, route grouping, dependency wiring, and HTTP boundary rules.
+description: FastAPI controllers and web REST-service HTTP boundary rules.
 ---
 
 # REST Layer Rules
 
-These rules apply to FastAPI code under `apps/server/src/shifu/*/rest` and its
-matching tests under `apps/server/tests/rest`.
+These rules apply to FastAPI code under `apps/server/src/shifu/*/rest`, its matching
+tests under `apps/server/tests/rest`, and module-oriented web API operations under
+`apps/web/src/rest/services`.
+
+## Web REST services use direct module files
+
+Each web module service is a direct kebab-case file under
+`apps/web/src/rest/services`, such as:
+
+```text
+apps/web/src/rest/services/identity-service.ts
+```
+
+Do not create a redundant child directory such as
+`rest/services/identity/identity-service.ts`, and do not place API clients beneath
+`apps/web/src/provision`. A service factory receives the shared `RestClient`, maps
+typed operations to HTTP methods and paths, validates or translates transport
+responses, and raises shared application errors. It contains no business rules,
+authentication state, direct Axios construction, or environment reads.
+
+REST services do not own dedicated test files. Verify their observable method, path,
+headers, payload, response mapping, and failures through the consuming HTTP handler,
+page, or route integration boundary.
 
 ## Routers own module prefixes
 
@@ -23,7 +44,7 @@ class LearningRouter:
         return router
 ```
 
-Router registration must be safe when `create_app()` is called repeatedly. Do not
+Router registration must be safe when `FastAPIApp.register()` is called repeatedly. Do not
 store mutable routers or application instances in controller class state.
 
 ## Controllers register routes consistently
@@ -82,6 +103,18 @@ A business controller normally represents one application action. It may only:
 Validation beyond transport shape, authorization decisions, persistence operations,
 domain mapping, and business rules belong outside controllers.
 
+Controllers must not use `try`/`except` to map application failures to HTTP responses.
+Expected failures escape the route handler and are translated once by the global
+`AppErrorHandler` registered by `FastAPIApp`. This keeps error behavior consistent
+across controllers and non-controller application boundaries. Known specific errors
+are registered before the generic `AppError` mapping; an unexpected `Exception` is a
+last-resort safe 503 response and must not expose its message or traceback.
+
+Keep the handler implementation under
+`apps/server/src/shifu/rest/handlers/app_error_handler.py`. It may register framework
+exception callbacks, but it must not contain business rules or be imported by a
+controller.
+
 ## Dependencies point inward
 
 Controllers depend on core interfaces and use cases, never concrete database,
@@ -129,7 +162,7 @@ SQLAlchemy sessions or blocking SDK calls directly on the event loop.
 Place controller integration tests under
 `apps/server/tests/rest/controllers/<module>/`. Keep one test file per controller
 route contract. Tests must use FastAPI `TestClient` or the project-approved async HTTP
-client against an application created by `create_app()`; do not call nested handlers
+client against an application created by `FastAPIApp.register()`; do not call nested handlers
 or controller methods directly.
 
 Controller tests cover, as applicable:

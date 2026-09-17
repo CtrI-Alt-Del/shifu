@@ -1,0 +1,22 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+
+### Identity sign-in
+POST {{baseUrl}}/identity/sign-in
+Content-Type: application/json
+
+{
+  "email": "learner@example.com",
+  "password": "local-test-password"
+}
+
+### Current session
+GET {{baseUrl}}/identity/session
+Authorization: Bearer {{accessToken}}
+
+### Main-page entry
+POST {{baseUrl}}/identity/main-page-entries
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{}

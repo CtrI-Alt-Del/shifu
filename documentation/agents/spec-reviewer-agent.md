@@ -26,8 +26,8 @@ agent type or a separate user-facing workflow.
 ## Activation
 
 - Activate exactly one Spec Reviewer during `create-spec`, after the Orchestrator has authored
-  the draft and complete its Spec-definition integrity checks before changing the Spec to
-  `open` and before invoking the optional `create-plan` step.
+  the draft and completed its Spec-definition integrity checks, before changing the Spec to
+  `ready` and before invoking the optional `create-plan` step.
 - That single Reviewer owns the compatibility gate for the entire selected Rule Pack. Do not
   split the gate into one Reviewer per Rule, application, package, layer, screenshot, or
   research lane; each selected Rule must be evaluated in the same cross-boundary review.
@@ -79,14 +79,14 @@ artifacts do not exist yet or belong to later workflows.
 6. Distinguish observed facts from inference. Return each finding with the exact Spec section or
    line, governing authority, repository evidence, impact, and recommended correction boundary.
 
-The Reviewer must fail closed on test-contract conflicts. The Spec cannot become `open` when
+The Reviewer must fail closed on test-contract conflicts. The Spec cannot become `ready` when
 its path ledger or validation Contract requires a test that the selected Rules or test-integrity
 policy forbids. The Orchestrator must remove the forbidden path and, where behavior still needs
 proof, name an allowed consumer or boundary test before asking the same Reviewer to recheck it.
 
 The report is advisory and transient. The Orchestrator verifies every finding, applies accepted
 corrections, reruns deterministic integrity checks, resolves or explicitly rejects each finding
-with evidence, and owns the `open` verdict.
+with evidence, and owns the `ready` verdict.
 
 ## Restrictions
 
@@ -132,5 +132,5 @@ with evidence, and owns the `open` verdict.
 ```
 
 Use an explicit `none` row when there are no findings. A completed review means the assigned
-audit ran; it does not mean the Spec is approved or may be opened without Orchestrator
+audit ran; it does not mean the Spec is approved or may be marked `ready` without Orchestrator
 verification.

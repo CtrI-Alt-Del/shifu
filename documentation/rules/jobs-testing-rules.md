@@ -24,17 +24,30 @@ Use one mirrored test module per job and a class named `Test<Action>Job`.
 
 ## Runtime fixtures own infrastructure
 
-Shared pytest fixtures under `apps/server/tests/fixtures` own:
+The canonical shared fixture is
+`apps/server/tests/fixtures/inngest_fixture.py`, which exposes the
+`inngest_fixture` pytest fixture and `InngestFixture` runtime handle. Shared pytest
+fixtures under `apps/server/tests/fixtures` own:
 
-- a FastAPI server on an available local port;
+- a FastAPI server on the configured local application port, using `7777` only as
+  the fallback when no callback-port override is supplied;
 - an isolated Inngest Dev Server container;
 - PostgreSQL and other required Testcontainers;
 - temporary environment configuration;
 - readiness checks, bounded polling, and teardown.
 
-Use random available ports and wait for explicit readiness. Do not rely on fixed sleeps
-as the only synchronization mechanism. Stop threads and containers and restore the
-environment in `finally` paths.
+The FastAPI callback port is an explicit configuration value so the Inngest container
+can reach `http://host.docker.internal:<configured-port>/api/inngest` through the Linux
+host-gateway mapping. `7777` is only the fallback configured port. The Inngest Dev
+Server's mapped host port remains disposable and may be randomized. Wait for explicit
+readiness rather than relying on fixed sleeps as the only synchronization mechanism.
+Stop threads and containers and restore the environment in `finally` paths.
+
+Job tests use the disposable Inngest and PostgreSQL Testcontainers owned by this
+fixture. They must not depend on or mutate the persistent Docker Compose Inngest
+instance used for local development. If Docker or the configured callback port is
+unavailable, skip with the precise reason; CI must execute the same real-runtime
+selection on a Docker-capable runner.
 
 Start only infrastructure required by the job. A notification-only job does not need a
 database unless its behavior actually persists state.
@@ -48,6 +61,11 @@ payload when the event class already defines the contract.
 Dates use UTC ISO strings and IDs come from deterministic fixtures or domain factories.
 Add malformed-payload coverage when transport validation or failure handling is part of
 the job contract.
+
+The integration fixture must use the same registered job group and real application
+endpoint as production composition. For payload-validation jobs, include at least one
+malformed or extra-field event assertion and verify that the job produces no forbidden
+effect. Do not bypass Pydantic normalization by invoking private job helpers directly.
 
 ## Assert completion and observable effects
 

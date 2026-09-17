@@ -15,6 +15,8 @@ import { Route as CurriculumIndexRouteImport } from './routes/curriculum/index'
 import { Route as GamificationIndexRouteImport } from './routes/gamification/index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/index'
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
+import { Route as LoginIndexRouteImport } from './routes/login/index'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +48,16 @@ const LearningIndexRoute = LearningIndexRouteImport.update({
   path: '/learning/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginIndexRoute = LoginIndexRouteImport.update({
+  id: '/login/',
+  path: '/login/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +66,8 @@ export interface FileRoutesByFullPath {
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
+  '/login/': typeof LoginIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +76,8 @@ export interface FileRoutesByTo {
   '/gamification': typeof GamificationIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/learning': typeof LearningIndexRoute
+  '/login': typeof LoginIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +87,8 @@ export interface FileRoutesById {
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
+  '/login/': typeof LoginIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +99,8 @@ export interface FileRouteTypes {
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
+    | '/login/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +109,8 @@ export interface FileRouteTypes {
     | '/gamification'
     | '/intelligence'
     | '/learning'
+    | '/login'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
@@ -97,6 +119,8 @@ export interface FileRouteTypes {
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
+    | '/login/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +130,8 @@ export interface RootRouteChildren {
   GamificationIndexRoute: typeof GamificationIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
+  LoginIndexRoute: typeof LoginIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -152,6 +178,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login/': {
+      id: '/login/'
+      path: '/login'
+      fullPath: '/login/'
+      preLoaderRoute: typeof LoginIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -162,6 +202,8 @@ const rootRouteChildren: RootRouteChildren = {
   GamificationIndexRoute: GamificationIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
+  LoginIndexRoute: LoginIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

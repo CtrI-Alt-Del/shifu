@@ -1,6 +1,10 @@
 export const ROUTES = {
   root: '/',
   dashboard: '/',
+  login: '/login',
+  register: '/register',
+  forgotPassword: '/forgot-password',
+  pendingConfirmation: '/pending-confirmation',
   curriculum: '/curriculum',
   learning: '/learning',
   gamification: '/gamification',
