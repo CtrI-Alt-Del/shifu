@@ -2,9 +2,9 @@
 
 Shifu is divided into six cohesive business modules. Each module owns its
 domain rules, use cases, persistence adapters, application endpoints, and
-user-facing experience. Modules exchange identifiers, explicit contracts, and
-business events; they must not import another module's internal entities,
-repositories, database models, or implementation details.
+user-facing experience. Business modules do not import one another. Cross-module
+coordination uses module-neutral identifiers and contracts owned by Shared, plus
+business events translated through application composition or messaging adapters.
 
 The MVP serves one user type: the individual learner. The product is private,
 responsive on desktop and mobile, accessible, and presented in pt-BR.
@@ -21,8 +21,8 @@ Identity owns the user's account and access to Shifu. It is responsible for:
 - account creation, e-mail confirmation, sign-in, and password recovery/change;
 - authenticated sessions, including signing out of the current or all devices;
 - the basic profile, display name, account status, and current time zone; and
-- exposing a trusted account identity to protected modules and coordinating
-  account deletion across the product.
+- implementing the shared authenticated-user contract for protected modules; and
+- coordinating account deletion across the product.
 
 Only active accounts may use Learning, Intelligence, Gamification, or other
 protected areas. Identity is authoritative for who the user is, but each other

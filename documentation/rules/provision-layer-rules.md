@@ -80,10 +80,11 @@ autospecced mocks rather than patching global functions.
 
 ## Provider tests match risk
 
-Use-case tests mock provider protocols. Test a provider adapter directly when its
-translation, security, serialization, or failure mapping contains meaningful logic.
-Prefer local emulators or Testcontainers for network services. A mock-only adapter test
-does not prove compatibility with the real service.
+Use-case unit tests mock provider protocols. When a provider adapter's translation,
+security, serialization, or failure mapping contains meaningful logic, cover it with
+an adapter contract or integration test outside `apps/server/tests/core`; it is not a
+dedicated core unit test. Prefer local emulators or Testcontainers for network
+services. A mock-only adapter test does not prove compatibility with the real service.
 
 Sandbox and authentication providers require explicit negative-path coverage for
 isolation, invalid credentials, timeouts, and secret handling.

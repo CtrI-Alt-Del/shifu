@@ -1,0 +1,421 @@
+name: PR reviewer assignment
+
+on:
+    pull_request_target:
+        branches:
+            - develop
+        types:
+            - opened
+            - synchronize
+            - reopened
+            - ready_for_review
+
+permissions:
+    contents: read
+    pull-requests: write
+
+concurrency:
+    group: github-reviewer-assignment-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+jobs:
+    assign-reviewer:
+        name: Assign relevant reviewer
+        if: >-
+            github.event.pull_request.draft == false &&
+            github.event.pull_request.head.repo.full_name == github.repository
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout trusted base without PR code
+              uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+              with:
+                  ref: ${{ github.event.pull_request.base.sha }}
+                  fetch-depth: 0
+                  # The workflow token needs repository contents: read to fetch the
+                  # same-repository PR ref for diff inspection.
+                  persist-credentials: true
+
+            - name: Prepare reviewer context
+              shell: bash
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+              run: |
+                  set -euo pipefail
+
+                  # Fetch the PR commit as data only. Never check out or execute PR code
+                  # in this credential-bearing workflow.
+                  git fetch --no-tags origin "refs/pull/${PR_NUMBER}/head"
+                  fetched_head="$(git rev-parse FETCH_HEAD)"
+                  test "$fetched_head" = "$HEAD_SHA"
+
+                  git diff --name-only "$BASE_SHA...$HEAD_SHA" > scoped-files.txt
+                  test -s scoped-files.txt
+                  echo "Prepared $(wc -l < scoped-files.txt) changed file(s)."
+
+            - name: Rank reviewer candidates from Git history
+              shell: bash
+              env:
+                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
+              run: |
+                  set -euo pipefail
+
+                  python3 - <<'PY'
+                  import datetime
+                  import json
+                  import os
+                  import pathlib
+                  import re
+                  import subprocess
+
+                  base_sha = os.environ['BASE_SHA']
+                  now = datetime.datetime.now(datetime.timezone.utc)
+
+                  with open('scoped-files.txt', encoding='utf-8') as changed_files:
+                      paths = [line.rstrip('\n') for line in changed_files if line.rstrip('\n')]
+
+                  def history(path):
+                      result = subprocess.run(
+                          [
+                              'git',
+                              'log',
+                              '--no-merges',
+                              '--max-count=20',
+                              '--format=%H%x1f%an%x1f%ae%x1f%aI',
+                              base_sha,
+                              '--',
+                              path,
+                          ],
+                          check=True,
+                          capture_output=True,
+                          text=True,
+                      )
+
+                      commits = []
+                      for line in result.stdout.splitlines():
+                          parts = line.split('\x1f')
+                          if len(parts) != 4:
+                              continue
+
+                          sha, name, email, authored_at = parts
+                          commits.append(
+                              {
+                                  'sha': sha,
+                                  'name': name,
+                                  'email': email,
+                                  'authored_at': authored_at,
+                              }
+                          )
+
+                      return commits
+
+                  candidates = {}
+
+                  for path in paths:
+                      exact_commits = history(path)
+                      parent = str(pathlib.PurePosixPath(path).parent)
+                      directory_commits = history(parent) if parent not in ('', '.') else []
+                      exact_identities = {
+                          (commit['email'].strip().casefold() or commit['name'].strip().casefold())
+                          for commit in exact_commits
+                      }
+
+                      commits_by_identity = {}
+                      for match, commits in (('exact', exact_commits), ('directory', directory_commits)):
+                          for commit in commits:
+                              identity = (
+                                  commit['email'].strip().casefold()
+                                  or commit['name'].strip().casefold()
+                              )
+                              if match == 'directory' and identity in exact_identities:
+                                  continue
+
+                              entry = commits_by_identity.setdefault(
+                                  identity,
+                                  {'match': match, 'commits': []},
+                              )
+                              if entry['match'] == 'directory' and match == 'exact':
+                                  entry['match'] = 'exact'
+                                  entry['commits'] = []
+                              if entry['match'] == match:
+                                  entry['commits'].append(commit)
+
+                      for identity, evidence in commits_by_identity.items():
+                          commits = evidence['commits']
+                          latest = max(commits, key=lambda commit: commit['authored_at'])
+                          authored_at = datetime.datetime.fromisoformat(latest['authored_at'])
+                          age_days = max(0, (now - authored_at.astimezone(datetime.timezone.utc)).days)
+                          recency = 5 if age_days <= 90 else 3 if age_days <= 365 else 1
+                          breadth = 10 if evidence['match'] == 'exact' else 3
+                          score = breadth + min(len(commits), 5) + recency
+                          candidate = candidates.setdefault(
+                              identity,
+                              {
+                                  'author_name': latest['name'],
+                                  'login_hint': None,
+                                  'score': 0,
+                                  'commit_count': 0,
+                                  'exact_paths': set(),
+                                  'directory_paths': set(),
+                                  'representative_commit_sha': latest['sha'],
+                                  'latest_commit_at': latest['authored_at'],
+                              },
+                          )
+                          candidate['score'] += score
+                          candidate['commit_count'] += len(commits)
+                          candidate[f"{evidence['match']}_paths"].add(path)
+
+                          if datetime.datetime.fromisoformat(
+                              latest['authored_at']
+                          ) > datetime.datetime.fromisoformat(candidate['latest_commit_at']):
+                              candidate['author_name'] = latest['name']
+                              candidate['representative_commit_sha'] = latest['sha']
+                              candidate['latest_commit_at'] = latest['authored_at']
+
+                          noreply = re.fullmatch(
+                              r'(?:\d+\+)?([^@]+)@users\.noreply\.github\.com',
+                              latest['email'],
+                              flags=re.IGNORECASE,
+                          )
+                          if noreply:
+                              candidate['login_hint'] = noreply.group(1)
+
+                  ranked = []
+                  for candidate in candidates.values():
+                      candidate['exact_files_touched'] = len(candidate['exact_paths'])
+                      candidate['directory_files_touched'] = len(candidate['directory_paths'])
+                      candidate['files_touched'] = (
+                          candidate['exact_files_touched']
+                          + candidate['directory_files_touched']
+                      )
+                      candidate['exact_paths'] = sorted(candidate['exact_paths'])[:10]
+                      candidate['directory_paths'] = sorted(candidate['directory_paths'])[:10]
+                      ranked.append(candidate)
+
+                  ranked.sort(
+                      key=lambda candidate: (
+                          -candidate['score'],
+                          -candidate['exact_files_touched'],
+                          -candidate['files_touched'],
+                          -candidate['commit_count'],
+                          candidate['author_name'].casefold(),
+                      )
+                  )
+
+                  with open('reviewer-candidates.json', 'w', encoding='utf-8') as output:
+                      json.dump(ranked[:8], output, ensure_ascii=False, indent=2)
+                  PY
+
+                  jq --exit-status '
+                    type == "array" and length <= 8 and
+                    all(.[];
+                      (.author_name | type == "string" and length > 0) and
+                      (.score | type == "number" and . > 0) and
+                      (.representative_commit_sha | type == "string" and length == 40) and
+                      (.exact_paths | type == "array") and
+                      (.directory_paths | type == "array")
+                    )
+                  ' reviewer-candidates.json > /dev/null
+
+                  echo "Ranked $(jq 'length' reviewer-candidates.json) reviewer candidate(s)."
+
+            - name: Request one relevant reviewer through GitHub CLI
+              shell: bash
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPOSITORY: ${{ github.repository }}
+                  PR_NUMBER: ${{ github.event.pull_request.number }}
+              run: |
+                  set -euo pipefail
+
+                  if jq --exit-status 'length == 0' reviewer-candidates.json > /dev/null; then
+                    printf '{"requested_reviewers":[],"reason":"Nenhum candidato encontrado no histórico Git."}\n' \
+                      > requested-reviewers.json
+                    exit 0
+                  fi
+
+                  python3 - <<'PY'
+                  import datetime
+                  import json
+                  import os
+                  import re
+                  import subprocess
+
+                  repository = os.environ['REPOSITORY']
+                  pull_request_number = os.environ['PR_NUMBER']
+
+                  def gh_json(endpoint, *extra_args):
+                      result = subprocess.run(
+                          ['gh', 'api', endpoint, *extra_args],
+                          check=True,
+                          capture_output=True,
+                          text=True,
+                      )
+                      return json.loads(result.stdout)
+
+                  def gh_lines(endpoint, *extra_args):
+                      result = subprocess.run(
+                          ['gh', 'api', endpoint, *extra_args],
+                          check=True,
+                          capture_output=True,
+                          text=True,
+                      )
+                      return {line for line in result.stdout.splitlines() if line}
+
+                  def user_details(login):
+                      return gh_json(f'users/{login}')
+
+                  service_account_pattern = re.compile(
+                      r'(?:^|[-_.])(bot|service|svc|automation|actions|ci|build|release|deploy|jenkins)'
+                      r'(?:$|[-_.])',
+                      re.IGNORECASE,
+                  )
+
+                  def is_human(login):
+                      if login.endswith('[bot]') or service_account_pattern.search(login):
+                          return False
+                      details = user_details(login)
+                      return details.get('type') == 'User'
+
+                  pull_request = gh_json(
+                      f'repos/{repository}/pulls/{pull_request_number}'
+                  )
+                  pull_request_author = (pull_request.get('user') or {}).get('login')
+                  requested_logins = gh_lines(
+                      f'repos/{repository}/pulls/{pull_request_number}/requested_reviewers',
+                      '--jq',
+                      '.users[]?.login // empty',
+                  )
+                  submitted_reviewers = gh_lines(
+                      f'repos/{repository}/pulls/{pull_request_number}/reviews',
+                      '--paginate',
+                      '--jq',
+                      '.[].user.login // empty',
+                  )
+                  requested_login_keys = {login.casefold() for login in requested_logins}
+                  submitted_reviewer_keys = {
+                      login.casefold() for login in submitted_reviewers
+                  }
+                  requested_human_count = sum(
+                      is_human(login) for login in requested_logins
+                  )
+
+                  if requested_human_count >= 1:
+                      selection = {
+                          'selected_login': None,
+                          'reason': 'O limite de um revisor solicitado já foi atingido.',
+                      }
+                  else:
+                      candidates = json.load(open('reviewer-candidates.json', encoding='utf-8'))
+                      merged = {}
+
+                      for candidate in candidates:
+                          commit = gh_json(
+                              f"repos/{repository}/commits/{candidate['representative_commit_sha']}"
+                          )
+                          login = ((commit.get('author') or {}).get('login') or '').strip()
+                          if not login:
+                              continue
+
+                          if (
+                              login.casefold() == (pull_request_author or '').casefold()
+                              or login.casefold() in requested_login_keys
+                              or login.casefold() in submitted_reviewer_keys
+                              or not is_human(login)
+                          ):
+                              continue
+
+                          existing = merged.setdefault(
+                              login,
+                              {
+                                  'login': login,
+                                  'score': 0,
+                                  'commit_count': 0,
+                                  'exact_paths': set(),
+                                  'directory_paths': set(),
+                                  'latest_commit_at': None,
+                              },
+                          )
+                          existing['score'] += candidate['score']
+                          existing['commit_count'] += candidate['commit_count']
+                          existing['exact_paths'].update(candidate.get('exact_paths', []))
+                          existing['directory_paths'].update(
+                              candidate.get('directory_paths', [])
+                          )
+
+                          latest_at = candidate['latest_commit_at']
+                          if (
+                              existing['latest_commit_at'] is None
+                              or datetime.datetime.fromisoformat(latest_at)
+                              > datetime.datetime.fromisoformat(existing['latest_commit_at'])
+                          ):
+                              existing['latest_commit_at'] = latest_at
+
+                      ranked = []
+                      for candidate in merged.values():
+                          exact_files_touched = len(candidate['exact_paths'])
+                          files_touched = exact_files_touched + len(candidate['directory_paths'])
+                          latest_timestamp = datetime.datetime.fromisoformat(
+                              candidate['latest_commit_at']
+                          ).timestamp()
+                          ranked.append(
+                              (
+                                  -candidate['score'],
+                                  -exact_files_touched,
+                                  -files_touched,
+                                  -candidate['commit_count'],
+                                  -latest_timestamp,
+                                  candidate['login'].casefold(),
+                                  candidate['login'],
+                              )
+                          )
+
+                      ranked.sort()
+                      if not ranked:
+                          selection = {
+                              'selected_login': None,
+                              'reason': 'Nenhum candidato elegível foi encontrado.',
+                          }
+                      else:
+                          selection = {
+                              'selected_login': ranked[0][-1],
+                              'reason': 'Revisor selecionado pelo histórico de alterações.',
+                          }
+
+                  with open('reviewer-selection.json', 'w', encoding='utf-8') as output:
+                      json.dump(selection, output, ensure_ascii=False)
+                  PY
+
+                  selected_login="$(jq --raw-output '.selected_login // empty' reviewer-selection.json)"
+                  selection_reason="$(jq --raw-output '.reason' reviewer-selection.json)"
+
+                  if [ -z "$selected_login" ]; then
+                    jq --null-input \
+                      --arg reason "$selection_reason" \
+                      '{requested_reviewers: [], reason: $reason}' \
+                      > requested-reviewers.json
+                    exit 0
+                  fi
+
+                  gh pr edit "$PR_NUMBER" \
+                    --repo "$REPOSITORY" \
+                    --add-reviewer "$selected_login"
+
+                  jq --null-input \
+                    --arg login "$selected_login" \
+                    --arg reason "$selection_reason" \
+                    '{requested_reviewers: [$login], reason: $reason}' \
+                    > requested-reviewers.json
+
+                  jq --exit-status '
+                    type == "object" and
+                    (.requested_reviewers | type == "array" and length <= 1 and
+                      length == (unique | length) and
+                      all(.[]; type == "string" and length > 0)) and
+                    (.reason | type == "string" and length > 0)
+                  ' requested-reviewers.json > /dev/null
+
+                  echo "Requested $(jq '.requested_reviewers | length' requested-reviewers.json) reviewer(s)."

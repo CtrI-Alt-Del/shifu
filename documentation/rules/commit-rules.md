@@ -17,7 +17,7 @@ The configuration lives in [`commitlint.config.mjs`](../../commitlint.config.mjs
 ## Format
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): SHIFU-<number> <subject>
 
 <body>
 
@@ -29,7 +29,7 @@ Only the **first line** (`type` + optional `scope` + `subject`) is required.
 Example:
 
 ```
-feat(web): add sign-up form validation
+feat(web): SHIFU-138 add sign-up form validation
 ```
 
 ---
@@ -73,6 +73,7 @@ lowercase. Omit the scope only when the change is genuinely cross-cutting
 
 ## Subject (required)
 
+- begin with a Jira key matching `SHIFU-<number>`;
 - **imperative mood**: "add", "fix", "remove" — not "added", "adds", "adding"
 - **lowercase first word**: commitlint's `subject-case` rule rejects
   sentence-case, Start-Case, PascalCase and UPPER-CASE — so write
@@ -122,21 +123,22 @@ BREAKING CHANGE: consumers reading `documentId` must switch to `taxId`.
 Good:
 
 ```
-feat(web): add product listing page
-fix(server): correct health check version
-refactor(core): extract consent validation into use case
-docs: add commit rules
-test(web): cover sign-up page with integration tests
-chore: configure commitlint and husky commit hooks
+feat(web): SHIFU-138 add product listing page
+fix(server): SHIFU-138 correct health check version
+refactor(core): SHIFU-138 extract consent validation into use case
+docs: SHIFU-138 add commit rules
+test(web): SHIFU-138 cover sign-up page with integration tests
+chore: SHIFU-138 configure commitlint and husky commit hooks
 ```
 
 Rejected by the hook:
 
 ```
-added new stuff                      # no type, capitalized, not imperative
-Feat: Add Page                       # type not lowercase, subject sentence-case
-feature(web): add page               # "feature" is not in type-enum
-fix(web): correct image loading.     # trailing period
+added new stuff                              # no type or Jira key
+Feat: SHIFU-138 Add Page                      # type and subject case are invalid
+feature(web): SHIFU-138 add page              # "feature" is not in type-enum
+fix(web): correct image loading               # missing Jira key
+fix(web): SHIFU-138 correct image loading.    # trailing period
 ```
 
 ---
@@ -153,7 +155,7 @@ fix(web): correct image loading.     # trailing period
 To test a message manually without committing:
 
 ```
-echo "feat(web): add sign-up form" | pnpm exec commitlint
+echo "feat(web): SHIFU-138 add sign-up form" | pnpm exec commitlint
 ```
 
 ---
