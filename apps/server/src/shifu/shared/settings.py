@@ -5,7 +5,9 @@ from pydantic import BeforeValidator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
-def _parse_trusted_proxy_ips(value: str) -> list[str]:
+def _parse_trusted_proxy_ips(value: str | list[str]) -> list[str]:
+    if isinstance(value, list):
+        return value
     return [ip.strip() for ip in value.split(',') if ip.strip()]
 
 
