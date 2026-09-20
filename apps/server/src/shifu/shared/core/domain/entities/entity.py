@@ -39,3 +39,13 @@ def entity[EntityType](cls: type[EntityType]) -> type[EntityType]:
     entity_class.__setattr__ = _set_entity_attribute  # type: ignore[method-assign]
     entity_class.__delattr__ = _delete_entity_attribute  # type: ignore[method-assign]
     return entity_class
+
+
+@dataclass_transform(eq_default=False, frozen_default=True, kw_only_default=True)
+def frozen_entity[EntityType](cls: type[EntityType]) -> type[EntityType]:
+    """Create an identity-based entity whose historical fields cannot change."""
+
+    entity_class = dataclass(cls, eq=False, frozen=True, kw_only=True, slots=True)
+    entity_class.__eq__ = _entity_equal  # type: ignore[method-assign]
+    entity_class.__hash__ = _entity_hash  # type: ignore[method-assign]
+    return entity_class

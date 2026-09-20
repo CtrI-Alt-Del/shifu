@@ -969,7 +969,6 @@ name = "shifu"
 version = "1.38.1"
 source = { editable = "." }
 dependencies = [
-    { name = "faker" },
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic-settings" },
     { name = "redis" },
@@ -978,6 +977,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "basedpyright" },
+    { name = "faker" },
     { name = "poethepoet" },
     { name = "pyright" },
     { name = "pytest" },
@@ -988,7 +988,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "faker", specifier = ">=40.39.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.128.7" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "redis", specifier = ">=8.1.0" },
@@ -997,6 +996,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.38.2" },
+    { name = "faker", specifier = ">=40.39.0" },
     { name = "poethepoet", specifier = ">=0.41.0" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=9.0.2" },

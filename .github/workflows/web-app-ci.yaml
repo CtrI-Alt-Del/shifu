@@ -1,0 +1,66 @@
+name: Web application CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/web-app-ci.yaml'
+      - '.node-version'
+      - '.npmrc'
+      - 'biome.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-app-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify web application
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Check types
+        run: pnpm --filter web check:types
+
+      - name: Check lint
+        run: pnpm --filter web check:lint
+
+      - name: Check architecture
+        run: pnpm --filter web check:architecture
+
+      - name: Run unit tests
+        run: pnpm --filter web test:unit
+
+      - name: Run integration tests
+        run: pnpm --filter web test:integration
+
+      - name: Build application
+        run: pnpm --filter web build

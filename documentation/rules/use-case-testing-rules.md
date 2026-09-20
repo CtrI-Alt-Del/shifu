@@ -4,12 +4,14 @@ description: Pytest unit-testing rules for Python core use cases and domain fake
 
 # Use Case Testing Rules
 
-These rules apply to unit tests under `apps/server/tests/core`. Only use cases receive
-dedicated unit tests, placed under `apps/server/tests/core/<module>/use_cases`.
+These rules apply to unit tests under `apps/server/tests/core`. Use-case tests belong
+under `apps/server/tests/core/<module>/use_cases`; when a delivery introduces domain
+factories or entity transitions before a use case exists, focused domain conformance
+tests may live under `apps/server/tests/core/domain`.
 
-Do not create dedicated unit tests for domain entities, structures, enums, errors,
-events, decorators, interfaces, repositories, providers, fakers, or adapters. Exercise
-those declarations through the use cases that consume them; use strict static typing,
+Do not duplicate domain tests for declarations that have no behavior. Domain factories,
+invariants, transitions, immutability and faker validity require direct conformance
+coverage when no use case owns those behaviors yet. Use strict static typing,
 architecture checks, and adapter-level integration tests for their other boundaries.
 
 ## One test module per use case
