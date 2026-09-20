@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import { AuthError } from '@/core/errors/auth-error'
 import { useAuthContext } from '@/ui/shared/contexts/auth-context/use-auth-context'
 
-export const useSignInAction = () => {
+export function useSignInAction() {
   const { signIn } = useAuthContext()
   const [error, setError] = useState<AuthError | null>(null)
   const [isPending, setIsPending] = useState(false)
