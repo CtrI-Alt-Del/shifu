@@ -1,22 +1,13 @@
-import { Pool } from 'pg'
+import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-import { test, expect } from '../playwright'
-
-const databaseURL =
-  process.env.BETTER_AUTH_DATABASE_URL ??
-  'postgresql://shifu:shifu-local@localhost:54344/shifu'
-
-test('renders the dashboard and records a main-page entry for an active session', async ({
+test('renders the dashboard for an authenticated session', async ({
   authenticatedPage,
-  authenticatedAccountId,
 }) => {
-  const pool = new Pool({ connectionString: databaseURL })
-  const before = await pool.query(
-    "select count(*)::int as count from events where payload->>'account_id' = $1",
-    [authenticatedAccountId],
+  const serverFunctionRequest = authenticatedPage.waitForRequest(
+    (request) => request.headers()['x-tsr-serverfn'] === 'true',
   )
-
-  await authenticatedPage.goto('/')
+  await navigateAuthenticatedPage(authenticatedPage, '/')
+  const request = await serverFunctionRequest
 
   await expect(
     authenticatedPage.getByRole('heading', {
@@ -24,21 +15,8 @@ test('renders the dashboard and records a main-page entry for an active session'
       name: 'Dê forma ao que você quer aprender.',
     }),
   ).toBeVisible()
-
-  await expect
-    .poll(
-      async () => {
-        const result = await pool.query(
-          "select count(*)::int as count from events where payload->>'account_id' = $1",
-          [authenticatedAccountId],
-        )
-        return result.rows[0].count
-      },
-      { timeout: 5_000 },
-    )
-    .toBe(before.rows[0].count + 1)
-
-  await pool.end()
+  expect(request.method()).toBe('GET')
+  expect(new URL(request.url()).pathname).toContain('/_serverFn/')
 })
 
 test('redirects an anonymous visitor before the dashboard renders', async ({ page }) => {

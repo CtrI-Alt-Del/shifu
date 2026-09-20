@@ -2,6 +2,7 @@
 
 export {
   expect,
+  navigateAuthenticatedPage,
   signInPassword,
   signInPasswordHash,
   test,

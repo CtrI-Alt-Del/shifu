@@ -1,7 +1,7 @@
-import { test, expect } from '../playwright'
+import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
 test('renders the account route for an active session', async ({ authenticatedPage }) => {
-  await authenticatedPage.goto('/account/')
+  await navigateAuthenticatedPage(authenticatedPage, '/account/')
 
   await expect(
     authenticatedPage.getByRole('heading', { level: 1, name: 'Minha conta' }),
