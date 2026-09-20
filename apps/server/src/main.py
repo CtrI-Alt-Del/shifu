@@ -11,4 +11,5 @@ if __name__ == '__main__':
         host='127.0.0.1',
         port=int(os.getenv('SHIFU_SERVER_APP_PORT', '9000')),
         reload=True,
+        proxy_headers=False,
     )
