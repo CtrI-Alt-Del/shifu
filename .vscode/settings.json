@@ -1,4 +1,5 @@
 {
+  "basedpyright.analysis.configFilePath": "${workspaceFolder}/apps/server",
   "python.defaultInterpreterPath": "${workspaceFolder}/apps/server/.venv/bin/python",
   "python.analysis.extraPaths": ["${workspaceFolder}/apps/server/src"]
 }
