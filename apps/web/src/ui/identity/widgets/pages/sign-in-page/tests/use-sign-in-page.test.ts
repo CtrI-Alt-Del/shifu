@@ -37,7 +37,10 @@ describe('useSignInPage', () => {
       isPending: false,
       signIn: signInMock,
     })
-    useNavigationMock.mockReturnValue({ navigateTo: navigateToMock })
+    useNavigationMock.mockReturnValue({
+      navigateTo: navigateToMock,
+      navigateToPath: vi.fn(),
+    })
   })
 
   it('starts with an empty sign-in form', () => {

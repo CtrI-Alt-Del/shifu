@@ -17,6 +17,9 @@ import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/ind
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
+import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
+import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +61,23 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntelligencePlannerPlanningIdIndexRoute =
+  IntelligencePlannerPlanningIdIndexRouteImport.update({
+    id: '/intelligence/planner/$planningId/',
+    path: '/intelligence/planner/$planningId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LearningGoalsGoalIdIndexRoute =
+  LearningGoalsGoalIdIndexRouteImport.update({
+    id: '/learning/goals/$goalId/',
+    path: '/learning/goals/$goalId/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LearningGoalsNewIndexRoute = LearningGoalsNewIndexRouteImport.update({
+  id: '/learning/goals/new/',
+  path: '/learning/goals/new/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +88,9 @@ export interface FileRoutesByFullPath {
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
+  '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
+  '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +101,9 @@ export interface FileRoutesByTo {
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
+  '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
+  '/learning/goals/new': typeof LearningGoalsNewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +115,9 @@ export interface FileRoutesById {
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
+  '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
+  '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +130,9 @@ export interface FileRouteTypes {
     | '/learning/'
     | '/login/'
     | '/api/auth/$'
+    | '/intelligence/planner/$planningId/'
+    | '/learning/goals/$goalId/'
+    | '/learning/goals/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +143,9 @@ export interface FileRouteTypes {
     | '/learning'
     | '/login'
     | '/api/auth/$'
+    | '/intelligence/planner/$planningId'
+    | '/learning/goals/$goalId'
+    | '/learning/goals/new'
   id:
     | '__root__'
     | '/'
@@ -121,6 +156,9 @@ export interface FileRouteTypes {
     | '/learning/'
     | '/login/'
     | '/api/auth/$'
+    | '/intelligence/planner/$planningId/'
+    | '/learning/goals/$goalId/'
+    | '/learning/goals/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,6 +170,9 @@ export interface RootRouteChildren {
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
+  LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
+  LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -192,6 +233,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intelligence/planner/$planningId/': {
+      id: '/intelligence/planner/$planningId/'
+      path: '/intelligence/planner/$planningId'
+      fullPath: '/intelligence/planner/$planningId/'
+      preLoaderRoute: typeof IntelligencePlannerPlanningIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learning/goals/$goalId/': {
+      id: '/learning/goals/$goalId/'
+      path: '/learning/goals/$goalId'
+      fullPath: '/learning/goals/$goalId/'
+      preLoaderRoute: typeof LearningGoalsGoalIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/learning/goals/new/': {
+      id: '/learning/goals/new/'
+      path: '/learning/goals/new'
+      fullPath: '/learning/goals/new/'
+      preLoaderRoute: typeof LearningGoalsNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -204,6 +266,10 @@ const rootRouteChildren: RootRouteChildren = {
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  IntelligencePlannerPlanningIdIndexRoute:
+    IntelligencePlannerPlanningIdIndexRoute,
+  LearningGoalsGoalIdIndexRoute: LearningGoalsGoalIdIndexRoute,
+  LearningGoalsNewIndexRoute: LearningGoalsNewIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

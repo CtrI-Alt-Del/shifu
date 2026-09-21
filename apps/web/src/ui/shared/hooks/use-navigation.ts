@@ -9,5 +9,8 @@ export function useNavigation() {
     navigateTo(route: RouteName) {
       return navigate({ to: ROUTES[route] as never })
     },
+    navigateToPath(path: string, params?: Record<string, string>) {
+      return navigate({ params: params as never, to: path as never })
+    },
   }
 }
