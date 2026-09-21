@@ -237,15 +237,20 @@ keeps route tests aligned with `documentation/modules.md`, keeps related server,
 core, UI, and browser tests discoverable together, and prevents a URL rename or
 localization from moving tests between unrelated technical areas.
 
-These are browser integration tests, not backend end-to-end tests. Web route tests
-must never start, call, or depend on a real backend, database, authentication
-service, or external service. Use `page.route` or the shared browser fixtures to
-provide deterministic mocked transport. All browser tests under
-`apps/web/tests/routes/` use this mocked boundary; there is no real-service
-Playwright suite in the web application. When transport is mocked, the test must
-model the relevant response state instead of returning the same fixture forever.
-Real server persistence, authorization, and cross-tenant behavior belong in the
+These are browser route-integration tests, not backend end-to-end tests. Route tests
+under `apps/web/tests/routes/` must never start, call, or depend on a real backend,
+database, authentication service, or external service. Use `page.route` or the shared
+browser fixtures to provide deterministic mocked transport. When transport is mocked,
+the test must model the relevant response state instead of returning the same fixture
+forever. Real server persistence, authorization, and cross-tenant behavior belong in
 server/Core integration suites, not under `apps/web/tests/routes/`.
+
+Explicit HTTP-handler integration suites outside `apps/web/tests/routes/` are a
+separate boundary. An authentication-handler suite may use the local FastAPI service,
+real PostgreSQL state, and the registered web handler when that is the behavior under
+test. Such a suite must use the canonical shared Playwright fixture, wait for the
+configured services, assert the complete HTTP/cookie contract, and must not be reported
+as mocked route coverage or as proof of unrelated page behavior.
 
 Every feature route, whether public or protected, should cover the applicable cases:
 
@@ -341,11 +346,12 @@ An integration test is complete only when it proves both sides of the interactio
 the user can observe the outcome and the application made the expected transport
 or navigation decision. For mutations, assert the request and response contract,
 then assert the visible success/error state and any refresh or redirect. For
-authenticated flows, establish the session through the shared browser fixture,
+authenticated route flows, establish the session through the shared browser fixture,
 verify the mocked account/authorization response, and cover at least one denied or
 unavailable state when that boundary is part of the route. Route suites must state
-that they use mocked transport; mocked browser coverage must not be presented as
-proof of server authorization, persistence, or external email delivery.
+that they use mocked transport; mocked browser coverage must not be presented as proof
+of server authorization, persistence, or external email delivery. A separate
+HTTP-handler suite must instead record its real-service prerequisites and evidence.
 
 Prefer one focused test per behavior over a large test with unrelated assertions.
 Before marking a route complete, inspect the suite for missing edge states and
@@ -362,8 +368,10 @@ import { expect, test } from "../../playwright";
 
 Do not import `test` or `expect` directly from `@playwright/test`, import a module
 fixture directly into a test file, or declare `test.extend` in a route suite.
-`apps/web/tests/playwright.ts` is the single composition point for the test
-factory and re-exports `expect`.
+`apps/web/tests/playwright.ts` is the single composition and export point for the
+test factory and re-exports `expect`. It may re-export a canonical module fixture
+factory; it does not need to repeat `test.extend` when that composition already lives
+in the owning module fixture.
 
 Each bounded module owns its fixture implementation in a separate file under:
 
@@ -371,17 +379,19 @@ Each bounded module owns its fixture implementation in a separate file under:
 apps/web/tests/fixtures/<module>-module-fixture.ts
 ```
 
-Module fixture files export fixture classes or helpers only. The shared
-`playwright.ts` file imports those module fixtures, registers them with
-`test.extend`, and applies shared setup such as anonymous authentication. Route
-tests should consume the resulting fixtures through the shared factory so every
-suite uses the same browser setup and fixture lifecycle.
+The owning module fixture may compose all fixtures required by that module into one
+`test.extend` graph. For example, the Identity module fixture composes its
+authenticated-page and sign-in-handler account fixtures. Secondary feature fixture
+files may remain as compatibility re-exports of that canonical graph, but must not
+create an independent `@playwright/test` factory. Route and handler tests consume the
+resulting fixtures through `playwright.ts` so every suite uses the same browser setup
+and fixture lifecycle.
 
 If the backend is mocked, describe the suite as browser integration with mocked
 transport. It verifies the UI-to-REST contract and route behavior; server
 authorization, controller, and persistence behavior require their own server/core
-tests. Do not add a second Playwright factory that bypasses the shared fixtures or
-an exception for real authenticated services.
+tests unless the suite is explicitly an HTTP-handler integration suite as described
+above. Do not add a second Playwright factory that bypasses the shared fixtures.
 
 ## Route failure boundaries
 

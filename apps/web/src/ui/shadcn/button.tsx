@@ -1,0 +1,23 @@
+import type { ButtonHTMLAttributes } from 'react'
+
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'default' | 'ghost'
+}
+
+export const Button = ({
+  className = '',
+  variant = 'default',
+  ...props
+}: ButtonProps) => {
+  const variantClassName =
+    variant === 'ghost'
+      ? 'bg-transparent text-muted-foreground hover:bg-white/5 hover:text-foreground'
+      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+
+  return (
+    <button
+      className={`inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${variantClassName} ${className}`}
+      {...props}
+    />
+  )
+}

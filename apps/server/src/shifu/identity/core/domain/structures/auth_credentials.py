@@ -10,9 +10,9 @@ class AuthCredentials:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, 'email', normalize_email(self.email))
-        if len(self.password) < 8:
-            raise InvalidPasswordError
 
     @classmethod
     def create(cls, *, email: str, password: str) -> 'AuthCredentials':
+        if len(password) < 8:
+            raise InvalidPasswordError
         return cls(email=email, password=password)

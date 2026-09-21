@@ -145,11 +145,13 @@ actual configuration and connectivity before use.
 
 Use it to inspect registered local applications, functions, events, runs, and
 traces, or to send an explicitly requested local test event. Confirm the server
-and Inngest services are running and that the function is registered. Inngest is
-currently a planned Shifu capability, so do not assume a function exists merely
-because the Docker service exists. Use a separate cloud MCP only for explicitly
-targeted deployed environments, and never send deployed events without a clear
-request.
+and Inngest services are running and that the expected function is registered;
+the presence of the Docker service alone is not evidence of registration. The
+implemented local job path uses the Compose Dev Server for development and the
+disposable Inngest/PostgreSQL Testcontainers owned by
+`apps/server/tests/fixtures/inngest_fixture.py` for job integration tests. Use a
+separate cloud MCP only for explicitly targeted deployed environments, and never
+send deployed events without a clear request.
 
 ## Playwright CLI
 
@@ -167,11 +169,11 @@ that a real authenticated, persisted, or server-backed flow works.
 
 1. Identify required services. Inspect `docker compose ps` and relevant health
    endpoints before full-stack validation.
-2. Default local endpoints are PostgreSQL on `localhost:54322`, Inngest on
+2. Default local endpoints are PostgreSQL on `localhost:54344`, Inngest on
    `localhost:18288`, Mailpit UI on `localhost:54326`, SonarQube on
-   `localhost:19000`, web on `http://localhost:3000`, and FastAPI on
-   `http://localhost:8000` when started with the documented command. Environment
-   overrides take precedence.
+   `localhost:19000`, web on `http://localhost:7000`, and FastAPI on
+   `http://localhost:7777` as the fallback when started with the documented
+   command. Environment overrides take precedence.
 3. Start only required applications in persistent sessions. Run the API from
    `apps/server` with `uv run uvicorn main:app --app-dir src --reload`; run the
    web app from `apps/web` using its current `dev` script.

@@ -26,6 +26,13 @@ and infrastructure with no business owner.
 A module must not import another module's SQLAlchemy model or repository. Cross-module
 coordination uses public contracts, identifiers, and events.
 
+Shared SQLAlchemy infrastructure follows the class boundary defined by its public
+module. `shared/database/sqlalchemy/serialization.py` exports `Serialization` and
+`shared/database/sqlalchemy/session.py` exports `Session`; their stateless operations
+are static methods on those classes. Consumers import the class and call the explicit
+method (`Serialization.serialize_value(...)`, `Session.database_session(...)`) rather
+than relying on free module functions or duplicated engine/session helpers.
+
 ## Sessions define transaction boundaries
 
 Create the engine and `sessionmaker` once in shared database infrastructure. Every
@@ -42,6 +49,21 @@ models in one execution path or allow both middleware and a use case to commit.
 Repositories do not call `commit`. Use cases do not receive the session. A job may use
 an explicit session context per durable step and commit at the step boundary when that
 state must survive later retries.
+
+Every module database repository group exposes the shared `EventsRepository`. A use
+case that emits an event calls `repositories.events.add(event)` inside the same module
+transaction as its business mutation. An event-only operation still uses that module
+transaction as the sole owner of the outbox insert.
+
+The shared SQLAlchemy adapter persists canonical events in the shared `events` outbox
+table. Its insert participates in the caller's transaction and emits a PostgreSQL
+notification that becomes visible only after commit. The repository does not call
+Inngest. Shared messaging owns the long-lived database listener that reserves eligible
+rows, sends them with their stable IDs, and marks them published after acknowledgement.
+Startup and reconnect draining must recover committed rows whose notifications were
+missed. The repository exposes the earliest event-availability or reservation-expiry
+deadline so the listener can wake for retries without depending on a later database
+notification, and it can release expired reservations before the next claim.
 
 ## SQLAlchemy models are persistence-only
 
@@ -79,6 +101,9 @@ core interface.
 
 Concrete classes use names such as `SqlalchemyObjectivesRepository` and implement the
 owning core `Protocol`. Inject the session through the constructor and keep it private.
+Each concrete repository class has its own `<entity>_repository.py` module; do not
+combine multiple repository classes in a shared `repositories.py` file. The package
+`__init__.py` may re-export the canonical repository classes for composition imports.
 
 Repository methods describe persistence capabilities:
 
@@ -86,7 +111,7 @@ Repository methods describe persistence capabilities:
 - `find_many_*` returns a typed collection or pagination structure;
 - `add` inserts one domain object;
 - `add_many` inserts a collection in one efficient operation where supported;
-- `replace` updates an existing domain object;
+- `update` updates an existing domain object;
 - `remove` deletes one record;
 - `remove_all` is reserved for explicit test or seed maintenance.
 
@@ -122,8 +147,18 @@ write through repositories. They do not duplicate SQLAlchemy insert statements.
 
 A shared seed entrypoint coordinates module seeders in dependency order and uses one
 explicit session boundary. Seeding is an explicit command, never application startup.
-Destructive reset is allowed only in approved local/test environments and must be
+Destructive reset is allowed only in the approved `local` environment and must be
 guarded before deleting data.
+
+The current shared entrypoint is
+`apps/server/src/shifu/shared/database/seed.py`, with seed data construction in
+`shared/database/seed_data.py`. The `db:seed` command invokes that module explicitly;
+the seed modules must not run as an import side effect.
+
+Because this entrypoint intentionally coordinates feature-owned seeders, the server's
+Tach command excludes only `shared/database/seed.py` and `shared/database/seed_data.py`.
+Keep this narrow, documented exception instead of adding feature dependencies to the
+general shared-database boundary or creating a dependency cycle.
 
 Never embed production credentials or real user data in seeders.
 
@@ -137,3 +172,11 @@ concurrency primitive or database-specific query.
 
 Integration fixtures isolate tests, clean tables in reverse dependency order, and do
 not leak sessions or containers.
+
+The shared REST fixture uses a session-scoped PostgreSQL Testcontainer, runs the
+current Alembic head against its mapped connection URL, and injects its engine into
+the application factory. A function-scoped fixture clears application tables before
+and after each test while preserving migration metadata. REST tests must not silently
+fall back to the developer's Compose database. Controlled doubles are reserved for a
+deliberate infrastructure-failure seam or an external service that cannot run
+reliably; they do not replace repository coverage.

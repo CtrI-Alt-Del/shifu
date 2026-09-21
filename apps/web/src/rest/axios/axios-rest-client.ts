@@ -5,11 +5,18 @@ import type { RestClient, RestRequestOptions } from '@/core/shared/interfaces/re
 
 const REST_REQUEST_TIMEOUT_MS = 15_000
 
-export const AxiosRestClient = (baseUrl?: string): RestClient => {
+export type AxiosRestClientOptions = {
+  withCredentials?: boolean
+}
+
+export const AxiosRestClient = (
+  baseUrl?: string,
+  options: AxiosRestClientOptions = {},
+): RestClient => {
   const client = axios.create({
     baseURL: baseUrl,
     timeout: REST_REQUEST_TIMEOUT_MS,
-    withCredentials: true,
+    withCredentials: options.withCredentials ?? true,
   })
 
   function get<ResponseBody>(url: string, options: RestRequestOptions) {
@@ -17,6 +24,7 @@ export const AxiosRestClient = (baseUrl?: string): RestClient => {
       method: 'get',
       url,
       params: options?.params,
+      headers: options?.headers,
     })
   }
 
@@ -31,11 +39,12 @@ export const AxiosRestClient = (baseUrl?: string): RestClient => {
       })
     },
 
-    post<ResponseBody>(url: string, body?: unknown) {
+    post<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'post',
         url,
         data: body,
+        headers: options?.headers,
       })
     },
 
@@ -47,27 +56,30 @@ export const AxiosRestClient = (baseUrl?: string): RestClient => {
       })
     },
 
-    patch<ResponseBody>(url: string, body?: unknown) {
+    patch<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'patch',
         url,
         data: body,
+        headers: options?.headers,
       })
     },
 
-    put<ResponseBody>(url: string, body?: unknown) {
+    put<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'put',
         url,
         data: body,
+        headers: options?.headers,
       })
     },
 
-    delete<ResponseBody>(url: string, body?: unknown) {
+    delete<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'delete',
         url,
         data: body,
+        headers: options?.headers,
       })
     },
   }

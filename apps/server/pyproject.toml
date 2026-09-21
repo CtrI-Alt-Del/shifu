@@ -4,7 +4,13 @@ version = "1.38.1"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "alembic>=1.16",
+    "argon2-cffi>=25.1",
     "fastapi[standard]>=0.128.7",
+    "PyJWT[crypto]>=2.10",
+    "psycopg[binary]>=3.2",
+    "sqlalchemy>=2.0",
+    "inngest>=0.5",
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",
 ]
@@ -19,6 +25,7 @@ dev = [
     "pytest-mock>=3.15.1",
     "ruff>=0.15.0",
     "tach==0.35.0",
+    "testcontainers>=4.15.0",
 ]
 
 [project.scripts]
@@ -26,9 +33,6 @@ dev = "main:main"
 
 [tool.poe.tasks."dev"]
 cmd = "uv run --env-file .env.local python src/main.py"
-
-[tool.poe.tasks."pubsub"]
-cmd = "npx --ignore-scripts=false inngest-cli@latest dev -u http://localhost:8080/api/inngest"
 
 [tool.poe.tasks."db:migrate"]
 cmd = "alembic revision --autogenerate -m \"${message}\""
@@ -49,7 +53,7 @@ cmd = "alembic stamp head"
 cmd = "alembic current"
 
 [tool.poe.tasks."db:seed"]
-cmd = "uv run python -c \"from animus.database.sqlalchemy.seed import seed; seed()\""
+cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"
@@ -60,6 +64,9 @@ shell = "if find tests/core -path '*/use_cases/test_*.py' -print -quit | grep -q
 [tool.poe.tasks."test:integration"]
 cmd = "pytest tests/rest"
 
+[tool.poe.tasks."test:jobs"]
+shell = "SHIFU_RUN_REAL_INNGEST_TESTS=1 pytest tests/messaging/inngest/jobs"
+
 [tool.poe.tasks."check:types"]
 cmd = "basedpyright"
 
@@ -67,7 +74,7 @@ cmd = "basedpyright"
 shell = "ruff check --no-fix src tests && ruff format --check src tests"
 
 [tool.poe.tasks."check:architecture"]
-cmd = "tach check --dependencies"
+cmd = "tach check --dependencies -e src/shifu/shared/database/seed.py,src/shifu/shared/database/seed_data.py"
 
 [tool.poe.tasks.build]
 cmd = "uv build"

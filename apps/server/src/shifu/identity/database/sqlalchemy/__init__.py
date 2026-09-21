@@ -1,1 +1,1 @@
-
+from .identity_database import SqlalchemyIdentityDatabase as SqlalchemyIdentityDatabase

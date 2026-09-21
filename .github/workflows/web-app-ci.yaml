@@ -25,9 +25,79 @@ jobs:
   verify:
     name: Verify web application
     runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: shifu
+          POSTGRES_PASSWORD: shifu-local
+          POSTGRES_USER: shifu
+        ports:
+          - 54344:5432
+        options: >-
+          --health-cmd "pg_isready -U shifu -d shifu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install server dependencies
+        working-directory: apps/server
+        run: uv sync --frozen
+
+      - name: Prepare server database
+        working-directory: apps/server
+        run: uv run poe db:upgrade
+
+      - name: Start FastAPI
+        working-directory: apps/server
+        run: |
+          nohup uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port 7777 \
+            > "$RUNNER_TEMP/shifu-fastapi.log" 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:7777/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/shifu-fastapi.log"
+          exit 1
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6

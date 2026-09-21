@@ -125,6 +125,12 @@ remain a distinct pass. Only the Orchestrator changes artifact status.
 feature is delivered. `completed` requires accepted evidence and successful
 applicable quality gates.
 
+`open` is not a Spec artifact status. After Spec creation, the Orchestrator keeps the
+artifact `draft` through authority, integrity, and independent Spec review, then changes
+it to `ready` when those gates pass. Explicit implementation dependencies may be recorded
+in a ready Spec; they block only the affected execution or integration step unless they
+leave the implementation contract materially ambiguous.
+
 ## Workflow
 
 The reusable entry-point instructions are indexed in

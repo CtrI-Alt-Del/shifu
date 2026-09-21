@@ -89,8 +89,10 @@ shifu/
 │       └── src/
 │           ├── main.py
 │           └── shifu/
-│               ├── composition/
 │               ├── shared/
+│               │   └── database/
+│               │       ├── seed.py
+│               │       └── seed_data.py
 │               ├── identity/
 │               ├── communication/
 │               ├── curriculum/
@@ -351,8 +353,10 @@ owning domain module make authoritative business decisions.
 
 ### Server composition and layers
 
-`src/main.py` exposes the application created in `shifu.app`. The composition layer
-registers every module router. Each module may evolve through the following layers:
+`src/main.py` exposes the application created by `shifu.app.FastAPIApp`. The class
+owns top-level registration, lifespan resources, global error handlers, module
+routers, and the single Inngest endpoint. Each module may evolve through the following
+layers:
 
 ```text
 <module>/
@@ -388,6 +392,12 @@ Module use cases obtain their module-owned repository group from a database tran
 context manager. That context manager is the sole transaction owner for its execution
 path; request middleware must not also manage the same transaction. Concrete adapters
 later prove commit, rollback, and close behavior through integration tests.
+
+The explicit local seed command is implemented by
+`shared/database/seed.py` and uses `shared/database/seed_data.py` to coordinate
+module-owned seeders. Its narrow Tach exclusion is intentional because this command
+is an operational composition boundary rather than a general dependency from shared
+infrastructure into business modules.
 
 ### Agentic workflow composition
 
