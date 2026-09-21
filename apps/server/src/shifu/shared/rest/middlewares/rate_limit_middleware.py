@@ -1,3 +1,6 @@
+from shifu.shared.core.domain.errors.rate_limit_error import RateLimitError
+
+
 import ipaddress
 import json
 from collections.abc import Awaitable, Callable
@@ -8,7 +11,6 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from shifu.shared.core.domain.errors import RateLimitError
 
 if TYPE_CHECKING:
     from shifu.shared.core.interfaces import CacheProvider
@@ -23,7 +25,9 @@ _IpNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, trusted_proxy_ips: list[str]) -> None:
         super().__init__(app)
-        self._trusted_networks = _parse_trusted_networks(trusted_proxy_ips)
+        self._trusted_networks: list[_IpNetwork] = self._parse_trusted_networks(
+            trusted_proxy_ips
+        )
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -41,8 +45,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if not decision.allowed:
             error = RateLimitError(
-                message='Você excedeu o limite de solicitações. Tente novamente em '
-                f'{decision.retry_after_seconds} segundo(s).'
+                message=f'Você excedeu o limite de solicitações. Tente novamente em {decision.retry_after_seconds} segundo(s).'
             )
             return Response(
                 status_code=429,
@@ -77,12 +80,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return False
         return any(address in network for network in self._trusted_networks)
 
-
-def _parse_trusted_networks(trusted_proxy_ips: list[str]) -> list[_IpNetwork]:
-    networks: list[_IpNetwork] = []
-    for raw in trusted_proxy_ips:
-        try:
-            networks.append(ipaddress.ip_network(raw, strict=False))
-        except ValueError:
-            continue
-    return networks
+    def _parse_trusted_networks(self, trusted_proxy_ips: list[str]) -> list[_IpNetwork]:
+        networks: list[_IpNetwork] = []
+        for raw in trusted_proxy_ips:
+            try:
+                networks.append(ipaddress.ip_network(raw, strict=False))
+            except ValueError:
+                continue
+        return networks

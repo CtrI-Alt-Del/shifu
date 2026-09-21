@@ -90,6 +90,7 @@ typeCheckingMode = "strict"
 pythonVersion = "3.13"
 include = ["src", "tests"]
 reportMissingTypeStubs = false
+reportAny = false
 exclude = [
     "**/venv",
     "**/.venv",
