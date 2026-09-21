@@ -106,6 +106,7 @@ Important local variables include:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `POSTGRES_PORT` | `54344` | PostgreSQL host port |
+| `REDIS_PORT` | `6379` | Redis host port |
 | `INNGEST_PORT` | `18288` | Inngest UI/API host port |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
