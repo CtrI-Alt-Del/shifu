@@ -10,8 +10,14 @@ from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.rest.router import IdentityRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
+from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
+    JwksJwtAuthenticationProvider,
+)
+from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
+from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.rest.router import LearningRouter
+from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
@@ -62,6 +68,20 @@ class FastAPIApp:
         )
         AppErrorHandler.register(app)
         app.state.identity_database = identity_database
+        app.state.authentication_provider = JwksJwtAuthenticationProvider(
+            identity_database=identity_database,
+            jwks_url=ENVIRONMENT.auth_jwks_url,
+            issuer=ENVIRONMENT.auth_issuer,
+            audience=ENVIRONMENT.auth_audience,
+        )
+        app.state.learning_database = SqlalchemyLearningDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
+        app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
         FastAPIApp._register_routers(app)
         return app
 
