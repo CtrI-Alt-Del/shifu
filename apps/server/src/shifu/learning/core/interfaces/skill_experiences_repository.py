@@ -17,6 +17,13 @@ class SkillExperiencesRepository(Protocol):
 
     def find_many_by_goal_id(self, goal_id: str) -> list[SkillExperience]: ...
 
+    def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:
+        """Return the experience count per requested goal id.
+
+        Goal ids with zero experiences may be absent from the returned mapping.
+        """
+        ...
+
     def add(self, skill_experience: SkillExperience) -> None: ...
 
     def add_many(self, skill_experiences: list[SkillExperience]) -> None: ...
