@@ -19,6 +19,9 @@ call repeatedly in tests; do not hide global mutable application state in import
 
 Register the shared `AppErrorHandler` from the application class once. Controllers do
 not install exception handlers or translate unexpected exceptions locally.
+The shared handler owns safe client-facing error serialization; messages returned by
+the server API must be in Brazilian Portuguese, including framework request-validation
+and HTTP errors.
 
 ## Composition owns concrete wiring
 

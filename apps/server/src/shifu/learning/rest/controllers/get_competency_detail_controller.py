@@ -26,44 +26,44 @@ class ActivityResponse(BaseModel):
     id: str
     title: str
     position: int
-    activity_type: str
+    activity_type: str = Field(serialization_alias='activityType')
     difficulty: str
-    latest_score: float | None
+    latest_score: float | None = Field(serialization_alias='latestScore')
 
 
 class RecommendationResponse(BaseModel):
-    competency_id: str
-    activity_id: str
+    competency_id: str = Field(serialization_alias='competencyId')
+    activity_id: str = Field(serialization_alias='activityId')
     difficulty: str
     type: str
 
 
 class AvailableResponse(BaseModel):
     availability: Literal['available'] = 'available'
-    goal_id: str
-    skill_id: str
-    skill_name: str
-    competency_id: str
-    competency_name: str
+    goal_id: str = Field(serialization_alias='goalId')
+    skill_id: str = Field(serialization_alias='skillId')
+    skill_name: str = Field(serialization_alias='skillName')
+    competency_id: str = Field(serialization_alias='competencyId')
+    competency_name: str = Field(serialization_alias='competencyName')
     progress: float
     status: str
-    is_focus: bool
-    focus_returned: bool
-    focus_competency_id: str | None
-    focus_competency_name: str | None
+    is_focus: bool = Field(serialization_alias='isFocus')
+    focus_returned: bool = Field(serialization_alias='focusReturned')
+    focus_competency_id: str | None = Field(serialization_alias='focusCompetencyId')
+    focus_competency_name: str | None = Field(serialization_alias='focusCompetencyName')
     items: tuple[MaterialResponse | ActivityResponse, ...]
     recommendation: RecommendationResponse | None
 
 
 class UnavailableResponse(BaseModel):
     availability: Literal['unavailable'] = 'unavailable'
-    goal_id: str
-    skill_id: str
-    skill_name: str
-    competency_id: str
-    competency_name: str
-    focus_competency_id: str | None
-    focus_competency_name: str | None
+    goal_id: str = Field(serialization_alias='goalId')
+    skill_id: str = Field(serialization_alias='skillId')
+    skill_name: str = Field(serialization_alias='skillName')
+    competency_id: str = Field(serialization_alias='competencyId')
+    competency_name: str = Field(serialization_alias='competencyName')
+    focus_competency_id: str | None = Field(serialization_alias='focusCompetencyId')
+    focus_competency_name: str | None = Field(serialization_alias='focusCompetencyName')
 
 
 type Response = Annotated[

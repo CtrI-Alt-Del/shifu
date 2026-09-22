@@ -106,7 +106,10 @@ class TestGetCompetencyDetailController:
         assert response.status_code == 200
         body = response.json()
         assert body['availability'] == 'available'
-        assert body['is_focus'] is True
+        assert body['goalId'] == SEED_GOAL_ID
+        assert body['skillId'] == SEED_SKILL_LOGIC_ID
+        assert body['isFocus'] is True
+        assert 'goal_id' not in body
         assert body['progress'] == 55
         assert [item['position'] for item in body['items']] == [1, 2, 3, 4, 5]
         assert [item['kind'] for item in body['items']] == [
@@ -117,8 +120,8 @@ class TestGetCompetencyDetailController:
             'activity',
         ]
         assert body['items'][1]['id'] == SEED_ACTIVITY_REPETITION_EASY_ID
-        assert body['items'][1]['latest_score'] == 65
-        assert body['recommendation']['activity_id'] == body['items'][3]['id']
+        assert body['items'][1]['latestScore'] == 65
+        assert body['recommendation']['activityId'] == body['items'][3]['id']
         assert body['recommendation']['type'] == 'new-activity'
         assert _event_count(postgres_database) == before_events
 

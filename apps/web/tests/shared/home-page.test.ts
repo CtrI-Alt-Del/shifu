@@ -41,9 +41,9 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
     {
       description: 'Construir uma base sólida para resolver problemas com clareza.',
       id: 'goal-1',
-      skill_count: 3,
+      skillCount: 3,
       title: 'Lógica de programação',
-      updated_at: '2026-01-05T00:00:00.000Z',
+      updatedAt: '2026-01-05T00:00:00.000Z',
     },
   ]
 

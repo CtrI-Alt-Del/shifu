@@ -82,7 +82,7 @@ class FastAPIApp:
                 await cache_provider.close()
                 database_engine.dispose()
                 raise ServiceUnavailableError(
-                    message='Redis is unavailable; the server cannot start.'
+                    message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
 
             app.state.cache_provider = cache_provider

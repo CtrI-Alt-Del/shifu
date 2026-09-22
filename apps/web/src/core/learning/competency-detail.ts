@@ -66,8 +66,12 @@ export type UnavailableCompetencyDetail = {
 export type CompetencyDetail = AvailableCompetencyDetail | UnavailableCompetencyDetail
 
 export function parseCompetencyDetail(value: unknown): CompetencyDetail | null {
+  return isCompetencyDetail(value) ? value : null
+}
+
+export function isCompetencyDetail(value: unknown): value is CompetencyDetail {
   if (!isRecord(value) || !isIdentifier(value.goalId) || !isIdentifier(value.skillId)) {
-    return null
+    return false
   }
 
   if (
@@ -75,56 +79,28 @@ export function parseCompetencyDetail(value: unknown): CompetencyDetail | null {
     !isNonEmptyString(value.skillName) ||
     !isNonEmptyString(value.competencyName)
   ) {
-    return null
+    return false
   }
 
   if (value.availability === 'unavailable') {
-    if (!isNullableIdentifier(value.focusCompetencyId)) return null
-    if (!isNullableString(value.focusCompetencyName)) return null
-
-    return {
-      availability: 'unavailable',
-      goalId: value.goalId,
-      skillId: value.skillId,
-      skillName: value.skillName,
-      competencyId: value.competencyId,
-      competencyName: value.competencyName,
-      focusCompetencyId: value.focusCompetencyId,
-      focusCompetencyName: value.focusCompetencyName,
-    }
+    return (
+      isNullableIdentifier(value.focusCompetencyId) &&
+      isNullableString(value.focusCompetencyName)
+    )
   }
 
-  if (value.availability !== 'available') return null
-  if (
-    !isPercentage(value.progress) ||
-    !isCompetencyProgressStatus(value.status) ||
-    typeof value.isFocus !== 'boolean' ||
-    typeof value.focusReturned !== 'boolean' ||
-    !isNullableIdentifier(value.focusCompetencyId) ||
-    !isNullableString(value.focusCompetencyName) ||
-    !Array.isArray(value.items) ||
-    !value.items.every(isCompetencyDetailItem) ||
-    (value.recommendation !== null && !isActivityRecommendation(value.recommendation))
-  ) {
-    return null
-  }
-
-  return {
-    availability: 'available',
-    goalId: value.goalId,
-    skillId: value.skillId,
-    skillName: value.skillName,
-    competencyId: value.competencyId,
-    competencyName: value.competencyName,
-    progress: value.progress,
-    status: value.status,
-    isFocus: value.isFocus,
-    focusReturned: value.focusReturned,
-    focusCompetencyId: value.focusCompetencyId,
-    focusCompetencyName: value.focusCompetencyName,
-    items: value.items,
-    recommendation: value.recommendation,
-  }
+  return (
+    value.availability === 'available' &&
+    isPercentage(value.progress) &&
+    isCompetencyProgressStatus(value.status) &&
+    typeof value.isFocus === 'boolean' &&
+    typeof value.focusReturned === 'boolean' &&
+    isNullableIdentifier(value.focusCompetencyId) &&
+    isNullableString(value.focusCompetencyName) &&
+    Array.isArray(value.items) &&
+    value.items.every(isCompetencyDetailItem) &&
+    (value.recommendation === null || isActivityRecommendation(value.recommendation))
+  )
 }
 
 function isCompetencyDetailItem(value: unknown): value is CompetencyDetailItem {

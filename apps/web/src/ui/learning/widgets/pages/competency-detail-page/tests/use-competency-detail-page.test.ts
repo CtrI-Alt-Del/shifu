@@ -6,9 +6,12 @@ import { AuthError } from '@/core/errors/auth-error'
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
 import { RestError } from '@/core/errors/rest-error'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
-import { useRpcContext } from '@/ui/shared/hooks/use-rpc-context'
 
 import { useCompetencyDetailPage } from '../use-competency-detail-page'
+
+const { getCompetencyDetailActionMock } = vi.hoisted(() => ({
+  getCompetencyDetailActionMock: vi.fn(),
+}))
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: vi.fn(),
@@ -18,13 +21,16 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
   useNavigation: vi.fn(),
 }))
 
-vi.mock('@/ui/shared/hooks/use-rpc-context', () => ({
-  useRpcContext: vi.fn(),
+vi.mock('@tanstack/react-start', () => ({
+  createServerFn: () => ({
+    validator: () => ({
+      handler: () => getCompetencyDetailActionMock,
+    }),
+  }),
 }))
 
 const useQueryMock = vi.mocked(useQuery)
 const useNavigationMock = vi.mocked(useNavigation)
-const useRpcContextMock = vi.mocked(useRpcContext)
 
 const props = {
   competencyId: '01SHF000000000000000000004',
@@ -43,7 +49,6 @@ const detail: CompetencyDetail = {
   skillName: 'Lógica de programação',
 }
 
-const getCompetencyDetailMock = vi.fn()
 const navigateToMock = vi.fn()
 const navigateToGoalDetailMock = vi.fn()
 const navigateToPlannerMock = vi.fn()
@@ -67,7 +72,7 @@ function mockQuery(
 
 describe('useCompetencyDetailPage', () => {
   beforeEach(() => {
-    getCompetencyDetailMock.mockReset()
+    getCompetencyDetailActionMock.mockReset()
     navigateToMock.mockReset()
     navigateToGoalDetailMock.mockReset()
     navigateToPlannerMock.mockReset()
@@ -78,11 +83,6 @@ describe('useCompetencyDetailPage', () => {
       navigateToGoalDetail: navigateToGoalDetailMock,
       navigateToPlanner: navigateToPlannerMock,
     })
-    useRpcContextMock.mockReturnValue({
-      learningService: {
-        getCompetencyDetail: getCompetencyDetailMock,
-      },
-    } as never)
     mockQuery()
   })
 
@@ -109,14 +109,25 @@ describe('useCompetencyDetailPage', () => {
     expect(retry(0, new RestError('Unavailable.', 503))).toBe(false)
     expect(retryDelay(0, new RestError('Rate limited.', 429))).toBe(1000)
 
-    getCompetencyDetailMock.mockResolvedValue(detail)
+    getCompetencyDetailActionMock.mockResolvedValue({
+      availability: 'unavailable',
+      goalId: detail.goalId,
+      skillId: detail.skillId,
+      skillName: detail.skillName,
+      competencyId: detail.competencyId,
+      competencyName: detail.competencyName,
+      focusCompetencyId: detail.focusCompetencyId,
+      focusCompetencyName: detail.focusCompetencyName,
+    })
     await (options?.queryFn as () => Promise<CompetencyDetail>)()
 
-    expect(getCompetencyDetailMock).toHaveBeenCalledWith(
-      props.goalId,
-      props.skillId,
-      props.competencyId,
-    )
+    expect(getCompetencyDetailActionMock).toHaveBeenCalledWith({
+      data: {
+        goalId: props.goalId,
+        skillId: props.skillId,
+        competencyId: props.competencyId,
+      },
+    })
     expect(result.current.isLoading).toBe(false)
   })
 

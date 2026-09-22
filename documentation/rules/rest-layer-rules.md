@@ -20,9 +20,19 @@ apps/web/src/rest/services/identity-service.ts
 Do not create a redundant child directory such as
 `rest/services/identity/identity-service.ts`, and do not place API clients beneath
 `apps/web/src/provision`. A service factory receives the shared `RestClient`, maps
-typed operations to HTTP methods and paths, validates or translates transport
-responses, and raises shared application errors. It contains no business rules,
-authentication state, direct Axios construction, or environment reads.
+typed operations to HTTP methods and paths, declares the response using its domain
+type, and raises shared application errors for failed HTTP responses. Do not validate
+successful response bodies at the service boundary or create duplicate response DTOs
+when the API response can use the domain object's public shape. Prefer aligning the
+API contract with the domain shape to avoid response mappers in services and query
+hooks. Keep any necessary domain-specific error translation at the consuming
+application boundary rather than in a generic REST service. Services contain no
+business rules, authentication state, direct Axios construction, or environment reads.
+
+`RestResponse.body` is available directly after a successful response and throws a
+shared `AppError` if no body was provided. Check `response.isFailure` first and use
+`response.throwError()` for HTTP failures; do not add response-presence checks or
+non-null assertions in each service.
 
 REST services do not own dedicated test files. Verify their observable method, path,
 headers, payload, response mapping, and failures through the consuming HTTP handler,
@@ -180,6 +190,12 @@ Every endpoint must define its successful response model and status. Document an
 test expected error statuses. Do not expose exception details, credentials,
 authorization headers, database errors, or internal implementation names in error
 responses.
+
+All client-visible API error messages use Brazilian Portuguese. The shared
+`AppErrorHandler` localizes application errors, request-validation failures, and
+framework HTTP errors while preserving safe machine-readable codes. Never expose raw
+Pydantic validation messages or internal exception text in API responses; internal
+diagnostics may remain technical and are not part of the response contract.
 
 Health endpoints must remain deterministic and must not perform destructive checks.
 Readiness checks may inspect required dependencies but must use bounded operations

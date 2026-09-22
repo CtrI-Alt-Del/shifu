@@ -1,7 +1,8 @@
+import { AppError } from '@/core/errors/app-error'
 import { RestError } from '@/core/errors/rest-error'
 
 export class RestResponse<ResponseBody> {
-  readonly body: ResponseBody | undefined
+  readonly _body: ResponseBody | undefined
   readonly statusCode: number
   readonly headers: Record<string, string>
   readonly errorMessage: string | undefined
@@ -17,7 +18,7 @@ export class RestResponse<ResponseBody> {
     headers?: Record<string, string>
     errorMessage?: string
   }) {
-    this.body = body
+    this._body = body
     this.statusCode = statusCode
     this.headers = headers
     this.errorMessage = errorMessage
@@ -29,6 +30,16 @@ export class RestResponse<ResponseBody> {
 
   get isFailure() {
     return !this.isSuccessful
+  }
+
+  get body() {
+    if (this._body === undefined) {
+      throw new AppError(
+        'O corpo da resposta REST não foi informado.',
+        'Erro de comunicação',
+      )
+    }
+    return this._body
   }
 
   throwError(): never {

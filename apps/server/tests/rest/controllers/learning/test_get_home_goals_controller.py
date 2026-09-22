@@ -80,6 +80,6 @@ class TestGetHomeGoalsController:
             'id': newer_goal.id,
             'title': newer_goal.title,
             'description': newer_goal.description,
-            'skill_count': 0,
-            'updated_at': newer_goal.updated_at.isoformat(),
+            'skillCount': 0,
+            'updatedAt': newer_goal.updated_at.isoformat(),
         }
