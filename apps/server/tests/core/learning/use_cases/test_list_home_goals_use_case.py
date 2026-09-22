@@ -5,7 +5,10 @@ import pytest
 
 from shifu.fakers.learning.entities import GoalFaker
 from shifu.learning.core.domain.structures import GoalSummary
-from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.interfaces import (
+    LearningDatabase,
+    LearningDatabaseRepositories,
+)
 from shifu.learning.core.use_cases.list_home_goals_use_case import ListHomeGoalsUseCase
 
 
@@ -13,8 +16,12 @@ class TestListHomeGoalsUseCase:
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.learning_database = create_autospec(LearningDatabase, instance=True)
-        self.repositories = (
-            self.learning_database.transaction.return_value.__enter__.return_value
+        self.repositories = create_autospec(
+            LearningDatabaseRepositories,
+            instance=True,
+        )
+        self.learning_database.transaction.return_value.__enter__.return_value = (
+            self.repositories
         )
         self.goals_repository = self.repositories.goals
         self.skill_experiences_repository = self.repositories.skill_experiences
