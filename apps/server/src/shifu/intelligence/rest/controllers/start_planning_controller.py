@@ -47,10 +47,19 @@ class StartPlanningController:
                 IntelligenceDatabase,
                 Depends(IntelligencePipe.get_database),
             ],
+            identifier_provider: Annotated[
+                IdentifierProvider,
+                Depends(IntelligencePipe.get_identifier_provider),
+            ],
+            clock_provider: Annotated[
+                ClockProvider,
+                Depends(IntelligencePipe.get_clock_provider),
+            ],
         ) -> Response:
             planning_session = StartPlanningUseCase(
                 database,
-                SystemIdentifierProvider(),
+                identifier_provider,
+                clock_provider,
             ).execute(user.account_id, request.initial_intent)
             return StartPlanningController._to_response(planning_session)
 
