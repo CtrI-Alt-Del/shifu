@@ -1,6 +1,6 @@
 ---
 title: Learning Competency detail implementation plan
-status: completed
+status: in_progress
 spec: ./spec.md
 spec_revision: 3
 evaluation: ./evaluation.md
@@ -16,11 +16,9 @@ last_updated_at: 2026-09-22
   TanStack routing, responsive widgets, generated artifacts, and real browser
   validation. It also has migration/backfill risk and multiple non-overlapping
   ownership boundaries.
-- **Plan:** `completed`; phase `F7 final handoff evidence reconciliation`.
-- **Outcome:** Conditional GO recorded and accepted for this delivery. ACH-018
-  remains an explicit evidence boundary: VM-01 has real seeded full-stack
-  lineage, while VM-02–VM-06 are fresh asserted UI-state captures without
-  retained backend lineage. No implementation blocker remains.
+- **Plan:** `in_progress`; reopened at `F5` migration validation for ACH-022.
+- **Outcome:** The migration backfill correction and fresh CA-10 evidence are
+  complete; conclusion is the remaining handoff step.
 - **Active blockers/dependencies:** Three pre-existing web identity handler
   integration tests still return `503` in the local auth fixture; all new
   Learning feature gates and server integration gates pass. No shared volume or
@@ -43,7 +41,7 @@ last_updated_at: 2026-09-22
 | Delivery source | Jira `SHIFU-72` is available and matches the Spec's objective, scope, validation, and exclusions | Orchestrator | `ready` | Preserve the external issue as read-only authority |
 | Design authority | `design/handoff.md`, ten PNG references, and the accepted released-non-focus assumption are inventoried | Orchestrator | `ready` | Use saved references; do not mutate Pencil |
 | Web dependency | `@tanstack/react-query` `^5.103.2` is added through pnpm and the lockfile is regenerated | Orchestrator | `ready` | F1-T1 complete; validate again with consuming code |
-| Disposable persistence | PostgreSQL/Testcontainers fixture can run Alembic from `c4d82f1e7a30` to the new head | Builder Server / Orchestrator | `completed` | Disposable upgrade, seed, and controller integration passed |
+| Disposable persistence | PostgreSQL/Testcontainers fixture can run Alembic from `c4d82f1e7a30` to the new head | Builder Server / Orchestrator | `completed` | Corrected upgrade, safe-abort regression, seed, and controller integration passed |
 | Browser validation | Playwright Chromium and the repository's shared fixture are available | Builder Web / Orchestrator | `completed` | VM-01 real seeded desktop/mobile run passed; owning page/layout integration suites passed |
 
 # Execution ledger
@@ -53,10 +51,10 @@ last_updated_at: 2026-09-22
 | 1 | `Orchestrator` | F1 | Required Query dependency is installed through the owning manifest and lockfile | Canonical PRD gate | — | `completed` | `pnpm --filter web check:types` resolves the dependency and `pnpm-lock.yaml` contains only the generated dependency change |
 | 2 | `Builder Core` | F2 | Shared Curriculum snapshots and the Learning competency-detail use case/projection contract are implemented with the unit matrix | F1; current Spec revision `3` | Builder Web | `completed` | Focused Core matrix passes; aggregate typing is closed by F4 adapter implementation |
 | 2 | `Builder Web` | F3 | BFF/RPC/REST contracts, detail widgets, route sources, and web tests cover the declared UI contract | F1; Core DTO/transport contract in Spec | Builder Core | `completed` | Focused Web suites, lint, architecture, build, and generated-route type check pass |
-| 3 | `Builder Server` | F4 | Learning/Curriculum adapters, persistence integrity, protected HTTP route, REST artifact, seed scenarios, and controller integration are complete | F2; F1 | Builder Web | `completed` | Server lint/architecture/types and 10-case feature controller suite pass; full collection 16/16 |
-| 4 | `Orchestrator` | F5 | Composition, migration, generated metadata, integrated application gates, and runtime evidence are reconciled | F3 and F4 | — | `completed` | Static/unit/build/route/server gates pass; VM-01 real evidence and disposable persistence evidence recorded |
+| 3 | `Builder Server` | F4 | Learning/Curriculum adapters, persistence integrity, protected HTTP route, REST artifact, seed scenarios, and controller integration are complete | F2; F1 | Builder Web | `completed` | Server lint/architecture/types and 11-case feature controller suite pass; full collection 17/17 after ACH-022 correction |
+| 4 | `Orchestrator` | F5 | Composition, migration, generated metadata, integrated application gates, and runtime evidence are reconciled | F3 and F4 | — | `completed` | Corrected migration activity identity predicate and refreshed disposable persistence evidence |
 | 5 | `Implementation Reviewer` | F6 | One read-only audit checks the integrated candidate, cross-Builder contracts, REST parity, evidence freshness, and UI/server surfaces | F5 automated/evidence baseline | Orchestrator integrated sensors may run in parallel | `completed` | Final advisory audit completed; conditional GO issued with ACH-018 as the sole accepted limitation |
-| 6 | `Orchestrator` | F7 | Final handoff is complete | F6 and any correction exits | — | `completed` | ACH-018 explicitly accepted; Spec, Plan, and Evaluation completed |
+| 6 | `Orchestrator` | F7 | Final handoff is complete | F6 and any correction exits | — | `in_progress` | Conclude the corrected candidate with current evidence |
 
 ### F1 — Shared dependency preparation
 

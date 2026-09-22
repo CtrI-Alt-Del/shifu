@@ -1,6 +1,6 @@
 ---
 title: Learning Competency detail evaluation
-status: completed
+status: ready
 spec: ./spec.md
 spec_revision: 3
 plan: ./plan.md
@@ -12,7 +12,9 @@ last_updated_at: 2026-09-22
 
 # Evaluation status
 
-Implementation is complete against Spec revision `3`. The canonical Learning PRD
+The concluded implementation was reopened against Spec revision `3` after PR
+feedback identified a migration backfill defect. The correction is now
+implemented and revalidated. The canonical Learning PRD
 was reread in full through Atlassian Shifu MCP on 2026-09-22: content `83066881`,
 title `Shifu — PRD — Learning`, status `current`, version `13`. Jira `SHIFU-72`
 and the local Spec remain aligned; no amendment is opened. The design authority
@@ -26,7 +28,7 @@ volume, database, or Inngest event was reset or mutated. The full web suite is
 green for the feature and existing application suites except the three known
 identity handler tests that still return `503` in the pre-existing local auth
 fixture. The feature controller suite and migration/seed checks pass against
-disposable services. The full 16-test server integration collection passes.
+disposable services. The current 17-test server integration collection passes.
 The web integration limitation is isolated to the three known identity
 handler tests; expected TanStack Router warnings are emitted when
 contract-only child routes throw `notFound()` before their generic boundary.
@@ -91,10 +93,10 @@ contract-only child routes throw `notFound()` before their generic boundary.
 | EV-F5-SERVER-ARCH | `cd apps/server && uv run poe check:architecture` | passed |
 | EV-F5-SERVER-TYPES | `cd apps/server && uv run poe check:types` | passed; 0 errors/warnings/notes |
 | EV-F5-SERVER-UNIT | `cd apps/server && uv run pytest tests/learning/core/use_cases/test_get_competency_detail_use_case.py` | passed; 10 tests |
-| EV-F5-SERVER-CONTROLLER | `cd apps/server && uv run poe test:integration` | passed; 16 collected / 16 passed, including feature/controller and identity coverage |
+| EV-F5-SERVER-CONTROLLER | `cd apps/server && uv run poe test:integration` | passed; current rerun collected 17 / 17, including the migration regression, feature/controller and identity coverage |
 | EV-F5-SERVER-BUILD | `cd apps/server && uv run poe build` | passed; sdist and wheel |
 | EV-F5-MIGRATION-SYNTAX | `cd apps/server && uv run python -m py_compile migrations/versions/d72c0f4e8a31_add_learning_competency_detail_integrity.py` | passed |
-| EV-F5-MIGRATION-UPGRADE | `cd apps/server && uv run poe db:upgrade head` against disposable PostgreSQL | passed through `d72c0f4e8a31`; no shared volume |
+| EV-F5-MIGRATION-UPGRADE | `cd apps/server && uv run poe db:upgrade head` against disposable PostgreSQL | passed; current fixture upgrade succeeds and the regression aborts safely for an easy-only mastered row instead of inventing a hard score |
 | EV-F5-MIGRATION-DOWNGRADE | `cd apps/server && uv run poe db:downgrade c4d82f1e7a30` followed by `uv run --env-file .env.local poe db:upgrade head` | passed on disposable PostgreSQL; loss boundary inspected and head reapplied |
 | EV-F5-SEED | `cd apps/server && uv run poe db:seed` against disposable PostgreSQL | passed; deterministic local scenarios loaded |
 
@@ -140,6 +142,7 @@ size warning. These are recorded, not silently treated as feature evidence.
 | ACH-019 | Resumed Implementation Reviewer: VM-07 evidence lacked downgrade/repeated-read/duplicate coverage | persistence evidence | resolved in source and validation; repeated reads now compare progress plus Learning table counts, duplicate SkillExperience insertion is rejected, and disposable downgrade/re-upgrade passed |
 | ACH-020 | Final resumed Implementation Reviewer: no additional implementation defect; conditional GO recommended | final disposition | accepted; ACH-018 is the sole remaining evidence limitation and is explicitly carried into the delivery conformance record |
 | ACH-021 | Conclusion visual review found older retained mobile captures for VM-03, VM-05, and VM-06 did not show their declared states | evidence freshness | resolved; a temporary Playwright harness asserted each semantic state before capture, regenerated the ten desktop/mobile state images, and was removed without a tracked artifact |
+| ACH-022 | PR #6 review: migration backfill joined any hard activity in the competency sequence to an attempt from the same competency, allowing an easy attempt score to populate `hard_activity_score` | persistence integrity / implementation correction | resolved; the migration now joins `attempt.activity_id = activity.id`, and the real PostgreSQL regression proves a distinct easy attempt cannot satisfy the hard-score invariant |
 
 # Evidence log
 
@@ -194,6 +197,16 @@ size warning. These are recorded, not silently treated as feature evidence.
 - `EV-014` — The final visual inspection reviewed all VM-01–VM-06 desktop/mobile
   captures after explicit state assertions. The conclusion pass corrected the
   previously stale mobile state evidence and removed the temporary harness.
+- `EV-015` — PR #6 review thread `discussion_r4075558768` reopened the
+  migration/persistence evidence. `CA-10` and the prior migration-upgrade result
+  were stale until the corrected activity identity predicate and disposable
+  PostgreSQL regression were rerun; EV-016 refreshes that evidence.
+- `EV-016` — Focused controller suite rerun after ACH-022 passed 11/11,
+  including the real downgrade/upgrade regression with distinct easy-attempt and
+  hard-activity rows; the corrected migration aborts with its safe preservation
+  diagnostic and the fixture restores the disposable database to head.
+- `EV-017` — Integrated server rerun after ACH-022 collected 17 tests and passed
+  17/17; server architecture, Ruff lint/format and basedpyright also pass.
 
 # Final conformance record
 
@@ -216,7 +229,7 @@ size warning. These are recorded, not silently treated as feature evidence.
   types, architecture, unit, build, route, and integration gates passed; server
   lint, types, architecture, focused feature tests, migration upgrade/downgrade,
   seed, schema, duplicate-rejection, isolation, and no-write checks passed. The
-  full server collection is 16/16; web integration remains 25/28 because of
+  the current server collection is 17/17; web integration remains 25/28 because of
   the three pre-existing identity handler `503` tests.
 - **Evidence boundary:** VM-01 has retained real seeded BFF/FastAPI/PostgreSQL
   lineage and twelve successful Learning responses. VM-02–VM-06 have fresh

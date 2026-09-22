@@ -83,6 +83,7 @@ def upgrade() -> None:
                   ON TRUE
                 JOIN curriculum_activities AS activity
                   ON activity.id = item.value ->> 'activity_id'
+                 AND attempt.activity_id = activity.id
                  AND activity.difficulty = 'hard'
                 WHERE progress.status = 'mastered'
                   AND evaluation.completed_at IS NOT NULL
