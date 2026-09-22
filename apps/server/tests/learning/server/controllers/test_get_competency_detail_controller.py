@@ -84,6 +84,7 @@ def application(postgres_database: PostgresDatabase) -> Iterator[FastAPI]:
 @pytest.fixture
 def client(application: FastAPI) -> Iterator[TestClient]:
     with TestClient(application, raise_server_exceptions=False) as test_client:
+        application.state.cache_provider = _AllowAllCacheProvider()
         yield test_client
 
 
