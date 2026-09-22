@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react'
-
+import type { Link } from '@tanstack/react-router'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,6 +8,12 @@ import { useHomeGoalsQuery } from '../use-home-goals-query'
 vi.mock('../use-home-goals-query', () => ({
   useHomeGoalsQuery: vi.fn(),
 }))
+
+// ObjectiveCard renders a dynamic-route `Link` directly rather than the
+// static-route `Anchor` wrapper (Anchor only resolves a fixed `RouteName`).
+// `to`/`params` are typed against the real `Link` component's props so the
+// mock fails to compile if that contract changes, per widget-testing-rules.md.
+type RealLinkProps = React.ComponentProps<typeof Link>
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
@@ -20,13 +25,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       params,
       to,
       ...props
-    }: {
-      children: ReactNode
-      params?: Record<string, string>
-      to: string
-    }) => (
-      <a href={to.replace('$goalId', params?.goalId ?? '')} {...props}>
-        {children}
+    }: Pick<RealLinkProps, 'children' | 'params' | 'to'>) => (
+      <a
+        href={String(to).replace(
+          '$goalId',
+          (params as { goalId?: string })?.goalId ?? '',
+        )}
+        {...props}
+      >
+        {typeof children === 'function' ? null : children}
       </a>
     ),
   }

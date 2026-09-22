@@ -35,6 +35,7 @@ export function useHomeGoalsQuery() {
     isLoading: isLoadingGoals,
     refetch: refetchGoals,
   } = useQuery({
+    retry: 1,
     queryFn: async () => {
       const items = await fetchHomeGoals()
       return items.map(mapGoalSummary)
