@@ -9,8 +9,11 @@ export function useNavigation() {
     navigateTo(route: RouteName) {
       return navigate({ to: ROUTES[route] as never })
     },
-    navigateToPath(path: string, params?: Record<string, string>) {
-      return navigate({ params: params as never, to: path as never })
+    navigateToGoalDetail(goalId: string) {
+      return navigate({ params: { goalId }, to: '/learning/goals/$goalId' })
+    },
+    navigateToPlanner(planningId: string) {
+      return navigate({ params: { planningId }, to: '/intelligence/planner/$planningId' })
     },
   }
 }

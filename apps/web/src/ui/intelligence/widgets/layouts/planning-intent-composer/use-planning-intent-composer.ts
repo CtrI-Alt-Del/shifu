@@ -10,7 +10,7 @@ const START_PLANNING_ERROR_MESSAGE =
   'Não foi possível iniciar o planejamento agora. Tente novamente.'
 
 export function usePlanningIntentComposer() {
-  const { navigateToPath } = useNavigation()
+  const { navigateToPlanner } = useNavigation()
   const { error: startPlanningError, isPending, startPlanning } = useStartPlanningAction()
   const [intent, setIntent] = useState('')
   const [validationMessage, setValidationMessage] = useState<string | null>(null)
@@ -33,7 +33,7 @@ export function usePlanningIntentComposer() {
 
     startPlanning(trimmedIntent, {
       onSuccess: (session) => {
-        navigateToPath('/intelligence/planner/$planningId', { planningId: session.id })
+        navigateToPlanner(session.id)
       },
     })
   }

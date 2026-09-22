@@ -31,7 +31,7 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 
 const startPlanningMock = vi.fn()
 const navigateToMock = vi.fn()
-const navigateToPathMock = vi.fn()
+const navigateToPlannerMock = vi.fn()
 const useStartPlanningActionMock = vi.mocked(useStartPlanningAction)
 const useNavigationMock = vi.mocked(useNavigation)
 
@@ -47,7 +47,8 @@ describe('PlanningIntentComposer', () => {
     })
     useNavigationMock.mockReturnValue({
       navigateTo: navigateToMock,
-      navigateToPath: navigateToPathMock,
+      navigateToGoalDetail: vi.fn(),
+      navigateToPlanner: navigateToPlannerMock,
     })
   })
 
@@ -118,9 +119,7 @@ describe('PlanningIntentComposer', () => {
       'quero aprender Python',
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
-    expect(navigateToPathMock).toHaveBeenCalledWith('/intelligence/planner/$planningId', {
-      planningId: 'planning-123',
-    })
+    expect(navigateToPlannerMock).toHaveBeenCalledWith('planning-123')
   })
 
   it('shows a pending state and disables the field while a session is starting', () => {
