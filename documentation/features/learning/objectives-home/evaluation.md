@@ -7,13 +7,14 @@ plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60
 prd_content_id: 83099649
 prd_version: 1
-last_updated_at: 2026-09-20
+last_updated_at: 2026-09-22
 ---
 
 # Evaluation status
 
-Implementation kickoff for `spec.md` revision `1` (`ready`) under `plan.md`
-(Plan-backed execution, waves F1–F8).
+F1–F6 complete under `plan.md` (Plan-backed execution, waves F1–F8). All
+`CA-*` have current passing evidence, both real and merged with `origin/main`.
+F7 (Implementation Reviewer) is next.
 
 - **Spec:** `ready`, revision `1`. Traced to Intelligence PRD `83099649` v1 and
   Learning PRD `83066881` v1.
@@ -42,18 +43,18 @@ Implementation kickoff for `spec.md` revision `1` (`ready`) under `plan.md`
 
 | Criterion | Spec coverage | Required evidence | Disposition | Status |
 | --- | --- | --- | --- | --- |
-| `CA-01` | `RF-01` | `home-page.test.ts` (shared) + `VM-01` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-02` | `RF-02`, `RF-11` | `test_list_home_goals_use_case.py`, `test_get_home_goals_controller.py` | `EV-F2-01`, `EV-F5-01` | pending |
-| `CA-03` | `RF-03` | `goals-list-section.test.tsx` + `VM-01` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-04` | `RF-04` | `home-page.test.ts`, `goal-detail-placeholder-page.test.ts` + `VM-02` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-05` | `RF-05` | `home-page.test.ts`, `goal-create-placeholder-page.test.ts` + `VM-02` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-06` | `RF-06` | `test_start_planning_use_case.py`, `test_start_planning_controller.py`, `home-page.test.ts`, `planner-placeholder-page.test.ts` + `VM-02` | `EV-F3-01`, `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-07` | `RF-07` | `planning-intent-composer.test.tsx` + `VM-03` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-08` | `RF-08` | `planning-intent-composer.test.tsx` + `VM-03` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-09` | `RF-09` | `goals-list-section.test.tsx` | `EV-F4-01` | pending |
-| `CA-10` | `RF-09` | `goals-list-section.test.tsx` | `EV-F4-01` | pending |
-| `CA-11` | `RF-09`, `RF-10` | `goals-list-section.test.tsx` + `VM-01` | `EV-F4-01`, `EV-F6-01` | pending |
-| `CA-12` | `RF-11` | `home-page.test.ts` + `VM-03` | `EV-F4-01`, `EV-F6-01` | pending |
+| `CA-01` | `RF-01` | `home-page.test.ts` (shared) + `VM-01` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-02` | `RF-02`, `RF-11` | `test_list_home_goals_use_case.py`, `test_get_home_goals_controller.py` | `EV-F2-01`, `EV-F5-01` | passed |
+| `CA-03` | `RF-03` | `goals-list-section.test.tsx` + `VM-01` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-04` | `RF-04` | `home-page.test.ts`, `goal-detail-placeholder-page.test.ts` + `VM-02` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-05` | `RF-05` | `home-page.test.ts`, `goal-create-placeholder-page.test.ts` + `VM-02` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-06` | `RF-06` | `test_start_planning_use_case.py`, `test_start_planning_controller.py`, `home-page.test.ts`, `planner-placeholder-page.test.ts` + `VM-02` | `EV-F3-01`, `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-07` | `RF-07` | `planning-intent-composer.test.tsx` + `VM-03` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-08` | `RF-08` | `planning-intent-composer.test.tsx` + `VM-03` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-09` | `RF-09` | `goals-list-section.test.tsx` | `EV-F4-01` | passed |
+| `CA-10` | `RF-09` | `goals-list-section.test.tsx` | `EV-F4-01` | passed |
+| `CA-11` | `RF-09`, `RF-10` | `goals-list-section.test.tsx` + `VM-01` | `EV-F4-01`, `EV-F6-01` | passed |
+| `CA-12` | `RF-11` | `home-page.test.ts` + `VM-03` | `EV-F4-01`, `EV-F6-01` | passed |
 
 # Automated gates
 
@@ -64,12 +65,28 @@ Implementation kickoff for `spec.md` revision `1` (`ready`) under `plan.md`
 | `CI-F3` | `cd apps/server && uv run poe test:unit && uv run poe test:integration -k intelligence && uv run poe check:types && uv run poe check:lint && uv run poe check:architecture` | Intelligence use case + migration | passed: 4 new unit tests, migration applies cleanly (`c4d82f1e7a30 -> faa7f006048a`), 0 type errors, lint clean, Tach validated | `EV-F3-01` |
 | `CI-F4` | `pnpm --filter web check:lint && pnpm --filter web check:types && pnpm --filter web check:architecture && pnpm --filter web test:unit && pnpm --filter web build` | Web Home + placeholders | passed: lint clean (115 files), 0 type errors, 0 dependency violations (114 modules), 37 unit tests in 12 files, build ok | `EV-F4-01` |
 | `CI-F5` | Full command set (both apps) after `app.py`/route/lockfile wiring | Integrated candidate | passed: server lint/arch/types clean, 16 unit + 12 integration tests, build ok; web lint/types/arch clean, 37 unit, 30/30 Playwright, build ok | `EV-F5-01` |
-| `CI-REST` | REST-client parity for `learning.rest` and `intelligence.rest` | Route-group coverage | pending (F6) | — |
+| `CI-REST` | REST-client parity for `learning.rest` and `intelligence.rest` | Route-group coverage | passed: `learning.rest` has exactly one labeled request for `GET /learning/goals` (`LearningRouter` registers exactly one controller); `intelligence.rest` has exactly one for `POST /intelligence/planning-sessions` (`IntelligenceRouter` registers exactly one controller); no credentials in either file | `EV-F6-02` |
+| `CI-POSTMERGE` | Full command set (both apps), rerun after merging `origin/main` (SHIFU-58/62: Redis-backed rate limiting) | Integrated candidate, post-merge | passed: server lint (476 files)/types/architecture clean, 16 unit + 12 integration (incl. the merged rate-limit test) passed, build ok; web lint/types/architecture clean, 37 unit, 30/30 Playwright, build ok | `EV-F6-03` |
 
 # Manual and visual evidence
 
 `VM-01`, `VM-02`, `VM-03` are defined in `spec.md` and not duplicated here.
-Scheduled for F6, after F5's integration passes.
+Executed 2026-09-22 against the real running stack (FastAPI on `:7777`, web
+dev server on `:7000`, Postgres, Redis, Inngest, Mailpit) with a real sign-in
+as the seeded account (`student.seed@shifu.com`) — no mocked transport. Fixture:
+the seeded account's one existing Objective plus five additional Objectives
+inserted directly for this validation (varying `updated_at` and skill counts,
+including one with exactly one skill experience to exercise the singular
+"1 Habilidade" label), for six total.
+
+| VM | Result | Evidence |
+| --- | --- | --- |
+| `VM-01` | passed | `.playwright-cli/objectives-home-vm01-desktop-1440x900.png` (1440×900, matches `design/AMF1e.png`: header, hero, composer, "Seus Objetivos" + "6 objetivos", 3-column grid) and `objectives-home-vm01-mobile-375x812.png` (375×812, single-column stack, no horizontal overflow). Card order verified most-recent-`updated_at`-first; skill labels verified correct pt-BR singular/plural ("1 Habilidade" vs "3 Habilidades"/"0 Habilidades") |
+| `VM-02` | passed | Card → `objectives-home-vm02-goal-detail-placeholder.png` (URL `/learning/goals/01VM0000000000000000000002`, placeholder text present); "Criar manualmente" → `objectives-home-vm02-manual-create-placeholder.png` (URL `/learning/goals/new`); valid intent submit → real `POST /intelligence/planning-sessions` fired, navigated to `/intelligence/planner/01M3370W8WQAW6GP7D1372E4WM` → `objectives-home-vm02-planner-placeholder.png`. Verified directly in Postgres: exactly one `intelligence_planning_sessions` row (`account_id` = the seeded account, `initial_intent` = the trimmed submitted text); `learning_goals`/`learning_skill_experiences` counts unchanged (6/6) — confirms no Objective or Skill was created |
+| `VM-03` | passed | Tab order at 375×812: intent field → "Criar manualmente" → "Planejar com IA" → first card. Empty submit: non-color-only alert "Descreva o que você quer aprender antes de continuar." with icon, red focus ring, focus returned to the field (`objectives-home-vm03-mobile-validation-375x812.png`). Typed-then-reload: field empty after reload, confirming no persistence of unsubmitted text |
+
+Zero console errors and zero failed/4xx/5xx requests were observed across all
+three scenarios.
 
 # Review findings
 
@@ -263,3 +280,54 @@ None yet. The single Implementation Reviewer runs at F7.
     and used it for every web command; this was a pre-existing local
     environment mismatch, not a defect introduced by this Spec.
   - **Next action:** F6 — `VM-01`/`VM-02`/`VM-03` against the running stack.
+- **2026-09-21 — merged `origin/main` (user-directed)**
+  - **Finding/result:** All prior commits (F1–F5) were committed to
+    `feat/shifu-60` first (6 commits, one per logical unit) so the merge would
+    not have to reconcile against an uncommitted working tree. `origin/main`
+    brought 16 commits including SHIFU-58/62 Redis-backed rate limiting. Of
+    the 20 files it changed, exactly one overlapped with this Spec's work:
+    `apps/server/src/shifu/app.py`. The conflict was import-list-only — both
+    sides' additions to the function body (the F1/F5 `app.state` registrations
+    and main's `RateLimitMiddleware`/`cache_provider` lifespan wiring)
+    auto-merged cleanly with no logical overlap. Resolved by taking the union
+    of both import blocks. Full server and web gate sets rerun from scratch
+    afterward (below) rather than trusting the merge — everything still
+    passes, including the newly-merged rate-limit integration test.
+  - **Note (spec rationale, not contract):** the Spec's Technical Decisions
+    table justifies the Postgres-backed planning session partly with "no
+    Redis is provisioned anywhere in this repository," which SHIFU-58 now
+    makes factually stale. The decision itself is unaffected — a planning
+    session is a durable record future tickets build on, not a cache entry —
+    but the written rationale needs a wording correction. Not yet applied;
+    flagged for the Orchestrator to fix before `conclude-spec`.
+  - **Next action:** rerun the full automated gate set post-merge, then F6.
+- **2026-09-22 — F6 (manual/visual validation) completed**
+  - **Finding/result:** `EV-F6-01` (VM-01/02/03, see Manual and visual
+    evidence above — real sign-in, real persisted data, zero console/network
+    errors), `EV-F6-02` (REST-client parity, see Automated gates above).
+  - **`EV-F6-03` — post-merge full-suite reverification.** Restarted all
+    services (Docker Compose stack, a standalone Redis container since
+    `docker-compose.yaml` was not updated by SHIFU-58/62 to include one —
+    `apps/server/.env.example` expects `REDIS_URL` but CI provisions Redis as
+    a separate service container, so local developers currently start it
+    themselves; a pre-existing tooling gap, not something this Spec
+    introduced or is scoped to fix), FastAPI, and the web dev server. Reran
+    every command in the Plan's "Full command set" from a clean process
+    state: server `check:lint` (476 files clean), `check:types` (0 errors),
+    `check:architecture` (validated), `test:unit` (16 passed),
+    `test:integration` (12 passed, including the merged rate-limit test),
+    `build` (ok); web `check:lint`/`check:types`/`check:architecture` (clean,
+    0 dependency violations), `test:unit` (37 passed), `test:integration`
+    (30/30 Playwright), `build` (ok). No regression from the merge.
+  - **Next action:** F7 — activate the single Implementation Reviewer.
+- **2026-09-22 — Spec rationale correction (in-Contract, no revision bump)**
+  - **Finding/result:** Corrected `spec.md`'s "temporary planning session
+    storage" rationale (Context/scope note and Technical Decisions table row)
+    to no longer justify the Postgres choice with "no Redis is provisioned,"
+    which SHIFU-58 made stale. The decision is unchanged (Postgres — durable
+    handoff for T15/T16, not a cache entry); only the written justification
+    was corrected. Recorded in the Documentation alignment table as a
+    corrected row. This is a rationale fix, not a Contract change, so the
+    Spec stays revision `1`.
+  - **Next action:** F7 — Implementation Reviewer activated (read-only,
+    isolated worktree, background).

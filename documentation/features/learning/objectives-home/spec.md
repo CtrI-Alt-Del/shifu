@@ -9,7 +9,7 @@ scope:
   - apps/web
   - apps/server
   - documentation/features/learning/objectives-home
-last_updated_at: 2026-09-20
+last_updated_at: 2026-09-22
 ---
 
 # 1. Context and scope
@@ -86,9 +86,12 @@ Objective detail, or a Planner page.
   "start planning" endpoint and stored in a new, Intelligence-only table. Rows are
   not confirmed into anything; an abandoned session is simply an orphaned row with
   no further product meaning, consistent with "o planejamento é temporário".
-  No Redis is provisioned in this repository (`docker-compose.yaml` has only
-  postgres/inngest/sonarqube/mailpit), so Postgres is the only available real
-  persistence for this.
+  A cache-backed ephemeral session was considered and rejected: the row is a
+  durable handoff that the future interview/proposal work (T15/T16) builds on,
+  not a disposable cache entry, so Postgres keeps it inspectable and consistent
+  with every other module's persistence. (At authoring time no Redis was
+  provisioned in this repository; SHIFU-58 later added Redis-backed rate
+  limiting, which does not change this reasoning.)
 - **Three placeholder routes are created now.** Manual creation, Objective detail,
   and the Planner page do not exist yet and are explicitly out of scope to
   implement, but Home's own acceptance criteria require real navigation targets.
@@ -409,7 +412,7 @@ edited manually.
 | Decision | Chosen approach | Alternative considered | Reason | Accepted trade-off |
 | --- | --- | --- | --- | --- |
 | Cross-module authentication | New `shifu.shared.pipes.SharedPipe` backed by one `AuthenticationProvider` instance registered on `app.state` | Give Learning/Intelligence their own JWKS provider instances, or relax Tach to let them import Identity | Keeps the module graph intact (`shifu.tach.toml`) and avoids duplicating JWKS/JWT logic | Identity's own `IdentityPipe.get_authentication_provider` is left unchanged and keeps constructing its own independent `JwksJwtAuthenticationProvider` per request (its own JWKS key cache); the new `app.state` instance is a second, separate provider used only by Learning/Intelligence. This dual lifecycle is an accepted, explicitly recorded divergence, not something this Spec unifies |
-| Temporary planning session storage | New Postgres table `intelligence_planning_sessions`, no Redis | Redis-backed ephemeral cache | No Redis is provisioned anywhere in this repository | Abandoned sessions become orphaned rows with no automatic expiry; acceptable since they hold no sensitive derived state and a future cleanup job can be added independently |
+| Temporary planning session storage | New Postgres table `intelligence_planning_sessions` | Redis-backed ephemeral cache (SHIFU-58 later provisioned Redis for rate limiting, after this decision was made) | The row is a durable handoff for the future interview/proposal work (T15/T16), not a disposable cache entry; Postgres keeps it inspectable and consistent with every other module's persistence | Abandoned sessions become orphaned rows with no automatic expiry; acceptable since they hold no sensitive derived state and a future cleanup job can be added independently |
 | AI quota gating | Deferred entirely for this slice | Build a minimal real quota read now | Explicit product decision; `SHIFU-54` doesn't exist yet | The literal Jira AC about 100%-quota blocking is not delivered; recorded as `deferred` in the scope table, not silently dropped |
 | Home/Planner composition boundary | `HomePage` lives in `ui/shared`, composing one Learning and one Intelligence layout | Let Learning own the whole Home page and import an Intelligence widget directly | Business modules must not import each other's widgets (`documentation/architecture.md`); `ui/shared` is the existing precedent for a cross-module landing page (this is exactly why `DashboardPage` already lived there) | `ui/shared` now owns one more page-shaped file, though it stays a pure layout with zero business logic |
 | Web server-state technology | Introduce `@tanstack/react-query`, wired through a new `use-home-goals-query.ts`/`use-start-planning-action.ts` pair that calls a colocated `createServerFn` | Keep the existing `useState`-based hook style used by sign-in | `documentation/architecture.md` already names TanStack Query as the chosen technology; sign-in's pattern fit a one-shot mutation, not a cached list read | Adds a new dependency and the app's first `QueryClientProvider`; no SSR prefetch is added (client-only fetch), so Home briefly shows its loading state on every navigation |
@@ -506,6 +509,7 @@ uv run poe build
 | `documentation/architecture.md` | Web layers, TanStack Query | confirmed | This Spec is the first to actually adopt TanStack Query, per the already-documented choice |
 | `documentation/design.md` §3.6 | Shell/breakpoints | discrepancy noted, not resolved | Narrative lateral-rail shell description is stale versus the approved frame and current `AppLayout`; out of this Spec's scope to fix |
 | `design/shifu.pen` (`AMF1e`) | Home visual reference | confirmed | Inspected directly via Pencil CLI on 2026-09-20; see `design/handoff.md` |
+| This Spec's own "Temporary planning session storage" rationale (§3) | Technical decision justification | corrected | `origin/main` merged SHIFU-58 (Redis-backed rate limiting) during implementation, making the original "no Redis is provisioned" rationale factually stale; corrected to the durability rationale that was always the real reason, per `evaluation.md`'s F6 merge entry. The decision itself (Postgres, not Redis) is unchanged |
 
 | Rule | Applies to | Evaluated revision |
 | --- | --- | --- |

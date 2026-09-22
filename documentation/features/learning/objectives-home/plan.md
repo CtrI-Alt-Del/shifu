@@ -5,7 +5,7 @@ spec: ./spec.md
 spec_revision: 1
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60
-last_updated_at: 2026-09-20
+last_updated_at: 2026-09-22
 ---
 
 # 1. Execution status
@@ -15,8 +15,8 @@ last_updated_at: 2026-09-20
   (Learning, Intelligence, Identity via the new shared auth composition),
   introduces a migration and a new web dependency, and has genuine
   non-overlapping parallelism across three implementation lanes.
-- **Plan status:** `in_progress`. F1–F5 completed.
-- **Next action:** F6 — run `VM-01`/`VM-02`/`VM-03` against the running stack.
+- **Plan status:** `in_progress`. F1–F6 completed.
+- **Next action:** F7 — activate the single Implementation Reviewer.
 - **Active blockers/external dependencies:** none. `SHIFU-54` and `SHIFU-34` are
   cited in the Spec as context only; this Spec does not depend on either being
   implemented (quota gating is deferred; the manual-creation destination is a
@@ -52,7 +52,7 @@ last_updated_at: 2026-09-20
 | 2 | Builder Server-Intelligence | F3 | Intelligence start-planning slice complete | F1 | F2, F4 | `completed` (unit-scope; integration test deferred to F5 as designed) | unit test green now; controller integration test green after F5 |
 | 2 | Builder Web | F4 | Home UI, composition, and three placeholder pages complete | — (contract-only; no runtime dependency on F2/F3) | F2, F3 | `completed` | component tests + build green now; Playwright suites green after F5 |
 | 3 | Orchestrator | F5 | Post-wave integration: `app.state` wiring, route generation, dependency install, migration applied | F2, F3, F4 | — | `completed` | full `pnpm`/`uv` command set green across both apps |
-| 4 | Orchestrator | F6 | Manual/runtime validation (`VM-01`..`VM-03`) via Playwright CLI | F5 | — | `pending` | `evaluation.md` records `EV-*` for each VM with fresh screenshots |
+| 4 | Orchestrator | F6 | Manual/runtime validation (`VM-01`..`VM-03`) via Playwright CLI | F5 | — | `completed` | `evaluation.md` records `EV-*` for each VM with fresh screenshots |
 | 5 | Implementation Reviewer | F7 | Independent review of the fully integrated candidate | F5, F6 | — | `pending` | every verified finding resolved or explicitly rejected with evidence |
 | 6 | Orchestrator | F8 | Final handoff | F7 | — | `pending` | every `CA-*`/`VM-*` has accepted evidence; ready for `conclude-spec` |
 
