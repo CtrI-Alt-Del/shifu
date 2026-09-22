@@ -1,6 +1,6 @@
 ---
 title: Learning Competency detail implementation plan
-status: in_progress
+status: completed
 spec: ./spec.md
 spec_revision: 3
 evaluation: ./evaluation.md
@@ -16,9 +16,11 @@ last_updated_at: 2026-09-22
   TanStack routing, responsive widgets, generated artifacts, and real browser
   validation. It also has migration/backfill risk and multiple non-overlapping
   ownership boundaries.
-- **Plan:** `in_progress`; reopened at `F5` migration validation for ACH-022.
-- **Outcome:** The migration backfill correction and fresh CA-10 evidence are
-  complete; conclusion is the remaining handoff step.
+- **Plan:** `completed`; concluded after the ACH-022 correction and evidence
+  reconciliation.
+- **Outcome:** Conditional GO remains accepted for this delivery. ACH-018 is the
+  sole explicit evidence boundary; ACH-022 is resolved with current migration,
+  regression, and GitHub Actions evidence.
 - **Active blockers/dependencies:** Three pre-existing web identity handler
   integration tests still return `503` in the local auth fixture; all new
   Learning feature gates and server integration gates pass. No shared volume or
@@ -54,7 +56,7 @@ last_updated_at: 2026-09-22
 | 3 | `Builder Server` | F4 | Learning/Curriculum adapters, persistence integrity, protected HTTP route, REST artifact, seed scenarios, and controller integration are complete | F2; F1 | Builder Web | `completed` | Server lint/architecture/types and 11-case feature controller suite pass; full collection 17/17 after ACH-022 correction |
 | 4 | `Orchestrator` | F5 | Composition, migration, generated metadata, integrated application gates, and runtime evidence are reconciled | F3 and F4 | — | `completed` | Corrected migration activity identity predicate and refreshed disposable persistence evidence |
 | 5 | `Implementation Reviewer` | F6 | One read-only audit checks the integrated candidate, cross-Builder contracts, REST parity, evidence freshness, and UI/server surfaces | F5 automated/evidence baseline | Orchestrator integrated sensors may run in parallel | `completed` | Final advisory audit completed; conditional GO issued with ACH-018 as the sole accepted limitation |
-| 6 | `Orchestrator` | F7 | Final handoff is complete | F6 and any correction exits | — | `in_progress` | Conclude the corrected candidate with current evidence |
+| 6 | `Orchestrator` | F7 | Final handoff is complete | F6 and any correction exits | — | `completed` | ACH-018 accepted; ACH-022 resolved; Spec, Plan, and Evaluation completed |
 
 ### F1 — Shared dependency preparation
 
@@ -208,7 +210,7 @@ last_updated_at: 2026-09-22
 - **Depends/parallel:** F6-T1; responsible Builder corrections may run sequentially through `implement-spec`, then the same Reviewer is resumed.
 - **Paths:** Any corrected contracted paths assigned by the finding; `documentation/features/learning/competency-detail/plan.md`; `documentation/features/learning/competency-detail/evaluation.md`; no external Jira/Confluence writes.
 - **Traceability:** Every remaining `ACH-*`, `EV-*`, `CA-*`, `VM-*`, and final delivery disposition for selected `RP-*`/`JN-*` coverage.
-- **Outcome:** The exact Spec revision, integrated diff, generated artifacts, route parity, quality gates, current visual/runtime evidence, and reviewer findings are reconciled. The final reviewer issued a conditional GO; ACH-018 is explicitly accepted as the sole evidence limitation, and the Evaluation is complete for delivery.
+- **Outcome:** The exact Spec revision, integrated diff, generated artifacts, route parity, quality gates, current visual/runtime evidence, and reviewer findings are reconciled. The final reviewer issued a conditional GO; ACH-018 is explicitly accepted as the sole evidence limitation, ACH-022 is resolved, and the Evaluation is complete for delivery.
 - **Rules:** `documentation/sdd.md`; `documentation/prompts/conclude-spec-prompt.md`; `documentation/rules.md`; all affected Rule Packs.
 - **Risks/controls:** The accepted ACH-018 boundary is explicit in the
   Evaluation; VM-02–VM-06 are not represented as real backend evidence. No task
@@ -253,5 +255,6 @@ configured floors; the route-group REST artifact is present and route-complete;
 all `CA-*` and `VM-*` have accepted current evidence; all supplied and supplemental
 visual states have fresh comparisons; required services, accounts, fixtures and
 limitations are recorded; the single Implementation Reviewer completed with a
-conditional GO; ACH-018 is accepted as the sole evidence limitation; all other
-verified findings are resolved; and `evaluation.md` is complete for delivery.
+conditional GO; ACH-018 is accepted as the sole evidence limitation; ACH-022 and
+all other verified findings are resolved; both PR checks passed for `aadadd8`; and
+`evaluation.md` is complete for delivery.

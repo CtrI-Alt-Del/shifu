@@ -1,6 +1,6 @@
 ---
 title: Learning Competency detail evaluation
-status: ready
+status: completed
 spec: ./spec.md
 spec_revision: 3
 plan: ./plan.md
@@ -13,8 +13,8 @@ last_updated_at: 2026-09-22
 # Evaluation status
 
 The concluded implementation was reopened against Spec revision `3` after PR
-feedback identified a migration backfill defect. The correction is now
-implemented and revalidated. The canonical Learning PRD
+feedback identified a migration backfill defect. The correction is implemented,
+revalidated, replied to, and resolved on PR #6. The canonical Learning PRD
 was reread in full through Atlassian Shifu MCP on 2026-09-22: content `83066881`,
 title `Shifu — PRD — Learning`, status `current`, version `13`. Jira `SHIFU-72`
 and the local Spec remain aligned; no amendment is opened. The design authority
@@ -99,6 +99,8 @@ contract-only child routes throw `notFound()` before their generic boundary.
 | EV-F5-MIGRATION-UPGRADE | `cd apps/server && uv run poe db:upgrade head` against disposable PostgreSQL | passed; current fixture upgrade succeeds and the regression aborts safely for an easy-only mastered row instead of inventing a hard score |
 | EV-F5-MIGRATION-DOWNGRADE | `cd apps/server && uv run poe db:downgrade c4d82f1e7a30` followed by `uv run --env-file .env.local poe db:upgrade head` | passed on disposable PostgreSQL; loss boundary inspected and head reapplied |
 | EV-F5-SEED | `cd apps/server && uv run poe db:seed` against disposable PostgreSQL | passed; deterministic local scenarios loaded |
+| CI-PR-6-SERVER | GitHub Actions run `35789839134`, job `106955431821` | passed; server application checks completed successfully for `aadadd8` |
+| CI-PR-6-WEB | GitHub Actions run `35789839222`, job `106955432399` | passed; web application checks completed successfully for `aadadd8` |
 
 Known non-blocking baseline warnings: deprecated Starlette/httpx and anyio test
 client APIs, pnpm `onlyBuiltDependencies` placement, and the existing Vite chunk
@@ -142,7 +144,7 @@ size warning. These are recorded, not silently treated as feature evidence.
 | ACH-019 | Resumed Implementation Reviewer: VM-07 evidence lacked downgrade/repeated-read/duplicate coverage | persistence evidence | resolved in source and validation; repeated reads now compare progress plus Learning table counts, duplicate SkillExperience insertion is rejected, and disposable downgrade/re-upgrade passed |
 | ACH-020 | Final resumed Implementation Reviewer: no additional implementation defect; conditional GO recommended | final disposition | accepted; ACH-018 is the sole remaining evidence limitation and is explicitly carried into the delivery conformance record |
 | ACH-021 | Conclusion visual review found older retained mobile captures for VM-03, VM-05, and VM-06 did not show their declared states | evidence freshness | resolved; a temporary Playwright harness asserted each semantic state before capture, regenerated the ten desktop/mobile state images, and was removed without a tracked artifact |
-| ACH-022 | PR #6 review: migration backfill joined any hard activity in the competency sequence to an attempt from the same competency, allowing an easy attempt score to populate `hard_activity_score` | persistence integrity / implementation correction | resolved; the migration now joins `attempt.activity_id = activity.id`, and the real PostgreSQL regression proves a distinct easy attempt cannot satisfy the hard-score invariant |
+| ACH-022 | PR #6 review: migration backfill joined any hard activity in the competency sequence to an attempt from the same competency, allowing an easy attempt score to populate `hard_activity_score` | persistence integrity / implementation correction | resolved in `aadadd8`; migration and regression corrected, evidence rerun, reply posted at `https://github.com/CtrI-Alt-Del/shifu/pull/6#discussion_r4076979118`, and thread resolved |
 
 # Evidence log
 
@@ -207,6 +209,9 @@ size warning. These are recorded, not silently treated as feature evidence.
   diagnostic and the fixture restores the disposable database to head.
 - `EV-017` — Integrated server rerun after ACH-022 collected 17 tests and passed
   17/17; server architecture, Ruff lint/format and basedpyright also pass.
+- `EV-018` — GitHub Actions run `35789839134` server and run `35789839222` web
+  both passed for commit `aadadd8`; the PR review reply was posted and the
+  only open review thread was resolved after current evidence existed.
 
 # Final conformance record
 
