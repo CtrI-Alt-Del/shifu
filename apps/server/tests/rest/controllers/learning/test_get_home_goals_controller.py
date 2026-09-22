@@ -8,7 +8,7 @@ from shifu.fakers.learning.entities import GoalFaker
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import SharedPipe
-from tests.fixtures.postgres import PostgresDatabase
+from tests.fixtures.postgres_fixture import PostgresDatabase
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -80,6 +80,6 @@ class TestGetHomeGoalsController:
             'id': newer_goal.id,
             'title': newer_goal.title,
             'description': newer_goal.description,
-            'skill_count': 0,
-            'updated_at': newer_goal.updated_at.isoformat(),
+            'skillCount': 0,
+            'updatedAt': newer_goal.updated_at.isoformat(),
         }

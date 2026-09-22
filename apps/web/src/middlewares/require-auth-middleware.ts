@@ -11,6 +11,6 @@ export const requireAuthMiddleware = createServerFn({ method: 'GET' }).handler(
 
     if (!access) throw redirect({ to: ROUTES.login })
 
-    return access
+    return undefined
   },
 )

@@ -3,8 +3,13 @@ from typing import cast
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
-    ActivityQuestion,
+    CodeQuestion,
+    CorrectnessEvaluationPart,
     EvaluationRule,
+    MultipleSelectionQuestion,
+    QualitativeEvaluationPart,
+    SingleChoiceQuestion,
+    TestCasesEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy.models import ActivityModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -21,14 +26,28 @@ class ActivityMapper:
             title=model.title,
             objective=model.objective,
             questions=cast(
-                'tuple[ActivityQuestion, ...]',
+                'tuple[SingleChoiceQuestion | MultipleSelectionQuestion | CodeQuestion, ...]',
                 Serialization.deserialize_value(
-                    model.questions, tuple[ActivityQuestion, ...]
+                    model.questions,
+                    tuple[
+                        SingleChoiceQuestion | MultipleSelectionQuestion | CodeQuestion,
+                        ...,
+                    ],
                 ),
             ),
-            evaluation_rule=cast(
-                'EvaluationRule',
-                Serialization.deserialize_value(model.evaluation_rule, EvaluationRule),
+            evaluation_rule=EvaluationRule(
+                parts=cast(
+                    'tuple[CorrectnessEvaluationPart | TestCasesEvaluationPart | QualitativeEvaluationPart, ...]',
+                    Serialization.deserialize_value(
+                        cast('dict[str, object]', model.evaluation_rule)['parts'],
+                        tuple[
+                            CorrectnessEvaluationPart
+                            | TestCasesEvaluationPart
+                            | QualitativeEvaluationPart,
+                            ...,
+                        ],
+                    ),
+                )
             ),
         )
 

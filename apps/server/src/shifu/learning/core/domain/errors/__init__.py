@@ -2,6 +2,9 @@ from .activity_not_available_error import (
     ActivityNotAvailableError as ActivityNotAvailableError,
 )
 from .attempt_not_allowed_error import AttemptNotAllowedError as AttemptNotAllowedError
+from .competency_detail_not_found_error import (
+    CompetencyDetailNotFoundError as CompetencyDetailNotFoundError,
+)
 from .diagnostic_incomplete_error import (
     DiagnosticIncompleteError as DiagnosticIncompleteError,
 )

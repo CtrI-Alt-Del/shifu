@@ -6,7 +6,7 @@ import { SERVER_ENV } from '@/constants/server-env'
 import { AppError } from '@/core/errors/app-error'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
-import { LearningService, type LearningGoalItem } from '@/rest/services/learning-service'
+import { LearningService } from '@/rest/services/learning-service'
 
 const fetchHomeGoals = createServerFn({ method: 'GET' }).handler(async () => {
   const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
@@ -20,14 +20,6 @@ const fetchHomeGoals = createServerFn({ method: 'GET' }).handler(async () => {
   return learningService.getGoals(access.accessToken)
 })
 
-export type GoalSummary = {
-  description: string
-  id: string
-  skillCount: number
-  title: string
-  updatedAt: string
-}
-
 export function useHomeGoalsQuery() {
   const {
     data: goals = [],
@@ -36,22 +28,9 @@ export function useHomeGoalsQuery() {
     refetch: refetchGoals,
   } = useQuery({
     retry: 1,
-    queryFn: async () => {
-      const items = await fetchHomeGoals()
-      return items.map(mapGoalSummary)
-    },
+    queryFn: fetchHomeGoals,
     queryKey: ['learning', 'home-goals'],
   })
 
   return { goals, goalsError, isLoadingGoals, refetchGoals }
-}
-
-function mapGoalSummary(item: LearningGoalItem): GoalSummary {
-  return {
-    description: item.description,
-    id: item.id,
-    skillCount: item.skill_count,
-    title: item.title,
-    updatedAt: item.updated_at,
-  }
 }

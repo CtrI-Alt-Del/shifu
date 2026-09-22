@@ -72,6 +72,19 @@ class SqlalchemyActivityEvaluationsRepository:
         ).all()
         return [ActivityEvaluationMapper.to_domain(model) for model in models]
 
+    def find_many_by_attempt_ids(
+        self,
+        attempt_ids: tuple[str, ...],
+    ) -> list[ActivityEvaluation]:
+        if not attempt_ids:
+            return []
+        models = self._session.scalars(
+            select(ActivityEvaluationModel).where(
+                ActivityEvaluationModel.attempt_id.in_(attempt_ids)
+            )
+        ).all()
+        return [ActivityEvaluationMapper.to_domain(model) for model in models]
+
     def add(self, evaluation: ActivityEvaluation) -> None:
         self._session.add(ActivityEvaluationMapper.to_model(evaluation))
 

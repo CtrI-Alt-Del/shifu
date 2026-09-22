@@ -3,12 +3,12 @@ feature: Redis-backed rate limiting
 module: shared (cross-cutting infrastructure)
 jira: SHIFU-58
 status: completed
-spec_version: 1
+spec_version: 2
 ---
 
 # Plan: Redis-backed rate limiting for the Shifu Server
 
-Execution ledger for `spec.md` (v1, `ready`). This is a single-agent, sequential build
+Execution ledger for `spec.md` (v2, `ready`). This is a single-agent, sequential build
 — every layer depends on the one before it, so no parallel subagents are used. All
 paths are under `apps/server/src/shifu` unless noted; all commands run from
 `apps/server`.
@@ -72,7 +72,8 @@ paths are under `apps/server/src/shifu` unless noted; all commands run from
 - **Files**: `shared/rest/middlewares/rate_limit_middleware.py` (new). Depends only
   on the `CacheProvider` Protocol (constructor-injected), not the concrete adapter.
   Logic: resolve client IP (raw peer unless peer ∈ trusted-proxy allowlist, then use
-  `X-Forwarded-For`/`X-Real-IP`); skip entirely for `request.url.path == '/health'`;
+  `X-Forwarded-For`/`X-Real-IP`); skip entirely for `request.url.path` in
+  `{'/health', '/identity/session'}`;
   call `CacheProvider.consume(...)` with capacity 10 / refill 1-per-second; on
   `allowed=False`, short-circuit with a 429 response carrying `Retry-After` and the
   existing `RateLimitError` JSON shape; otherwise call `call_next`.

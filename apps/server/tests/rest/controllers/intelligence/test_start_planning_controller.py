@@ -6,7 +6,7 @@ from shifu.app import FastAPIApp
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import SharedPipe
-from tests.fixtures.postgres import PostgresDatabase
+from tests.fixtures.postgres_fixture import PostgresDatabase
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -55,6 +55,10 @@ class TestStartPlanningController:
             )
 
         assert response.status_code == 422
+        assert response.json() == {
+            'code': 'validation_error',
+            'message': 'Os dados enviados são inválidos.',
+        }
 
     def test_whitespace_only_intent_returns_validation_error(
         self,
@@ -76,6 +80,10 @@ class TestStartPlanningController:
             )
 
         assert response.status_code == 422
+        assert response.json() == {
+            'code': 'validation_error',
+            'message': 'Os dados enviados são inválidos.',
+        }
 
     def test_valid_intent_persists_a_planning_session_and_returns_it(
         self,

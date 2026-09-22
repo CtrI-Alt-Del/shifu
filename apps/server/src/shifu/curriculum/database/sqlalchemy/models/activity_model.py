@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, JSON, String
+from sqlalchemy import ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -6,6 +6,7 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class ActivityModel(Model):
     __tablename__ = 'curriculum_activities'
+    __table_args__ = (Index('ix_curriculum_activity_competency_id', 'competency_id'),)
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     competency_id: Mapped[str] = mapped_column(

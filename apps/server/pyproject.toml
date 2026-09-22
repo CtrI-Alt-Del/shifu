@@ -59,10 +59,10 @@ cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 cmd = "pytest -s -x -vv"
 
 [tool.poe.tasks."test:unit"]
-shell = "if find tests/core -path '*/use_cases/test_*.py' -print -quit | grep -q .; then find tests/core -path '*/use_cases/test_*.py' -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
+shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
 
 [tool.poe.tasks."test:integration"]
-cmd = "pytest tests/rest"
+shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No server integration tests found'; fi"
 
 [tool.poe.tasks."test:jobs"]
 shell = "SHIFU_RUN_REAL_INNGEST_TESTS=1 pytest tests/messaging/inngest/jobs"

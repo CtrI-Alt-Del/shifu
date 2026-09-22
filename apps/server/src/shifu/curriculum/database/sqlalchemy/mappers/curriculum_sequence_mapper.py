@@ -1,7 +1,8 @@
 from typing import cast
 
+from shifu.curriculum.core.domain.structures import ActivitySequenceItem
 from shifu.curriculum.core.domain.structures import CurriculumSequence
-from shifu.curriculum.core.domain.structures import CurriculumSequenceItem
+from shifu.curriculum.core.domain.structures import MaterialSequenceItem
 from shifu.curriculum.database.sqlalchemy.models import CurriculumSequenceModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
 
@@ -12,10 +13,10 @@ class CurriculumSequenceMapper:
         return CurriculumSequence(
             competency_id=model.competency_id,
             items=cast(
-                'tuple[CurriculumSequenceItem, ...]',
+                'tuple[MaterialSequenceItem | ActivitySequenceItem, ...]',
                 Serialization.deserialize_value(
                     model.items,
-                    tuple[CurriculumSequenceItem, ...],
+                    tuple[MaterialSequenceItem | ActivitySequenceItem, ...],
                 ),
             ),
         )

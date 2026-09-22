@@ -24,7 +24,7 @@ class SqlalchemyLearningDatabase:
         engine: Engine | None = None,
         id_provider: IdentifierProvider | None = None,
     ) -> None:
-        self._engine = engine or Session.create_database_engine()
+        self._engine: Engine = engine or Session.create_database_engine()
         self._id_provider: IdentifierProvider = (
             id_provider or SystemIdentifierProvider()
         )

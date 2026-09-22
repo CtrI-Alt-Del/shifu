@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from shifu.learning.core.domain.structures import GoalSummary
 from shifu.learning.core.interfaces import LearningDatabase
@@ -15,8 +15,8 @@ class GoalItem(BaseModel):
     id: str
     title: str
     description: str
-    skill_count: int
-    updated_at: str
+    skill_count: int = Field(serialization_alias='skillCount')
+    updated_at: str = Field(serialization_alias='updatedAt')
 
 
 class Response(BaseModel):

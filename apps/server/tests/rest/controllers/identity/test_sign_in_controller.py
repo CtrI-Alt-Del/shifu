@@ -11,7 +11,7 @@ from shifu.identity.pipes import IdentityPipe
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
     Argon2idHashProvider,
 )
-from tests.fixtures.postgres import PostgresDatabase
+from tests.fixtures.postgres_fixture import PostgresDatabase
 
 if TYPE_CHECKING:
     from httpx import Response

@@ -16,7 +16,7 @@ see [`rules.md`](rules.md).
   The repository does not currently pin a pnpm version in `package.json`.
 - **Python** `3.13.5`, selected by `.python-version`.
 - **uv**, used for server dependencies, virtual environments, and builds.
-- **Docker Engine with Docker Compose**, required for PostgreSQL, Inngest,
+- **Docker Engine with Docker Compose**, required for PostgreSQL, Redis, Inngest,
   Mailpit, and the local SonarQube stack.
 
 Check the runtime files before upgrading a local tool. Lockfiles and manifests are
@@ -106,6 +106,7 @@ Important local variables include:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `POSTGRES_PORT` | `54344` | PostgreSQL host port |
+| `REDIS_PORT` | `6379` | Redis host port |
 | `INNGEST_PORT` | `18288` | Inngest UI/API host port |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
@@ -126,6 +127,7 @@ docker compose logs -f
 The Compose stack provides:
 
 - PostgreSQL 17 for application data;
+- Redis 8 for server cache and rate limiting;
 - Inngest development server;
 - Mailpit for local mail capture; and
 - SonarQube with its PostgreSQL database.
@@ -135,6 +137,7 @@ Default endpoints are:
 | Service | URL or address |
 | --- | --- |
 | PostgreSQL | `postgresql://shifu:change-me@localhost:54344/shifu` |
+| Redis | `redis://localhost:6379/0` |
 | Inngest | `http://localhost:18288` |
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
@@ -273,8 +276,8 @@ Run commands from `apps/server` through uv:
 | `uv run poe check:types` | Run strict basedpyright checking |
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
-| `uv run poe test:unit` | Run use-case unit tests under `tests/core/**/use_cases` |
-| `uv run poe test:integration` | Run REST integration tests under `tests/rest` against disposable PostgreSQL Testcontainers |
+| `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
+| `uv run poe test:integration` | Run module-first server integration tests under `tests/<module>/server` plus legacy `tests/rest` during migration, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |

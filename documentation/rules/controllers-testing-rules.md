@@ -4,8 +4,11 @@ description: FastAPI TestClient integration rules for controllers, SQLAlchemy pe
 
 # Controller Testing Rules
 
-These rules apply to controller integration tests under
-`apps/server/tests/rest/controllers/<module>` and their shared pytest fixtures.
+These rules apply to module-owned controller integration tests under
+`apps/server/tests/<module>/server/controllers` and their shared pytest fixtures.
+The existing technology-first `apps/server/tests/rest/**` tree remains discoverable
+only while a separate maintenance delivery migrates it. New or changed tests use the
+module-first structure; feature work must not extend the legacy tree.
 
 ## Test through HTTP
 
@@ -13,7 +16,7 @@ Every controller has one mirrored test module:
 
 ```text
 src/shifu/identity/rest/controllers/create_account_controller.py
-tests/rest/controllers/identity/test_create_account_controller.py
+tests/identity/server/controllers/test_create_account_controller.py
 ```
 
 All pytest cases are methods on a `Test<Controller>` class. Group related route
@@ -89,5 +92,6 @@ Integration tests that require Docker may skip locally with a precise reason whe
 runtime is unavailable, but CI must execute them on a Docker-capable runner. A skipped
 suite is not evidence of a passing integration boundary.
 
-Run focused controller tests through `uv run pytest tests/rest/controllers/<module>`.
+Run focused controller tests through
+`uv run pytest tests/<module>/server/controllers`.
 Before delivery, run Ruff, strict typing, and all applicable controller tests.

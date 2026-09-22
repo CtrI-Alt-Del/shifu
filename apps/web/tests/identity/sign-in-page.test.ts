@@ -8,12 +8,16 @@ test.describe('SignInPage', () => {
     await page.goto('/login/')
 
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar' })).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue('')
+    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(
+      'student.seed@shifu.com',
+    )
     await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveAttribute(
       'placeholder',
       'voce@exemplo.com',
     )
-    await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue('')
+    await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue(
+      'ShifuSeed123!',
+    )
     await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveAttribute(
       'placeholder',
       '••••••••',

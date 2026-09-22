@@ -9,4 +9,5 @@ from .activity_recommendation_type import (
 from .competency_progress_status import (
     CompetencyProgressStatus as CompetencyProgressStatus,
 )
+from .competency_availability import CompetencyAvailability as CompetencyAvailability
 from .skill_experience_status import SkillExperienceStatus as SkillExperienceStatus
