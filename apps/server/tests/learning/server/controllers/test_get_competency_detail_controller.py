@@ -17,7 +17,6 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.core.domain.structures import RateLimitDecision
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ACTIVITY_REPETITION_EASY_ID,
@@ -31,6 +30,7 @@ from shifu.shared.database.seed_data import (
 from shifu.shared.database.sqlalchemy.models import EventModel
 from shifu.learning.database.sqlalchemy.models import GoalModel, SkillExperienceModel
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.redis_fixture import RedisFixture
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -47,19 +47,11 @@ class _TestAuthenticationProvider:
         )
 
 
-class _AllowAllCacheProvider:
-    async def consume_rate_limit_token(
-        self,
-        key: str,
-        capacity: int,
-        refill_per_second: float,
-    ) -> RateLimitDecision:
-        del key, capacity, refill_per_second
-        return RateLimitDecision(allowed=True, retry_after_seconds=0)
-
-
 @pytest.fixture
-def application(postgres_database: PostgresDatabase) -> Iterator[FastAPI]:
+def application(
+    postgres_database: PostgresDatabase,
+    redis_fixture: RedisFixture,
+) -> Iterator[FastAPI]:
     columns = inspect(postgres_database.engine).get_columns(
         'learning_competency_progresses'
     )
@@ -70,7 +62,6 @@ def application(postgres_database: PostgresDatabase) -> Iterator[FastAPI]:
     _seed_application(postgres_database)
     application = FastAPIApp.register(postgres_database.engine)
     application.state.authentication_provider = _TestAuthenticationProvider()
-    application.state.cache_provider = _AllowAllCacheProvider()
     application.state.learning_database = SqlalchemyLearningDatabase(
         postgres_database.engine
     )
@@ -84,7 +75,6 @@ def application(postgres_database: PostgresDatabase) -> Iterator[FastAPI]:
 @pytest.fixture
 def client(application: FastAPI) -> Iterator[TestClient]:
     with TestClient(application, raise_server_exceptions=False) as test_client:
-        application.state.cache_provider = _AllowAllCacheProvider()
         yield test_client
 
 

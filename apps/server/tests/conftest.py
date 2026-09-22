@@ -12,7 +12,11 @@ if TYPE_CHECKING:
 
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
-pytest_plugins = ('tests.fixtures.inngest_fixture', 'tests.fixtures.postgres_fixture')
+pytest_plugins = (
+    'tests.fixtures.inngest_fixture',
+    'tests.fixtures.postgres_fixture',
+    'tests.fixtures.redis_fixture',
+)
 
 
 @pytest.fixture
