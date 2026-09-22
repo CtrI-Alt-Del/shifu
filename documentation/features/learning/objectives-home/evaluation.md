@@ -1,6 +1,6 @@
 ---
 title: Objectives Home and Planner entry evaluation
-status: ready
+status: completed
 spec: ./spec.md
 spec_revision: 1
 plan: ./plan.md
@@ -12,9 +12,11 @@ last_updated_at: 2026-09-22
 
 # Evaluation status
 
-F1–F6 complete under `plan.md` (Plan-backed execution, waves F1–F8). All
-`CA-*` have current passing evidence, both real and merged with `origin/main`.
-F7 (Implementation Reviewer) is next.
+Delivery concluded. F1–F8 complete under `plan.md` (Plan-backed execution).
+All `CA-*` have current passing evidence on the final commit, the single
+Implementation Reviewer ran with no blocking findings, and the full gate set
+(server + web, including the live 30/30 Playwright suite) passed on the exact
+concluding commit.
 
 - **Spec:** `ready`, revision `1`. Traced to Intelligence PRD `83099649` v1 and
   Learning PRD `83066881` v1.
@@ -87,6 +89,83 @@ including one with exactly one skill experience to exercise the singular
 
 Zero console errors and zero failed/4xx/5xx requests were observed across all
 three scenarios.
+
+# Final conformance record and PRD traceability
+
+Confirmed at conclusion (2026-09-22) against `spec.md` revision `1`
+(`implemented`) and the complete integrated diff `395eb89..ca67d2c`:
+
+- Builder/Plan scope matches the complete diff exactly; no path outside the
+  three Builders' assigned boundaries or the Orchestrator's shared/root scope
+  (`app.py`, `shared/pipes`, `routeTree.gen.ts`, `package.json`/lockfiles, the
+  migration) was touched.
+- Required file/widget tree matches `spec.md` §3 with the two corrected stale
+  declarations noted in the Review findings section below; every generated
+  artifact (`routeTree.gen.ts`, the migration, `pnpm-lock.yaml`/`uv.lock`) was
+  produced by its real generation command, not hand-edited.
+- Every `RF-01`..`RF-11` and `CA-01`..`CA-12` has current evidence for this
+  exact revision (Acceptance coverage table above); no stale evidence remains
+  — every row was revalidated after the Reviewer's fixes with a full gate
+  rerun (`EV-F1-01` through the final post-Reviewer rerun below).
+- Canonical PRD content ID/version (`Intelligence 83099649 v1`,
+  `Learning 83066881 v1`) unchanged since Spec authoring; no reconciliation
+  required.
+- Required services (Postgres, Redis, Inngest, Mailpit, FastAPI, web dev
+  server) were all available and exercised live during F6/F7; no unavailable
+  service limitation applies.
+
+**Post-Reviewer final gate rerun** (`EV-CONCLUDE-01`, on commit `ca67d2c`,
+after fixing the broken intermediate state left by a partial commit — see
+Evidence log): server `check:lint`/`check:types`/`check:architecture` clean,
+`test:unit` 16 passed, `test:integration` 12 passed, `build` ok; web
+`check:lint`/`check:types`/`check:architecture` clean, `test:unit` 37 passed,
+**`test:integration` 30/30 Playwright passed** (full suite rerun live against
+the real running stack — FastAPI, web dev server, Postgres, Redis, Inngest —
+on this exact final commit, not inferred from an earlier candidate), `build`
+ok.
+
+| RP/JN | RF coverage | CA coverage | Evidence | Delivery disposition | PRD checkbox |
+| --- | --- | --- | --- | --- | --- |
+| Intelligence RP-07 | RF-01, RF-04, RF-06, RF-07, RF-08 | CA-01, CA-04, CA-06, CA-07, CA-08 | EV-F4-01, EV-F6-01 | partially_implemented (start-only; T15/T16 excluded by Spec) | unchanged |
+| Intelligence RP-02 | — | — | — | not_implemented (explicit product decision; deferred to a future amendment once SHIFU-54 lands) | unchanged |
+| Intelligence RP-12 | RF-09, RF-11 | CA-09, CA-10, CA-12 | EV-F4-01, EV-F6-01 | implemented (for delivered surfaces) | unchanged |
+| Learning RP-01 | RF-01, RF-02, RF-03, RF-05 | CA-01, CA-02, CA-03, CA-05 | EV-F2-01, EV-F5-01, EV-F6-01 | partially_implemented (entry point + listing only; T11 excluded by Spec) | unchanged |
+| Learning RP-02 | — | — | — | not_applicable (proposal confirmation/creation not part of this slice) | unchanged |
+| Learning RP-25 | RF-09, RF-10, RF-11 | CA-09, CA-10, CA-11, CA-12 | EV-F4-01, EV-F6-01 | implemented (for delivered surfaces) | unchanged |
+
+No PRD `Implemented` checkbox was changed by this workflow. Confluence remains
+the canonical product-intent authority; the dispositions above are local
+delivery facts only.
+
+# Lessons learned
+
+- **Composition-seam overrides in controller tests are only for forced
+  infrastructure-failure regressions, never for a deliberately-deferred
+  `app.state` gap** (`ACH-F3-01`). Already stated explicitly in
+  `documentation/rules/controllers-testing-rules.md`. **Disposition: no
+  change** — the rule already says this; the finding was an enforcement gap,
+  not a documentation gap.
+- **A TanStack Start server-function HTTP response is an RPC envelope
+  (`{result, error, context}`), not the handler's raw return value**
+  (`ACH-F4-01`). This is undocumented anywhere in the repository and is easy
+  to get wrong in exactly the way this delivery did. **Disposition: update** —
+  candidate for a short note in `documentation/rules/widget-testing-rules.md`
+  or a Playwright test-helper utility; not applied in this conclusion pass
+  because it would be a Rule-authority change outside this Spec's scope. Left
+  as a recorded lesson for whoever next writes a Playwright suite stubbing a
+  server function with a real payload.
+- **Core use cases must receive `ClockProvider`/`IdentifierProvider` through
+  constructor injection, never call `datetime.now()` or construct a concrete
+  provider inline** (`ACH-F7-01`/`ACH-F7-03`). Already stated explicitly in
+  `documentation/rules/provision-layer-rules.md` with a matching existing
+  precedent (`PublishMainPageEnteredUseCase`). **Disposition: no change** —
+  enforcement gap, not a documentation gap.
+- **A dynamic-route navigation helper must stay fully typed against the
+  generated route tree; a generic `(path: string, params) => ... as never`
+  wrapper defeats the type safety `ROUTES`/`RouteName` exist to provide**
+  (`ACH-F7-04`). **Disposition: no change** — `web-app-routing-rules.md`
+  already directs adding "a canonical route builder next to `ROUTES`" for
+  this exact case; the fix followed that guidance.
 
 # Review findings
 
@@ -467,3 +546,21 @@ Playwright (30/30) suites green. **Status:** resolved.
     the widget-hierarchy table's `Anchor`/retry-`Button` ownership). This
     Evaluation set to `ready`.
   - **Next action:** none. Ready for `conclude-spec`.
+- **2026-09-22 — conclusion**
+  - **Finding/result:** `EV-CONCLUDE-01`. Discovered and fixed one broken
+    intermediate state: a commit outside this workflow's own history
+    (`a01e6f7`) had partially applied the Reviewer's `ClockProvider`/
+    `IdentifierProvider` fix, leaving `start_planning_controller.py`
+    referencing an undefined `SystemIdentifierProvider` import and calling
+    `StartPlanningUseCase` with a missing argument — HEAD would not have
+    type-checked. Fixed in `ca67d2c`. Reran the complete gate set for real on
+    that final commit (not inferred from an earlier candidate): server
+    lint/types/architecture clean, 16 unit + 12 integration passed, build ok;
+    web lint/types/architecture clean, 37 unit passed, **30/30 Playwright
+    passed live against the real running stack**, build ok. Confirmed
+    `origin/main` unchanged since the earlier merge (already an ancestor of
+    HEAD) — no resync needed. Added the final conformance record, PRD
+    traceability table, and Lessons learned section above. `spec.md` and this
+    Evaluation set to `completed`; `plan.md` already `completed`.
+  - **Next action:** commit the documentation-only conclusion changes, then
+    hand off to `create-pr`.

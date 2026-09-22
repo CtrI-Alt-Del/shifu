@@ -1,6 +1,6 @@
 ---
 title: Objectives Home and Planner entry
-status: implemented
+status: completed
 revision: 1
 source:
   type: issue
