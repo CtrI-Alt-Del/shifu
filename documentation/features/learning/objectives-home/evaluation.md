@@ -564,3 +564,16 @@ Playwright (30/30) suites green. **Status:** resolved.
     Evaluation set to `completed`; `plan.md` already `completed`.
   - **Next action:** commit the documentation-only conclusion changes, then
     hand off to `create-pr`.
+- **2026-09-22 — publication and PR CI gate**
+  - **Finding/result:** confirmed `origin/main` already an ancestor of `HEAD`
+    (no resync needed), pushed `feat/shifu-60` (`a01e6f7..81c81c2`), and
+    opened [PR #7](https://github.com/CtrI-Alt-Del/shifu/pull/7)
+    (`feat/shifu-60` → `main`) with the full pt-BR template (Objetivo, PRD,
+    Requisitos afetados, Jira, Implementação técnica, Alterações de regras de
+    negócio, Testes manuais, Validações automatizadas, Migrations e artifacts
+    gerados, Limitações conhecidas). Polled the PR's actual checked-in CI
+    workflows (newly present on `main` via SHIFU-57/58, not documented in
+    `tooling.md` yet) at head SHA `81c81c2`: **"Verify server application" →
+    SUCCESS**, **"Verify web application" → SUCCESS**. Both terminal, both on
+    the exact concluding SHA.
+  - **Next action:** none. Delivery concluded and published.
