@@ -21,6 +21,22 @@ services:
       retries: 10
       start_period: 5s
 
+  redis:
+    image: redis:8-alpine
+    container_name: shifu-redis
+    pull_policy: missing
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - shifu-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   inngest:
     image: inngest/inngest:v1.41.1
     container_name: shifu-inngest
@@ -102,6 +118,7 @@ services:
 
 volumes:
   shifu-postgres-data:
+  shifu-redis-data:
   shifu-inngest-data:
   shifu-sonarqube-db-data:
   shifu-sonarqube-data:

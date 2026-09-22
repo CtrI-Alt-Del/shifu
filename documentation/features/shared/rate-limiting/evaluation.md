@@ -3,7 +3,7 @@ feature: Redis-backed rate limiting
 module: shared (cross-cutting infrastructure)
 jira: SHIFU-58
 status: ready
-spec_version: 1
+spec_version: 2
 ---
 
 # Evaluation: Redis-backed rate limiting for the Shifu Server
@@ -16,9 +16,13 @@ purpose; no shared Compose service was added or modified, per the Spec's exclusi
 
 ## Acceptance matrix
 
+The v2 delivery adds `/identity/session` to the technical exclusions so internal BFF
+session validation does not consume tokens needed by business requests. Competency
+Detail also retries a 429 after the one-second refill interval.
+
 | CA | Result | Evidence |
 | --- | --- | --- |
-| CA-1 (`/health` exempt) | ✅ Pass | VM-4: `/health` returned 200 while the same client's rate-limit bucket was exhausted on `/curriculum`. |
+| CA-1 (`/health` and `/identity/session` exempt) | ✅ Pass | VM-4: both exempt routes remained available while the same client's rate-limit bucket was exhausted on a business route. |
 | CA-2 (burst 10, sustained 1/s) | ✅ Pass | VM-1: 10 rapid requests returned their normal (404, unmapped-route) status; the 11th returned 429. A single request issued ~1s after exhaustion succeeded (404, not 429), confirming the 1-token/s refill. |
 | CA-3 (`Retry-After` header) | ✅ Pass | Observed `retry-after: 1` on every 429 response during VM-1/VM-3 testing. |
 | CA-4 (trusted-proxy-gated IP resolution) | ✅ Pass, after one fix | See **ACH-1** below. After the fix: forged `X-Forwarded-For` from an untrusted peer produced key `rate-limit:127.0.0.1` (header ignored); the same header from a peer added to `TRUSTED_PROXY_IPS` produced key `rate-limit:5.5.5.5` (header honored). Verified directly against Redis keys (`redis-cli KEYS '*'`), not just HTTP status. |
@@ -71,3 +75,5 @@ purpose; no shared Compose service was added or modified, per the Spec's exclusi
 
 - v1 (2026-09-16): Initial evaluation. All CA-*/CI-* pass. One finding (ACH-1)
   raised and fixed during validation.
+- v2 (2026-09-22): Added the `/identity/session` exemption and verified Competency
+  Detail recovery after a real 429/refill cycle in Playwright.

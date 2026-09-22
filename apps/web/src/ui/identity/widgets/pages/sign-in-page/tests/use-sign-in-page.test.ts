@@ -40,11 +40,11 @@ describe('useSignInPage', () => {
     useNavigationMock.mockReturnValue({ navigateTo: navigateToMock })
   })
 
-  it('starts with an empty sign-in form', () => {
+  it('starts with the local seeded account credentials', () => {
     const { result } = renderHook(() => useSignInPage())
 
-    expect(result.current.email).toBe('')
-    expect(result.current.password).toBe('')
+    expect(result.current.email).toBe('student.seed@shifu.com')
+    expect(result.current.password).toBe('ShifuSeed123!')
   })
 
   it('clears only the password for rejected credentials and focuses the alert', async () => {

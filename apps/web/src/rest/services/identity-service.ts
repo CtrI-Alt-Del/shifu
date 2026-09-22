@@ -75,7 +75,11 @@ export const IdentityService = (restClient: RestClient) => {
       })
     }
 
-    if (response.statusCode === 0 || response.statusCode >= 500) {
+    if (
+      response.statusCode === 0 ||
+      response.statusCode === 429 ||
+      response.statusCode >= 500
+    ) {
       throw new AuthError(
         'unavailable',
         'Não foi possível acessar o serviço de identidade.',

@@ -29,8 +29,8 @@ export function useSignInPage() {
 
   const form = useForm({
     defaultValues: {
-      email: '',
-      password: '',
+      email: 'student.seed@shifu.com',
+      password: 'ShifuSeed123!',
     } satisfies SignInFormValues,
     onSubmit: async ({ value }: { value: SignInFormValues }) => {
       setStatus('submitting')

@@ -3,7 +3,7 @@ feature: Redis-backed rate limiting
 module: shared (cross-cutting infrastructure — not a business module)
 jira: SHIFU-58
 status: implemented
-version: 1
+version: 2
 last_reviewed: 2026-09-16
 ---
 
@@ -45,7 +45,7 @@ planning began, which is the acceptance this Spec was waiting on to move to `rea
 - A framework-independent cache-provider contract exposing an atomic rate-limit
   operation, plus a Redis-backed implementation.
 - A FastAPI middleware that applies a per-client-IP token-bucket rate limit to every
-  route except `/health`.
+  route except `/health` and `/identity/session`.
 - Trusted-proxy-gated client-IP resolution (`X-Forwarded-For`/`X-Real-IP` honored only
   when the immediate connection peer is a configured trusted proxy).
 - A centralized, `pydantic-settings`-based settings boundary holding `REDIS_URL` and
@@ -111,7 +111,10 @@ before implementation starts.
 ## Functional requirements
 
 - **RF-1**: The rate-limiting middleware applies to every registered route except
-  `/health`.
+  `/health` and `/identity/session`. Session validation is excluded because the web
+  BFF performs it as an internal prerequisite for protected requests; counting it
+  against the same business-request bucket makes normal authenticated navigation
+  consume multiple tokens per user action.
 - **RF-2**: Each client IP is limited by a token bucket with capacity 10 and a refill
   rate of 60 tokens per minute (1 per second).
 - **RF-3**: A request that exceeds the bucket receives HTTP 429 with a `Retry-After`
@@ -134,9 +137,9 @@ before implementation starts.
 
 ## Acceptance criteria
 
-- **CA-1** (RF-1): `GET /health` succeeds regardless of how many prior requests were
-  made from the same client in the current window; a request to any other registered
-  route is subject to the limiter.
+- **CA-1** (RF-1): `GET /health` and `GET /identity/session` succeed regardless of
+  how many prior requests were made from the same client in the current window; a
+  request to any other registered route is subject to the limiter.
 - **CA-2** (RF-2, RF-3): From a fresh bucket, up to 10 rapid requests from the same
   client IP succeed; the next request in the same sub-second window returns 429. A
   client sending at a sustained rate of 1 request/second never receives 429 from the
@@ -174,7 +177,8 @@ coverage per `provision-layer-rules.md`.
   resend with a different `X-Forwarded-For` value, and confirm that value is now used
   as the bucket key (e.g. by exhausting its bucket independently of the real peer's).
 - **VM-4** (CA-1): While a client's bucket is exhausted from VM-1, confirm `GET
-  /health` still returns 200 for the same client.
+  /health` and `GET /identity/session` still return their normal responses for the
+  same client.
 
 ## Automated quality gates
 
@@ -241,3 +245,7 @@ green for the changed code (run from `apps/server`):
   see `evaluation.md` for the acceptance matrix, gate results, and one fixed finding
   (ACH-1: Uvicorn's default proxy-header trust was overriding RF-4 for local
   connections; fixed in `apps/server/src/main.py`).
+- v2 (2026-09-22): Excluded the BFF's internal `/identity/session` validation from
+  the business-request bucket and added one-second retry handling for transient
+  Competency Detail throttling after observing normal authenticated navigation
+  consume the shared burst budget.
