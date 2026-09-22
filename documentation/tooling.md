@@ -273,8 +273,8 @@ Run commands from `apps/server` through uv:
 | `uv run poe check:types` | Run strict basedpyright checking |
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
-| `uv run poe test:unit` | Run use-case unit tests under `tests/core/**/use_cases` |
-| `uv run poe test:integration` | Run REST integration tests under `tests/rest` against disposable PostgreSQL Testcontainers |
+| `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
+| `uv run poe test:integration` | Run module-first server integration tests under `tests/<module>/server` plus legacy `tests/rest` during migration, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |

@@ -5,8 +5,8 @@ description: FastAPI controllers and web REST-service HTTP boundary rules.
 # REST Layer Rules
 
 These rules apply to FastAPI code under `apps/server/src/shifu/*/rest`, its matching
-tests under `apps/server/tests/rest`, and module-oriented web API operations under
-`apps/web/src/rest/services`.
+module-owned tests under `apps/server/tests/<module>/server`, and module-oriented web
+API operations under `apps/web/src/rest/services`.
 
 ## Web REST services use direct module files
 
@@ -90,6 +90,40 @@ authorize requests, access persistence, execute business rules, or become domain
 entities. Nested response objects may use additional private controller-local
 Pydantic models when needed.
 
+## Domain structures cross the boundary through Pydantic
+
+Shared and module core structures remain framework-independent frozen standard-library
+dataclasses. Do not import Pydantic into `apps/server/src/shifu/*/core` or change the
+shared `structure` decorator into a Pydantic decorator merely to support HTTP output.
+Pydantic and FastAPI already understand standard-library dataclasses at the REST
+boundary.
+
+When a response contract differs from the returned structure, validate the structure
+through a controller-local, module-level `TypeAdapter` instead of reconstructing the
+response field by field. This is the required pattern for nested structures, unions,
+discriminators, enum values, and transport scalar conversions:
+
+```python
+from pydantic import TypeAdapter
+
+
+type Response = AvailableResponse | UnavailableResponse
+
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
+@router.get('/details/{detail_id}', response_model=Response, status_code=200)
+def _(...) -> Response:
+    detail = use_case.execute(...)
+    return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)
+```
+
+Use a direct structure return only when the declared HTTP schema is exactly the
+structure’s public shape. Keep transport-only fields, such as HTTP discriminators,
+aliases, hidden fields, and numeric serialization choices, in controller-local
+Pydantic response models. Do not use `model_construct`, ad hoc dictionaries, or
+field-by-field mapper helpers to bypass response validation.
+
 ## Controllers remain HTTP adapters
 
 A business controller normally represents one application action. It may only:
@@ -160,7 +194,7 @@ SQLAlchemy sessions or blocking SDK calls directly on the event loop.
 ## Controller tests use HTTP
 
 Place controller integration tests under
-`apps/server/tests/rest/controllers/<module>/`. Keep one test file per controller
+`apps/server/tests/<module>/server/controllers/`. Keep one test file per controller
 route contract. Tests must use FastAPI `TestClient` or the project-approved async HTTP
 client against an application created by `FastAPIApp.register()`; do not call nested handlers
 or controller methods directly.

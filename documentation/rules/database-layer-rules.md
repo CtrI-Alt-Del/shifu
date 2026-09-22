@@ -138,6 +138,9 @@ Migration revisions must:
 
 Tests may use `metadata.create_all` only for a narrowly scoped fixture while migration
 coverage is being established. The production-like integration path runs Alembic.
+Migration upgrade, applicable downgrade, constraint, index, and data-preflight checks
+are recorded as disposable-environment delivery evidence; do not create a dedicated
+migration test module.
 
 ## Seeders use application adapters
 
@@ -164,11 +167,18 @@ Never embed production credentials or real user data in seeders.
 
 ## Persistence is tested through behavior
 
-Use-case unit tests mock repository protocols. Controller and job integration tests
-exercise concrete SQLAlchemy repositories against PostgreSQL. Add a repository-focused
-integration test outside `apps/server/tests/core` only for complex persistence
-semantics that cannot be observed clearly through an application boundary, such as a
-concurrency primitive or database-specific query.
+Use-case unit tests mock repository protocols. Module-owned controller and job
+integration tests exercise concrete SQLAlchemy repositories against PostgreSQL.
+Database models, mappers, repositories, migrations, and seed data never receive
+database-specific test modules or an `apps/server/tests/database/**` suite. Prove
+persistence semantics through the owning application boundary: controller tests for
+synchronous HTTP behavior and job tests for asynchronous behavior. If a complex
+database primitive cannot be observed adequately through that boundary, redesign the
+boundary or record focused disposable-environment validation evidence instead of
+creating a database-layer test suite.
+
+Verify seed data through real seeded application scenarios or explicit delivery
+evidence, not a seed-specific test module.
 
 Integration fixtures isolate tests, clean tables in reverse dependency order, and do
 not leak sessions or containers.

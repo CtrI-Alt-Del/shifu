@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -8,6 +8,14 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class ActivityAttemptModel(Model):
     __tablename__ = 'learning_activity_attempts'
+    __table_args__ = (
+        Index(
+            'ix_learning_attempt_experience_activity_submitted',
+            'skill_experience_id',
+            'activity_id',
+            'submitted_at',
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     skill_experience_id: Mapped[str] = mapped_column(

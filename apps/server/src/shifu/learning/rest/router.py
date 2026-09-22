@@ -1,7 +1,11 @@
 from fastapi import APIRouter
 
+from shifu.learning.rest.controllers import GetCompetencyDetailController
+
 
 class LearningRouter:
     @staticmethod
     def register() -> APIRouter:
-        return APIRouter(prefix='/learning', tags=['learning'])
+        router = APIRouter(prefix='/learning', tags=['learning'])
+        GetCompetencyDetailController.handle(router)
+        return router

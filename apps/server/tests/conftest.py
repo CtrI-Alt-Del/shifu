@@ -10,9 +10,9 @@ from shifu.app import FastAPIApp
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from tests.fixtures.postgres import PostgresDatabase
+    from tests.fixtures.postgres_fixture import PostgresDatabase
 
-pytest_plugins = ('tests.fixtures.inngest_fixture', 'tests.fixtures.postgres')
+pytest_plugins = ('tests.fixtures.inngest_fixture', 'tests.fixtures.postgres_fixture')
 
 
 @pytest.fixture

@@ -15,6 +15,7 @@ class CompetencyProgressMapper:
             updated_at=model.updated_at,
             initial_progress=model.initial_progress,
             current_progress=model.current_progress,
+            hard_activity_score=model.hard_activity_score,
             status=(
                 CompetencyProgressStatus(model.status)
                 if model.status is not None
@@ -34,6 +35,7 @@ class CompetencyProgressMapper:
             updated_at=progress.updated_at,
             initial_progress=progress.initial_progress,
             current_progress=progress.current_progress,
+            hard_activity_score=progress.hard_activity_score,
             status=progress.status.value if progress.status is not None else None,
             mastered_at=progress.mastered_at,
         )

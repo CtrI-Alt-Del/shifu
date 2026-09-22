@@ -166,11 +166,11 @@ const BetterAuthProvider = () => {
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session) return null
 
-    try {
-      const token = await auth.api.getToken({ headers: request.headers })
-      const accessToken = token?.token
-      if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
+    const token = await auth.api.getToken({ headers: request.headers })
+    const accessToken = token?.token
+    if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
 
+    try {
       const currentSession = await identityService.getCurrentSession(accessToken)
       return {
         accountId: currentSession.account_id,
@@ -179,9 +179,24 @@ const BetterAuthProvider = () => {
         accessToken,
       }
     } catch (error) {
-      await deleteSession(request)
-      if (error instanceof AuthError && error.kind === 'unavailable') throw error
-      return null
+      if (error instanceof AuthError && error.kind === 'unavailable') {
+        return {
+          accountId: session.user.id,
+          displayName: session.user.name,
+          timeZone: null,
+          accessToken,
+        }
+      }
+
+      if (
+        error instanceof AuthError &&
+        (error.kind === 'authentication-rejected' || error.kind === 'invalid-response')
+      ) {
+        await deleteSession(request)
+        return null
+      }
+
+      throw error
     }
   }
 
