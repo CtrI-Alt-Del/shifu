@@ -8,8 +8,8 @@ from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.intelligence.core.use_cases import StartPlanningUseCase
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 from shifu.shared.pipes import SharedPipe
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
 
 class Request(BaseModel):
