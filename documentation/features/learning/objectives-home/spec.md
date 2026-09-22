@@ -1,6 +1,6 @@
 ---
 title: Objectives Home and Planner entry
-status: ready
+status: implemented
 revision: 1
 source:
   type: issue
@@ -73,8 +73,7 @@ Objective detail, or a Planner page.
 | Learning `RP-02` | deferred | Proposal confirmation and Objective creation from Intelligence are not part of this slice (T16 + future Learning work). |
 | Learning `RP-25` | full for delivered surfaces | Responsive/keyboard/pt-BR/no-color-only requirements apply to Home and the placeholders. |
 
-#
-# Product decisions and assumptions
+## Product decisions and assumptions
 
 - **AI quota is out of scope for this delivery.** The Jira acceptance criterion
   "com a cota de IA em 100%, o campo assistido fica indisponível" is not
@@ -324,8 +323,8 @@ Widget hierarchy:
 | Widget | Kind | Parent/entry | Direct children | Public contract | Behavior owner |
 | --- | --- | --- | --- | --- | --- |
 | `HomePage` | Page (`ui/shared/widgets/pages/home-page`) | `src/routes/index.tsx` | `PlanningIntentComposer`, `GoalsListSection` | none (no props) | Pure layout; no hook |
-| `PlanningIntentComposer` | Layout (`ui/intelligence/widgets/layouts/planning-intent-composer`) | `HomePage` | shared `Textarea`, `Button` (×2), `Icon` | none | `use-planning-intent-composer.ts` |
-| `GoalsListSection` | Layout (`ui/learning/widgets/layouts/goals-list-section`) | `HomePage` | `ObjectiveCard` (×N), shared `Anchor` | none | `use-goals-list-section.ts` |
+| `PlanningIntentComposer` | Layout (`ui/intelligence/widgets/layouts/planning-intent-composer`) | `HomePage` | shared `Textarea`, `Button` (primary submit), `Anchor` ("Criar manualmente"), `Icon` | none | `use-planning-intent-composer.ts` |
+| `GoalsListSection` | Layout (`ui/learning/widgets/layouts/goals-list-section`) | `HomePage` | `ObjectiveCard` (×N), shared `Button` (retry) | none | `use-goals-list-section.ts` |
 | `ObjectiveCard` | Component (`ui/learning/widgets/components/objective-card`) | `GoalsListSection` | shared `Icon` | `{ id, title, description, skillCount }` | Pure renderer |
 | `GoalCreatePlaceholderPage` | Page (`ui/learning/widgets/pages/goal-create-placeholder-page`) | `src/routes/learning/goals/new/index.tsx` | none | none | Pure renderer, no hook |
 | `GoalDetailPlaceholderPage` | Page (`ui/learning/widgets/pages/goal-detail-placeholder-page`) | `src/routes/learning/goals/$goalId/index.tsx` | none | `{ goalId }` | Pure renderer, no hook |
@@ -355,8 +354,7 @@ apps/web/src/
     │   │   ├── home-page/index.tsx                                  (Create)
     │   │   └── dashboard-page/                                      (Remove)
     │   └── layouts/root-layout/
-    │       ├── index.tsx                                            (Modify)
-    │       └── use-root-layout.ts                                   (Modify)
+    │       └── index.tsx                                            (Modify)
     ├── learning/
     │   └── widgets/
     │       ├── layouts/goals-list-section/

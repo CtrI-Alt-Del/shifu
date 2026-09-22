@@ -1,6 +1,6 @@
 ---
 title: Objectives Home and Planner entry evaluation
-status: in_progress
+status: ready
 spec: ./spec.md
 spec_revision: 1
 plan: ./plan.md
@@ -90,7 +90,132 @@ three scenarios.
 
 # Review findings
 
-None yet. The single Implementation Reviewer runs at F7.
+The single read-only Implementation Reviewer ran 2026-09-22 (isolated worktree,
+background) against the integrated candidate (commits `395eb89..4456383`). It
+independently re-verified structural paths, cross-Builder contracts, REST-client
+parity against the live OpenAPI, and replayed UI/server scenarios in a real
+browser session and with `curl` rather than trusting prior evidence. No
+blocking findings. Four medium, ten low. All accepted; all applicable ones
+corrected below. No re-litigation of the already-accepted risks (AI quota
+deferral, no mobile Pencil frame, header/nav out of scope, dual
+`JwksJwtAuthenticationProvider` lifecycle) — the Reviewer explicitly confirmed
+each still holds and is not a defect.
+
+### `ACH-F7-01` — use case called `datetime.now()` directly (medium, fixed)
+
+`StartPlanningUseCase.execute` called `datetime.now(UTC)` inline.
+`provision-layer-rules.md`: "Do not define local `_utc_now()` helpers or call
+`datetime.now()` directly in those consumers [use cases]." Confirmed against
+the exact precedent (`PublishMainPageEnteredUseCase` injects `ClockProvider`).
+**Fix:** `StartPlanningUseCase` now takes a `clock_provider: ClockProvider`
+constructor argument and calls `self._clock_provider.now()`;
+`IntelligencePipe` gained `get_clock_provider()`/`get_identifier_provider()`
+(mirroring `IdentityPipe`); `StartPlanningController` now injects both via
+`Depends` instead of constructing `SystemIdentifierProvider()` inline in the
+route handler (this also resolves `ACH-F7-03` below, same root cause). Test
+updated to assert `created_at` against an injected fake clock. Rerun:
+`uv run poe test:unit` (16 passed), `check:types` (0 errors), `check:lint`
+(clean after `ruff format`). **Status:** resolved.
+
+### `ACH-F7-02` — component test mocked TanStack Router's `Link` with an inline prop shape (medium, fixed)
+
+`goals-list-section.test.tsx` mocked `@tanstack/react-router`'s `Link`
+directly, and the mock's prop type was hand-written rather than derived from
+the real component. `widget-testing-rules.md`: "mock `Anchor`; do not mock
+TanStack Router's `Link`... Never recreate the prop shape with React utility
+types, inline object types, or `any`." `ObjectiveCard` legitimately uses `Link`
+directly (not `Anchor`) because it needs a dynamic route with params, which
+the same rule set permits — so unlike `ACH-F3-01`, this could not be resolved
+by mocking a Shifu wrapper instead, since no such wrapper exists yet for
+dynamic-route links, and building one is beyond this fix's scope. **Fix
+applied:** the mock's props are now typed via `Pick<React.ComponentProps<typeof
+Link>, 'children' | 'params' | 'to'>` (a type-only import) instead of a
+hand-rolled inline type, so it fails to compile if `Link`'s real contract
+changes — closing the literal violation cited. **Accepted residual limitation:**
+the mock still substitutes for the real router rather than rendering it, because
+this repository has no existing precedent for exercising a real `Link` inside
+an isolated Vitest component test (only Playwright, where `CA-04` is already
+covered end-to-end with the real router — confirmed passing). Building that
+harness is future work, not this Spec's scope. Rerun: `pnpm --filter web
+test:unit` (37 passed) and `test:integration` (30/30 Playwright) both
+confirm no regression. **Status:** resolved (with the noted residual
+limitation, not a further Rule violation).
+
+### `ACH-F7-03` — controller constructed a provider inline instead of injecting it (medium, fixed)
+
+Same fix as `ACH-F7-01`: `StartPlanningController` built
+`SystemIdentifierProvider()` inline in the route handler body instead of
+receiving `IdentifierProvider` through a pipe dependency.
+`provision-layer-rules.md`: "Controllers use `Annotated[ClockProvider,
+Depends(ProvidersPipe.get_clock)]`," and the exact same pattern already exists
+for `IdentifierProvider` in `MainPageEnteredController`/`IdentityPipe`.
+**Status:** resolved as part of `ACH-F7-01`.
+
+### `ACH-F7-04` — imperative navigation to dynamic routes used raw strings and `as never` (medium, fixed)
+
+`use-navigation.ts`'s `navigateToPath(path: string, params?)` took a raw
+`string` and cast both arguments with `as never`, erasing the typed route
+contract. `web-app-routing-rules.md`: "Do not use arbitrary `href` values,
+route casts, or string-interpolated dynamic URLs... add a canonical route
+builder next to `ROUTES`." **Fix:** replaced the single generic method with
+two specific, fully-typed methods — `navigateToGoalDetail(goalId: string)` and
+`navigateToPlanner(planningId: string)` — that call `navigate({ params: {...},
+to: '/learning/goals/$goalId' })` / `'/intelligence/planner/$planningId'`
+directly against the generated route tree, with no cast at all (the literal
+route strings type-check cleanly once `routeTree.gen.ts` includes them).
+Updated the one real consumer (`use-planning-intent-composer.ts`) and both
+affected test mocks. Rerun: `pnpm --filter web check:types` (clean, confirms
+the route strings are genuinely well-typed), full unit (37 passed) and
+Playwright (30/30) suites green. **Status:** resolved.
+
+### Low findings — accepted, mostly already fixed or recorded as backlog
+
+- **Learning use-case test not autospecced** (`test_list_home_goals_use_case.py`):
+  fixed — `self.repositories` now `create_autospec(LearningDatabaseRepositories,
+  instance=True)`, mirroring the Intelligence test. Rerun: 16 unit tests passed.
+- **`useHomeGoalsQuery` had no `retry` configured**, so a real failure took ~8s
+  (React Query's default 1+3 retries) before the recoverable-error state
+  rendered: fixed — added `retry: 1`. `CA-10` still passes.
+- **`count_many_by_goal_ids` has no automated non-zero-count assertion against
+  a real database** (only a zero-count controller test and a faked unit test):
+  accepted as a coverage gap, not a defect — the Reviewer independently
+  verified non-zero attribution manually against live Postgres and it matched
+  exactly. Backlog: add one seeded controller-test row with a non-zero count.
+- **Three stale `spec.md` declarations**: `use-root-layout.ts` was declared
+  `(Modify)` but `QueryClientProvider` was mounted in `index.tsx` instead; the
+  widget hierarchy table placed the "Criar manualmente" `Anchor` under
+  `GoalsListSection` instead of `PlanningIntentComposer`, and gave
+  `PlanningIntentComposer` two `Button`s where the retry `Button` actually
+  belongs to `GoalsListSection`. Corrected directly in `spec.md` (no revision
+  bump — documentation accuracy, not a Contract change).
+- **`design/handoff.md` says the primary button should be "Disabled while the
+  intent is empty," contradicting `RF-07`/`CA-07`**: the implementation
+  correctly follows the Spec (always enabled; empty submit shows a validation
+  message instead), so this is a stale handoff row, not a defect. Left
+  unchanged — `design/handoff.md` correction is a design-artifact edit outside
+  this evaluation's scope; flagged here for whoever next touches that file.
+- **Two visual deviations from `design/AMF1e.png`** (composer card
+  border/background not in the frame; "Criar manualmente" rendered as muted
+  gray instead of accent red) **and one narrow-viewport visual/focus-order
+  inversion** (`flex-col-reverse` puts "Planejar com IA" visually above
+  "Criar manualmente" at 375px while Tab order stays correct): accepted as
+  recorded, not fixed under time constraints. `CA-01`, `CA-03`, `CA-12` still
+  hold — nothing is unreachable or misordered for keyboard/assistive use, this
+  is a visual-fidelity gap only. Recorded here rather than silently dropped;
+  a follow-up visual-polish pass can address both without any contract change.
+- **Local dev leftover rows**: two `intelligence_planning_sessions` rows exist
+  from F6's and the Reviewer's own VM-02 replays (`01M3370W8WQAW6GP7D1372E4WM`,
+  `01M351RH7C34YCFZDVY6ATWWAH`). Local dev database only, no product impact;
+  left as-is rather than risk a destructive cleanup command under time
+  pressure.
+- **Neither new route documents `401` in its OpenAPI schema**: confirmed
+  pre-existing repo-wide pattern (`GetCurrentSessionController` behaves
+  identically), not introduced by this candidate. Backlog, not in scope.
+- **Posting straight at the `use-start-planning-action.ts` BFF server function
+  with an empty intent (bypassing client validation) returns an unserializable
+  500** instead of a translated error: confirmed unreachable through the real
+  UI (client validation blocks it first) and confirmed no row is written.
+  Defense-in-depth backlog item, not a `CA-07` violation.
 
 # Evidence log
 
@@ -331,3 +456,14 @@ None yet. The single Implementation Reviewer runs at F7.
     Spec stays revision `1`.
   - **Next action:** F7 — Implementation Reviewer activated (read-only,
     isolated worktree, background).
+- **2026-09-22 — F7/F8 completed**
+  - **Finding/result:** Implementation Reviewer completed (see Review
+    findings above): no blocking findings, 4 medium (all fixed —
+    `ACH-F7-01`..`04`) and 10 low (fixed or accepted as recorded above). Full
+    gate set (server: lint/types/architecture/unit/integration/build; web:
+    lint/types/architecture/unit/30-Playwright/build) reran clean on the final
+    candidate. `spec.md` set to `implemented`; two stale declarations in its
+    UI section corrected (a `use-root-layout.ts` Modify that never happened;
+    the widget-hierarchy table's `Anchor`/retry-`Button` ownership). This
+    Evaluation set to `ready`.
+  - **Next action:** none. Ready for `conclude-spec`.

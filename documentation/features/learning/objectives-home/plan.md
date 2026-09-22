@@ -1,6 +1,6 @@
 ---
 title: Objectives Home and Planner entry implementation plan
-status: draft
+status: completed
 spec: ./spec.md
 spec_revision: 1
 evaluation: ./evaluation.md
@@ -15,8 +15,8 @@ last_updated_at: 2026-09-22
   (Learning, Intelligence, Identity via the new shared auth composition),
   introduces a migration and a new web dependency, and has genuine
   non-overlapping parallelism across three implementation lanes.
-- **Plan status:** `in_progress`. F1–F6 completed.
-- **Next action:** F7 — activate the single Implementation Reviewer.
+- **Plan status:** `completed`. F1–F8 all completed.
+- **Next action:** none — routed to `conclude-spec`.
 - **Active blockers/external dependencies:** none. `SHIFU-54` and `SHIFU-34` are
   cited in the Spec as context only; this Spec does not depend on either being
   implemented (quota gating is deferred; the manual-creation destination is a
@@ -53,8 +53,8 @@ last_updated_at: 2026-09-22
 | 2 | Builder Web | F4 | Home UI, composition, and three placeholder pages complete | — (contract-only; no runtime dependency on F2/F3) | F2, F3 | `completed` | component tests + build green now; Playwright suites green after F5 |
 | 3 | Orchestrator | F5 | Post-wave integration: `app.state` wiring, route generation, dependency install, migration applied | F2, F3, F4 | — | `completed` | full `pnpm`/`uv` command set green across both apps |
 | 4 | Orchestrator | F6 | Manual/runtime validation (`VM-01`..`VM-03`) via Playwright CLI | F5 | — | `completed` | `evaluation.md` records `EV-*` for each VM with fresh screenshots |
-| 5 | Implementation Reviewer | F7 | Independent review of the fully integrated candidate | F5, F6 | — | `pending` | every verified finding resolved or explicitly rejected with evidence |
-| 6 | Orchestrator | F8 | Final handoff | F7 | — | `pending` | every `CA-*`/`VM-*` has accepted evidence; ready for `conclude-spec` |
+| 5 | Implementation Reviewer | F7 | Independent review of the fully integrated candidate | F5, F6 | — | `completed` | every verified finding resolved or explicitly rejected with evidence |
+| 6 | Orchestrator | F8 | Final handoff | F7 | — | `completed` | every `CA-*`/`VM-*` has accepted evidence; ready for `conclude-spec` |
 
 ### F1 — Shared authentication composition
 
@@ -300,4 +300,29 @@ passed before it is actually observed and recorded.
 
 # 5. Execution log
 
-No execution has started yet; this section will be populated once `F1` begins.
+- **2026-09-20 — F1–F4 executed** (Orchestrator direct for F1; three parallel
+  Builders for F2/F3/F4). See `evaluation.md` for full evidence, including
+  `ACH-F3-01` (a controller-test Rule violation found and corrected during F3)
+  and `ACH-F4-01`/`ACH-F4-02` (a root-caused TanStack Start RPC-envelope test
+  defect and a stale assertion, both found and corrected during F4).
+- **2026-09-21 — F5 executed**: `app.state` wiring, route generation, full
+  gate rerun. Merged `origin/main` (SHIFU-58/62) with one resolved import-only
+  conflict in `app.py`; full gate set rerun clean post-merge.
+- **2026-09-22 — F6 executed**: `VM-01`/`VM-02`/`VM-03` against the real
+  running stack (real sign-in, real persisted data), REST-client parity
+  confirmed, full post-merge gate re-run confirmed.
+- **2026-09-22 — F7 executed**: one Implementation Reviewer (isolated
+  worktree, background) independently replayed UI/server behavior against the
+  live stack and re-verified structural/cross-Builder claims. Result: no
+  blocking findings; 4 medium (`ACH-F7-01`..`04`, all fixed — a use case
+  calling `datetime.now()` directly instead of `ClockProvider`, a component
+  test mocking TanStack Router's `Link` with an inline prop shape, a
+  controller constructing a provider inline instead of injecting it, and
+  imperative navigation using raw strings/`as never` casts instead of typed
+  route builders) and 10 low findings (mostly stale documentation and
+  accepted backlog items; one more real gap — an unautospecced test double —
+  fixed alongside). Full gate set (server + web, unit + integration +
+  Playwright + build) reran clean after every fix.
+- **2026-09-22 — F8 (final handoff)**: all criteria in this section's
+  checklist confirmed. `spec.md` set to `implemented`, `evaluation.md` set to
+  `ready`. Routing to `conclude-spec`.
