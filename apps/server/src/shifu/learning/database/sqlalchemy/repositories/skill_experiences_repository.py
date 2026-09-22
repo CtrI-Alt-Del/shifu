@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from shifu.learning.core.domain.entities import SkillExperience
@@ -38,6 +38,19 @@ class SqlalchemySkillExperiencesRepository:
             .order_by(SkillExperienceModel.created_at)
         ).all()
         return [SkillExperienceMapper.to_domain(model) for model in models]
+
+    def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:
+        if not goal_ids:
+            return {}
+        rows = self._session.execute(
+            select(
+                SkillExperienceModel.goal_id,
+                func.count().label('skill_count'),
+            )
+            .where(SkillExperienceModel.goal_id.in_(goal_ids))
+            .group_by(SkillExperienceModel.goal_id)
+        ).all()
+        return {row.goal_id: row.skill_count for row in rows}
 
     def add(self, skill_experience: SkillExperience) -> None:
         self._session.add(SkillExperienceMapper.to_model(skill_experience))

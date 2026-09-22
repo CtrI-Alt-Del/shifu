@@ -24,6 +24,7 @@ from .competency_material_detail import (
 )
 from .confirmed_goal_plan import ConfirmedGoalPlan as ConfirmedGoalPlan
 from .evaluation_part_result import EvaluationPartResult as EvaluationPartResult
+from .goal_summary import GoalSummary as GoalSummary
 from .multiple_selection_answer import (
     MultipleSelectionAnswer as MultipleSelectionAnswer,
 )

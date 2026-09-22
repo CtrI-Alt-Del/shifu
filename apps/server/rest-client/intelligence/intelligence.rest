@@ -1,0 +1,11 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+
+### Start planning session
+POST {{baseUrl}}/intelligence/planning-sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "initial_intent": "Quero aprender a programar em Python do zero."
+}

@@ -45,6 +45,8 @@ const detail: CompetencyDetail = {
 
 const getCompetencyDetailMock = vi.fn()
 const navigateToMock = vi.fn()
+const navigateToGoalDetailMock = vi.fn()
+const navigateToPlannerMock = vi.fn()
 const refetchMock = vi.fn(() => Promise.resolve({} as never))
 
 function mockQuery(
@@ -67,9 +69,15 @@ describe('useCompetencyDetailPage', () => {
   beforeEach(() => {
     getCompetencyDetailMock.mockReset()
     navigateToMock.mockReset()
+    navigateToGoalDetailMock.mockReset()
+    navigateToPlannerMock.mockReset()
     refetchMock.mockReset()
     useQueryMock.mockReset()
-    useNavigationMock.mockReturnValue({ navigateTo: navigateToMock })
+    useNavigationMock.mockReturnValue({
+      navigateTo: navigateToMock,
+      navigateToGoalDetail: navigateToGoalDetailMock,
+      navigateToPlanner: navigateToPlannerMock,
+    })
     useRpcContextMock.mockReturnValue({
       learningService: {
         getCompetencyDetail: getCompetencyDetailMock,

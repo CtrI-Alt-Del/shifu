@@ -1,11 +1,20 @@
-import type { RestClient } from '@/core/shared/interfaces/rest-client'
+import { AppError } from '@/core/errors/app-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import {
   COMPETENCY_DETAIL_ID_PATTERN,
   type ActivityDifficulty,
   type ActivityRecommendationType,
   type CompetencyProgressStatus,
 } from '@/core/learning/competency-detail'
+
+export type LearningGoalItem = {
+  description: string
+  id: string
+  skill_count: number
+  title: string
+  updated_at: string
+}
 
 export type CompetencyMaterialDetailResponse = {
   kind: 'material'
@@ -71,6 +80,16 @@ export type LearningService = ReturnType<typeof LearningService>
 
 export const LearningService = (restClient: RestClient) => {
   return {
+    async getGoals(accessToken: string): Promise<LearningGoalItem[]> {
+      const response = await restClient.get<{ goals: LearningGoalItem[] }>(
+        '/learning/goals',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+
+      if (response.isFailure) response.throwError()
+      return validateGoalsResponse(response.body)
+    },
+
     async getCompetencyDetail(
       accessToken: string,
       goalId: string,
@@ -91,6 +110,14 @@ export const LearningService = (restClient: RestClient) => {
       return response.body
     },
   }
+}
+
+function validateGoalsResponse(body: unknown): LearningGoalItem[] {
+  if (!isRecord(body) || !Array.isArray(body.goals)) {
+    throw new AppError('A resposta de Objetivos é inválida.', 'Erro de comunicação')
+  }
+
+  return body.goals as LearningGoalItem[]
 }
 
 function mapFailure(statusCode: number): never {

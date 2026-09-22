@@ -18,7 +18,7 @@ class SqlalchemyGoalsRepository:
         models = self._session.scalars(
             select(GoalModel)
             .where(GoalModel.account_id == account_id)
-            .order_by(GoalModel.created_at)
+            .order_by(GoalModel.updated_at.desc())
         ).all()
         return [GoalMapper.to_domain(model) for model in models]
 

@@ -13,6 +13,7 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
     JwksJwtAuthenticationProvider,
 )
 from shifu.identity.rest.router import IdentityRouter
+from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.curriculum.database.sqlalchemy import (
     SqlalchemyCurriculumDatabase,
@@ -23,6 +24,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
+from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
@@ -32,7 +34,6 @@ from shifu.shared.providers.cache.redis.redis_cache_provider import (
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
-from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.settings import get_settings
 
 
@@ -109,6 +110,10 @@ class FastAPIApp:
         app.state.authentication_provider = authentication_provider
         app.state.learning_database = learning_database
         app.state.curriculum_content_provider = curriculum_content_provider
+        app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
         FastAPIApp._register_routers(app)
         app.add_middleware(
             RateLimitMiddleware,
