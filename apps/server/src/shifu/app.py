@@ -6,23 +6,29 @@ from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 
 from shifu.curriculum.rest.router import CurriculumRouter
-from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.gamification.rest.router import GamificationRouter
-from shifu.identity.rest.router import IdentityRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
+from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
     JwksJwtAuthenticationProvider,
 )
+from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.rest.router import LearningRouter
+from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
+from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
+from shifu.shared.providers.cache.redis.redis_cache_provider import (
+    RedisCacheProvider,
+)
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
-from shifu.rest.handlers import AppErrorHandler
+from shifu.shared.settings import get_settings
 
 
 class FastAPIApp:
@@ -41,6 +47,7 @@ class FastAPIApp:
     def register(database_engine: Engine | None = None) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
         id_provider = SystemIdentifierProvider()
+        settings = get_settings()
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
             id_provider=id_provider,
@@ -48,12 +55,24 @@ class FastAPIApp:
 
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+            cache_provider = RedisCacheProvider.connect(settings.redis_url)
+            try:
+                await cache_provider.ping()
+            except Exception as error:
+                await cache_provider.close()
+                database_engine.dispose()
+                raise ServiceUnavailableError(
+                    message='Redis is unavailable; the server cannot start.'
+                ) from error
+
+            app.state.cache_provider = cache_provider
             broker = cast('InngestBroker', app.state.inngest_broker)
             broker.start()
             try:
                 yield
             finally:
                 broker.stop()
+                await cache_provider.close()
                 database_engine.dispose()
 
         app = FastAPI(title='Shifu API', version='0.1.0', lifespan=lifespan)
@@ -83,6 +102,10 @@ class FastAPIApp:
             id_provider=id_provider,
         )
         FastAPIApp._register_routers(app)
+        app.add_middleware(
+            RateLimitMiddleware,
+            trusted_proxy_ips=settings.trusted_proxy_ips,
+        )
         return app
 
 

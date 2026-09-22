@@ -11,6 +11,8 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "sqlalchemy>=2.0",
     "inngest>=0.5",
+    "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
 ]
 
 [dependency-groups]

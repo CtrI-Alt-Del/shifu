@@ -29,6 +29,7 @@ jobs:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
       BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
       SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
@@ -51,6 +52,15 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
