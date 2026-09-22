@@ -29,7 +29,7 @@ test.describe('AppLayout', () => {
     await expect(
       authenticatedPage.getByRole('heading', {
         level: 1,
-        name: 'Dê forma ao que você quer aprender.',
+        name: 'O que você quer aprender?',
       }),
     ).toBeVisible()
   })

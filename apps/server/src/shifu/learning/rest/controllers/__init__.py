@@ -1,1 +1,1 @@
-
+from .get_home_goals_controller import GetHomeGoalsController as GetHomeGoalsController

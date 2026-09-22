@@ -7,6 +7,7 @@ export const ROUTES = {
   pendingConfirmation: '/pending-confirmation',
   curriculum: '/curriculum',
   learning: '/learning',
+  learningGoalsNew: '/learning/goals/new',
   gamification: '/gamification',
   intelligence: '/intelligence',
   account: '/account',

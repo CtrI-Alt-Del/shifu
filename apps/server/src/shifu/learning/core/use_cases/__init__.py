@@ -1,1 +1,1 @@
-
+from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCase
