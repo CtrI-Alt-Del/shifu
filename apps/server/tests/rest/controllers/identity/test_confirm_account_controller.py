@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from httpx import Response
 
     from shifu.identity.core.interfaces import ConfirmationAccountActionTokensRepository
-    from tests.fixtures.postgres import PostgresDatabase
+    from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
 class _SequenceActionTokenProvider:
