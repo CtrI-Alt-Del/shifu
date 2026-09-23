@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -8,6 +8,19 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class AccountActionTokenModel(Model):
     __tablename__ = 'identity_account_action_tokens'
+    __table_args__ = (
+        Index(
+            'ix_identity_account_action_tokens_pending_handle_hash',
+            'pending_handle_hash',
+            postgresql_where=text('pending_handle_hash IS NOT NULL'),
+        ),
+        Index(
+            'ix_identity_account_action_tokens_account_type_issued_at',
+            'account_id',
+            'type',
+            'issued_at',
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     account_id: Mapped[str] = mapped_column(
@@ -31,3 +44,6 @@ class AccountActionTokenModel(Model):
     invalidated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    communication_id: Mapped[str] = mapped_column(String(26), nullable=False)
+    pending_handle_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    delivery_status: Mapped[str | None] = mapped_column(String(40), nullable=True)

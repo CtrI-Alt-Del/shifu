@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -8,6 +8,13 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class DeliveryAttemptModel(Model):
     __tablename__ = 'communication_delivery_attempts'
+    __table_args__ = (
+        UniqueConstraint(
+            'communication_id',
+            'attempt_number',
+            name='uq_communication_delivery_attempts_communication_attempt',
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     communication_id: Mapped[str] = mapped_column(

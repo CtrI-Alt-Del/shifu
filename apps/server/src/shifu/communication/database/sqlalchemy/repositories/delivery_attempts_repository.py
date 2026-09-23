@@ -1,4 +1,4 @@
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from shifu.communication.core.domain.entities import DeliveryAttempt
@@ -16,10 +16,12 @@ class SqlalchemyDeliveryAttemptsRepository:
         attempt_number: int,
     ) -> DeliveryAttempt | None:
         model = self._session.scalar(
-            select(DeliveryAttemptModel).where(
+            select(DeliveryAttemptModel)
+            .where(
                 DeliveryAttemptModel.communication_id == communication_id,
                 DeliveryAttemptModel.attempt_number == attempt_number,
             )
+            .with_for_update()
         )
         return DeliveryAttemptMapper.to_domain(model) if model is not None else None
 
@@ -34,6 +36,13 @@ class SqlalchemyDeliveryAttemptsRepository:
 
     def update(self, attempt: DeliveryAttempt) -> None:
         self._session.merge(DeliveryAttemptMapper.to_model(attempt))
+
+    def redact_by_communication_id(self, communication_id: str) -> None:
+        self._session.execute(
+            update(DeliveryAttemptModel)
+            .where(DeliveryAttemptModel.communication_id == communication_id)
+            .values(provider_message_id=None, failure_code=None)
+        )
 
     def remove_all(self) -> None:
         self._session.execute(delete(DeliveryAttemptModel))

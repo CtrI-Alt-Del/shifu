@@ -5,10 +5,13 @@ description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.16",
+    "aiosmtplib>=5.0",
     "argon2-cffi>=25.1",
+    "cryptography>=50.0",
     "fastapi[standard]>=0.128.7",
     "PyJWT[crypto]>=2.10",
     "psycopg[binary]>=3.2",
+    "resend==2.46.0",
     "sqlalchemy>=2.0",
     "inngest>=0.5",
 ]
@@ -117,3 +120,6 @@ where = ["src"]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
+
+[tool.setuptools.package-data]
+"shifu.communication.providers.email.template.generated" = ["*.html", "*.json"]
