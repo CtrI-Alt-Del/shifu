@@ -6,6 +6,7 @@ const RATE_LIMIT_MAX_REQUESTS = 10
 
 export type BetterAuthSettings = {
   baseURL: string
+  bffSharedSecret: string
   databaseURL: string
   identityURL: string
   secret: string
@@ -33,14 +34,16 @@ export const BetterAuthConfig = (): BetterAuthSettings => {
     process.env.DATABASE_URL?.replace('+psycopg', '') ??
     'postgresql://shifu:shifu-local@localhost:54344/shifu'
   const identityURL = process.env.SHIFU_IDENTITY_API_URL ?? 'http://localhost:7777'
+  const bffSharedSecret = process.env.SHIFU_BFF_SHARED_SECRET
   const secret = process.env.BETTER_AUTH_SECRET ?? process.env.AUTH_SECRET
 
-  if (process.env.NODE_ENV === 'production' && !secret) {
+  if (process.env.NODE_ENV === 'production' && (!secret || !bffSharedSecret)) {
     throw new AppError('A configuração segura de autenticação não está disponível.')
   }
 
   return {
     baseURL,
+    bffSharedSecret: bffSharedSecret ?? 'shifu-local-bff-shared-secret-change-me',
     databaseURL,
     identityURL,
     secret: secret ?? 'shifu-local-better-auth-secret-change-me-32-chars',

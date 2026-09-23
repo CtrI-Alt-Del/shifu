@@ -9,7 +9,7 @@ export default defineConfig({
     baseURL,
   },
   webServer: {
-    command: `pnpm dev --host 127.0.0.1 --port ${port}`,
+    command: `npm run dev -- --host 127.0.0.1 --port ${port}`,
     url: `${baseURL}/login/`,
     reuseExistingServer: !process.env.CI,
   },

@@ -11,11 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
+import { Route as ConfirmEmailIndexRouteImport } from './routes/confirm-email/index'
 import { Route as CurriculumIndexRouteImport } from './routes/curriculum/index'
 import { Route as GamificationIndexRouteImport } from './routes/gamification/index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/index'
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
+import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-confirmation/index'
+import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -26,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountIndexRoute = AccountIndexRouteImport.update({
   id: '/account/',
   path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmEmailIndexRoute = ConfirmEmailIndexRouteImport.update({
+  id: '/confirm-email/',
+  path: '/confirm-email/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CurriculumIndexRoute = CurriculumIndexRouteImport.update({
@@ -53,6 +61,17 @@ const LoginIndexRoute = LoginIndexRouteImport.update({
   path: '/login/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PendingConfirmationIndexRoute =
+  PendingConfirmationIndexRouteImport.update({
+    id: '/pending-confirmation/',
+    path: '/pending-confirmation/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const RegisterIndexRoute = RegisterIndexRouteImport.update({
+  id: '/register/',
+  path: '/register/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -62,32 +81,41 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account/': typeof AccountIndexRoute
+  '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/register/': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountIndexRoute
+  '/confirm-email': typeof ConfirmEmailIndexRoute
   '/curriculum': typeof CurriculumIndexRoute
   '/gamification': typeof GamificationIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
+  '/pending-confirmation': typeof PendingConfirmationIndexRoute
+  '/register': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account/': typeof AccountIndexRoute
+  '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/register/': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -95,42 +123,54 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/account/'
+    | '/confirm-email/'
     | '/curriculum/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
+    | '/register/'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
+    | '/confirm-email'
     | '/curriculum'
     | '/gamification'
     | '/intelligence'
     | '/learning'
     | '/login'
+    | '/pending-confirmation'
+    | '/register'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/account/'
+    | '/confirm-email/'
     | '/curriculum/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
+    | '/register/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
+  ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
   GamificationIndexRoute: typeof GamificationIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
+  PendingConfirmationIndexRoute: typeof PendingConfirmationIndexRoute
+  RegisterIndexRoute: typeof RegisterIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -148,6 +188,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account/'
       preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm-email/': {
+      id: '/confirm-email/'
+      path: '/confirm-email'
+      fullPath: '/confirm-email/'
+      preLoaderRoute: typeof ConfirmEmailIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/curriculum/': {
@@ -185,6 +232,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pending-confirmation/': {
+      id: '/pending-confirmation/'
+      path: '/pending-confirmation'
+      fullPath: '/pending-confirmation/'
+      preLoaderRoute: typeof PendingConfirmationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/': {
+      id: '/register/'
+      path: '/register'
+      fullPath: '/register/'
+      preLoaderRoute: typeof RegisterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -198,11 +259,14 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountIndexRoute: AccountIndexRoute,
+  ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,
   GamificationIndexRoute: GamificationIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
+  PendingConfirmationIndexRoute: PendingConfirmationIndexRoute,
+  RegisterIndexRoute: RegisterIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
