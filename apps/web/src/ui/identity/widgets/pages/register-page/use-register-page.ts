@@ -18,48 +18,42 @@ export function useRegisterPage() {
       email: '',
       password: '',
     } satisfies RegisterFormValues,
-    onSubmit: () => undefined,
+    onSubmit: async ({ value }: { value: RegisterFormValues }) => {
+      if (isSubmitting) return
+      const fields = validate(value)
+      if (Object.keys(fields).length > 0) {
+        for (const [name, error] of Object.entries(fields)) {
+          form.setFieldMeta(name as keyof RegisterFormValues, (meta) => ({
+            ...meta,
+            errorMap: { onSubmit: error },
+          }))
+        }
+        setMessage('Revise os campos destacados')
+        return
+      }
+      setIsSubmitting(true)
+      setMessage(null)
+      try {
+        await registerAccount(value)
+        await navigateTo('pendingConfirmation')
+      } catch {
+        setMessage('Não foi possível criar sua conta agora. Tente novamente.')
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
   })
   useEffect(() => {
     if (message) alertRef.current?.focus()
   }, [message])
 
-  async function submit(values: RegisterFormValues) {
-    if (isSubmitting) return
-    const fields = validate(values)
-    if (Object.keys(fields).length > 0) {
-      for (const [name, error] of Object.entries(fields)) {
-        form.setFieldMeta(name as keyof RegisterFormValues, (meta) => ({
-          ...meta,
-          errorMap: { onSubmit: error },
-        }))
-      }
-      setMessage('Revise os campos destacados para continuar.')
-      return
-    }
-    setIsSubmitting(true)
-    setMessage(null)
-    try {
-      await registerAccount(values)
-      await navigateTo('pendingConfirmation')
-    } catch {
-      setMessage('Não foi possível criar sua conta agora. Tente novamente.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    void submit({
-      displayName: String(formData.get('displayName') ?? ''),
-      email: String(formData.get('email') ?? ''),
-      password: String(formData.get('password') ?? ''),
-    })
+    event.stopPropagation()
+    await form.handleSubmit()
   }
 
-  return { alertRef, form, handleSubmit, isSubmitting, message }
+  return { alertRef, form, isSubmitting, message, submit }
 }
 
 function validate(values: RegisterFormValues): Record<string, string> {

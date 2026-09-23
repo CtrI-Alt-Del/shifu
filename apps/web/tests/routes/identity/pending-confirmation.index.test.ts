@@ -52,7 +52,9 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
     await expect(page.getByRole('button', { name: 'Reenviar link' })).toBeEnabled()
     await page.getByRole('button', { name: 'Reenviar link' }).click()
 
-    await expect(page.getByRole('alert')).toHaveText('Não foi possível reenviar agora')
+    await expect(page.getByRole('alert')).toHaveText(
+      'Não foi possível reenviar agora. Tente novamente.',
+    )
     await expect(page.getByRole('button', { name: 'Reenviar link' })).toBeEnabled()
   })
 })

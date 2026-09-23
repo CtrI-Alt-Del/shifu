@@ -19,7 +19,7 @@ export function usePendingConfirmationPage() {
     try {
       const status = await getPendingConfirmationStatus()
       setState(status.state)
-      if (status.retryAfterSeconds !== null) setRemainingSeconds(status.retryAfterSeconds)
+      setRemainingSeconds(status.retryAfterSeconds ?? 0)
       setMessage(
         status.state === 'delivery_issue'
           ? 'Não foi possível entregar o link. Você pode tentar reenviar.'

@@ -25,6 +25,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     page,
   }) => {
     await page.goto('/register/')
+    await page.waitForLoadState('networkidle')
     await page.getByRole('textbox', { name: 'Nome de exibição' }).fill('Ana')
     await page.getByRole('textbox', { name: 'E-mail' }).fill('invalid-email')
     await page.getByRole('button', { name: 'Criar conta' }).click()
@@ -52,6 +53,7 @@ test.describe('RegisterPage route with mocked transport', () => {
       })
     })
     await page.goto('/register/')
+    await page.waitForLoadState('networkidle')
     await page.getByRole('textbox', { name: 'Nome de exibição' }).fill('Ana')
     await page.getByRole('textbox', { name: 'E-mail' }).fill('ana@example.com')
     await page.getByRole('textbox', { name: 'Senha' }).fill('password-123')

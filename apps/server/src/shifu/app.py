@@ -2,10 +2,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import cast
 
-from fastapi import APIRouter, FastAPI, Request
-from fastapi.exception_handlers import request_validation_exception_handler
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
@@ -36,11 +33,7 @@ from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
-from shifu.shared.core.domain.errors import (
-    AppError,
-    ServiceUnavailableError,
-    ValidationError,
-)
+from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
@@ -54,15 +47,6 @@ from shifu.shared.settings import get_settings
 
 
 class FastAPIApp:
-    _IDENTITY_PUBLIC_PATHS = frozenset(
-        {
-            '/identity/registrations',
-            '/identity/pending-confirmations/status',
-            '/identity/pending-confirmations/resend',
-            '/identity/email-confirmations',
-        }
-    )
-
     @staticmethod
     def _register_routers(app: FastAPI) -> None:
         router = APIRouter()
@@ -161,7 +145,6 @@ class FastAPIApp:
             id_provider=id_provider,
         )
         AppErrorHandler.register(app)
-        FastAPIApp._register_safe_identity_handlers(app)
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
@@ -181,81 +164,6 @@ class FastAPIApp:
             trusted_proxy_ips=settings.trusted_proxy_ips,
         )
         return app
-
-    @staticmethod
-    def _register_safe_identity_handlers(app: FastAPI) -> None:
-        app.add_exception_handler(
-            RequestValidationError,
-            FastAPIApp._handle_validation_error,
-        )
-        app.add_exception_handler(AppError, FastAPIApp._handle_app_error)
-        app.add_exception_handler(Exception, FastAPIApp._handle_unexpected_error)
-
-    @staticmethod
-    async def _handle_validation_error(
-        request: Request,
-        error: Exception,
-    ) -> JSONResponse:
-        if not isinstance(error, RequestValidationError):
-            return await AppErrorHandler.handle_unexpected_error(request, error)
-        if request.url.path not in FastAPIApp._IDENTITY_PUBLIC_PATHS:
-            return await request_validation_exception_handler(request, error)
-        fields: dict[str, list[str]] = {}
-        for item in error.errors():
-            location = item.get('loc', ())
-            field = str(location[-1]) if location else 'request'
-            fields.setdefault(field, []).append(
-                FastAPIApp._validation_message(item.get('type'))
-            )
-        return JSONResponse(
-            status_code=422,
-            content={'code': 'invalid_input', 'fields': fields},
-        )
-
-    @staticmethod
-    async def _handle_app_error(
-        request: Request,
-        error: Exception,
-    ) -> JSONResponse:
-        if not isinstance(error, AppError):
-            return await AppErrorHandler.handle_unexpected_error(request, error)
-        if request.url.path not in FastAPIApp._IDENTITY_PUBLIC_PATHS:
-            return await AppErrorHandler.handle_app_error(request, error)
-        if isinstance(error, ValidationError):
-            return JSONResponse(
-                status_code=422,
-                content={'code': 'invalid_input', 'fields': {}},
-            )
-        return FastAPIApp._identity_unavailable_response()
-
-    @staticmethod
-    async def _handle_unexpected_error(
-        request: Request,
-        error: Exception,
-    ) -> JSONResponse:
-        if request.url.path not in FastAPIApp._IDENTITY_PUBLIC_PATHS:
-            return await AppErrorHandler.handle_unexpected_error(request, error)
-        return FastAPIApp._identity_unavailable_response()
-
-    @staticmethod
-    def _identity_unavailable_response() -> JSONResponse:
-        return JSONResponse(
-            status_code=503,
-            content={
-                'code': 'identity_unavailable',
-                'message': 'O serviço de identidade está temporariamente indisponível.',
-            },
-        )
-
-    @staticmethod
-    def _validation_message(error_type: object) -> str:
-        if error_type == 'string_too_short':
-            return 'Informe um valor válido.'
-        if error_type == 'string_pattern_mismatch':
-            return 'Informe um valor válido.'
-        if error_type == 'missing':
-            return 'Este campo é obrigatório.'
-        return 'Informe um valor válido.'
 
 
 app = FastAPIApp.register()

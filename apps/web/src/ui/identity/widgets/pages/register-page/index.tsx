@@ -7,7 +7,7 @@ import { Label } from '@/ui/shadcn/label'
 import { useRegisterPage } from './use-register-page'
 
 export const RegisterPage = () => {
-  const { alertRef, form, handleSubmit, isSubmitting, message } = useRegisterPage()
+  const { alertRef, form, isSubmitting, message, submit } = useRegisterPage()
 
   return (
     <div className='relative isolate flex min-h-dvh w-full items-center justify-center overflow-x-hidden px-5 py-8 sm:py-12'>
@@ -24,7 +24,7 @@ export const RegisterPage = () => {
           aria-label='Criar conta no Shifu'
           className='flex flex-col gap-5'
           noValidate
-          onSubmit={handleSubmit}
+          onSubmit={submit}
         >
           <form.Field name='displayName'>
             {(field) => (
