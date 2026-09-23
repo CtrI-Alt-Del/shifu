@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 
-from shifu.learning.rest.controllers.get_home_goals_controller import (
-    GetHomeGoalsController,
+from shifu.learning.rest.controllers import (
+	AddSkillToGoalController,
+	GetHomeGoalsController,
+	SearchSkillCatalogController,
 )
 
 
@@ -10,4 +12,6 @@ class LearningRouter:
     def register() -> APIRouter:
         router = APIRouter(prefix='/learning', tags=['learning'])
         GetHomeGoalsController.handle(router)
+        SearchSkillCatalogController.handle(router)
+        AddSkillToGoalController.handle(router)
         return router

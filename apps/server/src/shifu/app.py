@@ -5,6 +5,7 @@ from typing import cast
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 
+from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.rest.router import CurriculumRouter
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
@@ -93,9 +94,13 @@ class FastAPIApp:
             issuer=ENVIRONMENT.auth_issuer,
             audience=ENVIRONMENT.auth_audience,
         )
+        app.state.identifier_provider = id_provider
         app.state.learning_database = SqlalchemyLearningDatabase(
             engine=database_engine,
             id_provider=id_provider,
+        )
+        app.state.curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=database_engine,
         )
         app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
             engine=database_engine,

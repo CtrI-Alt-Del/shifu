@@ -1,0 +1,1 @@
+from .curriculum_database import SqlalchemyCurriculumDatabase as SqlalchemyCurriculumDatabase

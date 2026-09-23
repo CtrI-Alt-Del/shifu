@@ -5,7 +5,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.core.interfaces import AuthenticationProvider
+from shifu.shared.core.interfaces import AuthenticationProvider, IdentifierProvider
 
 
 _BEARER_SCHEME = HTTPBearer(auto_error=False)
@@ -15,6 +15,10 @@ class SharedPipe:
     @staticmethod
     def get_authentication_provider(request: Request) -> AuthenticationProvider:
         return request.app.state.authentication_provider
+
+    @staticmethod
+    def get_identifier_provider(request: Request) -> IdentifierProvider:
+        return request.app.state.identifier_provider
 
     @staticmethod
     def get_authenticated_user(
