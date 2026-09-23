@@ -14,6 +14,7 @@ export type IdentityAuthentication = {
   profile: IdentityProfile
   access: 'protected' | 'activation-only'
   access_version: number
+  pending_handle?: string
 }
 
 export type CurrentIdentitySession = {
@@ -88,6 +89,7 @@ export const IdentityService = (restClient: RestClient) => {
       const response = await restClient.post<{
         result: 'pending'
         pending_handle: string
+        is_decoy: boolean
       }>('/identity/registrations', {
         display_name: input.displayName,
         email: input.email,
@@ -126,6 +128,19 @@ export const IdentityService = (restClient: RestClient) => {
 
       if (response.isFailure) response.throwError()
       return response.body
+    },
+
+    async verifyPendingConfirmationContext(
+      pendingHandle: string,
+      accountId: string,
+    ): Promise<boolean> {
+      const response = await restClient.post<{ valid: boolean }>(
+        '/identity/pending-confirmations/validate',
+        { account_id: accountId, pending_handle: pendingHandle },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body.valid
     },
   }
 }

@@ -8,7 +8,7 @@ from shifu.communication.core.domain.structures import (
 )
 
 
-class MessageRenderer(Protocol):
+class MessageRendererProvider(Protocol):
     def render(
         self,
         message_type: CommunicationType,

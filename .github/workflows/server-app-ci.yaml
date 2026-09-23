@@ -22,6 +22,19 @@ jobs:
     name: Verify server application
     runs-on: ubuntu-latest
     services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: shifu
+          POSTGRES_PASSWORD: shifu-local
+          POSTGRES_USER: shifu
+        ports:
+          - 54344:5432
+        options: >-
+          --health-cmd "pg_isready -U shifu -d shifu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       redis:
         image: redis:7-alpine
         ports:
@@ -35,7 +48,15 @@ jobs:
       run:
         working-directory: apps/server
     env:
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
       REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -55,6 +76,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
+      - name: Check Alembic migration drift
+        run: uv run alembic check
+
+      - name: Prepare integration database
+        run: uv run poe db:upgrade
+
       - name: Check types
         run: uv run poe check:types
 
@@ -69,6 +96,9 @@ jobs:
 
       - name: Run integration tests
         run: uv run poe test:integration
+
+      - name: Run real Inngest job tests
+        run: uv run poe test:jobs
 
       - name: Build distributions
         run: uv build

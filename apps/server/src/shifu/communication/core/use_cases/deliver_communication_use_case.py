@@ -15,7 +15,7 @@ from shifu.communication.core.domain.structures import DeliveryOutcome, EmailMes
 from shifu.communication.core.interfaces import (
     CommunicationDatabase,
     EmailDeliveryProvider,
-    MessageRenderer,
+    MessageRendererProvider,
     SecretEnvelopeProvider,
 )
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
@@ -38,20 +38,20 @@ class DeliverCommunicationUseCase:
         id_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         secret_envelope_provider: SecretEnvelopeProvider,
-        message_renderer: MessageRenderer,
+        message_renderer_provider: MessageRendererProvider,
         email_delivery_provider: EmailDeliveryProvider,
     ) -> None:
         self._communication_database = communication_database
         self._id_provider = id_provider
         self._clock_provider = clock_provider
         self._secret_envelope_provider = secret_envelope_provider
-        self._message_renderer = message_renderer
+        self._message_renderer_provider = message_renderer_provider
         self._email_delivery_provider = email_delivery_provider
 
     def execute(self, communication_id: str) -> Communication | None:
         prepared = self._prepare_attempt(communication_id)
         if prepared is None:
-            return self._find_current(communication_id)
+            return self._settle_orphaned_attempt(communication_id)
 
         message, attempt_number = prepared
         outcome = self._email_delivery_provider.send(message)
@@ -108,7 +108,10 @@ class DeliverCommunicationUseCase:
                 values = communication.content
             else:
                 raise InvalidCommunicationError
-            rendered = self._message_renderer.render(communication.type, values)
+            rendered = self._message_renderer_provider.render(
+                communication.type,
+                values,
+            )
             if communication.recipient_email is None:
                 raise InvalidCommunicationError
             message = EmailMessage(
@@ -199,6 +202,41 @@ class DeliverCommunicationUseCase:
             'hard_bounce',
         }
 
-    def _find_current(self, communication_id: str) -> Communication | None:
+    def _settle_orphaned_attempt(self, communication_id: str) -> Communication | None:
         with self._communication_database.transaction() as repositories:
-            return repositories.communications.find_by_id(communication_id)
+            communication = repositories.communications.find_by_id(communication_id)
+            if communication is None:
+                return None
+            if communication.status is not CommunicationStatus.PROCESSING:
+                return communication
+
+            attempt = repositories.delivery_attempts.find_by_communication_id_and_attempt_number(
+                communication.id,
+                communication.attempt_count,
+            )
+            identity_confirmation_id = communication.identity_confirmation_id
+            if identity_confirmation_id is None:
+                raise InvalidCommunicationError
+
+            settled_at = self._clock_provider.now()
+            failure_code = 'delivery_outcome_unknown'
+            if attempt is not None:
+                attempt.fail(settled_at, failure_code)
+            communication.mark_failed(
+                settled_at,
+                failure_code,
+                retryable=False,
+            )
+            if attempt is not None:
+                repositories.delivery_attempts.update(attempt)
+            repositories.communications.update(communication)
+            repositories.events.add(
+                CommunicationDeliveryStateChangedEvent(
+                    payload=CommunicationDeliveryStateChangedPayload(
+                        communication_id=communication.id,
+                        identity_confirmation_id=identity_confirmation_id,
+                        state=CommunicationDeliveryState.PERMANENT_FAILURE,
+                    )
+                )
+            )
+            return communication

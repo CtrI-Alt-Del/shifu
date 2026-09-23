@@ -80,7 +80,7 @@ class FastAPIApp:
             secret_envelope_provider=secret_envelope_provider,
             action_origin=ENVIRONMENT.confirmation_action_origin,
         )
-        message_renderer = build_message_renderer()
+        message_renderer_provider = build_message_renderer()
         email_delivery_provider = build_email_delivery_provider(ENVIRONMENT)
         curriculum_database = SqlalchemyCurriculumDatabase(engine=database_engine)
         learning_database = SqlalchemyLearningDatabase(
@@ -134,7 +134,7 @@ class FastAPIApp:
                     id_provider=id_provider,
                     clock_provider=clock_provider,
                     secret_envelope_provider=secret_envelope_provider,
-                    message_renderer=message_renderer,
+                    message_renderer_provider=message_renderer_provider,
                     email_delivery_provider=email_delivery_provider,
                 ),
             ],
@@ -148,7 +148,7 @@ class FastAPIApp:
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
-        app.state.communication_message_renderer = message_renderer
+        app.state.communication_message_renderer_provider = message_renderer_provider
         app.state.communication_secret_envelope_provider = secret_envelope_provider
         app.state.email_delivery_provider = email_delivery_provider
         app.state.authentication_provider = authentication_provider

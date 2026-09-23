@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from shifu.communication.core.interfaces import (
         CommunicationDatabase,
         EmailDeliveryProvider,
-        MessageRenderer,
+        MessageRendererProvider,
         SecretEnvelopeProvider,
     )
     from shifu.identity.core.interfaces import ConfirmationDeliveryRequest
@@ -109,7 +109,7 @@ class RegistrationConfirmationWorkflow:
         return f'{self._action_origin}/confirm-email?{urlencode({"token": token})}'
 
 
-def build_message_renderer() -> MessageRenderer:
+def build_message_renderer() -> MessageRendererProvider:
     return GeneratedEmailMessageRenderer()
 
 

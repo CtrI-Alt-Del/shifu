@@ -2,23 +2,24 @@
 title: Identity registration and account confirmation implementation plan
 status: in_progress
 spec: ./spec.md
-spec_revision: 11
+spec_revision: 12
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61
-last_updated_at: 2026-09-21
+last_updated_at: 2026-09-23
 ---
 
 # Execution status
 
-- **Spec:** [`spec.md`](./spec.md), revision `11`, status `ready`; source is
+- **Spec:** [`spec.md`](./spec.md), revision `12`, status `draft` during PR #9
+  correction reconciliation; source is
   `SHIFU-61`, Identity PRD `83001345` v1 and Communication PRD `86114306` v1.
 - **Why Plan-backed:** This delivery crosses Identity and Communication cores,
   composition, PostgreSQL/Alembic, Inngest jobs, a generated React Email package,
   FastAPI/BFF routes, responsive UI, lockfiles, CI and real runtime validation.
 - **Plan:** `in_progress`; Evaluation baseline `EV-BASELINE-01` is recorded and
   implementation waves are active.
-- **Next action:** Complete the disjoint F1-F3 Builder passes, then integrate F4-F7
-  through the Orchestrator-owned boundaries and run the independent F8 review.
+- **Next action:** Validate PR #9 corrections, restore the Spec to `ready` after
+  contract reconciliation, then rerun the independent F8 review.
 - **Active blockers/dependencies:** Docker PostgreSQL, Inngest and Mailpit are
   required for integration and job validation. No product or contract blocker
   remains; SHIFU-62 is a reconciled Identity dependency for sign-in e-mail

@@ -83,3 +83,15 @@ class AccountActionToken:
         self.delivery_status = status
         self.updated_at = recorded_at
         return True
+
+    def replace_pending_handle_hash(
+        self,
+        pending_handle_hash: str,
+        updated_at: datetime,
+    ) -> None:
+        if self.type is not AccountActionTokenType.EMAIL_CONFIRMATION:
+            raise AccountConfirmationNotAllowedError
+        if self.status is not AccountActionTokenStatus.PENDING:
+            raise AccountActionTokenInvalidatedError
+        self.pending_handle_hash = pending_handle_hash
+        self.updated_at = updated_at

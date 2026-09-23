@@ -13,6 +13,11 @@ describe('ConfirmEmailPage', () => {
 
   beforeEach(() => {
     useConfirmEmailPageMock.mockReturnValue({
+      content: {
+        description: 'Este link não é válido. Entre para continuar.',
+        success: false,
+        title: 'Link inválido',
+      },
       handleContinue: vi.fn(),
       headingRef: { current: null },
       redirectTo: 'login',
@@ -28,6 +33,11 @@ describe('ConfirmEmailPage', () => {
 
   it('renders same-access continuation only for an activated result', () => {
     useConfirmEmailPageMock.mockReturnValue({
+      content: {
+        description: 'Seu e-mail foi confirmado e sua conta está ativa.',
+        success: true,
+        title: 'Conta confirmada',
+      },
       handleContinue: vi.fn(),
       headingRef: { current: null },
       redirectTo: 'root',

@@ -1,0 +1,112 @@
+name: Email package CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'packages/email/**'
+      - 'apps/server/src/shifu/communication/providers/email/template/generated/**'
+      - '.github/workflows/email-package-ci.yaml'
+      - '.node-version'
+      - '.python-version'
+      - '.npmrc'
+      - 'biome.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'apps/server/pyproject.toml'
+      - 'apps/server/uv.lock'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: email-package-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify email package and server contract
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check email package code
+        run: pnpm --dir packages/email check:code
+
+      - name: Check email package types
+        run: pnpm --dir packages/email check:types
+
+      - name: Build generated email templates
+        run: pnpm --dir packages/email build
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install server dependencies
+        working-directory: apps/server
+        run: uv sync --frozen
+
+      - name: Check server types
+        working-directory: apps/server
+        run: uv run poe check:types
+
+      - name: Build server distributions
+        working-directory: apps/server
+        run: uv run poe build
+
+      - name: Verify server distributions
+        working-directory: apps/server
+        run: |
+          test -f dist/*.tar.gz
+          test -f dist/*.whl
+
+      - name: Run real Inngest job tests
+        working-directory: apps/server
+        run: uv run poe test:jobs

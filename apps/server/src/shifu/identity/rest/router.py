@@ -19,6 +19,9 @@ from shifu.identity.rest.controllers.resend_email_confirmation_controller import
     ResendEmailConfirmationController,
 )
 from shifu.identity.rest.controllers.sign_in_controller import SignInController
+from shifu.identity.rest.controllers.verify_pending_confirmation_context_controller import (
+    VerifyPendingConfirmationContextController,
+)
 
 
 class IdentityRouter:
@@ -32,4 +35,5 @@ class IdentityRouter:
         ConfirmAccountController.handle(router)
         ResendEmailConfirmationController.handle(router)
         GetPendingConfirmationStatusController.handle(router)
+        VerifyPendingConfirmationContextController.handle(router)
         return router

@@ -11,6 +11,12 @@ export type ConfirmEmailPageResult =
   | 'invalid'
   | 'unavailable'
 
+export type ConfirmEmailPageContent = {
+  description: string
+  success: boolean
+  title: string
+}
+
 export function useConfirmEmailPage(token: string | undefined) {
   const { confirmEmail } = useConfirmEmailAction()
   const { navigateTo } = useNavigation()
@@ -48,5 +54,54 @@ export function useConfirmEmailPage(token: string | undefined) {
     await navigateTo(redirectTo)
   }
 
-  return { handleContinue, headingRef, result, redirectTo }
+  return {
+    content: getContent(result),
+    handleContinue,
+    headingRef,
+    redirectTo,
+    result,
+  }
+}
+
+function getContent(result: ConfirmEmailPageResult): ConfirmEmailPageContent {
+  if (result === 'activated') {
+    return {
+      description: 'Seu e-mail foi confirmado e sua conta está ativa.',
+      success: true,
+      title: 'Conta confirmada',
+    }
+  }
+  if (result === 'expired') {
+    return {
+      description: 'Este link expirou. Entre para solicitar outro link de confirmação.',
+      success: false,
+      title: 'Link expirado',
+    }
+  }
+  if (result === 'used') {
+    return {
+      description: 'Este link já foi utilizado. Entre para continuar.',
+      success: false,
+      title: 'Link já utilizado',
+    }
+  }
+  if (result === 'unavailable') {
+    return {
+      description: 'Não foi possível confirmar agora. Tente entrar novamente.',
+      success: false,
+      title: 'Não foi possível confirmar',
+    }
+  }
+  if (result === 'loading') {
+    return {
+      description: 'Estamos verificando seu link de confirmação.',
+      success: false,
+      title: 'Confirmando e-mail',
+    }
+  }
+  return {
+    description: 'Este link não é válido. Entre para continuar.',
+    success: false,
+    title: 'Link inválido',
+  }
 }

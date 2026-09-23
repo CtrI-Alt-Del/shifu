@@ -7,7 +7,7 @@ from inngest import Function, Inngest
 from shifu.communication.core.interfaces import (
     CommunicationDatabase,
     EmailDeliveryProvider,
-    MessageRenderer,
+    MessageRendererProvider,
     SecretEnvelopeProvider,
 )
 from shifu.communication.core.use_cases import (
@@ -42,7 +42,7 @@ class CommunicationInngestMessaging:
         id_provider: IdentifierProvider | None = None,
         clock_provider: ClockProvider | None = None,
         secret_envelope_provider: SecretEnvelopeProvider | None = None,
-        message_renderer: MessageRenderer | None = None,
+        message_renderer_provider: MessageRendererProvider | None = None,
         email_delivery_provider: EmailDeliveryProvider | None = None,
     ) -> list[Function[object]]:
         settings = EnvironmentSettings.from_environment()
@@ -55,7 +55,9 @@ class CommunicationInngestMessaging:
             secret_envelope_provider
             or FernetSecretEnvelopeProvider(settings.communication_encryption_keys)
         )
-        message_renderer = message_renderer or GeneratedEmailMessageRenderer()
+        message_renderer_provider = (
+            message_renderer_provider or GeneratedEmailMessageRenderer()
+        )
         email_delivery_provider = email_delivery_provider or (
             CommunicationInngestMessaging._build_email_delivery_provider(settings)
         )
@@ -65,7 +67,7 @@ class CommunicationInngestMessaging:
             id_provider=id_provider,
             clock_provider=clock_provider,
             secret_envelope_provider=secret_envelope_provider,
-            message_renderer=message_renderer,
+            message_renderer_provider=message_renderer_provider,
             email_delivery_provider=email_delivery_provider,
         )
         cancellation_use_case = CancelCommunicationUseCase(

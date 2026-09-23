@@ -2,14 +2,14 @@
 title: Identity registration and account confirmation evaluation
 status: in_progress
 spec: ./spec.md
-spec_revision: 11
+spec_revision: 12
 plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61
 prd_content_ids:
   identity: 83001345
   communication: 86114306
 prd_version: 1
-last_updated_at: 2026-09-21
+last_updated_at: 2026-09-23
 ---
 
 # Evaluation Status
@@ -18,7 +18,7 @@ Implementation is in progress under Spec revision `11`. This Evaluation records
 the pre-implementation baseline, authority preflight, acceptance coverage, failed
 or unavailable validation attempts, and current evidence. It is not a conclusion.
 
-- **Spec:** `ready`, revision `11`.
+- **Spec:** `draft`, revision `12`, while PR #9 correction contracts are reconciled.
 - **Plan:** `in_progress`; F1-F8 are tracked in [`plan.md`](./plan.md).
 - **Authority:** Identity PRD content `83001345`, version `1`, and Communication
   PRD content `86114306`, version `1`, reread on 2026-09-21. Jira `SHIFU-61` was
@@ -73,8 +73,15 @@ reported as passing evidence.
 
 ## Review Findings
 
-No Implementation Reviewer pass has run. Findings will be recorded as `ACH-*`
-without removing failed attempts or invalidated evidence.
+| ID | Classification | Status | Finding and disposition |
+| --- | --- | --- | --- |
+| `ACH-01` | Implementation correction | corrected | Rename the Communication rendering port to `MessageRendererProvider`; all consumers now use the provider protocol. |
+| `ACH-02` | Contract correction | implemented, pending integration evidence | Only a browser holding the matching opaque pending context may receive a session after confirmation. Restricted sign-in now receives a server-verifiable pending handle. |
+| `ACH-03` | Implementation correction | implemented, pending integration evidence | Registration retains a signed opaque recovery context when Better Auth verification persistence fails after Identity accepted the registration. |
+| `ACH-04` | Implementation correction | corrected | Orphaned `processing` Communication requests settle as a non-retried unknown delivery outcome and notify Identity safely. |
+| `ACH-05` | Validation correction | implemented, pending CI evidence | Added e-mail package CI, Alembic/job server CI steps, BFF handler coverage and required module-first test locations. |
+| `ACH-06` | Implementation correction | corrected | Registration widget coverage is colocated and confirmation presentation derivation is owned by its page hook. |
+| `ACH-07` | Contract correction | implemented, pending review | Route test names and the Spec test-path ledger were reconciled with the route/testing rules. |
 
 ## Evidence Log
 
@@ -159,6 +166,25 @@ must be superseded only by fresh, current validation after implementation.
 - **Limitation:** Browser suites cannot start because the repository-declared
   Playwright web-server command requires `pnpm`, which is unavailable on PATH;
   real BFF handler integration also requires Docker-backed PostgreSQL.
+
+### `EV-ACH-01` — PR #9 correction static and controller evidence
+
+- **Date:** 2026-09-23.
+- **Passed:** `uv run poe test:unit` with `REDIS_URL=redis://localhost:6379/0`
+  (63 passed, two existing deprecation warnings); `uv run poe check:types`; and
+  `uv run poe check:architecture` from `apps/server`. The focused module-first
+  Identity controller suite passed against disposable PostgreSQL (10 passed).
+- **Passed:** `corepack pnpm check:lint`, `test:unit` (76 passed),
+  `check:types`, `check:architecture`, and `build` from `apps/web`; e-mail
+  package code/type/build checks passed.
+- **Known baseline failure:** Full server `check:lint` still fails only because
+  five untouched Identity package initializer files require formatting; all
+  changed source and test paths pass targeted Ruff checks and formatting.
+- **Unavailable runtime evidence:** `uv run poe test:jobs` started its disposable
+  database/migrations but every job fixture timed out waiting for FastAPI at
+  `http://127.0.0.1:7777/health`. The focused Playwright BFF handler suite could
+  not start because Better Auth could not connect to PostgreSQL. Neither result
+  is accepted evidence for `CA-05` through `CA-08` or `CA-12`.
 
 ## Traceability
 

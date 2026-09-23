@@ -53,15 +53,17 @@ export function useRegisterPage() {
     await form.handleSubmit()
   }
 
-  return { alertRef, form, isSubmitting, message, submit }
-}
+  function validate(values: RegisterFormValues): Record<string, string> {
+    const fields: Record<string, string> = {}
+    if (!values.displayName.trim()) fields.displayName = 'Informe seu nome.'
+    if (!/^\S+@\S+\.\S+$/.test(values.email.trim())) {
+      fields.email = 'Informe um e-mail válido.'
+    }
+    if (values.password.length < 8) {
+      fields.password = 'A senha deve ter pelo menos 8 caracteres.'
+    }
+    return fields
+  }
 
-function validate(values: RegisterFormValues): Record<string, string> {
-  const fields: Record<string, string> = {}
-  if (!values.displayName.trim()) fields.displayName = 'Informe seu nome.'
-  if (!/^\S+@\S+\.\S+$/.test(values.email.trim()))
-    fields.email = 'Informe um e-mail válido.'
-  if (values.password.length < 8)
-    fields.password = 'A senha deve ter pelo menos 8 caracteres.'
-  return fields
+  return { alertRef, form, isSubmitting, message, submit }
 }

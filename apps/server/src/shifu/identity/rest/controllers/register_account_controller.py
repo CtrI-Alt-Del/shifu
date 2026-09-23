@@ -56,6 +56,7 @@ class Request(BaseModel):
 class Response(BaseModel):
     result: Literal['pending']
     pending_handle: str
+    is_decoy: bool
 
 
 class RegisterAccountController:
@@ -125,7 +126,11 @@ class RegisterAccountController:
                         result.identity_confirmation_id,
                         clock_provider.now(),
                     )
-            return Response(result='pending', pending_handle=result.pending_handle)
+            return Response(
+                result='pending',
+                pending_handle=result.pending_handle,
+                is_decoy=result.account_id is None,
+            )
 
     @staticmethod
     def _record_delivery_unavailable(
