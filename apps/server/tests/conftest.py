@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
     from tests.fixtures.postgres_fixture import PostgresDatabase
+    from tests.fixtures.redis_fixture import RedisFixture
 
 pytest_plugins = (
     'tests.fixtures.inngest_fixture',
@@ -27,7 +28,10 @@ pytest_plugins = (
 
 
 @pytest.fixture
-def client(postgres_database: PostgresDatabase) -> Generator[TestClient]:
+def client(
+    postgres_database: PostgresDatabase,
+    redis_fixture: RedisFixture,
+) -> Generator[TestClient]:
     with TestClient(
         FastAPIApp.register(postgres_database.engine),
         headers={'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret},
