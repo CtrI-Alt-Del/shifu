@@ -1,9 +1,9 @@
-import { test, expect } from '../playwright'
+import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
 test('protects intelligence and renders it for an active session', async ({
   authenticatedPage,
 }) => {
-  await authenticatedPage.goto('/intelligence/')
+  await navigateAuthenticatedPage(authenticatedPage, '/intelligence/')
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,

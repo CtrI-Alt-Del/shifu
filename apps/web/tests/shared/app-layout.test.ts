@@ -1,11 +1,11 @@
-import { test, expect } from '../playwright'
+import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
 test.describe('AppLayout', () => {
   test('navigates between the shared desktop destinations', async ({
     authenticatedPage,
   }) => {
     await authenticatedPage.setViewportSize({ width: 1280, height: 800 })
-    await authenticatedPage.goto('/gamification/')
+    await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
 
     const navigation = authenticatedPage.getByRole('navigation', {
       name: 'Navegação principal',
@@ -29,14 +29,14 @@ test.describe('AppLayout', () => {
     await expect(
       authenticatedPage.getByRole('heading', {
         level: 1,
-        name: 'Dê forma ao que você quer aprender.',
+        name: 'O que você quer aprender?',
       }),
     ).toBeVisible()
   })
 
   test('opens and dismisses the mobile navigation', async ({ authenticatedPage }) => {
     await authenticatedPage.setViewportSize({ width: 390, height: 844 })
-    await authenticatedPage.goto('/gamification/')
+    await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
     await authenticatedPage.waitForLoadState('networkidle')
 
     const menuButton = authenticatedPage.getByRole('button', { name: 'Abrir menu' })

@@ -1,0 +1,6 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+
+### Objectives home list
+GET {{baseUrl}}/learning/goals
+Authorization: Bearer {{accessToken}}

@@ -60,6 +60,24 @@ DTOs are serializable data carriers. They do not validate business policy or per
 I/O. Use cases or boundary mappers construct projections; domain data objects do not
 expose projection methods. HTTP schemas and persistence models remain outside core.
 
+### Structure module organization
+
+Keep one domain structure class per module under `domain/structures/`. Name the file
+after the structure in `snake_case`, such as `curriculum_skill_snapshot.py` for
+`CurriculumSkillSnapshot`. A module may contain that structure’s local validation and
+private helpers, but it must not become a collection of unrelated structures.
+
+Reusable type aliases, unions, and validation helpers get their own narrowly named
+modules when they are shared by multiple structures. Package `__init__.py` files are
+barrels for stable re-exports only; they must not contain structure definitions or
+business validation.
+
+Do not decorate core structures with `pydantic.dataclasses.dataclass`, import
+Pydantic into `structure.py`, or add transport serialization configuration to domain
+types. Pydantic integration belongs at the REST, job, or other adapter boundary, where
+the adapter validates the framework-independent structure against its transport
+contract.
+
 ## Enums are controlled values
 
 Place domain states and other controlled values under `domain/enums`, using one
@@ -186,7 +204,7 @@ Event timestamp strings use UTC ISO 8601 with a `Z` suffix. Answer-key fields su
 the product rules keep the answer hidden.
 
 Dedicated core unit tests are reserved for use cases under
-`apps/server/tests/core/<module>/use_cases`. Domain declarations, decorators, enums,
+`apps/server/tests/<module>/core/use_cases`. Domain declarations, decorators, enums,
 events, errors, fakers, and interface protocols are exercised through use-case tests
 and validated by typing, architecture checks, package construction, and applicable
 adapter or boundary tests; do not create direct unit-test suites for them.

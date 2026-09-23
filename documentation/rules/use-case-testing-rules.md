@@ -4,10 +4,15 @@ description: Pytest unit-testing rules for Python core use cases and domain fake
 
 # Use Case Testing Rules
 
-These rules apply to unit tests under `apps/server/tests/core`. Use-case tests belong
-under `apps/server/tests/core/<module>/use_cases`; when a delivery introduces domain
+These rules apply to module-owned unit tests under
+`apps/server/tests/<module>/core`. Use-case tests belong under
+`apps/server/tests/<module>/core/use_cases`; when a delivery introduces domain
 factories or entity transitions before a use case exists, focused domain conformance
-tests may live under `apps/server/tests/core/domain`.
+tests may live under `apps/server/tests/<module>/core/domain`.
+
+The existing technology-first `apps/server/tests/core/**` tree remains discoverable
+only while a separate maintenance delivery migrates it. New or changed tests use the
+module-first structure; feature work must not extend the legacy tree.
 
 Do not duplicate domain tests for declarations that have no behavior. Domain factories,
 invariants, transitions, immutability and faker validity require direct conformance
@@ -20,7 +25,7 @@ Mirror the production module name:
 
 ```text
 src/shifu/learning/core/use_cases/submit_activity_use_case.py
-tests/core/learning/use_cases/test_submit_activity_use_case.py
+tests/learning/core/use_cases/test_submit_activity_use_case.py
 ```
 
 Group scenarios in `TestSubmitActivityUseCase`. Test names start with `test_should_`

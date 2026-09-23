@@ -37,14 +37,18 @@ describe('useSignInPage', () => {
       isPending: false,
       signIn: signInMock,
     })
-    useNavigationMock.mockReturnValue({ navigateTo: navigateToMock })
+    useNavigationMock.mockReturnValue({
+      navigateTo: navigateToMock,
+      navigateToGoalDetail: vi.fn(),
+      navigateToPlanner: vi.fn(),
+    })
   })
 
-  it('starts with an empty sign-in form', () => {
+  it('starts with the local seeded account credentials', () => {
     const { result } = renderHook(() => useSignInPage())
 
-    expect(result.current.email).toBe('')
-    expect(result.current.password).toBe('')
+    expect(result.current.email).toBe('student.seed@shifu.com')
+    expect(result.current.password).toBe('ShifuSeed123!')
   })
 
   it('clears only the password for rejected credentials and focuses the alert', async () => {

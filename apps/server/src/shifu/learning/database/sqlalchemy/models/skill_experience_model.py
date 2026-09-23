@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -8,6 +8,14 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class SkillExperienceModel(Model):
     __tablename__ = 'learning_skill_experiences'
+    __table_args__ = (
+        UniqueConstraint(
+            'goal_id',
+            'skill_id',
+            name='uq_learning_skill_experience_goal_skill',
+        ),
+        Index('ix_learning_skill_experience_goal_id', 'goal_id'),
+    )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     goal_id: Mapped[str] = mapped_column(

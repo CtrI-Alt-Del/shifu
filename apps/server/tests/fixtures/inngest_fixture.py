@@ -25,8 +25,6 @@ from testcontainers.community.postgres import PostgresContainer
 
 @dataclass
 class InngestFixture:
-    """Own a FastAPI process connected to a disposable Inngest container."""
-
     process: subprocess.Popen[str]
     server_url: str
     inngest_url: str

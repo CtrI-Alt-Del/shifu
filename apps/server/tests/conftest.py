@@ -17,9 +17,13 @@ from shifu.shared.constants import ENVIRONMENT
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from tests.fixtures.postgres import PostgresDatabase
+    from tests.fixtures.postgres_fixture import PostgresDatabase
 
-pytest_plugins = ('tests.fixtures.inngest_fixture', 'tests.fixtures.postgres')
+pytest_plugins = (
+    'tests.fixtures.inngest_fixture',
+    'tests.fixtures.postgres_fixture',
+    'tests.fixtures.redis_fixture',
+)
 
 
 @pytest.fixture

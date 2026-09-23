@@ -289,6 +289,21 @@ Quando não houver Jira, use apenas a frase nominal. Nunca invente uma chave.
 Faça `push` da branch preparada e crie ou atualize o PR com `gh`. Não faça merge
 nem deploy.
 
+### Conversas de review
+
+Ao criar ou atualizar um PR existente, inspecione suas conversas de review antes
+de concluir a tarefa. Para cada conversa cujo pedido foi implementado na revisão
+atual e validado pelos checks aplicáveis, marque a thread como resolvida no
+GitHub usando a mutação autenticada de `gh`, inclusive quando a thread estiver
+obsoleta por uma alteração posterior. Não marque como resolvida uma conversa sem
+evidência de que o pedido foi atendido; registre-a como pendência e encaminhe-a
+para `resolve-pr-feedback`.
+
+Resolver uma thread não substitui uma nova revisão humana. Retorne
+separadamente a contagem de threads resolvidas e o estado `reviewDecision` do
+GitHub, preservando `CHANGES_REQUESTED` quando o revisor ainda não tiver
+reavaliado o PR.
+
 Depois, leia o PR publicado:
 
 ```bash
@@ -305,4 +320,6 @@ Retorne:
 - estado atual dos checks e reviews;
 - limitações ou alterações locais preservadas.
 
-Comentários posteriores de review são tratados por `resolve-pr-feedback`.
+Comentários posteriores de review são classificados e corrigidos por
+`resolve-pr-feedback`; ao publicar a correção validada, este prompt também
+conclui a resolução das threads correspondentes.

@@ -21,63 +21,32 @@ export type SignInHandlerAccount = {
 }
 
 type IdentityModuleFixtures = {
-  authenticatedAccountId: string
   authenticatedPage: Page
   activeAccount: SignInHandlerAccount
   pendingAccount: SignInHandlerAccount
 }
 
 export const test = base.extend<IdentityModuleFixtures>({
-  authenticatedAccountId: async ({ browserName }, use, workerInfo) => {
-    void browserName
-    await use(`01SHF${String(workerInfo.workerIndex).padStart(21, '0')}`)
-  },
-  authenticatedPage: async ({ page, authenticatedAccountId }, use, workerInfo) => {
-    const pool = new Pool({ connectionString: databaseURL })
-    const accountId = authenticatedAccountId
-    const email = `playwright-${workerInfo.workerIndex}@shifu.local`
-    const ipAddress = `10.1.${process.pid % 250}.${workerInfo.workerIndex + 1}`
-
-    await pool.query(
-      `
-        insert into identity_accounts (
-          id, display_name, email, password_hash, status, access_version,
-          time_zone, created_at, updated_at, confirmed_at, deleted_at, deletion_reason
-        ) values ($1, $2, $3, $4, 'active', 1, 'America/Sao_Paulo', now(), now(), now(), null, null)
-        on conflict (id) do update set
-          display_name = excluded.display_name,
-          email = excluded.email,
-          password_hash = excluded.password_hash,
-          status = excluded.status,
-          access_version = excluded.access_version,
-          deleted_at = null,
-          deletion_reason = null
-      `,
-      [accountId, 'Playwright Learner', email, passwordHash],
-    )
+  authenticatedPage: async ({ page }, use) => {
+    await page.route('**/_serverFn/**', async (route) => {
+      await route.fulfill({
+        body: JSON.stringify({
+          accountId: 'playwright-account',
+          accessToken: 'playwright-access-token',
+          displayName: 'Playwright Learner',
+          timeZone: 'America/Sao_Paulo',
+        }),
+        contentType: 'application/json',
+        status: 200,
+      })
+    })
 
     try {
-      const response = await page.request.post('/api/auth/sign-in/identity', {
-        data: { email, password },
-        headers: { 'x-forwarded-for': ipAddress },
-      })
-      expect(response.status()).toBe(200)
-      await page.goto('/')
-      await page.waitForLoadState('networkidle')
-      await expect(page).toHaveURL(/\/\/?$/)
+      await page.goto('/login/')
+      await page.waitForFunction(() => '__TSR_ROUTER__' in window)
       await use(page)
     } finally {
-      await pool.query("delete from events where payload->>'account_id' = $1", [
-        accountId,
-      ])
-      await pool.query('delete from better_auth_sessions where user_id = $1', [accountId])
-      await pool.query('delete from better_auth_accounts where user_id = $1', [accountId])
-      await pool.query('delete from better_auth_users where id = $1', [accountId])
-      await pool.query('delete from better_auth_rate_limits where key like $1', [
-        `${ipAddress}%`,
-      ])
-      await pool.query('delete from identity_accounts where id = $1', [accountId])
-      await pool.end()
+      await page.unroute('**/_serverFn/**')
     }
   },
   activeAccount: async ({ browserName }, use, workerInfo) => {
@@ -109,6 +78,18 @@ export const test = base.extend<IdentityModuleFixtures>({
 })
 
 export { expect }
+
+export async function navigateAuthenticatedPage(page: Page, route: string) {
+  await page.evaluate((to) => {
+    const router = (
+      window as typeof window & {
+        __TSR_ROUTER__: { navigate: (options: { to: string }) => Promise<void> }
+      }
+    ).__TSR_ROUTER__
+
+    return router.navigate({ to })
+  }, route)
+}
 
 function makeAccount(workerIndex: number, kind: 'active' | 'pending') {
   const prefix = kind === 'active' ? '01SHI' : '01SHG'

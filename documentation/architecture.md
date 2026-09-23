@@ -28,6 +28,7 @@ Server — FastAPI
    ├── Gamification
    └── Shared
        ├── PostgreSQL
+       ├── Redis
        ├── Inngest
        └── isolated code execution
 ```
@@ -57,6 +58,7 @@ flowchart LR
 
     subgraph datastore ["Data Stores"]
         postgres[PostgreSQL]
+        redis[Redis]
     end
 
     subgraph async ["Asynchronous Infrastructure"]
@@ -66,6 +68,7 @@ flowchart LR
     browser -->|"HTTPS"| web
     web -->|"JWT + HTTP"| api
     api -->|"Reads and writes"| postgres
+    api -->|"Cache and rate limits"| redis
     api -.->|"Produces events"| inngest
     api <-->|"Dispatches code and returns output"| sandbox
 ```
@@ -334,6 +337,7 @@ owning domain module make authoritative business decisions.
 | ORM | SQLAlchemy 2 |
 | Migrations | Alembic |
 | PostgreSQL driver | psycopg 3 |
+| Cache and rate limiting | Redis |
 | BFF-to-API authentication | JWT validated through JWKS |
 | Authorization | FastAPI and domain rules |
 | Asynchronous processing | Inngest |

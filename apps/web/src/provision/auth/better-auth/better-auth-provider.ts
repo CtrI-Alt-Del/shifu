@@ -11,6 +11,7 @@ import { z } from 'zod'
 
 import { ROUTES } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
+import { RestError } from '@/core/errors/rest-error'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
 import { IdentityService } from '@/rest/services/identity-service'
 
@@ -177,11 +178,11 @@ const BetterAuthProvider = () => {
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session) return null
 
-    try {
-      const token = await auth.api.getToken({ headers: request.headers })
-      const accessToken = token?.token
-      if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
+    const token = await auth.api.getToken({ headers: request.headers })
+    const accessToken = token?.token
+    if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
 
+    try {
       const currentSession = await identityService.getCurrentSession(accessToken)
       return {
         accountId: currentSession.account_id,
@@ -190,9 +191,33 @@ const BetterAuthProvider = () => {
         accessToken,
       }
     } catch (error) {
-      await deleteSession(request)
-      if (error instanceof AuthError && error.kind === 'unavailable') throw error
-      return null
+      if (
+        (error instanceof AuthError && error.kind === 'unavailable') ||
+        (error instanceof RestError &&
+          (error.statusCode === 0 || error.statusCode === 429 || error.statusCode >= 500))
+      ) {
+        return {
+          accountId: session.user.id,
+          displayName: session.user.name,
+          timeZone: null,
+          accessToken,
+        }
+      }
+
+      if (
+        error instanceof AuthError &&
+        (error.kind === 'authentication-rejected' || error.kind === 'invalid-response')
+      ) {
+        await deleteSession(request)
+        return null
+      }
+
+      if (error instanceof RestError) {
+        await deleteSession(request)
+        return null
+      }
+
+      throw error
     }
   }
 
@@ -341,7 +366,10 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
               context.body.password,
             )
           } catch (error) {
-            if (error instanceof AuthError && error.kind === 'authentication-rejected') {
+            if (
+              (error instanceof AuthError && error.kind === 'authentication-rejected') ||
+              (error instanceof RestError && error.statusCode === 401)
+            ) {
               throw APIError.from('UNAUTHORIZED', {
                 code: 'invalid_credentials',
                 message: 'E-mail ou senha inválidos.',

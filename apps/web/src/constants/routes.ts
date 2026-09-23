@@ -8,6 +8,7 @@ export const ROUTES = {
   confirmEmail: '/confirm-email',
   curriculum: '/curriculum',
   learning: '/learning',
+  learningGoalsNew: '/learning/goals/new',
   gamification: '/gamification',
   intelligence: '/intelligence',
   account: '/account',

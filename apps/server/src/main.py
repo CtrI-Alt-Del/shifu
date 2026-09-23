@@ -15,4 +15,5 @@ if __name__ == '__main__':
         host='0.0.0.0',  # noqa: S104 - Compose Inngest reaches the host API.
         port=ENVIRONMENT.server_app_port,
         reload=True,
+        proxy_headers=False,
     )

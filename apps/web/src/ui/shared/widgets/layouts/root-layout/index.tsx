@@ -1,5 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Scripts } from '@tanstack/react-router'
-import type { PropsWithChildren } from 'react'
+import { useState, type PropsWithChildren } from 'react'
 
 import { RestContextProvider } from '@/ui/shared/contexts/rest-context'
 import { AuthContextProvider } from '@/ui/shared/contexts/auth-context'
@@ -12,6 +13,7 @@ export type RootLayoutProps = PropsWithChildren
 
 export const RootLayout = ({ children }: RootLayoutProps) => {
   const { isPublic } = useRootLayout()
+  const [queryClient] = useState(() => new QueryClient())
 
   return (
     <html lang='pt-BR'>
@@ -19,12 +21,14 @@ export const RootLayout = ({ children }: RootLayoutProps) => {
         <HeadContent />
       </head>
       <body>
-        <RestContextProvider>
-          <AuthContextProvider>
-            <SquareBackground />
-            {isPublic ? children : <AppLayout>{children}</AppLayout>}
-          </AuthContextProvider>
-        </RestContextProvider>
+        <QueryClientProvider client={queryClient}>
+          <RestContextProvider>
+            <AuthContextProvider>
+              <SquareBackground />
+              {isPublic ? children : <AppLayout>{children}</AppLayout>}
+            </AuthContextProvider>
+          </RestContextProvider>
+        </QueryClientProvider>
         <Scripts />
       </body>
     </html>

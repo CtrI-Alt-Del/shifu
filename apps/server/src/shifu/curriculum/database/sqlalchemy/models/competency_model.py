@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -6,6 +6,9 @@ from shifu.shared.database.sqlalchemy.model import Model
 
 class CompetencyModel(Model):
     __tablename__ = 'curriculum_competencies'
+    __table_args__ = (
+        Index('ix_curriculum_competency_skill_position', 'skill_id', 'position'),
+    )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     skill_id: Mapped[str] = mapped_column(

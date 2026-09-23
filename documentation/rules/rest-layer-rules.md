@@ -5,8 +5,8 @@ description: FastAPI controllers and web REST-service HTTP boundary rules.
 # REST Layer Rules
 
 These rules apply to FastAPI code under `apps/server/src/shifu/*/rest`, its matching
-tests under `apps/server/tests/rest`, and module-oriented web API operations under
-`apps/web/src/rest/services`.
+module-owned tests under `apps/server/tests/<module>/server`, and module-oriented web
+API operations under `apps/web/src/rest/services`.
 
 ## Web REST services use direct module files
 
@@ -20,9 +20,19 @@ apps/web/src/rest/services/identity-service.ts
 Do not create a redundant child directory such as
 `rest/services/identity/identity-service.ts`, and do not place API clients beneath
 `apps/web/src/provision`. A service factory receives the shared `RestClient`, maps
-typed operations to HTTP methods and paths, validates or translates transport
-responses, and raises shared application errors. It contains no business rules,
-authentication state, direct Axios construction, or environment reads.
+typed operations to HTTP methods and paths, declares the response using its domain
+type, and raises shared application errors for failed HTTP responses. Do not validate
+successful response bodies at the service boundary or create duplicate response DTOs
+when the API response can use the domain object's public shape. Prefer aligning the
+API contract with the domain shape to avoid response mappers in services and query
+hooks. Keep any necessary domain-specific error translation at the consuming
+application boundary rather than in a generic REST service. Services contain no
+business rules, authentication state, direct Axios construction, or environment reads.
+
+`RestResponse.body` is available directly after a successful response and throws a
+shared `AppError` if no body was provided. Check `response.isFailure` first and use
+`response.throwError()` for HTTP failures; do not add response-presence checks or
+non-null assertions in each service.
 
 REST services do not own dedicated test files. Verify their observable method, path,
 headers, payload, response mapping, and failures through the consuming HTTP handler,
@@ -90,6 +100,40 @@ authorize requests, access persistence, execute business rules, or become domain
 entities. Nested response objects may use additional private controller-local
 Pydantic models when needed.
 
+## Domain structures cross the boundary through Pydantic
+
+Shared and module core structures remain framework-independent frozen standard-library
+dataclasses. Do not import Pydantic into `apps/server/src/shifu/*/core` or change the
+shared `structure` decorator into a Pydantic decorator merely to support HTTP output.
+Pydantic and FastAPI already understand standard-library dataclasses at the REST
+boundary.
+
+When a response contract differs from the returned structure, validate the structure
+through a controller-local, module-level `TypeAdapter` instead of reconstructing the
+response field by field. This is the required pattern for nested structures, unions,
+discriminators, enum values, and transport scalar conversions:
+
+```python
+from pydantic import TypeAdapter
+
+
+type Response = AvailableResponse | UnavailableResponse
+
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
+@router.get('/details/{detail_id}', response_model=Response, status_code=200)
+def _(...) -> Response:
+    detail = use_case.execute(...)
+    return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)
+```
+
+Use a direct structure return only when the declared HTTP schema is exactly the
+structure’s public shape. Keep transport-only fields, such as HTTP discriminators,
+aliases, hidden fields, and numeric serialization choices, in controller-local
+Pydantic response models. Do not use `model_construct`, ad hoc dictionaries, or
+field-by-field mapper helpers to bypass response validation.
+
 ## Controllers remain HTTP adapters
 
 A business controller normally represents one application action. It may only:
@@ -147,6 +191,12 @@ test expected error statuses. Do not expose exception details, credentials,
 authorization headers, database errors, or internal implementation names in error
 responses.
 
+All client-visible API error messages use Brazilian Portuguese. The shared
+`AppErrorHandler` localizes application errors, request-validation failures, and
+framework HTTP errors while preserving safe machine-readable codes. Never expose raw
+Pydantic validation messages or internal exception text in API responses; internal
+diagnostics may remain technical and are not part of the response contract.
+
 Health endpoints must remain deterministic and must not perform destructive checks.
 Readiness checks may inspect required dependencies but must use bounded operations
 and report only safe status information.
@@ -160,7 +210,7 @@ SQLAlchemy sessions or blocking SDK calls directly on the event loop.
 ## Controller tests use HTTP
 
 Place controller integration tests under
-`apps/server/tests/rest/controllers/<module>/`. Keep one test file per controller
+`apps/server/tests/<module>/server/controllers/`. Keep one test file per controller
 route contract. Tests must use FastAPI `TestClient` or the project-approved async HTTP
 client against an application created by `FastAPIApp.register()`; do not call nested handlers
 or controller methods directly.
