@@ -33,7 +33,7 @@ class SqlalchemySkillsRepository:
     ) -> tuple[list[Skill], str | None]:
         q = select(SkillModel).order_by(SkillModel.name)
         if query:
-            q = q.where(SkillModel.name.ilike(f"%{query}%"))
+            q = q.where(SkillModel.name.ilike(f'%{query}%'))
         if cursor:
             q = q.where(SkillModel.name > cursor)
         q = q.limit(limit + 1)

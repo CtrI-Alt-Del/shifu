@@ -1,205 +1,227 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
-import { AddSkillFoundationsDialog } from '../index';
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { AddSkillFoundationsDialog } from '../index'
 
 describe('AddSkillFoundationsDialog', () => {
-	const mockFoundations = [
-		{ skillId: 'f1', name: 'HTML Basics', status: 'missing' as const },
-		{ skillId: 'f2', name: 'CSS Basics', status: 'missing' as const },
-		{ skillId: 'f3', name: 'JavaScript', status: 'present' as const },
-	];
+  afterEach(cleanup)
 
-	it('does not render when isOpen is false', () => {
-		const { container } = render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={false}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+  const mockFoundations = [
+    { skillId: 'f1', name: 'HTML Basics', status: 'missing' as const },
+    { skillId: 'f2', name: 'CSS Basics', status: 'missing' as const },
+    { skillId: 'f3', name: 'JavaScript', status: 'present' as const },
+  ]
 
-		expect(container.firstChild).toBeNull();
-	});
+  it('does not render when isOpen is false', () => {
+    const { container } = render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={false}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('renders dialog with skill name and foundations', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React Fundamentals"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(container.firstChild).toBeNull()
+  })
 
-		expect(screen.getByText(/React Fundamentals/)).toBeInTheDocument();
-		expect(screen.getByText('HTML Basics')).toBeInTheDocument();
-		expect(screen.getByText('CSS Basics')).toBeInTheDocument();
-		expect(screen.getByText('JavaScript')).toBeInTheDocument();
-	});
+  it('renders dialog with skill name and foundations', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React Fundamentals'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('groups missing and present foundations', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(screen.getByText(/React Fundamentals/)).toBeInTheDocument()
+    expect(screen.getByText('HTML Basics')).toBeInTheDocument()
+    expect(screen.getByText('CSS Basics')).toBeInTheDocument()
+    expect(screen.getByText('JavaScript')).toBeInTheDocument()
+  })
 
-		expect(screen.getByText(/Bases ausentes \(2\)/)).toBeInTheDocument();
-		expect(screen.getByText(/Bases já presentes \(1\)/)).toBeInTheDocument();
-	});
+  it('groups missing and present foundations', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('allows toggling foundation selection', async () => {
-		const user = userEvent.setup();
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(screen.getByText(/Bases ausentes \(2\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Bases já presentes \(1\)/)).toBeInTheDocument()
+  })
 
-		const checkboxes = screen.getAllByRole('checkbox');
-		expect(checkboxes).toHaveLength(2);
+  it('allows toggling foundation selection', async () => {
+    const user = userEvent.setup()
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-		await user.click(checkboxes[0]);
-		expect(checkboxes[0]).toBeChecked();
+    const checkboxes = screen.getAllByRole('checkbox')
+    expect(checkboxes).toHaveLength(2)
 
-		await user.click(checkboxes[0]);
-		expect(checkboxes[0]).not.toBeChecked();
-	});
+    await user.click(checkboxes[0])
+    expect(checkboxes[0]).toBeChecked()
 
-	it('disables submit button when no foundations selected', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    await user.click(checkboxes[0])
+    expect(checkboxes[0]).not.toBeChecked()
+  })
 
-		const submitButton = screen.getByRole('button', { name: /Adicionar/ });
-		expect(submitButton).toBeDisabled();
-	});
+  it('disables submit button when no foundations selected', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('enables submit button when foundations selected', async () => {
-		const user = userEvent.setup();
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    const submitButton = screen.getByRole('button', { name: /Adicionar/ })
+    expect(submitButton).toBeDisabled()
+  })
 
-		const checkbox = screen.getAllByRole('checkbox')[0];
-		await user.click(checkbox);
+  it('enables submit button when foundations selected', async () => {
+    const user = userEvent.setup()
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-		const submitButton = screen.getByRole('button', { name: /Adicionar/ });
-		expect(submitButton).not.toBeDisabled();
-	});
+    const checkbox = screen.getAllByRole('checkbox')[0]
+    await user.click(checkbox)
 
-	it('calls onSubmit with selected foundation IDs', async () => {
-		const user = userEvent.setup();
-		const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const submitButton = screen.getByRole('button', { name: /Adicionar/ })
+    expect(submitButton).not.toBeDisabled()
+  })
 
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={onSubmit}
-			/>
-		);
+  it('calls onSubmit with selected foundation IDs', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
 
-		const checkboxes = screen.getAllByRole('checkbox');
-		await user.click(checkboxes[0]);
-		await user.click(checkboxes[1]);
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
 
-		const submitButton = screen.getByRole('button', { name: /Adicionar/ });
-		await user.click(submitButton);
+    const checkboxes = screen.getAllByRole('checkbox')
+    await user.click(checkboxes[0])
+    await user.click(checkboxes[1])
 
-		expect(onSubmit).toHaveBeenCalledWith(['f1', 'f2']);
-	});
+    const submitButton = screen.getByRole('button', { name: /Adicionar/ })
+    await user.click(submitButton)
 
-	it('calls onClose when cancel is clicked', async () => {
-		const user = userEvent.setup();
-		const onClose = vi.fn();
+    expect(onSubmit).toHaveBeenCalledWith(['f1', 'f2'])
+  })
 
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				onClose={onClose}
-				onSubmit={vi.fn()}
-			/>
-		);
+  it('calls onClose when cancel is clicked', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
 
-		const cancelButton = screen.getByRole('button', { name: /Cancelar/ });
-		await user.click(cancelButton);
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={onClose}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-		expect(onClose).toHaveBeenCalled();
-	});
+    const cancelButton = screen.getByRole('button', { name: /Cancelar/ })
+    await user.click(cancelButton)
 
-	it('displays error message when error prop is set', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				error="Failed to add skill"
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(onClose).toHaveBeenCalled()
+  })
 
-		expect(screen.getByText('Failed to add skill')).toBeInTheDocument();
-	});
+  it('displays error message when error prop is set', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        error='Failed to add skill'
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('shows loading state when isLoading is true', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={mockFoundations}
-				isOpen={true}
-				isLoading={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(screen.getByText('Failed to add skill')).toBeInTheDocument()
+  })
 
-		const submitButton = screen.getByRole('button', { name: /Adicionando/ });
-		expect(submitButton).toBeDisabled();
-	});
+  it('shows a loading indicator and hides foundations when isLoading is true', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        isLoading={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
 
-	it('handles no foundations gracefully', () => {
-		render(
-			<AddSkillFoundationsDialog
-				skillName="React"
-				foundations={[]}
-				isOpen={true}
-				onClose={vi.fn()}
-				onSubmit={vi.fn()}
-			/>
-		);
+    expect(screen.getByText('Carregando...')).toBeInTheDocument()
+    expect(screen.queryByText('HTML Basics')).not.toBeInTheDocument()
+  })
 
-		expect(
-			screen.getByText(/Nenhuma base sugerida/)
-		).toBeInTheDocument();
-	});
-});
+  it('shows the submitting label and disables both buttons while submitting', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn(() => new Promise<void>(() => {}))
+
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={mockFoundations}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    await user.click(screen.getAllByRole('checkbox')[0])
+    await user.click(screen.getByRole('button', { name: /Adicionar/ }))
+
+    const submitButton = screen.getByRole('button', { name: /Adicionando/ })
+    expect(submitButton).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Cancelar/ })).toBeDisabled()
+  })
+
+  it('handles no foundations gracefully', () => {
+    render(
+      <AddSkillFoundationsDialog
+        skillName='React'
+        foundations={[]}
+        isOpen={true}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/Nenhuma base sugerida/)).toBeInTheDocument()
+  })
+})

@@ -1,159 +1,198 @@
-import pytest
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, cast
+
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
 from shifu.app import FastAPIApp
-from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.curriculum.core.domain.structures import SkillFoundation
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from shifu.shared.testing.database import create_test_engine
+from shifu.fakers.curriculum.entities.skill_faker import SkillFaker
+from shifu.fakers.learning.entities import GoalFaker
+from shifu.fakers.learning.entities.skill_experience_faker import SkillExperienceFaker
+from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.pipes import SharedPipe
+from tests.fixtures.postgres_fixture import PostgresDatabase
+
+if TYPE_CHECKING:
+    from httpx import Response
 
 
-@pytest.fixture
-def test_engine() -> Engine:
-    return create_test_engine()
-
-
-@pytest.fixture
-def client(test_engine: Engine) -> TestClient:
-    app = FastAPIApp.register(database_engine=test_engine)
+def _authenticated_client(engine: Engine, account_id: str) -> TestClient:
+    app = FastAPIApp.register(engine)
+    app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
+        AuthenticatedUser(
+            account_id=account_id,
+            display_name='Pessoa Aprendente',
+            time_zone=None,
+        )
+    )
     return TestClient(app)
 
 
-@pytest.fixture
-def setup_data(test_engine: Engine):
-    id_provider = SystemIdentifierProvider()
-    learning_db = SqlalchemyLearningDatabase(engine=test_engine, id_provider=id_provider)
-    curriculum_db = SqlalchemyCurriculumDatabase(engine=test_engine)
-
-    goal_id = None
-    skill_id = None
-    foundation_id = None
-
-    with learning_db.transaction() as learning_repos:
-        goal_id = id_provider.provide()
-        from shifu.learning.core.domain.entities import Goal
-        goal = Goal.create(
-            id=goal_id,
-            account_id='test-account',
-            title='Test Goal',
-            description='Test goal description',
+class TestAddSkillToGoalController:
+    def test_missing_bearer_token_returns_safe_unauthorized(
+        self,
+        client: TestClient,
+    ) -> None:
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals/some-goal/skills',
+                json={'skill_id': 'some-skill', 'foundation_skill_ids': []},
+            ),
         )
-        learning_repos.goals.add(goal)
 
-    with curriculum_db.transaction() as curriculum_repos:
-        foundation_id = id_provider.provide()
-        skill_id = id_provider.provide()
+        assert response.status_code == 401
+        assert response.json()['detail']['code'] == 'unauthorized'
 
-        from shifu.curriculum.core.domain.entities import Skill, SkillFoundation
-        foundation = Skill(
-            id=foundation_id,
-            name='JavaScript',
-            description='Learn JavaScript',
+    def test_creates_a_skill_experience_and_its_selected_foundations(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+        foundation_skill = SkillFaker.fake(name='JavaScript')
+        skill = SkillFaker.fake(name='React')
+
+        curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=postgres_database.engine
         )
-        skill = Skill(
-            id=skill_id,
-            name='React',
-            description='Learn React fundamentals',
+        with curriculum_database.transaction() as repositories:
+            repositories.skills.add_many([foundation_skill, skill])
+            repositories.skill_foundations.add_many(
+                [
+                    SkillFoundation(
+                        skill_id=skill.id,
+                        foundation_skill_id=foundation_skill.id,
+                    )
+                ]
+            )
+
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
+
+        with _authenticated_client(postgres_database.engine, goal.account_id) as client:
+            response = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills',
+                    json={
+                        'skill_id': skill.id,
+                        'foundation_skill_ids': [foundation_skill.id],
+                    },
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
+
+        assert response.status_code == 201
+        body = response.json()
+        created_skill_ids = {item['skillId'] for item in body['created']}
+        assert created_skill_ids == {skill.id, foundation_skill.id}
+        assert all(item['status'] == 'not-started' for item in body['created'])
+
+    def test_returns_not_found_for_a_foreign_goal(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+        skill = SkillFaker.fake()
+
+        curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=postgres_database.engine
         )
-        curriculum_repos.skills.add_many([foundation, skill])
+        with curriculum_database.transaction() as repositories:
+            repositories.skills.add_many([skill])
 
-        foundation_link = SkillFoundation(
-            skill_id=skill_id,
-            foundation_skill_id=foundation_id,
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
+
+        with _authenticated_client(
+            postgres_database.engine, 'another-account'
+        ) as client:
+            response = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills',
+                    json={'skill_id': skill.id, 'foundation_skill_ids': []},
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
+
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
+
+    def test_returns_conflict_when_the_skill_was_already_added(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+        skill = SkillFaker.fake()
+
+        curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=postgres_database.engine
         )
-        curriculum_repos.skill_foundations.add_many([foundation_link])
+        with curriculum_database.transaction() as repositories:
+            repositories.skills.add_many([skill])
 
-    return {
-        'goal_id': goal_id,
-        'skill_id': skill_id,
-        'foundation_id': foundation_id,
-    }
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
+            repositories.skill_experiences.add_many(
+                [
+                    SkillExperienceFaker.fake(
+                        goal_id=goal.id,
+                        skill_id=skill.id,
+                        created_at=datetime.now(UTC),
+                    )
+                ]
+            )
 
+        with _authenticated_client(postgres_database.engine, goal.account_id) as client:
+            response = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills',
+                    json={'skill_id': skill.id, 'foundation_skill_ids': []},
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
 
-def test_add_skill_to_goal_success(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    skill_id = setup_data['skill_id']
+        assert response.status_code == 409
+        assert response.json()['code'] == 'conflict'
 
-    response = client.post(
-        f'/learning/goals/{goal_id}/skills',
-        json={'skill_id': skill_id, 'foundation_skill_ids': []},
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert 'created' in data
-    assert len(data['created']) == 1
-    assert data['created'][0]['skill_id'] == skill_id
-    assert data['created'][0]['status'] == 'not-started'
+    def test_returns_bad_request_for_a_non_direct_foundation(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+        skill = SkillFaker.fake()
+        unrelated_skill = SkillFaker.fake()
 
-
-def test_add_skill_with_foundations(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    skill_id = setup_data['skill_id']
-    foundation_id = setup_data['foundation_id']
-
-    response = client.post(
-        f'/learning/goals/{goal_id}/skills',
-        json={'skill_id': skill_id, 'foundation_skill_ids': [foundation_id]},
-    )
-    assert response.status_code == 201
-    data = response.json()
-    assert len(data['created']) == 2
-    skill_experience_ids = {exp['skill_id'] for exp in data['created']}
-    assert skill_id in skill_experience_ids
-    assert foundation_id in skill_experience_ids
-
-
-def test_add_skill_goal_not_found(client: TestClient, setup_data: dict):
-    skill_id = setup_data['skill_id']
-    response = client.post(
-        '/learning/goals/nonexistent/skills',
-        json={'skill_id': skill_id, 'foundation_skill_ids': []},
-    )
-    assert response.status_code == 404
-    assert response.json()['code'] == 'goal_not_found'
-
-
-def test_add_skill_already_exists(
-    client: TestClient, setup_data: dict, test_engine: Engine
-):
-    goal_id = setup_data['goal_id']
-    skill_id = setup_data['skill_id']
-    id_provider = SystemIdentifierProvider()
-    learning_db = SqlalchemyLearningDatabase(engine=test_engine, id_provider=id_provider)
-
-    with learning_db.transaction() as repos:
-        from shifu.learning.core.domain.entities import SkillExperience
-        from shifu.learning.core.domain.enums import SkillExperienceStatus
-        from datetime import datetime
-
-        exp = SkillExperience.create(
-            id=id_provider.provide(),
-            goal_id=goal_id,
-            skill_id=skill_id,
-            inclusion_reason=None,
-            status=SkillExperienceStatus.NOT_STARTED,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+        curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=postgres_database.engine
         )
-        repos.skill_experiences.add(exp)
+        with curriculum_database.transaction() as repositories:
+            repositories.skills.add_many([skill, unrelated_skill])
 
-    client_instance = TestClient(FastAPIApp.register(database_engine=test_engine))
-    response = client_instance.post(
-        f'/learning/goals/{goal_id}/skills',
-        json={'skill_id': skill_id, 'foundation_skill_ids': []},
-    )
-    assert response.status_code == 409
-    assert response.json()['code'] == 'skill_already_added'
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
 
+        with _authenticated_client(postgres_database.engine, goal.account_id) as client:
+            response = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills',
+                    json={
+                        'skill_id': skill.id,
+                        'foundation_skill_ids': [unrelated_skill.id],
+                    },
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
 
-def test_add_skill_invalid_foundation(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    skill_id = setup_data['skill_id']
-
-    response = client.post(
-        f'/learning/goals/{goal_id}/skills',
-        json={'skill_id': skill_id, 'foundation_skill_ids': ['invalid-id']},
-    )
-    assert response.status_code == 400
-    assert response.json()['code'] == 'invalid_goal'
+        assert response.status_code == 400
+        assert response.json()['code'] == 'validation_error'

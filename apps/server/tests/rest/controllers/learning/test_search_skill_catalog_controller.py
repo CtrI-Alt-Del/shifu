@@ -1,99 +1,124 @@
-import pytest
+from typing import TYPE_CHECKING, cast
+
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
 
 from shifu.app import FastAPIApp
-from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.curriculum.core.domain.structures import SkillFoundation
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from shifu.shared.testing.database import create_test_engine
+from shifu.fakers.curriculum.entities.skill_faker import SkillFaker
+from shifu.fakers.learning.entities import GoalFaker
+from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.pipes import SharedPipe
+from tests.fixtures.postgres_fixture import PostgresDatabase
+
+if TYPE_CHECKING:
+    from httpx import Response
 
 
-@pytest.fixture
-def test_engine() -> Engine:
-    return create_test_engine()
-
-
-@pytest.fixture
-def client(test_engine: Engine) -> TestClient:
-    app = FastAPIApp.register(database_engine=test_engine)
-    return TestClient(app)
-
-
-@pytest.fixture
-def setup_data(test_engine: Engine):
-    id_provider = SystemIdentifierProvider()
-    learning_db = SqlalchemyLearningDatabase(engine=test_engine, id_provider=id_provider)
-    curriculum_db = SqlalchemyCurriculumDatabase(engine=test_engine)
-
-    with learning_db.transaction() as learning_repos:
-        goal_id = id_provider.provide()
-        from shifu.learning.core.domain.entities import Goal
-        goal = Goal.create(
-            id=goal_id,
-            account_id='test-account',
-            title='Test Goal',
-            description='Test goal description',
+class TestSearchSkillCatalogController:
+    def test_missing_bearer_token_returns_safe_unauthorized(
+        self,
+        client: TestClient,
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals/some-goal/skills/catalog'
+            ),
         )
-        learning_repos.goals.add(goal)
 
-    with curriculum_db.transaction() as curriculum_repos:
-        skill_id = id_provider.provide()
-        from shifu.curriculum.core.domain.entities import Skill
-        skill = Skill(
-            id=skill_id,
-            name='React',
-            description='Learn React fundamentals',
+        assert response.status_code == 401
+        assert response.json()['detail']['code'] == 'unauthorized'
+
+    def test_returns_not_found_for_a_foreign_goal(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
+
+        app = FastAPIApp.register(postgres_database.engine)
+        app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
+            AuthenticatedUser(
+                account_id='another-account',
+                display_name='Outra Pessoa',
+                time_zone=None,
+            )
         )
-        curriculum_repos.skills.add_many([skill])
 
-    return {
-        'goal_id': goal_id,
-        'skill_id': skill_id,
-    }
+        with TestClient(app) as client:
+            response = cast(
+                'Response',
+                client.get(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills/catalog',
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
 
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
 
-def test_search_skill_catalog_empty_query(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    response = client.get(f'/learning/goals/{goal_id}/skills/catalog')
-    assert response.status_code == 200
-    data = response.json()
-    assert 'items' in data
-    assert 'next_cursor' in data
-    assert isinstance(data['items'], list)
+    def test_returns_catalog_skills_with_foundations_and_already_in_goal_status(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        goal = GoalFaker.fake()
+        foundation_skill = SkillFaker.fake(name='JavaScript')
+        catalog_skill = SkillFaker.fake(name='React')
 
+        curriculum_database = SqlalchemyCurriculumDatabase(
+            engine=postgres_database.engine
+        )
+        with curriculum_database.transaction() as repositories:
+            repositories.skills.add_many([foundation_skill, catalog_skill])
+            repositories.skill_foundations.add_many(
+                [
+                    SkillFoundation(
+                        skill_id=catalog_skill.id,
+                        foundation_skill_id=foundation_skill.id,
+                    )
+                ]
+            )
 
-def test_search_skill_catalog_with_query(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    response = client.get(
-        f'/learning/goals/{goal_id}/skills/catalog?query=React'
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data['items']) > 0
-    assert data['items'][0]['name'] == 'React'
+        learning_database = SqlalchemyLearningDatabase(engine=postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            repositories.goals.add(goal)
 
+        app = FastAPIApp.register(postgres_database.engine)
+        app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
+            AuthenticatedUser(
+                account_id=goal.account_id,
+                display_name='Pessoa Aprendente',
+                time_zone=None,
+            )
+        )
 
-def test_search_skill_catalog_goal_not_found(client: TestClient):
-    response = client.get('/learning/goals/nonexistent/skills/catalog')
-    assert response.status_code == 404
-    assert response.json()['code'] == 'goal_not_found'
+        with TestClient(app) as client:
+            response = cast(
+                'Response',
+                client.get(  # pyright: ignore[reportUnknownMemberType]
+                    f'/learning/goals/{goal.id}/skills/catalog',
+                    params={'query': 'React'},
+                    headers={'Authorization': 'Bearer test-token'},
+                ),
+            )
 
-
-def test_skill_catalog_response_structure(client: TestClient, setup_data: dict):
-    goal_id = setup_data['goal_id']
-    response = client.get(f'/learning/goals/{goal_id}/skills/catalog')
-    assert response.status_code == 200
-    data = response.json()
-
-    assert 'items' in data
-    assert 'next_cursor' in data
-
-    if data['items']:
-        skill = data['items'][0]
-        assert 'id' in skill
-        assert 'name' in skill
-        assert 'description' in skill
-        assert 'already_in_goal' in skill
-        assert 'skill_experience_id' in skill
-        assert 'foundations' in skill
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body['items']) == 1
+        item = body['items'][0]
+        assert item['id'] == catalog_skill.id
+        assert item['name'] == 'React'
+        assert item['alreadyInGoal'] is False
+        assert item['skillExperienceId'] is None
+        assert item['foundations'] == [
+            {
+                'skillId': foundation_skill.id,
+                'name': 'JavaScript',
+                'status': 'missing',
+            }
+        ]

@@ -1,12 +1,10 @@
-from typing import Optional
-
-from shifu.shared.core.domain.decorators import structure
 from shifu.shared.core.domain.structures.skill_catalog_entry import (
-	SkillCatalogEntry,
+    SkillCatalogEntry,
 )
+from shifu.shared.core.domain.structures.structure import structure
 
 
 @structure
 class SkillCatalogPage:
-	items: tuple[SkillCatalogEntry, ...]
-	next_cursor: Optional[str]
+    items: tuple[SkillCatalogEntry, ...]
+    next_cursor: str | None

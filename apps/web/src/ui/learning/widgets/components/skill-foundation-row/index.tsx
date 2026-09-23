@@ -1,9 +1,11 @@
 import type { ReactNode } from 'react'
 
-interface SkillFoundationRowProps {
+import type { SkillFoundationStatus } from '@/core/learning/skill-catalog'
+
+type SkillFoundationRowProps = {
   skillId: string
   name: string
-  status: 'present' | 'missing'
+  status: SkillFoundationStatus
   isSelectable?: boolean
   isSelected?: boolean
   onToggle?: (skillId: string) => void
@@ -22,10 +24,7 @@ export function SkillFoundationRow({
 
   if (isSelectable) {
     return (
-      <div
-        className='flex items-center gap-3 p-3 rounded border hover:bg-gray-50 cursor-pointer'
-        onClick={() => onToggle?.(skillId)}
-      >
+      <label className='flex items-center gap-3 p-3 rounded border hover:bg-gray-50 cursor-pointer'>
         <input
           type='checkbox'
           checked={isSelected}
@@ -36,7 +35,7 @@ export function SkillFoundationRow({
           <div className='font-medium'>{name}</div>
           <div className={`text-sm ${statusClass}`}>{statusLabel}</div>
         </div>
-      </div>
+      </label>
     )
   }
 

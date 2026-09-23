@@ -5,7 +5,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.core.interfaces import AuthenticationProvider, IdentifierProvider
+from shifu.shared.core.interfaces import (
+    AuthenticationProvider,
+    ClockProvider,
+    IdentifierProvider,
+)
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
 
 
 _BEARER_SCHEME = HTTPBearer(auto_error=False)
@@ -19,6 +24,10 @@ class SharedPipe:
     @staticmethod
     def get_identifier_provider(request: Request) -> IdentifierProvider:
         return request.app.state.identifier_provider
+
+    @staticmethod
+    def get_clock_provider() -> ClockProvider:
+        return SystemClockProvider()
 
     @staticmethod
     def get_authenticated_user(

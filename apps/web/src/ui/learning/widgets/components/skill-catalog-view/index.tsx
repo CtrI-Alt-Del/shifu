@@ -1,26 +1,14 @@
 import { type ReactNode, useState } from 'react'
+
+import type { CatalogSkill } from '@/core/learning/skill-catalog'
+
 import { SkillFoundationRow } from '../skill-foundation-row'
 
-interface CatalogFoundation {
-  skillId: string
-  name: string
-  status: 'present' | 'missing'
-}
-
-interface CatalogSkillItem {
-  id: string
-  name: string
-  description: string
-  already_in_goal: boolean
-  skill_experience_id: string | null
-  foundations: CatalogFoundation[]
-}
-
-interface SkillCatalogViewProps {
-  skills: CatalogSkillItem[]
+type SkillCatalogViewProps = {
+  skills: readonly CatalogSkill[]
   isLoading?: boolean
   error?: string | null
-  onSkillSelect: (skill: CatalogSkillItem) => void
+  onSkillSelect: (skill: CatalogSkill) => void
   onLoadMore?: () => void
   hasMore?: boolean
 }
@@ -42,49 +30,49 @@ export function SkillCatalogView({
   return (
     <div className='w-full'>
       {error && (
-        <div className='p-4 bg-red-50 border border-red-200 rounded text-red-800 mb-4'>
+        <div className='mb-4 rounded border border-red-200 bg-red-50 p-4 text-red-800'>
           {error}
         </div>
       )}
 
       {isLoading && skills.length === 0 ? (
-        <div className='text-center py-8'>
+        <div className='py-8 text-center'>
           <div className='inline-block animate-spin'>⚙️</div>
-          <p className='text-gray-600 mt-2'>Carregando habilidades...</p>
+          <p className='mt-2 text-gray-600'>Carregando habilidades...</p>
         </div>
       ) : skills.length === 0 ? (
-        <div className='text-center py-8 text-gray-600'>
+        <div className='py-8 text-center text-gray-600'>
           <p>Nenhuma habilidade encontrada</p>
         </div>
       ) : (
         <div className='space-y-3'>
           {skills.map((skill) => (
-            <div key={skill.id} className='border rounded-lg p-4 hover:bg-gray-50'>
+            <div key={skill.id} className='rounded-lg border p-4 hover:bg-gray-50'>
               <div className='flex items-start justify-between'>
                 <div className='flex-1'>
-                  <h3 className='font-semibold text-lg'>{skill.name}</h3>
-                  <p className='text-gray-600 text-sm'>{skill.description}</p>
+                  <h3 className='text-lg font-semibold'>{skill.name}</h3>
+                  <p className='text-sm text-gray-600'>{skill.description}</p>
                 </div>
-                {!skill.already_in_goal && (
-                  <button type="button"
+                {skill.alreadyInGoal ? (
+                  <span className='ml-4 whitespace-nowrap rounded bg-gray-200 px-4 py-2 text-gray-600'>
+                    Adicionado
+                  </span>
+                ) : (
+                  <button
+                    type='button'
                     onClick={() => onSkillSelect(skill)}
-                    className='ml-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap'
+                    className='ml-4 whitespace-nowrap rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700'
                   >
                     Adicionar
                   </button>
                 )}
-                {skill.already_in_goal && (
-                  <span className='ml-4 px-4 py-2 bg-gray-200 text-gray-600 rounded whitespace-nowrap'>
-                    Adicionado
-                  </span>
-                )}
               </div>
 
               {skill.foundations.length > 0 && (
-                <div className='mt-3 pt-3 border-t'>
+                <div className='mt-3 border-t pt-3'>
                   {skill.foundations.length === 1 ? (
                     <div className='mt-2'>
-                      <p className='text-sm text-gray-600 mb-2'>Base sugerida:</p>
+                      <p className='mb-2 text-sm text-gray-600'>Base sugerida:</p>
                       <SkillFoundationRow
                         skillId={skill.foundations[0].skillId}
                         name={skill.foundations[0].name}
@@ -94,7 +82,8 @@ export function SkillCatalogView({
                     </div>
                   ) : (
                     <div>
-                      <button type="button"
+                      <button
+                        type='button'
                         onClick={() => toggleExpand(skill.id)}
                         className='text-sm text-blue-600 hover:underline'
                       >
@@ -123,10 +112,11 @@ export function SkillCatalogView({
           ))}
 
           {hasMore && onLoadMore && (
-            <button type="button"
+            <button
+              type='button'
               onClick={onLoadMore}
               disabled={isLoading}
-              className='w-full py-3 border rounded hover:bg-gray-50 disabled:opacity-50'
+              className='w-full rounded border py-3 hover:bg-gray-50 disabled:opacity-50'
             >
               {isLoading ? 'Carregando...' : 'Carregar mais'}
             </button>

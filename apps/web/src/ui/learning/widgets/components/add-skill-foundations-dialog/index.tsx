@@ -1,20 +1,17 @@
 import { type ReactNode, useState } from 'react'
+
+import type { SuggestedFoundation } from '@/core/learning/skill-catalog'
+
 import { SkillFoundationRow } from '../skill-foundation-row'
 
-interface Foundation {
-  skillId: string
-  name: string
-  status: 'present' | 'missing'
-}
-
-interface AddSkillFoundationsDialogProps {
+type AddSkillFoundationsDialogProps = {
   skillName: string
-  foundations: Foundation[]
+  foundations: readonly SuggestedFoundation[]
   isOpen: boolean
   isLoading?: boolean
   error?: string | null
   onClose: () => void
-  onSubmit: (selectedFoundationIds: string[]) => Promise<void>
+  onSubmit: (selectedFoundationIds: readonly string[]) => Promise<void>
 }
 
 export function AddSkillFoundationsDialog({
@@ -131,14 +128,16 @@ export function AddSkillFoundationsDialog({
         </div>
 
         <div className='border-t p-6 flex justify-end gap-3'>
-          <button type="button"
+          <button
+            type='button'
             onClick={onClose}
             disabled={isSubmitting}
             className='px-4 py-2 border rounded hover:bg-gray-50 disabled:opacity-50'
           >
             Cancelar
           </button>
-          <button type="button"
+          <button
+            type='button'
             onClick={handleSubmit}
             disabled={isSubmitting || selectedIds.size === 0}
             className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50'

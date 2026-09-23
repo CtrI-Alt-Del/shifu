@@ -1,236 +1,183 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi } from 'vitest';
-import { SkillCatalogView } from '../index';
+import { cleanup, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { SkillCatalogView } from '../index'
 
 describe('SkillCatalogView', () => {
-	const mockSkills = [
-		{
-			id: 's1',
-			name: 'React',
-			description: 'Learn React fundamentals',
-			already_in_goal: false,
-			skill_experience_id: null,
-			foundations: [
-				{ skillId: 'f1', name: 'JavaScript', status: 'present' as const },
-			],
-		},
-		{
-			id: 's2',
-			name: 'TypeScript',
-			description: 'Learn TypeScript',
-			already_in_goal: true,
-			skill_experience_id: 'exp123',
-			foundations: [],
-		},
-		{
-			id: 's3',
-			name: 'Node.js',
-			description: 'Backend development',
-			already_in_goal: false,
-			skill_experience_id: null,
-			foundations: [
-				{ skillId: 'f2', name: 'JavaScript', status: 'missing' as const },
-				{ skillId: 'f3', name: 'Express', status: 'missing' as const },
-			],
-		},
-	];
+  afterEach(cleanup)
 
-	it('renders skills list', () => {
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+  const mockSkills = [
+    {
+      id: 's1',
+      name: 'React',
+      description: 'Learn React fundamentals',
+      alreadyInGoal: false,
+      skillExperienceId: null,
+      foundations: [{ skillId: 'f1', name: 'JavaScript', status: 'present' as const }],
+    },
+    {
+      id: 's2',
+      name: 'TypeScript',
+      description: 'Learn TypeScript',
+      alreadyInGoal: true,
+      skillExperienceId: 'exp123',
+      foundations: [],
+    },
+    {
+      id: 's3',
+      name: 'Node.js',
+      description: 'Backend development',
+      alreadyInGoal: false,
+      skillExperienceId: null,
+      foundations: [
+        { skillId: 'f2', name: 'JavaScript', status: 'missing' as const },
+        { skillId: 'f3', name: 'Express', status: 'missing' as const },
+      ],
+    },
+  ]
 
-		expect(screen.getByText('React')).toBeInTheDocument();
-		expect(screen.getByText('TypeScript')).toBeInTheDocument();
-		expect(screen.getByText('Node.js')).toBeInTheDocument();
-	});
+  it('renders skills list', () => {
+    render(<SkillCatalogView skills={mockSkills} onSkillSelect={vi.fn()} />)
 
-	it('shows "Adicionar" button for skills not in goal', () => {
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(screen.getByText('React')).toBeInTheDocument()
+    expect(screen.getByText('TypeScript')).toBeInTheDocument()
+    expect(screen.getByText('Node.js')).toBeInTheDocument()
+  })
 
-		const addButtons = screen.getAllByRole('button', { name: /Adicionar/ });
-		expect(addButtons).toHaveLength(2);
-	});
+  it('shows "Adicionar" button for skills not in goal', () => {
+    render(<SkillCatalogView skills={mockSkills} onSkillSelect={vi.fn()} />)
 
-	it('shows "Adicionado" status for skills already in goal', () => {
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    const addButtons = screen.getAllByRole('button', { name: /Adicionar/ })
+    expect(addButtons).toHaveLength(2)
+  })
 
-		expect(screen.getByText('Adicionado')).toBeInTheDocument();
-	});
+  it('shows "Adicionado" status for skills already in goal', () => {
+    render(<SkillCatalogView skills={mockSkills} onSkillSelect={vi.fn()} />)
 
-	it('calls onSkillSelect when add button clicked', async () => {
-		const user = userEvent.setup();
-		const onSelect = vi.fn();
+    expect(screen.getByText('Adicionado')).toBeInTheDocument()
+  })
 
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={onSelect}
-			/>
-		);
+  it('calls onSkillSelect when add button clicked', async () => {
+    const user = userEvent.setup()
+    const onSelect = vi.fn()
 
-		const addButtons = screen.getAllByRole('button', { name: /Adicionar/ });
-		await user.click(addButtons[0]);
+    render(<SkillCatalogView skills={mockSkills} onSkillSelect={onSelect} />)
 
-		expect(onSelect).toHaveBeenCalledWith(mockSkills[0]);
-	});
+    const addButtons = screen.getAllByRole('button', { name: /Adicionar/ })
+    await user.click(addButtons[0])
 
-	it('displays single foundation inline', () => {
-		render(
-			<SkillCatalogView
-				skills={[mockSkills[0]]}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(onSelect).toHaveBeenCalledWith(mockSkills[0])
+  })
 
-		expect(screen.getByText(/Base sugerida:/)).toBeInTheDocument();
-		expect(screen.getByText('JavaScript')).toBeInTheDocument();
-	});
+  it('displays single foundation inline', () => {
+    render(<SkillCatalogView skills={[mockSkills[0]]} onSkillSelect={vi.fn()} />)
 
-	it('shows expand/collapse toggle for multiple foundations', () => {
-		render(
-			<SkillCatalogView
-				skills={[mockSkills[2]]}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(screen.getByText(/Base sugerida:/)).toBeInTheDocument()
+    expect(screen.getByText('JavaScript')).toBeInTheDocument()
+  })
 
-		expect(screen.getByText(/Ver bases \(2\)/)).toBeInTheDocument();
-	});
+  it('shows expand/collapse toggle for multiple foundations', () => {
+    render(<SkillCatalogView skills={[mockSkills[2]]} onSkillSelect={vi.fn()} />)
 
-	it('expands foundations when toggle clicked', async () => {
-		const user = userEvent.setup();
+    expect(screen.getByText(/Ver bases \(2\)/)).toBeInTheDocument()
+  })
 
-		render(
-			<SkillCatalogView
-				skills={[mockSkills[2]]}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+  it('expands foundations when toggle clicked', async () => {
+    const user = userEvent.setup()
 
-		const toggleButton = screen.getByRole('button', { name: /Ver bases/ });
-		await user.click(toggleButton);
+    render(<SkillCatalogView skills={[mockSkills[2]]} onSkillSelect={vi.fn()} />)
 
-		expect(screen.getByText('JavaScript')).toBeInTheDocument();
-		expect(screen.getByText('Express')).toBeInTheDocument();
-		expect(screen.getByText(/Ocultar bases/)).toBeInTheDocument();
-	});
+    const toggleButton = screen.getByRole('button', { name: /Ver bases/ })
+    await user.click(toggleButton)
 
-	it('collapses foundations when toggle clicked again', async () => {
-		const user = userEvent.setup();
+    expect(screen.getByText('JavaScript')).toBeInTheDocument()
+    expect(screen.getByText('Express')).toBeInTheDocument()
+    expect(screen.getByText(/Ocultar bases/)).toBeInTheDocument()
+  })
 
-		const { rerender } = render(
-			<SkillCatalogView
-				skills={[mockSkills[2]]}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+  it('collapses foundations when toggle clicked again', async () => {
+    const user = userEvent.setup()
 
-		const toggleButton = screen.getByRole('button', { name: /Ver bases/ });
-		await user.click(toggleButton);
+    render(<SkillCatalogView skills={[mockSkills[2]]} onSkillSelect={vi.fn()} />)
 
-		expect(screen.getByText('Express')).toBeInTheDocument();
+    const toggleButton = screen.getByRole('button', { name: /Ver bases/ })
+    await user.click(toggleButton)
 
-		await user.click(toggleButton);
+    expect(screen.getByText('Express')).toBeInTheDocument()
 
-		expect(screen.queryByText('Express')).not.toBeInTheDocument();
-	});
+    await user.click(toggleButton)
 
-	it('shows loading state', () => {
-		render(
-			<SkillCatalogView
-				skills={[]}
-				isLoading={true}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(screen.queryByText('Express')).not.toBeInTheDocument()
+  })
 
-		expect(screen.getByText(/Carregando habilidades/)).toBeInTheDocument();
-	});
+  it('shows loading state', () => {
+    render(<SkillCatalogView skills={[]} isLoading={true} onSkillSelect={vi.fn()} />)
 
-	it('shows error message', () => {
-		render(
-			<SkillCatalogView
-				skills={[]}
-				error="Failed to load skills"
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(screen.getByText(/Carregando habilidades/)).toBeInTheDocument()
+  })
 
-		expect(screen.getByText('Failed to load skills')).toBeInTheDocument();
-	});
+  it('shows error message', () => {
+    render(
+      <SkillCatalogView
+        skills={[]}
+        error='Failed to load skills'
+        onSkillSelect={vi.fn()}
+      />,
+    )
 
-	it('shows empty state when no skills', () => {
-		render(
-			<SkillCatalogView
-				skills={[]}
-				onSkillSelect={vi.fn()}
-			/>
-		);
+    expect(screen.getByText('Failed to load skills')).toBeInTheDocument()
+  })
 
-		expect(
-			screen.getByText(/Nenhuma habilidade encontrada/)
-		).toBeInTheDocument();
-	});
+  it('shows empty state when no skills', () => {
+    render(<SkillCatalogView skills={[]} onSkillSelect={vi.fn()} />)
 
-	it('shows load more button when hasMore is true', () => {
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={vi.fn()}
-				hasMore={true}
-				onLoadMore={vi.fn()}
-			/>
-		);
+    expect(screen.getByText(/Nenhuma habilidade encontrada/)).toBeInTheDocument()
+  })
 
-		expect(screen.getByRole('button', { name: /Carregar mais/ })).toBeInTheDocument();
-	});
+  it('shows load more button when hasMore is true', () => {
+    render(
+      <SkillCatalogView
+        skills={mockSkills}
+        onSkillSelect={vi.fn()}
+        hasMore={true}
+        onLoadMore={vi.fn()}
+      />,
+    )
 
-	it('calls onLoadMore when load more clicked', async () => {
-		const user = userEvent.setup();
-		const onLoadMore = vi.fn();
+    expect(screen.getByRole('button', { name: /Carregar mais/ })).toBeInTheDocument()
+  })
 
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				onSkillSelect={vi.fn()}
-				hasMore={true}
-				onLoadMore={onLoadMore}
-			/>
-		);
+  it('calls onLoadMore when load more clicked', async () => {
+    const user = userEvent.setup()
+    const onLoadMore = vi.fn()
 
-		const loadMoreButton = screen.getByRole('button', { name: /Carregar mais/ });
-		await user.click(loadMoreButton);
+    render(
+      <SkillCatalogView
+        skills={mockSkills}
+        onSkillSelect={vi.fn()}
+        hasMore={true}
+        onLoadMore={onLoadMore}
+      />,
+    )
 
-		expect(onLoadMore).toHaveBeenCalled();
-	});
+    const loadMoreButton = screen.getByRole('button', { name: /Carregar mais/ })
+    await user.click(loadMoreButton)
 
-	it('disables load more button when loading', () => {
-		render(
-			<SkillCatalogView
-				skills={mockSkills}
-				isLoading={true}
-				onSkillSelect={vi.fn()}
-				hasMore={true}
-				onLoadMore={vi.fn()}
-			/>
-		);
+    expect(onLoadMore).toHaveBeenCalled()
+  })
 
-		const loadMoreButton = screen.getByRole('button', { name: /Carregar mais/ });
-		expect(loadMoreButton).toBeDisabled();
-	});
-});
+  it('disables load more button when loading', () => {
+    render(
+      <SkillCatalogView
+        skills={mockSkills}
+        isLoading={true}
+        onSkillSelect={vi.fn()}
+        hasMore={true}
+        onLoadMore={vi.fn()}
+      />,
+    )
+
+    const loadMoreButton = screen.getByRole('button', { name: /Carregando/ })
+    expect(loadMoreButton).toBeDisabled()
+  })
+})
