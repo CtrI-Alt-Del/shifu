@@ -22,8 +22,10 @@ import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/route'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/index'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -94,8 +96,8 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute =
     path: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute =
-  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport.update(
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport.update(
     {
       id: '/activities/$activityId',
       path: '/activities/$activityId',
@@ -110,6 +112,24 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialI
       path: '/materials/$materialId',
       getParentRoute: () =>
         LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute,
+    } as any,
+  )
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport.update(
+    {
+      id: '/',
+      path: '/',
+      getParentRoute: () =>
+        LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute,
+    } as any,
+  )
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport.update(
+    {
+      id: '/attempts/$attemptId/',
+      path: '/attempts/$attemptId/',
+      getParentRoute: () =>
+        LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute,
     } as any,
   )
 
@@ -127,8 +147,10 @@ export interface FileRoutesByFullPath {
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -144,8 +166,9 @@ export interface FileRoutesByTo {
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,8 +185,10 @@ export interface FileRoutesById {
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -183,6 +208,8 @@ export interface FileRouteTypes {
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,8 +225,9 @@ export interface FileRouteTypes {
     | '/learning/goals/new'
     | '/learning/goals/$goalId/skills/$skillId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId'
   id:
     | '__root__'
     | '/'
@@ -217,6 +245,8 @@ export interface FileRouteTypes {
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -332,7 +362,7 @@ declare module '@tanstack/react-router' {
       id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
       path: '/activities/$activityId'
       fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
-      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport
       parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute
     }
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': {
@@ -342,18 +372,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport
       parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute
     }
+    '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': {
+      id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+      path: '/'
+      fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport
+      parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute
+    }
+    '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': {
+      id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+      path: '/attempts/$attemptId'
+      fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport
+      parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute
+    }
   }
 }
 
+interface LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren {
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
+}
+
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren: LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren =
+  {
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute,
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute,
+  }
+
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute._addFileChildren(
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren,
+  )
+
 interface LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren {
-  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
 }
 
 const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren: LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren =
   {
-    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute:
-      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute,
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren,
     LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute:
       LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute,
   }

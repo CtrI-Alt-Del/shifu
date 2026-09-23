@@ -9,8 +9,10 @@ from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.shared.core.domain.errors import (
     AppError,
     AuthorizationError,
+    ConflictError,
     NotFoundError,
     ServiceUnavailableError,
+    ValidationError,
 )
 
 
@@ -69,6 +71,7 @@ class AppErrorHandler:
             message=(
                 not_found.message
                 if not_found is not None
+                and not_found.message != 'Erro interno da aplicação.'
                 else 'Recurso não encontrado.'
             ),
         )
@@ -91,6 +94,26 @@ class AppErrorHandler:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             code='service_unavailable',
             message='Serviço temporariamente indisponível.',
+        )
+
+    @staticmethod
+    async def handle_validation_error(
+        _request: Request, _error: Exception
+    ) -> JSONResponse:
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code='validation_error',
+            message='Os dados enviados são inválidos.',
+        )
+
+    @staticmethod
+    async def handle_conflict_error(
+        _request: Request, _error: Exception
+    ) -> JSONResponse:
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code='conflict',
+            message='A solicitação conflita com o estado atual do recurso.',
         )
 
     @staticmethod
@@ -211,6 +234,14 @@ class AppErrorHandler:
         app.add_exception_handler(
             ServiceUnavailableError,
             AppErrorHandler.handle_service_unavailable,
+        )
+        app.add_exception_handler(
+            ValidationError,
+            AppErrorHandler.handle_validation_error,
+        )
+        app.add_exception_handler(
+            ConflictError,
+            AppErrorHandler.handle_conflict_error,
         )
         app.add_exception_handler(
             RequestValidationError,

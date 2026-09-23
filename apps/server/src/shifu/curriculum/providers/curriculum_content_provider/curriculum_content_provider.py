@@ -1,9 +1,17 @@
 from shifu.curriculum.core.domain.structures import (
     ActivitySequenceItem,
     MaterialSequenceItem,
+    CorrectnessEvaluationPart,
+    MultipleSelectionQuestion,
+    SingleChoiceQuestion,
 )
+from decimal import Decimal
 from shifu.curriculum.core.interfaces import CurriculumDatabase
 from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceOptionSnapshot,
+    CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
     CurriculumContentItem,
@@ -115,4 +123,79 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 id=skill.id,
                 name=skill.name,
                 competencies=tuple(snapshot_competencies),
+            )
+
+    def get_choice_activity(
+        self,
+        activity_id: str,
+    ) -> CurriculumChoiceActivitySnapshot | None:
+        with self._database.transaction() as repositories:
+            activity = repositories.activities.find_by_id(activity_id)
+            if (
+                activity is None
+                or activity.id != activity_id
+                or activity.activity_type.value != 'learning'
+                or not 3 <= len(activity.questions) <= 5
+            ):
+                return None
+
+            questions: list[CurriculumChoiceQuestionSnapshot] = []
+            keys: set[str] = set()
+            for question in activity.questions:
+                if not isinstance(
+                    question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                ):
+                    return None
+                if (
+                    not question.correct_explanation
+                    or not question.incorrect_explanation
+                    or question.key in keys
+                    or len({option.key for option in question.options})
+                    != len(question.options)
+                ):
+                    return None
+                keys.add(question.key)
+                questions.append(
+                    CurriculumChoiceQuestionSnapshot(
+                        key=question.key,
+                        kind=(
+                            'single_choice'
+                            if isinstance(question, SingleChoiceQuestion)
+                            else 'multiple_selection'
+                        ),
+                        prompt=question.prompt,
+                        options=tuple(
+                            CurriculumChoiceOptionSnapshot(
+                                key=option.key,
+                                text=option.text,
+                                is_correct=option.is_correct,
+                            )
+                            for option in question.options
+                        ),
+                        correct_explanation=question.correct_explanation,
+                        incorrect_explanation=question.incorrect_explanation,
+                    )
+                )
+
+            parts = tuple(
+                CurriculumChoicePartSnapshot(
+                    question_key=part.question_key,
+                    weight_percentage=Decimal(part.weight_percentage),
+                )
+                for part in activity.evaluation_rule.parts
+                if isinstance(part, CorrectnessEvaluationPart)
+            )
+            if (
+                len(parts) != len(activity.evaluation_rule.parts)
+                or len(parts) != len(questions)
+                or {part.question_key for part in parts} != keys
+            ):
+                return None
+            return CurriculumChoiceActivitySnapshot(
+                id=activity.id,
+                competency_id=activity.competency_id,
+                difficulty=activity.difficulty.value,
+                title=activity.title,
+                questions=tuple(questions),
+                parts=parts,
             )

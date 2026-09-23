@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from functools import partial
 from typing import cast
 
 from fastapi import APIRouter, FastAPI
@@ -22,6 +23,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.messaging.inngest import LearningInngestMessaging
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
@@ -32,6 +34,7 @@ from shifu.shared.providers.cache.redis.redis_cache_provider import (
     RedisCacheProvider,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
@@ -53,6 +56,7 @@ class FastAPIApp:
     def register(database_engine: Engine | None = None) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
         id_provider = SystemIdentifierProvider()
+        clock_provider = SystemClockProvider()
         settings = get_settings()
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
@@ -98,7 +102,14 @@ class FastAPIApp:
         app = FastAPI(title='Shifu API', version='0.1.0', lifespan=lifespan)
         inngest_client = InngestMessaging.register(
             app,
-            job_group_registrars=[IdentityInngestMessaging.register_jobs],
+            job_group_registrars=[
+                IdentityInngestMessaging.register_jobs,
+                partial(
+                    LearningInngestMessaging.register_jobs,
+                    learning_database=learning_database,
+                    clock_provider=clock_provider,
+                ),
+            ],
         )
         app.state.inngest_broker = InngestBroker(
             inngest_client,
@@ -109,6 +120,8 @@ class FastAPIApp:
         app.state.identity_database = identity_database
         app.state.authentication_provider = authentication_provider
         app.state.learning_database = learning_database
+        app.state.clock_provider = clock_provider
+        app.state.identifier_provider = id_provider
         app.state.curriculum_content_provider = curriculum_content_provider
         app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
             engine=database_engine,

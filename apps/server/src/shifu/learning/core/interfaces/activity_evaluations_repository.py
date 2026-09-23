@@ -14,12 +14,23 @@ class ActivityEvaluationsRepository(Protocol):
         attempt_id: str,
     ) -> ActivityEvaluation | None: ...
 
+    def find_by_attempt_id_for_update(
+        self,
+        attempt_id: str,
+    ) -> ActivityEvaluation | None: ...
+
     def find_unresolved_by_skill_experience_id(
         self,
         skill_experience_id: str,
     ) -> ActivityEvaluation | None:
         """Find the pending or failed evaluation that blocks new attempts."""
         ...
+
+    def find_latest_completed_by_skill_experience_id_and_competency_id(
+        self,
+        skill_experience_id: str,
+        competency_id: str,
+    ) -> list[ActivityEvaluation]: ...
 
     def find_many_by_skill_experience_id_and_activity_id(
         self,

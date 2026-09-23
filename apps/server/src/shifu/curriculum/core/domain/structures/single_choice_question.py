@@ -10,6 +10,8 @@ class SingleChoiceQuestion:
     key: str
     prompt: str
     options: tuple[ChoiceOption, ...]
+    correct_explanation: str | None = None
+    incorrect_explanation: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -20,3 +22,9 @@ class SingleChoiceQuestion:
         )
         if sum(option.is_correct for option in self.options) != 1:
             raise InvalidActivityError
+        for name in ('correct_explanation', 'incorrect_explanation'):
+            explanation = getattr(self, name)
+            if explanation is not None:
+                object.__setattr__(
+                    self, name, require_non_empty(explanation, InvalidActivityError)
+                )

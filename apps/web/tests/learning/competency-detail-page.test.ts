@@ -136,23 +136,62 @@ test('redirects anonymous visitors before the Competency detail request', async 
   ).not.toBeVisible()
 })
 
-test('protects the Activity contract route before its generic not-found boundary', async ({
+test('navigates from the Competency detail to the protected Activity route', async ({
   authenticatedPage,
 }) => {
-  const activityPath = `${detailPath}/activities/${IDS.activityId}`
-  let detailRequest = false
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
-    if (route.request().url().includes(IDS.competencyId)) detailRequest = true
+    const body = route.request().postData() ?? ''
+    const payload = decodeURIComponent(`${route.request().url()} ${body}`)
+    if (payload.includes(IDS.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            activityId: IDS.activityId,
+            title: 'Somar os números pares de uma lista',
+            difficulty: 'hard',
+            canSubmit: true,
+            latestAttemptId: null,
+            unresolvedAttemptId: null,
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual soma?',
+                options: [
+                  { key: 'a', text: '2' },
+                  { key: 'b', text: '4' },
+                ],
+              },
+            ],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(IDS.competencyId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: availableResponse }),
+        contentType: 'application/json',
+      })
+      return
+    }
     await route.fallback()
   })
 
-  await navigateAuthenticatedPage(authenticatedPage, activityPath)
-
-  await expect(authenticatedPage.locator('body')).toContainText('Not Found')
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  await authenticatedPage
+    .getByRole('link', { name: 'Praticar Somar os números pares de uma lista' })
+    .click()
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${IDS.activityId}/?$`))
   await expect(
-    authenticatedPage.getByRole('button', { name: 'Praticar' }),
-  ).not.toBeVisible()
-  expect(detailRequest).toBe(false)
+    authenticatedPage.getByRole('heading', {
+      name: 'Somar os números pares de uma lista',
+    }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Qual soma?' }),
+  ).toBeVisible()
 })
 
 test('redirects anonymous visitors before the Activity contract loader', async ({

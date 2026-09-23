@@ -18,13 +18,16 @@ from urllib.request import Request, urlopen
 import pytest
 from testcontainers.core.container import DockerContainer
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 
 @dataclass
 class InngestFixture:
     process: subprocess.Popen[str]
     inngest_url: str
+    database_url: str
     output: list[str]
+    pending_output: str = ''
 
     def publish(
         self, event_name: str, payload: dict[str, object], event_id: str
@@ -64,6 +67,9 @@ class InngestFixture:
 
     def close(self) -> str:
         self._drain_output()
+        if self.pending_output:
+            self.output.append(self.pending_output)
+            self.pending_output = ''
         if self.process.poll() is None:
             self.process.terminate()
             try:
@@ -79,10 +85,16 @@ class InngestFixture:
         if stream is None:
             return
         while select.select([stream], [], [], 0)[0]:
-            line = stream.readline()
-            if not line:
+            chunk = os.read(stream.fileno(), 65536)
+            if not chunk:
                 break
-            self.output.append(line)
+            self.pending_output += chunk.decode(errors='replace')
+            lines = self.pending_output.splitlines(keepends=True)
+            if lines and not lines[-1].endswith(('\n', '\r')):
+                self.pending_output = lines.pop()
+            else:
+                self.pending_output = ''
+            self.output.extend(lines)
 
 
 @pytest.fixture(scope='session')
@@ -123,12 +135,15 @@ def inngest_fixture() -> Iterator[InngestFixture]:
                 )
                 .with_kwargs(extra_hosts={'host.docker.internal': 'host-gateway'})
             )
+            redis = stack.enter_context(RedisContainer('redis:7-alpine'))
         except Exception as error:  # noqa: BLE001 - Docker availability is an explicit skip.
             pytest.skip(f'Testcontainers runtime unavailable: {error}')
 
         inngest_host = inngest.get_container_host_ip()
         inngest_port = inngest.get_exposed_port(8288)
         inngest_url = f'http://{inngest_host}:{inngest_port}'
+        redis_host = redis.get_container_host_ip()
+        redis_port = redis.get_exposed_port(6379)
         environment = os.environ.copy()
         environment.update(
             {
@@ -136,7 +151,15 @@ def inngest_fixture() -> Iterator[InngestFixture]:
                 'SHIFU_SERVER_APP_PORT': str(server_port),
                 'INNGEST_BASE_URL': inngest_url,
                 'INNGEST_DEV': '1',
+                'INNGEST_EVENT_KEY': 'dev_key',
+                'REDIS_URL': f'redis://{redis_host}:{redis_port}/0',
             }
+        )
+        subprocess.run(
+            [sys.executable, '-m', 'alembic', 'upgrade', 'head'],
+            cwd=server_directory,
+            env=environment,
+            check=True,
         )
         process = subprocess.Popen(  # noqa: S603 - fixed local test command
             [
@@ -157,7 +180,14 @@ def inngest_fixture() -> Iterator[InngestFixture]:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        fixture = InngestFixture(process, inngest_url, [])
+        if process.stdout is not None:
+            os.set_blocking(process.stdout.fileno(), False)
+        fixture = InngestFixture(
+            process=process,
+            inngest_url=inngest_url,
+            database_url=postgres.get_connection_url(),
+            output=[],
+        )
         _wait_for_url(f'{server_url}/health', timeout=30)
         _wait_for_url(f'{server_url}/api/inngest', timeout=30)
         _wait_for_inngest_app(

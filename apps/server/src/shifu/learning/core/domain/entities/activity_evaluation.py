@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.learning.core.domain.enums import CompetencyProgressStatus
 from shifu.learning.core.domain.errors import (
     EvaluationAlreadyCompletedError,
     EvaluationPendingError,
@@ -23,6 +24,11 @@ class ActivityEvaluation:
     failure_code: str | None = None
     completed_at: datetime | None = None
     effect_applied_at: datetime | None = None
+    run_id: str | None = None
+    progress_before: Decimal | None = None
+    progress_after: Decimal | None = None
+    status_before: CompetencyProgressStatus | None = None
+    status_after: CompetencyProgressStatus | None = None
 
     def __post_init__(self) -> None:
         if self.score is not None:
@@ -47,6 +53,11 @@ class ActivityEvaluation:
         failure_code: str | None = None,
         completed_at: datetime | None = None,
         effect_applied_at: datetime | None = None,
+        run_id: str | None = None,
+        progress_before: Decimal | None = None,
+        progress_after: Decimal | None = None,
+        status_before: CompetencyProgressStatus | None = None,
+        status_after: CompetencyProgressStatus | None = None,
     ) -> 'ActivityEvaluation':
         return cls(
             id=id,
@@ -58,6 +69,11 @@ class ActivityEvaluation:
             failure_code=failure_code,
             completed_at=completed_at,
             effect_applied_at=effect_applied_at,
+            run_id=run_id,
+            progress_before=progress_before,
+            progress_after=progress_after,
+            status_before=status_before,
+            status_after=status_after,
         )
 
     def complete(
@@ -85,12 +101,39 @@ class ActivityEvaluation:
         self.status = ActivityEvaluationStatus.FAILED
         self.failure_code = failure_code
 
-    def retry(self, started_at: datetime) -> None:
+    def retry(self, started_at: datetime, run_id: str | None = None) -> None:
         if self.status is not ActivityEvaluationStatus.FAILED:
             raise EvaluationPendingError
         self.status = ActivityEvaluationStatus.PENDING
         self.started_at = started_at
         self.failure_code = None
+        self.run_id = run_id
+        self.parts = ()
+        self.score = None
+        self.completed_at = None
+        self.effect_applied_at = None
+        self.progress_before = None
+        self.progress_after = None
+        self.status_before = None
+        self.status_after = None
+
+    def time_out(self, failure_code: str) -> None:
+        self.fail(failure_code)
+
+    def save_progress_effect(
+        self,
+        *,
+        progress_before: Decimal,
+        progress_after: Decimal,
+        status_before: CompetencyProgressStatus,
+        status_after: CompetencyProgressStatus,
+    ) -> None:
+        if self.status is not ActivityEvaluationStatus.COMPLETED:
+            raise EvaluationPendingError
+        self.progress_before = progress_before
+        self.progress_after = progress_after
+        self.status_before = status_before
+        self.status_after = status_after
 
     def apply_effect(self, applied_at: datetime) -> None:
         if self.status is not ActivityEvaluationStatus.COMPLETED:

@@ -30,6 +30,16 @@ class SqlalchemyActivityEvaluationsRepository:
         )
         return ActivityEvaluationMapper.to_domain(model) if model is not None else None
 
+    def find_by_attempt_id_for_update(
+        self, attempt_id: str
+    ) -> ActivityEvaluation | None:
+        model = self._session.scalar(
+            select(ActivityEvaluationModel)
+            .where(ActivityEvaluationModel.attempt_id == attempt_id)
+            .with_for_update()
+        )
+        return ActivityEvaluationMapper.to_domain(model) if model is not None else None
+
     def find_unresolved_by_skill_experience_id(
         self,
         skill_experience_id: str,
@@ -42,6 +52,8 @@ class SqlalchemyActivityEvaluationsRepository:
             )
             .where(
                 ActivityAttemptModel.skill_experience_id == skill_experience_id,
+                ActivityAttemptModel.grading_snapshot.is_not(None),
+                ActivityEvaluationModel.run_id.is_not(None),
                 ActivityEvaluationModel.status.in_(
                     (
                         ActivityEvaluationStatus.PENDING.value,
@@ -52,6 +64,28 @@ class SqlalchemyActivityEvaluationsRepository:
             .order_by(ActivityEvaluationModel.started_at)
         )
         return ActivityEvaluationMapper.to_domain(model) if model is not None else None
+
+    def find_latest_completed_by_skill_experience_id_and_competency_id(
+        self,
+        skill_experience_id: str,
+        competency_id: str,
+    ) -> list[ActivityEvaluation]:
+        models = self._session.scalars(
+            select(ActivityEvaluationModel)
+            .join(
+                ActivityAttemptModel,
+                ActivityAttemptModel.id == ActivityEvaluationModel.attempt_id,
+            )
+            .where(
+                ActivityAttemptModel.skill_experience_id == skill_experience_id,
+                ActivityAttemptModel.competency_id == competency_id,
+                ActivityAttemptModel.grading_snapshot.is_not(None),
+                ActivityEvaluationModel.status
+                == ActivityEvaluationStatus.COMPLETED.value,
+            )
+            .order_by(ActivityEvaluationModel.completed_at)
+        ).all()
+        return [ActivityEvaluationMapper.to_domain(model) for model in models]
 
     def find_many_by_skill_experience_id_and_activity_id(
         self,

@@ -6,6 +6,17 @@ from .available_competency_detail import (
 from .choice_evaluation_result import (
     ChoiceEvaluationResult as ChoiceEvaluationResult,
 )
+from .choice_answer_submission import (
+    ChoiceAnswerSubmission as ChoiceAnswerSubmission,
+)
+from .choice_activity_detail import ChoiceActivityDetail as ChoiceActivityDetail
+from .choice_attempt_detail import ChoiceAttemptDetail as ChoiceAttemptDetail
+from .choice_option_detail import ChoiceOptionDetail as ChoiceOptionDetail
+from .choice_question_detail import ChoiceQuestionDetail as ChoiceQuestionDetail
+from .choice_result_detail import ChoiceResultDetail as ChoiceResultDetail
+from .choice_submission_outcome import (
+    ChoiceSubmissionOutcome as ChoiceSubmissionOutcome,
+)
 from .code_answer import CodeAnswer as CodeAnswer
 from .code_case_result import CodeCaseResult as CodeCaseResult
 from .code_evaluation_result import CodeEvaluationResult as CodeEvaluationResult
