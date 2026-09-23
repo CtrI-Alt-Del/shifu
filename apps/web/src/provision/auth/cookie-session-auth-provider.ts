@@ -150,7 +150,7 @@ export const CookieSessionAuthProvider = () => {
   async function resendConfirmation(): Promise<ResendConfirmationResult> {
     return requestJson(
       '/api/auth/pending-confirmation/resend',
-      { method: 'POST' },
+      { method: 'POST', body: {} },
       (result) => {
         if (
           !isRecord(result) ||

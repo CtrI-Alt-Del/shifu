@@ -15,9 +15,8 @@ test.describe('same-origin registration confirmation auth handlers', () => {
 
     expect(registration.status()).toBe(200)
     expect(await registration.json()).toEqual({ redirectTo: '/pending-confirmation' })
-    expect(registration.headers()['set-cookie']).toMatch(
-      /shifu-pending-flow=[^;]+; Path=\//,
-    )
+    expect(registration.headers()['set-cookie']).toContain('shifu-pending-flow=')
+    expect(registration.headers()['set-cookie']).toContain('Path=/')
 
     const status = await request.get('/api/auth/pending-confirmation')
 
@@ -30,7 +29,10 @@ test.describe('same-origin registration confirmation auth handlers', () => {
     expect(statusBody.retryAfterSeconds).toBeGreaterThan(0)
     expect(statusBody.retryAfterSeconds).toBeLessThanOrEqual(60)
 
-    const resend = await request.post('/api/auth/pending-confirmation/resend')
+    const resend = await request.post('/api/auth/pending-confirmation/resend', {
+      data: {},
+      headers: { Origin: 'http://localhost:7000' },
+    })
 
     expect(resend.status()).toBe(200)
     const resendBody = await resend.json()

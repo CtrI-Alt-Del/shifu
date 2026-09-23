@@ -33,7 +33,10 @@ def _register_account(fixture: 'InngestFixture') -> None:
     request = Request(  # noqa: S310 - local FastAPI fixture URL
         f'{fixture.server_url}/identity/registrations',
         data=body,
-        headers={'content-type': 'application/json'},
+        headers={
+            'content-type': 'application/json',
+            'x-shifu-bff-secret': fixture.bff_shared_secret,
+        },
         method='POST',
     )
     with urlopen(request, timeout=10) as response:  # noqa: S310

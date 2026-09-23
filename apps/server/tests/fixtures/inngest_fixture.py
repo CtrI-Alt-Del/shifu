@@ -30,6 +30,7 @@ class InngestFixture:
     inngest_url: str
     database_url: str
     mailpit_url: str
+    bff_shared_secret: str
     output: list[str]
     inngest_container: DockerContainer | None = None
     output_reader: Thread | None = None
@@ -319,6 +320,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
         mailpit_ui_port = mailpit.get_exposed_port(8025)
         mailpit_url = f'http://{mailpit_host}:{mailpit_ui_port}'
         environment = os.environ.copy()
+        bff_shared_secret = 'shifu-inngest-test-bff-secret'
         environment.update(
             {
                 'DATABASE_URL': postgres.get_connection_url(),
@@ -329,6 +331,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
                 'SHIFU_SMTP_HOST': mailpit_host,
                 'SHIFU_SMTP_PORT': str(mailpit_smtp_port),
                 'SHIFU_EMAIL_FROM': 'no-reply@shifu.local',
+                'SHIFU_BFF_SHARED_SECRET': bff_shared_secret,
             }
         )
         subprocess.run(
@@ -362,6 +365,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
             inngest_url=inngest_url,
             database_url=postgres.get_connection_url(),
             mailpit_url=mailpit_url,
+            bff_shared_secret=bff_shared_secret,
             output=[],
             inngest_container=inngest,
         )
