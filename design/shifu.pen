@@ -46718,74 +46718,6 @@
                               "fontWeight": "600"
                             }
                           ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "g1Aru",
-                          "name": "Resposta correta protegida",
-                          "width": "fill_container",
-                          "height": 52,
-                          "fill": "$surface",
-                          "cornerRadius": "$radius-control",
-                          "stroke": "$divider",
-                          "gap": "$space-3",
-                          "padding": [
-                            0,
-                            16
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "icon",
-                              "id": "JkrsU",
-                              "name": "Ícone de resposta protegida",
-                              "width": 16,
-                              "height": 16,
-                              "icon": "lock-keyhole",
-                              "library": "lucide",
-                              "fill": "$text-muted"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "TiZdf",
-                              "name": "Conteúdo da resposta correta",
-                              "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 2,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "FiYIs",
-                                  "name": "Rótulo da resposta correta",
-                                  "fill": "$text-muted",
-                                  "content": "Resposta correta",
-                                  "fontFamily": "$font-ui",
-                                  "fontSize": 11,
-                                  "fontWeight": "500"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "DptH1",
-                                  "name": "Valor da resposta correta",
-                                  "fill": "$text-secondary",
-                                  "content": "Protegida para a próxima tentativa",
-                                  "fontFamily": "$font-ui",
-                                  "fontSize": 14,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "text",
-                              "id": "FBqhp",
-                              "name": "Estado da resposta correta",
-                              "fill": "$text-muted",
-                              "content": "Ainda não revelada",
-                              "fontFamily": "$font-ui",
-                              "fontSize": 12,
-                              "fontWeight": "600"
-                            }
-                          ]
                         }
                       ]
                     },
@@ -51943,6 +51875,1869 @@
                       ]
                     }
                   ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "PCnZO",
+      "x": 20002,
+      "y": -5000,
+      "name": "SHIFU-74 · resultado completo · desktop",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "g66hPZ",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "e5AAP",
+              "type": "ref",
+              "ref": "VtmmA",
+              "layoutPosition": "absolute",
+              "x": 0,
+              "y": 0
+            },
+            {
+              "id": "ITeWD",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "JRZ9l",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                20,
+                40
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OlDLq",
+                  "name": "col",
+                  "width": 880,
+                  "layout": "vertical",
+                  "gap": 5,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "t4ydUP",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "U9NqZ",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "z0nES",
+                              "fill": "$text-primary",
+                              "content": "Resultado da Atividade",
+                              "fontFamily": "$font-display",
+                              "fontSize": 36,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "H0Z6Oy",
+                              "fill": "$selo-tint",
+                              "cornerRadius": "$radius-control",
+                              "padding": [
+                                4,
+                                8
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "cXslP",
+                                  "fill": "$selo-text",
+                                  "content": "Fácil",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "GrRSw",
+                          "gap": 6,
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "I6GGsK",
+                              "fill": "$text-primary",
+                              "content": "70",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 44,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "fogjc",
+                              "fill": "$text-muted",
+                              "content": "/ 100",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 16,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PchIz",
+                      "name": "progress-effect",
+                      "width": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "gap": 16,
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ts2A2",
+                          "name": "Identificação do progresso da Competência",
+                          "width": 240,
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "u5bCMH",
+                              "name": "Rótulo do progresso da Competência",
+                              "fill": "$text-muted",
+                              "content": "Progresso da Competência",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 11,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "oE0Ng",
+                              "name": "Nome da Competência",
+                              "fill": "$text-primary",
+                              "content": "Estruturas de repetição",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "gemYs",
+                          "width": "fill_container",
+                          "height": 6,
+                          "fill": "$raised",
+                          "cornerRadius": 3,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 3,
+                              "id": "L9pLZ",
+                              "fill": "$jade-fill",
+                              "width": 300,
+                              "height": 6
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "sauoW",
+                          "fill": "$jade-text",
+                          "content": "68 → 69",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Uc61D",
+                      "name": "Questão 1 · múltipla seleção",
+                      "width": "fill_container",
+                      "fill": "$surface-alt",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": "$space-3",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "OTmpQ",
+                          "name": "Resumo da múltipla seleção",
+                          "width": "fill_container",
+                          "gap": "$space-3",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "dblkb",
+                              "name": "Título do resultado múltiplo",
+                              "fill": "$jade-text",
+                              "content": "Questão 1 · múltipla seleção · correta",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "CZCqx",
+                              "name": "Espaçador do resumo múltiplo",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "type": "text",
+                              "id": "arRva",
+                              "name": "Nota da questão múltipla",
+                              "fill": "$jade-text",
+                              "content": "100 / 100 · peso 40%",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "UDmZ5",
+                          "name": "Opção correta selecionada 1",
+                          "width": "fill_container",
+                          "height": 46,
+                          "fill": "$jade-tint",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$jade-fill",
+                          "gap": "$space-3",
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "X7R1T",
+                              "name": "Ícone correta selecionada 1",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "check",
+                              "library": "lucide",
+                              "fill": "$jade-text"
+                            },
+                            {
+                              "type": "text",
+                              "id": "u7Lar",
+                              "name": "Texto correta selecionada",
+                              "fill": "$text-primary",
+                              "content": "O laço executa 3 vezes.",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "uvwvg",
+                              "name": "Estado da opção selecionada 1",
+                              "fill": "$jade-text",
+                              "content": "Correta e selecionada",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ydO0a",
+                          "name": "Opção correta selecionada 2",
+                          "width": "fill_container",
+                          "height": 46,
+                          "fill": "$jade-tint",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$jade-fill",
+                          "gap": "$space-3",
+                          "padding": [
+                            0,
+                            14
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "WNr2u",
+                              "name": "Ícone correta selecionada 2",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "check",
+                              "library": "lucide",
+                              "fill": "$jade-text"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ymHe0",
+                              "name": "Texto correta não selecionada",
+                              "fill": "$text-primary",
+                              "content": "total termina com o valor 6.",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "KWFYt",
+                              "name": "Estado da opção não selecionada 2",
+                              "fill": "$jade-text",
+                              "content": "Correta e selecionada",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 11,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "J8zAm",
+                      "name": "Explicação da questão 1",
+                      "width": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "vCFiI",
+                          "name": "Título da explicação múltipla",
+                          "fill": "$text-primary",
+                          "content": "Por que este conjunto está correto?",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZgArJ",
+                          "name": "Texto da explicação múltipla",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "O laço executa três vezes e total acumula 1, 2 e 3. As outras afirmações não descrevem a execução do código.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PysX6",
+                      "name": "Resultado · escolha única",
+                      "width": "fill_container",
+                      "fill": "$surface-alt",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": "$space-3",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "k4Vcw",
+                          "name": "Resumo da resposta",
+                          "width": "fill_container",
+                          "gap": "$space-3",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "fa34g",
+                              "name": "Título do resultado",
+                              "fill": "$text-primary",
+                              "content": "Questão 2 · escolha única · incorreta",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "xXN6r",
+                              "name": "Espaçador do resumo",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "type": "text",
+                              "id": "C2sFG",
+                              "name": "Nota da questão",
+                              "fill": "$selo-text",
+                              "content": "0 / 100 · peso 30%",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "FVFdb",
+                          "name": "Alternativa selecionada incorreta",
+                          "width": "fill_container",
+                          "height": 52,
+                          "fill": "$selo-tint",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$selo-fill",
+                          "gap": "$space-3",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "jaMPh",
+                              "name": "Ícone de resposta incorreta",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "x",
+                              "library": "lucide",
+                              "fill": "$selo-text"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "fD83b",
+                              "name": "Conteúdo da resposta selecionada",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "YeLTD",
+                                  "name": "Rótulo da resposta selecionada",
+                                  "fill": "$selo-text",
+                                  "content": "Sua resposta",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Un01A",
+                                  "name": "Valor da resposta selecionada",
+                                  "fill": "$text-primary",
+                                  "content": "3",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "tTrbq",
+                              "name": "Estado da resposta selecionada",
+                              "fill": "$selo-text",
+                              "content": "Incorreta",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "CqzqX",
+                      "name": "Explicação da escolha única",
+                      "width": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "LonO3",
+                          "name": "Título da explicação",
+                          "fill": "$text-primary",
+                          "content": "Por que revisar",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ZYpHL",
+                          "name": "Texto da explicação",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Acompanhe o valor acumulado após cada repetição; a resposta correta permanece oculta.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "wMJ1r",
+                      "name": "Questão 3 · escolha única",
+                      "width": "fill_container",
+                      "fill": "$surface-alt",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": "$space-3",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "kKNOk",
+                          "name": "Resumo da resposta",
+                          "width": "fill_container",
+                          "gap": "$space-3",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "EGyjn",
+                              "name": "Título do resultado",
+                              "fill": "$jade-text",
+                              "content": "Questão 3 · escolha única · correta",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 15,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hmXNi",
+                              "name": "Espaçador do resumo",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "type": "text",
+                              "id": "uZhDf",
+                              "name": "Nota da questão",
+                              "fill": "$jade-text",
+                              "content": "100 / 100 · peso 30%",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Lsd2K",
+                          "name": "Alternativa correta selecionada",
+                          "width": "fill_container",
+                          "height": 52,
+                          "fill": "$jade-tint",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$jade-fill",
+                          "gap": "$space-3",
+                          "padding": [
+                            0,
+                            16
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "f7W1b",
+                              "name": "Ícone de resposta correta",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "check",
+                              "library": "lucide",
+                              "fill": "$jade-text"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "vc0x3",
+                              "name": "Conteúdo da resposta selecionada",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "tSuHb",
+                                  "name": "Rótulo da resposta selecionada",
+                                  "fill": "$selo-text",
+                                  "content": "Sua resposta",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 11,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "fSht7",
+                                  "name": "Valor da resposta selecionada",
+                                  "fill": "$text-primary",
+                                  "content": "6",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "y4TFyl",
+                              "name": "Estado da resposta selecionada",
+                              "fill": "$jade-text",
+                              "content": "Correta",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 12,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "b6MD6",
+                      "name": "Explicação da questão 3",
+                      "width": "fill_container",
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "S4KVRU",
+                          "name": "Título da explicação",
+                          "fill": "$text-primary",
+                          "content": "Por que acertou",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xHMRA",
+                          "name": "Texto da explicação",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "O laço executa três vezes e soma 1 + 2 + 3. Por isso, total termina com o valor 6.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AiYtY",
+                      "name": "nav",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "F47AM5",
+                          "name": "navR",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "id": "dqpY3",
+                              "type": "ref",
+                              "ref": "ygtpy",
+                              "descendants": {
+                                "G5Acqe": {
+                                  "content": "Próxima atividade"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "rf857",
+      "x": 21520,
+      "y": -5000,
+      "name": "SHIFU-74 · múltipla seleção · mobile",
+      "clip": true,
+      "width": 390,
+      "height": 844,
+      "fill": "$page",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "BhXrm",
+          "name": "Cabeçalho mobile",
+          "width": "fill_container",
+          "height": 60,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "padding": [
+            0,
+            20
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "HgZQh",
+              "name": "Marca",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "srHVX",
+                  "name": "Shifu",
+                  "fill": "$text-primary",
+                  "content": "Shifu",
+                  "fontFamily": "$font-display",
+                  "fontSize": 24,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "xrORU",
+                  "name": "Símbolo",
+                  "fill": "$selo-text",
+                  "content": "師",
+                  "fontFamily": "$font-display",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "WPKxN",
+              "name": "Abrir menu",
+              "width": 44,
+              "height": 44,
+              "fill": "$raised",
+              "cornerRadius": "$radius-control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jm8mP",
+                  "name": "Menu",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "menu",
+                  "library": "lucide",
+                  "fill": "$text-primary"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "L2IV2",
+          "name": "Conteúdo do material mobile",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 11,
+          "padding": [
+            16,
+            20,
+            12,
+            20
+          ],
+          "children": [
+            {
+              "id": "FQ5IH",
+              "type": "ref",
+              "ref": "CZw0W",
+              "name": "Voltar para Competência",
+              "height": 44,
+              "descendants": {
+                "o4tNAc": {
+                  "content": "← Estruturas de repetição"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "id": "dbTKp",
+              "name": "Título do material",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Quais afirmações são verdadeiras?",
+              "fontFamily": "$font-display",
+              "fontSize": 27,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "S6wvH",
+              "name": "Introdução",
+              "fill": "$text-muted",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Questão 1 de 3 · selecione todas as corretas",
+              "lineHeight": 1.3,
+              "fontFamily": "$font-ui",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "we9gJ",
+              "name": "Exemplo de código",
+              "width": "fill_container",
+              "fill": "$page",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "padding": [
+                10,
+                12
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "OVeoQ",
+                  "name": "Código",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "total = 0\nfor n in [1, 2, 3]:\n    total = total + n",
+                  "lineHeight": 1.7,
+                  "fontFamily": "$font-mono",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "d2pT5",
+              "name": "Selecionada · laço",
+              "width": "fill_container",
+              "fill": "$selo-tint",
+              "cornerRadius": "$radius-control",
+              "stroke": "$selo-text",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": [
+                13,
+                12
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "R1Hwa",
+                  "name": "Selection content · loop count",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "SqiO4",
+                      "name": "Selected checkbox · loop count",
+                      "width": 18,
+                      "height": 18,
+                      "fill": "$selo-fill",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "cLJh0",
+                          "name": "Selected check · loop count",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$on-selo"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "BpnBc",
+                      "name": "Option label · loop count",
+                      "fill": "$text-primary",
+                      "content": "O laço executa 3 vezes.",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "BwASO",
+                  "name": "Selection state · loop count",
+                  "fill": "$selo-text",
+                  "content": "Selecionada",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KFh9F",
+              "name": "Selecionada · total",
+              "width": "fill_container",
+              "fill": "$selo-tint",
+              "cornerRadius": "$radius-control",
+              "stroke": "$selo-text",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "padding": [
+                13,
+                12
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oRXIQ",
+                  "name": "Selection content · final total",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Fxbjq",
+                      "name": "Selected checkbox · final total",
+                      "width": 18,
+                      "height": 18,
+                      "fill": "$selo-fill",
+                      "cornerRadius": 4,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "EJn9a",
+                          "name": "Selected check · final total",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$on-selo"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "crH6F",
+                      "name": "Option label · final total",
+                      "fill": "$text-primary",
+                      "content": "total termina com o valor 6.",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "ux7f9",
+                  "name": "Selection state · final total",
+                  "fill": "$selo-text",
+                  "content": "Selecionada",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VIFYp",
+              "name": "Não selecionada · iterações",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 12,
+              "padding": [
+                13,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "W24Ez",
+                  "name": "Unselected checkbox · two iterations",
+                  "fill": "$page",
+                  "width": 18,
+                  "height": 18,
+                  "stroke": "$control-border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner"
+                },
+                {
+                  "type": "text",
+                  "id": "cIPR9",
+                  "name": "Option label · two iterations",
+                  "fill": "$text-primary",
+                  "content": "O laço executa apenas 2 vezes.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DIltk",
+              "name": "Não selecionada · reinício",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "gap": 12,
+              "padding": [
+                13,
+                12
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "t5Snfm",
+                  "name": "Unselected checkbox · resets total",
+                  "fill": "$page",
+                  "width": 18,
+                  "height": 18,
+                  "stroke": "$control-border",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner"
+                },
+                {
+                  "type": "text",
+                  "id": "osvuB",
+                  "name": "Option label · resets total",
+                  "fill": "$text-primary",
+                  "content": "total é reiniciado a cada repetição.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "AaKct",
+              "type": "ref",
+              "ref": "ygtpy",
+              "name": "Avançar para próxima questão",
+              "width": "fill_container",
+              "justifyContent": "center",
+              "height": 44,
+              "descendants": {
+                "G5Acqe": {
+                  "content": "Próxima questão"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ErqAf",
+          "name": "Navegação inferior",
+          "width": "fill_container",
+          "height": 68,
+          "fill": "$surface",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "top": 1
+          },
+          "padding": [
+            6,
+            8
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Q42sg",
+              "name": "Objetivos",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "X1l43t",
+                  "name": "Objetivos ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "target",
+                  "library": "lucide",
+                  "fill": "$selo-text"
+                },
+                {
+                  "type": "text",
+                  "id": "yLf1M",
+                  "name": "Objetivos rótulo",
+                  "fill": "$selo-text",
+                  "content": "Objetivos",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "aOTQq",
+              "name": "Progresso",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "b9CyUP",
+                  "name": "Progresso ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "chart-no-axes-column-increasing",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "ndgLo",
+                  "name": "Progresso rótulo",
+                  "fill": "$text-muted",
+                  "content": "Progresso",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "c0LxbG",
+              "name": "Mentor",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Wun86",
+                  "name": "Mentor ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "message-circle",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "KTM3B",
+                  "name": "Mentor rótulo",
+                  "fill": "$text-muted",
+                  "content": "Mentor",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "DKDPV",
+              "name": "Conta",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "R7onGW",
+                  "name": "Conta ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "user-round",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "F0JeO",
+                  "name": "Conta rótulo",
+                  "fill": "$text-muted",
+                  "content": "Conta",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "k3bUS8",
+      "x": 21990,
+      "y": -5000,
+      "name": "SHIFU-74 · resultado completo · mobile",
+      "clip": true,
+      "width": 390,
+      "height": 844,
+      "fill": "$page",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "UB5lc",
+          "name": "Cabeçalho mobile",
+          "width": "fill_container",
+          "height": 60,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "padding": [
+            0,
+            20
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "rB0df",
+              "name": "Marca",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "RKmMo",
+                  "name": "Shifu",
+                  "fill": "$text-primary",
+                  "content": "Shifu",
+                  "fontFamily": "$font-display",
+                  "fontSize": 24,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Cgi5q",
+                  "name": "Símbolo",
+                  "fill": "$selo-text",
+                  "content": "師",
+                  "fontFamily": "$font-display",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ptJmP",
+              "name": "Abrir menu",
+              "width": 44,
+              "height": 44,
+              "fill": "$raised",
+              "cornerRadius": "$radius-control",
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "hUGT1",
+                  "name": "Menu",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "menu",
+                  "library": "lucide",
+                  "fill": "$text-primary"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Rj4bI",
+          "name": "Conteúdo do material mobile",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            12,
+            20,
+            10,
+            20
+          ],
+          "children": [
+            {
+              "id": "g1Pf09",
+              "type": "ref",
+              "ref": "CZw0W",
+              "name": "Voltar para Competência",
+              "height": 44,
+              "descendants": {
+                "o4tNAc": {
+                  "content": "← Estruturas de repetição"
+                }
+              }
+            },
+            {
+              "type": "text",
+              "id": "t0TOj",
+              "name": "Título do material",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Resultado da Atividade",
+              "fontFamily": "$font-display",
+              "fontSize": 29,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "N3prIx",
+              "name": "Introdução",
+              "fill": "$jade-text",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "70 / 100  ·  2 de 3 questões corretas",
+              "lineHeight": 1.3,
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "pzxfO",
+              "name": "Próximo passo",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                9,
+                12
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "peQrp",
+                  "name": "Destino",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "OTKJW",
+                      "name": "Rótulo da recomendação",
+                      "fill": "$text-muted",
+                      "content": "PROGRESSO DA COMPETÊNCIA",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 11,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "iK74m",
+                      "name": "Competência recomendada",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Estruturas de repetição · 68 → 69",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "abOIt",
+              "name": "Título dos detalhes",
+              "fill": "$text-muted",
+              "content": "DETALHES DAS QUESTÕES",
+              "fontFamily": "$font-ui",
+              "fontSize": 12,
+              "fontWeight": "500"
+            },
+            {
+              "type": "frame",
+              "id": "y7wn2",
+              "name": "Detalhe da questão 1",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                13,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "SJGjk",
+                  "name": "Destino",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GpDzY",
+                      "name": "Rótulo da recomendação",
+                      "fill": "$jade-text",
+                      "content": "Questão 1 · múltipla seleção · correta",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "a8kCM",
+                      "name": "Competência recomendada",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "100 / 100 · peso 40% · marcou “3 vezes” e “total 6”",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "f69jn",
+                  "name": "Explicação da questão 1",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Você identificou a repetição e o total acumulado.",
+                  "lineHeight": 1.25,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "AN56K",
+              "name": "Detalhe da questão 2",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                13,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GQXkY",
+                  "name": "Destino",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GcPDr",
+                      "name": "Rótulo da recomendação",
+                      "fill": "$selo-text",
+                      "content": "Questão 2 · escolha única · incorreta",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "F9BK24",
+                      "name": "Competência recomendada",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "0 / 100 · peso 30% · sua resposta: 3",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "sTTLl",
+                  "name": "Explicação da questão 2",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Acompanhe o total a cada repetição.",
+                  "lineHeight": 1.25,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PKokK",
+              "name": "Detalhe da questão 3",
+              "width": "fill_container",
+              "fill": "$surface-alt",
+              "cornerRadius": "$radius-control",
+              "stroke": "$divider",
+              "strokeWidth": 1,
+              "strokeAlignment": "inner",
+              "layout": "vertical",
+              "gap": 6,
+              "padding": [
+                13,
+                14
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GPSV7",
+                  "name": "Destino",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "GLvMi",
+                      "name": "Rótulo da recomendação",
+                      "fill": "$jade-text",
+                      "content": "Questão 3 · escolha única · correta",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vA3vG",
+                      "name": "Competência recomendada",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "100 / 100 · peso 30% · sua resposta: 6",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "hHXK6",
+                  "name": "Explicação da questão 3",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "A soma de cada elemento chega ao total esperado.",
+                  "lineHeight": 1.25,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "u9Gqz",
+              "type": "ref",
+              "ref": "ygtpy",
+              "name": "Próxima atividade",
+              "height": 44,
+              "width": "fill_container",
+              "justifyContent": "center",
+              "descendants": {
+                "G5Acqe": {
+                  "content": "Próxima atividade"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "LQ8AD",
+          "name": "Navegação inferior",
+          "width": "fill_container",
+          "height": 68,
+          "fill": "$surface",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "top": 1
+          },
+          "padding": [
+            6,
+            8
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "wzxW1",
+              "name": "Objetivos",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "iZBoa",
+                  "name": "Objetivos ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "target",
+                  "library": "lucide",
+                  "fill": "$selo-text"
+                },
+                {
+                  "type": "text",
+                  "id": "tkp3D",
+                  "name": "Objetivos rótulo",
+                  "fill": "$selo-text",
+                  "content": "Objetivos",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "600"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lDHKg",
+              "name": "Progresso",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "Y7b31",
+                  "name": "Progresso ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "chart-no-axes-column-increasing",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "DOtLa",
+                  "name": "Progresso rótulo",
+                  "fill": "$text-muted",
+                  "content": "Progresso",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "vQNHs",
+              "name": "Mentor",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "j2iG9",
+                  "name": "Mentor ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "message-circle",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "qtogj",
+                  "name": "Mentor rótulo",
+                  "fill": "$text-muted",
+                  "content": "Mentor",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "b5Yfc",
+              "name": "Conta",
+              "width": "fill_container",
+              "height": 56,
+              "layout": "vertical",
+              "gap": 3,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "lcS6w",
+                  "name": "Conta ícone",
+                  "width": 18,
+                  "height": 18,
+                  "icon": "user-round",
+                  "library": "lucide",
+                  "fill": "$text-muted"
+                },
+                {
+                  "type": "text",
+                  "id": "h6udn7",
+                  "name": "Conta rótulo",
+                  "fill": "$text-muted",
+                  "content": "Conta",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 11,
+                  "fontWeight": "500"
                 }
               ]
             }
