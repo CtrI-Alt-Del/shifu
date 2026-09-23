@@ -1,6 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 
 import { DesktopHeader } from './desktop-header'
+import { MobileBottomNavigation } from './mobile-bottom-navigation'
 import { MobileHeader } from './mobile-header'
 import { useAppLayout } from './use-app-layout'
 
@@ -22,9 +23,10 @@ export const AppLayout = ({ accountMenu, children }: AppLayoutProps) => {
         <MobileHeader items={navigationItems} pathname={pathname} />
       </header>
 
-      <main className='relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-1 flex-col px-5 py-8 sm:px-8 lg:px-10'>
+      <main className='relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-7xl flex-1 flex-col px-5 py-8 pb-24 sm:px-8 lg:px-10 lg:pb-8'>
         {children}
       </main>
+      <MobileBottomNavigation items={navigationItems} pathname={pathname} />
     </div>
   )
 }

@@ -1,8 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
-
-import { useStartPlanningAction } from './use-start-planning-action'
+import { useStartPlanningAction } from '@/ui/intelligence/hooks/use-start-planning-action'
 
 const EMPTY_INTENT_VALIDATION_MESSAGE =
   'Descreva o que você quer aprender antes de continuar.'

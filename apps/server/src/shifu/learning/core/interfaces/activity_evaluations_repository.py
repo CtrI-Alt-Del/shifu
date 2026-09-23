@@ -29,6 +29,13 @@ class ActivityEvaluationsRepository(Protocol):
         """Return completed and unresolved evaluations in attempt order."""
         ...
 
+    def find_many_by_attempt_ids(
+        self,
+        attempt_ids: tuple[str, ...],
+    ) -> list[ActivityEvaluation]:
+        """Return evaluations for the supplied attempts without business ordering."""
+        ...
+
     def add(self, evaluation: ActivityEvaluation) -> None: ...
 
     def add_many(self, evaluations: list[ActivityEvaluation]) -> None: ...

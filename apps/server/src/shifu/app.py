@@ -16,6 +16,12 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
+from shifu.curriculum.database.sqlalchemy import (
+    SqlalchemyCurriculumDatabase,
+)
+from shifu.curriculum.providers.curriculum_content_provider import (
+    DatabaseCurriculumContentProvider,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
@@ -53,6 +59,20 @@ class FastAPIApp:
             engine=database_engine,
             id_provider=id_provider,
         )
+        curriculum_database = SqlalchemyCurriculumDatabase(engine=database_engine)
+        learning_database = SqlalchemyLearningDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
+        curriculum_content_provider = DatabaseCurriculumContentProvider(
+            curriculum_database
+        )
+        authentication_provider = JwksJwtAuthenticationProvider(
+            identity_database=identity_database,
+            jwks_url=ENVIRONMENT.auth_jwks_url,
+            issuer=ENVIRONMENT.auth_issuer,
+            audience=ENVIRONMENT.auth_audience,
+        )
 
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -63,7 +83,7 @@ class FastAPIApp:
                 await cache_provider.close()
                 database_engine.dispose()
                 raise ServiceUnavailableError(
-                    message='Redis is unavailable; the server cannot start.'
+                    message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
 
             app.state.cache_provider = cache_provider
@@ -88,20 +108,13 @@ class FastAPIApp:
         )
         AppErrorHandler.register(app)
         app.state.identity_database = identity_database
-        app.state.authentication_provider = JwksJwtAuthenticationProvider(
-            identity_database=identity_database,
-            jwks_url=ENVIRONMENT.auth_jwks_url,
-            issuer=ENVIRONMENT.auth_issuer,
-            audience=ENVIRONMENT.auth_audience,
-        )
+        app.state.authentication_provider = authentication_provider
         app.state.identifier_provider = id_provider
-        app.state.learning_database = SqlalchemyLearningDatabase(
-            engine=database_engine,
-            id_provider=id_provider,
-        )
+        app.state.learning_database = learning_database
         app.state.curriculum_database = SqlalchemyCurriculumDatabase(
             engine=database_engine,
         )
+        app.state.curriculum_content_provider = curriculum_content_provider
         app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
             engine=database_engine,
             id_provider=id_provider,

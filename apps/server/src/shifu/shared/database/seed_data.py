@@ -27,6 +27,7 @@ from shifu.curriculum.core.domain.structures import (
     MaterialSequenceItem,
     SkillFoundation,
 )
+from shifu.curriculum.core.domain.enums import ActivityDifficulty, MaterialType
 from shifu.identity.core.domain.entities import Account, AccountActionToken
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
@@ -61,11 +62,17 @@ SEED_SKILL_PYTHON_ID = '01SHF000000000000000000003'
 SEED_COMPETENCY_VARIABLES_ID = '01SHF000000000000000000004'
 SEED_COMPETENCY_CONDITIONS_ID = '01SHF000000000000000000005'
 SEED_COMPETENCY_FUNCTIONS_ID = '01SHF000000000000000000006'
+SEED_COMPETENCY_REPETITION_ID = '01SHF000000000000000000020'
 SEED_MATERIAL_LOGIC_ID = '01SHF000000000000000000007'
 SEED_MATERIAL_PYTHON_ID = '01SHF000000000000000000008'
+SEED_MATERIAL_REPETITION_INTRO_ID = '01SHF000000000000000000021'
+SEED_MATERIAL_REPETITION_FOR_ID = '01SHF000000000000000000022'
 SEED_ACTIVITY_VARIABLES_ID = '01SHF000000000000000000009'
 SEED_ACTIVITY_CONDITIONS_ID = '01SHF000000000000000000010'
 SEED_ACTIVITY_FUNCTIONS_ID = '01SHF000000000000000000011'
+SEED_ACTIVITY_REPETITION_EASY_ID = '01SHF000000000000000000023'
+SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
+SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -74,6 +81,12 @@ SEED_ATTEMPT_ID = '01SHF000000000000000000016'
 SEED_EVALUATION_ID = '01SHF000000000000000000017'
 SEED_COMMUNICATION_ID = '01SHF000000000000000000018'
 SEED_DELIVERY_ATTEMPT_ID = '01SHF000000000000000000019'
+SEED_REPETITION_PROGRESS_ID = '01SHF000000000000000000026'
+SEED_REPETITION_ATTEMPT_ID = '01SHF000000000000000000027'
+SEED_REPETITION_EVALUATION_ID = '01SHF000000000000000000028'
+SEED_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000029'
+SEED_CONDITIONS_ATTEMPT_ID = '01SHF000000000000000000030'
+SEED_CONDITIONS_EVALUATION_ID = '01SHF000000000000000000031'
 
 SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 SEED_ACCOUNT_PASSWORD: str = 'ShifuSeed123!'
@@ -104,6 +117,7 @@ def build_development_seed() -> DevelopmentSeed:
         display_name='Pessoa Estudante',
         email='student.seed@shifu.com',
         password_hash=Argon2idHashProvider().hash(SEED_ACCOUNT_PASSWORD),
+        access_version=1,
         time_zone='America/Sao_Paulo',
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
@@ -141,6 +155,13 @@ def build_development_seed() -> DevelopmentSeed:
             skill_id=SEED_SKILL_LOGIC_ID,
             name='Condições',
             description='Escolher caminhos diferentes durante a execução.',
+            position=3,
+        ),
+        CompetencyFaker.fake(
+            id=SEED_COMPETENCY_REPETITION_ID,
+            skill_id=SEED_SKILL_LOGIC_ID,
+            name='Estruturas de repetição',
+            description='Repetir instruções com controle e previsibilidade.',
             position=2,
         ),
         CompetencyFaker.fake(
@@ -164,6 +185,20 @@ def build_development_seed() -> DevelopmentSeed:
             title='Primeiros passos com Python',
             content='Python permite expressar soluções com uma sintaxe direta e legível.',
         ),
+        MaterialFaker.fake(
+            id=SEED_MATERIAL_REPETITION_INTRO_ID,
+            skill_id=SEED_SKILL_LOGIC_ID,
+            title='Por que repetir instruções?',
+            content='Estruturas de repetição automatizam passos que seguem um padrão.',
+            material_type=MaterialType.THEORY,
+        ),
+        MaterialFaker.fake(
+            id=SEED_MATERIAL_REPETITION_FOR_ID,
+            skill_id=SEED_SKILL_LOGIC_ID,
+            title='Repetição com for',
+            content='O laço for percorre uma sequência de valores de forma previsível.',
+            material_type=MaterialType.REFERENCE,
+        ),
     )
     activities = (
         ActivityFaker.fake(
@@ -171,18 +206,41 @@ def build_development_seed() -> DevelopmentSeed:
             competency_id=SEED_COMPETENCY_VARIABLES_ID,
             title='Nomeie os valores do algoritmo',
             objective='Reconhecer o papel de uma variável em um algoritmo.',
+            difficulty=ActivityDifficulty.HARD,
         ),
         ActivityFaker.fake(
             id=SEED_ACTIVITY_CONDITIONS_ID,
             competency_id=SEED_COMPETENCY_CONDITIONS_ID,
             title='Escolha o caminho correto',
             objective='Identificar quando uma condição deve ser aplicada.',
+            difficulty=ActivityDifficulty.HARD,
         ),
         ActivityFaker.fake(
             id=SEED_ACTIVITY_FUNCTIONS_ID,
             competency_id=SEED_COMPETENCY_FUNCTIONS_ID,
             title='Extraia uma função',
             objective='Reconhecer uma oportunidade de reutilizar lógica em Python.',
+        ),
+        ActivityFaker.fake(
+            id=SEED_ACTIVITY_REPETITION_EASY_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            title='Repita os passos básicos',
+            objective='Identificar quando uma repetição simples resolve um problema.',
+            difficulty=ActivityDifficulty.EASY,
+        ),
+        ActivityFaker.fake(
+            id=SEED_ACTIVITY_REPETITION_MEDIUM_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            title='Controle a condição de parada',
+            objective='Escolher uma condição de parada para um laço.',
+            difficulty=ActivityDifficulty.MEDIUM,
+        ),
+        ActivityFaker.fake(
+            id=SEED_ACTIVITY_REPETITION_HARD_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            title='Combine estruturas de repetição',
+            objective='Resolver um problema usando estruturas de repetição.',
+            difficulty=ActivityDifficulty.HARD,
         ),
     )
     curriculum_sequences = (
@@ -200,6 +258,31 @@ def build_development_seed() -> DevelopmentSeed:
             items=(
                 ActivitySequenceItem(
                     position=1, activity_id=SEED_ACTIVITY_CONDITIONS_ID
+                ),
+            ),
+        ),
+        CurriculumSequence(
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            items=(
+                MaterialSequenceItem(
+                    position=1,
+                    material_id=SEED_MATERIAL_REPETITION_INTRO_ID,
+                ),
+                ActivitySequenceItem(
+                    position=2,
+                    activity_id=SEED_ACTIVITY_REPETITION_EASY_ID,
+                ),
+                MaterialSequenceItem(
+                    position=3,
+                    material_id=SEED_MATERIAL_REPETITION_FOR_ID,
+                ),
+                ActivitySequenceItem(
+                    position=4,
+                    activity_id=SEED_ACTIVITY_REPETITION_MEDIUM_ID,
+                ),
+                ActivitySequenceItem(
+                    position=5,
+                    activity_id=SEED_ACTIVITY_REPETITION_HARD_ID,
                 ),
             ),
         ),
@@ -249,7 +332,27 @@ def build_development_seed() -> DevelopmentSeed:
             id=SEED_PROGRESS_ID,
             skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
             competency_id=SEED_COMPETENCY_VARIABLES_ID,
+            status=CompetencyProgressStatus.MASTERED,
+            hard_activity_score=Decimal('100'),
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+        ),
+        CompetencyProgressFaker.fake(
+            id=SEED_REPETITION_PROGRESS_ID,
+            skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
             status=CompetencyProgressStatus.DEVELOPING,
+            current_progress=Decimal('55'),
+            initial_progress=Decimal('35'),
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+        ),
+        CompetencyProgressFaker.fake(
+            id=SEED_CONDITIONS_PROGRESS_ID,
+            skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+            competency_id=SEED_COMPETENCY_CONDITIONS_ID,
+            status=CompetencyProgressStatus.MASTERED,
+            hard_activity_score=Decimal('100'),
             created_at=SEED_CREATED_AT,
             updated_at=SEED_CREATED_AT,
         ),
@@ -263,11 +366,45 @@ def build_development_seed() -> DevelopmentSeed:
             kind=ActivityAttemptKind.LEARNING,
             submitted_at=SEED_CREATED_AT,
         ),
+        ActivityAttemptFaker.fake(
+            id=SEED_REPETITION_ATTEMPT_ID,
+            skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            activity_id=SEED_ACTIVITY_REPETITION_EASY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            submitted_at=SEED_CREATED_AT,
+        ),
+        ActivityAttemptFaker.fake(
+            id=SEED_CONDITIONS_ATTEMPT_ID,
+            skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+            competency_id=SEED_COMPETENCY_CONDITIONS_ID,
+            activity_id=SEED_ACTIVITY_CONDITIONS_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            submitted_at=SEED_CREATED_AT,
+        ),
     )
     activity_evaluations = (
         ActivityEvaluationFaker.fake(
             id=SEED_EVALUATION_ID,
             attempt_id=SEED_ATTEMPT_ID,
+            status=ActivityEvaluationStatus.COMPLETED,
+            started_at=SEED_CREATED_AT,
+            completed_at=SEED_CREATED_AT,
+            effect_applied_at=SEED_CREATED_AT,
+            score=Decimal('100'),
+        ),
+        ActivityEvaluationFaker.fake(
+            id=SEED_REPETITION_EVALUATION_ID,
+            attempt_id=SEED_REPETITION_ATTEMPT_ID,
+            status=ActivityEvaluationStatus.COMPLETED,
+            started_at=SEED_CREATED_AT,
+            completed_at=SEED_CREATED_AT,
+            effect_applied_at=SEED_CREATED_AT,
+            score=Decimal('65'),
+        ),
+        ActivityEvaluationFaker.fake(
+            id=SEED_CONDITIONS_EVALUATION_ID,
+            attempt_id=SEED_CONDITIONS_ATTEMPT_ID,
             status=ActivityEvaluationStatus.COMPLETED,
             started_at=SEED_CREATED_AT,
             completed_at=SEED_CREATED_AT,

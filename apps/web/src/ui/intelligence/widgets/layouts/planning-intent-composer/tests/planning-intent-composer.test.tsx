@@ -2,18 +2,18 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
+import { useStartPlanningAction } from '@/ui/intelligence/hooks/use-start-planning-action'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
 import { PlanningIntentComposer } from '..'
-import { useStartPlanningAction } from '../use-start-planning-action'
 
 // `usePlanningIntentComposer` owns the validation/submission behavior under
 // test (CA-07, CA-08); it is exercised for real here, mocking only the
 // colocated single-consumer action hook and the shared navigation wrapper
 // below it, per widget-testing-rules ("mock a domain query/action hook
 // rather than a generic useQuery result").
-vi.mock('../use-start-planning-action', () => ({
+vi.mock('@/ui/intelligence/hooks/use-start-planning-action', () => ({
   useStartPlanningAction: vi.fn(),
 }))
 

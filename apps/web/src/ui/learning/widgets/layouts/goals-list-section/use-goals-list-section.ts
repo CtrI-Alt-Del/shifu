@@ -1,4 +1,4 @@
-import { useHomeGoalsQuery } from './use-home-goals-query'
+import { useHomeGoalsQuery } from '@/ui/intelligence/hooks/use-home-goals-query'
 
 export type GoalsListSectionState = 'empty' | 'error' | 'loading' | 'populated'
 

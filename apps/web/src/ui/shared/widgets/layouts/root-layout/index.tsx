@@ -1,5 +1,5 @@
-import { HeadContent, Scripts } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { HeadContent, Scripts } from '@tanstack/react-router'
 import { useState, type PropsWithChildren } from 'react'
 
 import { RestContextProvider } from '@/ui/shared/contexts/rest-context'
