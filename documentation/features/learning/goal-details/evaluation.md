@@ -49,7 +49,7 @@ reconciled without expanding this read-only Goal-details slice.
 | CI | Command/sensor | Coverage | Result | Evidence |
 | --- | --- | --- | --- | --- |
 | CI-F | `cd apps/server && uv run pytest tests/learning/core/use_cases/test_get_goal_detail_use_case.py -q` | CA-01–04/07 | passed: 6 tests | EV-01 |
-| CI-S | `cd apps/server && uv run pytest tests/learning/server/controllers/test_get_goal_detail_controller.py -q` | CA-01–04/07 | blocked: Docker daemon unavailable | EV-04 |
+| CI-S | `cd apps/server && uv run pytest tests/learning/server/controllers/test_get_goal_detail_controller.py -q` | CA-01–04/07 | passed: 4 tests | EV-04 |
 | CI-W | `pnpm --filter web check:lint`, `check:types`, focused Vitest | CA-02–10 | passed: lint/types; 8 focused tests | EV-02 |
 | CI-D | route generation, architecture, build and integrated application checks | all applicable | pending | EV-03 |
 
@@ -68,8 +68,8 @@ reconciled without expanding this read-only Goal-details slice.
 | Finding | Classification | Source | Affected evidence | Status and resolution |
 | --- | --- | --- | --- | --- |
 | ACH-001 | authority reconciliation | PRD versions 16/9 | Spec revision 1 evidence | resolved by Spec revision 2 |
-| ACH-002 | environment | Docker daemon unavailable | CI-S and full-stack/runtime evidence | open; no Testcontainers, API or browser evidence can be accepted |
-| ACH-003 | dependency | SHIFU-65 add-skill route absent locally and on its remote branch | CA-08 / VM-04 | open; no cast, placeholder or substitute link was created |
+| ACH-002 | environment | Docker daemon unavailable | CI-S and full-stack/runtime evidence | resolved: Docker Compose services were running; controller suite passed 4/4 |
+| ACH-003 | dependency | SHIFU-65 add-skill route absent locally and on its remote branch | CA-08 / VM-04 | resolved under explicit user authorization: created the protected `/learning/goals/$goalId/skills/add` route boundary in SHIFU-64; it does not implement SHIFU-65's mutation flow |
 
 # Evidence log
 
@@ -87,3 +87,12 @@ reconciled without expanding this read-only Goal-details slice.
 - `EV-005` — 2026-09-24: web lint and strict typecheck passed; the focused Goal page,
   hook and graph Vitest suites passed 8/8. Playwright launched Vite but did not return
   a result summary, so browser evidence remains pending.
+- `EV-006` — 2026-09-24: after Docker Desktop was made available, the Goal-detail
+  controller suite passed 4/4 against its disposable PostgreSQL container. Server Ruff
+  and BasedPyright, plus web Biome and strict TypeScript, were rerun for final code
+  validation.
+- `EV-007` — 2026-09-24: `origin/feat/shifu-65` was inspected and contains no
+  `/learning/goals/$goalId/skills/add` route. With explicit user authorization, the
+  route boundary was created in SHIFU-64 and linked from the Goal detail header and
+  empty state. The route deliberately leaves SHIFU-65's selection/mutation behavior
+  out of this ticket.
