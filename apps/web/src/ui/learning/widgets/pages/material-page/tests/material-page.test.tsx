@@ -109,7 +109,7 @@ describe('MaterialPage', () => {
     render(<MaterialPage {...pageProps} />)
 
     expect(
-      screen.getByRole('status', { name: 'Carregando o material de apoio...' }),
+      screen.getByRole('status', { name: 'Carregando Material de apoio...' }),
     ).toBeVisible()
   })
 
@@ -272,9 +272,9 @@ describe('MaterialPage', () => {
     render(<MaterialPage {...pageProps} />)
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Não foi possível abrir a Atividade agora.',
+      'Não foi possível abrir a atividade recomendada.',
     )
     expect(screen.getByText('O laço percorre uma sequência.')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Praticar' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Tentar abrir novamente' })).toBeEnabled()
   })
 })

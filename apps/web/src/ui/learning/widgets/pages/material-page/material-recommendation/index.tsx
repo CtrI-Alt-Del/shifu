@@ -31,6 +31,11 @@ export const MaterialRecommendation = ({
   const metadata = `${RECOMMENDATION_LABELS[recommendation.type]} · ${
     DIFFICULTY_LABELS[recommendation.difficulty]
   }`
+  const actionLabel = isPending
+    ? 'Abrindo...'
+    : hasFailure
+      ? 'Tentar abrir novamente'
+      : 'Praticar'
 
   return (
     <section
@@ -53,7 +58,7 @@ export const MaterialRecommendation = ({
           </div>
         </div>
         <Button className='shrink-0' disabled={isPending} onClick={onOpen} type='button'>
-          {isPending ? 'Abrindo...' : 'Praticar'}
+          {actionLabel}
         </Button>
       </div>
 
@@ -63,10 +68,7 @@ export const MaterialRecommendation = ({
           role='alert'
         >
           <Icon className='mt-0.5 shrink-0' name='circle-alert' size={17} />
-          <span>
-            Não foi possível abrir a Atividade agora. O material continua aqui — tente
-            novamente.
-          </span>
+          <span>Não foi possível abrir a atividade recomendada. Tente novamente.</span>
         </p>
       ) : null}
     </section>

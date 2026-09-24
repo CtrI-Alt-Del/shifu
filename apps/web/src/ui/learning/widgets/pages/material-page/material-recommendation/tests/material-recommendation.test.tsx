@@ -76,9 +76,9 @@ describe('MaterialRecommendation', () => {
     renderWidget({ hasFailure: true })
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Não foi possível abrir a Atividade agora. O material continua aqui — tente novamente.',
+      'Não foi possível abrir a atividade recomendada. Tente novamente.',
     )
-    expect(screen.getByRole('button', { name: 'Praticar' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Tentar abrir novamente' })).toBeEnabled()
   })
 
   it('shows no failure message on the normal state', () => {

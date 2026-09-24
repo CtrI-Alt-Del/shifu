@@ -28,7 +28,7 @@ export const MaterialFeedback = (props: MaterialFeedbackProps) => {
     return (
       <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
         <output
-          aria-label='Carregando o material de apoio...'
+          aria-label='Carregando Material de apoio...'
           aria-live='polite'
           className='flex w-full max-w-[68ch] flex-col gap-5 rounded-2xl border border-border bg-card p-8 sm:p-10'
         >
@@ -48,7 +48,7 @@ export const MaterialFeedback = (props: MaterialFeedbackProps) => {
             aria-hidden='true'
             className='h-24 w-full animate-pulse rounded-md bg-muted'
           />
-          <p>Carregando o material de apoio...</p>
+          <p>Carregando Material de apoio...</p>
         </output>
       </div>
     )
@@ -137,7 +137,7 @@ export const MaterialFeedback = (props: MaterialFeedbackProps) => {
           Não foi possível carregar este Material
         </h1>
         <p className='mt-4 max-w-xl text-muted-foreground'>
-          Seu progresso continua salvo. Tente carregar a página novamente.
+          O conteúdo não foi alterado. Tente carregar a página novamente.
         </p>
         <Button className='mt-6' onClick={props.onRetry} type='button'>
           Tentar novamente
