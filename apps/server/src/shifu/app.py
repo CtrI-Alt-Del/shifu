@@ -162,6 +162,7 @@ class FastAPIApp:
         app.add_middleware(
             RateLimitMiddleware,
             trusted_proxy_ips=settings.trusted_proxy_ips,
+            bff_shared_secret=ENVIRONMENT.bff_shared_secret,
         )
         return app
 
