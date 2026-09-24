@@ -1,6 +1,7 @@
 import { Button } from '@/ui/shadcn/button'
 import { Label } from '@/ui/shadcn/label'
 import { Textarea } from '@/ui/shadcn/textarea'
+import { BorderGlow } from '@/ui/shared/widgets/components/border-glow'
 import { Anchor } from '@/ui/shared/widgets/components/anchor'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
@@ -18,11 +19,11 @@ export const PlanningIntentComposer = () => {
   } = usePlanningIntentComposer()
 
   return (
-    <section className='rounded-3xl border border-border bg-card p-7 sm:p-9'>
-      <h1 className='max-w-2xl font-serif text-4xl leading-tight tracking-tight sm:text-5xl'>
+    <section>
+      <h1 className='max-w-2xl font-serif text-4xl leading-tight tracking-tight'>
         O que você quer aprender?
       </h1>
-      <p className='mt-4 max-w-xl leading-7 text-muted-foreground'>
+      <p className='mt-1.5 max-w-3xl leading-relaxed text-foreground/80'>
         Descreva com suas palavras. O Shifu monta uma proposta com Habilidades reais e
         você confirma antes de criar.
       </p>
@@ -31,17 +32,23 @@ export const PlanningIntentComposer = () => {
         <Label className='sr-only' htmlFor='planning-intent'>
           O que você quer aprender?
         </Label>
-        <Textarea
-          aria-describedby={validationMessage ? 'planning-intent-validation' : undefined}
-          aria-invalid={Boolean(validationMessage)}
-          disabled={isPending}
-          id='planning-intent'
-          onChange={(event) => handleIntentChange(event.target.value)}
-          placeholder='Ex.: quero conseguir automatizar tarefas repetitivas com Python'
-          ref={textareaRef}
-          rows={4}
-          value={intent}
-        />
+        <BorderGlow className='planning-intent-field'>
+          <Textarea
+            aria-describedby={
+              validationMessage ? 'planning-intent-validation' : undefined
+            }
+            aria-invalid={Boolean(validationMessage)}
+            data-focus-ring='delegated'
+            disabled={isPending}
+            id='planning-intent'
+            className='planning-intent-field__input px-4 py-3.5 text-base'
+            onChange={(event) => handleIntentChange(event.target.value)}
+            placeholder='Ex.: quero conseguir automatizar tarefas repetitivas com Python'
+            ref={textareaRef}
+            rows={4}
+            value={intent}
+          />
+        </BorderGlow>
 
         {validationMessage && (
           <p
@@ -64,9 +71,9 @@ export const PlanningIntentComposer = () => {
           </p>
         )}
 
-        <div className='mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between'>
+        <div className='mt-3 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between'>
           <Anchor
-            className='inline-flex min-h-11 items-center justify-center rounded-md px-4 font-semibold text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground'
+            className='inline-flex min-h-11 items-center justify-center rounded-md px-3 font-medium text-foreground/80 transition-colors hover:bg-white/5 hover:text-foreground'
             route='learningGoalsNew'
           >
             Criar manualmente

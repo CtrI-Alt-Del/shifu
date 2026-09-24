@@ -17,7 +17,7 @@ const guidance = [
 
 export const IntelligencePage = () => {
   return (
-    <div className='space-y-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
         description='Apoio para transformar intenção em caminho, preservando suas escolhas e seu ritmo.'
         eyebrow='Módulo inteligência'

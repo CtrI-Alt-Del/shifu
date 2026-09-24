@@ -87,9 +87,28 @@ test.describe('Attempt index route', () => {
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
     ).toBeVisible()
+    const indicatorDots = authenticatedPage
+      .getByRole('heading', { name: 'Avaliação em andamento' })
+      .locator('[aria-hidden="true"] span')
+    await expect(indicatorDots).toHaveCount(3)
+    await expect(indicatorDots.first()).toHaveCSS('animation-name', 'pulse')
     await expect(authenticatedPage.getByRole('status')).toContainText(
       'Estamos avaliando suas respostas.',
     )
+
+    await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
+    ).toBeVisible()
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
+    ).toBeVisible()
+    await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+    await expect(indicatorDots.first()).toHaveCSS('animation-name', 'none')
+
     await authenticatedPage.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     )
@@ -159,7 +178,7 @@ test.describe('Attempt index route', () => {
     expect(attemptReads).toBeGreaterThanOrEqual(2)
   })
 
-  test('renders all completed details safely and returns to the Activity URL', async ({
+  test('renders all completed details without a repeat shortcut', async ({
     authenticatedPage,
   }) => {
     await authenticatedPage.route('**/_serverFn/**', async (route) => {
@@ -190,7 +209,9 @@ test.describe('Attempt index route', () => {
       authenticatedPage.getByLabel('Nota da Atividade 100 de 100'),
     ).toBeVisible()
     await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
-    await authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }).click()
-    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.activityId}/?$`))
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),
+    ).toHaveCount(0)
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
   })
 })

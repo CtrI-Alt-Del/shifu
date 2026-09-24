@@ -1,6 +1,6 @@
 ---
 title: Learning Activity choice questions implementation plan
-status: completed
+status: in_progress
 spec: ./spec.md
 spec_revision: 3
 evaluation: ./evaluation.md
@@ -15,14 +15,15 @@ last_updated_at: 2026-09-23
 - **Why Plan-backed:** this slice crosses Curriculum and Learning, server and web,
   a PostgreSQL migration, outbox/Inngest, four HTTP operations, responsive browser
   states, and seven manual scenarios.
-- **Plan:** `completed`; F1, F2 and F3 are complete under Spec revision 3.
-- **Next action:** local implementation evidence is concluded; commit/PR publication
-  remains a separate authorized handoff.
-- **Active blockers:** none. ACH-01–ACH-09 are resolved, current evidence is accepted,
-  and the single Implementation Reviewer pass is complete.
+- **Plan:** `in_progress`; F2-T2 is complete again; F3-T1 remains open for ACH-10 visual
+  recapture.
+- **Next action:** refresh the remaining exact visual states currently marked stale in
+  Evaluation before local feature conclusion.
+- **Active blockers:** none. ACH-01–ACH-12 are resolved. Remaining Activity/result visual
+  rows are explicitly marked stale until their matching states are refreshed.
 - **Builders:** Builder Server — F2-T1 and Builder Web — F2-T2 completed their scoped
-  assignments under Spec revision 3; ACH-06/07/08/09 are verified.
-  Orchestrator completed visual/runtime evidence and final integrated validation.
+  assignments under Spec revision 3; ACH-06/07/08/09 are verified. Builder Web completed
+  ACH-10 with focused Page checks and typecheck; Orchestrator recorded EV-34.
 - **Shared ownership:** Orchestrator owns SDD artifacts, generated route metadata,
   package/lockfile changes if any, cross-Builder integration, Evaluation evidence,
   final validation, and the single Implementation Reviewer checkpoint.
@@ -46,8 +47,44 @@ last_updated_at: 2026-09-23
 | 1 | Builder Server | F1 | Curriculum choice projection, Learning domain/use cases, persistence mapping and migration support the Spec contract | — | Builder Web F1 | `complete` | Focused/full use-case tests, lint/type/architecture checks and disposable migration lifecycle passed; EV-12–EV-13 |
 | 1 | Builder Web | F1 | Safe question/result DTOs, shared choice controls, and question/result widgets cover the approved visual hierarchy | — | Builder Server F1 | `complete` | Orchestrator verified six focused suites (18 tests), typecheck and scoped Biome after the retry-guard correction; component states map to CA-02, CA-05–CA-08 and CA-10 |
 | 2 | Builder Server | F2 | Four authenticated Learning routes and registered evaluation job persist and expose the required behavior | Builder Server F1 | Builder Web F2 | `complete` | HTTP/PostgreSQL and real Inngest job boundaries pass; `activities.rest` covers all four routes |
-| 2 | Builder Web | F2 | Web service, nested Activity/attempt routes and dedicated route/Page suites exercise the fixed HTTP contract | Builder Web F1; Server F1 transport contract; Spec rev3 ready | Builder Server F2 | `complete` | Three per-route suites and two module-owned Page suites assert their boundaries; Orchestrator generated/reviewed route metadata before Web gates |
-| 3 | Orchestrator | F3 | Integrated candidate has current evidence, one independent review, resolved findings and a complete handoff | Both F1 and F2 tasks | — | `complete` | Spec revision 3 is reconciled; all gates, VM scenarios, visuals, REST parity and the single Implementation Reviewer checkpoint are complete; EV-32 records ACH-09 correction validation |
+| 2 | Builder Web | F2 | Web service, nested Activity/attempt routes and dedicated route/Page suites exercise the fixed HTTP contract | Builder Web F1; Server F1 transport contract; Spec rev3 ready | Builder Server F2 | `complete` | Original route/Page suites passed; ACH-10 outer-container correction integrated and focused Page suites/typecheck pass in EV-34 |
+| 3 | Orchestrator | F3 | Integrated candidate has current evidence, one independent review, resolved findings and a complete handoff | Both F1 and F2 tasks | — | `in_progress` | Spec revision 3 is reconciled; affected VM/VIS captures are refreshed, Web gates pass, and final evidence is current |
+
+### Scoped Builder Fix — ACH-11 outbox notification wake-up
+
+- **Status/owner:** `complete` — Orchestrator; in-contract infrastructure fix.
+- **Spec:** revision 3; the durable outbox contract already requires prompt notification
+  wake-up plus bounded polling recovery.
+- **Finding:** the dedicated PostgreSQL listener executes `LISTEN` without committing
+  the command, so PostgreSQL does not activate the subscription until the relay's
+  30-second idle sweep.
+- **Allowed paths:** `apps/server/src/shifu/shared/database/sqlalchemy/repositories/listeners/events_repository_listener.py`;
+  `apps/server/tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py`.
+- **Prohibited paths:** Web, unrelated server paths, migrations, shared local data,
+  generated artifacts, external systems, and unrelated SDD/design files.
+- **Traceability:** RF-03, RF-09; CA-03, CA-05, CA-09; CI-12 and durable outbox
+  delivery behavior.
+- **Exit:** commit the LISTEN registration and add a real Inngest/PostgreSQL regression
+  that requires an outbox-triggered evaluation to arrive well before the 30-second
+  fallback; run the focused disposable job test and Server lint/type checks. All exits
+  passed in EV-35.
+
+### Scoped UI Fix — ACH-12 pending evaluation motion
+
+- **Status/owner:** `complete` — Orchestrator; visual-only refinement.
+- **Spec:** revision 3; preserves the existing pending state and approved status copy.
+- **Focal motion:** three muted dots pulse beside “Avaliação em andamento” to show
+  that evaluation is still active. The dots remain static when reduced motion is on.
+- **Allowed paths:** `apps/web/src/ui/learning/widgets/pages/choice-result-page/index.tsx`;
+  `apps/web/src/ui/learning/widgets/pages/choice-result-page/tests/choice-result-page.test.tsx`;
+  `apps/web/tests/routes/learning/activities.$activityId.attempts.$attemptId.index.test.tsx`.
+- **Prohibited paths:** Server, unrelated Web paths, generated route metadata, shared
+  styles, external systems, and unrelated SDD/design files.
+- **Traceability:** RF-06; CA-05, CA-10, CA-12; pending result Page state.
+- **Exit:** focused Page and attempt-route suites and Web typecheck pass; inspect the
+  pending state at desktop and mobile with standard and reduced motion in Playwright,
+  then run the Impeccable motion detector. Screenshots and results are recorded in
+  EV-36.
 
 ## F1 — Domain, persistence and widget foundations
 
@@ -161,7 +198,7 @@ last_updated_at: 2026-09-23
 
 ### F2-T2 — Connect the web contract to nested Activity and attempt routes
 
-- **Status/owner:** `complete` — Builder Web; ACH-09 correction verified in EV-32
+- **Status/owner:** `complete` — Builder Web; ACH-10 correction verified in EV-34
 - **Depends/parallel:** F1-T2 complete; parallel with F2-T1 because Spec fixes methods,
   paths, DTOs, errors and status codes. Generated route metadata is Orchestrator-owned.
 - **Paths:**
@@ -301,6 +338,23 @@ last_updated_at: 2026-09-23
   navigation and login redirection. Existing route suites pass; Orchestrator reran Web
   lint, architecture, types, unit, integration, build and `git diff --check` (EV-32).
 
+#### Scoped Builder Fix — ACH-10 outer page container width
+
+- **Status/owner:** `complete` — Builder Web (`/root/learning_activity_web_builder`)
+- **Spec:** revision 3; visual-only correction, no product behavior change.
+- **Finding:** user-directed layout convention requires outer Activity and result page
+  containers to use Tailwind `max-w-7xl`.
+- **Allowed paths:** `apps/web/src/ui/learning/widgets/pages/choice-activity-page/index.tsx`;
+  `apps/web/src/ui/learning/widgets/pages/choice-result-page/index.tsx`.
+- **Prohibited paths:** Server, unrelated Web paths, generated route metadata, all
+  SDD/design/authority files and external systems.
+- **Traceability:** RF-02, RF-06, RF-10; CA-02, CA-06, CA-10; affected VIS-01–VIS-12
+  and VM-01–VM-04/VM-06 page captures.
+- **Outcome/exits:** all 10 outer page branches use `max-w-7xl`; focused Page suites,
+  scoped Biome and Web typecheck pass. Representative live desktop/mobile Activity and
+  pending/completed result captures are inspected in EV-34. Exact-state captures for
+  other VIS rows remain stale and are part of the open F3 exit.
+
 # Validation and handoff
 
 ## Evidence coverage
@@ -320,25 +374,25 @@ last_updated_at: 2026-09-23
 | Automated | Server gates: `uv run poe check:lint`, `check:architecture`, `check:types`, `test:unit`, `test:integration`, `test:jobs`, `build` from `apps/server` | CA-01, CA-03–CA-09, CA-11–CA-12 | CI-07–CI-13 | `evaluation.md` command outputs and runtime boundary results | `complete` |
 | Manual/migration | VM-07 — legacy row preflight, upgrade, downgrade/re-upgrade and data preservation on disposable PostgreSQL | CA-03, CA-05, CA-09 | Spec VM-07; CI-14–CI-15 | `evaluation.md` counts, SQL/index checks, migration output and row comparison | `complete` |
 | Manual/runtime | VM-01 — desktop owner flow, sequential answer and idempotent submit, 1440 × 900 | CA-01–CA-03, CA-10 | Spec VM-01; `o2q7H.png`, `Cj8R7.png` | `evaluation.md` URL/HTTP/DB evidence and fresh screenshots | `complete` |
-| Manual/runtime | VM-02 — mobile selection and unsent leave warning, 390 × 844 | CA-02, CA-10 | Spec VM-02; `rf857.png` | `evaluation.md` focus, target/overflow measurements and fresh screenshots | `complete` |
+| Manual/runtime | VM-02 — mobile selection and unsent leave warning, 390 × 844 | CA-02, CA-10 | Spec VM-02; `rf857.png` | `evaluation.md` focus, target/overflow measurements and fresh screenshots | `open — stale; exact-state recapture required` |
 | Manual/runtime | VM-03 — desktop pending, completed result, disclosure and progress, 1440 × 900 | CA-04–CA-08, CA-10, CA-12 | Spec VM-03; `PCnZO.png`, `YDgNz.png`, `gftrs.png`, `ad7p6.png`, `ntBNV.png` | `evaluation.md` response/DOM/job/progress evidence and fresh state screenshots | `complete` |
 | Manual/runtime | VM-04 — mobile full three/five-question result, 390 × 844 | CA-06, CA-10 | Spec VM-04; `k3bUS8.png` | `evaluation.md` scrolling/overflow/keyboard evidence and fresh screenshots | `complete` |
 | Manual/runtime | VM-05 — anonymous/other-account/private absence and legacy content eligibility, 1440 × 900 | CA-01, CA-08, CA-11 | Spec VM-05; Activity question references | `evaluation.md` access matrix, safe response and eligibility evidence | `complete` |
-| Manual/runtime | VM-06 — fail/retry, stale pending, duplicate/late event and deleted Skill, 1440 × 900 | CA-03, CA-05, CA-09, CA-12 | Spec VM-06; handoff adjacent state references | `evaluation.md` disposable DB/Inngest trace and fresh pending/failure/recovery screenshots | `complete` |
-| Visual | Desktop question 2 of 3, single choice, 1440 × 900 | CA-01, CA-02 | `design/o2q7H.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `complete` |
-| Visual | Desktop question 1 of 3, multiple selection, 1440 × 900 | CA-01, CA-02 | `design/Cj8R7.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `complete` |
-| Visual | Desktop incorrect single-choice detail with protected answer, 1440 × 900 | CA-06, CA-07 | `design/YDgNz.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `complete` |
-| Visual | Desktop correct single-choice detail, 1440 × 900 | CA-06, CA-08 | `design/gftrs.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `complete` |
-| Visual | Desktop incorrect multiple-selection detail, 1440 × 900 | CA-06, CA-07 | `design/ad7p6.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `complete` |
-| Visual | Desktop correct multiple-selection detail, 1440 × 900 | CA-06, CA-08 | `design/ntBNV.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `complete` |
+| Manual/runtime | VM-06 — fail/retry, stale pending, duplicate/late event and deleted Skill, 1440 × 900 | CA-03, CA-05, CA-09, CA-12 | Spec VM-06; handoff adjacent state references | `evaluation.md` disposable DB/Inngest trace and fresh pending/failure/recovery screenshots | `open — stale; exact-state recapture required` |
+| Visual | Desktop question 2 of 3, single choice, 1440 × 900 | CA-01, CA-02 | `design/o2q7H.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Desktop question 1 of 3, multiple selection, 1440 × 900 | CA-01, CA-02 | `design/Cj8R7.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Desktop incorrect single-choice detail with protected answer, 1440 × 900 | CA-06, CA-07 | `design/YDgNz.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Desktop correct single-choice detail, 1440 × 900 | CA-06, CA-08 | `design/gftrs.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Desktop incorrect multiple-selection detail, 1440 × 900 | CA-06, CA-07 | `design/ad7p6.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Desktop correct multiple-selection detail, 1440 × 900 | CA-06, CA-08 | `design/ntBNV.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
 | Visual | Complete desktop three-question result, 1440 × 900 | CA-05–CA-08 | `design/PCnZO.png`; VM-03 | Fresh Playwright screenshot + full-page/scroll comparison in Evaluation | `complete` |
-| Visual | Mobile multiple-selection question, 390 × 844 | CA-01, CA-02, CA-10 | `design/rf857.png`; VM-02 | Fresh Playwright screenshot + target/overflow comparison in Evaluation | `complete` |
+| Visual | Mobile multiple-selection question, 390 × 844 | CA-01, CA-02, CA-10 | `design/rf857.png`; VM-02 | Fresh Playwright screenshot + target/overflow comparison in Evaluation | `open — stale; exact-state recapture required` |
 | Visual | Complete mobile three-question result, 390 × 844 | CA-05–CA-10 | `design/k3bUS8.png`; VM-04 | Fresh Playwright screenshot + long-result comparison in Evaluation | `complete` |
 | Visual | Desktop pending evaluation state, 1440 × 900 | CA-05, CA-10, CA-12 | Handoff adjacent pending state; VM-03/VM-06 | Fresh Playwright screenshot and announced status evidence | `complete` |
-| Visual | Desktop failed evaluation with retry action, 1440 × 900 | CA-05, CA-10 | Handoff adjacent failure state; VM-06 | Fresh Playwright screenshot, focus and retry evidence | `complete` |
-| Visual | Desktop recovered evaluation after retry, 1440 × 900 | CA-05, CA-09, CA-10 | Handoff adjacent recovery state; VM-06 | Fresh Playwright screenshot and same-attempt/new-run evidence | `complete` |
+| Visual | Desktop failed evaluation with retry action, 1440 × 900 | CA-05, CA-10 | Handoff adjacent failure state; VM-06 | Fresh Playwright screenshot, focus and retry evidence | `open — stale; exact-state recapture required` |
+| Visual | Desktop recovered evaluation after retry, 1440 × 900 | CA-05, CA-09, CA-10 | Handoff adjacent recovery state; VM-06 | Fresh Playwright screenshot and same-attempt/new-run evidence | `open — stale; exact-state recapture required` |
 | REST client | Learning `/activities` route group: Activity GET, attempts POST, attempt GET, retry POST | CA-01, CA-03, CA-05–CA-07, CA-12 | `apps/server/rest-client/learning/activities.rest` | Four labeled current requests, reusable non-secret vars, no credentials; parity recorded in Evaluation | `complete` |
-| Review | One read-only Implementation Reviewer over integrated candidate and all evidence | CA-01–CA-12; all RF/VM/CI | `documentation/agents/implementation-reviewer-agent.md` | Initial pass EV-31; resumed pass EV-33 confirms all findings resolved | `complete` |
+| Review | One read-only Implementation Reviewer over integrated candidate and all evidence | CA-01–CA-12; all RF/VM/CI | `documentation/agents/implementation-reviewer-agent.md` | Initial pass EV-31; resumed passes EV-33/EV-36 confirm code findings resolved; stale visual rows remain open | `complete` |
 ## Final handoff condition
 
 Route to `conclude-spec` only when every task/phase is complete; current Spec revision and
