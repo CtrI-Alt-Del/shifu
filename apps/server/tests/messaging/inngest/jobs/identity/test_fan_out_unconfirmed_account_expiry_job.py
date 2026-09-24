@@ -33,8 +33,10 @@ class TestFanOutUnconfirmedAccountExpiryJob:
 
         inngest_fixture.invoke_function(_FUNCTION_ID)
         inngest_fixture.wait_for_database(
-            lambda session: _count_accounts_with_status(session, 'deleted')
-            == _RUNTIME_BATCH_SIZE + 1,
+            lambda session: (
+                _count_accounts_with_status(session, 'deleted')
+                == _RUNTIME_BATCH_SIZE + 1
+            ),
             timeout=300.0,
         )
 
@@ -44,8 +46,10 @@ class TestFanOutUnconfirmedAccountExpiryJob:
 
         inngest_fixture.invoke_function(_FUNCTION_ID)
         inngest_fixture.wait_for_database(
-            lambda session: _count_accounts_with_status(session, 'deleted')
-            == _RUNTIME_BATCH_SIZE + 1,
+            lambda session: (
+                _count_accounts_with_status(session, 'deleted')
+                == _RUNTIME_BATCH_SIZE + 1
+            ),
         )
 
         with inngest_fixture.inspection_session() as session:
@@ -56,11 +60,16 @@ class TestFanOutUnconfirmedAccountExpiryJob:
 
         inngest_fixture.invoke_function(_FUNCTION_ID)
         inngest_fixture.wait_for_database(
-            lambda session: _count_expiry_requested_events(session) == _RUNTIME_BATCH_SIZE + 1
+            lambda session: (
+                _count_expiry_requested_events(session) == _RUNTIME_BATCH_SIZE + 1
+            )
         )
 
         with inngest_fixture.inspection_session() as session:
-            assert _count_accounts_with_status(session, 'deleted') == _RUNTIME_BATCH_SIZE + 1
+            assert (
+                _count_accounts_with_status(session, 'deleted')
+                == _RUNTIME_BATCH_SIZE + 1
+            )
             assert _count_expiry_requested_events(session) == _RUNTIME_BATCH_SIZE + 1
 
 
