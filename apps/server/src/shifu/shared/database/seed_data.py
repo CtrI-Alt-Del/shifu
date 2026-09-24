@@ -189,14 +189,41 @@ def build_development_seed() -> DevelopmentSeed:
             id=SEED_MATERIAL_REPETITION_INTRO_ID,
             skill_id=SEED_SKILL_LOGIC_ID,
             title='Por que repetir instruções?',
-            content='Estruturas de repetição automatizam passos que seguem um padrão.',
+            content=(
+                'Estruturas de repetição automatizam passos que seguem um padrão.\n'
+                'Em vez de escrever a mesma instrução várias vezes, você descreve o\n'
+                'passo uma vez e diz quantas vezes ele deve acontecer.\n'
+                '\n'
+                'Repetir à mão funciona para três itens e falha para mil. O laço\n'
+                'mantém o programa legível mesmo quando os dados crescem.\n'
+                '\n'
+                '```python\n'
+                'for numero in [1, 2, 3]:\n'
+                '    print(numero)\n'
+                '```\n'
+                '\n'
+                'O bloco acima percorre a lista e executa `print` uma vez para cada\n'
+                'elemento.'
+            ),
             material_type=MaterialType.THEORY,
         ),
         MaterialFaker.fake(
             id=SEED_MATERIAL_REPETITION_FOR_ID,
             skill_id=SEED_SKILL_LOGIC_ID,
             title='Repetição com for',
-            content='O laço for percorre uma sequência de valores de forma previsível.',
+            content=(
+                'O laço `for` percorre uma sequência de valores de forma previsível.\n'
+                'Ele pede à sequência o próximo item até que não exista mais nenhum.\n'
+                '\n'
+                '```python\n'
+                'total = 0\n'
+                'for valor in [10, 20, 30]:\n'
+                '    total = total + valor\n'
+                '```\n'
+                '\n'
+                'Como o número de passos vem da própria sequência, o laço termina\n'
+                'sozinho.'
+            ),
             material_type=MaterialType.REFERENCE,
         ),
     )
