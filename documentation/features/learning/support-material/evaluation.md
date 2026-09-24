@@ -1,7 +1,7 @@
 ---
 title: Learning Support Material — Evaluation
 status: ready
-revision: 1
+revision: 2
 spec: ./spec.md
 source:
   type: issue
@@ -30,7 +30,7 @@ last_updated_at: 2026-09-23
 | `CI-06` | `pnpm --dir apps/web check:types` | Clean. |
 | `CI-07` | `pnpm --dir apps/web check:lint` | Clean over every path changed by this delivery. The repository-wide run reports the same pre-existing CRLF files described in `ACH-01`. |
 | `CI-08` | `pnpm --dir apps/web check:architecture` | No dependency violations, 151 modules cruised. |
-| `CI-09` | `pnpm --dir apps/web test:unit` | 28 files, 110 tests pass; 46 of them belong to this feature. |
+| `CI-09` | `pnpm --dir apps/web test:unit` | 28 files, 112 tests pass; 46 of them belong to this feature. |
 | `CI-10` | `pnpm --dir apps/web test:integration` | `tests/learning` 25 passed, 11 of them new. |
 
 # 3. Acceptance matrix
@@ -103,13 +103,15 @@ horizontal page scroll. Content paragraphs computed to DM Sans `16px / 28px`, ma
 | ID | Severity | Status | Description |
 | --- | --- | --- | --- |
 | `ACH-01` | Low | Open, out of scope | `ruff format --check` and `biome check` fail on 75 files this delivery never touched. Their working-tree copies hold CRLF from a checkout made before `.gitattributes` declared `text eol=lf`; the stored blobs are LF. `git add --renormalize .` on a clean tree fixes it. Left out so this branch stays reviewable. |
-| `ACH-02` | Low | Accepted | Pencil node-by-node comparison was not performed because the Pencil application was not running. Verified against `design.md` and measured in the browser instead. |
+| `ACH-02` | Low | Closed | Pencil node-by-node comparison was owed because the Pencil application was not running during the delivery. Performed on 2026-09-23: the fourteen frames were opened, exported at scale `1` to `design/` and compared against the implementation. No structural divergence and no clipping; see `design/handoff.md`. The copy deltas it found are tracked as `ACH-05`. |
 | `ACH-03` | Medium | Fixed | The first unavailable copy read "A Competência Funções ainda não foi liberada. Avance em Funções para abrir o conteúdo dela." when the blocked Competency was itself the focus. Unit tests missed it because they used different names; `VM-02` exposed it. The widget now branches on `focusCompetencyId === competencyId`, and two regression tests were added. |
 | `ACH-04` | Low | Open, out of scope | `pnpm --dir apps/web generate-routes` deletes the `declare module '@tanstack/react-start'` block that `510c987` added deliberately. The generated tree was left untouched because this delivery adds no route file. |
+| `ACH-05` | Low | Fixed | Four copy and iconography deltas between the Pencil frames and the runtime, none of which broke a `CA-*`. Three were corrected in the runtime on 2026-09-23: the Activity-failure alert now reads `Não foi possível abrir a atividade recomendada. Tente novamente.` and its action relabels to `Tentar abrir novamente`, the error body now reads `O conteúdo não foi alterado. Tente carregar a página novamente.`, and the loading caption and its accessible name now read `Carregando Material de apoio...`. The fourth, the frame's `triangle-alert` against the runtime's `circle-alert`, is accepted: `triangle-alert` is not in the shared `Icon` registry and `CompetencyDetailFeedback` uses `circle-alert` for the same state, so changing it is a design-system decision. `CI-06`, `CI-09` and `CI-10` were re-run after the change. Recorded in full in `design/handoff.md`. |
 
 # 6. Conclusion
 
-Every `CA-*` has accepted evidence. `ACH-03` was fixed and covered. `ACH-01`,
-`ACH-02` and `ACH-04` are recorded and left out of this delivery. The Activity route
-reached by the recommendation is still SHIFU-74's contract stub, which is the
-expected state of `main`.
+Every `CA-*` has accepted evidence. `ACH-03` and `ACH-05` were fixed and covered.
+`ACH-02` was closed by the Pencil comparison of 2026-09-23. `ACH-01` and `ACH-04` are
+recorded and left out of this delivery. The Activity route reached by the
+recommendation is still SHIFU-74's contract stub, which is the expected state of
+`main`.

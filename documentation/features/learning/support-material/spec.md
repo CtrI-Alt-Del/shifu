@@ -1,7 +1,7 @@
 ---
 title: Learning Support Material
 status: implemented
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-73
@@ -148,11 +148,19 @@ Pencil references from the ticket: design `RTwfu`, mobile `HQKUj`; desktop state
 `qImzG`, `t7C2XU`, `j50Z0g`, `A1rzZ4`, `tLLeI`, `kpGXW`; mobile states `FCMbg`,
 `x69MV`, `Pu6sO`, `mumyI`, `iFkAY`, `ClGcY`.
 
-The Pencil application was not running during this delivery, so node-by-node visual
-comparison could not be performed. The implementation was instead verified against
-`design.md`, which `ui-layer-rules.md` declares the authority for tokens and
-typography, and measured in the running browser. This limitation is recorded as
-`ACH-02` in `evaluation.md`.
+All fourteen frames were opened in Pencil on 2026-09-23, exported at scale `1` to
+[`design/`](design/) and compared node by node against the implementation. That
+comparison, the component and token mapping it produced, and the nine deltas it
+found are recorded in [`design/handoff.md`](design/handoff.md).
+No structural divergence was found: every frame's hierarchy, state inventory and
+responsive behavior is present in the implementation, and Pencil structural inspection
+reported no clipped or overflowing descendant in any of the fourteen frames.
+
+The implementation also remains verified against `design.md`, which `ui-layer-rules.md`
+declares the authority for tokens and typography, and measured in the running browser.
+`ACH-02` in `evaluation.md` is closed by this comparison. Of the four copy and
+iconography deltas it found, three were corrected in the runtime and one is accepted,
+all recorded there as `ACH-05`.
 
 # 3. Technical Contract
 
@@ -281,3 +289,4 @@ document was modified by this delivery.
 | Revision | Date | Change |
 | --- | --- | --- |
 | 1 | 2026-09-23 | Initial Spec, implemented and validated locally. |
+| 2 | 2026-09-23 | Pencil reached; the fourteen frames were exported and compared node by node, three copy deltas were corrected in the runtime, and the Design Contract now cites `design/handoff.md`. |
