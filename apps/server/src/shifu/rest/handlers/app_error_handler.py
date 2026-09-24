@@ -20,6 +20,14 @@ class AppErrorHandler:
     _IDENTITY_FAILURE_PATHS = frozenset(
         {'/identity/sign-in', '/identity/main-page-entries'}
     )
+    _IDENTITY_PUBLIC_PATHS = frozenset(
+        {
+            '/identity/registrations',
+            '/identity/pending-confirmations/status',
+            '/identity/pending-confirmations/resend',
+            '/identity/email-confirmations',
+        }
+    )
 
     @staticmethod
     def _build_response(*, status_code: int, code: str, message: str) -> JSONResponse:
@@ -127,8 +135,14 @@ class AppErrorHandler:
 
     @staticmethod
     async def handle_request_validation_error(
-        _request: Request, _error: Exception
+        request: Request, _error: Exception
     ) -> JSONResponse:
+        if request.url.path in AppErrorHandler._IDENTITY_PUBLIC_PATHS:
+            return AppErrorHandler._build_response(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                code='invalid_input',
+                message='Os dados enviados são inválidos.',
+            )
         return AppErrorHandler._build_response(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code='validation_error',

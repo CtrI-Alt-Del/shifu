@@ -11,6 +11,7 @@ from shifu.identity.pipes import IdentityPipe
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
     Argon2idHashProvider,
 )
+from shifu.shared.constants import ENVIRONMENT
 from tests.fixtures.postgres_fixture import PostgresDatabase
 
 if TYPE_CHECKING:
@@ -38,6 +39,7 @@ class TestSignInController:
                 client.post(  # pyright: ignore[reportUnknownMemberType]
                     '/identity/sign-in',
                     json={'email': 'learner@example.com', 'password': 'secret'},
+                    headers={'X-Shifu-Bff-Secret': ENVIRONMENT.bff_shared_secret},
                 ),
             )
 

@@ -20,3 +20,37 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {}
+
+### Registration (non-secret contract example)
+POST {{baseUrl}}/identity/registrations
+Content-Type: application/json
+
+{
+  "display_name": "Pessoa Aprendente",
+  "email": "learner@example.com",
+  "password": "replace-with-local-password"
+}
+
+### Pending confirmation status (opaque handle placeholder)
+POST {{baseUrl}}/identity/pending-confirmations/status
+Content-Type: application/json
+
+{
+  "pending_handle": "replace-with-43-character-base64url-handle"
+}
+
+### Resend confirmation (opaque handle placeholder)
+POST {{baseUrl}}/identity/pending-confirmations/resend
+Content-Type: application/json
+
+{
+  "pending_handle": "replace-with-43-character-base64url-handle"
+}
+
+### Confirm e-mail (token placeholder)
+POST {{baseUrl}}/identity/email-confirmations
+Content-Type: application/json
+
+{
+  "token": "replace-with-43-character-base64url-token"
+}

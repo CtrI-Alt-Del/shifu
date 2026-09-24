@@ -1,0 +1,19 @@
+{
+  "template": "account-confirmation",
+  "version": 1,
+  "subject": "Confirme seu e-mail no Shifu",
+  "placeholders": [
+    {
+      "name": "display_name",
+      "type": "text"
+    },
+    {
+      "name": "action_url",
+      "type": "url"
+    },
+    {
+      "name": "expires_at",
+      "type": "text"
+    }
+  ]
+}

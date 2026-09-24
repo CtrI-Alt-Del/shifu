@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import secrets
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,7 @@ from shifu.shared.core.domain.errors import RateLimitError
 if TYPE_CHECKING:
     from shifu.shared.core.interfaces import CacheProvider
 
-_EXCLUDED_PATHS = frozenset({'/health', '/identity/session'})
+_EXCLUDED_PATHS = frozenset({'/api/inngest', '/health', '/identity/session'})
 _CAPACITY = 10
 _REFILL_PER_SECOND = 60 / 60
 
@@ -21,14 +22,20 @@ _IpNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, trusted_proxy_ips: list[str]) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        trusted_proxy_ips: list[str],
+        bff_shared_secret: str,
+    ) -> None:
         super().__init__(app)
         self._trusted_networks = _parse_trusted_networks(trusted_proxy_ips)
+        self._bff_shared_secret = bff_shared_secret
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if request.url.path in _EXCLUDED_PATHS:
+        if request.url.path in _EXCLUDED_PATHS or self._is_bff_request(request):
             return await call_next(request)
 
         cache_provider: CacheProvider = request.app.state.cache_provider
@@ -76,6 +83,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         except ValueError:
             return False
         return any(address in network for network in self._trusted_networks)
+
+    def _is_bff_request(self, request: Request) -> bool:
+        value = request.headers.get('x-shifu-bff-secret')
+        return bool(value) and secrets.compare_digest(value, self._bff_shared_secret)
 
 
 def _parse_trusted_networks(trusted_proxy_ips: list[str]) -> list[_IpNetwork]:

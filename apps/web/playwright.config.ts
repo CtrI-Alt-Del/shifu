@@ -1,7 +1,10 @@
 import { defineConfig } from '@playwright/test'
+import { loadEnv } from 'vite'
 
 const port = process.env.SHIFU_WEB_APP_PORT ?? '7000'
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`
+const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '')
+const baseURL =
+  process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://127.0.0.1:${port}`
 
 export default defineConfig({
   testDir: './tests',
@@ -9,7 +12,7 @@ export default defineConfig({
     baseURL,
   },
   webServer: {
-    command: `pnpm dev --host 127.0.0.1 --port ${port}`,
+    command: `npm run dev -- --host 127.0.0.1 --port ${port}`,
     url: `${baseURL}/login/`,
     reuseExistingServer: !process.env.CI,
   },

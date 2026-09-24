@@ -17,6 +17,10 @@ path = "shifu.communication"
 depends_on = ["shifu.shared"]
 
 [[modules]]
+path = "shifu.composition"
+depends_on = ["shifu.shared", "shifu.identity", "shifu.communication"]
+
+[[modules]]
 path = "shifu.learning"
 depends_on = ["shifu.shared"]
 
@@ -37,6 +41,8 @@ path = "shifu.app"
 depends_on = [
   "shifu.shared",
   "shifu.identity",
+  "shifu.communication",
+  "shifu.composition",
   "shifu.curriculum",
   "shifu.learning",
   "shifu.gamification",
