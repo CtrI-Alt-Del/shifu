@@ -9,7 +9,7 @@ prd_content_ids:
   identity: 83001345
   communication: 86114306
 prd_version: 1
-last_updated_at: 2026-09-23
+last_updated_at: 2026-09-24
 ---
 
 # Evaluation Status
@@ -185,6 +185,18 @@ must be superseded only by fresh, current validation after implementation.
   `http://127.0.0.1:7777/health`. The focused Playwright BFF handler suite could
   not start because Better Auth could not connect to PostgreSQL. Neither result
   is accepted evidence for `CA-05` through `CA-08` or `CA-12`.
+
+### `EV-ACH-02` — PR #9 remote CI verification
+
+- **Date:** 2026-09-24.
+- **Commit:** `d22a026`.
+- **Passed:** GitHub Actions Web application CI run `35947149583` (including
+  Playwright integration), Server application CI run `35947149588` (including
+  Alembic drift, integration, and real Inngest job tests), and E-mail package
+  CI run `35947149648`.
+- **Corrections verified:** Alembic imports Intelligence metadata; valid BFF
+  requests are not globally rate limited; duplicate pytest basenames are
+  collected with the importlib mode.
 
 ## Traceability
 
