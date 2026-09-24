@@ -2,6 +2,7 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
+    AccountConfirmationDeliveryStatus,
 )
 from shifu.identity.database.sqlalchemy.models import AccountActionTokenModel
 
@@ -20,6 +21,13 @@ class AccountActionTokenMapper:
             updated_at=model.updated_at,
             used_at=model.used_at,
             invalidated_at=model.invalidated_at,
+            communication_id=model.communication_id,
+            pending_handle_hash=model.pending_handle_hash,
+            delivery_status=(
+                AccountConfirmationDeliveryStatus(model.delivery_status)
+                if model.delivery_status is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -35,4 +43,11 @@ class AccountActionTokenMapper:
             updated_at=token.updated_at,
             used_at=token.used_at,
             invalidated_at=token.invalidated_at,
+            communication_id=token.communication_id,
+            pending_handle_hash=token.pending_handle_hash,
+            delivery_status=(
+                token.delivery_status.value
+                if token.delivery_status is not None
+                else None
+            ),
         )

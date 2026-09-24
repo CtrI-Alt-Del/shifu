@@ -440,8 +440,7 @@ def _failing_provider() -> None:
 def legacy_postgres_database(
     postgres_runtime: PostgresDatabase,
 ) -> Iterator[PostgresDatabase]:
-    _clear_application_tables(postgres_runtime.engine)
-    _run_alembic(postgres_runtime.url, 'downgrade', 'c4d82f1e7a30')
+    _reset_database_to_revision(postgres_runtime, 'c4d82f1e7a30')
     try:
         yield postgres_runtime
     finally:
@@ -467,6 +466,14 @@ def _run_alembic(
         capture_output=True,
         text=True,
     )
+
+
+def _reset_database_to_revision(database: PostgresDatabase, revision: str) -> None:
+    database.engine.dispose()
+    with database.engine.begin() as connection:
+        connection.execute(text('DROP SCHEMA public CASCADE'))
+        connection.execute(text('CREATE SCHEMA public'))
+    _run_alembic(database.url, 'upgrade', revision)
 
 
 def _clear_application_tables(engine: Engine) -> None:
