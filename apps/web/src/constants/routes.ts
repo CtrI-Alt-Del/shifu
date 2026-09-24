@@ -8,6 +8,7 @@ export const ROUTES = {
   curriculum: '/curriculum',
   learning: '/learning',
   learningGoalsNew: '/learning/goals/new',
+  learningGoalSkillsAdd: '/learning/goals/$goalId/skills/add',
   gamification: '/gamification',
   intelligence: '/intelligence',
   account: '/account',

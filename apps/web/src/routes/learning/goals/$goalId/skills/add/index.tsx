@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { GoalDetailPage } from '@/ui/learning/widgets/pages/goal-detail-page'
 import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
+import { GoalSkillAddPage } from '@/ui/learning/widgets/pages/goal-skill-add-page'
 
-export const Route = createFileRoute('/learning/goals/$goalId/')({
+export const Route = createFileRoute('/learning/goals/$goalId/skills/add/')({
   beforeLoad: () => requireAuthMiddleware(),
   component: RouteComponent,
 })
@@ -11,5 +11,5 @@ export const Route = createFileRoute('/learning/goals/$goalId/')({
 function RouteComponent() {
   const { goalId } = Route.useParams()
 
-  return <GoalDetailPage goalId={goalId} key={goalId} />
+  return <GoalSkillAddPage goalId={goalId} />
 }
