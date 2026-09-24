@@ -39,7 +39,9 @@ class SearchSkillCatalogUseCase:
 
         skill_ids = [entry.id for entry in catalog_page.items]
         foundations_by_skill_id = (
-            self._curriculum_catalog_provider.find_direct_foundations_for_many(skill_ids)
+            self._curriculum_catalog_provider.find_direct_foundations_for_many(
+                skill_ids
+            )
         )
 
         rows = [

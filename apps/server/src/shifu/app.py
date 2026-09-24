@@ -65,7 +65,9 @@ class FastAPIApp:
         curriculum_content_provider = DatabaseCurriculumContentProvider(
             curriculum_database
         )
-        curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(curriculum_database)
+        curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
+            curriculum_database
+        )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
             jwks_url=ENVIRONMENT.auth_jwks_url,
