@@ -2,6 +2,9 @@
 @accessToken = replace-with-local-test-token
 @adaptiveSkillId = 01SHF000000000000000000032
 @newGoalId = replace-with-created-goal-id
+@goalId = replace-with-goal-id
+@skillId = replace-with-skill-id
+@competencyId = replace-with-competency-id
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
@@ -44,3 +47,25 @@ Authorization: Bearer {{accessToken}}
 
 ### Unauthenticated goal detail
 GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+
+### Remove goal
+DELETE {{baseUrl}}/learning/goals/{{goalId}}
+Authorization: Bearer {{accessToken}}
+
+### Search skill catalog
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/catalog?query=&cursor=&limit=20
+Authorization: Bearer {{accessToken}}
+
+### Add skill to goal
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}",
+  "foundation_skill_ids": []
+}
+
+### Get competency detail
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
+Authorization: Bearer {{accessToken}}
