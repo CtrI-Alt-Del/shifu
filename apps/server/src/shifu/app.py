@@ -6,6 +6,14 @@ from typing import cast
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 
+from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
+from shifu.communication.messaging.inngest import CommunicationInngestMessaging
+from shifu.composition import (
+    RegistrationConfirmationWorkflow,
+    build_email_delivery_provider,
+    build_message_renderer,
+    build_secret_envelope_provider,
+)
 from shifu.curriculum.rest.router import CurriculumRouter
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
@@ -62,6 +70,20 @@ class FastAPIApp:
             engine=database_engine,
             id_provider=id_provider,
         )
+        communication_database = SqlalchemyCommunicationDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
+        secret_envelope_provider = build_secret_envelope_provider(ENVIRONMENT)
+        confirmation_workflow = RegistrationConfirmationWorkflow(
+            communication_database=communication_database,
+            id_provider=id_provider,
+            clock_provider=clock_provider,
+            secret_envelope_provider=secret_envelope_provider,
+            action_origin=ENVIRONMENT.confirmation_action_origin,
+        )
+        message_renderer_provider = build_message_renderer()
+        email_delivery_provider = build_email_delivery_provider(ENVIRONMENT)
         curriculum_database = SqlalchemyCurriculumDatabase(engine=database_engine)
         learning_database = SqlalchemyLearningDatabase(
             engine=database_engine,
@@ -103,7 +125,20 @@ class FastAPIApp:
         inngest_client = InngestMessaging.register(
             app,
             job_group_registrars=[
-                IdentityInngestMessaging.register_jobs,
+                lambda inngest: IdentityInngestMessaging.register_jobs(
+                    inngest,
+                    identity_database=identity_database,
+                    clock_provider=clock_provider,
+                ),
+                lambda inngest: CommunicationInngestMessaging.register_jobs(
+                    inngest,
+                    communication_database=communication_database,
+                    id_provider=id_provider,
+                    clock_provider=clock_provider,
+                    secret_envelope_provider=secret_envelope_provider,
+                    message_renderer_provider=message_renderer_provider,
+                    email_delivery_provider=email_delivery_provider,
+                ),
                 partial(
                     LearningInngestMessaging.register_jobs,
                     learning_database=learning_database,
@@ -119,6 +154,11 @@ class FastAPIApp:
         )
         AppErrorHandler.register(app)
         app.state.identity_database = identity_database
+        app.state.communication_database = communication_database
+        app.state.confirmation_delivery_gateway = confirmation_workflow
+        app.state.communication_message_renderer_provider = message_renderer_provider
+        app.state.communication_secret_envelope_provider = secret_envelope_provider
+        app.state.email_delivery_provider = email_delivery_provider
         app.state.authentication_provider = authentication_provider
         app.state.learning_database = learning_database
         app.state.clock_provider = clock_provider
@@ -132,6 +172,7 @@ class FastAPIApp:
         app.add_middleware(
             RateLimitMiddleware,
             trusted_proxy_ips=settings.trusted_proxy_ips,
+            bff_shared_secret=ENVIRONMENT.bff_shared_secret,
         )
         return app
 
