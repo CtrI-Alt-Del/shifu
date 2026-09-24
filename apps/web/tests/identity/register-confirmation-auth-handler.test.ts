@@ -31,7 +31,7 @@ test.describe('same-origin registration confirmation auth handlers', () => {
 
     const resend = await request.post('/api/auth/pending-confirmation/resend', {
       data: {},
-      headers: { Origin: 'http://localhost:7000' },
+      headers: { Origin: new URL(testInfo.project.use.baseURL as string).origin },
     })
 
     expect(resend.status()).toBe(200)

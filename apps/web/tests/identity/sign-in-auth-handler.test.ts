@@ -50,7 +50,7 @@ test.describe('same-origin sign-in auth handler', () => {
   test('creates a session only after the activating browser presents its matching pending context', async ({
     browser,
     pendingAccount,
-  }) => {
+  }, testInfo) => {
     const confirmationToken = await seedPendingConfirmationToken(pendingAccount)
     const pendingBrowser = await browser.newContext()
 
@@ -63,6 +63,7 @@ test.describe('same-origin sign-in auth handler', () => {
 
       const confirmation = await pendingBrowser.request.post('/api/auth/confirm-email', {
         data: { token: confirmationToken },
+        headers: { Origin: new URL(testInfo.project.use.baseURL as string).origin },
       })
       expect(confirmation.status()).toBe(200)
       expect(await confirmation.json()).toEqual({

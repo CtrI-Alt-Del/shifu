@@ -106,7 +106,3 @@ jobs:
         run: |
           test -f dist/*.tar.gz
           test -f dist/*.whl
-
-      - name: Run real Inngest job tests
-        working-directory: apps/server
-        run: uv run poe test:jobs

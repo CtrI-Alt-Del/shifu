@@ -76,11 +76,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      - name: Check Alembic migration drift
-        run: uv run alembic check
-
       - name: Prepare integration database
         run: uv run poe db:upgrade
+
+      - name: Check Alembic migration drift
+        run: uv run alembic check
 
       - name: Check types
         run: uv run poe check:types
