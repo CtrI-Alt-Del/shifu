@@ -5,6 +5,7 @@ export const ROUTES = {
   register: '/register',
   forgotPassword: '/forgot-password',
   pendingConfirmation: '/pending-confirmation',
+  confirmEmail: '/confirm-email',
   curriculum: '/curriculum',
   learning: '/learning',
   learningGoalsNew: '/learning/goals/new',

@@ -16,11 +16,63 @@ class SqlalchemyAccountActionTokensRepository:
 
     def find_by_hash(self, token_hash: str) -> AccountActionToken | None:
         model = self._session.scalar(
-            select(AccountActionTokenModel).where(
-                AccountActionTokenModel.token_hash == token_hash
-            )
+            select(AccountActionTokenModel)
+            .where(AccountActionTokenModel.token_hash == token_hash)
+            .with_for_update()
         )
         return AccountActionTokenMapper.to_domain(model) if model is not None else None
+
+    def find_by_id(self, identity_confirmation_id: str) -> AccountActionToken | None:
+        model = self._session.scalar(
+            select(AccountActionTokenModel)
+            .where(AccountActionTokenModel.id == identity_confirmation_id)
+            .with_for_update()
+        )
+        return AccountActionTokenMapper.to_domain(model) if model is not None else None
+
+    def find_by_pending_handle_hash(
+        self,
+        pending_handle_hash: str,
+    ) -> AccountActionToken | None:
+        model = self._session.scalar(
+            select(AccountActionTokenModel)
+            .where(AccountActionTokenModel.pending_handle_hash == pending_handle_hash)
+            .order_by(AccountActionTokenModel.issued_at.desc())
+            .with_for_update()
+        )
+        return AccountActionTokenMapper.to_domain(model) if model is not None else None
+
+    def find_latest_by_account_id_and_type(
+        self,
+        account_id: str,
+        token_type: AccountActionTokenType,
+    ) -> AccountActionToken | None:
+        model = self._session.scalar(
+            select(AccountActionTokenModel)
+            .where(
+                AccountActionTokenModel.account_id == account_id,
+                AccountActionTokenModel.type == token_type.value,
+            )
+            .order_by(AccountActionTokenModel.issued_at.desc())
+            .with_for_update()
+        )
+        return AccountActionTokenMapper.to_domain(model) if model is not None else None
+
+    def find_many_by_account_id_and_type(
+        self,
+        account_id: str,
+        token_type: AccountActionTokenType,
+    ) -> list[AccountActionToken]:
+        models = self._session.scalars(
+            select(AccountActionTokenModel)
+            .where(
+                AccountActionTokenModel.account_id == account_id,
+                AccountActionTokenModel.type == token_type.value,
+            )
+            .order_by(AccountActionTokenModel.issued_at)
+            .with_for_update()
+        ).all()
+        return [AccountActionTokenMapper.to_domain(model) for model in models]
 
     def find_many_pending_by_account_id_and_type(
         self,
@@ -36,6 +88,7 @@ class SqlalchemyAccountActionTokensRepository:
                 == AccountActionTokenStatus.PENDING.value,
             )
             .order_by(AccountActionTokenModel.issued_at)
+            .with_for_update()
         ).all()
         return [AccountActionTokenMapper.to_domain(model) for model in models]
 

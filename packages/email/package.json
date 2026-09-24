@@ -1,0 +1,21 @@
+{
+  "name": "@shifu/email",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check:code": "biome check templates scripts",
+    "check:types": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json && node dist/scripts/build-templates.js"
+  },
+  "dependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-email": "6.9.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}

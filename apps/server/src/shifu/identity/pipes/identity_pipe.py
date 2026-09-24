@@ -1,12 +1,19 @@
-from typing import Annotated
+import secrets
+from typing import Annotated, cast
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from shifu.identity.core.interfaces import IdentityDatabase
+from shifu.identity.core.interfaces import (
+    ActionTokenProvider,
+    ConfirmationDeliveryGateway,
+)
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
     Argon2idHashProvider,
 )
+from shifu.identity.providers.security import PendingConfirmationHandleProvider
+from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
@@ -24,12 +31,39 @@ _BEARER_SCHEME = HTTPBearer(auto_error=False)
 
 class IdentityPipe:
     @staticmethod
+    def require_bff(
+        x_shifu_bff_secret: Annotated[str | None, Header()] = None,
+    ) -> None:
+        if not x_shifu_bff_secret or not secrets.compare_digest(
+            x_shifu_bff_secret,
+            ENVIRONMENT.bff_shared_secret,
+        ):
+            raise IdentityPipe._unauthorized()
+
+    @staticmethod
     def get_database(request: Request) -> IdentityDatabase:
         return request.app.state.identity_database
 
     @staticmethod
     def get_password_hashing_provider() -> Argon2idHashProvider:
         return Argon2idHashProvider()
+
+    @staticmethod
+    def get_action_token_provider() -> ActionTokenProvider:
+        return PendingConfirmationHandleProvider()
+
+    @staticmethod
+    def get_pending_confirmation_handle_provider() -> ActionTokenProvider:
+        return PendingConfirmationHandleProvider()
+
+    @staticmethod
+    def get_confirmation_delivery_gateway(
+        request: Request,
+    ) -> ConfirmationDeliveryGateway:
+        return cast(
+            'ConfirmationDeliveryGateway',
+            request.app.state.confirmation_delivery_gateway,
+        )
 
     @staticmethod
     def get_authentication_provider(request: Request) -> AuthenticationProvider:

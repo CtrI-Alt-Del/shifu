@@ -5,7 +5,9 @@ from shifu.communication.core.domain.entities import Communication
 
 
 class CommunicationsRepository(Protocol):
-    def find_by_id(self, communication_id: str) -> Communication | None: ...
+    def find_by_id(self, communication_id: str) -> Communication | None:
+        """Load the row in the caller transaction; mutation paths may lock it."""
+        ...
 
     def find_by_idempotency_key(
         self,

@@ -7,6 +7,7 @@ from shifu.communication.core.domain.enums import (
     CommunicationType,
 )
 from shifu.communication.core.domain.structures import MessageContent
+from shifu.communication.core.domain.structures import SecretEnvelope
 from shifu.communication.database.sqlalchemy.models import CommunicationModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
 
@@ -22,8 +23,12 @@ class CommunicationMapper:
             recipient_email=model.recipient_email,
             recipient_name=model.recipient_name,
             content=cast(
-                'MessageContent',
-                Serialization.deserialize_value(model.content, MessageContent),
+                'MessageContent | None',
+                (
+                    Serialization.deserialize_value(model.content, MessageContent)
+                    if model.content is not None
+                    else None
+                ),
             ),
             status=CommunicationStatus(model.status),
             idempotency_key=model.idempotency_key,
@@ -35,6 +40,19 @@ class CommunicationMapper:
             provider_message_id=model.provider_message_id,
             attempt_count=model.attempt_count,
             next_attempt_at=model.next_attempt_at,
+            identity_confirmation_id=model.identity_confirmation_id,
+            encrypted_content=cast(
+                'SecretEnvelope | None',
+                (
+                    Serialization.deserialize_value(
+                        model.encrypted_content,
+                        SecretEnvelope,
+                    )
+                    if model.encrypted_content is not None
+                    else None
+                ),
+            ),
+            redacted_at=model.redacted_at,
         )
 
     @staticmethod
@@ -46,7 +64,10 @@ class CommunicationMapper:
             channel=communication.channel.value,
             recipient_email=communication.recipient_email,
             recipient_name=communication.recipient_name,
-            content=Serialization.serialize_value(communication.content),
+            content=cast(
+                'dict[str, object] | None',
+                Serialization.serialize_value(communication.content),
+            ),
             status=communication.status.value,
             idempotency_key=communication.idempotency_key,
             created_at=communication.created_at,
@@ -57,4 +78,10 @@ class CommunicationMapper:
             provider_message_id=communication.provider_message_id,
             attempt_count=communication.attempt_count,
             next_attempt_at=communication.next_attempt_at,
+            identity_confirmation_id=communication.identity_confirmation_id,
+            encrypted_content=cast(
+                'dict[str, object] | None',
+                Serialization.serialize_value(communication.encrypted_content),
+            ),
+            redacted_at=communication.redacted_at,
         )
