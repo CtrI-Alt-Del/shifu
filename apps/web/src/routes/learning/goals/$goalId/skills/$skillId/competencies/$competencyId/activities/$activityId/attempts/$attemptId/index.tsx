@@ -12,10 +12,6 @@ export const Route = createFileRoute(
 function AttemptIndexRoute() {
   const ids = Route.useParams()
   const { navigateTo } = useNavigation()
-  const navigateToActivity = useCallback(
-    () => navigateTo('learningActivity', ids),
-    [ids, navigateTo],
-  )
   const onSessionExpired = useCallback(() => navigateTo('login'), [navigateTo])
   const openRecommendation = useCallback(
     (recommendation: ActivityRecommendation) =>
@@ -31,7 +27,6 @@ function AttemptIndexRoute() {
   return (
     <ChoiceResultPage
       {...ids}
-      onNavigateToActivity={navigateToActivity}
       onOpenRecommendation={openRecommendation}
       onSessionExpired={onSessionExpired}
     />

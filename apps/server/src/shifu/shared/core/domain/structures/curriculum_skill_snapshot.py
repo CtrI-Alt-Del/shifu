@@ -9,6 +9,11 @@ class CurriculumSkillSnapshot:
     id: str
     name: str
     competencies: tuple[CurriculumCompetencySnapshot, ...]
+    v2_coverage_gaps: tuple[str, ...] = ()
+
+    @property
+    def v2_eligible(self) -> bool:
+        return not self.v2_coverage_gaps and bool(self.competencies)
 
     def __post_init__(self) -> None:
         positions = tuple(competency.position for competency in self.competencies)

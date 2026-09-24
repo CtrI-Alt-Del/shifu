@@ -16,6 +16,9 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 class ActivityAttemptMapper:
     @staticmethod
     def to_domain(model: ActivityAttemptModel) -> ActivityAttempt:
+        grading_snapshot = ActivityAttemptMapper._deserialize_snapshot(
+            model.grading_snapshot
+        )
         return ActivityAttempt(
             id=model.id,
             skill_experience_id=model.skill_experience_id,
@@ -24,26 +27,32 @@ class ActivityAttemptMapper:
             kind=ActivityAttemptKind(model.kind),
             answers=ActivityAttemptMapper._deserialize_answers(
                 model.answers,
-                cast(
-                    'CurriculumChoiceActivitySnapshot | None',
-                    Serialization.deserialize_value(
-                        model.grading_snapshot, CurriculumChoiceActivitySnapshot
-                    )
-                    if model.grading_snapshot is not None
-                    else None,
-                ),
+                grading_snapshot,
             ),
             submitted_at=model.submitted_at,
             submission_key=model.submission_key,
-            grading_snapshot=(
-                cast(
-                    'CurriculumChoiceActivitySnapshot',
-                    Serialization.deserialize_value(
-                        model.grading_snapshot, CurriculumChoiceActivitySnapshot
-                    ),
-                )
-                if model.grading_snapshot is not None
-                else None
+            grading_snapshot=grading_snapshot,
+        )
+
+    @staticmethod
+    def _deserialize_snapshot(
+        value: object | None,
+    ) -> CurriculumChoiceActivitySnapshot | None:
+        if value is None:
+            return None
+        data = cast('dict[str, object]', value)
+        normalized = {**data}
+        normalized.setdefault('required_concept_ids', [])
+        normalized.setdefault('activity_type', 'learning')
+        questions = cast('list[dict[str, object]]', normalized.get('questions', []))
+        normalized['questions'] = [
+            {**question, 'concept_criteria': question.get('concept_criteria', [])}
+            for question in questions
+        ]
+        return cast(
+            'CurriculumChoiceActivitySnapshot',
+            Serialization.deserialize_value(
+                normalized, CurriculumChoiceActivitySnapshot
             ),
         )
 

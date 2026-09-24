@@ -34,6 +34,7 @@ class Response(BaseModel):
     can_submit: bool
     latest_attempt_id: str | None
     unresolved_attempt_id: str | None
+    is_diagnostic: bool = False
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

@@ -24,6 +24,7 @@ export type ChoiceActivityRouteProps = {
   competencyId: string
   activityId: string
   onNavigateToAttempt: (attemptId: string, replace?: boolean) => void
+  onNavigateToDiagnostic?: () => void
   onUnsentAnswersChange: (hasUnsentAnswers: boolean) => void
   onSessionExpired: () => void
 }
@@ -40,7 +41,10 @@ export type ChoiceActivityPageProps =
 
 type ChoiceActivityRouteIds = Omit<
   ChoiceActivityRouteProps,
-  'onNavigateToAttempt' | 'onUnsentAnswersChange' | 'onSessionExpired'
+  | 'onNavigateToAttempt'
+  | 'onNavigateToDiagnostic'
+  | 'onUnsentAnswersChange'
+  | 'onSessionExpired'
 >
 type ValidatedInput = ChoiceActivityRouteIds | { kind: 'invalid-request' }
 type ActionFailure =
@@ -130,6 +134,7 @@ export function useChoiceActivityPage(props: ChoiceActivityPageProps) {
     [activityId, competencyId, goalId, skillId],
   )
   const onNavigateToAttempt = injected ? undefined : props.onNavigateToAttempt
+  const onNavigateToDiagnostic = injected ? undefined : props.onNavigateToDiagnostic
   const onSessionExpired = injected ? undefined : props.onSessionExpired
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<readonly ChoiceAnswer[]>([])
@@ -168,8 +173,15 @@ export function useChoiceActivityPage(props: ChoiceActivityPageProps) {
 
   useEffect(() => {
     if (!routeIds || !activity?.unresolvedAttemptId) return
-    onNavigateToAttempt?.(activity.unresolvedAttemptId, true)
-  }, [activity?.unresolvedAttemptId, onNavigateToAttempt, routeIds])
+    if (activity.isDiagnostic) onNavigateToDiagnostic?.()
+    else onNavigateToAttempt?.(activity.unresolvedAttemptId, true)
+  }, [
+    activity?.unresolvedAttemptId,
+    activity?.isDiagnostic,
+    onNavigateToAttempt,
+    onNavigateToDiagnostic,
+    routeIds,
+  ])
 
   const onUnsentAnswersChange =
     !injected && 'onUnsentAnswersChange' in props
@@ -278,7 +290,8 @@ export function useChoiceActivityPage(props: ChoiceActivityPageProps) {
       setUnsentAnswers(false)
       onUnsentAnswersChange?.(false)
       if (!injected && routeIds) {
-        onNavigateToAttempt?.(result.attemptId)
+        if (result.isDiagnostic || activity.isDiagnostic) onNavigateToDiagnostic?.()
+        else onNavigateToAttempt?.(result.attemptId)
       }
     } catch {
       setHasSubmissionError(true)
@@ -386,6 +399,7 @@ export type ChoiceQuestionProps = {
   question: ChoiceQuestion
   questionNumber: number
   totalQuestions: number
+  difficultyLabel?: string
   selectedOptionKeys: readonly string[]
   onToggleOption: (optionKey: string) => void
   disabled?: boolean

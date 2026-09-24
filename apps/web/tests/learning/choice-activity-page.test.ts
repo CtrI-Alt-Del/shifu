@@ -77,3 +77,85 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
     ),
   ).toBe(true)
 })
+
+test('shows Markdown code and accepts a complete multiple-selection answer', async ({
+  authenticatedPage,
+}) => {
+  const multipleActivity = {
+    ...activity,
+    questions: [
+      {
+        key: 'q1',
+        kind: 'multiple_selection',
+        prompt:
+          'Considere o código:\n\n```python\ntem_cracha = True\ntem_senha = False\npode_entrar = tem_cracha and tem_senha\n```\n\nQuais afirmações são verdadeiras?',
+        options: [
+          { key: 'a', text: 'tem_cracha é True.' },
+          { key: 'b', text: 'tem_senha é True.' },
+          { key: 'c', text: 'pode_entrar é False.' },
+          { key: 'd', text: 'pode_entrar é True.' },
+        ],
+      },
+    ],
+  }
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const payload = decodeURIComponent(route.request().url())
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: multipleActivity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(authenticatedPage.locator('pre code')).toHaveText(
+    /pode_entrar = tem_cracha and tem_senha/,
+  )
+  const prompt = authenticatedPage.locator('.choice-question-prompt')
+  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
+    'choice-prompt-enter',
+  )
+  await authenticatedPage.getByText('tem_cracha é True.').click()
+  await authenticatedPage.getByText('pode_entrar é False.').click()
+  await expect(
+    authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
+  ).toBeChecked()
+  await expect(
+    authenticatedPage.getByRole('checkbox', { name: 'pode_entrar é False.' }),
+  ).toBeChecked()
+  await expect(
+    authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
+  ).not.toBeChecked()
+  const optionCards = authenticatedPage.locator('.choice-question-option')
+  expect(
+    await optionCards.evaluateAll((cards) =>
+      cards.map((card) => ({
+        name: getComputedStyle(card).animationName,
+        delay: getComputedStyle(card).animationDelay,
+      })),
+    ),
+  ).toEqual([
+    { name: 'choice-option-enter', delay: '0.08s' },
+    { name: 'choice-option-enter', delay: '0.14s' },
+    { name: 'choice-option-enter', delay: '0.2s' },
+    { name: 'choice-option-enter', delay: '0.26s' },
+  ])
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
+    'none',
+  )
+  expect(
+    await optionCards.evaluateAll((cards) =>
+      cards.map((card) => getComputedStyle(card).animationName),
+    ),
+  ).toEqual(['none', 'none', 'none', 'none'])
+  await expect(
+    authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
+  ).toBeChecked()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
+  ).toBeEnabled()
+})

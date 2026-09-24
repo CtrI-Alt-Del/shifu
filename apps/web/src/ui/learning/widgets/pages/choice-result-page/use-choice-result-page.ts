@@ -15,7 +15,11 @@ import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { getChoiceActivityAction } from '@/ui/learning/widgets/pages/choice-activity-page/use-choice-activity-page'
-import type { ActivityRecommendation } from '@/core/learning/competency-detail'
+import type {
+  ActivityRecommendation,
+  AvailableCompetencyDetail,
+} from '@/core/learning/competency-detail'
+import { getCompetencyDetailAction } from '@/ui/learning/widgets/pages/competency-detail-page/use-competency-detail-page'
 
 export type ChoiceResultRouteProps = {
   goalId: string
@@ -23,7 +27,6 @@ export type ChoiceResultRouteProps = {
   competencyId: string
   activityId: string
   attemptId: string
-  onNavigateToActivity: () => void
   onOpenRecommendation: (recommendation: ActivityRecommendation) => void
   onSessionExpired: () => void
 }
@@ -37,9 +40,11 @@ export type ChoiceResultRenderProps =
       activity: ChoiceActivityDetail
       attempt: ChoiceAttemptDetail
       recommendation?: ActivityRecommendation | null
+      adaptiveDetail?: AvailableCompetencyDetail | null
+      adaptiveLoadError?: boolean
+      detailIds?: { goalId: string; skillId: string; competencyId: string }
       onRetryEvaluation: () => Promise<void>
       onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
-      onReturnToActivity?: () => void
     }
 
 export type ChoiceResultPageProps = ChoiceResultRenderProps | ChoiceResultRouteProps
@@ -52,7 +57,7 @@ type ActionFailure =
 
 type ChoiceResultRouteIds = Omit<
   ChoiceResultRouteProps,
-  'onNavigateToActivity' | 'onOpenRecommendation' | 'onSessionExpired'
+  'onOpenRecommendation' | 'onSessionExpired'
 >
 type ValidatedAttemptInput = ChoiceResultRouteIds | { kind: 'invalid-request' }
 
@@ -144,6 +149,33 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     refetchInterval: (query) => (query.state.data?.status === 'pending' ? 3000 : false),
     refetchIntervalInBackground: false,
   })
+  const adaptiveDetailQuery = useQuery({
+    queryKey: [
+      'learning',
+      'result-adaptive-detail',
+      ...(routeProps ? routeIdentity(routeProps) : []),
+      routeProps?.attemptId,
+    ],
+    enabled: routeMode && attemptQuery.data?.status === 'completed',
+    queryFn: async (): Promise<AvailableCompetencyDetail | null> => {
+      if (!routeProps) return null
+      const result = await getCompetencyDetailAction({
+        data: {
+          goalId: routeProps.goalId,
+          skillId: routeProps.skillId,
+          competencyId: routeProps.competencyId,
+        },
+      })
+      if ('kind' in result) {
+        throw new RestError('Não foi possível carregar a próxima recomendação.', 503)
+      }
+      return 'availability' in result && result.availability === 'available'
+        ? result
+        : null
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
 
   useEffect(() => {
     if (!routeMode) return
@@ -212,9 +244,18 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
           state: 'result',
           activity,
           attempt,
-          recommendation: attempt.nextAction,
+          recommendation:
+            adaptiveDetailQuery.isPending || adaptiveDetailQuery.isError
+              ? null
+              : attempt.nextAction,
+          adaptiveDetail: adaptiveDetailQuery.data ?? null,
+          adaptiveLoadError: adaptiveDetailQuery.isError,
+          detailIds: {
+            goalId: routeProps.goalId,
+            skillId: routeProps.skillId,
+            competencyId: routeProps.competencyId,
+          },
           onRetryEvaluation: handleRetryEvaluation,
-          onReturnToActivity: routeProps?.onNavigateToActivity,
           onOpenRecommendation: routeProps?.onOpenRecommendation,
         }
       : resultState === 'error'

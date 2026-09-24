@@ -8,6 +8,7 @@ from shifu.curriculum.core.interfaces import CurriculumDatabaseRepositories
 from shifu.curriculum.database.sqlalchemy.repositories import (
     SqlalchemyActivitiesRepository,
     SqlalchemyCompetenciesRepository,
+    SqlalchemyConceptsRepository,
     SqlalchemyCurriculumSequencesRepository,
     SqlalchemyMaterialsRepository,
     SqlalchemySkillFoundationsRepository,
@@ -31,6 +32,7 @@ class SqlalchemyCurriculumDatabase:
                 skills=SqlalchemySkillsRepository(session),
                 skill_foundations=SqlalchemySkillFoundationsRepository(session),
                 competencies=SqlalchemyCompetenciesRepository(session),
+                concepts=SqlalchemyConceptsRepository(session),
                 materials=SqlalchemyMaterialsRepository(session),
                 activities=SqlalchemyActivitiesRepository(session),
                 curriculum_sequences=SqlalchemyCurriculumSequencesRepository(session),

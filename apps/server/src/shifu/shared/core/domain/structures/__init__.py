@@ -18,6 +18,12 @@ from .curriculum_choice_question_snapshot import (
 from .curriculum_competency_snapshot import (
     CurriculumCompetencySnapshot as CurriculumCompetencySnapshot,
 )
+from .curriculum_concept_snapshot import (
+    CurriculumConceptSnapshot as CurriculumConceptSnapshot,
+)
+from .curriculum_choice_concept_criterion_snapshot import (
+    CurriculumChoiceConceptCriterionSnapshot as CurriculumChoiceConceptCriterionSnapshot,
+)
 from .curriculum_content_item import CurriculumContentItem as CurriculumContentItem
 from .curriculum_material_snapshot import (
     CurriculumMaterialSnapshot as CurriculumMaterialSnapshot,

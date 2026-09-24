@@ -1,11 +1,15 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
 } from '@/core/learning/choice-activity'
-import type { ActivityRecommendation } from '@/core/learning/competency-detail'
+import type {
+  ActivityRecommendation,
+  AvailableCompetencyDetail,
+} from '@/core/learning/competency-detail'
 
 import { ChoiceResultPage } from '..'
 import type { ChoiceResultPageController } from '../use-choice-result-page'
@@ -13,6 +17,19 @@ import { useChoiceResultPage } from '../use-choice-result-page'
 
 vi.mock('../use-choice-result-page', () => ({
   useChoiceResultPage: vi.fn(),
+}))
+
+type LinkMockProps = Omit<ComponentProps<'a'>, 'href'> & {
+  params?: Record<string, string>
+  to: string
+}
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, params, to, ...props }: LinkMockProps) => (
+    <a data-params={JSON.stringify(params)} href={to} {...props}>
+      {children}
+    </a>
+  ),
 }))
 
 const useChoiceResultPageMock = vi.mocked(useChoiceResultPage)
@@ -65,6 +82,39 @@ const RECOMMENDATION: ActivityRecommendation = {
   activityId: 'activity-2',
   difficulty: 'easy',
   type: 'reinforcement',
+}
+
+const ADAPTIVE_DETAIL: AvailableCompetencyDetail = {
+  availability: 'available',
+  goalId: '01SHF000000000000000000001',
+  skillId: '01SHF000000000000000000002',
+  skillName: 'Lógica',
+  competencyId: '01SHF000000000000000000003',
+  competencyName: 'Repetição',
+  progress: 42,
+  status: 'developing',
+  isFocus: true,
+  focusReturned: false,
+  focusCompetencyId: '01SHF000000000000000000003',
+  focusCompetencyName: 'Repetição',
+  items: [],
+  recommendation: null,
+  coverageComplete: false,
+  verificationCause: null,
+  adaptive: {
+    targetConceptId: '01SHF000000000000000000004',
+    targetConceptName: 'Laços',
+    originalTargetConceptId: '01SHF000000000000000000004',
+    originalTargetConceptName: 'Laços',
+    recommendedCompetencyId: '01SHF000000000000000000003',
+    materialCompetencyId: '01SHF000000000000000000003',
+    reason: 'coverage',
+    difficulty: 'easy',
+    activityId: '01SHF000000000000000000005',
+    materialId: '01SHF000000000000000000006',
+    materialIsOptional: true,
+    gap: null,
+  },
 }
 
 function createControllerMock(
@@ -141,6 +191,14 @@ describe('ChoiceResultPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Estamos avaliando suas respostas.',
     )
+    const pendingHeading = screen.getByRole('heading', {
+      name: 'Avaliação em andamento',
+    })
+    const indicatorDots = pendingHeading.querySelectorAll('[aria-hidden="true"] span')
+    expect(indicatorDots).toHaveLength(3)
+    for (const dot of indicatorDots) {
+      expect(dot).toHaveClass('motion-safe:animate-pulse', 'motion-reduce:animate-none')
+    }
     expect(screen.queryByText('/ 100')).not.toBeInTheDocument()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
@@ -186,6 +244,11 @@ describe('ChoiceResultPage', () => {
       <ChoiceResultPage
         activity={ACTIVITY}
         attempt={COMPLETED_ATTEMPT}
+        detailIds={{
+          goalId: ADAPTIVE_DETAIL.goalId,
+          skillId: ADAPTIVE_DETAIL.skillId,
+          competencyId: ADAPTIVE_DETAIL.competencyId,
+        }}
         onRetryEvaluation={vi.fn()}
         onOpenRecommendation={onOpenRecommendationMock}
         recommendation={RECOMMENDATION}
@@ -194,12 +257,84 @@ describe('ChoiceResultPage', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Resultado da Atividade' })).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'Voltar para a Habilidade' }),
+    ).toHaveAttribute(
+      'data-params',
+      JSON.stringify({
+        goalId: ADAPTIVE_DETAIL.goalId,
+        skillId: ADAPTIVE_DETAIL.skillId,
+      }),
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Voltar para Atividade' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
-    expect(screen.getByText('68 → 67')).toBeVisible()
+    const progressHeading = screen.getByRole('heading', {
+      name: 'Domínio estimado da Competência',
+    })
+    expect(progressHeading).toBeVisible()
+    expect(progressHeading.closest('section')).toHaveTextContent(
+      /Antes:\s*68%.*Agora:\s*67%/,
+    )
+    expect(
+      screen.getByRole('progressbar', {
+        name: 'Domínio estimado da Competência após a avaliação',
+      }),
+    ).toHaveAttribute('aria-valuetext', '67%')
+    expect(
+      screen.getByText(
+        'A estimativa considera suas respostas nesta Atividade e, quando houver, evidências anteriores. Não é a nota acima.',
+      ),
+    ).toBeVisible()
     expect(screen.getByText('Revise a condição do laço.')).toBeVisible()
     expect(screen.getByText('Atividade de reforço recomendada')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Próxima Atividade' }))
     expect(onOpenRecommendationMock).toHaveBeenCalledWith(RECOMMENDATION)
+  })
+
+  it('shows the adaptive Concept decision after a completed learning result', () => {
+    render(
+      <ChoiceResultPage
+        activity={ACTIVITY}
+        adaptiveDetail={ADAPTIVE_DETAIL}
+        attempt={COMPLETED_ATTEMPT}
+        onRetryEvaluation={vi.fn()}
+        recommendation={RECOMMENDATION}
+        state='result'
+      />,
+    )
+
+    expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Laços' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ler Material opcional' })).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: /Abrir Atividade recomendada/ }),
+    ).toBeVisible()
+    expect(screen.queryByText('Atividade de reforço recomendada')).not.toBeInTheDocument()
+  })
+
+  it('keeps the result visible and links to Competency if the adaptive detail cannot load', () => {
+    render(
+      <ChoiceResultPage
+        activity={ACTIVITY}
+        adaptiveLoadError
+        attempt={COMPLETED_ATTEMPT}
+        detailIds={{
+          goalId: ADAPTIVE_DETAIL.goalId,
+          skillId: ADAPTIVE_DETAIL.skillId,
+          competencyId: ADAPTIVE_DETAIL.competencyId,
+        }}
+        onRetryEvaluation={vi.fn()}
+        recommendation={RECOMMENDATION}
+        state='result'
+      />,
+    )
+    expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: 'Ver Competência e próxima recomendação' }),
+    ).toBeVisible()
+    expect(screen.queryByText('Atividade de reforço recomendada')).not.toBeInTheDocument()
   })
 
   it('formats persisted integer and fractional Activity scores compactly', () => {

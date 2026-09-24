@@ -4,7 +4,7 @@ export type GoalDetailPlaceholderPageProps = {
 
 export const GoalDetailPlaceholderPage = ({ goalId }: GoalDetailPlaceholderPageProps) => {
   return (
-    <div className='flex min-h-[50vh] flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-border bg-card p-10 text-center'>
+    <div className='mx-auto flex min-h-[50vh] w-full max-w-7xl flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-border bg-card p-10 text-center'>
       <span className='inline-flex rounded-full border border-border bg-card px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground'>
         Em preparação
       </span>

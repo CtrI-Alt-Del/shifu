@@ -1,6 +1,7 @@
 import { CompetencyContentList } from './competency-content-list'
 import { CompetencyDetailFeedback } from './competency-detail-feedback'
 import { CompetencyDetailHeader } from './competency-detail-header'
+import { AdaptiveRecommendation } from './adaptive-recommendation'
 import {
   type CompetencyDetailPageProps,
   useCompetencyDetailPage,
@@ -36,12 +37,13 @@ export const CompetencyDetailPage = (props: CompetencyDetailPageProps) => {
   }
 
   return (
-    <div className='space-y-7 pb-6 sm:space-y-9'>
+    <div className='mx-auto w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'>
       <CompetencyDetailHeader
         detail={detail}
         goalId={props.goalId}
         skillId={props.skillId}
       />
+      <AdaptiveRecommendation detail={detail} />
       <CompetencyContentList
         detail={detail}
         goalId={props.goalId}

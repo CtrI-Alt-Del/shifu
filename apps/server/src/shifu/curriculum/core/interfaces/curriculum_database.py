@@ -7,6 +7,7 @@ from shifu.curriculum.core.interfaces.activities_repository import (
 from shifu.curriculum.core.interfaces.competencies_repository import (
     CompetenciesRepository,
 )
+from shifu.curriculum.core.interfaces.concepts_repository import ConceptsRepository
 from shifu.curriculum.core.interfaces.curriculum_sequences_repository import (
     CurriculumSequencesRepository,
 )
@@ -23,6 +24,7 @@ class CurriculumDatabaseRepositories:
     skills: SkillsRepository
     skill_foundations: SkillFoundationsRepository
     competencies: CompetenciesRepository
+    concepts: ConceptsRepository
     materials: MaterialsRepository
     activities: ActivitiesRepository
     curriculum_sequences: CurriculumSequencesRepository

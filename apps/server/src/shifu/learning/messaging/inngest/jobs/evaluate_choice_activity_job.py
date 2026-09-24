@@ -20,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from shifu.learning.core.domain.entities import ActivityEvaluation
     from shifu.learning.core.interfaces import LearningDatabase
-    from shifu.shared.core.interfaces import ClockProvider
+    from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
 
 class EvaluationJobPayload(TypedDict):
@@ -67,6 +67,7 @@ class EvaluateChoiceActivityJob:
         inngest: Inngest,
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
+        curriculum_content_provider: CurriculumContentProvider | None = None,
     ) -> Function[None]:
         async def on_failure(context: Context) -> None:
             failure_data = cast('dict[str, object]', dict(context.event.data))
@@ -125,6 +126,7 @@ class EvaluateChoiceActivityJob:
                 EvaluateChoiceActivityJob._evaluate,
                 learning_database,
                 clock_provider,
+                curriculum_content_provider,
                 payload,
             )
             LOGGER.info(
@@ -140,8 +142,8 @@ class EvaluateChoiceActivityJob:
         data: Mapping[str, object],
     ) -> EvaluationJobPayload:
         payload = _Payload.model_validate(dict(data))
-        if payload.kind != 'learning':
-            raise ValueError('Only learning activity submissions can be evaluated')
+        if payload.kind not in {'learning', 'diagnostic', 'review'}:
+            raise ValueError('Only choice activity submissions can be evaluated')
         return EvaluationJobPayload(
             attempt_id=payload.attempt_id,
             run_id=payload.run_id,
@@ -188,10 +190,13 @@ class EvaluateChoiceActivityJob:
     async def _evaluate(
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
+        curriculum_content_provider: CurriculumContentProvider | None,
         payload: EvaluationJobPayload,
     ) -> None:
         await asyncio.to_thread(
-            EvaluateChoiceActivityUseCase(learning_database, clock_provider).execute,
+            EvaluateChoiceActivityUseCase(
+                learning_database, clock_provider, curriculum_content_provider
+            ).execute,
             payload['attempt_id'],
             payload['run_id'],
         )

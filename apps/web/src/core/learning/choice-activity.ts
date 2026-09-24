@@ -27,6 +27,7 @@ export type ChoiceActivityDetail = {
   canSubmit: boolean
   latestAttemptId: string | null
   unresolvedAttemptId: string | null
+  isDiagnostic?: boolean
 }
 
 export type ChoiceAnswer = {
@@ -43,6 +44,7 @@ export type ChoiceSubmissionResult = {
   attemptId: string
   status: 'pending'
   resultUrl: string
+  isDiagnostic?: boolean
 }
 
 export type ChoiceResultQuestion = {

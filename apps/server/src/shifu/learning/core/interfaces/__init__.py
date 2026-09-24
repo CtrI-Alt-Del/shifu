@@ -7,6 +7,12 @@ from .activity_evaluations_repository import (
 from .competency_progresses_repository import (
     CompetencyProgressesRepository as CompetencyProgressesRepository,
 )
+from .concept_observations_repository import (
+    ConceptObservationsRepository as ConceptObservationsRepository,
+)
+from .concept_states_repository import (
+    ConceptStatesRepository as ConceptStatesRepository,
+)
 from .goals_repository import GoalsRepository as GoalsRepository
 from .learning_database import (
     LearningDatabase as LearningDatabase,

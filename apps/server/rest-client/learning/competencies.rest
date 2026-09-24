@@ -5,6 +5,7 @@
 @unavailableSkillId = 01SHF000000000000000000003
 @competencyId = 01SHF000000000000000000020
 @unavailableCompetencyId = 01SHF000000000000000000006
+@materialId = replace-with-released-material-id
 
 ### Available competency detail
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
@@ -20,3 +21,20 @@ Authorization: Bearer {{accessToken}}
 
 ### Unauthenticated competency detail
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
+
+### Released Material detail (reading does not change progress)
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/materials/{{materialId}}
+Authorization: Bearer {{accessToken}}
+
+@adaptiveGoalId = replace-with-created-goal-id
+@adaptiveSkillId = 01SHF000000000000000000032
+@adaptiveCompetencyId = 01SHF000000000000000000033
+@adaptiveMaterialId = 01SHF000000000000000000035
+
+### Adaptive recommendation and Concept evidence after consolidated diagnostic
+GET {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}
+Authorization: Bearer {{accessToken}}
+
+### Optional introductory Material after diagnostic; reading does not change progress
+GET {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/materials/{{adaptiveMaterialId}}
+Authorization: Bearer {{accessToken}}

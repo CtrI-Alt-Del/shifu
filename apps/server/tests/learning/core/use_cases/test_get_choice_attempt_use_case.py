@@ -218,3 +218,25 @@ class TestGetChoiceAttemptUseCase:
             )
 
         self.repositories.activity_attempts.find_by_id.assert_not_called()
+
+    def test_should_not_project_legacy_next_action_for_adaptive_result(self) -> None:
+        self.experience.policy_id = 'learning-adaptive-v2'
+        self.evaluation.status = ActivityEvaluationStatus.COMPLETED
+        self.evaluation.score = Decimal('100')
+        self.evaluation.completed_at = NOW
+        self.evaluation.parts = tuple(
+            ChoiceEvaluationResult(
+                question_key=f'q{index}',
+                score=Decimal('100'),
+                is_correct=True,
+                explanation='Explicação correta.',
+            )
+            for index in range(1, 4)
+        )
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.next_action is None
+        self.provider.get_skill_content.assert_not_called()

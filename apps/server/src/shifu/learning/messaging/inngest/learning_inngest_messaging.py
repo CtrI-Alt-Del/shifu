@@ -4,7 +4,7 @@ from inngest import Function, Inngest
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.messaging.inngest.jobs import EvaluateChoiceActivityJob
-from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
 
 class LearningInngestMessaging:
@@ -16,6 +16,7 @@ class LearningInngestMessaging:
         *,
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
+        curriculum_content_provider: CurriculumContentProvider | None = None,
     ) -> list[Function[object]]:
         return [
             cast(
@@ -24,6 +25,7 @@ class LearningInngestMessaging:
                     inngest,
                     learning_database,
                     clock_provider,
+                    curriculum_content_provider,
                 ),
             ),
         ]

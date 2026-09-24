@@ -63,11 +63,17 @@ export const CompetencyDetailHeader = ({
         </div>
 
         <div className='w-full max-w-xl lg:min-w-[22rem]'>
-          <ProgressMeter
-            label='Progresso da Competência'
-            tone='success'
-            value={detail.progress}
-          />
+          {detail.progress === null ? (
+            <p className='rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground'>
+              Progresso da Competência: ainda sem evidência suficiente.
+            </p>
+          ) : (
+            <ProgressMeter
+              label='Progresso da Competência'
+              tone='success'
+              value={detail.progress}
+            />
+          )}
         </div>
       </div>
 

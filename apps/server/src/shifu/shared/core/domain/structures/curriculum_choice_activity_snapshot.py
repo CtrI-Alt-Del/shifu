@@ -19,6 +19,8 @@ class CurriculumChoiceActivitySnapshot:
     title: str
     questions: tuple[CurriculumChoiceQuestionSnapshot, ...]
     parts: tuple[CurriculumChoicePartSnapshot, ...]
+    required_concept_ids: tuple[str, ...] = ()
+    activity_type: str = 'learning'
 
     def __post_init__(self) -> None:
         for name in ('id', 'competency_id', 'difficulty', 'title'):

@@ -41,6 +41,7 @@ class Response(BaseModel):
     attempt_id: str
     status: Literal['pending']
     result_url: str
+    is_diagnostic: bool = False
 
 
 _OUTCOME_ADAPTER = TypeAdapter[ChoiceSubmissionOutcome](ChoiceSubmissionOutcome)
@@ -110,8 +111,11 @@ class SubmitChoiceActivityController:
                 attempt_id=outcome.attempt.attempt_id,
                 status='pending',
                 result_url=(
-                    f'/learning/goals/{goal_id}/skills/{skill_id}'
+                    f'/learning/goals/{goal_id}/skills/{skill_id}/diagnostic'
+                    if outcome.is_diagnostic
+                    else f'/learning/goals/{goal_id}/skills/{skill_id}'
                     f'/competencies/{competency_id}/activities/{activity_id}'
                     f'/attempts/{outcome.attempt.attempt_id}'
                 ),
+                is_diagnostic=outcome.is_diagnostic,
             )

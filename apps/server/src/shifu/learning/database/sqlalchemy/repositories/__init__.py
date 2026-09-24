@@ -7,6 +7,12 @@ from .activity_evaluations_repository import (
 from .competency_progresses_repository import (
     SqlalchemyCompetencyProgressesRepository as SqlalchemyCompetencyProgressesRepository,
 )
+from .concept_observations_repository import (
+    SqlalchemyConceptObservationsRepository as SqlalchemyConceptObservationsRepository,
+)
+from .concept_states_repository import (
+    SqlalchemyConceptStatesRepository as SqlalchemyConceptStatesRepository,
+)
 from .goals_repository import SqlalchemyGoalsRepository as SqlalchemyGoalsRepository
 from .skill_experiences_repository import (
     SqlalchemySkillExperiencesRepository as SqlalchemySkillExperiencesRepository,

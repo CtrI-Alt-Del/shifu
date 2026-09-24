@@ -1,10 +1,13 @@
 import { Button } from '@/ui/shadcn/button'
+import { Link } from '@tanstack/react-router'
 
 import type {
   ChoiceQuestion,
   ChoiceResultQuestion,
 } from '@/core/learning/choice-activity'
 import type { CompetencyProgressStatus } from '@/core/learning/competency-detail'
+import { AdaptiveRecommendation } from '@/ui/learning/widgets/pages/competency-detail-page/adaptive-recommendation'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { ChoiceResultDetail } from './choice-result-detail'
 import { type ChoiceResultPageProps, useChoiceResultPage } from './use-choice-result-page'
@@ -12,6 +15,9 @@ import { type ChoiceResultPageProps, useChoiceResultPage } from './use-choice-re
 export type { ChoiceResultPageProps } from './use-choice-result-page'
 
 const SCORE_FORMATTER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
+const PROGRESS_FORMATTER = new Intl.NumberFormat('pt-BR', {
+  maximumFractionDigits: 1,
+})
 
 const PROGRESS_STATUS_LABELS: Record<CompetencyProgressStatus, string> = {
   learning: 'Em aprendizado',
@@ -27,7 +33,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
 
   if (pageProps.state === 'loading') {
     return (
-      <main className='mx-auto w-full max-w-3xl'>
+      <main className='mx-auto w-full max-w-7xl'>
         <output
           aria-label='Carregando resultado da Atividade...'
           className='block space-y-4 rounded-md border border-border bg-card p-6'
@@ -48,7 +54,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
 
   if (pageProps.state === 'private-absence') {
     return (
-      <main className='mx-auto flex min-h-64 w-full max-w-3xl flex-col items-center justify-center rounded-md border border-border bg-card p-6 text-center'>
+      <main className='mx-auto flex min-h-64 w-full max-w-7xl flex-col items-center justify-center rounded-md border border-border bg-card p-6 text-center'>
         <h1 className='font-serif text-3xl text-foreground'>Resultado não encontrado</h1>
         <p className='mt-3 text-muted-foreground'>
           Não foi possível encontrar este resultado.
@@ -60,7 +66,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   if (pageProps.state === 'error') {
     return (
       <main
-        className='mx-auto flex min-h-64 w-full max-w-3xl flex-col items-center justify-center rounded-md border border-border bg-card p-6 text-center'
+        className='mx-auto flex min-h-64 w-full max-w-7xl flex-col items-center justify-center rounded-md border border-border bg-card p-6 text-center'
         role='alert'
       >
         <h1 className='font-serif text-3xl text-foreground'>
@@ -79,16 +85,34 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   if (pageProps.state !== 'result') return null
 
   const { activity, attempt, onOpenRecommendation, recommendation } = pageProps
+  const backToSkillLink = pageProps.detailIds ? (
+    <Link
+      className='inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md border border-control-border px-4 font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
+      params={{
+        goalId: pageProps.detailIds.goalId,
+        skillId: pageProps.detailIds.skillId,
+      }}
+      to='/learning/goals/$goalId/skills/$skillId'
+    >
+      <Icon name='arrow-left' size={16} />
+      Voltar para a Habilidade
+    </Link>
+  ) : null
 
   if (attempt.status === 'pending') {
     return (
-      <main className='mx-auto w-full max-w-3xl space-y-4'>
-        {pageProps.onReturnToActivity ? (
-          <Button onClick={pageProps.onReturnToActivity} type='button'>
-            Voltar para Atividade
-          </Button>
-        ) : null}
-        <h1 className='font-serif text-3xl text-foreground'>Avaliação em andamento</h1>
+      <main className='mx-auto w-full max-w-7xl space-y-4'>
+        <h1 className='font-serif text-3xl text-foreground'>
+          Avaliação em andamento
+          <span
+            aria-hidden='true'
+            className='ml-2 inline-flex items-center gap-1.5 align-middle text-muted-foreground'
+          >
+            <span className='motion-safe:animate-pulse motion-reduce:animate-none h-1.5 w-1.5 rounded-full bg-current' />
+            <span className='motion-safe:animate-pulse motion-reduce:animate-none [animation-delay:160ms] h-1.5 w-1.5 rounded-full bg-current' />
+            <span className='motion-safe:animate-pulse motion-reduce:animate-none [animation-delay:320ms] h-1.5 w-1.5 rounded-full bg-current' />
+          </span>
+        </h1>
         <output
           aria-live='polite'
           className='block rounded-md border border-border bg-card p-5 text-foreground'
@@ -96,18 +120,14 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
           Estamos avaliando suas respostas. Você pode sair; o resultado ficará disponível
           aqui.
         </output>
+        {backToSkillLink}
       </main>
     )
   }
 
   if (attempt.status === 'failed') {
     return (
-      <main className='mx-auto w-full max-w-3xl space-y-4'>
-        {pageProps.onReturnToActivity ? (
-          <Button onClick={pageProps.onReturnToActivity} type='button'>
-            Voltar para Atividade
-          </Button>
-        ) : null}
+      <main className='mx-auto w-full max-w-7xl space-y-4'>
         <h1 className='font-serif text-3xl text-foreground'>
           A avaliação não pôde ser concluída
         </h1>
@@ -138,6 +158,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
             </output>
           ) : null}
         </section>
+        {backToSkillLink}
       </main>
     )
   }
@@ -147,28 +168,29 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   )
   const resultQuestions = attempt.questions ?? []
   const formattedScore = SCORE_FORMATTER.format(Number(attempt.score))
+  const correctQuestionCount = resultQuestions.filter((result) => result.isCorrect).length
 
   return (
-    <main className='mx-auto w-full max-w-3xl space-y-5 pb-8'>
-      {pageProps.onReturnToActivity ? (
-        <Button onClick={pageProps.onReturnToActivity} type='button'>
-          Voltar para Atividade
-        </Button>
-      ) : null}
-      <header className='space-y-3 border-b border-border pb-5'>
-        <p className='text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground'>
-          {activity.title}
-        </p>
-        <h1 className='font-serif text-3xl text-foreground sm:text-4xl'>
-          Resultado da Atividade
-        </h1>
+    <main className='mx-auto w-full max-w-7xl space-y-5 pb-8'>
+      {backToSkillLink}
+      <header className='flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
+        <div className='space-y-2'>
+          <p className='text-sm text-muted-foreground'>{activity.title}</p>
+          <h1 className='font-serif text-3xl text-foreground sm:text-4xl'>
+            Resultado da Atividade
+          </h1>
+        </div>
         {attempt.score !== undefined && attempt.score !== null ? (
           <output
             aria-label={`Nota da Atividade ${formattedScore} de 100`}
-            className='font-mono text-2xl font-semibold text-foreground'
+            className='block text-sm text-success'
           >
-            {formattedScore}
-            <span className='ml-2 text-sm font-normal text-muted-foreground'>/ 100</span>
+            <span className='font-mono font-semibold'>{formattedScore} / 100</span>
+            <span aria-hidden='true'> · </span>
+            <span>
+              {correctQuestionCount} de {resultQuestions.length}{' '}
+              {resultQuestions.length === 1 ? 'questão correta' : 'questões corretas'}
+            </span>
           </output>
         ) : null}
       </header>
@@ -179,14 +201,14 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
       attempt.progressAfter !== null ? (
         <section
           aria-labelledby='choice-result-progress-title'
-          className='space-y-3 rounded-md border border-border bg-card p-4 sm:p-5'
+          className='space-y-2 rounded-md border border-border bg-muted p-3 sm:p-4'
         >
           <div className='flex flex-wrap items-center justify-between gap-2'>
             <h2
-              className='font-semibold text-foreground'
+              className='text-xs font-medium uppercase tracking-wide text-muted-foreground'
               id='choice-result-progress-title'
             >
-              Progresso da Competência
+              Domínio estimado da Competência
             </h2>
             {attempt.statusAfter ? (
               <span className='rounded-sm bg-muted px-2 py-1 text-xs text-foreground'>
@@ -194,20 +216,24 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
               </span>
             ) : null}
           </div>
-          <p className='font-mono text-sm text-foreground'>
-            {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(
-              attempt.progressBefore,
-            )}
-            {' → '}
-            {new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(
-              attempt.progressAfter,
-            )}
+          <p className='text-sm text-foreground'>
+            Antes:{' '}
+            <span className='font-mono'>
+              {PROGRESS_FORMATTER.format(attempt.progressBefore)}%
+            </span>
+            <span aria-hidden='true'> → </span>
+            <span className='sr-only'>; </span>
+            Agora:{' '}
+            <span className='font-mono'>
+              {PROGRESS_FORMATTER.format(attempt.progressAfter)}%
+            </span>
           </p>
           <div
-            aria-label='Progresso da Competência após a avaliação'
+            aria-label='Domínio estimado da Competência após a avaliação'
             aria-valuemax={100}
             aria-valuemin={0}
             aria-valuenow={attempt.progressAfter}
+            aria-valuetext={`${PROGRESS_FORMATTER.format(attempt.progressAfter)}%`}
             className='h-2 w-full bg-muted'
             role='progressbar'
           >
@@ -216,10 +242,17 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
               style={{ width: `${attempt.progressAfter}%` }}
             />
           </div>
+          <p className='text-xs leading-relaxed text-muted-foreground'>
+            A estimativa considera suas respostas nesta Atividade e, quando houver,
+            evidências anteriores. Não é a nota acima.
+          </p>
         </section>
       ) : null}
 
       <section aria-label='Detalhes por questão' className='space-y-3'>
+        <h2 className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
+          Detalhes das questões
+        </h2>
         {resultQuestions.map((result: ChoiceResultQuestion, index) => (
           <ChoiceResultDetail
             key={result.key}
@@ -230,7 +263,29 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
         ))}
       </section>
 
-      {recommendation ? (
+      {pageProps.adaptiveDetail?.adaptive ? (
+        <AdaptiveRecommendation detail={pageProps.adaptiveDetail} />
+      ) : null}
+
+      {pageProps.adaptiveLoadError && pageProps.detailIds ? (
+        <section className='rounded-md border border-border bg-card p-4'>
+          <p className='text-sm text-muted-foreground'>
+            Não foi possível carregar a próxima recomendação agora. Seu resultado está
+            salvo.
+          </p>
+          <Link
+            className='mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline'
+            params={pageProps.detailIds}
+            to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+          >
+            Ver Competência e próxima recomendação
+          </Link>
+        </section>
+      ) : null}
+
+      {recommendation &&
+      !pageProps.adaptiveDetail?.adaptive &&
+      !pageProps.adaptiveLoadError ? (
         <section
           aria-label='Próxima Atividade recomendada'
           className='flex flex-wrap items-center justify-between gap-4 rounded-md border border-border bg-card p-4'

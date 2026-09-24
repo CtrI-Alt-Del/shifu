@@ -107,4 +107,28 @@ describe('ChoiceResultDetail', () => {
 
     expect(screen.getByLabelText('Nota 72,5 de 100')).toBeVisible()
   })
+
+  it('renders the persisted fenced code in the result prompt', () => {
+    const prompt = 'Considere:\n\n```python\nativo = True\n```\n\nQual é o valor?'
+    render(
+      <ChoiceResultDetail
+        question={{ ...QUESTION, prompt }}
+        questionNumber={1}
+        result={{
+          key: QUESTION.key,
+          prompt,
+          submittedOptionKeys: ['option-selected'],
+          score: 0,
+          isCorrect: false,
+          explanation: 'Revise o valor.',
+        }}
+      />,
+    )
+
+    expect(
+      screen.getByRole('heading', { level: 2 }).querySelector('pre code.language-python'),
+    ).toHaveTextContent('ativo = True')
+    expect(document.querySelector('pre .token.boolean')).toHaveTextContent('True')
+    expect(screen.queryByText('```python')).not.toBeInTheDocument()
+  })
 })

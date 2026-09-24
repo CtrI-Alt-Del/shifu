@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+import time
 from typing import cast
 
 from sqlalchemy import create_engine, func, select, text
@@ -67,6 +68,7 @@ class TestEvaluateChoiceActivityJob:
             database, provider, ids, activity, experience = _seed(engine)
             now = SystemClockProvider().now()
 
+            delivery_started_at = time.monotonic()
             valid_attempt, valid_evaluation, valid_event = _add_attempt(
                 database,
                 provider,
@@ -79,8 +81,10 @@ class TestEvaluateChoiceActivityJob:
             )
             inngest_fixture.wait_for_log(
                 f'choice_activity_job_completed attempt_id={valid_attempt.id} '
-                f'run_id={valid_evaluation.run_id}'
+                f'run_id={valid_evaluation.run_id}',
+                timeout=10,
             )
+            assert time.monotonic() - delivery_started_at < 10
             completed = _evaluation(database, valid_attempt.id)
             assert completed.status is ActivityEvaluationStatus.COMPLETED
             assert completed.score == 100

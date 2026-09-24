@@ -8,9 +8,10 @@ from shifu.shared.core.domain.validation import require_percentage
 @structure
 class CompetencyCompletionSummary:
     competency_id: str
-    initial_progress: Decimal
+    initial_progress: Decimal | None
     final_progress: Decimal
 
     def __post_init__(self) -> None:
-        require_percentage(self.initial_progress, InvalidAttemptError)
+        if self.initial_progress is not None:
+            require_percentage(self.initial_progress, InvalidAttemptError)
         require_percentage(self.final_progress, InvalidAttemptError)

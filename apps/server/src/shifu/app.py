@@ -108,6 +108,7 @@ class FastAPIApp:
                     LearningInngestMessaging.register_jobs,
                     learning_database=learning_database,
                     clock_provider=clock_provider,
+                    curriculum_content_provider=curriculum_content_provider,
                 ),
             ],
         )

@@ -8,3 +8,4 @@ from shifu.shared.core.domain.structures import structure
 class ChoiceSubmissionOutcome:
     attempt: ChoiceAttemptDetail
     replayed: bool
+    is_diagnostic: bool = False

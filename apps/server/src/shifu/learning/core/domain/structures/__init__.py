@@ -1,5 +1,20 @@
 from .activity_answer import ActivityAnswer as ActivityAnswer
 from .activity_recommendation import ActivityRecommendation as ActivityRecommendation
+from .adaptive_activity import AdaptiveActivity as AdaptiveActivity
+from .adaptive_competency_memory import (
+    AdaptiveCompetencyMemory as AdaptiveCompetencyMemory,
+)
+from .adaptive_competency_state import (
+    AdaptiveCompetencyState as AdaptiveCompetencyState,
+)
+from .adaptive_concept import AdaptiveConcept as AdaptiveConcept
+from .adaptive_concept_state import AdaptiveConceptState as AdaptiveConceptState
+from .adaptive_material import AdaptiveMaterial as AdaptiveMaterial
+from .adaptive_policy_result import AdaptivePolicyResult as AdaptivePolicyResult
+from .adaptive_recommendation import AdaptiveRecommendation as AdaptiveRecommendation
+from .adaptive_recommendation_detail import (
+    AdaptiveRecommendationDetail as AdaptiveRecommendationDetail,
+)
 from .available_competency_detail import (
     AvailableCompetencyDetail as AvailableCompetencyDetail,
 )
@@ -34,6 +49,7 @@ from .competency_material_detail import (
     CompetencyMaterialDetail as CompetencyMaterialDetail,
 )
 from .confirmed_goal_plan import ConfirmedGoalPlan as ConfirmedGoalPlan
+from .concept_observation import ConceptObservation as ConceptObservation
 from .evaluation_part_result import EvaluationPartResult as EvaluationPartResult
 from .goal_summary import GoalSummary as GoalSummary
 from .multiple_selection_answer import (

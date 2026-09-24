@@ -2,6 +2,9 @@ import type {
   ChoiceQuestion,
   ChoiceResultQuestion,
 } from '@/core/learning/choice-activity'
+import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
+
+import './choice-result-detail.css'
 
 const SCORE_FORMATTER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
 
@@ -28,23 +31,29 @@ export const ChoiceResultDetail = ({
   return (
     <article
       aria-labelledby={`choice-result-question-${questionNumber}`}
-      className='space-y-4 rounded-md border border-border bg-card p-4 sm:p-5'
+      className='choice-result-card space-y-2 rounded-md border border-border bg-muted p-3 sm:p-4'
     >
-      <header className='flex items-start justify-between gap-4'>
+      <header className='flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
         <div className='min-w-0 space-y-1'>
-          <p className='text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground'>
-            Questão {questionNumber} · {result.isCorrect ? 'Correta' : 'Incorreta'}
-          </p>
-          <h2
-            className='whitespace-pre-wrap text-base font-semibold text-foreground'
-            id={`choice-result-question-${questionNumber}`}
+          <p
+            className={`text-sm font-medium ${result.isCorrect ? 'text-success' : 'text-selo-text'}`}
           >
-            {result.prompt}
-          </h2>
+            Questão {questionNumber}
+            {question
+              ? ` · ${question.kind === 'multiple_selection' ? 'múltipla seleção' : 'escolha única'}`
+              : ''}
+            {' · '}
+            {result.isCorrect ? 'correta' : 'incorreta'}
+          </p>
+          <QuestionPrompt
+            id={`choice-result-question-${questionNumber}`}
+            prompt={result.prompt}
+            size='result'
+          />
         </div>
         <output
           aria-label={`Nota ${formattedScore} de 100`}
-          className='shrink-0 font-mono text-lg font-semibold text-foreground'
+          className='shrink-0 font-mono text-xs font-semibold text-foreground'
         >
           {formattedScore}
           <span className='ml-1 text-xs font-normal text-muted-foreground'>/ 100</span>
@@ -54,7 +63,7 @@ export const ChoiceResultDetail = ({
       {visibleOptions.length > 0 ? (
         <ul
           aria-label={`Alternativas visíveis da questão ${questionNumber}`}
-          className='space-y-2'
+          className='space-y-1'
         >
           {visibleOptions.map((option) => {
             const isSelected = result.submittedOptionKeys.includes(option.key)
@@ -68,7 +77,7 @@ export const ChoiceResultDetail = ({
 
             return (
               <li
-                className={`flex min-h-11 items-center justify-between gap-3 rounded-md border px-3 py-2 ${stateClassName}`}
+                className={`flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 text-xs ${stateClassName}`}
                 key={option.key}
               >
                 <span className='whitespace-pre-wrap'>{option.text}</span>
@@ -86,7 +95,7 @@ export const ChoiceResultDetail = ({
         <p className='text-sm text-muted-foreground'>Sua seleção não está disponível.</p>
       )}
 
-      <p className='whitespace-pre-wrap border-t border-border pt-3 text-sm leading-6 text-muted-foreground'>
+      <p className='whitespace-pre-wrap border-t border-border pt-2 text-sm leading-5 text-muted-foreground'>
         {result.explanation}
       </p>
     </article>

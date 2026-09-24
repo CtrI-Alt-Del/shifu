@@ -6,6 +6,13 @@ import type {
   ChoiceSubmissionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
+import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
+import type {
+  AvailableSkill,
+  DiagnosticOverview,
+  GoalDetail,
+} from '@/core/learning/goal-detail'
+import type { MaterialDetail } from '@/core/learning/material-detail'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import { learningActivityPath, learningAttemptsPath } from '@/constants/routes'
 
@@ -24,6 +31,7 @@ type ActivityWire = {
   can_submit: boolean
   latest_attempt_id?: string | null
   unresolved_attempt_id?: string | null
+  is_diagnostic?: boolean
 }
 
 type AttemptWire = {
@@ -92,6 +100,86 @@ export type LearningService = ReturnType<typeof LearningService>
 
 export const LearningService = (restClient: RestClient) => {
   return {
+    async getAvailableSkills(accessToken: string): Promise<AvailableSkill[]> {
+      const response = await restClient.get<{ skills: AvailableSkill[] }>(
+        '/learning/available-skills',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body.skills
+    },
+
+    async createGoal(
+      accessToken: string,
+      input: { title: string; description: string; skillIds: string[] },
+    ): Promise<{ goalId: string; skillIds: string[] }> {
+      const response = await restClient.post<{
+        goalId: string
+        skillIds: string[]
+        code?: string
+      }>('/learning/goals', input, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (response.statusCode === 409 && response._body?.code === 'curriculum_gap') {
+        throw new CurriculumGapError()
+      }
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async getGoalDetail(accessToken: string, goalId: string): Promise<GoalDetail> {
+      const response = await restClient.get<GoalDetail>(
+        `/learning/goals/${encodeURIComponent(goalId)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async startSkill(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<void> {
+      const response = await restClient.post<{
+        code?: string
+        status?: 'diagnosing'
+      }>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}/start`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.statusCode === 409 && response._body?.code === 'curriculum_gap') {
+        throw new CurriculumGapError()
+      }
+      if (response.isFailure) response.throwError()
+    },
+
+    async getDiagnostic(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<DiagnosticOverview> {
+      const response = await restClient.get<DiagnosticOverview>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}/diagnostic`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async retryDiagnosticEvaluation(
+      accessToken: string,
+      ids: ActivityIds & { attemptId: string },
+    ): Promise<void> {
+      const response = await restClient.post<unknown>(
+        `${learningAttemptsPath(ids)}/${encodeURIComponent(ids.attemptId)}/retry`,
+        {},
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+    },
+
     async getGoals(accessToken: string): Promise<GoalSummary[]> {
       const response = await restClient.get<{ goals: GoalSummary[] }>('/learning/goals', {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -117,6 +205,19 @@ export const LearningService = (restClient: RestClient) => {
       return response.body
     },
 
+    async getMaterialDetail(
+      accessToken: string,
+      ids: Omit<ActivityIds, 'activityId'> & { materialId: string },
+    ): Promise<MaterialDetail> {
+      const { goalId, skillId, competencyId, materialId } = ids
+      const path = `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}/competencies/${encodeURIComponent(competencyId)}/materials/${encodeURIComponent(materialId)}`
+      const response = await restClient.get<MaterialDetail>(path, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
     async getChoiceActivity(
       accessToken: string,
       ids: ActivityIds,
@@ -135,6 +236,7 @@ export const LearningService = (restClient: RestClient) => {
         canSubmit: body.can_submit,
         latestAttemptId: body.latest_attempt_id ?? null,
         unresolvedAttemptId: body.unresolved_attempt_id ?? null,
+        isDiagnostic: body.is_diagnostic ?? false,
       }
     },
 
@@ -147,6 +249,7 @@ export const LearningService = (restClient: RestClient) => {
         attempt_id: string
         status: 'pending'
         result_url: string
+        is_diagnostic?: boolean
       }>(
         learningAttemptsPath(ids),
         {
@@ -163,6 +266,7 @@ export const LearningService = (restClient: RestClient) => {
         attemptId: response.body.attempt_id,
         status: response.body.status,
         resultUrl: response.body.result_url,
+        isDiagnostic: response.body.is_diagnostic ?? false,
       }
     },
 

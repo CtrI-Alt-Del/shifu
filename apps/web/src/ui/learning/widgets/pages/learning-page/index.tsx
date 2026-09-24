@@ -5,7 +5,7 @@ import { ProgressMeter } from '@/ui/shared/widgets/components/progress-meter'
 
 export const LearningPage = () => {
   return (
-    <div className='space-y-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
         action={
           <Anchor

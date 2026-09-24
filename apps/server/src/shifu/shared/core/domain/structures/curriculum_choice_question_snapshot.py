@@ -5,6 +5,9 @@ from shifu.shared.core.domain.structures import structure
 from shifu.shared.core.domain.structures.curriculum_choice_option_snapshot import (
     CurriculumChoiceOptionSnapshot,
 )
+from shifu.shared.core.domain.structures.curriculum_choice_concept_criterion_snapshot import (
+    CurriculumChoiceConceptCriterionSnapshot,
+)
 from shifu.shared.core.domain.validation import require_non_empty
 
 
@@ -16,6 +19,7 @@ class CurriculumChoiceQuestionSnapshot:
     options: tuple[CurriculumChoiceOptionSnapshot, ...]
     correct_explanation: str
     incorrect_explanation: str
+    concept_criteria: tuple[CurriculumChoiceConceptCriterionSnapshot, ...] = ()
 
     def __post_init__(self) -> None:
         for name in ('key', 'prompt', 'correct_explanation', 'incorrect_explanation'):

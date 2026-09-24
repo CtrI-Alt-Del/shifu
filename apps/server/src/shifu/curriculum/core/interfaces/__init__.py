@@ -1,5 +1,6 @@
 from .activities_repository import ActivitiesRepository as ActivitiesRepository
 from .competencies_repository import CompetenciesRepository as CompetenciesRepository
+from .concepts_repository import ConceptsRepository as ConceptsRepository
 from .curriculum_database import (
     CurriculumDatabase as CurriculumDatabase,
     CurriculumDatabaseRepositories as CurriculumDatabaseRepositories,

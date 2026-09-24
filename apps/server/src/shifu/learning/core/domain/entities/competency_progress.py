@@ -22,6 +22,9 @@ class CompetencyProgress:
     status: CompetencyProgressStatus | None = None
     mastered_at: datetime | None = None
     hard_activity_score: Decimal | None = None
+    coverage_complete: bool = False
+    verification_cause: str | None = None
+    verification_concept_id: str | None = None
 
     def __post_init__(self) -> None:
         for progress in (
@@ -31,12 +34,9 @@ class CompetencyProgress:
         ):
             if progress is not None:
                 require_percentage(progress, InvalidAttemptError)
-        if self.status is CompetencyProgressStatus.MASTERED and (
-            self.current_progress is None
-            or self.current_progress < Decimal('85')
-            or self.hard_activity_score is None
-            or self.hard_activity_score < Decimal('80')
-            or self.mastered_at is None
+        if (
+            self.status is CompetencyProgressStatus.MASTERED
+            and self.mastered_at is None
         ):
             raise InvalidAttemptError
 

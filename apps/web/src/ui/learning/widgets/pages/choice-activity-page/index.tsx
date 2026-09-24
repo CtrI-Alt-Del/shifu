@@ -36,7 +36,7 @@ export const ChoiceActivityPage = (props: ChoiceActivityPageProps) => {
 
   if (isLoading) {
     return (
-      <main className='mx-auto w-full max-w-3xl'>
+      <main className='mx-auto w-full max-w-7xl'>
         <output
           aria-label='Carregando Atividade...'
           className='block space-y-4 rounded-md border border-border bg-card p-6'
@@ -49,7 +49,7 @@ export const ChoiceActivityPage = (props: ChoiceActivityPageProps) => {
 
   if (isPrivateAbsence) {
     return (
-      <main className='mx-auto max-w-3xl p-6 text-center'>
+      <main className='mx-auto max-w-7xl p-6 text-center'>
         <h1 className='font-serif text-3xl'>Atividade não encontrada</h1>
       </main>
     )
@@ -58,7 +58,7 @@ export const ChoiceActivityPage = (props: ChoiceActivityPageProps) => {
   if (isRecoverableError || !activity) {
     return (
       <main
-        className='mx-auto flex min-h-64 max-w-3xl flex-col items-center justify-center gap-4 text-center'
+        className='mx-auto flex min-h-64 max-w-7xl flex-col items-center justify-center gap-4 text-center'
         role='alert'
       >
         <h1 className='font-serif text-3xl'>Não foi possível carregar esta Atividade</h1>
@@ -72,18 +72,22 @@ export const ChoiceActivityPage = (props: ChoiceActivityPageProps) => {
   if (!currentQuestion) return null
 
   return (
-    <main className='mx-auto w-full max-w-3xl space-y-6 pb-8'>
-      <header className='space-y-3'>
-        <p className='text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground'>
-          {DIFFICULTY_LABELS[activity.difficulty]}
-        </p>
-        <h1 className='font-serif text-3xl leading-tight text-foreground sm:text-4xl'>
-          {activity.title}
-        </h1>
+    <main className='mx-auto w-full max-w-7xl space-y-6 pb-8'>
+      <header>
+        {activity.isDiagnostic ? (
+          <p className='rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground'>
+            Diagnóstico em andamento. O resultado aparecerá apenas no resumo consolidado
+            da Habilidade. Material de apoio e dicas não estão disponíveis nesta
+            Atividade.
+          </p>
+        ) : null}
+        <h1 className='text-sm font-medium text-muted-foreground'>{activity.title}</h1>
       </header>
 
       <ChoiceQuestion
         disabled={!activity.canSubmit || isSubmitting || isSubmissionLocked}
+        difficultyLabel={DIFFICULTY_LABELS[activity.difficulty]}
+        key={currentQuestion.key}
         onToggleOption={handleToggleOption}
         question={currentQuestion}
         questionNumber={currentQuestionNumber}
@@ -91,7 +95,7 @@ export const ChoiceActivityPage = (props: ChoiceActivityPageProps) => {
         totalQuestions={totalQuestions}
       />
 
-      <div aria-live='polite' className='space-y-3'>
+      <div aria-live='polite' className='space-y-3 pt-1'>
         <p className='text-sm text-muted-foreground'>
           Suas respostas não ficam salvas se você sair antes de enviar.
         </p>

@@ -123,8 +123,8 @@ class ActivityEvaluation:
     def save_progress_effect(
         self,
         *,
-        progress_before: Decimal,
-        progress_after: Decimal,
+        progress_before: Decimal | None,
+        progress_after: Decimal | None,
         status_before: CompetencyProgressStatus,
         status_after: CompetencyProgressStatus,
     ) -> None:

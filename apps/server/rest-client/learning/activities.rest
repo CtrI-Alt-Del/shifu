@@ -32,3 +32,29 @@ Authorization: Bearer {{accessToken}}
 ### Retry failed choice Activity evaluation
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/retry
 Authorization: Bearer {{accessToken}}
+
+@adaptiveGoalId = replace-with-created-goal-id
+@adaptiveSkillId = 01SHF000000000000000000032
+@adaptiveCompetencyId = 01SHF000000000000000000033
+@firstDiagnosticActivityId = 01SHF000000000000000000036
+@diagnosticAttemptId = replace-with-submitted-diagnostic-attempt-id
+
+### Get the currently offered diagnostic Activity after starting the adaptive Skill
+GET {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}
+Authorization: Bearer {{accessToken}}
+
+### Submit one diagnostic answer; result_url points to the consolidated overview
+POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "replace-with-new-uuid",
+  "answers": [
+    { "question_key": "q1", "selected_option_keys": ["a"] }
+  ]
+}
+
+### Retry a failed diagnostic evaluation; individual result GET stays private
+POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}/attempts/{{diagnosticAttemptId}}/retry
+Authorization: Bearer {{accessToken}}

@@ -5,6 +5,7 @@ from .attempt_not_allowed_error import AttemptNotAllowedError as AttemptNotAllow
 from .competency_detail_not_found_error import (
     CompetencyDetailNotFoundError as CompetencyDetailNotFoundError,
 )
+from .curriculum_gap_error import CurriculumGapError as CurriculumGapError
 from .diagnostic_incomplete_error import (
     DiagnosticIncompleteError as DiagnosticIncompleteError,
 )

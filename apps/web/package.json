@@ -28,6 +28,8 @@
     "pg": "^8.23.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-prism-plus": "^2.0.2",
     "tailwindcss": "^4.1.18",
     "zod": "^4.4.3"
   },

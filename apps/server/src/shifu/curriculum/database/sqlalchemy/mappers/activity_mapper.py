@@ -4,6 +4,7 @@ from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
     CodeQuestion,
+    ChoiceConceptCriterion,
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
@@ -45,6 +46,7 @@ class ActivityMapper:
                     ),
                 )
             ),
+            required_concept_ids=tuple(cast('list[str]', model.required_concept_ids)),
         )
 
     @staticmethod
@@ -65,6 +67,12 @@ class ActivityMapper:
         prompt = cast('str', data['prompt'])
         correct_explanation = cast('str | None', data.get('correct_explanation'))
         incorrect_explanation = cast('str | None', data.get('incorrect_explanation'))
+        concept_criteria = cast(
+            'tuple[ChoiceConceptCriterion, ...]',
+            Serialization.deserialize_value(
+                data.get('concept_criteria', []), tuple[ChoiceConceptCriterion, ...]
+            ),
+        )
         if sum(option.is_correct for option in options) == 1:
             return SingleChoiceQuestion(
                 key=key,
@@ -72,6 +80,7 @@ class ActivityMapper:
                 options=options,
                 correct_explanation=correct_explanation,
                 incorrect_explanation=incorrect_explanation,
+                concept_criteria=concept_criteria,
             )
         return MultipleSelectionQuestion(
             key=key,
@@ -79,6 +88,7 @@ class ActivityMapper:
             options=options,
             correct_explanation=correct_explanation,
             incorrect_explanation=incorrect_explanation,
+            concept_criteria=concept_criteria,
         )
 
     @staticmethod
@@ -92,4 +102,5 @@ class ActivityMapper:
             objective=activity.objective,
             questions=Serialization.serialize_value(activity.questions),
             evaluation_rule=Serialization.serialize_value(activity.evaluation_rule),
+            required_concept_ids=list(activity.required_concept_ids),
         )

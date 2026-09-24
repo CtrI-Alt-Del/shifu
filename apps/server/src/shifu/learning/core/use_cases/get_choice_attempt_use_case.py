@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
+from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityDifficulty,
@@ -68,7 +69,7 @@ class GetChoiceAttemptUseCase:
                 or attempt.skill_experience_id != experience.id
                 or attempt.competency_id != competency_id
                 or attempt.activity_id != activity_id
-                or attempt.kind is not ActivityAttemptKind.LEARNING
+                or attempt.kind is ActivityAttemptKind.DIAGNOSTIC
                 or attempt.grading_snapshot is None
             ):
                 raise NotFoundError
@@ -133,22 +134,25 @@ class GetChoiceAttemptUseCase:
                 tuple(all_attempts),
                 tuple(all_evaluations),
             )
+            is_adaptive = experience.policy_id == AdaptiveLearningPolicy.policy_id
             score = evaluation.score
             progress_before = evaluation.progress_before
             progress_after = evaluation.progress_after
             status_before = evaluation.status_before
             status_after = evaluation.status_after
 
-        skill_content = self._curriculum_content_provider.get_skill_content(
-            next_action_context[0]
-        )
-        recommendation = self._recommendation(
-            skill_content,
-            competency_id,
-            next_action_context[1],
-            next_action_context[2],
-            next_action_context[3],
-        )
+        recommendation = None
+        if not is_adaptive:
+            skill_content = self._curriculum_content_provider.get_skill_content(
+                next_action_context[0]
+            )
+            recommendation = self._recommendation(
+                skill_content,
+                competency_id,
+                next_action_context[1],
+                next_action_context[2],
+                next_action_context[3],
+            )
         return ChoiceAttemptDetail(
             attempt_id=attempt.id,
             activity_id=attempt.activity_id,

@@ -22,6 +22,9 @@ class CompetencyProgressMapper:
                 else None
             ),
             mastered_at=model.mastered_at,
+            coverage_complete=model.coverage_complete,
+            verification_cause=model.verification_cause,
+            verification_concept_id=model.verification_concept_id,
         )
 
     @staticmethod
@@ -38,4 +41,7 @@ class CompetencyProgressMapper:
             hard_activity_score=progress.hard_activity_score,
             status=progress.status.value if progress.status is not None else None,
             mastered_at=progress.mastered_at,
+            coverage_complete=progress.coverage_complete,
+            verification_cause=progress.verification_cause,
+            verification_concept_id=progress.verification_concept_id,
         )

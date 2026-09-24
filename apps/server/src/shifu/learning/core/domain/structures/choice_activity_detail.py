@@ -14,3 +14,4 @@ class ChoiceActivityDetail:
     can_submit: bool
     latest_attempt_id: str | None = None
     unresolved_attempt_id: str | None = None
+    is_diagnostic: bool = False
