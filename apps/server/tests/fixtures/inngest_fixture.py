@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import time
+from threading import Thread
 from typing import Any, cast
 from urllib.error import URLError
 from urllib.parse import quote
@@ -33,6 +34,7 @@ class InngestFixture:
     bff_shared_secret: str
     output: list[str]
     inngest_container: DockerContainer | None = None
+    output_reader: Thread | None = None
 
     def publish(
         self, event_name: str, payload: dict[str, object], event_id: str
@@ -224,10 +226,32 @@ class InngestFixture:
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
+        reader = self.output_reader
+        if reader is not None:
+            reader.join(timeout=5)
         self._drain_output()
         return ''.join(self.output)
 
+    def start_output_reader(self) -> None:
+        if self.output_reader is not None:
+            return
+        self.output_reader = Thread(
+            target=self._read_output,
+            name='shifu-inngest-test-output',
+            daemon=True,
+        )
+        self.output_reader.start()
+
+    def _read_output(self) -> None:
+        stream = self.process.stdout
+        if stream is None:
+            return
+        for line in stream:
+            self.output.append(line)
+
     def _drain_output(self) -> None:
+        if self.output_reader is not None:
+            return
         stream = self.process.stdout
         if stream is None:
             return
@@ -344,6 +368,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
             output=[],
             inngest_container=inngest,
         )
+        fixture.start_output_reader()
         _wait_for_url(f'{server_url}/health', timeout=30)
         _wait_for_url(f'{server_url}/api/inngest', timeout=30)
         _wait_for_url(f'{mailpit_url}/api/v1/messages', timeout=30)
