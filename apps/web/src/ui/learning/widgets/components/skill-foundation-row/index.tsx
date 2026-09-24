@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import type { SkillFoundationStatus } from '@/core/learning/skill-catalog'
+import type { SkillFoundationStatus } from '@/core/learning/skill-foundation-status'
 
 type SkillFoundationRowProps = {
   skillId: string

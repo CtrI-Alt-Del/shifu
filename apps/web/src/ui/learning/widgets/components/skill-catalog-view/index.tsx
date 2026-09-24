@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 
-import type { CatalogSkill } from '@/core/learning/skill-catalog'
+import type { CatalogSkill } from '@/core/learning/catalog-skill'
 
 import { SkillFoundationRow } from '../skill-foundation-row'
 

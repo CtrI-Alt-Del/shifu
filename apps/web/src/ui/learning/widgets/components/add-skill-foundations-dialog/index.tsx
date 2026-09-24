@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 
-import type { SuggestedFoundation } from '@/core/learning/skill-catalog'
+import type { SuggestedFoundation } from '@/core/learning/suggested-foundation'
 
 import { SkillFoundationRow } from '../skill-foundation-row'
 

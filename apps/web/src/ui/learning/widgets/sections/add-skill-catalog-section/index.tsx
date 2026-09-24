@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from 'react'
 
-import type { CatalogSkill } from '@/core/learning/skill-catalog'
+import type { CatalogSkill } from '@/core/learning/catalog-skill'
 
 import { useAddSkillToGoalAction } from '@/ui/learning/hooks/use-add-skill-to-goal-action'
 import { useSkillCatalogQuery } from '@/ui/learning/hooks/use-skill-catalog-query'

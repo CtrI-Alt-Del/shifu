@@ -4,7 +4,7 @@ import { getRequest } from '@tanstack/react-start/server'
 
 import { SERVER_ENV } from '@/constants/server-env'
 import { AppError } from '@/core/errors/app-error'
-import type { CreatedSkillExperience } from '@/core/learning/skill-catalog'
+import type { CreatedSkillExperience } from '@/core/learning/created-skill-experience'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
 import { LearningService } from '@/rest/services/learning-service'

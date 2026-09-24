@@ -1,9 +1,8 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
 import type { GoalSummary } from '@/core/learning/goal-summary'
-import type {
-  CreatedSkillExperience,
-  SkillCatalogPage,
-} from '@/core/learning/skill-catalog'
+import type { CreatedSkillExperience } from '@/core/learning/created-skill-experience'
+import type { SkillCatalogPage } from '@/core/learning/skill-catalog-page'
+
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 
 export type LearningService = ReturnType<typeof LearningService>
