@@ -1,8 +1,12 @@
 from collections.abc import Iterator
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+if TYPE_CHECKING:
+	from httpx import Response
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
@@ -85,9 +89,12 @@ class TestRemoveGoalController:
             repositories.goals.add(goal)
 
         client = TestClient(application)
-        response = client.delete(
-            f'/learning/goals/{goal.id}',
-            headers={'Authorization': 'Bearer test-access-token'},
+        response = cast(
+            'Response',
+            client.delete(  # pyright: ignore[reportUnknownMemberType]
+                f'/learning/goals/{goal.id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
         )
 
         assert response.status_code == 204
@@ -104,9 +111,12 @@ class TestRemoveGoalController:
             repositories.goals.add(goal)
 
         client = TestClient(application)
-        response = client.delete(
-            f'/learning/goals/{goal.id}',
-            headers={'Authorization': 'Bearer test-access-token'},
+        response = cast(
+            'Response',
+            client.delete(  # pyright: ignore[reportUnknownMemberType]
+                f'/learning/goals/{goal.id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
         )
 
         assert response.status_code == 404
@@ -116,9 +126,12 @@ class TestRemoveGoalController:
         application: FastAPI,
     ) -> None:
         client = TestClient(application)
-        response = client.delete(
-            '/learning/goals/nonexistent-id',
-            headers={'Authorization': 'Bearer test-access-token'},
+        response = cast(
+            'Response',
+            client.delete(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals/nonexistent-id',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
         )
 
         assert response.status_code == 404
@@ -134,6 +147,11 @@ class TestRemoveGoalController:
             repositories.goals.add(goal)
 
         client = TestClient(application)
-        response = client.delete(f'/learning/goals/{goal.id}')
+        response = cast(
+            'Response',
+            client.delete(  # pyright: ignore[reportUnknownMemberType]
+                f'/learning/goals/{goal.id}'
+            ),
+        )
 
         assert response.status_code == 401
