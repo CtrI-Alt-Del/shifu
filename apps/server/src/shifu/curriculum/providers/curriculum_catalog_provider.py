@@ -4,10 +4,10 @@ from shifu.shared.core.domain.structures import (
     SkillCatalogPage,
     SkillFoundationEntry,
 )
-from shifu.shared.core.interfaces import CurriculumCatalogReader
+from shifu.shared.core.interfaces import CurriculumCatalogProvider
 
 
-class CurriculumCatalogReaderProvider(CurriculumCatalogReader):
+class DatabaseCurriculumCatalogProvider(CurriculumCatalogProvider):
     def __init__(self, database: CurriculumDatabase) -> None:
         self._database = database
 

@@ -9,7 +9,7 @@ from shifu.learning.core.domain.errors import (
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.interfaces import (
     ClockProvider,
-    CurriculumCatalogReader,
+    CurriculumCatalogProvider,
     IdentifierProvider,
 )
 
@@ -18,12 +18,12 @@ class AddSkillToGoalUseCase:
     def __init__(
         self,
         learning_database: LearningDatabase,
-        curriculum_catalog_reader: CurriculumCatalogReader,
+        curriculum_catalog_provider: CurriculumCatalogProvider,
         identifier_provider: IdentifierProvider,
         clock_provider: ClockProvider,
     ) -> None:
         self._learning_database = learning_database
-        self._curriculum_catalog_reader = curriculum_catalog_reader
+        self._curriculum_catalog_provider = curriculum_catalog_provider
         self._identifier_provider = identifier_provider
         self._clock_provider = clock_provider
 
@@ -39,13 +39,13 @@ class AddSkillToGoalUseCase:
             if goal is None or goal.account_id != account_id:
                 raise GoalNotFoundError
 
-        skill = self._curriculum_catalog_reader.find_skill_by_id(skill_id)
+        skill = self._curriculum_catalog_provider.find_skill_by_id(skill_id)
         if skill is None:
             raise CurriculumSkillNotFoundError
 
         direct_foundation_ids = {
             foundation.skill_id
-            for foundation in self._curriculum_catalog_reader.find_direct_foundations_for_many(
+            for foundation in self._curriculum_catalog_provider.find_direct_foundations_for_many(
                 [skill_id]
             ).get(skill_id, [])
         }

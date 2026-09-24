@@ -2,7 +2,7 @@ from fastapi import Request
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.interfaces import (
-    CurriculumCatalogReader,
+    CurriculumCatalogProvider,
     CurriculumContentProvider,
 )
 
@@ -19,7 +19,7 @@ class LearningPipe:
         return request.app.state.curriculum_content_provider
 
     @staticmethod
-    def get_curriculum_catalog_reader(
+    def get_curriculum_catalog_provider(
         request: Request,
-    ) -> CurriculumCatalogReader:
-        return request.app.state.curriculum_catalog_reader
+    ) -> CurriculumCatalogProvider:
+        return request.app.state.curriculum_catalog_provider

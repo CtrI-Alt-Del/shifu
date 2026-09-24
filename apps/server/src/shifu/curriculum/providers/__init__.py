@@ -1,3 +1,3 @@
-from .curriculum_catalog_reader_provider import (
-    CurriculumCatalogReaderProvider as CurriculumCatalogReaderProvider,
+from .curriculum_catalog_provider import (
+    DatabaseCurriculumCatalogProvider as DatabaseCurriculumCatalogProvider,
 )

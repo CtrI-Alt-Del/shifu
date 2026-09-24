@@ -8,7 +8,7 @@ from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SearchSkillCatalogUseCase
 from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.core.interfaces import CurriculumCatalogReader
+from shifu.shared.core.interfaces import CurriculumCatalogProvider
 from shifu.shared.pipes import SharedPipe
 
 
@@ -50,9 +50,9 @@ class SearchSkillCatalogController:
                 LearningDatabase,
                 Depends(LearningPipe.get_database),
             ],
-            curriculum_catalog_reader: Annotated[
-                CurriculumCatalogReader,
-                Depends(LearningPipe.get_curriculum_catalog_reader),
+            curriculum_catalog_provider: Annotated[
+                CurriculumCatalogProvider,
+                Depends(LearningPipe.get_curriculum_catalog_provider),
             ],
             query: Annotated[str | None, Query()] = None,
             cursor: Annotated[str | None, Query()] = None,
@@ -60,7 +60,7 @@ class SearchSkillCatalogController:
         ) -> Response:
             rows, next_cursor = SearchSkillCatalogUseCase(
                 learning_database=learning_database,
-                curriculum_catalog_reader=curriculum_catalog_reader,
+                curriculum_catalog_provider=curriculum_catalog_provider,
             ).execute(
                 account_id=user.account_id,
                 goal_id=goal_id,

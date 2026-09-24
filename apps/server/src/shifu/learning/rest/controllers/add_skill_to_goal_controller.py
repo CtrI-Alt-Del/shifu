@@ -10,7 +10,7 @@ from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     ClockProvider,
-    CurriculumCatalogReader,
+    CurriculumCatalogProvider,
     IdentifierProvider,
 )
 from shifu.shared.pipes import SharedPipe
@@ -50,9 +50,9 @@ class AddSkillToGoalController:
                 LearningDatabase,
                 Depends(LearningPipe.get_database),
             ],
-            curriculum_catalog_reader: Annotated[
-                CurriculumCatalogReader,
-                Depends(LearningPipe.get_curriculum_catalog_reader),
+            curriculum_catalog_provider: Annotated[
+                CurriculumCatalogProvider,
+                Depends(LearningPipe.get_curriculum_catalog_provider),
             ],
             identifier_provider: Annotated[
                 IdentifierProvider,
@@ -65,7 +65,7 @@ class AddSkillToGoalController:
         ) -> Response:
             created_experiences = AddSkillToGoalUseCase(
                 learning_database=learning_database,
-                curriculum_catalog_reader=curriculum_catalog_reader,
+                curriculum_catalog_provider=curriculum_catalog_provider,
                 identifier_provider=identifier_provider,
                 clock_provider=clock_provider,
             ).execute(

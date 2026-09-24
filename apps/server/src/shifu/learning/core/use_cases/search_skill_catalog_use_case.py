@@ -3,17 +3,17 @@ from shifu.learning.core.domain.errors import GoalNotFoundError
 from shifu.learning.core.domain.structures import SkillCatalogRow, SuggestedFoundation
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.structures import SkillCatalogEntry, SkillFoundationEntry
-from shifu.shared.core.interfaces import CurriculumCatalogReader
+from shifu.shared.core.interfaces import CurriculumCatalogProvider
 
 
 class SearchSkillCatalogUseCase:
     def __init__(
         self,
         learning_database: LearningDatabase,
-        curriculum_catalog_reader: CurriculumCatalogReader,
+        curriculum_catalog_provider: CurriculumCatalogProvider,
     ) -> None:
         self._learning_database = learning_database
-        self._curriculum_catalog_reader = curriculum_catalog_reader
+        self._curriculum_catalog_provider = curriculum_catalog_provider
 
     def execute(
         self,
@@ -33,13 +33,13 @@ class SearchSkillCatalogUseCase:
                 for experience in repos.skill_experiences.find_many_by_goal_id(goal_id)
             }
 
-        catalog_page = self._curriculum_catalog_reader.search_skills(
+        catalog_page = self._curriculum_catalog_provider.search_skills(
             query=query, cursor=cursor, limit=limit
         )
 
         skill_ids = [entry.id for entry in catalog_page.items]
         foundations_by_skill_id = (
-            self._curriculum_catalog_reader.find_direct_foundations_for_many(skill_ids)
+            self._curriculum_catalog_provider.find_direct_foundations_for_many(skill_ids)
         )
 
         rows = [

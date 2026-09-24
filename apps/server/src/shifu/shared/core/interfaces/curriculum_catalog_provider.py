@@ -7,7 +7,7 @@ from shifu.shared.core.domain.structures import (
 )
 
 
-class CurriculumCatalogReader(Protocol):
+class CurriculumCatalogProvider(Protocol):
     def search_skills(
         self, *, query: str | None, cursor: str | None, limit: int
     ) -> SkillCatalogPage: ...
