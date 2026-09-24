@@ -4,6 +4,9 @@ from .add_skill_to_goal_controller import (
 from .get_competency_detail_controller import (
     GetCompetencyDetailController as GetCompetencyDetailController,
 )
+from .get_goal_detail_controller import (
+    GetGoalDetailController as GetGoalDetailController,
+)
 from .get_home_goals_controller import GetHomeGoalsController as GetHomeGoalsController
 from .search_skill_catalog_controller import (
     SearchSkillCatalogController as SearchSkillCatalogController,

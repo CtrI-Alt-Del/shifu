@@ -8,6 +8,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCompetencySnapshot,
     CurriculumContentItem,
     CurriculumMaterialSnapshot,
+    CurriculumSkillOverview,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
@@ -116,3 +117,34 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 name=skill.name,
                 competencies=tuple(snapshot_competencies),
             )
+
+    def get_skill_overviews(
+        self,
+        skill_ids: tuple[str, ...],
+    ) -> tuple[CurriculumSkillOverview, ...]:
+        if not skill_ids:
+            return ()
+        requested_skill_ids = tuple(dict.fromkeys(skill_ids))
+        with self._database.transaction() as repositories:
+            overviews: list[CurriculumSkillOverview] = []
+            for skill_id in requested_skill_ids:
+                skill = repositories.skills.find_by_id(skill_id)
+                if skill is None or skill.id != skill_id:
+                    continue
+                competencies = repositories.competencies.find_many_by_skill_id(skill_id)
+                foundations = repositories.skill_foundations.find_many_by_skill_id(
+                    skill_id
+                )
+                overviews.append(
+                    CurriculumSkillOverview(
+                        skill_id=skill.id,
+                        name=skill.name,
+                        competency_ids=tuple(
+                            competency.id for competency in competencies
+                        ),
+                        foundation_skill_ids=tuple(
+                            foundation.foundation_skill_id for foundation in foundations
+                        ),
+                    )
+                )
+            return tuple(overviews)
