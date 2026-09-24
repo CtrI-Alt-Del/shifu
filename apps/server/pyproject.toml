@@ -38,22 +38,22 @@ dev = "main:main"
 cmd = "uv run --env-file .env.local python src/main.py"
 
 [tool.poe.tasks."db:migrate"]
-cmd = "uv run --env-file .env.local alembic revision --autogenerate -m \"${message}\""
+shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic revision --autogenerate -m \"${message}\"; else uv run alembic revision --autogenerate -m \"${message}\"; fi"
 args = [{ name = "message", positional = true }]
 
 [tool.poe.tasks."db:upgrade"]
-cmd = "uv run --env-file .env.local alembic upgrade ${target}"
+shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic upgrade ${target}; else uv run alembic upgrade ${target}; fi"
 args = [{ name = "target", positional = true, default = "head" }]
 
 [tool.poe.tasks."db:downgrade"]
-cmd = "uv run --env-file .env.local alembic downgrade ${target}"
+shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic downgrade ${target}; else uv run alembic downgrade ${target}; fi"
 args = [{ name = "target", positional = true, default = "-1" }]
 
 [tool.poe.tasks."db:sync"]
-cmd = "uv run --env-file .env.local alembic stamp head"
+shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic stamp head; else uv run alembic stamp head; fi"
 
 [tool.poe.tasks."db:current"]
-cmd = "uv run --env-file .env.local alembic current"
+shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic current; else uv run alembic current; fi"
 
 [tool.poe.tasks."db:seed"]
 cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
