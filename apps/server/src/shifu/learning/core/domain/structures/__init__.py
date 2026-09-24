@@ -3,6 +3,9 @@ from .activity_recommendation import ActivityRecommendation as ActivityRecommend
 from .available_competency_detail import (
     AvailableCompetencyDetail as AvailableCompetencyDetail,
 )
+from .available_material_detail import (
+    AvailableMaterialDetail as AvailableMaterialDetail,
+)
 from .choice_evaluation_result import (
     ChoiceEvaluationResult as ChoiceEvaluationResult,
 )
@@ -25,6 +28,7 @@ from .competency_material_detail import (
 from .confirmed_goal_plan import ConfirmedGoalPlan as ConfirmedGoalPlan
 from .evaluation_part_result import EvaluationPartResult as EvaluationPartResult
 from .goal_summary import GoalSummary as GoalSummary
+from .material_detail import MaterialDetail as MaterialDetail
 from .multiple_selection_answer import (
     MultipleSelectionAnswer as MultipleSelectionAnswer,
 )
@@ -40,4 +44,7 @@ from .single_choice_answer import SingleChoiceAnswer as SingleChoiceAnswer
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,
+)
+from .unavailable_material_detail import (
+    UnavailableMaterialDetail as UnavailableMaterialDetail,
 )

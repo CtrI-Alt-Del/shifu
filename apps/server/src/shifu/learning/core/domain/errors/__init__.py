@@ -18,6 +18,9 @@ from .evaluation_unavailable_error import (
 from .goal_not_found_error import GoalNotFoundError as GoalNotFoundError
 from .invalid_attempt_error import InvalidAttemptError as InvalidAttemptError
 from .invalid_goal_error import InvalidGoalError as InvalidGoalError
+from .material_detail_not_found_error import (
+    MaterialDetailNotFoundError as MaterialDetailNotFoundError,
+)
 from .skill_already_added_error import (
     SkillAlreadyAddedError as SkillAlreadyAddedError,
 )
