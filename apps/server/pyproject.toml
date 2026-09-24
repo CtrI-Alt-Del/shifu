@@ -106,7 +106,7 @@ venvPath = "."
 executionEnvironments = [{ root = "src" }]
 
 [tool.pytest.ini_options]
-addopts = "-s --color=yes --tb=short"
+addopts = "-s --color=yes --tb=short --import-mode=importlib"
 pythonpath = [".", "src"]
 testpaths = ["tests"]
 filterwarnings = [
