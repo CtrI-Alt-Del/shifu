@@ -1,9 +1,11 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { LearningPage } from '@/ui/learning/widgets/pages/learning-page'
+import { ROUTES } from '@/constants/routes'
 import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
 
 export const Route = createFileRoute('/learning/')({
-  beforeLoad: () => requireAuthMiddleware(),
-  component: LearningPage,
+  beforeLoad: async () => {
+    await requireAuthMiddleware()
+    throw redirect({ replace: true, to: ROUTES.root })
+  },
 })

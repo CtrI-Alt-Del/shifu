@@ -4,3 +4,14 @@
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
 Authorization: Bearer {{accessToken}}
+
+### Goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+Authorization: Bearer {{accessToken}}
+
+### Private goal absence
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000099
+Authorization: Bearer {{accessToken}}
+
+### Unauthenticated goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012

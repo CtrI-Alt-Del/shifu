@@ -3,14 +3,15 @@ import { expect, navigateAuthenticatedPage, test } from '../playwright'
 const skillPath =
   '/learning/goals/01SHF000000000000000000003/skills/01SHF000000000000000000004'
 
-test('protects learning and renders it for an active session', async ({
+test('redirects authenticated learning visitors to Home and protects anonymous visitors', async ({
   authenticatedPage,
 }) => {
   await navigateAuthenticatedPage(authenticatedPage, '/learning/')
+  await expect(authenticatedPage).toHaveURL(/\/$/)
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
-      name: 'Seu próximo passo começa aqui.',
+      name: 'O que você quer aprender?',
     }),
   ).toBeVisible()
 
