@@ -6,12 +6,10 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
-import select
 import socket
 import subprocess
 import sys
 import time
-from threading import Thread
 from typing import Any, cast
 from urllib.error import URLError
 from urllib.parse import quote
@@ -34,9 +32,7 @@ class InngestFixture:
     mailpit_url: str
     bff_shared_secret: str
     output: list[str]
-    pending_output: str = ''
     inngest_container: DockerContainer | None = None
-    output_reader: Thread | None = None
 
     def publish(
         self, event_name: str, payload: dict[str, object], event_id: str
@@ -221,9 +217,6 @@ class InngestFixture:
 
     def close(self) -> str:
         self._drain_output()
-        if self.pending_output:
-            self.output.append(self.pending_output)
-            self.pending_output = ''
         if self.process.poll() is None:
             self.process.terminate()
             try:
@@ -234,40 +227,12 @@ class InngestFixture:
         self._drain_output()
         return ''.join(self.output)
 
-    def start_output_reader(self) -> None:
-        if self.output_reader is not None:
-            return
-        self.output_reader = Thread(
-            target=self._read_output,
-            name='shifu-inngest-test-output',
-            daemon=True,
-        )
-        self.output_reader.start()
-
-    def _read_output(self) -> None:
+    def _drain_output(self) -> None:
         stream = self.process.stdout
         if stream is None:
             return
         for line in stream:
             self.output.append(line)
-
-    def _drain_output(self) -> None:
-        if self.output_reader is not None:
-            return
-        stream = self.process.stdout
-        if stream is None:
-            return
-        while select.select([stream], [], [], 0)[0]:
-            chunk = os.read(stream.fileno(), 65536)
-            if not chunk:
-                break
-            self.pending_output += chunk.decode(errors='replace')
-            lines = self.pending_output.splitlines(keepends=True)
-            if lines and not lines[-1].endswith(('\n', '\r')):
-                self.pending_output = lines.pop()
-            else:
-                self.pending_output = ''
-            self.output.extend(lines)
 
 
 @pytest.fixture(scope='session')
@@ -369,8 +334,6 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
             stderr=subprocess.STDOUT,
             text=True,
         )
-        if process.stdout is not None:
-            os.set_blocking(process.stdout.fileno(), False)
         fixture = InngestFixture(
             process=process,
             server_url=server_url,
@@ -381,7 +344,6 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
             output=[],
             inngest_container=inngest,
         )
-        fixture.start_output_reader()
         _wait_for_url(f'{server_url}/health', timeout=30)
         _wait_for_url(f'{server_url}/api/inngest', timeout=30)
         _wait_for_url(f'{mailpit_url}/api/v1/messages', timeout=30)
