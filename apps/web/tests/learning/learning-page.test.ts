@@ -17,14 +17,15 @@ function serverFnExport(url: string): string | null {
   }
 }
 
-test('protects learning and renders it for an active session', async ({
+test('redirects authenticated learning visitors to Home and protects anonymous visitors', async ({
   authenticatedPage,
 }) => {
   await navigateAuthenticatedPage(authenticatedPage, '/learning/')
+  await expect(authenticatedPage).toHaveURL(/\/$/)
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
-      name: 'Seu próximo passo começa aqui.',
+      name: 'O que você quer aprender?',
     }),
   ).toBeVisible()
 
@@ -38,21 +39,29 @@ test('renders a resumable diagnostic on the protected Skill route', async ({
 }) => {
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
     const fn = serverFnExport(route.request().url())
-    if (fn?.startsWith('getGoalDetailAction_')) {
+    if (fn?.startsWith('getGoalDetail_')) {
       await route.fulfill({
         body: JSON.stringify({
           result: {
-            goalId: GOAL_ID,
-            title: 'Aprender lógica',
-            description: 'Praticar os fundamentos.',
-            skills: [
-              {
-                skillId: SKILL_ID,
-                skillName: 'Lógica',
-                status: 'diagnosing',
-                policyId: 'adaptive-v2',
-              },
-            ],
+            kind: 'success',
+            detail: {
+              goalId: GOAL_ID,
+              title: 'Aprender lógica',
+              description: 'Praticar os fundamentos.',
+              relations: [],
+              skills: [
+                {
+                  skillExperienceId: '01SHF000000000000000000006',
+                  skillId: SKILL_ID,
+                  name: 'Lógica',
+                  skillName: 'Lógica',
+                  status: 'diagnosing',
+                  progress: null,
+                  inclusionReason: null,
+                  policyId: 'learning-adaptive-v2',
+                },
+              ],
+            },
           },
         }),
         contentType: 'application/json',

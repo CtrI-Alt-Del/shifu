@@ -68,20 +68,28 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
       return
     }
 
-    if (descriptor?.export.startsWith('getGoalDetailAction_')) {
+    if (descriptor?.file.includes('get-goal-detail')) {
       await route.fulfill(
         serverFnResponse({
-          goalId: GOAL_ID,
-          title: 'Lógica de programação',
-          description: 'Construir uma base sólida para resolver problemas com clareza.',
-          skills: [
-            {
-              skillId: SKILL_ID,
-              skillName: 'Lógica',
-              status: 'not-started',
-              policyId: 'adaptive-v2',
-            },
-          ],
+          kind: 'success',
+          detail: {
+            description: 'Construir uma base sólida para resolver problemas com clareza.',
+            goalId: GOAL_ID,
+            relations: [],
+            skills: [
+              {
+                skillExperienceId: '01SHF000000000000000000005',
+                skillId: SKILL_ID,
+                name: 'Lógica',
+                skillName: 'Lógica',
+                status: 'not-started',
+                progress: null,
+                inclusionReason: null,
+                policyId: 'learning-adaptive-v2',
+              },
+            ],
+            title: 'Lógica de programação',
+          },
         }),
       )
       return
@@ -95,7 +103,6 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
       )
       return
     }
-
     await route.fulfill(
       serverFnResponse({
         accountId: 'playwright-account',
@@ -146,7 +153,7 @@ test.describe('Home page', () => {
     ).not.toBeVisible()
   })
 
-  test('selecting an objective card navigates to its detail route (CA-04)', async ({
+  test('selecting an objective card navigates to its real detail route (CA-04)', async ({
     authenticatedPage,
   }) => {
     await mockHomeServerFunctions(authenticatedPage)
@@ -156,7 +163,7 @@ test.describe('Home page', () => {
 
     await expect(authenticatedPage).toHaveURL(new RegExp(`/learning/goals/${GOAL_ID}/?$`))
     await expect(
-      authenticatedPage.getByRole('heading', { name: 'Lógica de programação', level: 1 }),
+      authenticatedPage.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
     ).toBeVisible()
   })
 

@@ -1,3 +1,5 @@
+export const GOAL_DETAIL_ID_PATTERN = /^[A-Z0-9]{26}$/
+
 export type AvailableSkill = {
   id: string
   name: string
@@ -5,18 +7,36 @@ export type AvailableSkill = {
   unavailableReason: string | null
 }
 
-export type GoalSkill = {
+export type SkillExperienceStatus =
+  | 'not-started'
+  | 'diagnosing'
+  | 'learning'
+  | 'completed'
+
+export type GoalSkillDetail = {
+  skillExperienceId: string
   skillId: string
-  skillName: string
-  status: 'not-started' | 'diagnosing' | 'learning' | 'completed'
-  policyId: string | null
+  name: string
+  skillName?: string
+  status: SkillExperienceStatus
+  progress: number | null
+  inclusionReason: string | null
+  policyId?: string | null
+}
+
+export type GoalSkill = GoalSkillDetail
+
+export type GoalSkillRelation = {
+  foundationSkillId: string
+  skillId: string
 }
 
 export type GoalDetail = {
   goalId: string
   title: string
   description: string
-  skills: GoalSkill[]
+  skills: readonly GoalSkillDetail[]
+  relations: readonly GoalSkillRelation[]
 }
 
 export type DiagnosticCompetency = {

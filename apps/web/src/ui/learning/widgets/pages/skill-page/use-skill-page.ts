@@ -10,10 +10,10 @@ import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
 import type { DiagnosticOverview } from '@/core/learning/goal-detail'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
+import { getGoalDetail } from '@/provision/learning/get-goal-detail'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
-import { getGoalDetailAction } from '@/ui/learning/widgets/pages/goal-detail-page/use-goal-detail-page'
 
 export type SkillPageProps = { goalId: string; skillId: string }
 type ActionFailure = {
@@ -105,9 +105,9 @@ export function useSkillPage(props: SkillPageProps) {
   const goalQuery = useQuery({
     queryKey: ['learning', 'goal-detail', props.goalId],
     queryFn: async () => {
-      const result = await getGoalDetailAction({ data: props.goalId })
-      if ('kind' in result) throw result
-      return result
+      const result = await getGoalDetail({ data: { goalId: props.goalId } })
+      if (result.kind !== 'success') throw result
+      return result.detail
     },
     retry: false,
   })
@@ -190,7 +190,9 @@ export function useSkillPage(props: SkillPageProps) {
     diagnostic: diagnosticQuery.data ?? null,
     skillName:
       goalQuery.data?.skills.find((skill) => skill.skillId === props.skillId)
-        ?.skillName ?? 'Habilidade',
+        ?.skillName ??
+      goalQuery.data?.skills.find((skill) => skill.skillId === props.skillId)?.name ??
+      'Habilidade',
     isLoading: diagnosticQuery.isPending || goalQuery.isPending,
     isPrivateAbsence:
       diagnosticQuery.error instanceof RestError &&

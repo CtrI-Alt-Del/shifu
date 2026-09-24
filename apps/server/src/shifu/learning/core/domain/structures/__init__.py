@@ -52,6 +52,9 @@ from .confirmed_goal_plan import ConfirmedGoalPlan as ConfirmedGoalPlan
 from .concept_observation import ConceptObservation as ConceptObservation
 from .evaluation_part_result import EvaluationPartResult as EvaluationPartResult
 from .goal_summary import GoalSummary as GoalSummary
+from .goal_detail import GoalDetail as GoalDetail
+from .goal_skill_detail import GoalSkillDetail as GoalSkillDetail
+from .goal_skill_relation import GoalSkillRelation as GoalSkillRelation
 from .multiple_selection_answer import (
     MultipleSelectionAnswer as MultipleSelectionAnswer,
 )

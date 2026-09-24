@@ -26,11 +26,17 @@ class GetGoalUseCase:
             description=goal.description,
             skills=tuple(
                 GoalSkillDetail(
+                    skill_experience_id=experience.id,
                     skill_id=experience.skill_id,
+                    name=catalog.name
+                    if catalog is not None
+                    else 'Habilidade indisponível',
                     skill_name=catalog.name
                     if catalog is not None
                     else 'Habilidade indisponível',
                     status=experience.status,
+                    progress=None,
+                    inclusion_reason=experience.inclusion_reason,
                     policy_id=experience.policy_id,
                 )
                 for experience in experiences
@@ -38,4 +44,5 @@ class GetGoalUseCase:
                     self._curriculum.get_skill_content(experience.skill_id),
                 )
             ),
+            relations=(),
         )

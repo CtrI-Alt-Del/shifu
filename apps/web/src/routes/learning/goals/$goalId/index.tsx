@@ -11,5 +11,5 @@ export const Route = createFileRoute('/learning/goals/$goalId/')({
 function RouteComponent() {
   const { goalId } = Route.useParams()
 
-  return <GoalDetailPage goalId={goalId} />
+  return <GoalDetailPage goalId={goalId} key={goalId} />
 }
