@@ -12,5 +12,8 @@ from .curriculum_material_snapshot import (
 from .curriculum_skill_snapshot import (
     CurriculumSkillSnapshot as CurriculumSkillSnapshot,
 )
+from .curriculum_skill_overview import (
+    CurriculumSkillOverview as CurriculumSkillOverview,
+)
 from .rate_limit_decision import RateLimitDecision as RateLimitDecision
 from .structure import structure as structure
