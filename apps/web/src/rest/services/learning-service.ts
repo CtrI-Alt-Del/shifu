@@ -1,12 +1,9 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
 import type { GoalSummary } from '@/core/learning/goal-summary'
-<<<<<<< HEAD
 import type { CreatedSkillExperience } from '@/core/learning/created-skill-experience'
+import type { GoalDetail } from '@/core/learning/goal-detail'
 import type { SkillCatalogPage } from '@/core/learning/skill-catalog-page'
 
-=======
-import type { GoalDetail } from '@/core/learning/goal-detail'
->>>>>>> origin/main
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 
 export type LearningService = ReturnType<typeof LearningService>
@@ -38,7 +35,16 @@ export const LearningService = (restClient: RestClient) => {
       return response.body
     },
 
-<<<<<<< HEAD
+    async getGoalDetail(accessToken: string, goalId: string): Promise<GoalDetail> {
+      const response = await restClient.get<GoalDetail>(`/learning/goals/${goalId}`, {
+        headers: { Authorization: 'Bearer ' + accessToken },
+      })
+
+      if (response.isFailure) response.throwError()
+
+      return response.body
+    },
+
     async searchSkillCatalog(
       accessToken: string,
       goalId: string,
@@ -51,18 +57,11 @@ export const LearningService = (restClient: RestClient) => {
           headers: { Authorization: `Bearer ${accessToken}` },
         },
       )
-=======
-    async getGoalDetail(accessToken: string, goalId: string): Promise<GoalDetail> {
-      const response = await restClient.get<GoalDetail>(`/learning/goals/${goalId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
->>>>>>> origin/main
 
       if (response.isFailure) response.throwError()
 
       return response.body
     },
-<<<<<<< HEAD
 
     async addSkillToGoal(
       accessToken: string,
@@ -80,7 +79,5 @@ export const LearningService = (restClient: RestClient) => {
 
       return response.body.created
     },
-=======
->>>>>>> origin/main
   }
 }

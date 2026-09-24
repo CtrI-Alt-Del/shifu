@@ -1,17 +1,12 @@
 from fastapi import APIRouter
 
-<<<<<<< HEAD
 from shifu.learning.rest.controllers import (
     AddSkillToGoalController,
     GetCompetencyDetailController,
+    GetGoalDetailController,
     GetHomeGoalsController,
     SearchSkillCatalogController,
 )
-=======
-from shifu.learning.rest.controllers import GetCompetencyDetailController
-from shifu.learning.rest.controllers import GetGoalDetailController
-from shifu.learning.rest.controllers import GetHomeGoalsController
->>>>>>> origin/main
 
 
 class LearningRouter:
