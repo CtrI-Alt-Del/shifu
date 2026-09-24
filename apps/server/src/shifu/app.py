@@ -16,6 +16,7 @@ from shifu.composition import (
 from shifu.curriculum.database.sqlalchemy import (
     SqlalchemyCurriculumDatabase,
 )
+from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
@@ -90,6 +91,9 @@ class FastAPIApp:
         curriculum_content_provider = DatabaseCurriculumContentProvider(
             curriculum_database
         )
+        curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
+            curriculum_database
+        )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
             jwks_url=ENVIRONMENT.auth_jwks_url,
@@ -152,8 +156,11 @@ class FastAPIApp:
         app.state.communication_secret_envelope_provider = secret_envelope_provider
         app.state.email_delivery_provider = email_delivery_provider
         app.state.authentication_provider = authentication_provider
+        app.state.identifier_provider = id_provider
         app.state.learning_database = learning_database
+        app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider
+        app.state.curriculum_catalog_provider = curriculum_catalog_provider
         app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
             engine=database_engine,
             id_provider=id_provider,
