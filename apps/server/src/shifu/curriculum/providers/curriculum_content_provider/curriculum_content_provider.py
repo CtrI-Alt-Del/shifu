@@ -7,6 +7,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
     CurriculumContentItem,
+    CurriculumMaterialContentSnapshot,
     CurriculumMaterialSnapshot,
     CurriculumSkillSnapshot,
 )
@@ -16,6 +17,22 @@ from shifu.shared.core.interfaces import CurriculumContentProvider
 class DatabaseCurriculumContentProvider(CurriculumContentProvider):
     def __init__(self, database: CurriculumDatabase) -> None:
         self._database: CurriculumDatabase = database
+
+    def get_material_content(
+        self, material_id: str
+    ) -> CurriculumMaterialContentSnapshot | None:
+        with self._database.transaction() as repositories:
+            material = repositories.materials.find_by_id(material_id)
+            if material is None or material.id != material_id:
+                return None
+
+            return CurriculumMaterialContentSnapshot(
+                id=material.id,
+                skill_id=material.skill_id,
+                title=material.title,
+                material_type=material.material_type.value,
+                content=material.content,
+            )
 
     def get_skill_content(self, skill_id: str) -> CurriculumSkillSnapshot | None:
         with self._database.transaction() as repositories:

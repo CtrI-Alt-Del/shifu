@@ -6,6 +6,9 @@ from .curriculum_competency_snapshot import (
     CurriculumCompetencySnapshot as CurriculumCompetencySnapshot,
 )
 from .curriculum_content_item import CurriculumContentItem as CurriculumContentItem
+from .curriculum_material_content_snapshot import (
+    CurriculumMaterialContentSnapshot as CurriculumMaterialContentSnapshot,
+)
 from .curriculum_material_snapshot import (
     CurriculumMaterialSnapshot as CurriculumMaterialSnapshot,
 )
