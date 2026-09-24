@@ -164,30 +164,28 @@ test('redirects anonymous visitors before the Activity contract loader', async (
   await expect(page.locator('body')).not.toContainText('Not Found')
 })
 
-test('protects the Material contract route before its generic not-found boundary', async ({
+test('links a Material row to its own route with the Competency of origin', async ({
   authenticatedPage,
 }) => {
-  const materialPath = `${detailPath}/materials/${IDS.materialId}`
-  let detailRequest = false
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
-    if (route.request().url().includes(IDS.competencyId)) detailRequest = true
-    await route.fallback()
+    if (!route.request().url().includes(IDS.competencyId)) {
+      await route.fallback()
+      return
+    }
+
+    await route.fulfill({
+      body: JSON.stringify({ result: availableResponse }),
+      contentType: 'application/json',
+    })
   })
 
-  await navigateAuthenticatedPage(authenticatedPage, materialPath)
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
 
-  await expect(authenticatedPage.locator('body')).toContainText('Not Found')
-  await expect(authenticatedPage.getByText('Material de apoio')).not.toBeVisible()
-  expect(detailRequest).toBe(false)
-})
-
-test('redirects anonymous visitors before the Material contract loader', async ({
-  page,
-}) => {
-  await page.goto(`${detailPath}/materials/${IDS.materialId}`)
-
-  await expect(page).toHaveURL(/\/login\/?$/)
-  await expect(page.locator('body')).not.toContainText('Not Found')
+  await expect(
+    authenticatedPage.getByRole('link', {
+      name: 'Repetição com for — Material de apoio',
+    }),
+  ).toHaveAttribute('href', `${detailPath}/materials/${IDS.materialId}`)
 })
 
 test('replaces a recoverable error after one explicit retry without changing IDs', async ({
