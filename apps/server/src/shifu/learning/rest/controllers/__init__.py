@@ -23,6 +23,7 @@ from .get_material_controller import GetMaterialController as GetMaterialControl
 from .list_available_skills_controller import (
     ListAvailableSkillsController as ListAvailableSkillsController,
 )
+from .remove_goal_controller import RemoveGoalController as RemoveGoalController
 from .retry_choice_evaluation_controller import (
     RetryChoiceEvaluationController as RetryChoiceEvaluationController,
 )
