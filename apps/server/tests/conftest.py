@@ -13,11 +13,8 @@ os.environ.setdefault(
 )
 
 from shifu.app import FastAPIApp
-<<<<<<< HEAD
 from shifu.shared.settings import get_settings
-=======
 from shifu.shared.constants import ENVIRONMENT
->>>>>>> origin/main
 
 if TYPE_CHECKING:
     from collections.abc import Generator

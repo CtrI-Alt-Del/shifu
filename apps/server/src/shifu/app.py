@@ -5,10 +5,6 @@ from typing import cast
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 
-<<<<<<< HEAD
-from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
-=======
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
 from shifu.composition import (
@@ -20,7 +16,7 @@ from shifu.composition import (
 from shifu.curriculum.database.sqlalchemy import (
     SqlalchemyCurriculumDatabase,
 )
->>>>>>> origin/main
+from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
