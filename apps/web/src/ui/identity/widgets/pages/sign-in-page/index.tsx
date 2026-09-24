@@ -18,7 +18,7 @@ export const SignInPage = () => {
   } = useSignInPage()
 
   return (
-    <div className='relative isolate flex min-h-dvh w-full items-center justify-center overflow-x-hidden px-5 py-8 sm:py-12'>
+    <div className='relative isolate mx-auto flex min-h-dvh w-full max-w-7xl items-center justify-center overflow-x-hidden px-5 py-8 sm:py-12'>
       <main className='relative z-10 flex w-full max-w-[440px] flex-col rounded-2xl border border-border bg-card p-6 sm:p-8'>
         <div className='mb-8 text-center'>
           <p className='font-serif text-3xl leading-none text-foreground'>

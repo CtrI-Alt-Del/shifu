@@ -20,7 +20,7 @@ const accountSections = [
 
 export const AccountPage = () => {
   return (
-    <div className='space-y-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
         description='Seu espaço pessoal para acompanhar a conta, as preferências e a forma como você aprende.'
         eyebrow='Módulo identidade'

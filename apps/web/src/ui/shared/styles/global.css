@@ -68,6 +68,111 @@ a,
   outline-offset: 3px;
 }
 
+@property --border-glow-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.border-glow {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--muted);
+  animation: border-glow-orbit 4s linear infinite;
+}
+
+.border-glow__mesh,
+.border-glow__fill,
+.border-glow__halo {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.border-glow__mesh {
+  z-index: 0;
+  inset: -1px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--muted) 0 100%) padding-box,
+    conic-gradient(
+      from var(--border-glow-angle),
+      #ff5f6d 0deg,
+      #ffb649 60deg,
+      #f7e75a 120deg,
+      #55de9b 180deg,
+      #59bfff 240deg,
+      #bd81ff 300deg,
+      #ff5f6d 360deg
+    )
+    border-box;
+  filter: drop-shadow(0 0 6px rgb(255 255 255 / 65%));
+}
+
+.border-glow__fill {
+  z-index: 0;
+  inset: 0;
+  background:
+    radial-gradient(at 80% 55%, #59bfff, transparent 50%),
+    radial-gradient(at 8% 6%, #ff5f6d, transparent 50%),
+    radial-gradient(at 86% 85%, #bd81ff, transparent 50%);
+  opacity: 0.22;
+  mix-blend-mode: soft-light;
+}
+
+.border-glow__halo {
+  z-index: 0;
+  inset: -14px;
+  mask-image: conic-gradient(
+    from var(--border-glow-angle) at center,
+    black 0 13%,
+    transparent 27% 78%,
+    black 93%
+  );
+}
+
+.border-glow__halo::before {
+  position: absolute;
+  inset: 14px;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 5px rgb(255 255 255 / 55%),
+    0 0 16px rgb(255 255 255 / 30%);
+  content: "";
+}
+
+.border-glow__content {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.planning-intent-field:focus-within {
+  outline: 2px solid var(--selo-text);
+  outline-offset: 2px;
+}
+
+.planning-intent-field__input {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.planning-intent-field__input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+
+@keyframes border-glow-orbit {
+  to {
+    --border-glow-angle: 360deg;
+  }
+}
+
 @property --square-proximity {
   syntax: "<number>";
   inherits: false;
@@ -139,5 +244,9 @@ a,
 
   .square-background__wash {
     display: none;
+  }
+
+  .border-glow {
+    animation: none;
   }
 }

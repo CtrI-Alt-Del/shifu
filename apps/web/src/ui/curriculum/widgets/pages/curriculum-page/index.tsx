@@ -27,7 +27,7 @@ const skills = [
 
 export const CurriculumPage = () => {
   return (
-    <div className='space-y-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
         description='Um mapa de habilidades e competências para você entender o que estudar e por quê.'
         eyebrow='Módulo currículo'

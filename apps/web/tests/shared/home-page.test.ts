@@ -2,6 +2,9 @@ import type { Page } from '@playwright/test'
 
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
+const GOAL_ID = '01SHF000000000000000000003'
+const SKILL_ID = '01SHF000000000000000000004'
+
 // Home's data (the objectives list) and its start-planning mutation are
 // fetched through server functions that call FastAPI from the Node process,
 // not from the browser directly (see spec.md's BFF composition). The shared
@@ -40,7 +43,7 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
   const goals = options.goals ?? [
     {
       description: 'Construir uma base sólida para resolver problemas com clareza.',
-      id: 'goal-1',
+      id: GOAL_ID,
       skillCount: 3,
       title: 'Lógica de programação',
       updatedAt: '2026-01-05T00:00:00.000Z',
@@ -61,6 +64,34 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
           created_at: '2026-01-06T00:00:00.000Z',
           id: 'playwright-planning-id',
         }),
+      )
+      return
+    }
+
+    if (descriptor?.export.startsWith('getGoalDetailAction_')) {
+      await route.fulfill(
+        serverFnResponse({
+          goalId: GOAL_ID,
+          title: 'Lógica de programação',
+          description: 'Construir uma base sólida para resolver problemas com clareza.',
+          skills: [
+            {
+              skillId: SKILL_ID,
+              skillName: 'Lógica',
+              status: 'not-started',
+              policyId: 'adaptive-v2',
+            },
+          ],
+        }),
+      )
+      return
+    }
+
+    if (descriptor?.export.startsWith('getAvailableSkillsAction_')) {
+      await route.fulfill(
+        serverFnResponse([
+          { id: SKILL_ID, name: 'Lógica', available: true, unavailableReason: null },
+        ]),
       )
       return
     }
@@ -115,7 +146,7 @@ test.describe('Home page', () => {
     ).not.toBeVisible()
   })
 
-  test('selecting an objective card navigates to its detail placeholder route (CA-04)', async ({
+  test('selecting an objective card navigates to its detail route (CA-04)', async ({
     authenticatedPage,
   }) => {
     await mockHomeServerFunctions(authenticatedPage)
@@ -123,13 +154,13 @@ test.describe('Home page', () => {
 
     await authenticatedPage.getByRole('link', { name: /Lógica de programação/ }).click()
 
-    await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/goal-1\/?$/)
+    await expect(authenticatedPage).toHaveURL(new RegExp(`/learning/goals/${GOAL_ID}/?$`))
     await expect(
-      authenticatedPage.getByText('Este Objetivo ainda está sendo preparado.'),
+      authenticatedPage.getByRole('heading', { name: 'Lógica de programação', level: 1 }),
     ).toBeVisible()
   })
 
-  test('selecting Criar manualmente navigates to the manual-creation placeholder route (CA-05)', async ({
+  test('selecting Criar manualmente navigates to the Goal form (CA-05)', async ({
     authenticatedPage,
   }) => {
     await mockHomeServerFunctions(authenticatedPage)
@@ -138,9 +169,7 @@ test.describe('Home page', () => {
     await authenticatedPage.getByRole('link', { name: 'Criar manualmente' }).click()
 
     await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/new\/?$/)
-    await expect(
-      authenticatedPage.getByText('A criação manual de Objetivos está sendo preparada.'),
-    ).toBeVisible()
+    await expect(authenticatedPage.getByLabel('Título do Objetivo *')).toBeVisible()
   })
 
   test('submitting a non-empty intent starts a planning session and navigates to the planner (CA-06)', async ({
