@@ -65,6 +65,22 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
       return
     }
 
+    if (route.request().url().includes('goal-1')) {
+      await route.fulfill(
+        serverFnResponse({
+          kind: 'success',
+          detail: {
+            description: 'Construir uma base sólida para resolver problemas com clareza.',
+            goalId: 'goal-1',
+            relations: [],
+            skills: [],
+            title: 'Lógica de programação',
+          },
+        }),
+      )
+      return
+    }
+
     await route.fulfill(
       serverFnResponse({
         accountId: 'playwright-account',
@@ -115,7 +131,7 @@ test.describe('Home page', () => {
     ).not.toBeVisible()
   })
 
-  test('selecting an objective card navigates to its detail placeholder route (CA-04)', async ({
+  test('selecting an objective card navigates to its real detail route (CA-04)', async ({
     authenticatedPage,
   }) => {
     await mockHomeServerFunctions(authenticatedPage)
@@ -125,7 +141,7 @@ test.describe('Home page', () => {
 
     await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/goal-1\/?$/)
     await expect(
-      authenticatedPage.getByText('Este Objetivo ainda está sendo preparado.'),
+      authenticatedPage.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
     ).toBeVisible()
   })
 
