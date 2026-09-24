@@ -7,6 +7,7 @@ export const PUBLIC_ROUTE_PATHS = [
   ROUTES.register,
   ROUTES.forgotPassword,
   ROUTES.pendingConfirmation,
+  ROUTES.confirmEmail,
 ] as const
 
 export function isPublicRoute(pathname: string): boolean {

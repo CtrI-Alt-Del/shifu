@@ -1,3 +1,8 @@
+from .communication_delivery_state_changed import (
+    CommunicationDeliveryStateChanged as CommunicationDeliveryStateChanged,
+    CommunicationDeliveryStateChangedEvent as CommunicationDeliveryStateChangedEvent,
+    CommunicationDeliveryStateChangedPayload as CommunicationDeliveryStateChangedPayload,
+)
 from .communication_delivered_event import (
     CommunicationDeliveredEvent as CommunicationDeliveredEvent,
     CommunicationDeliveredPayload as CommunicationDeliveredPayload,

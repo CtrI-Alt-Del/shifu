@@ -9,3 +9,9 @@ from .delivery_attempts_repository import (
     DeliveryAttemptsRepository as DeliveryAttemptsRepository,
 )
 from .email_delivery_provider import EmailDeliveryProvider as EmailDeliveryProvider
+from .message_renderer_provider import (
+    MessageRendererProvider as MessageRendererProvider,
+)
+from .secret_envelope_provider import (
+    SecretEnvelopeProvider as SecretEnvelopeProvider,
+)

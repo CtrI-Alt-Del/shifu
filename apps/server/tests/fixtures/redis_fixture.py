@@ -41,7 +41,7 @@ def redis_runtime() -> Iterator[RedisFixture]:
         container.stop()
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def redis_fixture(
     redis_runtime: RedisFixture,
     monkeypatch: pytest.MonkeyPatch,

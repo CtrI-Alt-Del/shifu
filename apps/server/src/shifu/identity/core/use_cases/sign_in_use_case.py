@@ -18,7 +18,7 @@ class SignInUseCase:
         self._password_hashing_provider = password_hashing_provider
 
     def execute(self, credentials: AuthCredentials) -> Authentication:
-        email = credentials.email.strip()
+        email = credentials.email
         with self._identity_database.transaction() as repositories:
             account = repositories.accounts.find_non_deleted_by_email(email)
 

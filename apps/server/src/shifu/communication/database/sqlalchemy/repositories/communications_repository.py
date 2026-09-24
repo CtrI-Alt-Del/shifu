@@ -15,7 +15,9 @@ class SqlalchemyCommunicationsRepository:
 
     def find_by_id(self, communication_id: str) -> Communication | None:
         model = self._session.scalar(
-            select(CommunicationModel).where(CommunicationModel.id == communication_id)
+            select(CommunicationModel)
+            .where(CommunicationModel.id == communication_id)
+            .with_for_update()
         )
         return CommunicationMapper.to_domain(model) if model is not None else None
 
@@ -24,9 +26,9 @@ class SqlalchemyCommunicationsRepository:
         idempotency_key: str,
     ) -> Communication | None:
         model = self._session.scalar(
-            select(CommunicationModel).where(
-                CommunicationModel.idempotency_key == idempotency_key
-            )
+            select(CommunicationModel)
+            .where(CommunicationModel.idempotency_key == idempotency_key)
+            .with_for_update()
         )
         return CommunicationMapper.to_domain(model) if model is not None else None
 
@@ -46,6 +48,7 @@ class SqlalchemyCommunicationsRepository:
                 ),
             )
             .order_by(CommunicationModel.created_at)
+            .with_for_update(skip_locked=True)
             .limit(limit)
         ).all()
         return [CommunicationMapper.to_domain(model) for model in models]

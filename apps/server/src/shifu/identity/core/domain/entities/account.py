@@ -81,6 +81,7 @@ class Account:
         if self.status is not AccountStatus.PENDING_CONFIRMATION:
             raise AccountConfirmationNotAllowedError
         self.status = AccountStatus.ACTIVE
+        self.access_version += 1
         self.confirmed_at = confirmed_at
         self.updated_at = confirmed_at
 
@@ -88,6 +89,7 @@ class Account:
         if self.status is not AccountStatus.PENDING_CONFIRMATION:
             raise AccountDeletionNotAllowedError
         self.status = AccountStatus.DELETED
+        self.access_version += 1
         self.deleted_at = expired_at
         self.deletion_reason = AccountDeletionReason.UNCONFIRMED_ACCOUNT_EXPIRED
         self.updated_at = expired_at
