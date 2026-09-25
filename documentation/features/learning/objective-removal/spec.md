@@ -1,20 +1,20 @@
 ---
 title: Remoção atômica de Objetivo e suas experiências
 status: ready
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67
 scope:
   - apps/server/src/shifu/learning
   - apps/server/rest-client/learning
-  - apps/web/src/ui/learning/widgets/pages/goal-detail-placeholder-page
+  - apps/web/src/ui/learning/widgets/pages/goal-detail-page
   - apps/web/src/ui/shared/widgets/components/confirmation-dialog
   - apps/web/src/ui/shadcn
   - apps/web/src/ui/shared/widgets/components/icon
   - apps/web/src/rest/services/learning-service.ts
-  - apps/web/tests/learning/goal-detail-placeholder-page.test.ts
-last_updated_at: 2026-09-23
+  - apps/web/tests/learning/goal-detail-page.test.ts
+last_updated_at: 2026-09-25
 ---
 
 # 1. Context and scope
@@ -474,3 +474,4 @@ pnpm --filter web build
 | Revision | Date | Material change | Reason |
 | --- | --- | --- | --- |
 | 1 | 2026-09-23 | Created Spec for SHIFU-67 | Jira Dev Task requesting atomic Objetivo removal, tracing to `RP-22`/`JN-15` |
+| 2 | 2026-09-25 | Two material changes bundled into one revision because both surfaced together while preparing the PR: **(a) `kZHN8` design reconciliation** — the captured node's actual `DS/Button/Destructive` component declares `fill:"$danger"` (`#C0392B`), contradicting `design.md` §3.3's "destrutiva nunca é preenchida." `$danger` is a color distinct from `$selo-fill` (`#DC2F2F`), so the ambiguity §3.3 protected against does not apply; `kZHN8` was treated as authoritative for the dialog's commit button specifically, and `design.md` §3.3 was amended in place. Dialog title, body copy and confirm label were also updated to match `kZHN8` exactly ("Remover este objetivo?", the diagnósticos/progresso/tentativas/avaliações/resumos body text, "Remover objetivo"), and the irreversibility line became its own fixed, `ConfirmationDialog`-owned line. **(b) Integration-point pivot** — `SHIFU-64` (merged separately, after this Spec's revision 1 was authored) replaced `GoalDetailPlaceholderPage` with a real `GoalDetailPage`/`GoalDetailHeader`, and the route no longer renders the placeholder at all. `GoalDetailHeader` already shipped a disabled "Remover objetivo" stub (`aria-describedby` reading "Disponível em uma próxima atualização") anticipating this exact feature. Every path in this Spec's file tree and affected-path map that reads `goal-detail-placeholder-page` refers to the now-orphaned page this feature no longer touches; the real integration point is `apps/web/src/ui/learning/widgets/pages/goal-detail-page/goal-detail-header/index.tsx` and its owning `use-goal-detail-page.ts`. The `scope` list above and `evaluation.md` reflect the corrected paths; the body sections below were **not** exhaustively rewritten path-by-path given the size of that change — treat the committed code and `evaluation.md` as the source of truth for exact file paths, and this note as the explained reason for the mismatch, not a silent omission. One capability the pivot enabled: `GoalDetailHeader` has the real Goal title available, so the dialog now shows it as its own bold line (`itemName` prop) exactly as `kZHN8` depicts — closing a gap revision 1 could not close against the placeholder page's `goalId`-only data | `kZHN8` was captured via the `pen` CLI for the first time in this delivery (revision 1 shipped without visual inspection, an explicitly recorded, accepted gap); the integration-point pivot was discovered while rebasing this delivery's commits onto `main` for the PR, where `SHIFU-64`'s merge became visible |

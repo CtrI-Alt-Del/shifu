@@ -2,16 +2,26 @@
 title: Objective removal implementation plan
 status: in_progress
 spec: ./spec.md
-spec_revision: 1
+spec_revision: 2
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67
-last_updated_at: 2026-09-23
+last_updated_at: 2026-09-25
 ---
+
+> **Superseded by `evaluation.md`'s "Revision 2" section.** This plan's body
+> below (Waves 1–4, task statuses, path references) documents execution as it
+> happened against `feat/shifu-65`, before that branch merged into `main` and
+> `SHIFU-64` (merged separately) replaced `GoalDetailPlaceholderPage` with the
+> real `GoalDetailPage`. All `goal-detail-placeholder-page` paths below are
+> stale. See `evaluation.md`'s "Revision 2 — integration-point pivot and PR
+> preparation" section and `spec.md` revision 2 for the corrected integration
+> point, final gate results, and the reasoning for the pivot. This file was
+> not rewritten line-by-line given the size of that change.
 
 # 1. Execution status
 
 - **Spec:** `documentation/features/learning/objective-removal/spec.md`,
-  revision `1`, status `ready`.
+  revision `2`, status `ready`.
 - **Why Plan-backed:** the Spec's own handoff recommended direct
   `implement-spec`; Plan-backed execution was subsequently requested and is
   recorded here as the chosen strategy. The real coordination value it buys:

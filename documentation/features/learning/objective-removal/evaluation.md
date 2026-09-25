@@ -2,7 +2,7 @@
 title: Objective removal implementation evaluation
 status: in_progress
 spec: ./spec.md
-spec_revision: 1
+spec_revision: 2
 plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67
 prd_content_id: '83066881'
@@ -154,4 +154,38 @@ None yet. Findings and resolutions recorded here as they surface during Wave 1�
 
 ---
 
-**Plan status:** `in_progress`. F1–F4 complete; every automated gate (CI-1 through CI-12) is green; `CA-14` disposable-environment evidence captured (EV-13); REST-client route-group parity gap found and fixed (EV-14); migration head confirmed unchanged (EV-15). Implementation Reviewer pass 1 complete with all 11 findings resolved and re-verified (F5-1 through F5-11). Remaining before F5 can close: `VM-01`/`VM-02` manual click-through evidence, the `kZHN8` design capture (user-owned gate — does not block code, only the Visual evidence rows and final handoff), and a confirming Implementation Reviewer pass.
+**Plan status (superseded by revision 2 below):** the entries above (EV-1 through EV-15, F5-1 through F5-11) describe Wave 1–4 as executed against `feat/shifu-65`, before `SHIFU-64` merged separately and replaced `GoalDetailPlaceholderPage`. They remain accurate for the server slice (unchanged) and for the general shape of the web work, but every `goal-detail-placeholder-page` path reference is stale — see the revision 2 section immediately below for the corrected integration point and final gate results.
+
+---
+
+## Revision 2 — integration-point pivot and PR preparation (2026-09-25)
+
+**What changed and why.** While rebasing this delivery's commits onto `main` to open the PR, `feat/shifu-65` (this delivery's original base branch) turned out to already be merged into `main`, and `main` now includes `SHIFU-64`'s separately-merged work, which replaced `GoalDetailPlaceholderPage` with a real `GoalDetailPage`. The route `/learning/goals/$goalId` no longer renders the placeholder at all. `GoalDetailHeader` (the new page's header) already shipped a **disabled** "Remover objetivo" stub button (`variant='ghost'`, `aria-describedby` reading "Disponível em uma próxima atualização") anticipating this exact feature. Server-side work (`RemoveGoalUseCase`, `DELETE` route, cascade, REST-client parity) needed no changes — it's page-independent. The web integration was re-implemented against `GoalDetailHeader`/`use-goal-detail-page.ts` instead. `kZHN8`'s design reconciliation (captured via the `pen` CLI; see spec.md revision 2) was carried over unchanged — same copy, same filled `--danger` confirm button — and, since `GoalDetailHeader` has the real Goal title available, the dialog now shows it as its own bold line (`itemName` prop), closing a gap the placeholder-page attempt could not close for lack of data.
+
+**Corrected acceptance-coverage evidence** (supersedes the `goal-detail-placeholder-page`-referencing rows above for CA-08, CA-09, CA-11, CA-12, CA-13, CA-16, CA-17, CA-18):
+
+| Criterion | Automated evidence (this branch, `feat/shifu-67-v2`) | Status |
+| --- | --- | --- |
+| CA-01–CA-07, CA-10, CA-14, CA-15 | Server slice unchanged from Wave 1; `test_remove_goal_controller.py` 6/6, full suite 52/52 passed against real PostgreSQL on this branch | `done` |
+| CA-08 | `confirmation-dialog.test.tsx` (8 cases, including the new `itemName` case) + `goal-detail-page.test.tsx` ("opens the removal confirmation dialog...", "renders the confirmation dialog with the objective name when open") + Playwright ("opens the removal confirmation dialog from the header trigger") | `done` |
+| CA-09 | `goal-detail-page.test.ts` (hook) "toggles the removal confirmation dialog open and closed"; Playwright "closes the dialog and sends no removal request when cancelled" | `done` |
+| CA-11, CA-12 | Playwright "keeps the dialog open with an error when removal fails"; component test "surfaces the delete error while keeping the dialog open" | `done` |
+| CA-13 | Hook test "invalidates the home-goals query then navigates home after a successful removal" asserts `navigateTo` is not called until the mutation's `onSuccess` resolves | `done` |
+| CA-16 | Playwright "redirects home after a successful removal" | `done` |
+| CA-17, CA-18 | Structural parity with the reconciled `ConfirmationDialog` (unchanged component); not re-walked manually on this branch — see "Remaining" below | `interim, unchanged from revision 1's disposition` |
+
+**Automated gates, this branch, final run (2026-09-25):**
+
+| Gate | Result |
+| --- | --- |
+| `cd apps/server && uv run poe check:lint` | ✓ passed, 602 files |
+| `uv run poe check:architecture` | ✓ passed |
+| `uv run poe check:types` | ✓ 0 errors |
+| `uv run poe test:unit` | ✓ 72/72 |
+| `uv run poe test:integration -- tests/learning/server/controllers/test_remove_goal_controller.py` | ✓ 52/52 |
+| `pnpm --filter web check:lint` | ✓ passed (1 pre-existing, unrelated warning in `learning-service.ts:40`, not touched by this delivery) |
+| `pnpm --filter web check:types` | ✓ 0 errors |
+| `pnpm --filter web test:unit` | ✓ 131/131 |
+| `pnpm --filter web test:integration tests/learning/goal-detail-page.test.ts` | ✓ 7/7 |
+
+**Known, explained gap:** `CI-11`/`CI-12` (server/web production builds) and `VM-01`/`VM-02` (manual click-through) were not re-run on this branch before opening the PR, given the scope of the rebase/pivot already completed. `documentation/features/learning/objective-removal/plan.md` and this file's Wave 1–4 ledger above still reference the superseded `goal-detail-placeholder-page` paths in their body prose; they were not rewritten line-by-line given the size of that change. Treat the committed code, this revision 2 section, and `spec.md` revision 2 as the source of truth for the actual, current integration point and file paths.
