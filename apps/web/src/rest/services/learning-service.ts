@@ -326,5 +326,15 @@ export const LearningService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
       return response.body.created
     },
+
+    async deleteGoal(accessToken: string, goalId: string): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/learning/goals/${goalId}`,
+        undefined,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+
+      if (response.isFailure) response.throwError()
+    },
   }
 }

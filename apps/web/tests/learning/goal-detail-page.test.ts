@@ -259,3 +259,105 @@ test('redirects anonymous visitors before a goal detail request', async ({ page 
     page.getByRole('heading', { name: detailResponse.title }),
   ).not.toBeVisible()
 })
+
+async function mockGoalDetail(page: import('@playwright/test').Page) {
+  await page.route('**/_serverFn/**', async (route) => {
+    if (
+      route.request().method() !== 'GET' ||
+      !route.request().url().includes(ids.goalId)
+    ) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: { kind: 'success', detail: detailResponse } }),
+      contentType: 'application/json',
+      status: 200,
+    })
+  })
+}
+
+test('opens the removal confirmation dialog from the header trigger', async ({
+  authenticatedPage,
+}) => {
+  await mockGoalDetail(authenticatedPage)
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+
+  await authenticatedPage.getByRole('button', { name: 'Remover objetivo' }).click()
+
+  const dialog = authenticatedPage.getByRole('alertdialog')
+  await expect(
+    dialog.getByRole('heading', { name: 'Remover este objetivo?' }),
+  ).toBeVisible()
+  await expect(dialog.getByText(detailResponse.title, { exact: true })).toBeVisible()
+})
+
+test('closes the dialog and sends no removal request when cancelled', async ({
+  authenticatedPage,
+}) => {
+  await mockGoalDetail(authenticatedPage)
+  let deleteRequestFired = false
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (route.request().method() === 'POST') deleteRequestFired = true
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  await authenticatedPage.getByRole('button', { name: 'Remover objetivo' }).click()
+  await authenticatedPage.getByRole('button', { name: 'Cancelar' }).click()
+
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Remover este objetivo?' }),
+  ).not.toBeVisible()
+  expect(deleteRequestFired).toBe(false)
+})
+
+test('redirects home after a successful removal', async ({ authenticatedPage }) => {
+  await mockGoalDetail(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: undefined }),
+      contentType: 'application/json',
+      status: 200,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  await authenticatedPage.getByRole('button', { name: 'Remover objetivo' }).click()
+  await authenticatedPage
+    .getByRole('button', { name: 'Remover objetivo', exact: true })
+    .click()
+
+  await expect(authenticatedPage).toHaveURL('/')
+})
+
+test('keeps the dialog open with an error when removal fails', async ({
+  authenticatedPage,
+}) => {
+  await mockGoalDetail(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ error: 'Internal Server Error' }),
+      contentType: 'application/json',
+      status: 500,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  await authenticatedPage.getByRole('button', { name: 'Remover objetivo' }).click()
+  await authenticatedPage
+    .getByRole('button', { name: 'Remover objetivo', exact: true })
+    .click()
+
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Remover este objetivo?' }),
+  ).toBeVisible()
+})
