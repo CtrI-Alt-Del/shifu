@@ -146,7 +146,7 @@ test.describe('same-origin sign-in auth handler', () => {
     activeAccount,
     browser,
     request,
-  }) => {
+  }, testInfo) => {
     const secondContext = await browser.newContext()
     const pool = new Pool({ connectionString: DATABASE_URL })
     const secondIpAddress = '198.51.100.250'
@@ -182,7 +182,7 @@ test.describe('same-origin sign-in auth handler', () => {
               firstSignIn
                 .headers()
                 ['set-cookie']?.match(/better-auth\.session_token=[^;]+/)?.[0] ?? '',
-            origin: 'http://localhost:7000',
+            origin: new URL(testInfo.project.use.baseURL as string).origin,
           },
         },
       )

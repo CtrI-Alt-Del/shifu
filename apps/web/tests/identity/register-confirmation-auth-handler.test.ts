@@ -45,7 +45,7 @@ test.describe('same-origin registration confirmation auth handlers', () => {
   test('clears only the pending verification context without creating a session', async ({
     pendingAccount,
     request,
-  }) => {
+  }, testInfo) => {
     const pool = new Pool({ connectionString: DATABASE_URL })
 
     try {
@@ -58,7 +58,10 @@ test.describe('same-origin registration confirmation auth handlers', () => {
 
       const signOut = await request.post('/api/auth/pending-confirmation/sign-out', {
         data: {},
-        headers: { cookie, origin: 'http://localhost:7000' },
+        headers: {
+          cookie,
+          origin: new URL(testInfo.project.use.baseURL as string).origin,
+        },
       })
 
       expect(signOut.status()).toBe(200)
