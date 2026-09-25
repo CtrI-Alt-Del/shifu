@@ -16,6 +16,7 @@ import { Route as GamificationIndexRouteImport } from './routes/gamification/ind
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/index'
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
+import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-confirmation/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
@@ -60,6 +61,12 @@ const LoginIndexRoute = LoginIndexRouteImport.update({
   path: '/login/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PendingConfirmationIndexRoute =
+  PendingConfirmationIndexRouteImport.update({
+    id: '/pending-confirmation/',
+    path: '/pending-confirmation/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -121,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -138,6 +146,7 @@ export interface FileRoutesByTo {
   '/intelligence': typeof IntelligenceIndexRoute
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
+  '/pending-confirmation': typeof PendingConfirmationIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
@@ -156,6 +165,7 @@ export interface FileRoutesById {
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/intelligence'
     | '/learning'
     | '/login'
+    | '/pending-confirmation'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
@@ -209,6 +221,7 @@ export interface FileRouteTypes {
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -227,6 +240,7 @@ export interface RootRouteChildren {
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
+  PendingConfirmationIndexRoute: typeof PendingConfirmationIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
@@ -284,6 +298,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login/'
       preLoaderRoute: typeof LoginIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pending-confirmation/': {
+      id: '/pending-confirmation/'
+      path: '/pending-confirmation'
+      fullPath: '/pending-confirmation/'
+      preLoaderRoute: typeof PendingConfirmationIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -371,6 +392,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
+  PendingConfirmationIndexRoute: PendingConfirmationIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   IntelligencePlannerPlanningIdIndexRoute:
     IntelligencePlannerPlanningIdIndexRoute,
@@ -384,12 +406,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
