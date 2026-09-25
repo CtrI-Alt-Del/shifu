@@ -2,6 +2,9 @@ from .add_skill_to_goal_use_case import AddSkillToGoalUseCase as AddSkillToGoalU
 from .get_competency_detail_use_case import (
     GetCompetencyDetailUseCase as GetCompetencyDetailUseCase,
 )
+from .get_material_detail_use_case import (
+    GetMaterialDetailUseCase as GetMaterialDetailUseCase,
+)
 from .evaluate_choice_activity_use_case import (
     EvaluateChoiceActivityUseCase as EvaluateChoiceActivityUseCase,
 )

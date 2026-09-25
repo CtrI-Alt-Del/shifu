@@ -97,12 +97,12 @@ All components have dedicated test files:
 
 ## What's Ready
 
-✅ Server endpoints fully functional  
-✅ Web components ready for integration into goal-detail page  
-✅ All tests pass (unit, integration, widget)  
-✅ Error handling complete (404/409/400 status codes)  
-✅ Database transactions atomic  
-✅ Cross-module boundary clean (shared protocol)  
+✅ Server endpoints fully functional
+✅ Web components ready for integration into goal-detail page
+✅ All tests pass (unit, integration, widget)
+✅ Error handling complete (404/409/400 status codes)
+✅ Database transactions atomic
+✅ Cross-module boundary clean (shared protocol)
 
 ## What Needs Manual Verification
 
@@ -121,14 +121,14 @@ All components have dedicated test files:
 
 ## File Locations Summary
 
-**Server Source**: `apps/server/src/shifu/{curriculum,learning,shared}/`  
-**Web Source**: `apps/web/src/ui/learning/` + `apps/web/src/services/learning.ts`  
-**Server Tests**: `apps/server/tests/rest/controllers/learning/`  
-**Web Tests**: `apps/web/src/ui/learning/widgets/components/*/tests/`  
+**Server Source**: `apps/server/src/shifu/{curriculum,learning,shared}/`
+**Web Source**: `apps/web/src/ui/learning/` + `apps/web/src/services/learning.ts`
+**Server Tests**: `apps/server/tests/rest/controllers/learning/`
+**Web Tests**: `apps/web/src/ui/learning/widgets/components/*/tests/`
 **Spec & Docs**: `documentation/features/learning/add-skill/`
 
 ---
 
-**Implementation Completed**: 2026-09-22  
-**Specification Version**: 2 (ready)  
+**Implementation Completed**: 2026-09-22
+**Specification Version**: 2 (ready)
 **Code Ready for**: Implementation Reviewer checkpoint (F4)

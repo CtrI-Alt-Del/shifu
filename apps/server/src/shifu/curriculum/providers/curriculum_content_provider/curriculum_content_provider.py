@@ -1,23 +1,25 @@
+from decimal import Decimal
+
 from shifu.curriculum.core.domain.structures import (
     ActivitySequenceItem,
-    MaterialSequenceItem,
     CorrectnessEvaluationPart,
+    MaterialSequenceItem,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
 )
-from decimal import Decimal
-from shifu.curriculum.core.interfaces import CurriculumDatabase
 from shifu.curriculum.core.domain.structures.skill_v2_coverage import v2_coverage_gaps
+from shifu.curriculum.core.interfaces import CurriculumDatabase
 from shifu.shared.core.domain.structures import (
+    CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
-    CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
-    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumContentItem,
+    CurriculumMaterialContentSnapshot,
     CurriculumMaterialSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
@@ -28,6 +30,22 @@ from shifu.shared.core.interfaces import CurriculumContentProvider
 class DatabaseCurriculumContentProvider(CurriculumContentProvider):
     def __init__(self, database: CurriculumDatabase) -> None:
         self._database: CurriculumDatabase = database
+
+    def get_material_content(
+        self, material_id: str
+    ) -> CurriculumMaterialContentSnapshot | None:
+        with self._database.transaction() as repositories:
+            material = repositories.materials.find_by_id(material_id)
+            if material is None or material.id != material_id:
+                return None
+
+            return CurriculumMaterialContentSnapshot(
+                id=material.id,
+                skill_id=material.skill_id,
+                title=material.title,
+                material_type=material.material_type.value,
+                content=material.content,
+            )
 
     def list_skill_content(self) -> tuple[CurriculumSkillSnapshot, ...]:
         with self._database.transaction() as repositories:

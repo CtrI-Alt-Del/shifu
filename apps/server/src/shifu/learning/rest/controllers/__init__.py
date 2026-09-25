@@ -11,15 +11,18 @@ from .get_choice_attempt_controller import (
 from .get_competency_detail_controller import (
     GetCompetencyDetailController as GetCompetencyDetailController,
 )
-from .get_goal_detail_controller import (
-    GetGoalDetailController as GetGoalDetailController,
-)
-from .get_home_goals_controller import GetHomeGoalsController as GetHomeGoalsController
 from .get_diagnostic_controller import (
     GetDiagnosticController as GetDiagnosticController,
 )
 from .get_goal_controller import GetGoalController as GetGoalController
+from .get_goal_detail_controller import (
+    GetGoalDetailController as GetGoalDetailController,
+)
+from .get_home_goals_controller import GetHomeGoalsController as GetHomeGoalsController
 from .get_material_controller import GetMaterialController as GetMaterialController
+from .get_material_detail_controller import (
+    GetMaterialDetailController as GetMaterialDetailController,
+)
 from .list_available_skills_controller import (
     ListAvailableSkillsController as ListAvailableSkillsController,
 )

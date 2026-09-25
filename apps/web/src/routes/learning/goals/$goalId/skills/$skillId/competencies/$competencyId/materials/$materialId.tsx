@@ -11,6 +11,14 @@ export const Route = createFileRoute(
 })
 
 function MaterialRoute() {
-  const ids = Route.useParams()
-  return <MaterialPage {...ids} />
+  const { competencyId, goalId, materialId, skillId } = Route.useParams()
+
+  return (
+    <MaterialPage
+      competencyId={competencyId}
+      goalId={goalId}
+      materialId={materialId}
+      skillId={skillId}
+    />
+  )
 }

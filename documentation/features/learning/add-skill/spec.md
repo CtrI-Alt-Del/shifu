@@ -538,7 +538,7 @@ amendment to this endpoint's shape.
 
 | Test file | Test case | Description | Assertions |
 | --- | --- | --- | --- |
-| `test_search_skill_catalog_use_case.py` | `test_should_flag_foundation_already_in_goal_from_batched_experiences` | Page includes a Skill whose foundation already has an experience | The assembled `SkillCatalogRow.foundations` entry has `already_in_goal=True`; `find_direct_foundations_for_many` called once for the whole page | 
+| `test_search_skill_catalog_use_case.py` | `test_should_flag_foundation_already_in_goal_from_batched_experiences` | Page includes a Skill whose foundation already has an experience | The assembled `SkillCatalogRow.foundations` entry has `already_in_goal=True`; `find_direct_foundations_for_many` called once for the whole page |
 | `test_add_skill_to_goal_use_case.py` | `test_should_create_experiences_for_skill_and_selected_foundations_atomically` | Confirm with 2 selected foundations | `add_many` called once with 3 `SkillExperience` objects, all `status=NOT_STARTED` |
 | `test_add_skill_to_goal_use_case.py` | `test_should_raise_when_skill_already_added` | Skill already has an experience | Raises `SkillAlreadyAddedError`; `add_many` never called |
 | `test_add_skill_to_goal_use_case.py` | `test_should_raise_when_foundation_is_not_direct` | Submitted foundation id absent from the reader's direct-foundations result | Raises `InvalidFoundationSelectionError` |

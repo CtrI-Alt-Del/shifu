@@ -47,6 +47,7 @@ describe('PlanningIntentComposer', () => {
     })
     useNavigationMock.mockReturnValue({
       navigateTo: navigateToMock,
+      navigateToActivity: vi.fn(),
       navigateToGoalDetail: vi.fn(),
       navigateToPlanner: navigateToPlannerMock,
     })

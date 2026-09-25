@@ -80,6 +80,7 @@ describe('useCompetencyDetailPage', () => {
     useQueryMock.mockReset()
     useNavigationMock.mockReturnValue({
       navigateTo: navigateToMock,
+      navigateToActivity: vi.fn(),
       navigateToGoalDetail: navigateToGoalDetailMock,
       navigateToPlanner: navigateToPlannerMock,
     })

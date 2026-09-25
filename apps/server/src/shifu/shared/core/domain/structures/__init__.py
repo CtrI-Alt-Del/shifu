@@ -25,6 +25,9 @@ from .curriculum_choice_concept_criterion_snapshot import (
     CurriculumChoiceConceptCriterionSnapshot as CurriculumChoiceConceptCriterionSnapshot,
 )
 from .curriculum_content_item import CurriculumContentItem as CurriculumContentItem
+from .curriculum_material_content_snapshot import (
+    CurriculumMaterialContentSnapshot as CurriculumMaterialContentSnapshot,
+)
 from .curriculum_material_snapshot import (
     CurriculumMaterialSnapshot as CurriculumMaterialSnapshot,
 )

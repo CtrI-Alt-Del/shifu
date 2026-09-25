@@ -3,19 +3,20 @@ from fastapi import APIRouter
 from shifu.learning.rest.controllers import (
     AddSkillToGoalController,
     CreateGoalController,
-    GetDiagnosticController,
-    GetGoalDetailController,
-    GetMaterialController,
     GetChoiceActivityController,
     GetChoiceAttemptController,
     GetCompetencyDetailController,
+    GetDiagnosticController,
+    GetGoalDetailController,
     GetHomeGoalsController,
+    GetMaterialController,
+    GetMaterialDetailController,
     ListAvailableSkillsController,
     RemoveGoalController,
     RetryChoiceEvaluationController,
     SearchSkillCatalogController,
-    SubmitChoiceActivityController,
     StartSkillController,
+    SubmitChoiceActivityController,
 )
 
 
@@ -28,6 +29,7 @@ class LearningRouter:
         GetCompetencyDetailController.handle(router)
         GetGoalDetailController.handle(router)
         GetHomeGoalsController.handle(router)
+        GetMaterialDetailController.handle(router)
         SearchSkillCatalogController.handle(router)
         AddSkillToGoalController.handle(router)
         RemoveGoalController.handle(router)

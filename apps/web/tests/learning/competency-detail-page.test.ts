@@ -203,6 +203,30 @@ test('redirects anonymous visitors before the Activity contract loader', async (
   await expect(page.locator('body')).not.toContainText('Not Found')
 })
 
+test('links a Material row to its own route with the Competency of origin', async ({
+  authenticatedPage,
+}) => {
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (!route.request().url().includes(IDS.competencyId)) {
+      await route.fallback()
+      return
+    }
+
+    await route.fulfill({
+      body: JSON.stringify({ result: availableResponse }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+
+  await expect(
+    authenticatedPage.getByRole('link', {
+      name: 'Repetição com for — Material de apoio',
+    }),
+  ).toHaveAttribute('href', `${detailPath}/materials/${IDS.materialId}`)
+})
+
 test('renders the official Material with a path back to its Competency', async ({
   authenticatedPage,
 }) => {
@@ -211,14 +235,25 @@ test('renders the official Material with a path back to its Competency', async (
     const descriptor = new URL(route.request().url()).pathname.split('/_serverFn/')[1]
     if (descriptor) {
       const fn = JSON.parse(Buffer.from(descriptor, 'base64').toString('utf-8')).export
-      if (fn.startsWith('getMaterialAction_')) {
+      if (fn.startsWith('getMaterialDetailAction_')) {
         await route.fulfill({
           body: JSON.stringify({
             result: {
+              availability: 'available',
+              goalId: IDS.goalId,
+              skillId: IDS.skillId,
+              skillName: 'Lógica de programação',
+              competencyId: IDS.competencyId,
+              competencyName: 'Estruturas de repetição',
               materialId: IDS.materialId,
-              title: 'Repetição com for',
-              materialType: 'text',
+              materialTitle: 'Repetição com for',
               content: 'Leia sobre laços de repetição.',
+              recommendation: {
+                activityId: IDS.activityId,
+                competencyId: IDS.competencyId,
+                difficulty: 'hard',
+                type: 'new-activity',
+              },
             },
           }),
           contentType: 'application/json',
@@ -238,7 +273,7 @@ test('renders the official Material with a path back to its Competency', async (
     authenticatedPage.getByText('Leia sobre laços de repetição.'),
   ).toBeVisible()
   await expect(
-    authenticatedPage.getByRole('link', { name: 'Voltar para a Competência' }),
+    authenticatedPage.getByRole('link', { name: /Voltar para a Competência/ }),
   ).toHaveAttribute('href', detailPath)
   await expect(
     authenticatedPage.getByText(/leitura é opcional e não altera seu progresso/i),

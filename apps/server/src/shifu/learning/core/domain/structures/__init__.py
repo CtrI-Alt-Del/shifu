@@ -18,6 +18,9 @@ from .adaptive_recommendation_detail import (
 from .available_competency_detail import (
     AvailableCompetencyDetail as AvailableCompetencyDetail,
 )
+from .available_material_detail import (
+    AvailableMaterialDetail as AvailableMaterialDetail,
+)
 from .choice_evaluation_result import (
     ChoiceEvaluationResult as ChoiceEvaluationResult,
 )
@@ -52,6 +55,7 @@ from .confirmed_goal_plan import ConfirmedGoalPlan as ConfirmedGoalPlan
 from .concept_observation import ConceptObservation as ConceptObservation
 from .evaluation_part_result import EvaluationPartResult as EvaluationPartResult
 from .goal_summary import GoalSummary as GoalSummary
+from .material_detail import MaterialDetail as MaterialDetail
 from .goal_detail import GoalDetail as GoalDetail
 from .goal_skill_detail import GoalSkillDetail as GoalSkillDetail
 from .goal_skill_relation import GoalSkillRelation as GoalSkillRelation
@@ -74,4 +78,7 @@ from .skill_catalog_row import (
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,
+)
+from .unavailable_material_detail import (
+    UnavailableMaterialDetail as UnavailableMaterialDetail,
 )

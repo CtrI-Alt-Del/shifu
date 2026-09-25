@@ -11,8 +11,8 @@ test.describe('ConfirmEmailPage route with mocked transport', () => {
     })
     await page.goto('/confirm-email/?token=invalid')
 
-    await expect(page).toHaveURL(/\/confirm-email\/?$/)
     await expect(page.getByRole('heading', { name: 'Link inválido' })).toBeFocused()
+    await expect(page).toHaveURL(/\/confirm-email\/?$/)
     expect(didCallConfirmation).toBe(false)
   })
 
@@ -29,8 +29,8 @@ test.describe('ConfirmEmailPage route with mocked transport', () => {
     })
     await page.goto(`/confirm-email/?token=${validToken}`)
 
-    await expect(page).toHaveURL(/\/confirm-email\/?$/)
     await expect(page.getByRole('heading', { name: 'Link expirado' })).toBeFocused()
+    await expect(page).toHaveURL(/\/confirm-email\/?$/)
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeEnabled()
   })
 })
