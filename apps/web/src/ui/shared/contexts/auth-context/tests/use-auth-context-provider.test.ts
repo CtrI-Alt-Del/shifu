@@ -12,7 +12,9 @@ vi.mock('@/provision/auth/cookie-session-auth-provider', () => ({
 
 const providerMock = vi.mocked(CookieSessionAuthProvider)
 const providerValue = {
+  exitPendingConfirmation: vi.fn(),
   signIn: vi.fn(),
+  signOut: vi.fn(),
 }
 
 describe('useAuthContextProvider', () => {

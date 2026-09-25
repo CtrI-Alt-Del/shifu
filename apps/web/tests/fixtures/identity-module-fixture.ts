@@ -29,12 +29,25 @@ type IdentityModuleFixtures = {
 export const test = base.extend<IdentityModuleFixtures>({
   authenticatedPage: async ({ page }, use) => {
     await page.route('**/_serverFn/**', async (route) => {
+      const serverFunction = Buffer.from(
+        new URL(route.request().url()).pathname.split('/').at(-1) ?? '',
+        'base64url',
+      ).toString()
+
+      if (
+        !serverFunction.includes('middlewares/require-auth-middleware.ts') &&
+        !serverFunction.includes('middlewares/enter-main-page-middleware.ts')
+      ) {
+        await route.continue()
+        return
+      }
+
       await route.fulfill({
         body: JSON.stringify({
-          accountId: 'playwright-account',
-          accessToken: 'playwright-access-token',
-          displayName: 'Playwright Learner',
-          timeZone: 'America/Sao_Paulo',
+          result: {
+            displayName: 'Playwright Learner',
+            email: 'playwright@shifu.local',
+          },
         }),
         contentType: 'application/json',
         status: 200,
