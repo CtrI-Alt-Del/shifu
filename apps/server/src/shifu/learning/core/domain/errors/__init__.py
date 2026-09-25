@@ -6,6 +6,9 @@ from .competency_detail_not_found_error import (
     CompetencyDetailNotFoundError as CompetencyDetailNotFoundError,
 )
 from .curriculum_gap_error import CurriculumGapError as CurriculumGapError
+from .curriculum_skill_not_found_error import (
+    CurriculumSkillNotFoundError as CurriculumSkillNotFoundError,
+)
 from .diagnostic_incomplete_error import (
     DiagnosticIncompleteError as DiagnosticIncompleteError,
 )
@@ -18,6 +21,9 @@ from .evaluation_unavailable_error import (
 )
 from .goal_not_found_error import GoalNotFoundError as GoalNotFoundError
 from .invalid_attempt_error import InvalidAttemptError as InvalidAttemptError
+from .invalid_foundation_selection_error import (
+    InvalidFoundationSelectionError as InvalidFoundationSelectionError,
+)
 from .invalid_goal_error import InvalidGoalError as InvalidGoalError
 from .skill_already_added_error import (
     SkillAlreadyAddedError as SkillAlreadyAddedError,

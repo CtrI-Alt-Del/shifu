@@ -1,3 +1,4 @@
+from .add_skill_to_goal_use_case import AddSkillToGoalUseCase as AddSkillToGoalUseCase
 from .get_competency_detail_use_case import (
     GetCompetencyDetailUseCase as GetCompetencyDetailUseCase,
 )
@@ -14,6 +15,9 @@ from .get_goal_detail_use_case import GetGoalDetailUseCase as GetGoalDetailUseCa
 from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCase
 from .retry_choice_evaluation_use_case import (
     RetryChoiceEvaluationUseCase as RetryChoiceEvaluationUseCase,
+)
+from .search_skill_catalog_use_case import (
+    SearchSkillCatalogUseCase as SearchSkillCatalogUseCase,
 )
 from .submit_choice_activity_use_case import (
     SubmitChoiceActivityUseCase as SubmitChoiceActivityUseCase,

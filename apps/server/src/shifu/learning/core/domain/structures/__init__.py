@@ -67,6 +67,10 @@ from .qualitative_evaluation_result import (
     QualitativeEvaluationResult as QualitativeEvaluationResult,
 )
 from .single_choice_answer import SingleChoiceAnswer as SingleChoiceAnswer
+from .skill_catalog_row import (
+    SkillCatalogRow as SkillCatalogRow,
+    SuggestedFoundation as SuggestedFoundation,
+)
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,

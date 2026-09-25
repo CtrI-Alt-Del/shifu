@@ -7,12 +7,14 @@ import type {
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
 import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
+import type { CreatedSkillExperience } from '@/core/learning/created-skill-experience'
 import type {
   AvailableSkill,
   DiagnosticOverview,
   GoalDetail,
 } from '@/core/learning/goal-detail'
 import type { MaterialDetail } from '@/core/learning/material-detail'
+import type { SkillCatalogPage } from '@/core/learning/skill-catalog-page'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import { learningActivityPath, learningAttemptsPath } from '@/constants/routes'
 
@@ -292,6 +294,37 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+    },
+
+    async searchSkillCatalog(
+      accessToken: string,
+      goalId: string,
+      params: { query?: string; cursor?: string; limit?: number },
+    ): Promise<SkillCatalogPage> {
+      const response = await restClient.get<SkillCatalogPage>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/catalog`,
+        {
+          params,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async addSkillToGoal(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+      foundationSkillIds: readonly string[],
+    ): Promise<CreatedSkillExperience[]> {
+      const response = await restClient.post<{ created: CreatedSkillExperience[] }>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills`,
+        { skill_id: skillId, foundation_skill_ids: foundationSkillIds },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body.created
     },
   }
 }

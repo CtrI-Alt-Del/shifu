@@ -14,6 +14,13 @@ from shifu.composition import (
     build_message_renderer,
     build_secret_envelope_provider,
 )
+from shifu.curriculum.database.sqlalchemy import (
+    SqlalchemyCurriculumDatabase,
+)
+from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
+from shifu.curriculum.providers.curriculum_content_provider import (
+    DatabaseCurriculumContentProvider,
+)
 from shifu.curriculum.rest.router import CurriculumRouter
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
@@ -24,12 +31,6 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
-from shifu.curriculum.database.sqlalchemy import (
-    SqlalchemyCurriculumDatabase,
-)
-from shifu.curriculum.providers.curriculum_content_provider import (
-    DatabaseCurriculumContentProvider,
-)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.messaging.inngest import LearningInngestMessaging
 from shifu.learning.rest.router import LearningRouter
@@ -90,6 +91,9 @@ class FastAPIApp:
             id_provider=id_provider,
         )
         curriculum_content_provider = DatabaseCurriculumContentProvider(
+            curriculum_database
+        )
+        curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
             curriculum_database
         )
         authentication_provider = JwksJwtAuthenticationProvider(
@@ -160,10 +164,12 @@ class FastAPIApp:
         app.state.communication_secret_envelope_provider = secret_envelope_provider
         app.state.email_delivery_provider = email_delivery_provider
         app.state.authentication_provider = authentication_provider
+        app.state.identifier_provider = id_provider
         app.state.learning_database = learning_database
         app.state.clock_provider = clock_provider
-        app.state.identifier_provider = id_provider
+        app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider
+        app.state.curriculum_catalog_provider = curriculum_catalog_provider
         app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
             engine=database_engine,
             id_provider=id_provider,
