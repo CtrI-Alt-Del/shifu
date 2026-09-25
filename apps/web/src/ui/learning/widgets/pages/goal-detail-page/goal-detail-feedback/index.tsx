@@ -27,13 +27,19 @@ export const GoalDetailFeedback = (props: GoalDetailFeedbackProps) => {
 
   if (props.state === 'empty') {
     return (
-      <section className='rounded-lg border border-dashed border-control-border bg-card p-8 text-center'>
-        <Icon className='mx-auto text-muted-foreground' name='network' size={32} />
-        <h2 className='mt-4 font-serif text-2xl'>
+      <section className='flex min-h-[540px] flex-col items-center justify-center rounded-[10px] border border-border bg-surface-alt p-8 text-center'>
+        <span className='flex size-12 items-center justify-center rounded-full bg-muted'>
+          <Icon className='text-foreground/80' name='network' size={22} />
+        </span>
+        <h2 className='mt-4 text-xl font-semibold'>
           Este objetivo ainda não tem habilidades
         </h2>
+        <p className='mt-4 max-w-[560px] text-foreground/80'>
+          Adicione uma habilidade do Currículo para começar. O diagnóstico só inicia
+          quando você escolher iniciar a habilidade.
+        </p>
         <Link
-          className='mt-6 inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground'
+          className='mt-4 inline-flex min-h-11 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground'
           params={{ goalId: props.goalId }}
           to='/learning/goals/$goalId/skills/add'
         >

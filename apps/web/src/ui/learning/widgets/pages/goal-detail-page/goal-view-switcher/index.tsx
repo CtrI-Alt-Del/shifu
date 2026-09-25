@@ -1,5 +1,4 @@
 import type { GoalDetailView } from '../use-goal-detail-page'
-import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Tabs, TabsList, TabsTrigger } from '@/ui/shadcn/tabs'
 
 export type GoalViewSwitcherProps = {
@@ -10,13 +9,9 @@ export type GoalViewSwitcherProps = {
 export const GoalViewSwitcher = ({ view, onViewChange }: GoalViewSwitcherProps) => (
   <div>
     <Tabs onValueChange={onViewChange} value={view}>
-      <TabsList aria-label='Modo de visualização das Habilidades'>
-        <TabsTrigger value='graph'>
-          <Icon name='network' size={16} /> <span className='ml-2'>Grafo</span>
-        </TabsTrigger>
-        <TabsTrigger value='list'>
-          <Icon name='menu' size={16} /> <span className='ml-2'>Lista</span>
-        </TabsTrigger>
+      <TabsList aria-label='Modo de visualização das Habilidades' className='border-0'>
+        <TabsTrigger value='graph'>Grafo</TabsTrigger>
+        <TabsTrigger value='list'>Lista</TabsTrigger>
       </TabsList>
     </Tabs>
   </div>

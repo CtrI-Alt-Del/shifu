@@ -1,5 +1,5 @@
 import { GoalDetailFeedback } from './goal-detail-feedback'
-import { GoalDetailHeader } from './goal-detail-header'
+import { GoalAddSkillLink, GoalDetailHeader } from './goal-detail-header'
 import { GoalSkillGraph } from './goal-skill-graph'
 import { GoalSkillList } from './goal-skill-list'
 import { GoalViewSwitcher } from './goal-view-switcher'
@@ -20,27 +20,23 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
   if (!detail) return null
 
   return (
-    <div className='space-y-7 pb-6 sm:space-y-9'>
-      <GoalDetailHeader
-        description={detail.description}
-        goalId={props.goalId}
-        title={detail.title}
-      />
+    <div className='mx-auto w-full max-w-7xl space-y-7 pb-6'>
+      <GoalDetailHeader description={detail.description} title={detail.title} />
+      <div className='flex flex-wrap items-center justify-between gap-4'>
+        <GoalViewSwitcher onViewChange={handleViewChange} view={view} />
+        <GoalAddSkillLink goalId={props.goalId} />
+      </div>
       {state === 'empty' ? (
         <GoalDetailFeedback goalId={props.goalId} state='empty' />
+      ) : view === 'graph' ? (
+        <GoalSkillGraph
+          goalId={props.goalId}
+          relations={detail.relations}
+          skills={detail.skills}
+          title={detail.title}
+        />
       ) : (
-        <>
-          <GoalViewSwitcher onViewChange={handleViewChange} view={view} />
-          {view === 'graph' ? (
-            <GoalSkillGraph
-              goalId={props.goalId}
-              relations={detail.relations}
-              skills={detail.skills}
-            />
-          ) : (
-            <GoalSkillList goalId={props.goalId} skills={detail.skills} />
-          )}
-        </>
+        <GoalSkillList goalId={props.goalId} skills={detail.skills} />
       )}
     </div>
   )

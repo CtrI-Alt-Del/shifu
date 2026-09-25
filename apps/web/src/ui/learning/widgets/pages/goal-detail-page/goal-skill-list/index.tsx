@@ -5,7 +5,10 @@ import { GoalSkillRow } from './goal-skill-row'
 export type GoalSkillListProps = { goalId: string; skills: readonly GoalSkillDetail[] }
 
 export const GoalSkillList = ({ goalId, skills }: GoalSkillListProps) => (
-  <ul aria-label='Habilidades do objetivo' className='space-y-3'>
+  <ul
+    aria-label='Habilidades do objetivo'
+    className='divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-surface-alt px-2'
+  >
     {skills.map((skill) => (
       <GoalSkillRow goalId={goalId} key={skill.skillExperienceId} skill={skill} />
     ))}

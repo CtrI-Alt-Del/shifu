@@ -9,16 +9,45 @@ import { Button } from '@/ui/shadcn/button'
 
 export type GoalGraphNodeData = { goalId: string; skill: GoalSkillDetail }
 export type GoalGraphNodeType = Node<GoalGraphNodeData, 'goalSkill'>
+export type GoalRootNodeType = Node<{ title: string }, 'goalRoot'>
+export type GoalFlowNodeType = GoalGraphNodeType | GoalRootNodeType
+
+export const GoalRootNode = ({ data }: NodeProps<GoalRootNodeType>) => (
+  <article className='flex w-[388px] items-center gap-3 rounded-[10px] border border-selo-text bg-accent p-4'>
+    <span className='flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground'>
+      <Icon name='target' size={18} />
+    </span>
+    <div className='min-w-0'>
+      <p className='break-words text-[15px] font-semibold leading-tight'>{data.title}</p>
+      <p className='mt-1 text-xs font-semibold text-selo-text'>Objetivo</p>
+    </div>
+    <Handle className='opacity-0' position={Position.Bottom} type='source' />
+  </article>
+)
 
 export const GoalGraphNode = ({ data }: NodeProps<GoalGraphNodeType>) => {
   const { goalId, skill } = data
   return (
-    <article className='w-64 rounded-lg border border-control-border bg-card p-4'>
-      <Handle position={Position.Top} type='target' />
+    <article className='w-88 rounded-[10px] border border-border bg-surface-alt p-4 transition-colors hover:border-control-border focus-within:border-control-border'>
+      <Handle className='opacity-0' position={Position.Top} type='target' />
       <div className='flex items-start justify-between gap-3'>
+        <span
+          className={`flex size-[34px] shrink-0 items-center justify-center rounded-md ${skill.status === 'learning' || skill.status === 'completed' ? 'bg-jade-tint text-success' : 'bg-muted text-muted-foreground'}`}
+        >
+          <Icon
+            name={
+              skill.status === 'diagnosing'
+                ? 'search'
+                : skill.status === 'not-started'
+                  ? 'circle-dashed'
+                  : 'circle'
+            }
+            size={16}
+          />
+        </span>
         <Link
           aria-label={`Abrir Habilidade ${skill.name}`}
-          className='min-w-0 break-words font-semibold hover:text-primary'
+          className='min-w-0 flex-1 break-words text-sm font-semibold leading-tight hover:text-primary'
           params={{ goalId, skillId: skill.skillId }}
           to='/learning/goals/$goalId/skills/$skillId'
         >
@@ -27,30 +56,31 @@ export const GoalGraphNode = ({ data }: NodeProps<GoalGraphNodeType>) => {
         <Button
           aria-describedby={`graph-skill-actions-${skill.skillExperienceId}`}
           aria-label={`Mais ações de ${skill.name}`}
-          className='size-11 shrink-0 px-0'
+          className='size-8 min-h-0! shrink-0 rounded-md border border-control-border bg-muted p-0! disabled:opacity-100'
           disabled
           type='button'
           variant='ghost'
         >
-          <Icon name='ellipsis' size={18} />
+          <Icon className='shrink-0 text-foreground' name='ellipsis' size={18} />
         </Button>
         <span className='sr-only' id={`graph-skill-actions-${skill.skillExperienceId}`}>
           Disponível em uma próxima atualização
         </span>
       </div>
-      <div className='mt-3'>
-        <SkillStatus status={skill.status} />
-      </div>
       {skill.status === 'learning' && skill.progress !== null ? (
         <div className='mt-3'>
           <ProgressMeter
+            compact
             label={`Progresso de ${skill.name}`}
             tone='success'
             value={skill.progress}
           />
         </div>
       ) : null}
-      <Handle position={Position.Bottom} type='source' />
+      <div className='mt-3'>
+        <SkillStatus status={skill.status} />
+      </div>
+      <Handle className='opacity-0' position={Position.Bottom} type='source' />
     </article>
   )
 }
