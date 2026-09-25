@@ -2,6 +2,20 @@ import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
 const skillPath =
   '/learning/goals/01SHF000000000000000000003/skills/01SHF000000000000000000004'
+const GOAL_ID = '01SHF000000000000000000003'
+const SKILL_ID = '01SHF000000000000000000004'
+const COMPETENCY_ID = '01SHF000000000000000000001'
+const ACTIVITY_ID = '01SHF000000000000000000005'
+
+function serverFnExport(url: string): string | null {
+  const segment = new URL(url).pathname.split('/_serverFn/')[1]
+  if (!segment) return null
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64').toString('utf-8')).export
+  } catch {
+    return null
+  }
+}
 
 test('redirects authenticated learning visitors to Home and protects anonymous visitors', async ({
   authenticatedPage,
@@ -20,15 +34,72 @@ test('redirects authenticated learning visitors to Home and protects anonymous v
   await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
 })
 
-test('protects the Skill contract route before its generic not-found boundary', async ({
+test('renders a resumable diagnostic on the protected Skill route', async ({
   authenticatedPage,
 }) => {
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getGoalDetail_')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            kind: 'success',
+            detail: {
+              goalId: GOAL_ID,
+              title: 'Aprender lógica',
+              description: 'Praticar os fundamentos.',
+              relations: [],
+              skills: [
+                {
+                  skillExperienceId: '01SHF000000000000000000006',
+                  skillId: SKILL_ID,
+                  name: 'Lógica',
+                  skillName: 'Lógica',
+                  status: 'diagnosing',
+                  progress: null,
+                  inclusionReason: null,
+                  policyId: 'learning-adaptive-v2',
+                },
+              ],
+            },
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (fn?.startsWith('getDiagnosticAction_')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            status: 'diagnosing',
+            nextCompetencyId: COMPETENCY_ID,
+            nextActivityId: ACTIVITY_ID,
+            pendingAttemptId: null,
+            pendingAttemptStatus: null,
+            focusCompetencyId: null,
+            competencies: [],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
-  await expect(authenticatedPage.locator('body')).toContainText('Not Found')
+  await expect(authenticatedPage.getByRole('heading', { name: 'Lógica' })).toBeVisible()
   await expect(
-    authenticatedPage.getByRole('heading', { name: 'Estruturas de repetição' }),
-  ).not.toBeVisible()
+    authenticatedPage.getByText('As respostas são avaliadas em conjunto.'),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('link', { name: 'Continuar diagnóstico' }),
+  ).toHaveAttribute(
+    'href',
+    `/learning/goals/${GOAL_ID}/skills/${SKILL_ID}/competencies/${COMPETENCY_ID}/activities/${ACTIVITY_ID}`,
+  )
+  await expect(authenticatedPage.getByText(/nota de|resposta correta/i)).not.toBeVisible()
 })
 
 test('redirects anonymous visitors before the Skill contract loader', async ({

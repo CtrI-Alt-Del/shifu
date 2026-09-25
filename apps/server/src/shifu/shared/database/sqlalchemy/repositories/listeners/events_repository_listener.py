@@ -16,6 +16,8 @@ class _PostgresNotification(Protocol):
 class PostgresListenerConnection(Protocol):
     def execute(self, query: str) -> object: ...
 
+    def commit(self) -> object: ...
+
     def notifies(self) -> Iterable[_PostgresNotification]: ...
 
     def close(self) -> object: ...
@@ -36,6 +38,7 @@ class SqlalchemyEventsRepositoryListener:
     def _run(self) -> None:
         try:
             self._connection.execute(f'LISTEN {EVENTS_CHANNEL}')
+            self._connection.commit()
             for notification in self._connection.notifies():
                 if self._stopped.is_set():
                     break

@@ -18,6 +18,7 @@ class Activity:
     objective: str
     questions: tuple[ActivityQuestion, ...]
     evaluation_rule: EvaluationRule
+    required_concept_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         self.title = require_non_empty(self.title, InvalidActivityError)
@@ -27,6 +28,15 @@ class Activity:
         question_keys = {question.key for question in self.questions}
         part_keys = {part.question_key for part in self.evaluation_rule.parts}
         if not part_keys.issubset(question_keys):
+            raise InvalidActivityError
+        if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
+            raise InvalidActivityError
+        assessed = {
+            criterion.concept_id
+            for question in self.questions
+            for criterion in getattr(question, 'concept_criteria', ())
+        }
+        if assessed.intersection(self.required_concept_ids):
             raise InvalidActivityError
 
     @classmethod
@@ -41,6 +51,7 @@ class Activity:
         objective: str,
         questions: tuple[ActivityQuestion, ...],
         evaluation_rule: EvaluationRule,
+        required_concept_ids: tuple[str, ...] = (),
     ) -> 'Activity':
         return cls(
             id=id,
@@ -51,4 +62,5 @@ class Activity:
             objective=objective,
             questions=questions,
             evaluation_rule=evaluation_rule,
+            required_concept_ids=required_concept_ids,
         )

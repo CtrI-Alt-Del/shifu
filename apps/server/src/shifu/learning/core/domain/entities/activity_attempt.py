@@ -2,6 +2,7 @@ from datetime import datetime
 
 from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.learning.core.domain.structures import ActivityAnswer
+from shifu.shared.core.domain.structures import CurriculumChoiceActivitySnapshot
 from shifu.shared.core.domain.entities import frozen_entity
 
 
@@ -14,6 +15,8 @@ class ActivityAttempt:
     kind: ActivityAttemptKind
     answers: tuple[ActivityAnswer, ...]
     submitted_at: datetime
+    submission_key: str | None = None
+    grading_snapshot: CurriculumChoiceActivitySnapshot | None = None
 
     @classmethod
     def create(
@@ -26,6 +29,8 @@ class ActivityAttempt:
         kind: ActivityAttemptKind,
         answers: tuple[ActivityAnswer, ...],
         submitted_at: datetime,
+        submission_key: str | None = None,
+        grading_snapshot: CurriculumChoiceActivitySnapshot | None = None,
     ) -> 'ActivityAttempt':
         return cls(
             id=id,
@@ -35,4 +40,6 @@ class ActivityAttempt:
             kind=kind,
             answers=answers,
             submitted_at=submitted_at,
+            submission_key=submission_key,
+            grading_snapshot=grading_snapshot,
         )

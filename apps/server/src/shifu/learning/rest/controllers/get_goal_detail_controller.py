@@ -18,9 +18,11 @@ class GoalSkillResponse(BaseModel):
     skill_experience_id: str = Field(serialization_alias='skillExperienceId')
     skill_id: str = Field(serialization_alias='skillId')
     name: str
+    skill_name: str = Field(serialization_alias='skillName')
     status: str
     progress: float | None
     inclusion_reason: str | None = Field(serialization_alias='inclusionReason')
+    policy_id: str = Field(serialization_alias='policyId')
 
 
 class GoalSkillRelationResponse(BaseModel):

@@ -168,9 +168,10 @@ curl http://localhost:18288/e/health
 The server registers the logging-only Identity job at `/api/inngest`; no second
 Inngest process or obsolete `pubsub` task is required.
 
-From `apps/server`, configure `DATABASE_URL` and run:
+From `apps/server`, configure `DATABASE_URL` in `.env.local` and run:
 
 ```bash
+uv run poe db:current
 uv run poe db:upgrade
 uv run poe db:seed
 ```
@@ -180,10 +181,17 @@ entrypoint for local seed composition. Its two operational composition modules a
 the explicit Tach exclusions in `check:architecture`; do not widen that exclusion.
 
 `db:seed` is destructive for the application tables and is guarded to `local` mode.
-It is never run during FastAPI startup.
+It checks that the database is at the current Alembic head before deleting any
+data; if it reports an older revision, run `db:upgrade` first. All `db:*` Poe
+commands load the same `.env.local` file. Seeding is never run during FastAPI
+startup.
 
 The local development seed creates the active account
 `student.seed@shifu.com` with the fixed password `ShifuSeed123!`.
+It also provides a ready-to-start adaptive Learning laboratory. See the
+[seed scenario guide](features/learning/adaptive-recommendation/seed-scenarios.md)
+for its curriculum, learner path, and expected progress. A local reseed clears
+pending outbox events along with the previous application data.
 
 ## Running the applications
 

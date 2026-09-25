@@ -16,7 +16,7 @@ export const GoalGraphControls = ({
   onZoomIn,
   onZoomOut,
 }: GoalGraphControlsProps) => (
-  <fieldset className='flex items-center gap-1 rounded-md border border-control-border bg-card p-1'>
+  <fieldset className='flex items-center gap-1 rounded-md border border-control-border bg-muted p-1'>
     <legend className='sr-only'>Controles do grafo</legend>
     <Button
       aria-label='Reduzir grafo'

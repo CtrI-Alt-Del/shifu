@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, JSON, String
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -14,6 +14,13 @@ class ActivityAttemptModel(Model):
             'skill_experience_id',
             'activity_id',
             'submitted_at',
+        ),
+        Index(
+            'uq_learning_attempt_experience_submission_key',
+            'skill_experience_id',
+            'submission_key',
+            unique=True,
+            postgresql_where=text('submission_key IS NOT NULL'),
         ),
     )
 
@@ -30,3 +37,5 @@ class ActivityAttemptModel(Model):
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+    submission_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    grading_snapshot: Mapped[object | None] = mapped_column(JSON, nullable=True)

@@ -1,7 +1,7 @@
 ---
 title: SHIFU-64 — Detalhes do Objetivo com Grafo e Lista
 status: ready
-revision: 2
+revision: 5
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64
@@ -21,12 +21,12 @@ Modo **complete**; proprietário **Learning**. Entregar leitura autenticada de u
 
 | Fonte | Identificação verificada | Papel |
 | --- | --- | --- |
-| [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83066881/Shifu+PRD+Learning) | content ID 83066881; versão 16; atualizado 2026-09-23T23:39:08.935Z; parent 82804737 | Intenção de produto; leitura integral, consulta 2026-09-24 |
+| [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83066881/Shifu+PRD+Learning) | content ID 83066881; versão 17; atualizado 2026-09-24T00:48:56.368Z; parent 82804737 | Intenção de produto; leitura integral, consulta 2026-09-24 |
 | [Curriculum PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83034113) | content ID 83034113; versão 9; atualizado 2026-09-23T23:39:01.079Z; parent 82804737 | Conteúdo e relações oficiais; leitura integral, consulta 2026-09-24 |
 | [SHIFU-64](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64) | Fazendo; atualização 2026-09-22T22:32:14.372-0300 | Recorte full-stack; ligada a SHIFU-35 |
 | Usuário e orientação de Petros reproduzida neste chat | Decisões confirmadas em 2026-09-23; [registro](../../../../SHIFU-64.md) | Rota goals, ações futuras desabilitadas, eliminação de placeholders, redirect legado |
 
-A consulta de Learning e Curriculum foi reconfirmada em 2026-09-24. A revisão 2 reconcilia as versões 16/9: RP-01, RP-03, RP-04, RP-05, RP-15, RP-25 e JN-03 preservam o recorte desta entrega. A projeção permanece leitura do progresso já decidido por Learning; ela não recalcula evidências, cobertura, domínio ou recomendação no endpoint ou no browser. IDs RP/JN sem prefixo de módulo nesta Spec pertencem a Learning.
+A consulta de Learning e Curriculum foi reconfirmada em 2026-09-24. A revisão 3 reconcilia as versões 17/9: RP-01, RP-03, RP-04, RP-05, RP-15, RP-25 e JN-03 preservam o recorte desta entrega. A mudança de Learning v17 sobre material introdutório opcional não altera esta página. A projeção permanece leitura do progresso já decidido por Learning; ela não recalcula evidências, cobertura, domínio ou recomendação no endpoint ou no browser. IDs RP/JN sem prefixo de módulo nesta Spec pertencem a Learning.
 
 ## Recorte de entrega
 
@@ -36,7 +36,7 @@ A consulta de Learning e Curriculum foi reconfirmada em 2026-09-24. A revisão 2
 | Habilidades | Nomes, quatro estados, progresso quando learning, relações e navegação | Diagnóstico, detalhes internos da Habilidade, mutações e edição curricular |
 | Ações | Adicionar como navegação; Remover objetivo e … visíveis desabilitados | Abrir menus, confirmar ou executar operações futuras |
 | Navegação | Substituir detalhe placeholder; /learning → Home | Selecionar automaticamente um Objetivo; rota concorrente objectives |
-| Grafo | Layout automático, zoom, teclado/mobile, alternativa Lista | Arrastar, conectar/remover arestas, salvar posições/zoom/aba |
+| Grafo | Layout automático, pan por arrasto no canvas vazio, restauração da vista inicial, destaque temporário do caminho de pré-requisitos em hover/foco, zoom, teclado/mobile, alternativa Lista | Arrastar nós, conectar/remover arestas, salvar posições/zoom/aba |
 | Shell | Reutilizar shell atual | Reformular navegação global, Mentor ou Gamification |
 
 | Requisito de origem | Disposição nesta entrega | Limite |
@@ -70,7 +70,7 @@ A consulta de Learning e Curriculum foi reconfirmada em 2026-09-24. A revisão 2
 | RF-03 | RP-04; Curriculum RP-01/RP-04 | Mostrar apenas Habilidades incluídas e relações oficiais com ambos extremos presentes, inclusive desconectadas |
 | RF-04 | RP-03, RP-05, RP-15 | Exibir estados individuais; barra somente em aprendizado, com média de todas as Competências da experiência |
 | RF-05 | RP-04, RP-25 | Grafo inicial em cada abertura; Lista equivalente; alternância não persistida |
-| RF-06 | RP-04, RP-25; SHIFU-64 zoom/layout | Grafo organizado automaticamente, zoom legível, sem rearranjo manual, inclusive por teclado |
+| RF-06 | RP-04, RP-25; SHIFU-64 zoom/layout; solicitações do usuário | Grafo organizado automaticamente; canvas vazio pode ser arrastado para deslocar a vista; ícone restaura enquadramento e zoom iniciais com tooltip; hover ou foco de uma Habilidade destaca com traço animado temporário as arestas de todos os seus pré-requisitos até o Objetivo, sem destacar ramos não relacionados; movimento é removido quando o usuário prefere movimento reduzido; nós não podem ser rearranjados, inclusive por teclado |
 | RF-07 | RP-25; SHIFU-64 estados | Loading, erro seguro recuperável, ausência privada e recuperação sem dados obsoletos de outro recurso |
 | RF-08 | RP-04, JN-03; SHIFU-64 navegação | Abrir Habilidade no mesmo Objetivo; adicionar navega ao fluxo responsável, inclusive no vazio |
 | RF-09 | RP-25; decisão do usuário | Interface pt-BR acessível; Remover objetivo e menus … visíveis desabilitados |
@@ -85,7 +85,7 @@ A consulta de Learning e Curriculum foi reconfirmada em 2026-09-24. A revisão 2
 | CA-03 | RF-03 | Projeção curricular | Relações A→C/B→C, relação externa e skill isolada | Alternar viewport/modo | Apenas extremos incluídos; isolada preservada; mobile mantém mesmas relações, sem bloqueios | Use case/controller/grafo/rota; VM-03 |
 | CA-04 | RF-04 | Estados e média | Quatro estados; learning com progressos 30 e 90, um bloqueado | Abrir Grafo/Lista | Rótulos corretos; barra learning=60; outros sem barra; outra experiência não contribui | Use case/controller/SkillStatus/página; VM-03 |
 | CA-05 | RF-05 | Aba não persistida | Página aberta | Mudar para Lista, sair/voltar, recarregar ou trocar goalId | Lista equivalente; cada nova abertura inicia Grafo; sem storage/search de preferência | Hook/rota; VM-03 |
-| CA-06 | RF-06 | Grafo somente leitura | Grafo pronto | +/- e tentar arrastar ou mover por teclado | Percentual reflete viewport real; zoom limitado; nós/arestas não são editados | Grafo/hook/rota; VM-03 |
+| CA-06 | RF-06 | Grafo somente leitura | Grafo pronto com cadeia e ramo separado | Usar +/-, arrastar o canvas vazio, ativar o ícone de restauração e passar o ponteiro/foco por uma Habilidade | A vista desloca sem mover nós individualmente; ícone mostra tooltip e restaura enquadramento/zoom iniciais; somente o caminho de pré-requisitos da Habilidade até o Objetivo recebe destaque animado temporário, também por teclado; preferência de movimento reduzido mantém destaque estático; percentual reflete viewport real; nós/arestas não são editados | Grafo/hook/rota; VM-03 |
 | CA-07 | RF-07 | Falha e recuperação | Consulta lenta, 503, 429 ou layout falho | Abrir e tentar novamente | Loading anunciado; erro seguro; retry funciona; sem spinner infinito, dados privados antigos ou promessas não tratadas | Página/rota/controller/handler; VM-02 |
 | CA-08 | RF-08 | Destinos | Objetivo real com skills | Abrir skill e Adicionar | Rotas /learning/goals/$goalId/skills/$skillId e /skills/add, mantendo IDs; não inicia diagnóstico ou mutação | Rotas/handler; VM-04 |
 | CA-09 | RF-09 | Acessibilidade e ações futuras | Desktop/mobile, quatro estados | Teclado, toque e controles desabilitados | Foco visível; nomes/status textuais; abas acessíveis; menus/remoção não abrem nem requisitam; nome do ícone acessível | Página/grafo/SkillStatus/rota; VM-03 |
@@ -333,7 +333,7 @@ Pré-condições comuns: verificar docker compose ps, API GET /health, web /logi
 2. Mudar para Lista: comparar Eu1jl; conferir mesmos IDs/nomes/estados e progresso 60 somente learning.
 3. Navegar com Tab/Shift+Tab; abas com setas/Home/End; ativar links com Enter. Comparar foco com TmJTW e token de foco especificado.
 4. Confirmar que menus e remoção estão disabled; toque/click não navega por bubbling nem gera request.
-5. +/- atualizam percentual real; tentativa de drag/setas não move nós; não criar/apagar relações.
+5. +/- atualizam percentual real; arrastar canvas vazio desloca a vista; ícone mostra tooltip no hover/foco e restaura posição/zoom iniciais por click/Enter; hover/foco em uma skill destaca com traço animado somente sua cadeia de pré-requisitos até o Objetivo e limpa o destaque ao sair; em reduced-motion, o traço permanece estático; arrastar nós ou usar setas não altera posições individuais; não criar/apagar relações.
 6. Reabrir, recarregar e trocar objetivo: Grafo novamente; conferir ausência de preferências em storage/URL.
 7. Em 390×844, comparar dNtGs sem copiar relações incorretas do mockup; testar Lista, zoom, texto longo e quatro estados. Repetir com reduced-motion.
 8. Capturar todos os estados suplementares do manifest; inspecionar console/requests e ausência de overflow global; encerrar apenas processos iniciados nesta validação.
@@ -392,5 +392,8 @@ Conflitos localizados: Widget Testing define tests/ e suites module-first; preva
 | Revision | Date | Material change | Reason |
 | --- | --- | --- | --- |
 | 1 | 2026-09-23 | Contrato inicial sobre base atual, ações disabled e redirect legado | SHIFU-64, PRD atual, Pencil e decisões explícitas |
+| 3 | 2026-09-24 | Pan da vista e restauração pelo ícone com tooltip; nós permanecem fixos; Learning PRD v17 reconciliado | Pedido explícito do usuário, RP-04/RP-25 |
+| 4 | 2026-09-24 | Destaque temporário do caminho de pré-requisitos no hover e foco de Habilidade | Pedido explícito do usuário, RP-04/RP-25; sem mudar relações oficiais |
+| 5 | 2026-09-24 | Animação do traço do caminho destacado e respeito a reduced-motion | Correção explícita do usuário ao tratamento visual da revisão 4 |
 
 Revisão independente concluída em 2026-09-23 por goal_details_spec_reviewer, somente leitura, sobre revisão 1 e base 05d36a2: nenhum achado blocking/high/medium. Architecture, ownership, direção das dependências, Rules e as 56 classificações de caminhos foram conferidas. O Orchestrator reconciliou o resultado com o contrato e declara a revisão 1 ready para planejamento e implementação condicionada aos gates do Plan. Essa revisão não prova fidelidade runtime, testes aprovados ou entrega da SHIFU-65.

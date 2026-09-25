@@ -10,6 +10,12 @@ from shifu.learning.core.interfaces.activity_evaluations_repository import (
 from shifu.learning.core.interfaces.competency_progresses_repository import (
     CompetencyProgressesRepository,
 )
+from shifu.learning.core.interfaces.concept_observations_repository import (
+    ConceptObservationsRepository,
+)
+from shifu.learning.core.interfaces.concept_states_repository import (
+    ConceptStatesRepository,
+)
 from shifu.learning.core.interfaces.goals_repository import GoalsRepository
 from shifu.learning.core.interfaces.skill_experiences_repository import (
     SkillExperiencesRepository,
@@ -25,6 +31,8 @@ class LearningDatabaseRepositories:
     competency_progresses: CompetencyProgressesRepository
     activity_attempts: ActivityAttemptsRepository
     activity_evaluations: ActivityEvaluationsRepository
+    concept_observations: ConceptObservationsRepository
+    concept_states: ConceptStatesRepository
     events: EventsRepository
 
 

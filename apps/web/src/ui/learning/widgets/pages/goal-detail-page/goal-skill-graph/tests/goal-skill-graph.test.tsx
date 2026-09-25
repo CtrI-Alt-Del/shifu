@@ -37,12 +37,16 @@ describe('GoalSkillGraph', () => {
       canZoomOut: true,
       handleZoomIn,
       handleZoomOut,
+      handleZoomChange: vi.fn(),
+      handleNodeHover: vi.fn(),
+      handleNodeFocus: vi.fn(),
     })
     render(
       <GoalSkillGraph
         goalId='01SHF000000000000000000003'
         relations={[]}
         skills={[skill]}
+        title='Fundamentos de programação'
       />,
     )
 
@@ -64,12 +68,16 @@ describe('GoalSkillGraph', () => {
       canZoomOut: false,
       handleZoomIn: vi.fn(),
       handleZoomOut: vi.fn(),
+      handleZoomChange: vi.fn(),
+      handleNodeHover: vi.fn(),
+      handleNodeFocus: vi.fn(),
     })
     render(
       <GoalSkillGraph
         goalId='01SHF000000000000000000003'
         relations={[]}
         skills={[skill]}
+        title='Fundamentos de programação'
       />,
     )
     expect(

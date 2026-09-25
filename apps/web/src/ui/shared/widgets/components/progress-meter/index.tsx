@@ -1,10 +1,16 @@
 export type ProgressMeterProps = {
   label?: string
+  compact?: boolean
   tone?: 'primary' | 'success'
   value: number
 }
 
-export const ProgressMeter = ({ label, tone = 'primary', value }: ProgressMeterProps) => {
+export const ProgressMeter = ({
+  label,
+  compact = false,
+  tone = 'primary',
+  value,
+}: ProgressMeterProps) => {
   const boundedValue = Math.min(100, Math.max(0, value))
   const toneClassName = tone === 'success' ? 'text-success' : 'text-primary'
   const fillClassName = tone === 'success' ? 'bg-success' : 'bg-primary'
@@ -12,7 +18,11 @@ export const ProgressMeter = ({ label, tone = 'primary', value }: ProgressMeterP
   return (
     <div>
       {label ? (
-        <div className='mb-2 flex items-center justify-between gap-4 text-sm'>
+        <div
+          className={
+            compact ? 'sr-only' : 'mb-2 flex items-center justify-between gap-4 text-sm'
+          }
+        >
           <span className='font-semibold text-foreground'>{label}</span>
           <span className={`font-bold ${toneClassName}`}>{boundedValue}%</span>
         </div>
@@ -22,7 +32,7 @@ export const ProgressMeter = ({ label, tone = 'primary', value }: ProgressMeterP
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={boundedValue}
-        className='h-2.5 overflow-hidden rounded-full bg-muted'
+        className={`${compact ? 'h-1' : 'h-2.5'} overflow-hidden rounded-full bg-muted`}
         role='progressbar'
       >
         <div

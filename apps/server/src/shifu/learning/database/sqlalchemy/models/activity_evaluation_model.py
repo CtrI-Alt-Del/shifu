@@ -30,3 +30,10 @@ class ActivityEvaluationModel(Model):
     effect_applied_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    run_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    progress_before: Mapped[Decimal | None] = mapped_column(
+        Numeric(5, 2), nullable=True
+    )
+    progress_after: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
+    status_before: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    status_after: Mapped[str | None] = mapped_column(String(40), nullable=True)

@@ -55,6 +55,16 @@ class TestRecordCommunicationDeliveryStateJob:
             assert communication is not None
             identity_confirmation_id = communication.identity_confirmation_id
             assert identity_confirmation_id is not None
+
+        inngest_fixture.wait_for_database(
+            lambda session: _has_delivery_state(
+                session,
+                identity_confirmation_id,
+                'delivered',
+            )
+        )
+
+        with inngest_fixture.inspection_session() as session:
             token = session.get(AccountActionTokenModel, identity_confirmation_id)
             assert token is not None
             token.delivery_status = None

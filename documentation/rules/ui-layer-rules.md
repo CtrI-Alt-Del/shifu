@@ -856,6 +856,14 @@ Tailwind theme tokens for colors, typography, radii, spacing, shadows, focus
 states, and light/dark behavior. Do not hardcode a design value when an
 appropriate token exists.
 
+Every routed page's outer content container uses Tailwind `max-w-7xl`, centered
+with full available width (`mx-auto w-full max-w-7xl`). Apply this consistently
+to loading, empty, error, and ready branches. Do not constrain the outer page
+container to a narrower `max-w-*` value. When a design calls for a narrower text,
+form, or detail column, keep the page shell at `max-w-7xl` and constrain a nested
+content element instead. Preserve the shell's responsive gutters and the remaining
+layout requirements from `documentation/design.md`.
+
 Headings use the documented serif family; body copy, controls, and navigation use
 the documented sans family. Preserve accessible names, visible keyboard focus,
 semantic elements, and non-color indicators for state.

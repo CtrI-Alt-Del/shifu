@@ -1,8 +1,37 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
+@adaptiveSkillId = 01SHF000000000000000000032
+@newGoalId = replace-with-created-goal-id
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
+Authorization: Bearer {{accessToken}}
+
+### Skills available for a new Goal
+GET {{baseUrl}}/learning/available-skills
+Authorization: Bearer {{accessToken}}
+
+### Create Goal with selected Skill
+POST {{baseUrl}}/learning/goals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Aprender lógica de programação",
+  "description": "Praticar os fundamentos",
+  "skillIds": ["{{adaptiveSkillId}}"]
+}
+
+### Owned Goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+Authorization: Bearer {{accessToken}}
+
+### Start eligible Skill diagnostic after creating the Goal above
+POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/start
+Authorization: Bearer {{accessToken}}
+
+### Diagnostic overview; individual results remain private
+GET {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic
 Authorization: Bearer {{accessToken}}
 
 ### Goal detail

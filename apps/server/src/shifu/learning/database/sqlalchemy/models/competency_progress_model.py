@@ -49,10 +49,10 @@ class CompetencyProgressModel(Model):
         DateTime(timezone=True), nullable=False
     )
     initial_progress: Mapped[Decimal | None] = mapped_column(
-        Numeric(5, 2), nullable=True
+        Numeric(20, 12), nullable=True
     )
     current_progress: Mapped[Decimal | None] = mapped_column(
-        Numeric(5, 2), nullable=True
+        Numeric(20, 12), nullable=True
     )
     hard_activity_score: Mapped[Decimal | None] = mapped_column(
         Numeric(5, 2), nullable=True
@@ -60,4 +60,11 @@ class CompetencyProgressModel(Model):
     status: Mapped[str | None] = mapped_column(String(40), nullable=True)
     mastered_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    coverage_complete: Mapped[bool] = mapped_column(
+        nullable=False, server_default='false'
+    )
+    verification_cause: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    verification_concept_id: Mapped[str | None] = mapped_column(
+        String(26), nullable=True
     )

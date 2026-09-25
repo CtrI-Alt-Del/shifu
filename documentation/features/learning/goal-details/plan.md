@@ -2,7 +2,7 @@
 title: SHIFU-64 goal details implementation plan
 status: in_progress
 spec: ./spec.md
-spec_revision: 1
+spec_revision: 5
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64
 last_updated_at: 2026-09-23
@@ -10,6 +10,9 @@ last_updated_at: 2026-09-23
 
 # 1. Execution status
 
+- 2026-09-24: Spec revision 5 animates the highlighted prerequisite path with reduced-motion fallback. The graph CSS and browser animation evidence join the revision 4 scope.
+- 2026-09-24: Spec revision 4 adds temporary prerequisite-path emphasis on skill hover/focus. The graph hook, ReactFlow composition, graph card and browser evidence are the affected scope.
+- 2026-09-24: Spec revision 3 adds canvas pan and an icon action that restores the initial fitted view. Web graph source, its route test and CA-06/VM-03 evidence are the affected scope; earlier baseline notes below are historical.
 - Contrato: [Spec](spec.md), revisão **1**, **ready**, após revisão independente de compatibilidade sem achados. Decisões aprovadas e justificativas em [SHIFU-64.md](../../../../SHIFU-64.md).
 - Plan **draft**, fase inicial F1, todas as tarefas pending; nenhum Builder de implementação ativo. Não houve implementação, instalação ou validação runtime.
 - Coordenação justificada por contrato Shared/Curriculum/Learning, API/BFF/Web, dependência SHIFU-65 e validação visual em dois viewports.

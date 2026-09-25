@@ -14,7 +14,7 @@ from shifu.shared.core.domain.errors import RateLimitError
 if TYPE_CHECKING:
     from shifu.shared.core.interfaces import CacheProvider
 
-_EXCLUDED_PATHS = frozenset({'/api/inngest', '/health', '/identity/session'})
+_EXCLUDED_PATHS = frozenset({'/health', '/identity/session', '/api/inngest'})
 _CAPACITY = 10
 _REFILL_PER_SECOND = 60 / 60
 

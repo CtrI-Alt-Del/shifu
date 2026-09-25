@@ -1,3 +1,10 @@
+from pathlib import Path
+
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy.orm import Session as SqlalchemySession
+
 from shifu.communication.database import CommunicationSeeder
 from shifu.communication.database.sqlalchemy.repositories import (
     SqlalchemyCommunicationsRepository,
@@ -7,6 +14,7 @@ from shifu.curriculum.database import CurriculumSeeder
 from shifu.curriculum.database.sqlalchemy.repositories import (
     SqlalchemyActivitiesRepository,
     SqlalchemyCompetenciesRepository,
+    SqlalchemyConceptsRepository,
     SqlalchemyCurriculumSequencesRepository,
     SqlalchemyMaterialsRepository,
     SqlalchemySkillFoundationsRepository,
@@ -26,6 +34,7 @@ from shifu.learning.database.sqlalchemy.repositories import (
     SqlalchemySkillExperiencesRepository,
 )
 from shifu.shared.database.seed_data import DevelopmentSeed, build_development_seed
+from shifu.shared.database.sqlalchemy.repositories import SqlalchemyEventsRepository
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.database.sqlalchemy.settings import DatabaseSettings, SeedSettings
 
@@ -37,13 +46,16 @@ class SeedOrchestrator:
         curriculum_seeder: CurriculumSeeder,
         learning_seeder: LearningSeeder,
         communication_seeder: CommunicationSeeder,
+        events_repository: SqlalchemyEventsRepository,
     ) -> None:
         self._identity_seeder = identity_seeder
         self._curriculum_seeder = curriculum_seeder
         self._learning_seeder = learning_seeder
         self._communication_seeder = communication_seeder
+        self._events_repository = events_repository
 
     def clear(self) -> None:
+        self._events_repository.remove_all()
         self._communication_seeder.clear()
         self._learning_seeder.clear()
         self._identity_seeder.clear()
@@ -61,6 +73,7 @@ class SeedOrchestrator:
             list(development_seed.skills),
             list(development_seed.skill_foundations),
             list(development_seed.competencies),
+            list(development_seed.concepts),
             list(development_seed.materials),
             list(development_seed.activities),
             list(development_seed.curriculum_sequences),
@@ -78,6 +91,25 @@ class SeedOrchestrator:
         )
 
 
+def _require_current_schema(session: SqlalchemySession) -> None:
+    config = Config()
+    config.set_main_option(
+        'script_location',
+        str(Path(__file__).resolve().parents[4] / 'migrations'),
+    )
+    expected_heads = set(ScriptDirectory.from_config(config).get_heads())
+    current_heads = set(
+        MigrationContext.configure(session.connection()).get_current_heads()
+    )
+    if current_heads != expected_heads:
+        current = ', '.join(sorted(current_heads)) or 'none'
+        expected = ', '.join(sorted(expected_heads))
+        raise RuntimeError(
+            f'Database schema is at {current}; seed requires {expected}. '
+            'Run `uv run poe db:upgrade` from apps/server first.'
+        )
+
+
 def seed() -> None:
     settings = SeedSettings.from_environment()
     if settings.server_app_mode != 'local':
@@ -88,6 +120,7 @@ def seed() -> None:
             DatabaseSettings(url=settings.database_url)
         )
     ) as session:
+        _require_current_schema(session)
         orchestrator = SeedOrchestrator(
             IdentitySeeder(
                 SqlalchemyAccountsRepository(session),
@@ -97,6 +130,7 @@ def seed() -> None:
                 SqlalchemySkillsRepository(session),
                 SqlalchemySkillFoundationsRepository(session),
                 SqlalchemyCompetenciesRepository(session),
+                SqlalchemyConceptsRepository(session),
                 SqlalchemyMaterialsRepository(session),
                 SqlalchemyActivitiesRepository(session),
                 SqlalchemyCurriculumSequencesRepository(session),
@@ -112,6 +146,7 @@ def seed() -> None:
                 SqlalchemyCommunicationsRepository(session),
                 SqlalchemyDeliveryAttemptsRepository(session),
             ),
+            SqlalchemyEventsRepository(session),
         )
         orchestrator.run()
 

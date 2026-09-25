@@ -79,6 +79,7 @@ class AppErrorHandler:
             message=(
                 not_found.message
                 if not_found is not None
+                and not_found.message != 'Erro interno da aplicação.'
                 else 'Recurso não encontrado.'
             ),
         )

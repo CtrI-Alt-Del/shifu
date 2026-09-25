@@ -140,9 +140,11 @@ class GetGoalDetailUseCase:
             skill_experience_id=experience.id,
             skill_id=experience.skill_id,
             name=overview.name,
+            skill_name=overview.name,
             status=experience.status,
             progress=progress,
             inclusion_reason=experience.inclusion_reason,
+            policy_id=experience.policy_id,
         )
 
     @staticmethod

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from threading import Thread
-from typing import cast
+from typing import Any, cast
 from urllib.error import URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -21,6 +21,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session as SqlalchemySession
 from testcontainers.core.container import DockerContainer
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 
 @dataclass
@@ -63,8 +64,6 @@ class InngestFixture:
         function_id: str,
         payload: dict[str, object] | None = None,
     ) -> None:
-        """Invoke a registered function through the Dev Server's real API."""
-
         body = json.dumps(
             {
                 'name': 'shifu/test-function-invocation',
@@ -83,22 +82,7 @@ class InngestFixture:
                     f'Inngest function invocation returned {response.status}'
                 )
 
-    def wait_for_log(self, text: str, timeout: float = 30.0) -> str:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            self._drain_output()
-            matching = next((line for line in self.output if text in line), None)
-            if matching is not None:
-                return matching
-            time.sleep(0.1)
-        raise AssertionError(
-            f'Inngest job did not emit {text!r} before the bounded timeout. '
-            f'Captured output: {self.output!r}'
-        )
-
     def clear_application_tables(self) -> None:
-        """Reset application state without touching migration metadata."""
-
         engine = create_engine(self.database_url, pool_pre_ping=True)
         try:
             _clear_application_tables(engine)
@@ -107,8 +91,6 @@ class InngestFixture:
 
     @contextmanager
     def inspection_session(self) -> Generator[SqlalchemySession]:
-        """Yield a fresh database session for one observable assertion."""
-
         engine = create_engine(self.database_url, pool_pre_ping=True)
         try:
             with SqlalchemySession(engine) as session:
@@ -122,7 +104,7 @@ class InngestFixture:
             headers={'content-type': 'application/json'},
             method='DELETE',
         )
-        with urlopen(request, timeout=10) as response:  # noqa: S310
+        with urlopen(request, timeout=10) as response:  # noqa: S310 - local Mailpit fixture URL
             if response.status not in {200, 204}:
                 raise AssertionError(f'Mailpit cleanup returned {response.status}')
 
@@ -222,7 +204,21 @@ class InngestFixture:
         stdout, stderr = self.inngest_container.get_logs()
         return (stdout + stderr).decode(errors='replace')[-10000:]
 
+    def wait_for_log(self, text: str, timeout: float = 30.0) -> str:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            self._drain_output()
+            matching = next((line for line in self.output if text in line), None)
+            if matching is not None:
+                return matching
+            time.sleep(0.1)
+        raise AssertionError(
+            f'Inngest job did not emit {text!r} before the bounded timeout. '
+            f'Captured output: {self.output!r}'
+        )
+
     def close(self) -> str:
+        self._drain_output()
         if self.process.poll() is None:
             self.process.terminate()
             try:
@@ -236,17 +232,6 @@ class InngestFixture:
         self._drain_output()
         return ''.join(self.output)
 
-    def _drain_output(self) -> None:
-        """Output is drained by the reader thread for Windows pipe support."""
-
-        if self.output_reader is not None:
-            return
-        stream = self.process.stdout
-        if stream is None:
-            return
-        for line in stream:
-            self.output.append(line)
-
     def start_output_reader(self) -> None:
         if self.output_reader is not None:
             return
@@ -258,6 +243,15 @@ class InngestFixture:
         self.output_reader.start()
 
     def _read_output(self) -> None:
+        stream = self.process.stdout
+        if stream is None:
+            return
+        for line in stream:
+            self.output.append(line)
+
+    def _drain_output(self) -> None:
+        if self.output_reader is not None:
+            return
         stream = self.process.stdout
         if stream is None:
             return
@@ -309,6 +303,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
                     8025,
                 )
             )
+            redis = stack.enter_context(RedisContainer('redis:7-alpine'))
         except Exception as error:  # noqa: BLE001 - Docker availability is an explicit skip.
             pytest.skip(f'Testcontainers runtime unavailable: {error}')
 
@@ -319,14 +314,18 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
         mailpit_smtp_port = mailpit.get_exposed_port(1025)
         mailpit_ui_port = mailpit.get_exposed_port(8025)
         mailpit_url = f'http://{mailpit_host}:{mailpit_ui_port}'
-        environment = os.environ.copy()
         bff_shared_secret = 'shifu-inngest-test-bff-secret'
+        redis_host = redis.get_container_host_ip()
+        redis_port = redis.get_exposed_port(6379)
+        environment = os.environ.copy()
         environment.update(
             {
                 'DATABASE_URL': postgres.get_connection_url(),
                 'SHIFU_SERVER_APP_PORT': str(server_port),
                 'INNGEST_BASE_URL': inngest_url,
                 'INNGEST_DEV': '1',
+                'INNGEST_EVENT_KEY': 'dev_key',
+                'REDIS_URL': f'redis://{redis_host}:{redis_port}/0',
                 'SHIFU_EMAIL_PROVIDER': 'smtp',
                 'SHIFU_SMTP_HOST': mailpit_host,
                 'SHIFU_SMTP_PORT': str(mailpit_smtp_port),
@@ -392,8 +391,6 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
 def inngest_fixture(
     _inngest_runtime: InngestFixture,
 ) -> Iterator[InngestFixture]:
-    """Provide isolated tables, mail and inspection sessions per job scenario."""
-
     _inngest_runtime.clear_application_tables()
     _inngest_runtime.clear_mailpit()
     try:
@@ -429,7 +426,7 @@ def _clear_application_tables(engine: Engine) -> None:
 
 def _wait_for_url(url: str, timeout: float) -> None:
     deadline = time.monotonic() + timeout
-    last_error: object | None = None
+    last_error: Any = None
     while time.monotonic() < deadline:
         try:
             with urlopen(url, timeout=2):  # noqa: S310 - local HTTP fixture URL
@@ -448,7 +445,7 @@ def _wait_for_inngest_app(inngest_url: str, app_id: str, timeout: float) -> None
     query = {'query': ('query GetApps { apps { name connected functionCount } }')}
     request_body = json.dumps(query).encode()
     deadline = time.monotonic() + timeout
-    last_error: object | None = None
+    last_error: Any = None
     while time.monotonic() < deadline:
         try:
             request = Request(  # noqa: S310 - local Inngest fixture URL

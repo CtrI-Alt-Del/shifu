@@ -38,6 +38,29 @@ class RecommendationResponse(BaseModel):
     type: str
 
 
+class AdaptiveResponse(BaseModel):
+    target_concept_id: str = Field(serialization_alias='targetConceptId')
+    target_concept_name: str = Field(serialization_alias='targetConceptName')
+    original_target_concept_id: str = Field(
+        serialization_alias='originalTargetConceptId'
+    )
+    original_target_concept_name: str = Field(
+        serialization_alias='originalTargetConceptName'
+    )
+    recommended_competency_id: str | None = Field(
+        serialization_alias='recommendedCompetencyId'
+    )
+    material_competency_id: str | None = Field(
+        serialization_alias='materialCompetencyId'
+    )
+    reason: str
+    difficulty: str | None
+    activity_id: str | None = Field(serialization_alias='activityId')
+    material_id: str | None = Field(serialization_alias='materialId')
+    material_is_optional: bool = Field(serialization_alias='materialIsOptional')
+    gap: str | None
+
+
 class AvailableResponse(BaseModel):
     availability: Literal['available'] = 'available'
     goal_id: str = Field(serialization_alias='goalId')
@@ -45,7 +68,7 @@ class AvailableResponse(BaseModel):
     skill_name: str = Field(serialization_alias='skillName')
     competency_id: str = Field(serialization_alias='competencyId')
     competency_name: str = Field(serialization_alias='competencyName')
-    progress: float
+    progress: float | None
     status: str
     is_focus: bool = Field(serialization_alias='isFocus')
     focus_returned: bool = Field(serialization_alias='focusReturned')
@@ -53,6 +76,13 @@ class AvailableResponse(BaseModel):
     focus_competency_name: str | None = Field(serialization_alias='focusCompetencyName')
     items: tuple[MaterialResponse | ActivityResponse, ...]
     recommendation: RecommendationResponse | None
+    adaptive: AdaptiveResponse | None = None
+    coverage_complete: bool = Field(
+        default=False, serialization_alias='coverageComplete'
+    )
+    verification_cause: str | None = Field(
+        default=None, serialization_alias='verificationCause'
+    )
 
 
 class UnavailableResponse(BaseModel):

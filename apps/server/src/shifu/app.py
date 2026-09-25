@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from functools import partial
 from typing import cast
 
 from fastapi import APIRouter, FastAPI
@@ -31,6 +32,7 @@ from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.messaging.inngest import LearningInngestMessaging
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
@@ -40,8 +42,8 @@ from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
     RedisCacheProvider,
 )
-from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
@@ -141,6 +143,12 @@ class FastAPIApp:
                     message_renderer_provider=message_renderer_provider,
                     email_delivery_provider=email_delivery_provider,
                 ),
+                partial(
+                    LearningInngestMessaging.register_jobs,
+                    learning_database=learning_database,
+                    clock_provider=clock_provider,
+                    curriculum_content_provider=curriculum_content_provider,
+                ),
             ],
         )
         app.state.inngest_broker = InngestBroker(
@@ -158,6 +166,7 @@ class FastAPIApp:
         app.state.authentication_provider = authentication_provider
         app.state.identifier_provider = id_provider
         app.state.learning_database = learning_database
+        app.state.clock_provider = clock_provider
         app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider
         app.state.curriculum_catalog_provider = curriculum_catalog_provider

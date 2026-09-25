@@ -1,0 +1,20 @@
+.question-prompt-code .code-line {
+  display: block;
+}
+
+.question-prompt-code .token {
+  color: var(--foreground);
+}
+
+.question-prompt-code :is(.keyword, .boolean, .builtin, .operator) {
+  color: var(--selo-text);
+}
+
+.question-prompt-code :is(.number, .string, .function) {
+  color: var(--success);
+}
+
+.question-prompt-code :is(.comment, .punctuation) {
+  color: var(--muted-foreground);
+  font-style: italic;
+}

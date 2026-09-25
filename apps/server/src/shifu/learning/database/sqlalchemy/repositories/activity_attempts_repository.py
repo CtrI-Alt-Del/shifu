@@ -17,6 +17,19 @@ class SqlalchemyActivityAttemptsRepository:
         )
         return ActivityAttemptMapper.to_domain(model) if model is not None else None
 
+    def find_by_skill_experience_id_and_submission_key(
+        self,
+        skill_experience_id: str,
+        submission_key: str,
+    ) -> ActivityAttempt | None:
+        model = self._session.scalar(
+            select(ActivityAttemptModel).where(
+                ActivityAttemptModel.skill_experience_id == skill_experience_id,
+                ActivityAttemptModel.submission_key == submission_key,
+            )
+        )
+        return ActivityAttemptMapper.to_domain(model) if model is not None else None
+
     def find_many_by_skill_experience_id_and_activity_id_and_kind(
         self,
         skill_experience_id: str,

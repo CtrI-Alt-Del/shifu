@@ -77,9 +77,9 @@ Cada linha e cada frame original deve ter captura nova por Playwright CLI e resu
 - Barra learning: nome acessível “Progresso de <Habilidade>”, mínimo 0, máximo 100 e valor atual; texto acessível do número, mesmo se visualmente discreto.
 - Não iniciada: círculo tracejado + texto; Em diagnóstico: busca + texto; Em aprendizado: círculo + texto; Concluída: check + texto.
 - Zoom: “Ampliar grafo”, “Reduzir grafo”; indicar percentual real. Desabilitar no limite.
+- Caminho no Grafo: ao passar o ponteiro ou focar uma Habilidade, destacar com traço interrompido animado Selo somente as arestas de seus pré-requisitos até o Objetivo; manter ramos sem relação neutros e limpar ao sair. Em reduced-motion, o traço fica estático. A referência enviada pelo usuário mostra o tratamento de caminho, mas o Shifu reutiliza seu token de ação em vez de introduzir azul.
 - Remover objetivo: Button disabled; menu: “Mais ações de <Habilidade>”, disabled. Texto de apoio comunica disponibilidade futura.
 - Erro de consulta: “Não foi possível carregar este objetivo” e “Tentar novamente”; sem stack, detalhes de banco ou token.
 - Vazio: “Este objetivo ainda não tem habilidades” e “Adicionar Habilidade”.
 - Skeleton e região de loading com status/busy; erros comunicados por região acessível sem roubar foco repetidamente.
 - Preservar reduced-motion. Não exigir gestos exclusivos, cor ou posição para identificar ou acessar uma skill.
-
