@@ -141,6 +141,77 @@ test.describe('same-origin sign-in auth handler', () => {
 
     expect(response.status()).toBe(404)
   })
+
+  test('signs out only the current cookie-selected session', async ({
+    activeAccount,
+    browser,
+    request,
+  }, testInfo) => {
+    const secondContext = await browser.newContext()
+    const pool = new Pool({ connectionString: DATABASE_URL })
+    const secondIpAddress = '198.51.100.250'
+
+    try {
+      const secondRequest = secondContext.request
+      const signInHeaders = { 'x-forwarded-for': activeAccount.ipAddress }
+
+      const firstSignIn = await request.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: signInHeaders,
+      })
+      const secondSignIn = await secondRequest.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': secondIpAddress },
+      })
+
+      expect(firstSignIn.status()).toBe(200)
+      expect(secondSignIn.status()).toBe(200)
+
+      const sessionsBefore = await pool.query(
+        'select token from better_auth_sessions where user_id = $1',
+        [activeAccount.accountId],
+      )
+      expect(sessionsBefore.rows).toHaveLength(2)
+
+      const signOut = await request.post(
+        '/api/auth/sign-out?accountId=must-not-select-a-session',
+        {
+          data: { accountId: activeAccount.accountId },
+          headers: {
+            cookie:
+              firstSignIn
+                .headers()
+                ['set-cookie']?.match(/better-auth\.session_token=[^;]+/)?.[0] ?? '',
+            origin: new URL(testInfo.project.use.baseURL as string).origin,
+          },
+        },
+      )
+
+      expect(signOut.status()).toBe(200)
+      expect(await signOut.json()).toEqual({ success: true })
+      expect(signOut.headers()['set-cookie']).toMatch(
+        /better-auth\.session_token=; Max-Age=0; Path=\//,
+      )
+
+      const sessionsAfter = await pool.query(
+        'select token from better_auth_sessions where user_id = $1',
+        [activeAccount.accountId],
+      )
+      expect(sessionsAfter.rows).toHaveLength(1)
+      expect(
+        await request.get('/api/auth/get-session').then((response) => response.json()),
+      ).toBe(null)
+      const secondSession = await secondRequest.get('/api/auth/get-session')
+      expect(secondSession.status()).toBe(200)
+      expect(await secondSession.json()).not.toBe(null)
+    } finally {
+      await pool.query('delete from better_auth_rate_limits where key like $1', [
+        `${secondIpAddress}%`,
+      ])
+      await pool.end()
+      await secondContext.close()
+    }
+  })
 })
 
 async function seedPendingConfirmationToken(account: {

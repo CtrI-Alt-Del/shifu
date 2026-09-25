@@ -2,17 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { useResendConfirmationAction } from '@/ui/identity/hooks/use-resend-confirmation-action'
 import { useAuthContext } from '@/ui/shared/contexts/auth-context/use-auth-context'
+import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
 export type PendingConfirmationPageState = 'ready' | 'cooldown' | 'delivery_issue'
 
 export function usePendingConfirmationPage() {
-  const { getPendingConfirmationStatus } = useAuthContext()
+  const { exitPendingConfirmation, getPendingConfirmationStatus } = useAuthContext()
+  const { navigateTo } = useNavigation()
   const { resendConfirmation } = useResendConfirmationAction()
   const [state, setState] = useState<PendingConfirmationPageState>('cooldown')
   const [remainingSeconds, setRemainingSeconds] = useState(60)
   const [message, setMessage] = useState<string | null>(null)
+  const [exitErrorMessage, setExitErrorMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isResending, setIsResending] = useState(false)
+  const [isExiting, setIsExiting] = useState(false)
   const alertRef = useRef<HTMLDivElement>(null)
 
   const refresh = useCallback(async () => {
@@ -60,8 +64,8 @@ export function usePendingConfirmationPage() {
   }, [remainingSeconds])
 
   useEffect(() => {
-    if (message) alertRef.current?.focus()
-  }, [message])
+    if (message || exitErrorMessage) alertRef.current?.focus()
+  }, [exitErrorMessage, message])
 
   async function handleResend() {
     if (isResending || remainingSeconds > 0) return
@@ -81,9 +85,26 @@ export function usePendingConfirmationPage() {
     }
   }
 
+  async function handleExit() {
+    if (isExiting) return
+    setIsExiting(true)
+    setExitErrorMessage(null)
+    try {
+      await exitPendingConfirmation()
+      await navigateTo('login')
+    } catch {
+      setExitErrorMessage('Não foi possível sair agora. Tente novamente.')
+    } finally {
+      setIsExiting(false)
+    }
+  }
+
   return {
     alertRef,
+    exitErrorMessage,
+    handleExit,
     handleResend,
+    isExiting,
     isLoading,
     isResending,
     message,

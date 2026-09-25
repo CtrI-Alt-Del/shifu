@@ -80,4 +80,17 @@ describe('MobileHeader', () => {
     fireEvent.click(within(navigation).getByRole('link', { name: 'Mentor' }))
     expect(handleNavigationMock).toHaveBeenCalledOnce()
   })
+
+  it('renders account access beside mobile navigation without replacing the menu control', () => {
+    render(
+      <MobileHeader
+        accountMenu={<button type='button'>Conta</button>}
+        items={APP_NAVIGATION_ITEMS}
+        pathname={ROUTES.root}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Conta' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeVisible()
+  })
 })

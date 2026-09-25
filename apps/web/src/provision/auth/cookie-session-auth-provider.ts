@@ -14,6 +14,9 @@ export type SignInResult = {
 
 export type SignInFailure = AuthError
 
+const LOGOUT_UNAVAILABLE_MESSAGE = 'Não foi possível sair agora. Tente novamente.'
+const INVALID_AUTH_RESPONSE_MESSAGE = 'A resposta de autenticação é inválida.'
+
 export type RegisterAccountInput = {
   displayName: string
   email: string
@@ -114,6 +117,71 @@ export const CookieSessionAuthProvider = () => {
     }
   }
 
+  async function signOut(): Promise<void> {
+    const response = await postAuthAction('/api/auth/sign-out')
+    const result = await readAuthActionResponse(response)
+
+    if (!isRecord(result) || result.success !== true) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        statusCode: response.status,
+      })
+    }
+  }
+
+  async function exitPendingConfirmation(): Promise<void> {
+    const response = await postAuthAction('/api/auth/pending-confirmation/sign-out')
+    const result = await readAuthActionResponse(response)
+
+    if (!isRecord(result) || Object.keys(result).length !== 0) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        statusCode: response.status,
+      })
+    }
+  }
+
+  async function postAuthAction(path: string): Promise<Response> {
+    try {
+      const response = await fetch(path, {
+        body: '{}',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const isUnavailable = response.status === 429 || response.status >= 500
+        throw new AuthError(
+          isUnavailable ? 'unavailable' : 'invalid-response',
+          isUnavailable ? LOGOUT_UNAVAILABLE_MESSAGE : INVALID_AUTH_RESPONSE_MESSAGE,
+          { statusCode: response.status },
+        )
+      }
+
+      return response
+    } catch (cause) {
+      if (cause instanceof AuthError) throw cause
+
+      throw new AuthError('unavailable', LOGOUT_UNAVAILABLE_MESSAGE, {
+        cause,
+        statusCode: 0,
+      })
+    }
+  }
+
+  async function readAuthActionResponse(response: Response): Promise<unknown> {
+    try {
+      return await response.json()
+    } catch (cause) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        cause,
+        statusCode: response.status,
+      })
+    }
+  }
+
   async function registerAccount(input: RegisterAccountInput) {
     return requestJson<{ redirectTo: typeof ROUTES.pendingConfirmation }>(
       '/api/auth/register/identity',
@@ -192,10 +260,12 @@ export const CookieSessionAuthProvider = () => {
 
   return {
     confirmEmail,
+    exitPendingConfirmation,
     getPendingConfirmationStatus,
     registerAccount,
     resendConfirmation,
     signIn,
+    signOut,
   }
 }
 

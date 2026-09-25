@@ -1,3 +1,4 @@
+import { setResponseHeaders } from '@tanstack/react-start/server'
 import {
   betterAuth,
   type BetterAuthPlugin,
@@ -21,6 +22,11 @@ const PENDING_COOKIE_NAME = 'shifu-pending-flow'
 const PENDING_FLOW_LIFETIME_SECONDS = 15 * 60
 const PENDING_FLOW_LIFETIME_MS = PENDING_FLOW_LIFETIME_SECONDS * 1000
 
+export type LayoutAccount = {
+  displayName: string
+  email: string
+}
+
 const signInBody = z.object({
   email: z.string().min(1),
   password: z.string().min(1),
@@ -34,9 +40,10 @@ const registerBody = z.object({
 
 const confirmEmailBody = z.object({ token: z.string().min(1) })
 
-type AuthenticatedAccess = {
+type ServerAuthenticatedAccess = {
   accountId: string
   displayName: string
+  email: string
   timeZone: string | null
   accessToken: string
 }
@@ -159,6 +166,8 @@ const BetterAuthProvider = () => {
         },
         '/get-session': false,
         '/jwks': false,
+        '/pending-confirmation/sign-out': false,
+        '/sign-out': false,
         '/token': false,
       },
     },
@@ -174,7 +183,9 @@ const BetterAuthProvider = () => {
     },
   })
 
-  async function getCurrentAccess(request: Request): Promise<AuthenticatedAccess | null> {
+  async function getCurrentAccess(
+    request: Request,
+  ): Promise<ServerAuthenticatedAccess | null> {
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session) return null
 
@@ -187,6 +198,7 @@ const BetterAuthProvider = () => {
       return {
         accountId: currentSession.account_id,
         displayName: currentSession.display_name,
+        email: session.user.email,
         timeZone: currentSession.time_zone,
         accessToken,
       }
@@ -199,6 +211,7 @@ const BetterAuthProvider = () => {
         return {
           accountId: session.user.id,
           displayName: session.user.name,
+          email: session.user.email,
           timeZone: null,
           accessToken,
         }
@@ -222,14 +235,17 @@ const BetterAuthProvider = () => {
   }
 
   async function deleteSession(request: Request) {
-    const session = await auth.api.getSession({ headers: request.headers })
-    if (!session) return
-
-    const context = await auth.$context
-    await context.internalAdapter.deleteSession(session.session.token)
+    const response = await auth.handler(
+      new Request(new URL('/api/auth/sign-out', request.url), {
+        method: 'POST',
+        headers: request.headers,
+      }),
+    )
+    const setCookie = response.headers.get('set-cookie')
+    if (setCookie) setResponseHeaders(new Headers({ 'set-cookie': setCookie }))
   }
 
-  async function publishMainPageEntered(access: AuthenticatedAccess) {
+  async function publishMainPageEntered(access: ServerAuthenticatedAccess) {
     try {
       await identityService.publishMainPageEntered(access.accessToken)
     } catch {
@@ -477,6 +493,25 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
             access: authentication.access,
             redirectTo: ROUTES.root,
           })
+        },
+      ),
+      pendingSignOut: createAuthEndpoint(
+        '/pending-confirmation/sign-out',
+        {
+          method: 'POST',
+          requireHeaders: true,
+        },
+        async (context) => {
+          try {
+            await clearPendingContext(context)
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'pending_persistence_unavailable',
+              message: 'Não foi possível sair agora. Tente novamente.',
+            })
+          }
+
+          return context.json({})
         },
       ),
     },

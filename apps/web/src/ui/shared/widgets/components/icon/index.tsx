@@ -14,6 +14,7 @@ import {
   House,
   LoaderCircle,
   LockKeyhole,
+  LogOut,
   Menu,
   Minus,
   MoreHorizontal,
@@ -45,6 +46,7 @@ export type IconName =
   | 'home'
   | 'loader-circle'
   | 'lock-keyhole'
+  | 'log-out'
   | 'menu'
   | 'minus'
   | 'ellipsis'
@@ -74,6 +76,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   home: House,
   'loader-circle': LoaderCircle,
   'lock-keyhole': LockKeyhole,
+  'log-out': LogOut,
   menu: Menu,
   minus: Minus,
   ellipsis: MoreHorizontal,

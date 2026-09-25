@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { Pool } from 'pg'
 import type { Page } from '@playwright/test'
 
@@ -29,12 +30,25 @@ type IdentityModuleFixtures = {
 export const test = base.extend<IdentityModuleFixtures>({
   authenticatedPage: async ({ page }, use) => {
     await page.route('**/_serverFn/**', async (route) => {
+      const serverFunction = Buffer.from(
+        new URL(route.request().url()).pathname.split('/').at(-1) ?? '',
+        'base64url',
+      ).toString()
+
+      if (
+        !serverFunction.includes('middlewares/require-auth-middleware.ts') &&
+        !serverFunction.includes('middlewares/enter-main-page-middleware.ts')
+      ) {
+        await route.continue()
+        return
+      }
+
       await route.fulfill({
         body: JSON.stringify({
-          accountId: 'playwright-account',
-          accessToken: 'playwright-access-token',
-          displayName: 'Playwright Learner',
-          timeZone: 'America/Sao_Paulo',
+          result: {
+            displayName: 'Playwright Learner',
+            email: 'playwright@shifu.local',
+          },
         }),
         contentType: 'application/json',
         status: 200,
@@ -49,10 +63,10 @@ export const test = base.extend<IdentityModuleFixtures>({
       await page.unroute('**/_serverFn/**')
     }
   },
-  activeAccount: async ({ browserName }, use, workerInfo) => {
+  activeAccount: async ({ browserName }, use, testInfo) => {
     void browserName
     const pool = new Pool({ connectionString: databaseURL })
-    const account = makeAccount(workerInfo.workerIndex, 'active')
+    const account = makeAccount(testInfo.testId, 'active')
     await seedAccount(pool, account, 'active')
 
     try {
@@ -62,10 +76,10 @@ export const test = base.extend<IdentityModuleFixtures>({
       await pool.end()
     }
   },
-  pendingAccount: async ({ browserName }, use, workerInfo) => {
+  pendingAccount: async ({ browserName }, use, testInfo) => {
     void browserName
     const pool = new Pool({ connectionString: databaseURL })
-    const account = makeAccount(workerInfo.workerIndex, 'pending')
+    const account = makeAccount(testInfo.testId, 'pending')
     await seedAccount(pool, account, 'pending-confirmation')
 
     try {
@@ -91,13 +105,18 @@ export async function navigateAuthenticatedPage(page: Page, route: string) {
   }, route)
 }
 
-function makeAccount(workerIndex: number, kind: 'active' | 'pending') {
+function makeAccount(testId: string, kind: 'active' | 'pending') {
   const prefix = kind === 'active' ? '01SHI' : '01SHG'
-  const worker = String(workerIndex).padStart(21, '0')
+  const hash = BigInt(
+    `0x${createHash('sha256').update(`${kind}:${testId}`).digest('hex')}`,
+  )
+  const identifier = String(hash % 10n ** 21n).padStart(21, '0')
+  const ipAddress = Number((hash % 254n) + 1n)
+
   return {
-    accountId: `${prefix}${worker}`,
-    email: `handler-${kind}-${workerIndex}@shifu.local`,
-    ipAddress: `198.51.${kind === 'active' ? '100' : '101'}.${workerIndex + 1}`,
+    accountId: `${prefix}${identifier}`,
+    email: `handler-${kind}-${identifier}@shifu.local`,
+    ipAddress: `198.51.${kind === 'active' ? '100' : '101'}.${ipAddress}`,
   }
 }
 
