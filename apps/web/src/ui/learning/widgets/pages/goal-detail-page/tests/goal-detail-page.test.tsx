@@ -72,8 +72,14 @@ function makeController(
     state: 'loading',
     view: 'graph',
     isRetrying: false,
+    isConfirmDialogOpen: false,
+    isDeletingGoal: false,
+    deleteGoalError: null,
     handleRetry: vi.fn(),
     handleViewChange: vi.fn(),
+    handleOpenConfirmDialog: vi.fn(),
+    handleCancelRemoval: vi.fn(),
+    handleConfirmRemoval: vi.fn(),
     ...overrides,
   }
 }
@@ -114,8 +120,39 @@ describe('GoalDetailPage', () => {
     expect(
       screen.queryByRole('progressbar', { name: 'Progresso de Algoritmos' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Remover objetivo' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Remover objetivo' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Mais ações de Lógica' })).toBeDisabled()
+  })
+
+  it('opens the removal confirmation dialog from the header trigger', () => {
+    const handleOpenConfirmDialog = vi.fn()
+    useGoalDetailPageMock.mockReturnValue(
+      makeController({
+        detail,
+        state: 'success',
+        view: 'list',
+        handleOpenConfirmDialog,
+      }),
+    )
+    render(<GoalDetailPage goalId={goalId} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remover objetivo' }))
+    expect(handleOpenConfirmDialog).toHaveBeenCalledOnce()
+  })
+
+  it('renders the confirmation dialog with the objective name when open', () => {
+    useGoalDetailPageMock.mockReturnValue(
+      makeController({
+        detail,
+        state: 'success',
+        view: 'list',
+        isConfirmDialogOpen: true,
+      }),
+    )
+    render(<GoalDetailPage goalId={goalId} />)
+
+    expect(screen.getByRole('heading', { name: 'Remover este objetivo?' })).toBeVisible()
+    expect(screen.getAllByText(detail.title)).toHaveLength(2)
   })
 
   it('renders the controlled tab state and delegates retry from the rendered control', () => {

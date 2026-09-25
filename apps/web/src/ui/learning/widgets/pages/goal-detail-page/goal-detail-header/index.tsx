@@ -2,13 +2,29 @@ import { Link } from '@tanstack/react-router'
 
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
+import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 
 export type GoalDetailHeaderProps = {
   title: string
   description: string
+  isConfirmDialogOpen: boolean
+  isDeletingGoal: boolean
+  deleteGoalError: string | null
+  onOpenConfirmDialog: () => void
+  onCancelRemoval: () => void
+  onConfirmRemoval: () => void
 }
 
-export const GoalDetailHeader = ({ title, description }: GoalDetailHeaderProps) => (
+export const GoalDetailHeader = ({
+  title,
+  description,
+  isConfirmDialogOpen,
+  isDeletingGoal,
+  deleteGoalError,
+  onOpenConfirmDialog,
+  onCancelRemoval,
+  onConfirmRemoval,
+}: GoalDetailHeaderProps) => (
   <header className='flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'>
     <div className='min-w-0 max-w-4xl'>
       <h1 className='break-words font-serif text-4xl font-normal tracking-tight sm:text-[40px]'>
@@ -18,19 +34,29 @@ export const GoalDetailHeader = ({ title, description }: GoalDetailHeaderProps) 
     </div>
     <div className='flex shrink-0 flex-wrap gap-2'>
       <Button
-        aria-describedby='remove-goal-description'
-        className='text-selo-text disabled:opacity-100'
-        disabled
+        className='text-selo-text'
+        onClick={onOpenConfirmDialog}
         type='button'
         variant='ghost'
       >
         <Icon name='trash-2' size={17} />
         <span className='ml-2'>Remover objetivo</span>
       </Button>
-      <p className='sr-only' id='remove-goal-description'>
-        Disponível em uma próxima atualização
-      </p>
     </div>
+
+    <ConfirmationDialog
+      title='Remover este objetivo?'
+      itemName={title}
+      description='Todas as habilidades vinculadas e seus diagnósticos, progresso, tentativas, avaliações e resumos serão apagados permanentemente.'
+      confirmLabel='Remover objetivo'
+      cancelLabel='Cancelar'
+      icon='trash-2'
+      isOpen={isConfirmDialogOpen}
+      isSubmitting={isDeletingGoal}
+      error={deleteGoalError}
+      onConfirm={onConfirmRemoval}
+      onCancel={onCancelRemoval}
+    />
   </header>
 )
 
