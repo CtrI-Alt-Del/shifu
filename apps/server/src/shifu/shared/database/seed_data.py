@@ -129,6 +129,28 @@ SEED_ADAPTIVE_LAB_BOOLEAN_MATERIAL_ID = '01SHF000000000000000000075'
 SEED_ADAPTIVE_LAB_BOOLEAN_ACTIVITY_IDS = tuple(
     f'01SHF000000000000000000{number:03d}' for number in range(76, 85)
 )
+SEED_GRAPH_GOAL_ID = '01SHF000000000000000000200'
+SEED_GRAPH_DATA_STRUCTURES_SKILL_ID = '01SHF000000000000000000201'
+SEED_GRAPH_SEARCH_SKILL_ID = '01SHF000000000000000000202'
+SEED_GRAPH_DATA_MODELING_SKILL_ID = '01SHF000000000000000000203'
+SEED_GRAPH_APIS_SKILL_ID = '01SHF000000000000000000204'
+SEED_GRAPH_TESTING_SKILL_ID = '01SHF000000000000000000205'
+SEED_GRAPH_PROJECT_SKILL_ID = '01SHF000000000000000000206'
+SEED_GRAPH_SKILL_IDS = (
+    SEED_SKILL_LOGIC_ID,
+    SEED_SKILL_PYTHON_ID,
+    SEED_ADAPTIVE_SKILL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
+    SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
+    SEED_GRAPH_SEARCH_SKILL_ID,
+    SEED_GRAPH_DATA_MODELING_SKILL_ID,
+    SEED_GRAPH_APIS_SKILL_ID,
+    SEED_GRAPH_TESTING_SKILL_ID,
+    SEED_GRAPH_PROJECT_SKILL_ID,
+)
+SEED_GRAPH_EXPERIENCE_IDS = tuple(
+    f'01SHF000000000000000000{number:03d}' for number in range(210, 220)
+)
 
 SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 SEED_ACCOUNT_PASSWORD: str = 'ShifuSeed123!'
@@ -936,11 +958,89 @@ def build_development_seed() -> DevelopmentSeed:
             name='Laboratório de decisões adaptativas',
             description='Explore diagnóstico, pré-requisitos, cobertura, domínio e regressão em duas Competências.',
         ),
+        Skill(
+            id=SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
+            name='Estruturas de dados',
+            description='Organize coleções para consultar e transformar informações.',
+        ),
+        Skill(
+            id=SEED_GRAPH_SEARCH_SKILL_ID,
+            name='Algoritmos de busca',
+            description='Encontre elementos e compare estratégias de busca.',
+        ),
+        Skill(
+            id=SEED_GRAPH_DATA_MODELING_SKILL_ID,
+            name='Modelagem de dados',
+            description='Estruture informações para aplicações persistentes.',
+        ),
+        Skill(
+            id=SEED_GRAPH_APIS_SKILL_ID,
+            name='APIs web',
+            description='Conecte dados e regras por interfaces HTTP.',
+        ),
+        Skill(
+            id=SEED_GRAPH_TESTING_SKILL_ID,
+            name='Testes automatizados',
+            description='Verifique o comportamento de programas com testes.',
+        ),
+        Skill(
+            id=SEED_GRAPH_PROJECT_SKILL_ID,
+            name='Projeto integrador',
+            description='Combine fundamentos, dados, APIs e testes em uma aplicação.',
+        ),
     )
     skill_foundations = (
         SkillFoundation(
             skill_id=SEED_SKILL_PYTHON_ID,
             foundation_skill_id=SEED_SKILL_LOGIC_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_ADAPTIVE_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_LOGIC_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_LOGIC_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_ADAPTIVE_LAB_SKILL_ID,
+            foundation_skill_id=SEED_ADAPTIVE_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_SEARCH_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_DATA_MODELING_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_PYTHON_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_APIS_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_PYTHON_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_APIS_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_DATA_MODELING_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_TESTING_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_PYTHON_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_SEARCH_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
+            foundation_skill_id=SEED_ADAPTIVE_LAB_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_APIS_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_TESTING_SKILL_ID,
         ),
     )
     competencies = (
@@ -1255,6 +1355,14 @@ def build_development_seed() -> DevelopmentSeed:
             created_at=SEED_CREATED_AT,
             updated_at=SEED_CREATED_AT,
         ),
+        Goal(
+            id=SEED_GRAPH_GOAL_ID,
+            account_id=SEED_ACCOUNT_ID,
+            title='Mapa de desenvolvimento de software',
+            description='Explore uma trilha de programação com fundamentos, ramificações e caminhos que se encontram em um projeto.',
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+        ),
     )
     skill_experiences = (
         SkillExperienceFaker.fake(
@@ -1284,6 +1392,20 @@ def build_development_seed() -> DevelopmentSeed:
             created_at=SEED_CREATED_AT,
             updated_at=SEED_CREATED_AT,
             policy_id=AdaptiveLearningPolicy.policy_id,
+        ),
+        *(
+            SkillExperience(
+                id=experience_id,
+                goal_id=SEED_GRAPH_GOAL_ID,
+                skill_id=skill_id,
+                inclusion_reason=None,
+                status=SkillExperienceStatus.NOT_STARTED,
+                created_at=SEED_CREATED_AT,
+                updated_at=SEED_CREATED_AT,
+            )
+            for experience_id, skill_id in zip(
+                SEED_GRAPH_EXPERIENCE_IDS, SEED_GRAPH_SKILL_IDS, strict=True
+            )
         ),
     )
     competency_progresses = (
