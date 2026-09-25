@@ -1,6 +1,7 @@
-import { useLocation } from '@tanstack/react-router'
+import { useLocation, useMatches } from '@tanstack/react-router'
 
 import { ROUTES } from '@/constants/routes'
+import type { LayoutAccount } from '../app-layout/account-menu'
 
 export const PUBLIC_ROUTE_PATHS = [
   ROUTES.login,
@@ -18,10 +19,37 @@ export function isPublicRoute(pathname: string): boolean {
   })
 }
 
-export function useRootLayout() {
+export function useRootLayout(): {
+  account?: LayoutAccount
+  isPublic: boolean
+} {
   const location = useLocation()
+  const matches = useMatches()
+  const isPublic = isPublicRoute(location.pathname)
+  const account = isPublic ? undefined : findLayoutAccount(matches)
 
   return {
-    isPublic: isPublicRoute(location.pathname),
+    account,
+    isPublic,
   }
+}
+
+function findLayoutAccount(
+  matches: readonly { context: unknown }[],
+): LayoutAccount | undefined {
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const context = matches[index]?.context
+
+    if (isLayoutAccount(context)) return context
+  }
+
+  return undefined
+}
+
+function isLayoutAccount(value: unknown): value is LayoutAccount {
+  if (typeof value !== 'object' || value === null) return false
+
+  const account = value as Record<string, unknown>
+
+  return typeof account.displayName === 'string' && typeof account.email === 'string'
 }

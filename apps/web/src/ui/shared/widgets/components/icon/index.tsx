@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  CircleCheck,
   ChevronRight,
   CircleAlert,
   CircleUserRound,
@@ -11,6 +12,7 @@ import {
   House,
   LoaderCircle,
   LockKeyhole,
+  LogOut,
   Menu,
   RotateCcw,
   Sparkles,
@@ -25,6 +27,7 @@ export type IconName =
   | 'arrow-left'
   | 'arrow-right'
   | 'book-open'
+  | 'circle-check'
   | 'chevron-right'
   | 'circle-alert'
   | 'eye'
@@ -33,6 +36,7 @@ export type IconName =
   | 'home'
   | 'loader-circle'
   | 'lock-keyhole'
+  | 'log-out'
   | 'menu'
   | 'rotate-ccw'
   | 'sparkles'
@@ -45,6 +49,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'arrow-left': ArrowLeft,
   'arrow-right': ArrowRight,
   'book-open': BookOpen,
+  'circle-check': CircleCheck,
   'chevron-right': ChevronRight,
   'circle-alert': CircleAlert,
   eye: Eye,
@@ -53,6 +58,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   home: House,
   'loader-circle': LoaderCircle,
   'lock-keyhole': LockKeyhole,
+  'log-out': LogOut,
   menu: Menu,
   'rotate-ccw': RotateCcw,
   sparkles: Sparkles,
