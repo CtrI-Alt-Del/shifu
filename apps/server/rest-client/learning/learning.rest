@@ -1,6 +1,71 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
+@adaptiveSkillId = 01SHF000000000000000000032
+@newGoalId = replace-with-created-goal-id
+@goalId = replace-with-goal-id
+@skillId = replace-with-skill-id
+@competencyId = replace-with-competency-id
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
+Authorization: Bearer {{accessToken}}
+
+### Skills available for a new Goal
+GET {{baseUrl}}/learning/available-skills
+Authorization: Bearer {{accessToken}}
+
+### Create Goal with selected Skill
+POST {{baseUrl}}/learning/goals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Aprender lógica de programação",
+  "description": "Praticar os fundamentos",
+  "skillIds": ["{{adaptiveSkillId}}"]
+}
+
+### Owned Goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+Authorization: Bearer {{accessToken}}
+
+### Start eligible Skill diagnostic after creating the Goal above
+POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/start
+Authorization: Bearer {{accessToken}}
+
+### Diagnostic overview; individual results remain private
+GET {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic
+Authorization: Bearer {{accessToken}}
+
+### Goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+Authorization: Bearer {{accessToken}}
+
+### Private goal absence
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000099
+Authorization: Bearer {{accessToken}}
+
+### Unauthenticated goal detail
+GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
+
+### Remove goal
+DELETE {{baseUrl}}/learning/goals/{{goalId}}
+Authorization: Bearer {{accessToken}}
+
+### Search skill catalog
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/catalog?query=&cursor=&limit=20
+Authorization: Bearer {{accessToken}}
+
+### Add skill to goal
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "skill_id": "{{skillId}}",
+  "foundation_skill_ids": []
+}
+
+### Get competency detail
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
 Authorization: Bearer {{accessToken}}

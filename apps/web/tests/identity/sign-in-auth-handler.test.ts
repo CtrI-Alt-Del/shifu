@@ -1,4 +1,12 @@
+import { createHash } from 'node:crypto'
+
+import { Pool } from 'pg'
+
 import { expect, signInPassword, test } from '../playwright'
+
+const DATABASE_URL =
+  process.env.BETTER_AUTH_DATABASE_URL ??
+  'postgresql://shifu:shifu-local@localhost:54344/shifu'
 
 test.describe('same-origin sign-in auth handler', () => {
   test('creates a fixed-lifetime technical session for an active account', async ({
@@ -21,6 +29,7 @@ test.describe('same-origin sign-in auth handler', () => {
     request,
     pendingAccount,
   }) => {
+    await seedPendingConfirmationToken(pendingAccount)
     const response = await request.post('/api/auth/sign-in/identity', {
       data: { email: pendingAccount.email, password: signInPassword },
       headers: { 'x-forwarded-for': pendingAccount.ipAddress },
@@ -36,6 +45,74 @@ test.describe('same-origin sign-in auth handler', () => {
     expect(cookie).not.toContain(pendingAccount.email)
     expect(cookie).not.toContain(pendingAccount.accountId)
     expect(cookie).not.toContain('better-auth.session_token=')
+  })
+
+  test('creates a session only after the activating browser presents its matching pending context', async ({
+    browser,
+    pendingAccount,
+  }, testInfo) => {
+    const confirmationToken = await seedPendingConfirmationToken(pendingAccount)
+    const pendingBrowser = await browser.newContext()
+
+    try {
+      const signIn = await pendingBrowser.request.post('/api/auth/sign-in/identity', {
+        data: { email: pendingAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': pendingAccount.ipAddress },
+      })
+      expect(signIn.status()).toBe(200)
+
+      const confirmation = await pendingBrowser.request.post('/api/auth/confirm-email', {
+        data: { token: confirmationToken },
+        headers: { Origin: new URL(testInfo.project.use.baseURL as string).origin },
+      })
+      expect(confirmation.status()).toBe(200)
+      expect(await confirmation.json()).toEqual({
+        result: 'activated',
+        redirectTo: '/',
+      })
+      await expect(
+        pendingBrowser
+          .cookies()
+          .then((cookies) =>
+            cookies.some((cookie) => cookie.name === 'better-auth.session_token'),
+          ),
+      ).resolves.toBe(true)
+    } finally {
+      await pendingBrowser.close()
+    }
+  })
+
+  test('activates from another browser without creating a session', async ({
+    browser,
+    pendingAccount,
+  }) => {
+    const confirmationToken = await seedPendingConfirmationToken(pendingAccount)
+    const pendingBrowser = await browser.newContext()
+    const otherBrowser = await browser.newContext()
+
+    try {
+      const signIn = await pendingBrowser.request.post('/api/auth/sign-in/identity', {
+        data: { email: pendingAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': pendingAccount.ipAddress },
+      })
+      expect(signIn.status()).toBe(200)
+
+      const confirmation = await otherBrowser.request.post('/api/auth/confirm-email', {
+        data: { token: confirmationToken },
+      })
+      expect(confirmation.status()).toBe(200)
+      expect(await confirmation.json()).toEqual({
+        result: 'activated',
+        redirectTo: '/login',
+      })
+      expect(
+        (await otherBrowser.cookies()).some(
+          (cookie) => cookie.name === 'better-auth.session_token',
+        ),
+      ).toBe(false)
+    } finally {
+      await Promise.all([pendingBrowser.close(), otherBrowser.close()])
+    }
   })
 
   test('returns the generic rejection contract without a session cookie', async ({
@@ -64,4 +141,112 @@ test.describe('same-origin sign-in auth handler', () => {
 
     expect(response.status()).toBe(404)
   })
+
+  test('signs out only the current cookie-selected session', async ({
+    activeAccount,
+    browser,
+    request,
+  }, testInfo) => {
+    const secondContext = await browser.newContext()
+    const pool = new Pool({ connectionString: DATABASE_URL })
+    const secondIpAddress = '198.51.100.250'
+
+    try {
+      const secondRequest = secondContext.request
+      const signInHeaders = { 'x-forwarded-for': activeAccount.ipAddress }
+
+      const firstSignIn = await request.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: signInHeaders,
+      })
+      const secondSignIn = await secondRequest.post('/api/auth/sign-in/identity', {
+        data: { email: activeAccount.email, password: signInPassword },
+        headers: { 'x-forwarded-for': secondIpAddress },
+      })
+
+      expect(firstSignIn.status()).toBe(200)
+      expect(secondSignIn.status()).toBe(200)
+
+      const sessionsBefore = await pool.query(
+        'select token from better_auth_sessions where user_id = $1',
+        [activeAccount.accountId],
+      )
+      expect(sessionsBefore.rows).toHaveLength(2)
+
+      const signOut = await request.post(
+        '/api/auth/sign-out?accountId=must-not-select-a-session',
+        {
+          data: { accountId: activeAccount.accountId },
+          headers: {
+            cookie:
+              firstSignIn
+                .headers()
+                ['set-cookie']?.match(/better-auth\.session_token=[^;]+/)?.[0] ?? '',
+            origin: new URL(testInfo.project.use.baseURL as string).origin,
+          },
+        },
+      )
+
+      expect(signOut.status()).toBe(200)
+      expect(await signOut.json()).toEqual({ success: true })
+      expect(signOut.headers()['set-cookie']).toMatch(
+        /better-auth\.session_token=; Max-Age=0; Path=\//,
+      )
+
+      const sessionsAfter = await pool.query(
+        'select token from better_auth_sessions where user_id = $1',
+        [activeAccount.accountId],
+      )
+      expect(sessionsAfter.rows).toHaveLength(1)
+      expect(
+        await request.get('/api/auth/get-session').then((response) => response.json()),
+      ).toBe(null)
+      const secondSession = await secondRequest.get('/api/auth/get-session')
+      expect(secondSession.status()).toBe(200)
+      expect(await secondSession.json()).not.toBe(null)
+    } finally {
+      await pool.query('delete from better_auth_rate_limits where key like $1', [
+        `${secondIpAddress}%`,
+      ])
+      await pool.end()
+      await secondContext.close()
+    }
+  })
 })
+
+async function seedPendingConfirmationToken(account: {
+  accountId: string
+  email: string
+}) {
+  const pool = new Pool({ connectionString: DATABASE_URL })
+  const confirmationToken = `${account.accountId.slice(0, 5)}${'a'.repeat(38)}`
+  const tokenId = `${account.accountId.slice(0, 5)}${'b'.repeat(21)}`
+  const communicationId = `${account.accountId.slice(0, 5)}${'c'.repeat(21)}`
+
+  try {
+    await pool.query(
+      `
+        insert into identity_account_action_tokens (
+          id, account_id, type, status, token_hash, issued_at, expires_at, updated_at,
+          communication_id, pending_handle_hash, delivery_status
+        ) values ($1, $2, 'email-confirmation', 'pending', $3, now(), now() + interval '24 hours',
+          now(), $4, $5, null)
+      `,
+      [
+        tokenId,
+        account.accountId,
+        hash(confirmationToken),
+        communicationId,
+        hash(`${account.email}-pending-handle`),
+      ],
+    )
+  } finally {
+    await pool.end()
+  }
+
+  return confirmationToken
+}
+
+function hash(value: string) {
+  return createHash('sha256').update(value).digest('hex')
+}

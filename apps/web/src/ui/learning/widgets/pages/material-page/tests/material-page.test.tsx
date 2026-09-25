@@ -211,6 +211,12 @@ describe('MaterialPage', () => {
     ).toBeVisible()
     expect(screen.getByText('O laço percorre uma sequência.')).toBeVisible()
     expect(
+      screen.getByText(/leitura é opcional e não altera seu progresso/i),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: /concluir|marcar como lido/i }),
+    ).not.toBeInTheDocument()
+    expect(
       screen.getByRole('region', { name: 'Bloco de código em python' }),
     ).toBeVisible()
   })

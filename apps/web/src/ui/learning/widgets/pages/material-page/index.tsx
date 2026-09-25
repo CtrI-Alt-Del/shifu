@@ -57,6 +57,10 @@ export const MaterialPage = (props: MaterialPageProps) => {
         skillName={detail.skillName}
       />
       <MaterialContent content={detail.content} />
+      <p className='text-sm text-muted-foreground'>
+        A leitura é opcional e não altera seu progresso. Você pode praticar a qualquer
+        momento.
+      </p>
       {recommendation ? (
         <MaterialRecommendation
           competencyName={detail.competencyName}

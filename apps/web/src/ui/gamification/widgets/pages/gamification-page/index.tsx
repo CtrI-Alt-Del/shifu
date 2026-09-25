@@ -20,7 +20,7 @@ const achievements = [
 
 export const GamificationPage = () => {
   return (
-    <div className='space-y-10'>
+    <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
         description='Reconheça o esforço que sustenta seu aprendizado, sem transformar a jornada em uma competição.'
         eyebrow='Módulo gamificação'

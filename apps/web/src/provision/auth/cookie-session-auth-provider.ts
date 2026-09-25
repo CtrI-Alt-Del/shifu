@@ -14,6 +14,30 @@ export type SignInResult = {
 
 export type SignInFailure = AuthError
 
+const LOGOUT_UNAVAILABLE_MESSAGE = 'Não foi possível sair agora. Tente novamente.'
+const INVALID_AUTH_RESPONSE_MESSAGE = 'A resposta de autenticação é inválida.'
+
+export type RegisterAccountInput = {
+  displayName: string
+  email: string
+  password: string
+}
+
+export type PendingConfirmationStatus = {
+  state: 'ready' | 'cooldown' | 'delivery_issue'
+  retryAfterSeconds: number | null
+}
+
+export type ResendConfirmationResult = {
+  result: 'accepted' | 'cooldown'
+  retryAfterSeconds: number | null
+}
+
+export type ConfirmEmailResult = {
+  result: 'activated' | 'expired' | 'used' | 'invalid'
+  redirectTo: RouteName
+}
+
 export const CookieSessionAuthProvider = () => {
   async function signIn(input: SignInInput): Promise<SignInResult> {
     let response: Response
@@ -93,7 +117,203 @@ export const CookieSessionAuthProvider = () => {
     }
   }
 
-  return { signIn }
+  async function signOut(): Promise<void> {
+    const response = await postAuthAction('/api/auth/sign-out')
+    const result = await readAuthActionResponse(response)
+
+    if (!isRecord(result) || result.success !== true) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        statusCode: response.status,
+      })
+    }
+  }
+
+  async function exitPendingConfirmation(): Promise<void> {
+    const response = await postAuthAction('/api/auth/pending-confirmation/sign-out')
+    const result = await readAuthActionResponse(response)
+
+    if (!isRecord(result) || Object.keys(result).length !== 0) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        statusCode: response.status,
+      })
+    }
+  }
+
+  async function postAuthAction(path: string): Promise<Response> {
+    try {
+      const response = await fetch(path, {
+        body: '{}',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const isUnavailable = response.status === 429 || response.status >= 500
+        throw new AuthError(
+          isUnavailable ? 'unavailable' : 'invalid-response',
+          isUnavailable ? LOGOUT_UNAVAILABLE_MESSAGE : INVALID_AUTH_RESPONSE_MESSAGE,
+          { statusCode: response.status },
+        )
+      }
+
+      return response
+    } catch (cause) {
+      if (cause instanceof AuthError) throw cause
+
+      throw new AuthError('unavailable', LOGOUT_UNAVAILABLE_MESSAGE, {
+        cause,
+        statusCode: 0,
+      })
+    }
+  }
+
+  async function readAuthActionResponse(response: Response): Promise<unknown> {
+    try {
+      return await response.json()
+    } catch (cause) {
+      throw new AuthError('invalid-response', INVALID_AUTH_RESPONSE_MESSAGE, {
+        cause,
+        statusCode: response.status,
+      })
+    }
+  }
+
+  async function registerAccount(input: RegisterAccountInput) {
+    return requestJson<{ redirectTo: typeof ROUTES.pendingConfirmation }>(
+      '/api/auth/register/identity',
+      { method: 'POST', body: input },
+      (result) =>
+        isRecord(result) && result.redirectTo === ROUTES.pendingConfirmation
+          ? { redirectTo: result.redirectTo }
+          : null,
+      'Não foi possível criar sua conta agora. Tente novamente.',
+    )
+  }
+
+  async function getPendingConfirmationStatus(): Promise<PendingConfirmationStatus> {
+    return requestJson(
+      '/api/auth/pending-confirmation',
+      { method: 'GET' },
+      (result) => {
+        if (
+          !isRecord(result) ||
+          (result.state !== 'ready' &&
+            result.state !== 'cooldown' &&
+            result.state !== 'delivery_issue') ||
+          (result.retryAfterSeconds !== null &&
+            typeof result.retryAfterSeconds !== 'number')
+        ) {
+          return null
+        }
+        return result as PendingConfirmationStatus
+      },
+      'Não foi possível atualizar a confirmação. Tente novamente.',
+    )
+  }
+
+  async function resendConfirmation(): Promise<ResendConfirmationResult> {
+    return requestJson(
+      '/api/auth/pending-confirmation/resend',
+      { method: 'POST', body: {} },
+      (result) => {
+        if (
+          !isRecord(result) ||
+          (result.result !== 'accepted' && result.result !== 'cooldown') ||
+          (result.retryAfterSeconds !== null &&
+            typeof result.retryAfterSeconds !== 'number')
+        ) {
+          return null
+        }
+        return result as ResendConfirmationResult
+      },
+      'Não foi possível reenviar agora. Tente novamente.',
+    )
+  }
+
+  async function confirmEmail(token: string): Promise<ConfirmEmailResult> {
+    return requestJson(
+      '/api/auth/confirm-email',
+      { method: 'POST', body: { token } },
+      (result) => {
+        if (
+          !isRecord(result) ||
+          (result.result !== 'activated' &&
+            result.result !== 'expired' &&
+            result.result !== 'used' &&
+            result.result !== 'invalid') ||
+          !isRoutePath(result.redirectTo)
+        ) {
+          return null
+        }
+        return {
+          result: result.result,
+          redirectTo: result.redirectTo === ROUTES.root ? 'root' : 'login',
+        }
+      },
+      'Não foi possível confirmar agora. Tente novamente.',
+    )
+  }
+
+  return {
+    confirmEmail,
+    exitPendingConfirmation,
+    getPendingConfirmationStatus,
+    registerAccount,
+    resendConfirmation,
+    signIn,
+    signOut,
+  }
+}
+
+async function requestJson<Result>(
+  path: string,
+  options: { method: 'GET' | 'POST'; body?: unknown },
+  parse: (result: unknown) => Result | null,
+  unavailableMessage: string,
+): Promise<Result> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method: options.method,
+      credentials: 'same-origin',
+      headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    })
+  } catch (cause) {
+    throw new AuthError('unavailable', unavailableMessage, { cause, statusCode: 0 })
+  }
+
+  if (!response.ok) {
+    throw new AuthError(
+      response.status >= 500 ? 'unavailable' : 'invalid-response',
+      response.status >= 500
+        ? unavailableMessage
+        : 'A resposta de autenticação é inválida.',
+      { statusCode: response.status },
+    )
+  }
+
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch (cause) {
+    throw new AuthError('invalid-response', 'A resposta de autenticação é inválida.', {
+      cause,
+      statusCode: response.status,
+    })
+  }
+
+  const result = parse(body)
+  if (!result) {
+    throw new AuthError('invalid-response', 'A resposta de autenticação é inválida.', {
+      statusCode: response.status,
+    })
+  }
+  return result
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

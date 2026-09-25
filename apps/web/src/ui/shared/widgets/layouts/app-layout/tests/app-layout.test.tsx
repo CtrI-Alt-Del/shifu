@@ -79,6 +79,15 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: 'Abrir menu da conta' })).toBeVisible()
   })
 
+  it('shares the account menu placement across desktop and mobile headers', () => {
+    const accountMenu = <button type='button'>Conta compartilhada</button>
+
+    render(<AppLayout accountMenu={accountMenu} />)
+
+    expect(screen.getAllByRole('button', { name: 'Conta compartilhada' })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Abrir menu da conta' })).toBeNull()
+  })
+
   it('renders the open mobile navigation and delegates destination selection', () => {
     useMobileHeaderMock.mockReturnValue({
       handleMenuToggle: handleMenuToggleMock,

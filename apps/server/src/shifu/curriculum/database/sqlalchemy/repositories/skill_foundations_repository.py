@@ -18,6 +18,21 @@ class SqlalchemySkillFoundationsRepository:
         ).all()
         return [SkillFoundationMapper.to_domain(model) for model in models]
 
+    def find_many_by_skill_ids(
+        self, skill_ids: list[str]
+    ) -> dict[str, list[SkillFoundation]]:
+        models = self._session.scalars(
+            select(SkillFoundationModel).where(
+                SkillFoundationModel.skill_id.in_(skill_ids)
+            )
+        ).all()
+        result: dict[str, list[SkillFoundation]] = {sid: [] for sid in skill_ids}
+        for model in models:
+            domain = SkillFoundationMapper.to_domain(model)
+            if domain.skill_id in result:
+                result[domain.skill_id].append(domain)
+        return result
+
     def find_many_by_foundation_skill_id(
         self,
         foundation_skill_id: str,

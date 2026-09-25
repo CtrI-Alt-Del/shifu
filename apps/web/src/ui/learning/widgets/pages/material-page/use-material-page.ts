@@ -65,13 +65,7 @@ export const getMaterialDetailAction = createServerFn({ method: 'GET' })
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       )
 
-      return await learningService.getMaterialDetail(
-        access.accessToken,
-        data.goalId,
-        data.skillId,
-        data.competencyId,
-        data.materialId,
-      )
+      return await learningService.getMaterialDetail(access.accessToken, data)
     } catch (error) {
       if (error instanceof AuthError && error.kind === 'unavailable') {
         return { kind: 'unavailable', statusCode: error.statusCode }

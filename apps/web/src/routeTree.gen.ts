@@ -11,19 +11,25 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
+import { Route as ConfirmEmailIndexRouteImport } from './routes/confirm-email/index'
 import { Route as CurriculumIndexRouteImport } from './routes/curriculum/index'
 import { Route as GamificationIndexRouteImport } from './routes/gamification/index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/index'
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
+import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-confirmation/index'
+import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/index'
+import { Route as LearningGoalsGoalIdSkillsAddIndexRouteImport } from './routes/learning/goals/$goalId/skills/add/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/route'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/index'
+import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,6 +39,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountIndexRoute = AccountIndexRouteImport.update({
   id: '/account/',
   path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConfirmEmailIndexRoute = ConfirmEmailIndexRouteImport.update({
+  id: '/confirm-email/',
+  path: '/confirm-email/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CurriculumIndexRoute = CurriculumIndexRouteImport.update({
@@ -58,6 +69,17 @@ const LearningIndexRoute = LearningIndexRouteImport.update({
 const LoginIndexRoute = LoginIndexRouteImport.update({
   id: '/login/',
   path: '/login/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PendingConfirmationIndexRoute =
+  PendingConfirmationIndexRouteImport.update({
+    id: '/pending-confirmation/',
+    path: '/pending-confirmation/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const RegisterIndexRoute = RegisterIndexRouteImport.update({
+  id: '/register/',
+  path: '/register/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -88,14 +110,20 @@ const LearningGoalsGoalIdSkillsSkillIdIndexRoute =
     path: '/learning/goals/$goalId/skills/$skillId/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LearningGoalsGoalIdSkillsAddIndexRoute =
+  LearningGoalsGoalIdSkillsAddIndexRouteImport.update({
+    id: '/learning/goals/$goalId/skills/add/',
+    path: '/learning/goals/$goalId/skills/add/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute =
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport.update({
     id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId',
     path: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute =
-  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport.update(
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport.update(
     {
       id: '/activities/$activityId',
       path: '/activities/$activityId',
@@ -112,126 +140,182 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialI
         LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute,
     } as any,
   )
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport.update(
+    {
+      id: '/',
+      path: '/',
+      getParentRoute: () =>
+        LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute,
+    } as any,
+  )
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport.update(
+    {
+      id: '/attempts/$attemptId/',
+      path: '/attempts/$attemptId/',
+      getParentRoute: () =>
+        LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/account/': typeof AccountIndexRoute
+  '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/register/': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
+  '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/account': typeof AccountIndexRoute
+  '/confirm-email': typeof ConfirmEmailIndexRoute
   '/curriculum': typeof CurriculumIndexRoute
   '/gamification': typeof GamificationIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
+  '/pending-confirmation': typeof PendingConfirmationIndexRoute
+  '/register': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
+  '/learning/goals/$goalId/skills/add': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/account/': typeof AccountIndexRoute
+  '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
+  '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/register/': typeof RegisterIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
+  '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
-  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/account/'
+    | '/confirm-email/'
     | '/curriculum/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
+    | '/register/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
     | '/learning/goals/$goalId/skills/$skillId/'
+    | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/account'
+    | '/confirm-email'
     | '/curriculum'
     | '/gamification'
     | '/intelligence'
     | '/learning'
     | '/login'
+    | '/pending-confirmation'
+    | '/register'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
     | '/learning/goals/new'
     | '/learning/goals/$goalId/skills/$skillId'
+    | '/learning/goals/$goalId/skills/add'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId'
   id:
     | '__root__'
     | '/'
     | '/account/'
+    | '/confirm-email/'
     | '/curriculum/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
+    | '/pending-confirmation/'
+    | '/register/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
     | '/learning/goals/$goalId/skills/$skillId/'
+    | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+    | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountIndexRoute: typeof AccountIndexRoute
+  ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
   GamificationIndexRoute: typeof GamificationIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
+  PendingConfirmationIndexRoute: typeof PendingConfirmationIndexRoute
+  RegisterIndexRoute: typeof RegisterIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
   LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
   LearningGoalsGoalIdSkillsSkillIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
+  LearningGoalsGoalIdSkillsAddIndexRoute: typeof LearningGoalsGoalIdSkillsAddIndexRoute
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
 }
 
@@ -249,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account/'
       preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/confirm-email/': {
+      id: '/confirm-email/'
+      path: '/confirm-email'
+      fullPath: '/confirm-email/'
+      preLoaderRoute: typeof ConfirmEmailIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/curriculum/': {
@@ -286,6 +377,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pending-confirmation/': {
+      id: '/pending-confirmation/'
+      path: '/pending-confirmation'
+      fullPath: '/pending-confirmation/'
+      preLoaderRoute: typeof PendingConfirmationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register/': {
+      id: '/register/'
+      path: '/register'
+      fullPath: '/register/'
+      preLoaderRoute: typeof RegisterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -321,6 +426,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/learning/goals/$goalId/skills/add/': {
+      id: '/learning/goals/$goalId/skills/add/'
+      path: '/learning/goals/$goalId/skills/add'
+      fullPath: '/learning/goals/$goalId/skills/add/'
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsAddIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': {
       id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
       path: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
@@ -332,7 +444,7 @@ declare module '@tanstack/react-router' {
       id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
       path: '/activities/$activityId'
       fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
-      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteImport
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport
       parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute
     }
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': {
@@ -342,18 +454,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport
       parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute
     }
+    '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/': {
+      id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+      path: '/'
+      fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/'
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRouteImport
+      parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute
+    }
+    '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/': {
+      id: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+      path: '/attempts/$attemptId'
+      fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId/'
+      preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRouteImport
+      parentRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute
+    }
   }
 }
 
+interface LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren {
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
+}
+
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren: LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren =
+  {
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute,
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute,
+  }
+
+const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren =
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute._addFileChildren(
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren,
+  )
+
 interface LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren {
-  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute
+  LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
 }
 
 const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren: LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteChildren =
   {
-    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute:
-      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRoute,
+    LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRoute:
+      LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren,
     LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute:
       LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute,
   }
@@ -366,11 +510,14 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountIndexRoute: AccountIndexRoute,
+  ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,
   GamificationIndexRoute: GamificationIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
+  PendingConfirmationIndexRoute: PendingConfirmationIndexRoute,
+  RegisterIndexRoute: RegisterIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   IntelligencePlannerPlanningIdIndexRoute:
     IntelligencePlannerPlanningIdIndexRoute,
@@ -378,6 +525,8 @@ const rootRouteChildren: RootRouteChildren = {
   LearningGoalsNewIndexRoute: LearningGoalsNewIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdIndexRoute:
     LearningGoalsGoalIdSkillsSkillIdIndexRoute,
+  LearningGoalsGoalIdSkillsAddIndexRoute:
+    LearningGoalsGoalIdSkillsAddIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute:
     LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren,
 }

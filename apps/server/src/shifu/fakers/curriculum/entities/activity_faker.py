@@ -38,6 +38,8 @@ class ActivityFaker:
                         is_correct=False,
                     ),
                 ),
+                correct_explanation='Boa resposta: você identificou a alternativa correta.',
+                incorrect_explanation='Revise o conceito e tente novamente em outra atividade.',
             )
             for key in ('question-one', 'question-two', 'question-three')
         )

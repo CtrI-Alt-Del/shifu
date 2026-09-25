@@ -170,6 +170,83 @@ describe('CompetencyDetailPage', () => {
     expect(screen.getByText('Difícil · Recomendada')).toBeVisible()
   })
 
+  it('explains the Concept target and offers optional Material alongside direct practice', () => {
+    useCompetencyDetailPageMock.mockReturnValue(
+      makeController({
+        detail: {
+          ...availableDetail,
+          adaptive: {
+            targetConceptId: IDS.competencyId,
+            originalTargetConceptId: IDS.competencyId,
+            targetConceptName: 'Laços de repetição',
+            reason: 'coverage',
+            difficulty: 'easy',
+            activityId: IDS.activityId,
+            materialId: IDS.materialId,
+            materialIsOptional: true,
+            gap: null,
+          },
+          coverageComplete: false,
+        },
+      }),
+    )
+    render(
+      <CompetencyDetailPage
+        competencyId={IDS.competencyId}
+        goalId={IDS.goalId}
+        skillId={IDS.skillId}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Laços de repetição' })).toBeVisible()
+    expect(screen.getByText(/cobertura de evidências.*incompleta/i)).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ler Material opcional' })).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: /Somar os números pares.*Fácil/ }),
+    ).toBeVisible()
+    expect(
+      screen.getByText('O Material é opcional. Você pode começar pela Atividade.'),
+    ).toBeVisible()
+  })
+
+  it('keeps official progress unknown while v2 Concept coverage is incomplete', () => {
+    useCompetencyDetailPageMock.mockReturnValue(
+      makeController({
+        detail: {
+          ...availableDetail,
+          progress: null,
+          coverageComplete: false,
+          adaptive: {
+            targetConceptId: IDS.competencyId,
+            originalTargetConceptId: IDS.competencyId,
+            targetConceptName: 'Laços de repetição',
+            reason: 'coverage',
+            difficulty: 'easy',
+            activityId: IDS.activityId,
+            materialId: IDS.materialId,
+            materialIsOptional: true,
+            gap: null,
+          },
+        },
+      }),
+    )
+    render(
+      <CompetencyDetailPage
+        competencyId={IDS.competencyId}
+        goalId={IDS.goalId}
+        skillId={IDS.skillId}
+      />,
+    )
+
+    expect(
+      screen.getByText('Progresso da Competência: ainda sem evidência suficiente.'),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('progressbar', { name: 'Progresso da Competência' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/cobertura de evidências.*incompleta/i)).toBeVisible()
+  })
+
   it('renders unavailable content without progress or released sequence', () => {
     useCompetencyDetailPageMock.mockReturnValue(
       makeController({ detail: unavailableDetail }),

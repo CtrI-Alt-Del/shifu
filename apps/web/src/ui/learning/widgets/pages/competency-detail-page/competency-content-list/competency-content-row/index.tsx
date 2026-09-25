@@ -38,7 +38,7 @@ export const CompetencyContentRow = ({
         </span>
         <Link
           aria-label={`${item.title} — Material de apoio`}
-          className='group flex min-h-16 min-w-0 flex-1 items-center justify-between gap-4 rounded-md border border-border bg-card px-4 py-3 transition-colors hover:border-control-border hover:bg-muted lg:min-h-[68px] lg:px-5'
+          className={`group flex min-h-16 min-w-0 flex-1 items-center justify-between gap-4 rounded-md border px-4 py-3 transition-colors lg:min-h-[68px] lg:px-5 ${isRecommended ? 'border-primary bg-primary/5 hover:bg-primary/10' : 'border-border bg-card hover:border-control-border hover:bg-muted'}`}
           params={{ goalId, skillId, competencyId, materialId: item.id }}
           to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
         >
@@ -47,7 +47,7 @@ export const CompetencyContentRow = ({
               {item.title}
             </span>
             <span className='mt-1 block text-sm text-muted-foreground'>
-              Material de apoio
+              {isRecommended ? 'Material de apoio · Opcional' : 'Material de apoio'}
             </span>
           </span>
           <Icon

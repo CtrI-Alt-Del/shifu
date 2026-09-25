@@ -6,6 +6,7 @@ import type { RestClient, RestRequestOptions } from '@/core/shared/interfaces/re
 const REST_REQUEST_TIMEOUT_MS = 15_000
 
 export type AxiosRestClientOptions = {
+  defaultHeaders?: Record<string, string>
   withCredentials?: boolean
 }
 
@@ -19,12 +20,12 @@ export const AxiosRestClient = (
     withCredentials: options.withCredentials ?? true,
   })
 
-  function get<ResponseBody>(url: string, options: RestRequestOptions) {
+  function get<ResponseBody>(url: string, requestOptions: RestRequestOptions) {
     return request<ResponseBody>(client, {
       method: 'get',
       url,
-      params: options?.params,
-      headers: options?.headers,
+      params: requestOptions?.params,
+      headers: { ...options.defaultHeaders, ...requestOptions?.headers },
     })
   }
 
@@ -39,12 +40,12 @@ export const AxiosRestClient = (
       })
     },
 
-    post<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
+    post<ResponseBody>(url: string, body?: unknown, requestOptions?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'post',
         url,
         data: body,
-        headers: options?.headers,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
       })
     },
 
@@ -56,30 +57,38 @@ export const AxiosRestClient = (
       })
     },
 
-    patch<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
+    patch<ResponseBody>(
+      url: string,
+      body?: unknown,
+      requestOptions?: RestRequestOptions,
+    ) {
       return request<ResponseBody>(client, {
         method: 'patch',
         url,
         data: body,
-        headers: options?.headers,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
       })
     },
 
-    put<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
+    put<ResponseBody>(url: string, body?: unknown, requestOptions?: RestRequestOptions) {
       return request<ResponseBody>(client, {
         method: 'put',
         url,
         data: body,
-        headers: options?.headers,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
       })
     },
 
-    delete<ResponseBody>(url: string, body?: unknown, options?: RestRequestOptions) {
+    delete<ResponseBody>(
+      url: string,
+      body?: unknown,
+      requestOptions?: RestRequestOptions,
+    ) {
       return request<ResponseBody>(client, {
         method: 'delete',
         url,
         data: body,
-        headers: options?.headers,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
       })
     },
   }

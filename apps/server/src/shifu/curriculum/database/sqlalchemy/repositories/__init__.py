@@ -4,6 +4,9 @@ from .activities_repository import (
 from .competencies_repository import (
     SqlalchemyCompetenciesRepository as SqlalchemyCompetenciesRepository,
 )
+from .concepts_repository import (
+    SqlalchemyConceptsRepository as SqlalchemyConceptsRepository,
+)
 from .curriculum_sequences_repository import (
     SqlalchemyCurriculumSequencesRepository as SqlalchemyCurriculumSequencesRepository,
 )

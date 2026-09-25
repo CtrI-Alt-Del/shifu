@@ -35,6 +35,21 @@ export type ActivityRecommendation = {
   type: ActivityRecommendationType
 }
 
+export type AdaptiveRecommendation = {
+  targetConceptId: string
+  originalTargetConceptId: string
+  targetConceptName?: string | null
+  originalTargetConceptName?: string | null
+  recommendedCompetencyId?: string | null
+  materialCompetencyId?: string | null
+  reason: string
+  difficulty: ActivityDifficulty | null
+  activityId: string | null
+  materialId: string | null
+  materialIsOptional: boolean
+  gap: string | null
+}
+
 export type AvailableCompetencyDetail = {
   availability: 'available'
   goalId: string
@@ -42,7 +57,7 @@ export type AvailableCompetencyDetail = {
   skillName: string
   competencyId: string
   competencyName: string
-  progress: number
+  progress: number | null
   status: CompetencyProgressStatus
   isFocus: boolean
   focusReturned: boolean
@@ -50,6 +65,9 @@ export type AvailableCompetencyDetail = {
   focusCompetencyName: string | null
   items: readonly CompetencyDetailItem[]
   recommendation: ActivityRecommendation | null
+  adaptive?: AdaptiveRecommendation | null
+  coverageComplete?: boolean
+  verificationCause?: string | null
 }
 
 export type UnavailableCompetencyDetail = {
@@ -91,7 +109,7 @@ export function isCompetencyDetail(value: unknown): value is CompetencyDetail {
 
   return (
     value.availability === 'available' &&
-    isPercentage(value.progress) &&
+    (value.progress === null || isPercentage(value.progress)) &&
     isCompetencyProgressStatus(value.status) &&
     typeof value.isFocus === 'boolean' &&
     typeof value.focusReturned === 'boolean' &&
@@ -99,7 +117,35 @@ export function isCompetencyDetail(value: unknown): value is CompetencyDetail {
     isNullableString(value.focusCompetencyName) &&
     Array.isArray(value.items) &&
     value.items.every(isCompetencyDetailItem) &&
-    (value.recommendation === null || isActivityRecommendation(value.recommendation))
+    (value.recommendation === null || isActivityRecommendation(value.recommendation)) &&
+    (value.adaptive === undefined ||
+      value.adaptive === null ||
+      isAdaptiveRecommendation(value.adaptive)) &&
+    (value.coverageComplete === undefined ||
+      typeof value.coverageComplete === 'boolean') &&
+    (value.verificationCause === undefined || isNullableString(value.verificationCause))
+  )
+}
+
+function isAdaptiveRecommendation(value: unknown): value is AdaptiveRecommendation {
+  return (
+    isRecord(value) &&
+    isIdentifier(value.targetConceptId) &&
+    isIdentifier(value.originalTargetConceptId) &&
+    (value.targetConceptName === undefined ||
+      isNullableString(value.targetConceptName)) &&
+    (value.originalTargetConceptName === undefined ||
+      isNullableString(value.originalTargetConceptName)) &&
+    (value.recommendedCompetencyId === undefined ||
+      isNullableIdentifier(value.recommendedCompetencyId)) &&
+    (value.materialCompetencyId === undefined ||
+      isNullableIdentifier(value.materialCompetencyId)) &&
+    isNonEmptyString(value.reason) &&
+    (value.difficulty === null || isActivityDifficulty(value.difficulty)) &&
+    isNullableIdentifier(value.activityId) &&
+    isNullableIdentifier(value.materialId) &&
+    typeof value.materialIsOptional === 'boolean' &&
+    isNullableString(value.gap)
   )
 }
 

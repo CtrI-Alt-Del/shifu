@@ -129,12 +129,19 @@ status` before operations that require private or elevated GitHub access.
 
 ## CodeGraph MCP
 
-When a `.codegraph/` directory exists at repository root, use CodeGraph before
-text search or broad file reading to locate symbols and understand call paths.
-Use its MCP tool when available or `codegraph explore "<question>"` from the
-shell. Name the relevant symbol or file and inspect returned source before
-editing. If `.codegraph/` is absent, skip CodeGraph; indexing is the user's
-decision.
+Before exploring implementation code, check whether `.codegraph/` exists at the
+repository root. If it does, CodeGraph is a required first discovery step:
+query the relevant symbol, file, or behavior and its callers/callees with the MCP
+tool when available, or `codegraph explore "<question>"` from the shell. Inspect
+the returned source before editing. Do this before `rg`/text search or broad file
+reading; use those tools afterward to inspect the narrowed paths and details.
+
+Repeat CodeGraph discovery when work expands to a new module or call path. Record
+the CodeGraph query and what it established in the task's working evidence. If
+`.codegraph/` exists but the tool fails or its index is unusable, report the
+specific failure, then continue with local source inspection; do not silently
+skip it. If `.codegraph/` is absent, skip CodeGraph. Creating or rebuilding an
+index is the user's decision.
 
 ## Inngest MCP
 

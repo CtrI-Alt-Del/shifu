@@ -26,7 +26,7 @@ export const CompetencyDetailFeedback = (props: CompetencyDetailFeedbackProps) =
 
   if (props.state === 'loading') {
     return (
-      <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
+      <div className='mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-7xl flex-1 items-center justify-center'>
         <output
           aria-live='polite'
           aria-label='Carregando Competência e seu progresso...'
@@ -60,7 +60,7 @@ export const CompetencyDetailFeedback = (props: CompetencyDetailFeedbackProps) =
 
   if (props.state === 'private-absence') {
     return (
-      <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
+      <div className='mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-7xl flex-1 items-center justify-center'>
         <output
           aria-labelledby='competency-detail-not-found-title'
           className='flex w-full max-w-3xl flex-col items-center rounded-2xl border border-border bg-card p-8 text-center sm:p-10'
@@ -86,7 +86,7 @@ export const CompetencyDetailFeedback = (props: CompetencyDetailFeedbackProps) =
 
   if (props.state === 'unavailable') {
     return (
-      <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
+      <div className='mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-7xl flex-1 items-center justify-center'>
         <output
           aria-labelledby='competency-detail-unavailable-title'
           className='flex w-full max-w-3xl flex-col items-center rounded-2xl border border-border bg-card p-8 text-center sm:p-10'
@@ -117,7 +117,7 @@ export const CompetencyDetailFeedback = (props: CompetencyDetailFeedbackProps) =
   }
 
   return (
-    <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
+    <div className='mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-7xl flex-1 items-center justify-center'>
       <section
         aria-labelledby='competency-detail-error-title'
         className='flex w-full max-w-3xl flex-col items-center rounded-2xl border border-border bg-card p-8 text-center sm:p-10'

@@ -18,6 +18,14 @@ class SqlalchemySkillExperiencesRepository:
         )
         return SkillExperienceMapper.to_domain(model) if model is not None else None
 
+    def find_by_id_for_update(self, skill_experience_id: str) -> SkillExperience | None:
+        model = self._session.scalar(
+            select(SkillExperienceModel)
+            .where(SkillExperienceModel.id == skill_experience_id)
+            .with_for_update()
+        )
+        return SkillExperienceMapper.to_domain(model) if model is not None else None
+
     def find_by_goal_id_and_skill_id(
         self,
         goal_id: str,

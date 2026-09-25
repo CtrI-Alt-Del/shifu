@@ -12,7 +12,7 @@ import { useRootLayout } from './use-root-layout'
 export type RootLayoutProps = PropsWithChildren
 
 export const RootLayout = ({ children }: RootLayoutProps) => {
-  const { isPublic } = useRootLayout()
+  const { account, isPublic } = useRootLayout()
   const [queryClient] = useState(() => new QueryClient())
 
   return (
@@ -25,7 +25,7 @@ export const RootLayout = ({ children }: RootLayoutProps) => {
           <RestContextProvider>
             <AuthContextProvider>
               <SquareBackground />
-              {isPublic ? children : <AppLayout>{children}</AppLayout>}
+              {isPublic ? children : <AppLayout account={account}>{children}</AppLayout>}
             </AuthContextProvider>
           </RestContextProvider>
         </QueryClientProvider>

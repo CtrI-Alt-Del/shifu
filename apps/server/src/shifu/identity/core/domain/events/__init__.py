@@ -1,3 +1,8 @@
+from .account_confirmation_cancelled import (
+    AccountConfirmationCancelled as AccountConfirmationCancelled,
+    AccountConfirmationCancelledEvent as AccountConfirmationCancelledEvent,
+    AccountConfirmationCancelledPayload as AccountConfirmationCancelledPayload,
+)
 from .account_activated_event import (
     AccountActivatedEvent as AccountActivatedEvent,
     AccountActivatedPayload as AccountActivatedPayload,
@@ -21,6 +26,11 @@ from .account_display_name_changed_event import (
 from .account_expired_event import (
     AccountExpiredEvent as AccountExpiredEvent,
     AccountExpiredPayload as AccountExpiredPayload,
+)
+from .account_expiry_requested import (
+    AccountExpiryRequested as AccountExpiryRequested,
+    AccountExpiryRequestedEvent as AccountExpiryRequestedEvent,
+    AccountExpiryRequestedPayload as AccountExpiryRequestedPayload,
 )
 from .account_password_changed_event import (
     AccountPasswordChangedEvent as AccountPasswordChangedEvent,

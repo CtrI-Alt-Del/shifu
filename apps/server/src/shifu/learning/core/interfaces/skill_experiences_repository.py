@@ -9,6 +9,11 @@ class SkillExperiencesRepository(Protocol):
         skill_experience_id: str,
     ) -> SkillExperience | None: ...
 
+    def find_by_id_for_update(
+        self,
+        skill_experience_id: str,
+    ) -> SkillExperience | None: ...
+
     def find_by_goal_id_and_skill_id(
         self,
         goal_id: str,

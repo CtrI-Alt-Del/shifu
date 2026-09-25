@@ -3,7 +3,10 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { ROUTES } from '@/constants/routes'
-import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
+import {
+  getBetterAuthProvider,
+  type LayoutAccount,
+} from '@/provision/auth/better-auth/better-auth-provider'
 
 export const requireAuthMiddleware = createServerFn({ method: 'GET' }).handler(
   async () => {
@@ -11,6 +14,9 @@ export const requireAuthMiddleware = createServerFn({ method: 'GET' }).handler(
 
     if (!access) throw redirect({ to: ROUTES.login })
 
-    return undefined
+    return {
+      displayName: access.displayName,
+      email: access.email,
+    } satisfies LayoutAccount
   },
 )

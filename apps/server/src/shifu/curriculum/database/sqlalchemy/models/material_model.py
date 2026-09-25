@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Index, String
+from sqlalchemy import ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -17,3 +17,4 @@ class MaterialModel(Model):
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     content: Mapped[str] = mapped_column(String(20000), nullable=False)
     material_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    concept_ids: Mapped[object] = mapped_column(JSON, nullable=False)

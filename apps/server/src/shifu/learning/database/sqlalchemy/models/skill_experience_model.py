@@ -37,3 +37,9 @@ class SkillExperienceModel(Model):
         DateTime(timezone=True), nullable=True
     )
     completion_summary: Mapped[object | None] = mapped_column(JSON, nullable=True)
+    policy_id: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default='learning-v1'
+    )
+    recommended_concept_id: Mapped[str | None] = mapped_column(
+        String(26), nullable=True
+    )

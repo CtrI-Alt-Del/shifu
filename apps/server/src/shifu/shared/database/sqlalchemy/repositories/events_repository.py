@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, cast
 
 import psycopg
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.engine import CursorResult, Engine
 from sqlalchemy.orm import Session
 
@@ -56,6 +56,10 @@ class SqlalchemyEventsRepository:
             )
         )
         self._session.flush()
+
+    def remove_all(self) -> None:
+        """Clear stale local outbox events during an explicit seed reset."""
+        self._session.execute(delete(EventModel))
 
     def listen(self, on_event: Callable[[str], None]) -> EventsRepositoryListener:
         if self._engine is not None:

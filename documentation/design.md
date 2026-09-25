@@ -115,6 +115,7 @@ Consequência direta do princípio P1: como latão nunca toca em nada pedagógic
 --selo-fill         #DC2F2F   botão primário, marca
 --selo-text         #F28B8B   texto de erro, anel de foco     [7,68:1]
 --on-selo           #FFFFFF   texto sobre selo-fill           [4,68:1]
+--danger            #C0392B   botão de confirmação destrutiva (ver 3.3)
 ```
 
 **Latão — gamificação**
@@ -133,8 +134,9 @@ Todos os valores entre colchetes são razões de contraste medidas contra `--sur
 Selo é a cor de ação primária. Se ação destrutiva também fosse selo preenchido, o usuário não distinguiria continuar de apagar. A regra:
 
 - **Só a ação primária usa selo preenchido.** Uma por tela.
-- **Destrutiva nunca é preenchida.** Superfície neutra, rótulo em `--selo-text`, borda em `--selo-text`, e sempre com ícone.
+- **O gatilho de uma ação destrutiva nunca é preenchido.** Fora de uma confirmação (ex.: o botão que abre o diálogo), a superfície é neutra, rótulo em `--selo-text`, borda em `--selo-text`, e sempre com ícone.
 - **Destrutiva sempre vive dentro de confirmação.** Os PRDs já exigem isso em excluir conta, remover Objetivo e remover Habilidade, então a regra não custa nada.
+- **Dentro da confirmação, o botão de commit final usa `--danger` preenchido**, não `--selo-fill`. `--danger` (`#C0392B`) é uma cor própria, distinta de `--selo-fill` (`#DC2F2F`) — a ambiguidade "preenchido = ação primária" que a regra original evitava não existe mais, porque as duas cores de preenchimento já se distinguem sem precisar de forma/borda. Confirmado no node `kZHN8` (`design/shifu.pen`, componente `DS/Button/Destructive`) e capturado em `design/references/kZHN8.png`. Texto sobre `--danger` é branco, no mesmo padrão de `--on-selo`/`--on-jade`/`--on-latao`.
 
 ### 3.4 Tipografia
 

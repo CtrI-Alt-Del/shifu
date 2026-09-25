@@ -1,6 +1,7 @@
 from .activity_question import ActivityQuestion as ActivityQuestion
 from .activity_sequence_item import ActivitySequenceItem as ActivitySequenceItem
 from .choice_option import ChoiceOption as ChoiceOption
+from .choice_concept_criterion import ChoiceConceptCriterion as ChoiceConceptCriterion
 from .code_evaluation_case import CodeEvaluationCase as CodeEvaluationCase
 from .code_question import CodeQuestion as CodeQuestion
 from .correctness_evaluation_part import (

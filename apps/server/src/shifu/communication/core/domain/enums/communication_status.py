@@ -7,3 +7,4 @@ class CommunicationStatus(StrEnum):
     SENT = 'sent'
     PERMANENTLY_FAILED = 'permanently-failed'
     REJECTED = 'rejected'
+    CANCELLED = 'cancelled'

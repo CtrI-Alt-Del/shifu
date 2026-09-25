@@ -1,5 +1,6 @@
 from .activity_mapper import ActivityMapper as ActivityMapper
 from .competency_mapper import CompetencyMapper as CompetencyMapper
+from .concept_mapper import ConceptMapper as ConceptMapper
 from .curriculum_sequence_mapper import (
     CurriculumSequenceMapper as CurriculumSequenceMapper,
 )

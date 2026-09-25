@@ -1,0 +1,11 @@
+@webBaseUrl = http://localhost:7000
+
+### Better Auth current-session sign-out (HttpOnly cookie only)
+# Same-origin requests attach HttpOnly cookies automatically.
+POST {{webBaseUrl}}/api/auth/sign-out
+Accept: application/json
+
+### Pending-confirmation context sign-out (signed pending cookie only)
+# Same-origin requests attach HttpOnly cookies automatically.
+POST {{webBaseUrl}}/api/auth/pending-confirmation/sign-out
+Accept: application/json

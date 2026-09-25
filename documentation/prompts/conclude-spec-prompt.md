@@ -15,11 +15,15 @@ implementation correction is required, route it through implement-spec, wait for
 current evidence and resume this workflow. Do not report a routine fix as a
 suggested next step while authorized in-scope work remains.
 
+An explicit `conclude-spec` request authorizes fetching the latest `main` from
+the delivery branch's configured remote and merging it into the current delivery
+branch as described below. This does not authorize merging the delivery branch
+into `main` or deploying.
+
 Pause for the user only when a product/technical Contract or higher-authority
 decision is required, publication is unavailable, an external service blocks
 progress, or the same actionable failure cannot be resolved within the
-Orchestrator's bounded retry policy. Do not merge or deploy unless explicitly
-requested.
+Orchestrator's bounded retry policy.
 
 ## Preconditions
 
@@ -41,6 +45,39 @@ If a precondition fails, keep the relevant artifact status in draft,
 in_progress or stale as applicable, record the concrete blocker and route it
 through the authority rules below. Never mark a skipped, unsupported, stale or
 unavailable gate as passed.
+
+## Synchronize the delivery branch with main
+
+Before final conformance validation, bring the latest `main` from the delivery
+branch's configured remote into the current delivery branch. An explicit
+`conclude-spec` invocation authorizes this synchronization merge; it does not
+authorize merging the delivery branch into `main`.
+
+1. Confirm the current branch is the delivery branch, not `main` or production.
+   Identify its configured remote and verify that remote has the expected `main`
+   branch. Do not assume a remote name when the repository configuration is
+   ambiguous.
+2. Inspect and classify staged, unstaged and untracked work. Preserve unrelated
+   changes. Never reset, stash, autostash, switch branches or overwrite files to
+   make the merge proceed. If Git cannot safely integrate `main` while
+   preserving the current work, record the exact blocker and pause.
+3. Fetch the remote's latest `main` and merge that ref into the current delivery
+   branch. Do not rebase. Record the fetched commit and the resulting delivery
+   branch SHA in evaluation.md.
+4. If the merge has conflicts, immediately read and follow
+   [`resolve-merge-conflicts-prompt.md`](resolve-merge-conflicts-prompt.md).
+   Let that workflow resolve the conflicts, run all applicable checkers and
+   stage only its task paths. Then resume conclude-spec, finish the pending
+   synchronization merge with `git merge --continue`, and verify that the merge
+   did not include unrelated work. If any checker fix changes the candidate,
+   rerun affected checks before continuing.
+5. Run the complete applicable validation gates against the synchronized
+   candidate. Refresh Evaluation evidence for the resulting tree and SHA before
+   closure. A failed fetch, missing remote `main`, unsafe dirty-worktree state,
+   or unresolved conflict is a blocker; do not claim the Spec is completed.
+
+Do not use `git pull` without naming and verifying its source: the current
+branch's configured upstream may be the delivery branch's remote, not `main`.
 
 ## Workflow continuity and authority routing
 
@@ -306,7 +343,9 @@ Before the handoff, confirm:
   separately authorized the equivalent commit and PR publication;
 - the candidate is validation-ready and local SDD artifacts are reconciled;
 - preserve unrelated changes and stage only exact delivery paths; and
-- never merge or deploy without an explicit request.
+- the synchronization merge from `main` into the delivery branch is authorized
+  above; merging the delivery branch into `main` or deploying still requires a
+  separate explicit request.
 
 When the handoff is authorized:
 
@@ -384,8 +423,9 @@ the final local delivery state.
 
 If a later review comment identifies actionable work, do not process it here.
 Use resolve-pr-feedback while the PR is open. After merge, use the bug-fix
-workflow for a defect or create a new Spec for changed behavior. Do not merge
-or deploy unless explicitly requested.
+workflow for a defect or create a new Spec for changed behavior. This workflow
+authorizes only the `main`-into-delivery synchronization described above; do not
+merge the delivery branch into `main` or deploy unless separately requested.
 
 ## Conclusion summary
 
