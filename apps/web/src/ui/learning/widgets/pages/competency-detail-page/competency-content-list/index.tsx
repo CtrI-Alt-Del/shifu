@@ -19,7 +19,9 @@ export const CompetencyContentList = ({
   goalId,
   skillId,
 }: CompetencyContentListProps) => {
-  const recommendationActivityId = detail.recommendation?.activityId
+  const recommendationActivityId =
+    detail.adaptive?.activityId ?? detail.recommendation?.activityId
+  const recommendationMaterialId = detail.adaptive?.materialId
 
   return (
     <ol
@@ -30,7 +32,9 @@ export const CompetencyContentList = ({
         const rowProps: CompetencyContentRowProps = {
           competencyId: detail.competencyId,
           goalId,
-          isRecommended: item.kind === 'activity' && item.id === recommendationActivityId,
+          isRecommended:
+            (item.kind === 'activity' && item.id === recommendationActivityId) ||
+            (item.kind === 'material' && item.id === recommendationMaterialId),
           item,
           skillId,
         }

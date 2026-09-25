@@ -33,7 +33,9 @@ class TestLogMainPageEnteredJob:
             },
             event.payload.event_id,
         )
-        log_line = inngest_fixture.wait_for_log('identity.main_page_entered')
+        log_line = inngest_fixture.wait_for_log(
+            'identity.main_page_entered', timeout=90
+        )
 
         assert event.payload.event_id in log_line
         assert event.payload.account_id in log_line

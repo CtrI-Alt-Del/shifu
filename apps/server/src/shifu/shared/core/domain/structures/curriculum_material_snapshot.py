@@ -10,6 +10,8 @@ class CurriculumMaterialSnapshot:
     title: str
     material_type: str
     position: int
+    concept_ids: tuple[str, ...] = ()
+    content: str = ''
 
     def __post_init__(self) -> None:
         require_positive_curriculum_position(self.position)

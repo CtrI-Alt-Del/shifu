@@ -24,7 +24,11 @@ describe('useAccountMenu', () => {
     signOutMock.mockResolvedValue(undefined)
     navigateToMock.mockResolvedValue(undefined)
     useAuthContextMock.mockReturnValue({
+      confirmEmail: vi.fn(),
       exitPendingConfirmation: vi.fn(),
+      getPendingConfirmationStatus: vi.fn(),
+      registerAccount: vi.fn(),
+      resendConfirmation: vi.fn(),
       signIn: vi.fn(),
       signOut: signOutMock,
     })

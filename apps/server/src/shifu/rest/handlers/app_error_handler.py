@@ -9,14 +9,24 @@ from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.shared.core.domain.errors import (
     AppError,
     AuthorizationError,
+    ConflictError,
     NotFoundError,
     ServiceUnavailableError,
+    ValidationError,
 )
 
 
 class AppErrorHandler:
     _IDENTITY_FAILURE_PATHS = frozenset(
         {'/identity/sign-in', '/identity/main-page-entries'}
+    )
+    _IDENTITY_PUBLIC_PATHS = frozenset(
+        {
+            '/identity/registrations',
+            '/identity/pending-confirmations/status',
+            '/identity/pending-confirmations/resend',
+            '/identity/email-confirmations',
+        }
     )
 
     @staticmethod
@@ -69,7 +79,38 @@ class AppErrorHandler:
             message=(
                 not_found.message
                 if not_found is not None
+                and not_found.message != 'Erro interno da aplicação.'
                 else 'Recurso não encontrado.'
+            ),
+        )
+
+    @staticmethod
+    async def handle_conflict_error(
+        _request: Request, error: Exception
+    ) -> JSONResponse:
+        conflict = error if isinstance(error, ConflictError) else None
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_409_CONFLICT,
+            code='conflict',
+            message=(
+                conflict.message
+                if conflict is not None
+                else 'A solicitação conflita com o estado atual do recurso.'
+            ),
+        )
+
+    @staticmethod
+    async def handle_validation_error(
+        _request: Request, error: Exception
+    ) -> JSONResponse:
+        validation = error if isinstance(error, ValidationError) else None
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code='validation_error',
+            message=(
+                validation.message
+                if validation is not None
+                else 'Os dados enviados são inválidos.'
             ),
         )
 
@@ -95,8 +136,14 @@ class AppErrorHandler:
 
     @staticmethod
     async def handle_request_validation_error(
-        _request: Request, _error: Exception
+        request: Request, _error: Exception
     ) -> JSONResponse:
+        if request.url.path in AppErrorHandler._IDENTITY_PUBLIC_PATHS:
+            return AppErrorHandler._build_response(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                code='invalid_input',
+                message='Os dados enviados são inválidos.',
+            )
         return AppErrorHandler._build_response(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code='validation_error',
@@ -203,6 +250,14 @@ class AppErrorHandler:
         app.add_exception_handler(
             NotFoundError,
             AppErrorHandler.handle_not_found_error,
+        )
+        app.add_exception_handler(
+            ConflictError,
+            AppErrorHandler.handle_conflict_error,
+        )
+        app.add_exception_handler(
+            ValidationError,
+            AppErrorHandler.handle_validation_error,
         )
         app.add_exception_handler(
             AuthorizationError,

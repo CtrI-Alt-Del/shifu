@@ -32,6 +32,14 @@ const signInBody = z.object({
   password: z.string().min(1),
 })
 
+const registerBody = z.object({
+  displayName: z.string().min(1),
+  email: z.string().min(1),
+  password: z.string().min(8),
+})
+
+const confirmEmailBody = z.object({ token: z.string().min(1) })
+
 type ServerAuthenticatedAccess = {
   accountId: string
   displayName: string
@@ -45,7 +53,10 @@ const BetterAuthProvider = () => {
   pgTypes.setTypeParser(20, (value) => Number.parseInt(value, 10))
   const pool = new Pool({ connectionString: config.databaseURL })
   const identityService = IdentityService(
-    AxiosRestClient(config.identityURL, { withCredentials: false }),
+    AxiosRestClient(config.identityURL, {
+      defaultHeaders: { 'X-Shifu-Bff-Secret': config.bffSharedSecret },
+      withCredentials: false,
+    }),
   )
 
   const identityPlugin = createIdentityPlugin(identityService)
@@ -258,6 +269,145 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
   return {
     id: 'shifu-identity-sign-in',
     endpoints: {
+      registerIdentity: createAuthEndpoint(
+        '/register/identity',
+        { method: 'POST', body: registerBody },
+        async (context) => {
+          let registration: Awaited<ReturnType<typeof identityService.registerAccount>>
+          try {
+            registration = await identityService.registerAccount(context.body)
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível criar sua conta agora. Tente novamente.',
+            })
+          }
+
+          try {
+            await createPendingContext(
+              context,
+              registration.pending_handle,
+              undefined,
+              registration.is_decoy,
+            )
+            return context.json({ redirectTo: ROUTES.pendingConfirmation })
+          } catch {
+            try {
+              await createRecoverablePendingContext(
+                context,
+                registration.pending_handle,
+                registration.is_decoy,
+              )
+              return context.json({ redirectTo: ROUTES.pendingConfirmation })
+            } catch {
+              throw APIError.from('SERVICE_UNAVAILABLE', {
+                code: 'auth_persistence_unavailable',
+                message: 'Não foi possível criar sua conta agora. Tente novamente.',
+              })
+            }
+          }
+        },
+      ),
+      pendingConfirmation: createAuthEndpoint(
+        '/pending-confirmation',
+        { method: 'GET' },
+        async (context) => {
+          const pendingContext = await getPendingContext(context)
+          if (!pendingContext) {
+            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+          }
+          if (pendingContext.isDecoy) {
+            return context.json({ state: 'cooldown', retryAfterSeconds: 60 })
+          }
+
+          try {
+            const status = await identityService.getPendingConfirmationStatus(
+              pendingContext.handle,
+            )
+            return context.json({
+              state: status.state,
+              retryAfterSeconds: status.retry_after_seconds,
+            })
+          } catch {
+            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+          }
+        },
+      ),
+      resendPendingConfirmation: createAuthEndpoint(
+        '/pending-confirmation/resend',
+        { method: 'POST' },
+        async (context) => {
+          const pendingContext = await getPendingContext(context)
+          if (!pendingContext) {
+            return context.json({ result: 'accepted', retryAfterSeconds: null })
+          }
+          if (pendingContext.isDecoy) {
+            return context.json({ result: 'cooldown', retryAfterSeconds: 60 })
+          }
+
+          try {
+            const result = await identityService.resendConfirmation(pendingContext.handle)
+            return context.json({
+              result: result.result,
+              retryAfterSeconds: result.retry_after_seconds,
+            })
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível reenviar agora. Tente novamente.',
+            })
+          }
+        },
+      ),
+      confirmEmail: createAuthEndpoint(
+        '/confirm-email',
+        { method: 'POST', body: confirmEmailBody },
+        async (context) => {
+          let result: Awaited<ReturnType<typeof identityService.confirmEmail>>
+          try {
+            result = await identityService.confirmEmail(context.body.token)
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível confirmar agora. Tente novamente.',
+            })
+          }
+
+          if (result.result !== 'activated') {
+            return context.json({ result: result.result, redirectTo: ROUTES.login })
+          }
+
+          const pendingContext = await getPendingContext(context)
+          const hasMatchingPendingContext =
+            pendingContext !== null &&
+            (await identityService.verifyPendingConfirmationContext(
+              pendingContext.handle,
+              result.profile.account_id,
+            ))
+          if (!hasMatchingPendingContext) {
+            await clearPendingContext(context)
+            return context.json({ result: 'activated', redirectTo: ROUTES.login })
+          }
+
+          try {
+            const technicalUser = await upsertTechnicalUser(context, result)
+            const session = await context.context.internalAdapter.createSession(
+              technicalUser.user.id,
+              false,
+              { accessVersion: result.access_version },
+            )
+            await clearPendingContext(context)
+            await setSessionCookie(context, { session, user: technicalUser.user })
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'auth_persistence_unavailable',
+              message: 'Não foi possível confirmar agora. Tente novamente.',
+            })
+          }
+
+          return context.json({ result: 'activated', redirectTo: ROUTES.root })
+        },
+      ),
       signInIdentity: createAuthEndpoint(
         '/sign-in/identity',
         {
@@ -291,26 +441,16 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
           }
 
           if (authentication.access === 'activation-only') {
-            const identifier = crypto.randomUUID()
-            await context.context.internalAdapter.createVerificationValue({
-              identifier,
-              value: JSON.stringify({
-                accountId: authentication.profile.account_id,
-                email: authentication.profile.email,
-              }),
-              expiresAt: new Date(Date.now() + PENDING_FLOW_LIFETIME_MS),
-            })
-            await context.setSignedCookie(
-              PENDING_COOKIE_NAME,
-              identifier,
-              context.context.secret,
-              {
-                httpOnly: true,
-                maxAge: PENDING_FLOW_LIFETIME_SECONDS,
-                path: '/',
-                sameSite: 'lax',
-                secure: context.context.options.advanced?.useSecureCookies ?? false,
-              },
+            if (!isPendingHandle(authentication.pending_handle)) {
+              throw APIError.from('SERVICE_UNAVAILABLE', {
+                code: 'identity_unavailable',
+                message: 'Não foi possível entrar agora. Tente novamente.',
+              })
+            }
+            await createPendingContext(
+              context,
+              authentication.pending_handle,
+              authentication.profile.account_id,
             )
 
             return context.json({
@@ -363,15 +503,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         },
         async (context) => {
           try {
-            const identifier = await context.getSignedCookie(
-              PENDING_COOKIE_NAME,
-              context.context.secret,
-            )
-            if (identifier) {
-              await context.context.internalAdapter.deleteVerificationByIdentifier(
-                identifier,
-              )
-            }
+            await clearPendingContext(context)
           } catch {
             throw APIError.from('SERVICE_UNAVAILABLE', {
               code: 'pending_persistence_unavailable',
@@ -379,7 +511,6 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
             })
           }
 
-          await clearPendingCookie(context)
           return context.json({})
         },
       ),
@@ -397,9 +528,101 @@ async function clearPendingCookie(context: GenericEndpointContext) {
   })
 }
 
+async function createPendingContext(
+  context: GenericEndpointContext,
+  pendingHandle: string,
+  accountId?: string,
+  isDecoy = false,
+) {
+  const identifier = crypto.randomUUID()
+  await context.context.internalAdapter.createVerificationValue({
+    identifier,
+    value: JSON.stringify({ pendingHandle, accountId, isDecoy }),
+    expiresAt: new Date(Date.now() + PENDING_FLOW_LIFETIME_MS),
+  })
+  await context.setSignedCookie(PENDING_COOKIE_NAME, identifier, context.context.secret, {
+    httpOnly: true,
+    maxAge: PENDING_FLOW_LIFETIME_SECONDS,
+    path: '/',
+    sameSite: 'lax',
+    secure: context.context.options.advanced?.useSecureCookies ?? false,
+  })
+}
+
+async function createRecoverablePendingContext(
+  context: GenericEndpointContext,
+  pendingHandle: string,
+  isDecoy: boolean,
+) {
+  await context.setSignedCookie(
+    PENDING_COOKIE_NAME,
+    JSON.stringify({ pendingHandle, isDecoy }),
+    context.context.secret,
+    {
+      httpOnly: true,
+      maxAge: PENDING_FLOW_LIFETIME_SECONDS,
+      path: '/',
+      sameSite: 'lax',
+      secure: context.context.options.advanced?.useSecureCookies ?? false,
+    },
+  )
+}
+
+async function getPendingContext(
+  context: GenericEndpointContext,
+): Promise<{ handle: string; isDecoy: boolean } | null> {
+  const identifier = await context.getSignedCookie(
+    PENDING_COOKIE_NAME,
+    context.context.secret,
+  )
+  if (!identifier) return null
+
+  const verification =
+    await context.context.internalAdapter.findVerificationValue(identifier)
+  if (verification && verification.expiresAt <= new Date()) return null
+
+  try {
+    const value: unknown = JSON.parse(verification?.value ?? identifier)
+    if (
+      !isRecord(value) ||
+      typeof value.pendingHandle !== 'string' ||
+      !isPendingHandle(value.pendingHandle)
+    ) {
+      return null
+    }
+    return { handle: value.pendingHandle, isDecoy: value.isDecoy === true }
+  } catch {
+    return null
+  }
+}
+
+async function clearPendingContext(context: GenericEndpointContext) {
+  const identifier = await context.getSignedCookie(
+    PENDING_COOKIE_NAME,
+    context.context.secret,
+  )
+  if (identifier) {
+    await context.context.internalAdapter.deleteVerificationByIdentifier(identifier)
+  }
+  await clearPendingCookie(context)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isPendingHandle(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value)
+}
+
 async function upsertTechnicalUser(
   context: GenericEndpointContext,
-  authentication: Awaited<ReturnType<IdentityService['validateCredentials']>>,
+  authentication:
+    | Awaited<ReturnType<IdentityService['validateCredentials']>>
+    | Extract<
+        Awaited<ReturnType<IdentityService['confirmEmail']>>,
+        { result: 'activated' }
+      >,
 ) {
   const profile = authentication.profile
   const existingUser = await context.context.internalAdapter.findUserById(

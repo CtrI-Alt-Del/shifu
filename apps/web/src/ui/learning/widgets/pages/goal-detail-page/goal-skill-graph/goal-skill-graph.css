@@ -1,0 +1,15 @@
+.goal-graph-highlighted-edge .react-flow__edge-path {
+  animation: goal-graph-path-flow 1s linear infinite;
+}
+
+@keyframes goal-graph-path-flow {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-graph-highlighted-edge .react-flow__edge-path {
+    animation: none;
+  }
+}

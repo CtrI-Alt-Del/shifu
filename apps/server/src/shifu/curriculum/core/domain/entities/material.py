@@ -11,10 +11,13 @@ class Material:
     title: str
     content: str
     material_type: MaterialType
+    concept_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         self.title = require_non_empty(self.title, InvalidMaterialError)
         self.content = require_non_empty(self.content, InvalidMaterialError)
+        if len(self.concept_ids) != len(set(self.concept_ids)):
+            raise InvalidMaterialError
 
     @classmethod
     def create(
@@ -25,6 +28,7 @@ class Material:
         title: str,
         content: str,
         material_type: MaterialType,
+        concept_ids: tuple[str, ...] = (),
     ) -> 'Material':
         return cls(
             id=id,
@@ -32,4 +36,5 @@ class Material:
             title=title,
             content=content,
             material_type=material_type,
+            concept_ids=concept_ids,
         )

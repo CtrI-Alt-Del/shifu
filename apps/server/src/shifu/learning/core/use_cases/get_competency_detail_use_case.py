@@ -4,7 +4,9 @@ from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
     CompetencyProgress,
+    SkillExperience,
 )
+from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityDifficulty,
@@ -12,9 +14,12 @@ from shifu.learning.core.domain.enums import (
     ActivityRecommendationType,
     CompetencyAvailability,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.errors import CompetencyDetailNotFoundError
 from shifu.learning.core.domain.structures import (
+    AdaptiveCompetencyMemory,
+    AdaptiveRecommendationDetail,
     ActivityRecommendation,
     AvailableCompetencyDetail,
     CompetencyActivityDetail,
@@ -23,7 +28,11 @@ from shifu.learning.core.domain.structures import (
     OfficialActivityResult,
     UnavailableCompetencyDetail,
 )
-from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.interfaces import (
+    LearningDatabase,
+    LearningDatabaseRepositories,
+)
+from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
@@ -94,6 +103,16 @@ class GetCompetencyDetailUseCase:
                 for progress in progress_rows
                 if progress.skill_experience_id == skill_experience.id
             }
+            if skill_experience.policy_id == AdaptiveLearningPolicy.policy_id:
+                return self._v2_detail(
+                    repositories,
+                    skill_experience,
+                    skill_content,
+                    competency,
+                    progress_by_competency,
+                    goal_id,
+                    skill_id,
+                )
             focus = self._find_focus(competencies, progress_by_competency)
             focus_competency_id = focus.id if focus is not None else None
             focus_competency_name = focus.name if focus is not None else None
@@ -163,6 +182,140 @@ class GetCompetencyDetailUseCase:
                 items=items,
                 recommendation=recommendation,
             )
+
+    @staticmethod
+    def _v2_detail(
+        repositories: LearningDatabaseRepositories,
+        experience: SkillExperience,
+        skill: CurriculumSkillSnapshot,
+        competency: CurriculumCompetencySnapshot,
+        progress_by_competency: dict[str, CompetencyProgress],
+        goal_id: str,
+        skill_id: str,
+    ) -> CompetencyDetail:
+        context = AdaptivePolicyContext.from_skill(skill)
+        observations = tuple(
+            repositories.concept_observations.find_many_by_skill_experience_id(
+                experience.id
+            )
+        )
+        memories = tuple(
+            AdaptiveCompetencyMemory(
+                competency_id=item.competency_id,
+                mastered_at=item.mastered_at,
+                content_released=item.content_released,
+            )
+            for item in progress_by_competency.values()
+        )
+        pending = (
+            repositories.activity_evaluations.find_unresolved_by_skill_experience_id(
+                experience.id
+            )
+        )
+        policy = AdaptiveLearningPolicy().evaluate(
+            concepts=context.concepts,
+            competency_ids=context.competency_ids,
+            activities=context.activities,
+            materials=context.materials,
+            observations=observations,
+            memories=memories,
+            pending_evaluation=pending is not None,
+            previous_target_id=experience.recommended_concept_id,
+            now=experience.updated_at,
+        )
+        state_by_id = {item.competency_id: item for item in policy.competency_states}
+        focus_id = policy.focus_competency_id
+        focus_competency = next(
+            (item for item in skill.competencies if item.id == focus_id), None
+        )
+        progress = progress_by_competency.get(competency.id)
+        state = state_by_id.get(competency.id)
+        if (
+            progress is None
+            or state is None
+            or not progress.content_released
+            or experience.status
+            in {SkillExperienceStatus.NOT_STARTED, SkillExperienceStatus.DIAGNOSING}
+        ):
+            return UnavailableCompetencyDetail(
+                goal_id=goal_id,
+                skill_id=skill_id,
+                skill_name=skill.name,
+                competency_id=competency.id,
+                competency_name=competency.name,
+                availability=CompetencyAvailability.UNAVAILABLE,
+                focus_competency_id=focus_id,
+                focus_competency_name=focus_competency.name
+                if focus_competency
+                else None,
+            )
+        attempts = tuple(
+            repositories.activity_attempts.find_many_by_skill_experience_id(
+                experience.id
+            )
+        )
+        learning_attempts = tuple(
+            item
+            for item in attempts
+            if item.competency_id == competency.id
+            and item.kind in {ActivityAttemptKind.LEARNING, ActivityAttemptKind.REVIEW}
+        )
+        evaluations = repositories.activity_evaluations.find_many_by_attempt_ids(
+            tuple(item.id for item in learning_attempts)
+        )
+        latest_results = GetCompetencyDetailUseCase._latest_official_results(
+            learning_attempts, evaluations
+        )
+        items = GetCompetencyDetailUseCase._build_items(competency, latest_results)
+        recommended = policy.recommendation if focus_id == competency.id else None
+        concept_names = {
+            concept.id: concept.name
+            for item in skill.competencies
+            for concept in item.concepts
+        }
+        adaptive = (
+            AdaptiveRecommendationDetail(
+                target_concept_id=recommended.target_concept_id,
+                target_concept_name=concept_names[recommended.target_concept_id],
+                original_target_concept_id=recommended.original_target_concept_id,
+                original_target_concept_name=concept_names[
+                    recommended.original_target_concept_id
+                ],
+                recommended_competency_id=recommended.recommended_competency_id,
+                material_competency_id=recommended.material_competency_id,
+                reason=recommended.reason,
+                difficulty=recommended.difficulty,
+                activity_id=recommended.activity_id,
+                material_id=recommended.material_id,
+                material_is_optional=recommended.material_is_optional,
+                gap=recommended.gap,
+            )
+            if recommended is not None
+            else None
+        )
+        is_focus = focus_id == competency.id
+        return AvailableCompetencyDetail(
+            goal_id=goal_id,
+            skill_id=skill_id,
+            skill_name=skill.name,
+            competency_id=competency.id,
+            competency_name=competency.name,
+            availability=CompetencyAvailability.AVAILABLE,
+            progress=state.progress,
+            status=state.status,
+            is_focus=is_focus,
+            focus_returned=is_focus
+            and GetCompetencyDetailUseCase._has_later_released_competency(
+                competency, tuple(skill.competencies), progress_by_competency
+            ),
+            focus_competency_id=focus_id,
+            focus_competency_name=focus_competency.name if focus_competency else None,
+            items=items,
+            recommendation=None,
+            adaptive=adaptive,
+            coverage_complete=state.coverage_complete,
+            verification_cause=state.verification_cause,
+        )
 
     @staticmethod
     def _ordered_competencies(

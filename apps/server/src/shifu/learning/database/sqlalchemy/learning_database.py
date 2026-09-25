@@ -9,6 +9,8 @@ from shifu.learning.database.sqlalchemy.repositories import (
     SqlalchemyActivityAttemptsRepository,
     SqlalchemyActivityEvaluationsRepository,
     SqlalchemyCompetencyProgressesRepository,
+    SqlalchemyConceptObservationsRepository,
+    SqlalchemyConceptStatesRepository,
     SqlalchemyGoalsRepository,
     SqlalchemySkillExperiencesRepository,
 )
@@ -42,6 +44,8 @@ class SqlalchemyLearningDatabase:
                 competency_progresses=SqlalchemyCompetencyProgressesRepository(session),
                 activity_attempts=SqlalchemyActivityAttemptsRepository(session),
                 activity_evaluations=SqlalchemyActivityEvaluationsRepository(session),
+                concept_observations=SqlalchemyConceptObservationsRepository(session),
+                concept_states=SqlalchemyConceptStatesRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

@@ -12,7 +12,11 @@ vi.mock('@/provision/auth/cookie-session-auth-provider', () => ({
 
 const providerMock = vi.mocked(CookieSessionAuthProvider)
 const providerValue = {
+  confirmEmail: vi.fn(),
   exitPendingConfirmation: vi.fn(),
+  getPendingConfirmationStatus: vi.fn(),
+  registerAccount: vi.fn(),
+  resendConfirmation: vi.fn(),
   signIn: vi.fn(),
   signOut: vi.fn(),
 }

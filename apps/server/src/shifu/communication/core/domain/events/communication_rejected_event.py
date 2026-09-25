@@ -1,17 +1,8 @@
-from dataclasses import field
-
-from shifu.shared.core.domain.events import Event
-from shifu.shared.core.domain.structures import structure
-
-
-@structure
-class CommunicationRejectedPayload:
-    communication_id: str
-    account_id: str | None
-    rejection_code: str
-    rejected_at: str
+from shifu.communication.core.domain.events.communication_delivery_state_changed import (
+    CommunicationDeliveryStateChangedEvent,
+    CommunicationDeliveryStateChangedPayload,
+)
 
 
-@structure
-class CommunicationRejectedEvent(Event[CommunicationRejectedPayload]):
-    name: str = field(default='communication/communication.rejected', init=False)
+CommunicationRejectedPayload = CommunicationDeliveryStateChangedPayload
+CommunicationRejectedEvent = CommunicationDeliveryStateChangedEvent

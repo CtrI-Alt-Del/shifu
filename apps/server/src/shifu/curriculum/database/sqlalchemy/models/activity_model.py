@@ -20,3 +20,4 @@ class ActivityModel(Model):
     objective: Mapped[str] = mapped_column(String(4000), nullable=False)
     questions: Mapped[object] = mapped_column(JSON, nullable=False)
     evaluation_rule: Mapped[object] = mapped_column(JSON, nullable=False)
+    required_concept_ids: Mapped[object] = mapped_column(JSON, nullable=False)

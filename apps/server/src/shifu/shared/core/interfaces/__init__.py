@@ -1,6 +1,9 @@
 from .authentication_provider import AuthenticationProvider as AuthenticationProvider
 from .cache_provider import CacheProvider as CacheProvider
 from .clock_provider import ClockProvider as ClockProvider
+from .curriculum_catalog_provider import (
+    CurriculumCatalogProvider as CurriculumCatalogProvider,
+)
 from .curriculum_content_provider import (
     CurriculumContentProvider as CurriculumContentProvider,
 )

@@ -1,6 +1,7 @@
 from shifu.curriculum.core.domain.entities import Material
 from shifu.curriculum.core.domain.enums import MaterialType
 from shifu.curriculum.database.sqlalchemy.models import MaterialModel
+from typing import cast
 
 
 class MaterialMapper:
@@ -12,6 +13,7 @@ class MaterialMapper:
             title=model.title,
             content=model.content,
             material_type=MaterialType(model.material_type),
+            concept_ids=tuple(cast('list[str]', model.concept_ids)),
         )
 
     @staticmethod
@@ -22,4 +24,5 @@ class MaterialMapper:
             title=material.title,
             content=material.content,
             material_type=material.material_type.value,
+            concept_ids=list(material.concept_ids),
         )

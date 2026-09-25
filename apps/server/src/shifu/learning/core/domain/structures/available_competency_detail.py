@@ -8,6 +8,9 @@ from shifu.learning.core.domain.enums import (
 from shifu.learning.core.domain.structures.activity_recommendation import (
     ActivityRecommendation,
 )
+from shifu.learning.core.domain.structures.adaptive_recommendation_detail import (
+    AdaptiveRecommendationDetail,
+)
 from shifu.learning.core.domain.structures.competency_activity_detail import (
     CompetencyActivityDetail,
 )
@@ -26,7 +29,7 @@ class AvailableCompetencyDetail:
     competency_id: str
     competency_name: str
     availability: Literal[CompetencyAvailability.AVAILABLE]
-    progress: Decimal
+    progress: Decimal | None
     status: CompetencyProgressStatus
     is_focus: bool
     focus_returned: bool
@@ -34,9 +37,13 @@ class AvailableCompetencyDetail:
     focus_competency_name: str | None
     items: tuple[CompetencyMaterialDetail | CompetencyActivityDetail, ...]
     recommendation: ActivityRecommendation | None
+    adaptive: AdaptiveRecommendationDetail | None = None
+    coverage_complete: bool = False
+    verification_cause: str | None = None
 
     def __post_init__(self) -> None:
-        require_percentage(self.progress)
+        if self.progress is not None:
+            require_percentage(self.progress)
         if self.focus_returned and not self.is_focus:
             raise ValueError('Only the current focus can be returned.')
         if self.recommendation is not None:
