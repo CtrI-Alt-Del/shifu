@@ -2,7 +2,9 @@ import { Link } from '@tanstack/react-router'
 
 import { Button } from '@/ui/shadcn/button'
 
+import { SkillExperience } from './skill-experience'
 import { type SkillPageProps, useSkillPage } from './use-skill-page'
+import { useSkillExperience } from './use-skill-experience'
 
 export type { SkillPageProps } from './use-skill-page'
 
@@ -21,8 +23,27 @@ export const SkillPage = (props: SkillPageProps) => {
     handleRetryDiagnostic,
     handleRetry,
   } = useSkillPage(props)
+  const {
+    experience,
+    handleRetryEvaluation,
+    isExperienceLoading,
+    isRetrying: isRetryingEvaluation,
+    retryFailed,
+  } = useSkillExperience(props)
+  const isLearning =
+    diagnostic?.status === 'learning' || diagnostic?.status === 'completed'
 
-  if (isLoading)
+  if (isLearning && experience)
+    return (
+      <SkillExperience
+        experience={experience}
+        isRetrying={isRetryingEvaluation}
+        onRetryEvaluation={() => void handleRetryEvaluation()}
+        retryFailed={retryFailed}
+      />
+    )
+
+  if (isLoading || (isLearning && isExperienceLoading))
     return (
       <output className='mx-auto block w-full max-w-7xl'>Carregando Habilidade...</output>
     )

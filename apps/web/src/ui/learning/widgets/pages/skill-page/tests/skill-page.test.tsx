@@ -19,6 +19,15 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 vi.mock('../use-skill-page', () => ({ useSkillPage: vi.fn() }))
+vi.mock('../use-skill-experience', () => ({
+  useSkillExperience: () => ({
+    experience: null,
+    handleRetryEvaluation: vi.fn(),
+    isExperienceLoading: false,
+    isRetrying: false,
+    retryFailed: false,
+  }),
+}))
 
 const useSkillPageMock = vi.mocked(useSkillPage)
 const IDS = {

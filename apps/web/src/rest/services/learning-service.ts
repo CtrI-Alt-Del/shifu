@@ -1,4 +1,5 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
+import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
@@ -189,6 +190,18 @@ export const LearningService = (restClient: RestClient) => {
 
       if (response.isFailure) response.throwError()
       return response.body.goals
+    },
+
+    async getSkillExperienceDetail(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<SkillExperienceDetail> {
+      const response = await restClient.get<SkillExperienceDetail>(
+        `/learning/goals/${goalId}/skills/${skillId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      return response.body
     },
 
     async getCompetencyDetail(
