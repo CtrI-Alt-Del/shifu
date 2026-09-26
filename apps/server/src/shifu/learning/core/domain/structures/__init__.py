@@ -75,7 +75,13 @@ from .skill_catalog_row import (
     SkillCatalogRow as SkillCatalogRow,
     SuggestedFoundation as SuggestedFoundation,
 )
+from .skill_competency_summary import (
+    SkillCompetencySummary as SkillCompetencySummary,
+)
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
+from .skill_evaluation_state import SkillEvaluationState as SkillEvaluationState
+from .skill_experience_detail import SkillExperienceDetail as SkillExperienceDetail
+from .skill_recommendation import SkillRecommendation as SkillRecommendation
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,
 )

@@ -20,6 +20,9 @@ from .remove_goal_use_case import RemoveGoalUseCase as RemoveGoalUseCase
 from .retry_choice_evaluation_use_case import (
     RetryChoiceEvaluationUseCase as RetryChoiceEvaluationUseCase,
 )
+from .get_skill_experience_detail_use_case import (
+    GetSkillExperienceDetailUseCase as GetSkillExperienceDetailUseCase,
+)
 from .search_skill_catalog_use_case import (
     SearchSkillCatalogUseCase as SearchSkillCatalogUseCase,
 )

@@ -30,6 +30,9 @@ from .remove_goal_controller import RemoveGoalController as RemoveGoalController
 from .retry_choice_evaluation_controller import (
     RetryChoiceEvaluationController as RetryChoiceEvaluationController,
 )
+from .get_skill_experience_detail_controller import (
+    GetSkillExperienceDetailController as GetSkillExperienceDetailController,
+)
 from .search_skill_catalog_controller import (
     SearchSkillCatalogController as SearchSkillCatalogController,
 )

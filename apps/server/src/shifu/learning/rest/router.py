@@ -11,6 +11,7 @@ from shifu.learning.rest.controllers import (
     GetHomeGoalsController,
     GetMaterialController,
     GetMaterialDetailController,
+    GetSkillExperienceDetailController,
     ListAvailableSkillsController,
     RemoveGoalController,
     RetryChoiceEvaluationController,
@@ -30,6 +31,7 @@ class LearningRouter:
         GetGoalDetailController.handle(router)
         GetHomeGoalsController.handle(router)
         GetMaterialDetailController.handle(router)
+        GetSkillExperienceDetailController.handle(router)
         SearchSkillCatalogController.handle(router)
         AddSkillToGoalController.handle(router)
         RemoveGoalController.handle(router)
