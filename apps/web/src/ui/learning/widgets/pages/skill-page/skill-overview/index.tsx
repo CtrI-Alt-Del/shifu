@@ -2,6 +2,7 @@ import {
   SKILL_STATUS_LABELS,
   type SkillExperienceStatus,
 } from '@/core/learning/skill-experience'
+import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 export type SkillOverviewProps = {
@@ -36,13 +37,14 @@ export const SkillOverview = ({
           </span>
         </div>
       </div>
-      <button
+      <Button
         aria-label='Ações da Habilidade'
-        className='grid size-9 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground transition-colors hover:text-foreground'
+        className='size-9 min-h-0 shrink-0 bg-muted px-0 text-muted-foreground hover:bg-muted hover:text-foreground'
         type='button'
+        variant='ghost'
       >
         <Icon name='ellipsis' size={18} />
-      </button>
+      </Button>
     </header>
   )
 }

@@ -82,18 +82,29 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
   }
 }
 
-function renderExperience(overrides: Partial<SkillExperienceDetail> = {}) {
+function renderExperience(
+  overrides: Partial<SkillExperienceDetail> = {},
+  state: { isRetrying?: boolean; retryFailed?: boolean } = {},
+) {
   const onRetryEvaluation = vi.fn()
   render(
     <SkillExperience
       experience={detail(overrides)}
-      isRetrying={false}
+      isRetrying={state.isRetrying ?? false}
       onRetryEvaluation={onRetryEvaluation}
-      retryFailed={false}
+      retryFailed={state.retryFailed ?? false}
     />,
   )
   return { onRetryEvaluation }
 }
+
+const HELD_FAILURE = {
+  evaluationId: IDS.evaluationId,
+  attemptId: IDS.attemptId,
+  activityId: IDS.activityId,
+  competencyId: IDS.focusCompetencyId,
+  status: 'failed',
+} as const
 
 describe('SkillExperience', () => {
   afterEach(cleanup)
@@ -217,6 +228,19 @@ describe('SkillExperience', () => {
 
     expect(onRetryEvaluation).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('link', { name: /Variáveis e tipos/ })).toBeVisible()
+  })
+
+  it('reports a retry that could not be processed and blocks a duplicate one', () => {
+    renderExperience(
+      { evaluation: HELD_FAILURE },
+      { isRetrying: true, retryFailed: true },
+    )
+
+    const action = screen.getByRole('button', { name: 'Tentando...' })
+    expect(action).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível reprocessar agora.',
+    )
   })
 
   it('offers the way back to the Objective', () => {

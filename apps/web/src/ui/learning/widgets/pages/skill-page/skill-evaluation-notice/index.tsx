@@ -1,4 +1,5 @@
 import type { SkillEvaluationState } from '@/core/learning/skill-experience'
+import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 export type SkillEvaluationNoticeProps = {
@@ -49,14 +50,14 @@ export const SkillEvaluationNotice = ({
         Sua resposta foi preservada. Tente avaliar novamente; as Competências e conteúdos
         liberados continuam disponíveis.
       </span>
-      <button
-        className='inline-flex min-h-[38px] shrink-0 items-center rounded-md bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-70'
+      <Button
+        className='min-h-[38px] shrink-0 px-[18px] text-sm'
         disabled={isRetrying}
         onClick={onRetry}
         type='button'
       >
         {isRetrying ? 'Tentando...' : 'Tentar novamente'}
-      </button>
+      </Button>
       {retryFailed ? (
         <span className='w-full text-sm text-selo-text'>
           Não foi possível reprocessar agora. Tente novamente em instantes.
