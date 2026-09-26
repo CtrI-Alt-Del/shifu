@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable
 from threading import Event as ThreadEvent
-from threading import Thread
+from threading import Lock, Thread
 from typing import Protocol
 
 import psycopg
@@ -32,13 +32,17 @@ class SqlalchemyEventsRepositoryListener:
         self._connection: PostgresListenerConnection = connection
         self._on_event: Callable[[str], None] = on_event
         self._stopped = ThreadEvent()
+        self._subscription = Lock()
         self._thread = Thread(target=self._run, daemon=True)
         self._thread.start()
 
     def _run(self) -> None:
         try:
-            self._connection.execute(f'LISTEN {EVENTS_CHANNEL}')
-            self._connection.commit()
+            with self._subscription:
+                if self._stopped.is_set():
+                    return
+                self._connection.execute(f'LISTEN {EVENTS_CHANNEL}')
+                self._connection.commit()
             for notification in self._connection.notifies():
                 if self._stopped.is_set():
                     break
@@ -52,6 +56,9 @@ class SqlalchemyEventsRepositoryListener:
             return
         self._stopped.set()
         try:
-            self._connection.close()
+            # Closing the connection while the listener thread still has the
+            # subscription command in flight crashes libpq, so wait for it.
+            with self._subscription:
+                self._connection.close()
         finally:
             self._thread.join(timeout=1)
