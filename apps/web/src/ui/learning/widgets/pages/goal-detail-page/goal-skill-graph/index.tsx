@@ -18,6 +18,7 @@ export type GoalSkillGraphProps = {
   skills: readonly GoalSkillDetail[]
   relations: readonly GoalSkillRelation[]
   title: string
+  onRemoveSkill: (skill: GoalSkillDetail, trigger: HTMLButtonElement) => void
 }
 
 export const GoalSkillGraph = ({
@@ -25,6 +26,7 @@ export const GoalSkillGraph = ({
   relations,
   skills,
   title,
+  onRemoveSkill,
 }: GoalSkillGraphProps) => {
   const {
     nodes,
@@ -38,7 +40,7 @@ export const GoalSkillGraph = ({
     handleZoomChange,
     handleNodeHover,
     handleNodeFocus,
-  } = useGoalSkillGraph(goalId, skills, relations, title)
+  } = useGoalSkillGraph(goalId, skills, relations, title, onRemoveSkill)
   const [instance, setInstance] = useState<ReactFlowInstance<GoalFlowNodeType> | null>(
     null,
   )

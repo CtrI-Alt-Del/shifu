@@ -44,6 +44,7 @@ describe('GoalSkillGraph', () => {
     render(
       <GoalSkillGraph
         goalId='01SHF000000000000000000003'
+        onRemoveSkill={vi.fn()}
         relations={[]}
         skills={[skill]}
         title='Fundamentos de programação'
@@ -75,6 +76,7 @@ describe('GoalSkillGraph', () => {
     render(
       <GoalSkillGraph
         goalId='01SHF000000000000000000003'
+        onRemoveSkill={vi.fn()}
         relations={[]}
         skills={[skill]}
         title='Fundamentos de programação'

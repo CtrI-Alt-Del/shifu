@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '@/ui/shadcn/button'
+import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
+import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 
 import { SkillExperience } from './skill-experience'
 import { type SkillPageProps, useSkillPage } from './use-skill-page'
@@ -19,9 +21,16 @@ export const SkillPage = (props: SkillPageProps) => {
     startError,
     isRetrying,
     retryError,
+    isRemovalDialogOpen,
+    isRemovingSkill,
+    removeSkillError,
+    removalTriggerRef,
     handleStart,
     handleRetryDiagnostic,
     handleRetry,
+    handleOpenRemovalDialog,
+    handleCancelRemoval,
+    handleConfirmRemoval,
   } = useSkillPage(props)
   const {
     experience,
@@ -35,12 +44,34 @@ export const SkillPage = (props: SkillPageProps) => {
 
   if (isLearning && experience)
     return (
-      <SkillExperience
-        experience={experience}
-        isRetrying={isRetryingEvaluation}
-        onRetryEvaluation={() => void handleRetryEvaluation()}
-        retryFailed={retryFailed}
-      />
+      <>
+        <SkillExperience
+          experience={experience}
+          isRetrying={isRetryingEvaluation}
+          onRetryEvaluation={() => void handleRetryEvaluation()}
+          retryFailed={retryFailed}
+          onRemove={handleOpenRemovalDialog}
+        />
+        <ConfirmationDialog
+          cancelLabel='Cancelar'
+          confirmLabel='Remover habilidade'
+          description='Somente esta experiência será removida deste Objetivo. A Habilidade continuará disponível no Currículo e em outros Objetivos.'
+          error={removeSkillError}
+          icon='trash-2'
+          isOpen={isRemovalDialogOpen}
+          isSubmitting={isRemovingSkill}
+          itemName={skillName}
+          losses={[
+            'Diagnóstico, justificativa e evidências por Conceito',
+            'Progresso, domínio e recomendações',
+            'Tentativas, avaliações e resumo final',
+          ]}
+          onCancel={handleCancelRemoval}
+          onConfirm={() => void handleConfirmRemoval()}
+          restoreFocusRef={removalTriggerRef}
+          title='Remover Habilidade?'
+        />
+      </>
     )
 
   if (isLoading || (isLearning && isExperienceLoading))
@@ -66,18 +97,21 @@ export const SkillPage = (props: SkillPageProps) => {
   return (
     <main className='mx-auto w-full max-w-7xl space-y-8 pb-10'>
       <div className='mx-auto w-full max-w-4xl space-y-8'>
-        <header>
-          <Link
-            className='inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground'
-            params={{ goalId: props.goalId }}
-            to='/learning/goals/$goalId'
-          >
-            Voltar para o Objetivo
-          </Link>
-          <p className='mt-4 text-xs font-bold uppercase tracking-[0.12em] text-primary'>
-            Habilidade
-          </p>
-          <h1 className='mt-2 font-serif text-4xl font-semibold'>{skillName}</h1>
+        <header className='flex items-start justify-between gap-4'>
+          <div>
+            <Link
+              className='inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground'
+              params={{ goalId: props.goalId }}
+              to='/learning/goals/$goalId'
+            >
+              Voltar para o Objetivo
+            </Link>
+            <p className='mt-4 text-xs font-bold uppercase tracking-[0.12em] text-primary'>
+              Habilidade
+            </p>
+            <h1 className='mt-2 font-serif text-4xl font-semibold'>{skillName}</h1>
+          </div>
+          <SkillActionsMenu onRemove={handleOpenRemovalDialog} skillName={skillName} />
         </header>
         {diagnostic.status === 'not-started' ? (
           <section className='rounded-md border border-border bg-card p-6'>
@@ -217,6 +251,25 @@ export const SkillPage = (props: SkillPageProps) => {
           </section>
         ) : null}
       </div>
+      <ConfirmationDialog
+        cancelLabel='Cancelar'
+        confirmLabel='Remover habilidade'
+        description='Somente esta experiência será removida deste Objetivo. A Habilidade continuará disponível no Currículo e em outros Objetivos.'
+        error={removeSkillError}
+        icon='trash-2'
+        isOpen={isRemovalDialogOpen}
+        isSubmitting={isRemovingSkill}
+        itemName={skillName}
+        losses={[
+          'Diagnóstico, justificativa e evidências por Conceito',
+          'Progresso, domínio e recomendações',
+          'Tentativas, avaliações e resumo final',
+        ]}
+        onCancel={handleCancelRemoval}
+        onConfirm={() => void handleConfirmRemoval()}
+        restoreFocusRef={removalTriggerRef}
+        title='Remover Habilidade?'
+      />
     </main>
   )
 }
