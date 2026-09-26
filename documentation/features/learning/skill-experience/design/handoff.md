@@ -12,7 +12,7 @@ and `diagnosing` states of the same route belong to the diagnostic slice already
 | Reference | Source/node | Route/surface/state | Viewport | Screenshot | Visible inventory | Ambiguities/exclusions | Validation target |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Desktop base | `design/shifu.pen` / `uyfWq` | Skill in learning, recommendation available | 1440 × 900 | [uyfWq.png](./uyfWq.png) | Return to the Objective, title at 40, `Em aprendizado` pill, `Resultado geral` chip, actions trigger, recommendation card with difficulty and type badges, Activity title and two actions, and the ordered Competency list | The frame is the *menu aberto* variant; its menu items belong to SHIFU-36 and only the trigger is rendered | `CA-03`, `CA-04`, `CA-11`–`CA-15` |
-| Mobile base | `design/shifu.pen` / `wXPwI` | Skill in learning, recommendation available | 390 × 844 | [wXPwI.png](./wXPwI.png) | Same sequence stacked, actions full width, rows without the progress bar column | The 360 px bar is hidden below `lg`; the percentage and the pills carry the same information | `CA-20`, `CA-21` |
+| Mobile base | `design/shifu.pen` / `wXPwI` | Skill in learning, recommendation available | 390 × 844 | [wXPwI.png](./wXPwI.png) | Same sequence stacked: the two actions fill the width with the primary on top, and each Competency row becomes a summary line, a full-width bar and its badges | Nothing is dropped at this width | `CA-20`, `CA-21` |
 | Desktop loading | `design/shifu.pen` / `XBet9` | Unresolved query | 1440 × 900 | [XBet9.png](./XBet9.png) | Centered `Carregando habilidade` with the supporting sentence | Owned by the existing page shell, which already renders a loading surface for this route | `CA-19` |
 | Mobile loading | `design/shifu.pen` / `JNazF` | Unresolved query | 390 × 844 | [JNazF.png](./JNazF.png) | Same surface at mobile width | Same as desktop | `CA-19` |
 | Desktop unavailable | `design/shifu.pen` / `f500p` | Absent Skill, or one owned by another account | 1440 × 900 | [f500p.png](./f500p.png) | Lock, `Habilidade indisponível`, the neutral explanation and the return to the Objective | Rendered from the generic `404` by decision `D8`; no payload describes it | `CA-02`, `CA-19` |
@@ -73,8 +73,12 @@ Use only icons registered by the shared `Icon` widget. Feature widgets must not 
   actions 38 tall with 18 of horizontal padding.
 - Competency card: padding 6, radius 10; each row 50 tall, gap 16, padding 14 by 16,
   radius 6, and the focus row filled with `$raised`.
-- Progress bar: 360 × 8, radius 3, with three 1 px marks at 40, 70 and 85 in
-  `$text-primary`. The marks are the reason no state depends on colour alone.
+- Progress bar: 360 × 8 at desktop and full width at mobile, radius 3, with three 1 px
+  marks at 40, 70 and 85 in `$text-primary`. The marks are the reason no state depends
+  on colour alone.
+- Failed evaluation notice: 1 px inner stroke in `$selo-text` over `$surface-alt`.
+- Mobile row: vertical, gap 7, padding 9 by 10; summary at 12 and 13, badges at 10 with
+  padding 3 by 7. Mobile actions: vertical, gap 8, each filling the width.
 
 ## Design-to-runtime deltas
 
@@ -83,7 +87,7 @@ Use only icons registered by the shared `Icon` widget. Feature widgets must not 
 | 1 | Blocked badge icon | `lock` | `lock-keyhole` | Accepted. `lock` is not in the shared registry; see `ACH-02`. |
 | 2 | Failed evaluation chip | `alert-triangle` | `circle-alert` | Accepted. Not registered, and the sibling feedback widgets already use `circle-alert` for this meaning; see `ACH-03`. |
 | 3 | Skill actions menu | Expanded, with its items | Trigger only | Accepted. Every item belongs to SHIFU-36; see `ACH-04`. |
-| 4 | Progress bar at mobile | Present | Hidden below `lg` | Accepted. At 390 the 360 px bar cannot coexist with the name, the percentage and two pills; the numeric value and the pills carry the same information, and the frame itself drops it. |
+| 4 | Competency row at mobile | Stacked into summary, full-width bar and badges, gap 7, padding 9 by 10 | Same stacking below `lg` | Resolved on 2026-09-25. A first pass hid the bar on the wrong assumption that the frame dropped it; the frame keeps it and stacks the row instead. The wrong version overflowed 375 px horizontally, which the browser suite caught. |
 | 5 | Row trailing space | Fixed columns leave empty space at the right | Same at `lg`; the name stretches below it | Accepted. The fixed 280 px name and 360 px bar are reproduced from `lg` up, where the frame's width applies. |
 
 No structural divergence was found: every frame's hierarchy, state inventory and
