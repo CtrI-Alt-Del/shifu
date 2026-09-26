@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SkillPage } from '..'
@@ -46,8 +47,17 @@ function controller(overrides: Partial<ReturnType<typeof useSkillPage>> = {}) {
     isRecoverableError: false,
     isStarting: false,
     startError: null,
+    isRetrying: false,
+    retryError: false,
+    isRemovalDialogOpen: false,
+    isRemovingSkill: false,
+    removeSkillError: null,
     handleStart: vi.fn(async () => {}),
+    handleRetryDiagnostic: vi.fn(async () => {}),
     handleRetry: vi.fn(async () => ({}) as never),
+    handleOpenRemovalDialog: vi.fn(),
+    handleCancelRemoval: vi.fn(),
+    handleConfirmRemoval: vi.fn(async () => {}),
     ...overrides,
   } as ReturnType<typeof useSkillPage>
 }
@@ -75,6 +85,39 @@ describe('SkillPage', () => {
     expect(screen.getByText(/resultado consolidado ao final/i)).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar Habilidade' }))
     expect(handleStart).toHaveBeenCalledOnce()
+  })
+
+  it('opens the destructive confirmation in a diagnostic state', async () => {
+    const user = userEvent.setup()
+    const handleOpenRemovalDialog = vi.fn()
+    const diagnostic = {
+      status: 'not-started' as const,
+      nextCompetencyId: null,
+      nextActivityId: null,
+      pendingAttemptId: null,
+      pendingAttemptStatus: null,
+      focusCompetencyId: null,
+      competencies: [],
+    }
+    useSkillPageMock.mockReturnValue(controller({ diagnostic, handleOpenRemovalDialog }))
+    const { rerender } = render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
+
+    await user.click(
+      screen.getByRole('button', { name: 'Mais ações de Lógica de programação' }),
+    )
+    await user.click(screen.getByRole('menuitem', { name: 'Remover habilidade' }))
+    expect(handleOpenRemovalDialog).toHaveBeenCalledOnce()
+
+    useSkillPageMock.mockReturnValue(
+      controller({
+        diagnostic,
+        isRemovalDialogOpen: true,
+        removeSkillError: 'Não foi possível remover a Habilidade. Tente novamente.',
+      }),
+    )
+    rerender(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
+    expect(screen.getByRole('heading', { name: 'Remover Habilidade?' })).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('Tente novamente')
   })
 
   it('explains a Curriculum coverage gap at start without entering diagnosis', () => {

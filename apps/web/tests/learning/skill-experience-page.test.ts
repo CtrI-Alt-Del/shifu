@@ -287,3 +287,145 @@ test('is operable by keyboard and has no horizontal scroll on a narrow viewport'
   )
   expect(overflow).toBeLessThanOrEqual(0)
 })
+
+test('removes the Skill once and returns to the same Objective graph', async ({
+  authenticatedPage,
+}) => {
+  let removalRequests = 0
+  let removed = false
+  await mockTransport(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const exported = serverFnExport(route.request().url())
+    if (exported.startsWith('getGoalDetail') && removed) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            kind: 'success',
+            detail: {
+              goalId: IDS.goalId,
+              title: 'Aprender a programar',
+              skills: [],
+              relations: [],
+            },
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (!exported.startsWith('removeSkill')) {
+      await route.fallback()
+      return
+    }
+    removalRequests += 1
+    expect(route.request().method()).toBe('POST')
+    expect(route.request().postData() ?? '').toContain(IDS.goalId)
+    expect(route.request().postData() ?? '').toContain(IDS.skillId)
+    removed = true
+    await route.fulfill({
+      body: JSON.stringify({ result: undefined }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, skillPath)
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Mais ações de Lógica de programação',
+  })
+  await trigger.focus()
+  await trigger.press('Enter')
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  const dialog = authenticatedPage.getByRole('alertdialog')
+  await expect(dialog.getByText('Lógica de programação', { exact: true })).toBeVisible()
+  await expect(dialog.getByText(/Somente esta experiência será removida/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'Remover habilidade' }).click()
+
+  await expect(authenticatedPage).toHaveURL(`/learning/goals/${IDS.goalId}`)
+  await expect(
+    authenticatedPage.getByText('Lógica de programação', { exact: true }),
+  ).not.toBeVisible()
+  expect(removalRequests).toBe(1)
+})
+
+test('cancels with Escape, restores focus and retries a failed removal on mobile', async ({
+  authenticatedPage,
+}) => {
+  let removalRequests = 0
+  let removed = false
+  await mockTransport(authenticatedPage)
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const exported = serverFnExport(route.request().url())
+    if (exported.startsWith('getGoalDetail') && removed) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            kind: 'success',
+            detail: {
+              goalId: IDS.goalId,
+              title: 'Aprender a programar',
+              skills: [],
+              relations: [],
+            },
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (!exported.startsWith('removeSkill')) {
+      await route.fallback()
+      return
+    }
+    removalRequests += 1
+    if (removalRequests > 1) {
+      removed = true
+      await route.fulfill({
+        body: JSON.stringify({ result: undefined }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ error: 'Internal Server Error' }),
+      contentType: 'application/json',
+      status: 500,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, skillPath)
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Mais ações de Lógica de programação',
+  })
+  await trigger.click()
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  await authenticatedPage.keyboard.press('Escape')
+  await expect(authenticatedPage.getByRole('alertdialog')).not.toBeVisible()
+  await expect(trigger).toBeFocused()
+  expect(removalRequests).toBe(0)
+
+  await trigger.click()
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  const confirmButton = authenticatedPage
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Remover habilidade' })
+  await confirmButton.evaluate((button) => {
+    const confirm = button as HTMLButtonElement
+    confirm.click()
+    confirm.click()
+  })
+  await expect(authenticatedPage.getByRole('alertdialog')).toContainText(
+    'Não foi possível remover a Habilidade. Tente novamente.',
+  )
+  expect(removalRequests).toBe(1)
+  await confirmButton.click()
+  await expect(authenticatedPage).toHaveURL(`/learning/goals/${IDS.goalId}`)
+  await expect(
+    authenticatedPage.getByText('Lógica de programação', { exact: true }),
+  ).not.toBeVisible()
+  expect(removalRequests).toBe(2)
+  const overflow = await authenticatedPage.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(0)
+})

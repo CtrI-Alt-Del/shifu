@@ -66,6 +66,27 @@ describe('ConfirmationDialog', () => {
     ).toBeInTheDocument()
   })
 
+  it('renders a supplied loss list without changing the default contract', () => {
+    render(
+      <ConfirmationDialog
+        title='Remover Habilidade?'
+        itemName='Lógica'
+        description='Somente esta experiência será removida.'
+        confirmLabel='Remover habilidade'
+        cancelLabel='Cancelar'
+        icon='trash-2'
+        isOpen={true}
+        isSubmitting={false}
+        losses={['Diagnóstico e evidências', 'Progresso e recomendações']}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Diagnóstico e evidências')).toBeVisible()
+    expect(screen.getByText('Progresso e recomendações')).toBeVisible()
+  })
+
   it('disables both actions while isSubmitting', () => {
     render(
       <ConfirmationDialog

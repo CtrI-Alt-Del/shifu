@@ -3,6 +3,7 @@ import { GoalAddSkillLink, GoalDetailHeader } from './goal-detail-header'
 import { GoalSkillGraph } from './goal-skill-graph'
 import { GoalSkillList } from './goal-skill-list'
 import { GoalViewSwitcher } from './goal-view-switcher'
+import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 import { type GoalDetailPageProps, useGoalDetailPage } from './use-goal-detail-page'
 
 export type { GoalDetailPageProps } from './use-goal-detail-page'
@@ -16,11 +17,18 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
     isConfirmDialogOpen,
     isDeletingGoal,
     deleteGoalError,
+    selectedSkill,
+    isRemovingSkill,
+    removeSkillError,
+    skillRemovalTriggerRef,
     handleRetry,
     handleViewChange,
     handleOpenConfirmDialog,
     handleCancelRemoval,
     handleConfirmRemoval,
+    handleOpenSkillRemoval,
+    handleCancelSkillRemoval,
+    handleConfirmSkillRemoval,
   } = useGoalDetailPage(props)
 
   if (state === 'loading') return <GoalDetailFeedback state='loading' />
@@ -55,10 +63,34 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
           relations={detail.relations}
           skills={detail.skills}
           title={detail.title}
+          onRemoveSkill={handleOpenSkillRemoval}
         />
       ) : (
-        <GoalSkillList goalId={props.goalId} skills={detail.skills} />
+        <GoalSkillList
+          goalId={props.goalId}
+          onRemoveSkill={handleOpenSkillRemoval}
+          skills={detail.skills}
+        />
       )}
+      <ConfirmationDialog
+        cancelLabel='Cancelar'
+        confirmLabel='Remover habilidade'
+        description='Somente esta experiência será removida deste Objetivo. A Habilidade continuará disponível no Currículo e em outros Objetivos.'
+        error={removeSkillError}
+        icon='trash-2'
+        isOpen={Boolean(selectedSkill)}
+        isSubmitting={isRemovingSkill}
+        itemName={selectedSkill?.name}
+        losses={[
+          'Diagnóstico, justificativa e evidências por Conceito',
+          'Progresso, domínio e recomendações',
+          'Tentativas, avaliações e resumo final',
+        ]}
+        onCancel={handleCancelSkillRemoval}
+        onConfirm={() => void handleConfirmSkillRemoval()}
+        restoreFocusRef={skillRemovalTriggerRef}
+        title='Remover Habilidade?'
+      />
     </div>
   )
 }

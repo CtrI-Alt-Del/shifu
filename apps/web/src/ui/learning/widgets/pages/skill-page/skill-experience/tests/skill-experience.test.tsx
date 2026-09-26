@@ -91,6 +91,7 @@ function renderExperience(
     <SkillExperience
       experience={detail(overrides)}
       isRetrying={state.isRetrying ?? false}
+      onRemove={vi.fn()}
       onRetryEvaluation={onRetryEvaluation}
       retryFailed={state.retryFailed ?? false}
     />,
