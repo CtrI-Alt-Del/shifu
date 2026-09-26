@@ -17,6 +17,9 @@ from .get_choice_attempt_use_case import (
 from .get_goal_detail_use_case import GetGoalDetailUseCase as GetGoalDetailUseCase
 from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCase
 from .remove_goal_use_case import RemoveGoalUseCase as RemoveGoalUseCase
+from .remove_skill_from_goal_use_case import (
+    RemoveSkillFromGoalUseCase as RemoveSkillFromGoalUseCase,
+)
 from .retry_choice_evaluation_use_case import (
     RetryChoiceEvaluationUseCase as RetryChoiceEvaluationUseCase,
 )

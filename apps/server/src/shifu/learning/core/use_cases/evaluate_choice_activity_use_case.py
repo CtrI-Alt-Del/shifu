@@ -79,6 +79,11 @@ class EvaluateChoiceActivityUseCase:
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
             if attempt is None or attempt.grading_snapshot is None:
                 return
+            experience = repositories.skill_experiences.find_by_id_for_update(
+                attempt.skill_experience_id
+            )
+            if experience is None:
+                return
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     attempt_id
@@ -89,11 +94,6 @@ class EvaluateChoiceActivityUseCase:
                 or evaluation.status is not ActivityEvaluationStatus.PENDING
                 or evaluation.run_id != run_id
             ):
-                return
-            experience = repositories.skill_experiences.find_by_id_for_update(
-                attempt.skill_experience_id
-            )
-            if experience is None:
                 return
             goal = repositories.goals.find_by_id(experience.goal_id)
             if goal is None:
