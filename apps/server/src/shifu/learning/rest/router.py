@@ -31,7 +31,6 @@ class LearningRouter:
         GetGoalDetailController.handle(router)
         GetHomeGoalsController.handle(router)
         GetMaterialDetailController.handle(router)
-        GetSkillExperienceDetailController.handle(router)
         SearchSkillCatalogController.handle(router)
         AddSkillToGoalController.handle(router)
         RemoveGoalController.handle(router)
@@ -42,4 +41,5 @@ class LearningRouter:
         SubmitChoiceActivityController.handle(router)
         GetChoiceAttemptController.handle(router)
         RetryChoiceEvaluationController.handle(router)
+        GetSkillExperienceDetailController.handle(router)
         return router
