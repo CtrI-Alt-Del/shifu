@@ -129,7 +129,8 @@ itself remains limited to the declared dependency and supply-chain policy passed
 - RP-03, RP-21 and JN-14 are `implemented`; RP-25 is `implemented` for this
   feature boundary; JN-03 remains `partially_implemented` by the Spec's bounded
   scope. No external PRD checkbox was changed.
-- CI publication is not applicable: the repository has no checked-in
-  `.github/workflows` directory and no PR was requested or created.
+- PR publication triggered the checked-in Email package, Server application and
+  Web application workflows. Their terminal results belong to the PR delivery
+  record and do not replace the local validation evidence above.
 - The full Playwright baseline limitation and generated pnpm lockfile
   normalization remain recorded above and are non-blocking for this delivery.
