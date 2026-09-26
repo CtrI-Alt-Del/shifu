@@ -20,7 +20,7 @@ export const SkillRecommendationCard = ({
   return (
     <section
       aria-labelledby='skill-recommendation-title'
-      className='flex flex-col gap-4 rounded-[10px] bg-surface-alt p-[18px] sm:flex-row sm:items-center sm:justify-between'
+      className='flex flex-col gap-3 rounded-[10px] bg-surface-alt p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-4'
     >
       <div className='flex min-w-0 flex-col gap-2'>
         <p className='flex flex-wrap items-center gap-2'>
@@ -39,20 +39,9 @@ export const SkillRecommendationCard = ({
         </h2>
       </div>
 
-      <div className='flex shrink-0 items-center gap-2.5'>
+      <div className='flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row-reverse sm:gap-2.5'>
         <Link
-          className='inline-flex min-h-[38px] items-center rounded-md border border-control-border px-[18px] text-sm font-semibold text-foreground transition-colors hover:bg-muted'
-          params={{
-            competencyId: recommendation.competencyId,
-            goalId,
-            skillId,
-          }}
-          to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-        >
-          Escolher outra
-        </Link>
-        <Link
-          className='inline-flex min-h-[38px] items-center rounded-md bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
+          className='inline-flex min-h-[38px] items-center justify-center rounded-md bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
           params={{
             activityId: recommendation.activityId,
             competencyId: recommendation.competencyId,
@@ -62,6 +51,17 @@ export const SkillRecommendationCard = ({
           to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
         >
           Continuar praticando
+        </Link>
+        <Link
+          className='inline-flex min-h-[38px] items-center justify-center rounded-md border border-control-border px-[18px] text-sm font-semibold text-foreground transition-colors hover:bg-muted'
+          params={{
+            competencyId: recommendation.competencyId,
+            goalId,
+            skillId,
+          }}
+          to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+        >
+          Escolher outra
         </Link>
       </div>
     </section>

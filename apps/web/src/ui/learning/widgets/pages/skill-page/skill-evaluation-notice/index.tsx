@@ -36,7 +36,7 @@ export const SkillEvaluationNotice = ({
 
   return (
     <section
-      className='flex flex-wrap items-center gap-3.5 rounded-[10px] bg-surface-alt p-4 xl:flex-nowrap'
+      className='flex flex-wrap items-center gap-3.5 rounded-[10px] border border-selo-text bg-surface-alt p-4 xl:flex-nowrap'
       role='alert'
     >
       <span className='grid size-9 shrink-0 place-items-center rounded-[18px] bg-accent text-selo-text'>

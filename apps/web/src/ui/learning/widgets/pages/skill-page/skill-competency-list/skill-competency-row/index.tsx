@@ -14,6 +14,10 @@ export type SkillCompetencyRowProps = {
 }
 
 const THRESHOLDS = [40, 70, 85] as const
+const BADGE =
+  'rounded-md px-[7px] py-[3px] text-[10px] font-medium lg:px-2 lg:py-1 lg:text-[11px]'
+const ROW =
+  'flex w-full flex-col gap-[7px] rounded-md px-2.5 py-[9px] text-left transition-colors hover:bg-muted/60 lg:min-h-[50px] lg:flex-row lg:items-center lg:gap-4 lg:px-4 lg:py-[14px]'
 
 export const SkillCompetencyRow = ({
   competency,
@@ -25,27 +29,37 @@ export const SkillCompetencyRow = ({
   const isMastered = competency.status === 'mastered'
   const progress = Math.round(competency.progress)
   const statusLabel = COMPETENCY_STATUS_LABELS[competency.status]
+  const rowClassName = competency.isFocus ? `${ROW} bg-muted` : ROW
 
   const content = (
     <>
-      <span
-        className={`w-5 shrink-0 text-[13px] ${
-          competency.isFocus ? 'text-selo-text' : 'text-muted-foreground'
-        }`}
-      >
-        {competency.position}
-      </span>
-      <span
-        className={`min-w-0 flex-1 truncate text-[15px] font-medium lg:w-[280px] lg:flex-none ${
-          isBlocked ? 'text-secondary-foreground' : 'text-foreground'
-        }`}
-      >
-        {competency.competencyName}
+      <span className='flex min-w-0 items-center gap-2 lg:contents'>
+        <span
+          className={`w-[18px] shrink-0 text-xs lg:order-1 lg:w-5 lg:text-[13px] ${
+            competency.isFocus ? 'text-selo-text' : 'text-muted-foreground'
+          }`}
+        >
+          {competency.position}
+        </span>
+        <span
+          className={`min-w-0 flex-1 truncate text-[13px] font-medium lg:order-2 lg:w-[280px] lg:flex-none lg:text-[15px] ${
+            isBlocked ? 'text-secondary-foreground' : 'text-foreground'
+          }`}
+        >
+          {competency.competencyName}
+        </span>
+        <span
+          className={`w-9 shrink-0 text-right text-[13px] tabular-nums lg:order-4 lg:w-10 lg:text-sm ${
+            isBlocked ? 'text-secondary-foreground' : 'text-foreground'
+          }`}
+        >
+          {progress}%
+        </span>
       </span>
 
       <span
         aria-hidden='true'
-        className={`relative hidden h-2 w-[360px] shrink-0 overflow-hidden rounded-[3px] lg:block ${
+        className={`relative h-2 w-full overflow-hidden rounded-[3px] lg:order-3 lg:w-[360px] lg:shrink-0 ${
           competency.isFocus ? 'bg-surface-alt' : 'bg-muted'
         }`}
       >
@@ -68,32 +82,20 @@ export const SkillCompetencyRow = ({
         ))}
       </span>
 
-      <span
-        className={`w-10 shrink-0 text-right text-sm tabular-nums ${
-          isBlocked ? 'text-secondary-foreground' : 'text-foreground'
-        }`}
-      >
-        {progress}%
-      </span>
-
-      <span className='flex shrink-0 items-center gap-2 lg:mr-auto'>
+      <span className='flex shrink-0 flex-wrap items-center gap-1.5 lg:order-5 lg:mr-auto lg:gap-2'>
         {isMastered ? (
-          <span className='rounded-md bg-jade-solid px-2 py-1 text-[11px] font-medium text-on-jade'>
-            {statusLabel}
-          </span>
+          <span className={`${BADGE} bg-jade-solid text-on-jade`}>{statusLabel}</span>
         ) : (
-          <span className='rounded-md bg-jade-tint px-2 py-1 text-[11px] font-medium text-jade-text'>
-            {statusLabel}
-          </span>
+          <span className={`${BADGE} bg-jade-tint text-jade-text`}>{statusLabel}</span>
         )}
         {competency.isFocus ? (
-          <span className='rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-selo-text'>
-            Em foco
-          </span>
+          <span className={`${BADGE} bg-accent text-selo-text`}>Em foco</span>
         ) : null}
         {isBlocked ? (
-          <span className='inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-secondary-foreground'>
-            <Icon name='lock-keyhole' size={12} />
+          <span
+            className={`${BADGE} inline-flex items-center gap-1.5 bg-muted text-secondary-foreground`}
+          >
+            <Icon name='lock-keyhole' size={11} />
             Bloqueada
           </span>
         ) : null}
@@ -101,16 +103,12 @@ export const SkillCompetencyRow = ({
     </>
   )
 
-  const rowClassName = `flex min-h-[50px] w-full items-center gap-4 rounded-md px-4 py-[14px] text-left transition-colors ${
-    competency.isFocus ? 'bg-muted' : ''
-  }`
-
   if (isBlocked) {
     return (
       <li>
         <button
           aria-describedby='skill-blocked-hint'
-          className={`${rowClassName} hover:bg-muted/60`}
+          className={rowClassName}
           onClick={() => onBlockedSelect(competency)}
           type='button'
         >
@@ -123,7 +121,7 @@ export const SkillCompetencyRow = ({
   return (
     <li>
       <Link
-        className={`${rowClassName} hover:bg-muted/60`}
+        className={rowClassName}
         params={{ competencyId: competency.competencyId, goalId, skillId }}
         to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
       >
