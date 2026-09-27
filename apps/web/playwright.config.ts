@@ -11,8 +11,15 @@ const identityURL =
 
 export default defineConfig({
   testDir: './tests',
+  timeout: 30_000,
+  globalTimeout: 15 * 60_000,
+  expect: {
+    timeout: 10_000,
+  },
   use: {
     baseURL,
+    actionTimeout: 10_000,
+    navigationTimeout: 30_000,
   },
   webServer: [
     {
@@ -23,6 +30,7 @@ export default defineConfig({
       },
       url: `${identityURL}/health`,
       reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
     },
     {
       command: `corepack pnpm dev -- --host 0.0.0.0 --port ${port}`,
@@ -32,6 +40,7 @@ export default defineConfig({
       },
       url: `${baseURL}/login/`,
       reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
     },
   ],
 })
