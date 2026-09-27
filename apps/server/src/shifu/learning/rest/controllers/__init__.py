@@ -43,3 +43,6 @@ from .start_skill_controller import StartSkillController as StartSkillController
 from .submit_choice_activity_controller import (
     SubmitChoiceActivityController as SubmitChoiceActivityController,
 )
+from .preview_activity_question_feedback_controller import (
+    PreviewActivityQuestionFeedbackController as PreviewActivityQuestionFeedbackController,
+)

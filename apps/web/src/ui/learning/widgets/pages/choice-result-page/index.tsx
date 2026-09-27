@@ -2,8 +2,8 @@ import { Button } from '@/ui/shadcn/button'
 import { Link } from '@tanstack/react-router'
 
 import type {
-  ChoiceQuestion,
-  ChoiceResultQuestion,
+  ActivityQuestion,
+  ActivityResultQuestion,
 } from '@/core/learning/choice-activity'
 import type { CompetencyProgressStatus } from '@/core/learning/competency-detail'
 import { AdaptiveRecommendation } from '@/ui/learning/widgets/pages/competency-detail-page/adaptive-recommendation'
@@ -163,31 +163,37 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
     )
   }
 
-  const questionByKey = new Map<string, ChoiceQuestion>(
+  const questionByKey = new Map<string, ActivityQuestion>(
     activity.questions.map((question) => [question.key, question]),
   )
-  const resultQuestions = attempt.questions ?? []
+  const resultQuestions: readonly ActivityResultQuestion[] = attempt.questions ?? []
   const formattedScore = SCORE_FORMATTER.format(Number(attempt.score))
-  const correctQuestionCount = resultQuestions.filter((result) => result.isCorrect).length
+  const correctQuestionCount = resultQuestions.filter(
+    (result) =>
+      ('isCorrect' in result && result.isCorrect) ||
+      ('kind' in result && result.score === 100),
+  ).length
 
   return (
-    <main className='mx-auto w-full max-w-7xl space-y-5 pb-8'>
-      {backToSkillLink}
-      <header className='flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4'>
-        <div className='space-y-2'>
-          <p className='text-sm text-muted-foreground'>{activity.title}</p>
-          <h1 className='font-serif text-3xl text-foreground sm:text-4xl'>
+    <main className='mx-auto w-full max-w-7xl space-y-3 pb-8'>
+      <header className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'>
+        <div>
+          <h1 className='font-serif text-3xl font-normal text-foreground sm:text-4xl'>
             Resultado da Atividade
           </h1>
+          <p className='mt-1 text-sm text-muted-foreground'>{activity.title}</p>
         </div>
         {attempt.score !== undefined && attempt.score !== null ? (
           <output
             aria-label={`Nota da Atividade ${formattedScore} de 100`}
-            className='block text-sm text-success'
+            className='flex items-end gap-1 text-success'
           >
-            <span className='font-mono font-semibold'>{formattedScore} / 100</span>
-            <span aria-hidden='true'> · </span>
-            <span>
+            <span className='font-mono text-4xl font-semibold leading-none'>
+              {formattedScore}
+            </span>
+            <span className='pb-0.5 font-mono text-sm text-muted-foreground'>/ 100</span>
+            <span className='sr-only'>
+              {' '}
               {correctQuestionCount} de {resultQuestions.length}{' '}
               {resultQuestions.length === 1 ? 'questão correta' : 'questões corretas'}
             </span>
@@ -201,59 +207,55 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
       attempt.progressAfter !== null ? (
         <section
           aria-labelledby='choice-result-progress-title'
-          className='space-y-2 rounded-md border border-border bg-muted p-3 sm:p-4'
+          className='flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:gap-4'
         >
-          <div className='flex flex-wrap items-center justify-between gap-2'>
+          <div className='min-w-0 sm:w-60 sm:shrink-0'>
             <h2
-              className='text-xs font-medium uppercase tracking-wide text-muted-foreground'
+              className='text-xs font-medium text-muted-foreground'
               id='choice-result-progress-title'
             >
-              Domínio estimado da Competência
+              Progresso da Competência
             </h2>
-            {attempt.statusAfter ? (
-              <span className='rounded-sm bg-muted px-2 py-1 text-xs text-foreground'>
-                {PROGRESS_STATUS_LABELS[attempt.statusAfter]}
-              </span>
-            ) : null}
+            <div className='mt-1 flex flex-wrap items-center gap-2'>
+              <p className='text-sm font-medium text-foreground'>
+                <span className='sr-only'>Antes: </span>
+                {PROGRESS_FORMATTER.format(attempt.progressBefore)}%
+                <span aria-hidden='true'> → </span>
+                <span className='sr-only'>Agora: </span>
+                {PROGRESS_FORMATTER.format(attempt.progressAfter)}%
+              </p>
+              {attempt.statusAfter ? (
+                <span className='text-xs text-muted-foreground'>
+                  {PROGRESS_STATUS_LABELS[attempt.statusAfter]}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <p className='text-sm text-foreground'>
-            Antes:{' '}
-            <span className='font-mono'>
-              {PROGRESS_FORMATTER.format(attempt.progressBefore)}%
-            </span>
-            <span aria-hidden='true'> → </span>
-            <span className='sr-only'>; </span>
-            Agora:{' '}
-            <span className='font-mono'>
-              {PROGRESS_FORMATTER.format(attempt.progressAfter)}%
-            </span>
-          </p>
-          <div
-            aria-label='Domínio estimado da Competência após a avaliação'
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={attempt.progressAfter}
-            aria-valuetext={`${PROGRESS_FORMATTER.format(attempt.progressAfter)}%`}
-            className='h-2 w-full bg-muted'
-            role='progressbar'
-          >
+          <div className='min-w-0 flex-1'>
             <div
-              className='h-full bg-success'
-              style={{ width: `${attempt.progressAfter}%` }}
-            />
+              aria-label='Domínio estimado da Competência após a avaliação'
+              aria-valuemax={100}
+              aria-valuemin={0}
+              aria-valuenow={attempt.progressAfter}
+              aria-valuetext={`${PROGRESS_FORMATTER.format(attempt.progressAfter)}%`}
+              className='h-1.5 w-full overflow-hidden rounded-full bg-muted'
+              role='progressbar'
+            >
+              <div
+                className='h-full rounded-full bg-success'
+                style={{ width: `${attempt.progressAfter}%` }}
+              />
+            </div>
+            <p className='mt-1.5 text-xs leading-relaxed text-muted-foreground'>
+              A estimativa considera suas respostas nesta Atividade e, quando houver,
+              evidências anteriores. Não é a nota acima.
+            </p>
           </div>
-          <p className='text-xs leading-relaxed text-muted-foreground'>
-            A estimativa considera suas respostas nesta Atividade e, quando houver,
-            evidências anteriores. Não é a nota acima.
-          </p>
         </section>
       ) : null}
 
-      <section aria-label='Detalhes por questão' className='space-y-3'>
-        <h2 className='text-xs font-medium uppercase tracking-wide text-muted-foreground'>
-          Detalhes das questões
-        </h2>
-        {resultQuestions.map((result: ChoiceResultQuestion, index) => (
+      <section aria-label='Detalhes por questão' className='space-y-1'>
+        {resultQuestions.map((result, index) => (
           <ChoiceResultDetail
             key={result.key}
             question={questionByKey.get(result.key)}
@@ -312,6 +314,8 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
           ) : null}
         </section>
       ) : null}
+
+      {backToSkillLink}
     </main>
   )
 }

@@ -17,11 +17,17 @@ from shifu.learning.core.domain.structures import (
     ChoiceResultDetail,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+    CodeAnswer,
+    CodeSubmittedFile,
+    CodeResultDetail,
+    CodeRubricResult,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
@@ -99,6 +105,7 @@ class GetChoiceAttemptUseCase:
                         if evaluation.status is ActivityEvaluationStatus.FAILED
                         else None
                     ),
+                    questions=self._pending_code_details(attempt),
                 )
 
             all_attempts = (
@@ -212,7 +219,7 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
-    ) -> tuple[ChoiceResultDetail, ...]:
+    ) -> tuple[ChoiceResultDetail | CodeResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise NotFoundError
@@ -222,10 +229,47 @@ class GetChoiceAttemptUseCase:
             for result in evaluation.parts
             if isinstance(result, ChoiceEvaluationResult)
         }
-        details: list[ChoiceResultDetail] = []
+        code_results = {
+            result.question_key: result
+            for result in evaluation.parts
+            if isinstance(result, CodeRubricResult)
+        }
+        details: list[ChoiceResultDetail | CodeResultDetail] = []
         for question in snapshot.questions:
             answer = answers.get(question.key)
             result = results.get(question.key)
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                code_answer = answer if isinstance(answer, CodeAnswer) else None
+                code_result = code_results.get(question.key)
+                if code_answer is None or code_result is None:
+                    continue
+                part = next(
+                    (
+                        item
+                        for item in snapshot.parts
+                        if item.question_key == question.key
+                    ),
+                    None,
+                )
+                if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+                    continue
+                project = {item.path: item.content for item in question.initial_files}
+                project.update({item.path: item.content for item in code_answer.files})
+                details.append(
+                    CodeResultDetail(
+                        question_key=question.key,
+                        kind='javascript_stdin',
+                        prompt=question.prompt,
+                        submitted_files=tuple(
+                            CodeSubmittedFile(path=path, content=content)
+                            for path, content in sorted(project.items())
+                        ),
+                        score=code_result.score,
+                        criterion_results=code_result.criterion_results,
+                        concept_observations=code_result.concept_observations,
+                    )
+                )
+                continue
             if answer is None or result is None:
                 continue
             if isinstance(answer, SingleChoiceAnswer):
@@ -251,6 +295,42 @@ class GetChoiceAttemptUseCase:
                         if question.key in disclosed_keys
                         else ()
                     ),
+                )
+            )
+        return tuple(details)
+
+    @staticmethod
+    def _pending_code_details(attempt: ActivityAttempt) -> tuple[CodeResultDetail, ...]:
+        snapshot = attempt.grading_snapshot
+        if snapshot is None:
+            return ()
+        questions = {
+            item.key: item
+            for item in snapshot.questions
+            if isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+        }
+        details: list[CodeResultDetail] = []
+        for answer in attempt.answers:
+            if (
+                not isinstance(answer, CodeAnswer)
+                or answer.question_key not in questions
+            ):
+                continue
+            question = questions[answer.question_key]
+            project = {item.path: item.content for item in question.initial_files}
+            project.update({item.path: item.content for item in answer.files})
+            details.append(
+                CodeResultDetail(
+                    question_key=question.key,
+                    kind='javascript_stdin',
+                    prompt=question.prompt,
+                    submitted_files=tuple(
+                        CodeSubmittedFile(path=path, content=content)
+                        for path, content in sorted(project.items())
+                    ),
+                    score=None,
+                    criterion_results=(),
+                    concept_observations=(),
                 )
             )
         return tuple(details)

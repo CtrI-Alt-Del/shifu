@@ -1,0 +1,24 @@
+.code-question-workspace,
+.code-question-editor-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .code-question-workspace {
+    grid-template-columns: minmax(0, var(--sidebar-width)) 8px minmax(0, 1fr);
+  }
+
+  .code-question-workspace[data-read-only="true"] {
+    grid-template-columns: minmax(0, var(--sidebar-width)) minmax(0, 1fr);
+  }
+
+  .code-question-editor-grid {
+    grid-template-columns:
+      minmax(0, var(--editor-left, 55fr)) 8px
+      minmax(0, var(--editor-right, 45fr));
+  }
+
+  .code-question-editor-grid[data-read-only="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

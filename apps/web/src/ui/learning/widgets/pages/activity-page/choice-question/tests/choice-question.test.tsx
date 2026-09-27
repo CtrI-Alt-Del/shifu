@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { ChoiceQuestionProps } from '../../use-choice-activity-page'
+import type { ChoiceQuestionProps } from '../../use-activity-page'
 import { ChoiceQuestion } from '..'
 
 const SINGLE_QUESTION: ChoiceQuestionProps['question'] = {

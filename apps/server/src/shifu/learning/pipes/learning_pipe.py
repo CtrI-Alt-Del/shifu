@@ -3,6 +3,7 @@ from fastapi import Request
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.interfaces import (
     ClockProvider,
+    CodeRubricAssessorProvider,
     CurriculumCatalogProvider,
     CurriculumContentProvider,
     IdentifierProvider,
@@ -10,6 +11,20 @@ from shifu.shared.core.interfaces import (
 
 
 class LearningPipe:
+    @staticmethod
+    def get_code_rubric_assessor_provider(
+        request: Request,
+    ) -> CodeRubricAssessorProvider:
+        return request.app.state.code_rubric_assessor_provider
+
+    @staticmethod
+    def get_max_activity_payload_bytes(request: Request) -> int:
+        return request.app.state.max_activity_payload_bytes
+
+    @staticmethod
+    def get_max_code_assessment_input_bytes(request: Request) -> int:
+        return request.app.state.max_code_assessment_input_bytes
+
     @staticmethod
     def get_database(request: Request) -> LearningDatabase:
         return request.app.state.learning_database

@@ -1,10 +1,14 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import partial
 from typing import cast
 
+import httpx
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
@@ -30,6 +34,9 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 )
 from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
+from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
+    JevCodeRubricAssessorProvider,
+)
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.messaging.inngest import LearningInngestMessaging
@@ -37,6 +44,7 @@ from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.interfaces import CodeRubricAssessorProvider
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
@@ -47,6 +55,50 @@ from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
+
+
+class ActivityPayloadLimitMiddleware:
+    def __init__(self, app: ASGIApp, max_body_bytes: int) -> None:
+        self._app = app
+        self._max_body_bytes = max_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = str(scope.get('path', ''))
+        if (
+            scope['type'] != 'http'
+            or scope.get('method') != 'POST'
+            or not path.startswith('/learning/')
+            or '/activities/' not in path
+        ):
+            await self._app(scope, receive, send)
+            return
+
+        buffered: list[Message] = []
+        size = 0
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                return
+            if message['type'] != 'http.request':
+                continue
+            size += len(message.get('body', b''))
+            if size > self._max_body_bytes:
+                response = JSONResponse(
+                    {'detail': 'A resposta enviada excede o limite permitido.'},
+                    status_code=413,
+                )
+                await response(scope, receive, send)
+                return
+            buffered.append(message)
+            if not message.get('more_body', False):
+                break
+
+        async def replay_receive() -> Message:
+            if buffered:
+                return buffered.pop(0)
+            return await receive()
+
+        await self._app(scope, replay_receive, send)
 
 
 class FastAPIApp:
@@ -103,6 +155,14 @@ class FastAPIApp:
             audience=ENVIRONMENT.auth_audience,
         )
 
+        def code_rubric_assessor_provider_factory() -> CodeRubricAssessorProvider:
+            assessor = getattr(app.state, 'code_rubric_assessor_provider', None)
+            if assessor is None:
+                raise ServiceUnavailableError(
+                    message='A avaliação de código está indisponível.'
+                )
+            return cast('CodeRubricAssessorProvider', assessor)
+
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             cache_provider = RedisCacheProvider.connect(settings.redis_url)
@@ -115,6 +175,17 @@ class FastAPIApp:
                     message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
 
+            code_assessor_client = httpx.Client()
+            app.state.code_rubric_assessor_provider = JevCodeRubricAssessorProvider(
+                api_key=settings.openrouter_api_key,
+                client=code_assessor_client,
+                decisions_url=str(settings.openrouter_decisions_url),
+                model=settings.jev_model,
+            )
+            app.state.max_activity_payload_bytes = settings.max_activity_payload_bytes
+            app.state.max_code_assessment_input_bytes = (
+                settings.max_code_assessment_input_bytes
+            )
             app.state.cache_provider = cache_provider
             broker = cast('InngestBroker', app.state.inngest_broker)
             broker.start()
@@ -122,6 +193,7 @@ class FastAPIApp:
                 yield
             finally:
                 broker.stop()
+                await asyncio.to_thread(code_assessor_client.close)
                 await cache_provider.close()
                 database_engine.dispose()
 
@@ -148,6 +220,10 @@ class FastAPIApp:
                     learning_database=learning_database,
                     clock_provider=clock_provider,
                     curriculum_content_provider=curriculum_content_provider,
+                    code_rubric_assessor_provider_factory=code_rubric_assessor_provider_factory,
+                    max_code_assessment_input_bytes=(
+                        settings.max_code_assessment_input_bytes
+                    ),
                 ),
             ],
         )
@@ -179,6 +255,10 @@ class FastAPIApp:
             RateLimitMiddleware,
             trusted_proxy_ips=settings.trusted_proxy_ips,
             bff_shared_secret=ENVIRONMENT.bff_shared_secret,
+        )
+        app.add_middleware(
+            ActivityPayloadLimitMiddleware,
+            max_body_bytes=settings.max_activity_payload_bytes,
         )
         return app
 

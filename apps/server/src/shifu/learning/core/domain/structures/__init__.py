@@ -36,6 +36,17 @@ from .choice_submission_outcome import (
     ChoiceSubmissionOutcome as ChoiceSubmissionOutcome,
 )
 from .code_answer import CodeAnswer as CodeAnswer
+from .code_answer import CodeSubmittedFile as CodeSubmittedFile
+from .code_question_detail import CodeQuestionDetail as CodeQuestionDetail
+from .code_question_detail import (
+    CodeQuestionCriterionDetail as CodeQuestionCriterionDetail,
+)
+from .code_rubric_result import CodeRubricResult as CodeRubricResult
+from .code_rubric_result import CodeCriterionResult as CodeCriterionResult
+from .code_rubric_result import (
+    CodeConceptObservationResult as CodeConceptObservationResult,
+)
+from .code_result_detail import CodeResultDetail as CodeResultDetail
 from .code_case_result import CodeCaseResult as CodeCaseResult
 from .code_evaluation_result import CodeEvaluationResult as CodeEvaluationResult
 from .competency_activity_detail import (

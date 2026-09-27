@@ -26,6 +26,7 @@ import {
   Search,
   Trash2,
   Trophy,
+  UserRound,
   type LucideIcon,
   X,
 } from 'lucide-react'
@@ -59,6 +60,7 @@ export type IconName =
   | 'trash-2'
   | 'trophy'
   | 'user-circle'
+  | 'user-round'
   | 'x'
 
 const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
@@ -89,6 +91,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'trash-2': Trash2,
   trophy: Trophy,
   'user-circle': CircleUserRound,
+  'user-round': UserRound,
   x: X,
 }
 

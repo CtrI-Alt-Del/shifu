@@ -17,6 +17,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
+    ChoiceResultDetail,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -198,6 +199,9 @@ class TestGetChoiceAttemptUseCase:
             'q2',
             'q3',
         )
+        assert isinstance(detail.questions[0], ChoiceResultDetail)
+        assert isinstance(detail.questions[1], ChoiceResultDetail)
+        assert isinstance(detail.questions[2], ChoiceResultDetail)
         assert detail.questions[0].selected_option_keys == ('b',)
         assert detail.questions[0].disclosed_correct_option_keys == ()
         assert detail.questions[1].disclosed_correct_option_keys == ('a', 'c')

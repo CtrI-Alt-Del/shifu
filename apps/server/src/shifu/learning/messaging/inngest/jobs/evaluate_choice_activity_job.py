@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 import logging
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
@@ -20,7 +20,11 @@ LOGGER = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from shifu.learning.core.domain.entities import ActivityEvaluation
     from shifu.learning.core.interfaces import LearningDatabase
-    from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
+    from shifu.shared.core.interfaces import (
+        ClockProvider,
+        CurriculumContentProvider,
+        CodeRubricAssessorProvider,
+    )
 
 
 class EvaluationJobPayload(TypedDict):
@@ -68,6 +72,9 @@ class EvaluateChoiceActivityJob:
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
         curriculum_content_provider: CurriculumContentProvider | None = None,
+        code_rubric_assessor_provider_factory: Callable[[], CodeRubricAssessorProvider]
+        | None = None,
+        max_code_assessment_input_bytes: int = 262144,
     ) -> Function[None]:
         async def on_failure(context: Context) -> None:
             failure_data = cast('dict[str, object]', dict(context.event.data))
@@ -127,6 +134,8 @@ class EvaluateChoiceActivityJob:
                 learning_database,
                 clock_provider,
                 curriculum_content_provider,
+                code_rubric_assessor_provider_factory,
+                max_code_assessment_input_bytes,
                 payload,
             )
             LOGGER.info(
@@ -191,11 +200,20 @@ class EvaluateChoiceActivityJob:
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
         curriculum_content_provider: CurriculumContentProvider | None,
+        code_rubric_assessor_provider_factory: Callable[[], CodeRubricAssessorProvider]
+        | None,
+        max_code_assessment_input_bytes: int,
         payload: EvaluationJobPayload,
     ) -> None:
         await asyncio.to_thread(
             EvaluateChoiceActivityUseCase(
-                learning_database, clock_provider, curriculum_content_provider
+                learning_database,
+                clock_provider,
+                curriculum_content_provider,
+                code_rubric_assessor_provider_factory()
+                if code_rubric_assessor_provider_factory is not None
+                else None,
+                max_code_assessment_input_bytes,
             ).execute,
             payload['attempt_id'],
             payload['run_id'],

@@ -1,4 +1,7 @@
 from .authentication_provider import AuthenticationProvider as AuthenticationProvider
+from .code_rubric_assessor_provider import (
+    CodeRubricAssessorProvider as CodeRubricAssessorProvider,
+)
 from .cache_provider import CacheProvider as CacheProvider
 from .clock_provider import ClockProvider as ClockProvider
 from .curriculum_catalog_provider import (

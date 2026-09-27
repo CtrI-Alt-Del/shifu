@@ -5,11 +5,19 @@ from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     CodeAnswer,
+    CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
-from shifu.shared.core.domain.structures import CurriculumChoiceActivitySnapshot
+from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumLearningActivitySnapshot,
+)
 from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
@@ -37,7 +45,7 @@ class ActivityAttemptMapper:
     @staticmethod
     def _deserialize_snapshot(
         value: object | None,
-    ) -> CurriculumChoiceActivitySnapshot | None:
+    ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if value is None:
             return None
         data = cast('dict[str, object]', value)
@@ -49,6 +57,45 @@ class ActivityAttemptMapper:
             {**question, 'concept_criteria': question.get('concept_criteria', [])}
             for question in questions
         ]
+        if 'schema_version' in normalized and 'revision' in normalized:
+            mixed_questions = tuple(
+                Serialization.deserialize_value(
+                    question,
+                    CurriculumJavascriptStdinQuestionSnapshot
+                    if question.get('kind') == 'javascript_stdin'
+                    else CurriculumChoiceQuestionSnapshot,
+                )
+                for question in normalized['questions']
+            )
+            mixed_parts = tuple(
+                Serialization.deserialize_value(
+                    part,
+                    CurriculumCodeRubricPartSnapshot
+                    if 'criteria' in part
+                    else CurriculumChoicePartSnapshot,
+                )
+                for part in cast('list[dict[str, object]]', normalized['parts'])
+            )
+            return CurriculumLearningActivitySnapshot(
+                id=cast('str', normalized['id']),
+                competency_id=cast('str', normalized['competency_id']),
+                difficulty=cast('str', normalized['difficulty']),
+                title=cast('str', normalized['title']),
+                questions=cast(
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot, ...]',
+                    mixed_questions,
+                ),
+                parts=cast(
+                    'tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]',
+                    mixed_parts,
+                ),
+                required_concept_ids=tuple(
+                    cast('list[str]', normalized['required_concept_ids'])
+                ),
+                activity_type=cast('str', normalized['activity_type']),
+                schema_version=cast('int', normalized['schema_version']),
+                revision=cast('str', normalized['revision']),
+            )
         return cast(
             'CurriculumChoiceActivitySnapshot',
             Serialization.deserialize_value(
@@ -59,7 +106,9 @@ class ActivityAttemptMapper:
     @staticmethod
     def _deserialize_answers(
         value: object,
-        grading_snapshot: CurriculumChoiceActivitySnapshot | None,
+        grading_snapshot: CurriculumChoiceActivitySnapshot
+        | CurriculumLearningActivitySnapshot
+        | None,
     ) -> tuple[ActivityAnswer, ...]:
         serialized = cast('list[dict[str, object]]', value)
         questions = (
@@ -71,6 +120,20 @@ class ActivityAttemptMapper:
         for item in serialized:
             question_key = cast('str', item['question_key'])
             question = questions.get(question_key)
+            if 'files' in item:
+                serialized_files = cast('list[dict[str, str]]', item['files'])
+                answers.append(
+                    CodeAnswer(
+                        question_key=question_key,
+                        files=tuple(
+                            CodeSubmittedFile(
+                                path=file['path'], content=file['content']
+                            )
+                            for file in serialized_files
+                        ),
+                    )
+                )
+                continue
             if question is not None and question.kind == 'single_choice':
                 answers.append(
                     SingleChoiceAnswer(

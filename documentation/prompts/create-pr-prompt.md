@@ -70,6 +70,21 @@ Preserve alterações alheias e mantenha-as fora dos commits. Se a relação ent
 um arquivo e a entrega for ambígua, interrompa e informe a ambiguidade em vez de
 incluí-lo por suposição.
 
+### Documentação e fontes de design
+
+Inclua no PR a documentação alterada que fundamenta, especifica ou registra a
+entrega, mesmo quando o diff for somente documental. Isso inclui os artifacts
+SDD aplicáveis, handoff e referências, além de atualizações relacionadas em
+`AGENTS.md`, Arquitetura, Design, Rules e prompts. Não deixe esses arquivos
+alterados apenas na worktree por parecerem documentação auxiliar.
+
+Inclua também os arquivos-fonte Pencil `.pen` modificados ou fornecidos para a
+entrega. Trate-os como artifacts opacos: nunca abra, leia, compare, procure ou
+edite seus bytes com shell ou ferramentas genéricas de filesystem. Use Pencil
+MCP para inspeção ou edição visual; para publicação, identifique e adicione o
+path exato como arquivo versionado sem expor seu conteúdo. Preserve arquivos
+Pencil que não pertençam à entrega atual.
+
 ## Preparação da branch e do PR
 
 1. Confirme que a branch não é `main` nem `production`.

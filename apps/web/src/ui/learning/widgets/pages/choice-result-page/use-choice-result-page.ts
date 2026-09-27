@@ -14,7 +14,7 @@ import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { getChoiceActivityAction } from '@/ui/learning/widgets/pages/choice-activity-page/use-choice-activity-page'
+import { getActivityAction } from '@/ui/learning/widgets/pages/activity-page/use-activity-page'
 import type {
   ActivityRecommendation,
   AvailableCompetencyDetail,
@@ -115,7 +115,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     enabled: routeMode,
     queryFn: async () => {
       if (!routeProps) throw new Error('Missing route IDs')
-      const result = await getChoiceActivityAction({
+      const result = await getActivityAction({
         data: {
           goalId: routeProps.goalId,
           skillId: routeProps.skillId,

@@ -5,7 +5,7 @@ spec: ./spec.md
 spec_revision: 3
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74
-last_updated_at: 2026-09-23
+last_updated_at: 2026-09-26
 ---
 
 # Execution status
@@ -15,12 +15,13 @@ last_updated_at: 2026-09-23
 - **Why Plan-backed:** this slice crosses Curriculum and Learning, server and web,
   a PostgreSQL migration, outbox/Inngest, four HTTP operations, responsive browser
   states, and seven manual scenarios.
-- **Plan:** `in_progress`; F2-T2 is complete again; F3-T1 remains open for ACH-10 visual
-  recapture.
-- **Next action:** refresh the remaining exact visual states currently marked stale in
-  Evaluation before local feature conclusion.
-- **Active blockers:** none. ACH-01–ACH-12 are resolved. Remaining Activity/result visual
-  rows are explicitly marked stale until their matching states are refreshed.
+- **Plan:** `in_progress`; F2-T2 is complete again; F3-T1 remains open for current
+  server-backed VM-02/06 evidence. Nine exact-state visual captures are current
+  for composition only (EV-37).
+- **Next action:** establish current server-backed mobile unsent and failure/retry
+  behavior before local feature conclusion.
+- **Active blockers:** none for visual reference use. ACH-01–ACH-12 are resolved;
+  mock-backed visuals do not close VM-02/06 persistence/job evidence.
 - **Builders:** Builder Server — F2-T1 and Builder Web — F2-T2 completed their scoped
   assignments under Spec revision 3; ACH-06/07/08/09 are verified. Builder Web completed
   ACH-10 with focused Page checks and typecheck; Orchestrator recorded EV-34.
@@ -374,23 +375,23 @@ last_updated_at: 2026-09-23
 | Automated | Server gates: `uv run poe check:lint`, `check:architecture`, `check:types`, `test:unit`, `test:integration`, `test:jobs`, `build` from `apps/server` | CA-01, CA-03–CA-09, CA-11–CA-12 | CI-07–CI-13 | `evaluation.md` command outputs and runtime boundary results | `complete` |
 | Manual/migration | VM-07 — legacy row preflight, upgrade, downgrade/re-upgrade and data preservation on disposable PostgreSQL | CA-03, CA-05, CA-09 | Spec VM-07; CI-14–CI-15 | `evaluation.md` counts, SQL/index checks, migration output and row comparison | `complete` |
 | Manual/runtime | VM-01 — desktop owner flow, sequential answer and idempotent submit, 1440 × 900 | CA-01–CA-03, CA-10 | Spec VM-01; `o2q7H.png`, `Cj8R7.png` | `evaluation.md` URL/HTTP/DB evidence and fresh screenshots | `complete` |
-| Manual/runtime | VM-02 — mobile selection and unsent leave warning, 390 × 844 | CA-02, CA-10 | Spec VM-02; `rf857.png` | `evaluation.md` focus, target/overflow measurements and fresh screenshots | `open — stale; exact-state recapture required` |
+| Manual/runtime | VM-02 — mobile selection and unsent leave warning, 390 × 844 | CA-02, CA-10 | Spec VM-02; `rf857.png` | `evaluation.md` focus, target/overflow measurements and fresh screenshots | `open — mock-backed visual current; server-backed behavior needed` |
 | Manual/runtime | VM-03 — desktop pending, completed result, disclosure and progress, 1440 × 900 | CA-04–CA-08, CA-10, CA-12 | Spec VM-03; `PCnZO.png`, `YDgNz.png`, `gftrs.png`, `ad7p6.png`, `ntBNV.png` | `evaluation.md` response/DOM/job/progress evidence and fresh state screenshots | `complete` |
 | Manual/runtime | VM-04 — mobile full three/five-question result, 390 × 844 | CA-06, CA-10 | Spec VM-04; `k3bUS8.png` | `evaluation.md` scrolling/overflow/keyboard evidence and fresh screenshots | `complete` |
 | Manual/runtime | VM-05 — anonymous/other-account/private absence and legacy content eligibility, 1440 × 900 | CA-01, CA-08, CA-11 | Spec VM-05; Activity question references | `evaluation.md` access matrix, safe response and eligibility evidence | `complete` |
-| Manual/runtime | VM-06 — fail/retry, stale pending, duplicate/late event and deleted Skill, 1440 × 900 | CA-03, CA-05, CA-09, CA-12 | Spec VM-06; handoff adjacent state references | `evaluation.md` disposable DB/Inngest trace and fresh pending/failure/recovery screenshots | `open — stale; exact-state recapture required` |
-| Visual | Desktop question 2 of 3, single choice, 1440 × 900 | CA-01, CA-02 | `design/o2q7H.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
-| Visual | Desktop question 1 of 3, multiple selection, 1440 × 900 | CA-01, CA-02 | `design/Cj8R7.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
-| Visual | Desktop incorrect single-choice detail with protected answer, 1440 × 900 | CA-06, CA-07 | `design/YDgNz.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `open — stale; exact-state recapture required` |
-| Visual | Desktop correct single-choice detail, 1440 × 900 | CA-06, CA-08 | `design/gftrs.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
-| Visual | Desktop incorrect multiple-selection detail, 1440 × 900 | CA-06, CA-07 | `design/ad7p6.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `open — stale; exact-state recapture required` |
-| Visual | Desktop correct multiple-selection detail, 1440 × 900 | CA-06, CA-08 | `design/ntBNV.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Manual/runtime | VM-06 — fail/retry, stale pending, duplicate/late event and deleted Skill, 1440 × 900 | CA-03, CA-05, CA-09, CA-12 | Spec VM-06; handoff adjacent state references | `evaluation.md` disposable DB/Inngest trace and fresh pending/failure/recovery screenshots | `open — mock-backed visual current; persisted/job behavior needed` |
+| Visual | Desktop question 2 of 3, single choice, 1440 × 900 | CA-01, CA-02 | `design/o2q7H.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `complete — mock-backed visual only` |
+| Visual | Desktop question 1 of 3, multiple selection, 1440 × 900 | CA-01, CA-02 | `design/Cj8R7.png`; VM-01 | Fresh Playwright screenshot + comparison in Evaluation | `complete — mock-backed visual only` |
+| Visual | Desktop incorrect single-choice detail with protected answer, 1440 × 900 | CA-06, CA-07 | `design/YDgNz.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `complete — mock-backed visual only` |
+| Visual | Desktop correct single-choice detail, 1440 × 900 | CA-06, CA-08 | `design/gftrs.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `complete — mock-backed visual only` |
+| Visual | Desktop incorrect multiple-selection detail, 1440 × 900 | CA-06, CA-07 | `design/ad7p6.png`; VM-03 | Fresh Playwright screenshot + disclosure comparison in Evaluation | `complete — mock-backed visual only` |
+| Visual | Desktop correct multiple-selection detail, 1440 × 900 | CA-06, CA-08 | `design/ntBNV.png`; VM-03 | Fresh Playwright screenshot + comparison in Evaluation | `complete — mock-backed visual only` |
 | Visual | Complete desktop three-question result, 1440 × 900 | CA-05–CA-08 | `design/PCnZO.png`; VM-03 | Fresh Playwright screenshot + full-page/scroll comparison in Evaluation | `complete` |
-| Visual | Mobile multiple-selection question, 390 × 844 | CA-01, CA-02, CA-10 | `design/rf857.png`; VM-02 | Fresh Playwright screenshot + target/overflow comparison in Evaluation | `open — stale; exact-state recapture required` |
+| Visual | Mobile multiple-selection question, 390 × 844 | CA-01, CA-02, CA-10 | `design/rf857.png`; VM-02 | Fresh Playwright screenshot + target/overflow comparison in Evaluation | `complete — mock-backed visual only` |
 | Visual | Complete mobile three-question result, 390 × 844 | CA-05–CA-10 | `design/k3bUS8.png`; VM-04 | Fresh Playwright screenshot + long-result comparison in Evaluation | `complete` |
 | Visual | Desktop pending evaluation state, 1440 × 900 | CA-05, CA-10, CA-12 | Handoff adjacent pending state; VM-03/VM-06 | Fresh Playwright screenshot and announced status evidence | `complete` |
-| Visual | Desktop failed evaluation with retry action, 1440 × 900 | CA-05, CA-10 | Handoff adjacent failure state; VM-06 | Fresh Playwright screenshot, focus and retry evidence | `open — stale; exact-state recapture required` |
-| Visual | Desktop recovered evaluation after retry, 1440 × 900 | CA-05, CA-09, CA-10 | Handoff adjacent recovery state; VM-06 | Fresh Playwright screenshot and same-attempt/new-run evidence | `open — stale; exact-state recapture required` |
+| Visual | Desktop failed evaluation with retry action, 1440 × 900 | CA-05, CA-10 | Handoff adjacent failure state; VM-06 | Fresh Playwright screenshot, focus and retry evidence | `complete — mock-backed visual only` |
+| Visual | Desktop recovered evaluation after retry, 1440 × 900 | CA-05, CA-09, CA-10 | Handoff adjacent recovery state; VM-06 | Fresh Playwright screenshot and same-attempt/new-run evidence | `complete — mock-backed visual only` |
 | REST client | Learning `/activities` route group: Activity GET, attempts POST, attempt GET, retry POST | CA-01, CA-03, CA-05–CA-07, CA-12 | `apps/server/rest-client/learning/activities.rest` | Four labeled current requests, reusable non-secret vars, no credentials; parity recorded in Evaluation | `complete` |
 | Review | One read-only Implementation Reviewer over integrated candidate and all evidence | CA-01–CA-12; all RF/VM/CI | `documentation/agents/implementation-reviewer-agent.md` | Initial pass EV-31; resumed passes EV-33/EV-36 confirm code findings resolved; stale visual rows remain open | `complete` |
 ## Final handoff condition

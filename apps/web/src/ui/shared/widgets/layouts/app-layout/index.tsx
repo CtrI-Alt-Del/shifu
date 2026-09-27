@@ -31,7 +31,7 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
         />
       </header>
 
-      <main className='relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-7xl flex-1 flex-col px-5 py-8 pb-24 sm:px-8 lg:px-10 lg:pb-8'>
+      <main className='relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1600px] flex-1 flex-col px-5 py-8 pb-24 sm:px-8 lg:px-10 lg:pb-8'>
         {children}
       </main>
       <MobileBottomNavigation items={navigationItems} pathname={pathname} />

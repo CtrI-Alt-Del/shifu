@@ -15,11 +15,13 @@ implement-spec
 ├── no current Plan → Builder Direct in the current context
 └── current Plan    → stable ownership Builders by dependency wave
                        ↓
-                 integrated candidate
+             integrated candidate
                        ↓
              conformance record + sensors
                        ↓
-             single Implementation Reviewer
+             scoped Reviewers, when warranted
+                       ↓
+             final integrated Implementation Reviewer
                        ↓
                  conclude-spec
 ```
@@ -69,7 +71,8 @@ Architecture, Modules and Rules compatibility gate. It does not review code,
 Plan execution, Evaluation evidence, product completeness or design fidelity.
 
 Do not activate or resume the Spec Reviewer during implementation. Plan-backed
-quality uses the single read-only Implementation Reviewer described below. A
+quality may use bounded read-only Implementation Reviewers during execution and
+always uses the final integrated Implementation Reviewer described below. A
 material Spec amendment returns to create-spec for clarification and the same
 pre-plan compatibility review before implementation resumes.
 
@@ -360,6 +363,24 @@ For any UI or design-backed change, run this gate before editing feature source
 and again before marking the affected task/phase complete. It applies to small
 visual maintenance changes as well as new screens.
 
+This is a hard completion gate. A design-backed UI task cannot be marked
+complete, a phase cannot be marked completed, Evaluation cannot be returned to
+ready, and an implementation cannot be described as design-aligned until the
+integrated candidate has a fresh Playwright CLI capture for every affected
+reference state and viewport. The Orchestrator must inspect the rendered
+captures against the saved references; a Builder report, passing component
+tests, a mocked transport test, an old screenshot, matching dimensions, OCR or
+the existence of an artifact is not visual validation. If the required app,
+account, fixture or browser is unavailable, keep the task and Evaluation
+in_progress and record the environment block. Do not substitute a unit test or
+historical capture for the missing comparison.
+
+Visual evidence is fresh only when it was captured from the integrated
+candidate after the last affected UI edit and records the candidate commit or
+worktree state, route, exact viewport, fixture/account, browser command and
+artifact path. A screenshot from an earlier Builder wave is historical until
+the Orchestrator recaptures and inspects it against the current tree.
+
 Before the first visual edit:
 
 1. resolve and record the exact feature root and affected route/widget paths;
@@ -384,6 +405,23 @@ For each affected visual surface:
 4. compare the final changed-file list against the scope fence; and
 5. record fresh screenshot paths/artifact identifiers, differences, console and
    network classification in Evaluation.
+
+The final comparison must happen after all Builders are integrated and after
+the last UI edit. Inspect each reference and candidate as an image at the same
+viewport/state, record the concrete differences (including intentional
+differences), and link both paths in the corresponding VM/VIS/EV row. A
+material mismatch is an unresolved implementation finding, not a design
+opinion: keep the responsible task active, invalidate the affected evidence,
+make the correction and rerun the same comparison. Never close the visual gate
+because the page is functional or because the mismatch was discovered late in
+the implementation.
+
+For this gate, material means any difference in layout hierarchy, panel or
+container geometry, spacing rhythm, typography scale or weight, token/color
+surface, control placement, required content, state treatment, responsive
+composition, focus/keyboard affordance, clipping or horizontal overflow. A
+deliberate Contract or content difference must be recorded as intentional in
+the evidence row; it is not silently ignored.
 
 If no design reference exists, record the visual-reference portion as
 not_applicable while still validating responsive behavior, accessibility,
@@ -410,6 +448,10 @@ When the Spec has a Design Contract:
 - do not depend on live Pencil during normal implementation;
 - compare each affected state at the same viewport with Playwright CLI and
   record one visual evidence row per reference/state; and
+- inspect every fresh capture yourself as the Orchestrator after integration;
+  do not accept a Builder's screenshot summary as the comparison;
+- require a fresh capture after the final UI change, even when an earlier
+  capture passed; and
 - if a reference reveals unexpected or uncontracted behavior, pause that part
   and route the question to the Orchestrator rather than inferring scope.
 
@@ -480,35 +522,72 @@ For a Contract change:
 Ask the user only when the intended product/technical outcome, authority,
 environment access or safety decision is genuinely ambiguous.
 
-## Implementation Reviewer
+## Scoped and integrated Implementation Reviewers
 
-For Plan-backed execution, activate exactly one read-only Implementation
-Reviewer after all Builder diffs and Orchestrator-owned artifacts are integrated.
-Do not create Reviewers per Builder, phase, application, package, layer or
-specialty. Direct execution does not require a separate Reviewer unless the
-Spec or repository authority explicitly requires one.
+For Plan-backed execution, use read-only Implementation Reviewers at the
+smallest useful boundary when the Plan has independent high-risk streams. A
+scoped Reviewer may own one bounded review such as Learning server contracts and
+persistence, Web route and responsive behavior, visual/design fidelity, or
+cross-layer REST and runtime integration. Do not create reviewers merely by
+package or Builder when the same evidence and risks are shared. Every scoped
+assignment must name the exact Spec revision, allowed review paths, RF/CA
+criteria, design references or runtime scenarios, validation commands and
+prohibited edits. Reviewers do not overlap on ownership except where a shared
+integration contract is explicitly named.
 
-Do not substitute or reactivate the Spec Reviewer. Give the Implementation
-Reviewer the exact Spec revision, Plan, Rule Pack, integrated diff, changed
-paths, required file/widget tree, design references, REST-client artifacts,
-current Evaluation index, required services/fixtures and known risks.
+Use this activation matrix and record the selected rows in Evaluation before
+the relevant Builder wave starts:
 
-The Reviewer checks the complete candidate for Spec conformance, cross-Builder
-contracts, missing states/tests, integration conflicts, Rule violations and
-stale/unsupported evidence. For UI, it inspects every required screenshot and
-replays high-risk responsive, keyboard, accessibility, console and network
-interactions with Playwright CLI. For server-backed behavior, it may replay
-high-risk real application-boundary requests and inspect authorization,
-persistence and side effects.
+| Material risk in the Plan | Required scoped review | Minimum review boundary |
+| --- | --- | --- |
+| Design-backed UI or responsive states | Visual/UI Reviewer | Exact reference states, Playwright screenshots, focus, keyboard, overflow, console and network |
+| REST, persistence, authorization or concurrency | Server Boundary Reviewer | Controllers, schemas, database effects, account scope and conflict behavior |
+| Provider, job, retry or once-only side effects | Runtime/Job Reviewer | Provider boundary, Inngest trace, retry/failure behavior and durable effects |
+| Two or more material boundaries | Final Integrated Reviewer | Complete candidate, cross-layer contracts and evidence freshness |
 
-The Reviewer does not edit files, decide official evidence, change statuses or
-resolve Contract ambiguity. Its report is not evidence. The Orchestrator
+Do not activate a row merely because a package exists. The Plan must name the
+independent risk and evidence exit, and Evaluation must record `not_applicable`
+with a reason when a row is not needed.
+
+Design-backed UI work requires a scoped visual Reviewer when the Plan has a
+separate Web/UI stream. That Reviewer must inspect fresh Playwright captures at
+the exact reference states and viewports, replay responsive and keyboard paths,
+and classify console/network findings. A server-backed stream requires a scoped
+boundary Reviewer when persistence, authorization, jobs or side effects are
+material. Other scopes are warranted only when the Plan records a distinct
+failure mode and independent evidence exit.
+
+After all scoped reviews and corrections, activate exactly one final integrated
+Implementation Reviewer for Plan-backed work. Give it the exact Spec revision,
+Plan, Rule Pack, complete integrated diff, changed paths, required file/widget
+tree, design references, REST-client artifacts, current Evaluation index,
+required services/fixtures and known risks. It checks cross-Builder contracts,
+full Spec conformance, stale or unsupported evidence, and the highest-risk
+responsive, accessibility, console, network, authorization, persistence and
+side-effect interactions. It must independently inspect the visual evidence;
+scoped review reports do not replace the final integrated review.
+
+Direct execution does not require Reviewers unless the Spec or repository
+authority explicitly requires one. Do not substitute or reactivate the Spec
+Reviewer.
+
+Reviewers do not edit files, decide official evidence, change statuses or
+resolve Contract ambiguity. Their reports are not evidence. The Orchestrator
 verifies each finding, records accepted ACH-* entries, invalidates affected
-evidence, resumes the responsible Builder and reruns the affected exits.
-Resume the same Reviewer after correction; do not replace it merely because the
-candidate changed. Give the Reviewer the current conformance record and
-Evaluation index; it consumes that record and does not replace it with an
-unrecorded personal verdict.
+evidence, resumes the responsible Builder and reruns the affected exits. Resume
+the same scoped Reviewer after a correction that remains within its boundary;
+activate the final integrated Reviewer again after any correction that changes
+cross-boundary behavior or final visual evidence. Give every Reviewer the
+current conformance record and Evaluation index; none replaces those records
+with an unrecorded personal verdict.
+
+Every scoped and final Reviewer report must use this result shape in the task
+mailbox and Evaluation evidence log: `PASS`, `FAIL` or `BLOCKED`; exact Spec
+revision and review scope; candidate state/commit; commands, routes, fixtures
+and artifacts inspected; mapped RF/CA/VM/EV rows; findings with severity and
+file or route; and the required correction plus rerun command. `BLOCKED` means
+the required environment or artifact was unavailable and cannot be promoted to
+`PASS` by unit tests, mocks or historical evidence.
 
 ## Integrated validation and readiness
 
@@ -532,7 +611,8 @@ After all implementation work is complete:
 8. inspect every CA-* and every supplied/required supplemental screenshot with
    exact viewport/state, console/network, accessibility, layout and persistence
    evidence;
-9. activate and complete the single Implementation Reviewer when Plan-backed;
+9. activate and complete all applicable scoped Reviewers, then the final
+   integrated Implementation Reviewer when Plan-backed;
 10. verify and classify every Reviewer finding; and
 11. record all commands, captures, parity results, findings and resolutions in
     Evaluation.
@@ -542,6 +622,10 @@ A required manual/runtime scenario that is unavailable, inaccessible,
 non-repeatable, times out or fails is a blocking validation finding. Stop
 unrelated feature implementation until the environment or implementation changes
 and the scenario is freshly rerun.
+
+The final integrated Reviewer must confirm that every applicable scoped review
+has a current result, that no affected evidence predates the last correction,
+and that every `BLOCKED` or `FAIL` result has a recorded resolution and rerun.
 
 When all criteria have current evidence, all required gates pass, all verified
 blocking findings are resolved and the exact candidate is reconciled:

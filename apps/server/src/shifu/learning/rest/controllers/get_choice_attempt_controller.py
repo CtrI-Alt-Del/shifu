@@ -23,7 +23,7 @@ class NextActionResponse(BaseModel):
     type: str
 
 
-class QuestionResultResponse(BaseModel):
+class ChoiceQuestionResultResponse(BaseModel):
     question_key: str
     prompt: str
     selected_option_keys: tuple[str, ...]
@@ -31,6 +31,35 @@ class QuestionResultResponse(BaseModel):
     is_correct: bool
     explanation: str
     disclosed_correct_option_keys: tuple[str, ...]
+
+
+class SubmittedFileResponse(BaseModel):
+    path: str
+    content: str
+
+
+class CriterionResultResponse(BaseModel):
+    key: str
+    weight_percentage: int
+    level: int | str
+    comment_id: str
+    comment: str
+
+
+class ConceptObservationResponse(BaseModel):
+    concept_id: str
+    level: int | str
+    observation_id: str
+
+
+class CodeQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: str
+    prompt: str
+    submitted_files: tuple[SubmittedFileResponse, ...]
+    score: Decimal | None
+    criterion_results: tuple[CriterionResultResponse, ...]
+    concept_observations: tuple[ConceptObservationResponse, ...]
 
 
 class Response(BaseModel):
@@ -46,7 +75,9 @@ class Response(BaseModel):
     status_before: str | None = None
     status_after: str | None = None
     next_action: NextActionResponse | None = None
-    questions: tuple[QuestionResultResponse, ...] = ()
+    questions: tuple[
+        ChoiceQuestionResultResponse | CodeQuestionResultResponse, ...
+    ] = ()
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

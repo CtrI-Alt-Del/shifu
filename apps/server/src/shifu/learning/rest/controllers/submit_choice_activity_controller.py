@@ -2,11 +2,13 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Response as FastAPIResponse, status
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
+    CodeAnswer,
+    CodeSubmittedFile,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
@@ -23,11 +25,31 @@ from shifu.shared.pipes import AuthenticationPipe
 _ULID_PATTERN = r'^[0-9A-Z]{26}$'
 
 
+class SubmittedFileRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    path: str
+    content: str
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
     question_key: str
-    selected_option_keys: tuple[str, ...]
+    kind: Literal['single_choice', 'multiple_selection', 'javascript_stdin'] | None = (
+        None
+    )
+    selected_option_keys: tuple[str, ...] | None = None
+    files: tuple[SubmittedFileRequest, ...] | None = None
+
+    @model_validator(mode='after')
+    def validate_answer_shape(self) -> 'AnswerRequest':
+        if self.kind == 'javascript_stdin':
+            if self.files is None or self.selected_option_keys is not None:
+                raise ValueError('Code answers require files only')
+        elif self.selected_option_keys is None or self.files is not None:
+            raise ValueError('Choice answers require selected option keys only')
+        return self
 
 
 class Request(BaseModel):
@@ -35,6 +57,7 @@ class Request(BaseModel):
 
     submission_key: UUID
     answers: tuple[AnswerRequest, ...]
+    activity_revision: str | None = None
 
 
 class Response(BaseModel):
@@ -95,12 +118,21 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        ChoiceAnswerSubmission(
+                        CodeAnswer(
                             question_key=answer.question_key,
-                            selected_option_keys=answer.selected_option_keys,
+                            files=tuple(
+                                CodeSubmittedFile(path=item.path, content=item.content)
+                                for item in (answer.files or ())
+                            ),
+                        )
+                        if answer.kind == 'javascript_stdin'
+                        else ChoiceAnswerSubmission(
+                            question_key=answer.question_key,
+                            selected_option_keys=answer.selected_option_keys or (),
                         )
                         for answer in request.answers
                     ),
+                    request.activity_revision,
                 ),
                 from_attributes=True,
             )

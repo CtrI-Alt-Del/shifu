@@ -19,22 +19,58 @@ class OptionResponse(BaseModel):
     text: str
 
 
-class QuestionResponse(BaseModel):
+class ChoiceQuestionResponse(BaseModel):
     key: str
     kind: Literal['single_choice', 'multiple_selection']
     prompt: str
     options: tuple[OptionResponse, ...]
 
 
+class FileResponse(BaseModel):
+    path: str
+    content: str
+    editable: bool
+
+
+class DependencyResponse(BaseModel):
+    name: str
+    version: str
+
+
+class CommandResponse(BaseModel):
+    id: str
+    executable: str
+    arguments: tuple[str, ...]
+
+
+class CriterionResponse(BaseModel):
+    key: str
+    name: str
+    weight_percentage: int
+
+
+class CodeQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['javascript_stdin']
+    prompt: str
+    initial_files: tuple[FileResponse, ...]
+    entrypoint: str
+    editable_paths: tuple[str, ...]
+    fixed_dependencies: tuple[DependencyResponse, ...]
+    permitted_commands: tuple[CommandResponse, ...]
+    criteria: tuple[CriterionResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
     difficulty: str
-    questions: tuple[QuestionResponse, ...]
+    questions: tuple[ChoiceQuestionResponse | CodeQuestionResponse, ...]
     can_submit: bool
     latest_attempt_id: str | None
     unresolved_attempt_id: str | None
     is_diagnostic: bool = False
+    activity_revision: str | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

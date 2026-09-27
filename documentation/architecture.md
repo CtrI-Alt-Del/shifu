@@ -24,13 +24,13 @@ Server — FastAPI
    ├── Learning
    ├── Intelligence
    │   ├── agentic workflows with Agno
+   │   ├── typed Jev decisions through the OpenRouter Decisions API
    │   └── classical NLP
    ├── Gamification
    └── Shared
        ├── PostgreSQL
        ├── Redis
-       ├── Inngest
-       └── isolated code execution
+       └── Inngest
 ```
 
 The browser communicates with the TanStack Start application. The TanStack Start server
@@ -45,6 +45,7 @@ that own them.
 flowchart LR
     subgraph client ["Client"]
         browser[Browser]
+        webcontainer["WebContainers: optional code practice"]
     end
 
     subgraph gateway ["Web Gateway"]
@@ -53,7 +54,6 @@ flowchart LR
 
     subgraph service ["Application Services"]
         api["FastAPI Server"]
-        sandbox["Ephemeral Code Sandbox (planned)"]
     end
 
     subgraph datastore ["Data Stores"]
@@ -66,16 +66,17 @@ flowchart LR
     end
 
     browser -->|"HTTPS"| web
+    browser -->|"Runs JavaScript project locally"| webcontainer
     web -->|"JWT + HTTP"| api
     api -->|"Reads and writes"| postgres
     api -->|"Cache and rate limits"| redis
     api -.->|"Produces events"| inngest
-    api <-->|"Dispatches code and returns output"| sandbox
 ```
 
-Solid edges represent synchronous request, persistence, and sandbox execution paths.
-Dotted edges represent asynchronous boundaries. The sandbox is shown as planned
-infrastructure and is not currently provided by Docker Compose.
+Solid edges represent synchronous request, persistence, and practice paths.
+Dotted edges represent asynchronous boundaries. Diagnostic and learning code
+practice runs optionally in the browser; official rubric evaluation remains
+server-owned and does not execute submitted code.
 
 ## Repository organization
 
@@ -147,7 +148,8 @@ Each application owns its environment and dependency management:
 | Authentication | Better Auth in TanStack Start |
 | Skill graph | React Flow |
 | Automatic graph layout | ELK.js |
-| Code editor | Monaco Editor or CodeMirror; decision pending |
+| Code editor | Monaco Editor through `@monaco-editor/react` |
+| Learning code practice | WebContainers in supported browsers; edit and submit remain available without execution |
 | Mentor streaming | Server-Sent Events (SSE) |
 | Unit tests | Vitest |
 | Component tests | React Testing Library |
@@ -346,7 +348,7 @@ owning domain module make authoritative business decisions.
 | Text representation and search | TF-IDF with scikit-learn |
 | Text similarity | Cosine similarity |
 | Intent classification | Logistic Regression or SVM |
-| Activity execution | Isolated Python sandbox |
+| Activity execution | Optional browser WebContainers for automatic code practice in learning and diagnosis; official code assessment uses Curriculum rubrics through the server-owned AI provider |
 | Tests | pytest |
 | Route tests | FastAPI `TestClient` |
 | Infrastructure tests | Testcontainers |
@@ -406,8 +408,19 @@ infrastructure into business modules.
 ### Agentic workflow composition
 
 Agno is the orchestration framework for generative AI workflows owned by Intelligence.
-Its `Agent`, `Team`, and `Workflow` primitives are infrastructure details behind typed
-core protocols:
+Bounded Jev rubric decisions are a separate Intelligence provider capability.
+The provider implements a Shared core assessor port over one immutable,
+normalized input assembled from saved Curriculum snapshots and submitted files,
+wraps OpenRouter's Decisions API with
+server-owned HTTP and Pydantic transport validation, and does not import
+Learning or Curriculum entities. Learning owns the grade and effects.
+Code question kinds share this decision implementation; their prompt, project
+files and saved criteria vary, while kind is context rather than provider dispatch.
+This one-step assessment does not construct an Agno Agent, Team, or Workflow.
+
+Agno's `Agent`, `Team`, and `Workflow` primitives are infrastructure details
+behind typed core protocols. The following path applies to Agno-orchestrated
+capabilities:
 
 ```text
 FastAPI controller or Inngest job
@@ -423,6 +436,13 @@ Intelligence use case
   ↓
 Owning module validates and applies any state change
 ```
+
+For Jev rubric decisions, Learning consumes the Shared assessor port and
+application composition injects the Intelligence implementation into the
+Learning HTTP and Inngest paths. The provider calls OpenRouter's
+`POST /api/alpha/decisions` and validates each returned fixed choice.
+Neither business module imports the other, and `shifu.composition` needs
+no additional dependency.
 
 Agno implementations live under
 `apps/server/src/shifu/intelligence/ai/generative/agno`. Agents receive only the
@@ -498,43 +518,76 @@ details and must be idempotent when execution can be retried.
 
 ## Code execution
 
-FastAPI will orchestrate programming activities but will never execute user-submitted
-code inside the API process.
+Learning code questions use a fixed Curriculum project with designated initial files
+editable by the learner. The initial types are JavaScript function, JavaScript
+standard-input program, HTML/CSS/JavaScript page, React component or application,
+Fastify REST API, and one integrated React + Fastify project question. For React and
+React + Fastify questions, Curriculum may authorize additional files and define
+their allowed directories, extensions, and maximum count per question. Learners
+cannot create files outside those limits, change project configuration, or install
+packages.
+
+In a supported browser, WebContainers provide optional practice execution. Every
+code question starts its practice environment automatically and refreshes output
+when files change, without an Execute button. JavaScript standard-input programs
+run with empty stdin on load and after edits until the learner supplies input,
+so output independent of input appears immediately; the terminal still invites
+input. Subsequent edits rerun with the most recent practice input. An interactive xterm.js terminal
+connects to the practice environment, accepts only commands permitted by the
+question model, and occupies the Terminal tab of the practice panel, including
+questions without a preview or HTTP panel. Pages and React projects have a visual preview;
+Fastify projects have a local HTTP request/response panel; the integrated project
+has both. HTTP requests remain learner initiated. Practice output, preview, and HTTP
+responses do not affect the official grade. Editing and final submission remain
+available when WebContainers cannot run.
+
+Learning sends only the designated initial files, authorized files created by the
+learner, and the Curriculum rubric for official assessment through the server-owned
+provider boundary. Diagnostic and learning code both use the rubric, without test
+cases; diagnostic responses and individual evaluations stay hidden from the learner.
+Jev 1.13 selects fixed rubric level IDs through
+an Intelligence-owned provider using OpenRouter's Decisions API. The provider
+asks closed-set Choice questions over immutable Shared snapshots and returns
+typed decisions; it does not require Agno or generate new feedback text. Learning
+validates those decisions, maps each level to its saved comment or observation
+ID, calculates the weighted grade and
+remains the authority for attempts, evidence, progress, and completion. A submitted
+Activity creates one immutable official attempt; provisional question feedback and local drafts
+do not create one.
+
+Official assessment of diagnostic and learning code reads the submitted source and
+Curriculum rubric through the server-owned provider boundary. It does not run hidden
+test cases. FastAPI never executes user-submitted code inside the API process.
 
 ```text
-Web
- ↓
-FastAPI
- ↓
-Execution orchestrator
- ↓
-Ephemeral sandbox
-├── Python
-├── timeout
-├── limited CPU
-├── limited memory
-├── isolated filesystem
-└── blocked network
+Code practice: Browser → WebContainers → terminal / preview / local HTTP panel
+Code submit: Browser → FastAPI → rubric assessment → Learning evaluation
 ```
 
-The application distinguishes two flows with different effects:
+The application distinguishes these flows with different effects:
 
 ```text
-Run
-├── executes the code
-├── returns stdout and stderr
-└── does not change progress
+Practice run
+├── starts and refreshes automatically in a supported browser
+├── returns practice output and preview or HTTP response
+└── does not change official progress
 
-Submit
-├── runs official tests
+Code submit
+├── assesses editable source against Curriculum rubric without test cases
 ├── produces an official evaluation
-├── updates Learning state
+├── updates Learning state once
 └── may emit confirmed facts for Gamification
+
+Diagnostic code submit
+└── exposes only consolidated results, keeping individual responses and assessments hidden
 ```
 
-The sandbox must be disposable and unable to access secrets, the database, the host
-filesystem, or the network. Time, CPU, memory, and output-size limits must be enforced
-outside the process that executes user code.
+Browser practice must keep the learner project isolated from Shifu authentication
+and application state. Shifu bounds each practice run by time and output and
+bounds the editable project by size; the browser manages CPU and memory because
+the WebContainers API exposes no configurable CPU or memory quota. If the
+browser exhausts resources or practice becomes unavailable, editing and final
+submission remain available, and practice failure never determines the grade.
 
 ## Quality
 
@@ -562,8 +615,7 @@ analysis and quality gates independent.
 
 ## Pending decisions
 
-- choose Monaco Editor or CodeMirror for coding activities;
-- select the concrete sandbox technology and isolation infrastructure;
+- validate the browser-practice time/output/project-size limits, supported environments, and WebContainers deployment configuration on the target host;
 - define Inngest event contracts and idempotency strategy;
 - define PostgreSQL persistence, migration, and connection lifecycle conventions;
 - define JWT/JWKS issuance, audience, expiration, and key rotation;
