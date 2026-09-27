@@ -8,6 +8,9 @@ const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://127.0.0.1:${port}`
 const identityURL =
   process.env.SHIFU_IDENTITY_API_URL ?? `http://127.0.0.1:${identityPort}`
+const webServerCommand = process.env.CI
+  ? `corepack pnpm preview -- --host 0.0.0.0 --port ${port}`
+  : `corepack pnpm dev -- --host 0.0.0.0 --port ${port}`
 
 export default defineConfig({
   testDir: './tests',
@@ -33,7 +36,7 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: `corepack pnpm dev -- --host 0.0.0.0 --port ${port}`,
+      command: webServerCommand,
       env: {
         SHIFU_IDENTITY_API_URL: identityURL,
         SHIFU_TRUSTED_PROXY_IPS: '127.0.0.1,::1',

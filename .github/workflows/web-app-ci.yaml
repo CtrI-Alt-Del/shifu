@@ -116,8 +116,8 @@ jobs:
       - name: Run unit tests
         run: pnpm --filter web test:unit
 
-      - name: Run integration tests
-        run: pnpm --filter web test:integration
-
       - name: Build application
         run: pnpm --filter web build
+
+      - name: Run integration tests
+        run: pnpm --filter web test:integration
