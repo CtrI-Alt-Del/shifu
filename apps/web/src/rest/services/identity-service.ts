@@ -33,6 +33,28 @@ export type ResendConfirmationResult = {
   retry_after_seconds: number | null
 }
 
+export type PasswordRecoveryStatus = {
+  state: 'ready' | 'cooldown' | 'delivery_issue'
+  retry_after_seconds: number | null
+}
+
+export type PasswordRecoveryRequestResult = {
+  recovery_handle: string
+  is_decoy: boolean
+}
+
+export type PasswordResetResult =
+  | {
+      result: 'reset'
+      account_id: string
+      requires_email_confirmation: boolean
+    }
+  | { result: 'expired' | 'used' | 'invalid' }
+
+export type PasswordResetLinkStatus = {
+  result: 'valid' | 'expired' | 'used' | 'invalid'
+}
+
 export type EmailConfirmationResult =
   | {
       result: 'activated'
@@ -123,6 +145,60 @@ export const IdentityService = (restClient: RestClient) => {
     async confirmEmail(token: string) {
       const response = await restClient.post<EmailConfirmationResult>(
         '/identity/email-confirmations',
+        { token },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async requestPasswordRecovery(email: string) {
+      const response = await restClient.post<PasswordRecoveryRequestResult>(
+        '/identity/password-recovery-requests',
+        { email },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async getPasswordRecoveryStatus(recoveryHandle: string) {
+      const response = await restClient.post<PasswordRecoveryStatus>(
+        '/identity/password-recoveries/status',
+        { recovery_handle: recoveryHandle },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async retryPasswordRecovery(recoveryHandle: string) {
+      const response = await restClient.post<PasswordRecoveryRequestResult>(
+        '/identity/password-recoveries/retry',
+        { recovery_handle: recoveryHandle },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async resetPassword(token: string, password: string, passwordConfirmation: string) {
+      const response = await restClient.post<PasswordResetResult>(
+        '/identity/password-resets',
+        {
+          password,
+          password_confirmation: passwordConfirmation,
+          token,
+        },
+      )
+
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async getPasswordResetLinkStatus(token: string) {
+      const response = await restClient.post<PasswordResetLinkStatus>(
+        '/identity/password-reset-links/status',
         { token },
       )
 

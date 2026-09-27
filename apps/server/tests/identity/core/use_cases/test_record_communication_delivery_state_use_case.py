@@ -7,9 +7,8 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationDeliveryStatus,
+    AccountActionTokenDeliveryStatus,
 )
-from shifu.identity.core.domain.errors import AccountConfirmationNotAllowedError
 from shifu.identity.core.interfaces import (
     IdentityDatabase,
     IdentityDatabaseRepositories,
@@ -56,11 +55,11 @@ class TestRecordCommunicationDeliveryStateUseCase:
         recorded = self.subject.execute(
             '01JCOMMUNICATION000000000001',
             self.token.id,
-            AccountConfirmationDeliveryStatus.DELIVERED,
+            AccountActionTokenDeliveryStatus.DELIVERED,
         )
 
         assert recorded is True
-        assert self.token.delivery_status is AccountConfirmationDeliveryStatus.DELIVERED
+        assert self.token.delivery_status is AccountActionTokenDeliveryStatus.DELIVERED
         assert self.token.updated_at == self.recorded_at
         self.repositories.account_action_tokens.update.assert_called_once_with(
             self.token
@@ -69,29 +68,29 @@ class TestRecordCommunicationDeliveryStateUseCase:
         replayed = self.subject.execute(
             '01JCOMMUNICATION000000000001',
             self.token.id,
-            AccountConfirmationDeliveryStatus.DELIVERED,
+            AccountActionTokenDeliveryStatus.DELIVERED,
         )
 
         assert replayed is False
         assert self.repositories.account_action_tokens.update.call_count == 1
 
     def test_should_allow_temporary_failure_to_resolve_to_delivery(self) -> None:
-        self.token.delivery_status = AccountConfirmationDeliveryStatus.TEMPORARY_FAILURE
+        self.token.delivery_status = AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE
 
         recorded = self.subject.execute(
             '01JCOMMUNICATION000000000001',
             self.token.id,
-            AccountConfirmationDeliveryStatus.DELIVERED,
+            AccountActionTokenDeliveryStatus.DELIVERED,
         )
 
         assert recorded is True
-        assert self.token.delivery_status is AccountConfirmationDeliveryStatus.DELIVERED
+        assert self.token.delivery_status is AccountActionTokenDeliveryStatus.DELIVERED
 
     def test_should_ignore_mismatched_correlation_without_mutation(self) -> None:
         recorded = self.subject.execute(
             'different-communication',
             self.token.id,
-            AccountConfirmationDeliveryStatus.DELIVERED,
+            AccountActionTokenDeliveryStatus.DELIVERED,
         )
 
         assert recorded is False
@@ -109,14 +108,16 @@ class TestRecordCommunicationDeliveryStateUseCase:
 
         self.identity_database.transaction.assert_not_called()
 
-    def test_should_reject_delivery_state_for_non_confirmation_token(self) -> None:
+    def test_should_record_delivery_state_for_recovery_token(self) -> None:
         self.token.type = AccountActionTokenType.PASSWORD_RECOVERY
 
-        with pytest.raises(AccountConfirmationNotAllowedError):
-            self.subject.execute(
-                '01JCOMMUNICATION000000000001',
-                self.token.id,
-                AccountConfirmationDeliveryStatus.DELIVERED,
-            )
+        recorded = self.subject.execute(
+            '01JCOMMUNICATION000000000001',
+            self.token.id,
+            AccountActionTokenDeliveryStatus.DELIVERED,
+        )
 
-        self.repositories.account_action_tokens.update.assert_not_called()
+        assert recorded is True
+        self.repositories.account_action_tokens.update.assert_called_once_with(
+            self.token
+        )

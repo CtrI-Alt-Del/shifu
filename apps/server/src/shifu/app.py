@@ -9,6 +9,7 @@ from sqlalchemy import Engine
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
 from shifu.composition import (
+    PasswordRecoveryWorkflow,
     RegistrationConfirmationWorkflow,
     build_email_delivery_provider,
     build_message_renderer,
@@ -77,6 +78,13 @@ class FastAPIApp:
         )
         secret_envelope_provider = build_secret_envelope_provider(ENVIRONMENT)
         confirmation_workflow = RegistrationConfirmationWorkflow(
+            communication_database=communication_database,
+            id_provider=id_provider,
+            clock_provider=clock_provider,
+            secret_envelope_provider=secret_envelope_provider,
+            action_origin=ENVIRONMENT.confirmation_action_origin,
+        )
+        password_recovery_workflow = PasswordRecoveryWorkflow(
             communication_database=communication_database,
             id_provider=id_provider,
             clock_provider=clock_provider,
@@ -160,6 +168,7 @@ class FastAPIApp:
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
+        app.state.password_recovery_delivery_gateway = password_recovery_workflow
         app.state.communication_message_renderer_provider = message_renderer_provider
         app.state.communication_secret_envelope_provider = secret_envelope_provider
         app.state.email_delivery_provider = email_delivery_provider

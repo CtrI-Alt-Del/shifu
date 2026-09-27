@@ -1,23 +1,22 @@
 from datetime import timedelta
 from math import ceil
-from typing import ClassVar, cast
+from typing import ClassVar
 
 from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationCancellationReason,
+    AccountActionTokenCancellationReason,
     AccountStatus,
     ResendConfirmationResultStatus,
 )
 from shifu.identity.core.domain.events import (
-    AccountConfirmationCancelledEvent,
-    AccountConfirmationCancelledPayload,
+    AccountActionTokenCancelledEvent,
+    AccountActionTokenCancelledPayload,
 )
 from shifu.identity.core.domain.structures import ResendConfirmationResult
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
-    ConfirmationAccountActionTokensRepository,
     IdentityDatabase,
     IdentityDatabaseRepositories,
 )
@@ -51,10 +50,7 @@ class ResendEmailConfirmationUseCase:
         now = self._clock_provider.now()
 
         with self._identity_database.transaction() as repositories:
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
+            token_repository = repositories.account_action_tokens
             handle_token = token_repository.find_by_pending_handle_hash(
                 pending_handle_hash
             )
@@ -93,12 +89,12 @@ class ResendEmailConfirmationUseCase:
                 token_repository.update(old_token)
                 self._add_cancellation_event(repositories, old_token)
 
-            identity_confirmation_id = self._id_provider.generate()
+            identity_action_token_id = self._id_provider.generate()
             communication_id = self._id_provider.generate()
             confirmation_token = self._action_token_provider.generate()
             expires_at = now + self.CONFIRMATION_TOKEN_LIFETIME
             replacement_token = AccountActionToken(
-                id=identity_confirmation_id,
+                id=identity_action_token_id,
                 account_id=account.id,
                 type=AccountActionTokenType.EMAIL_CONFIRMATION,
                 status=AccountActionTokenStatus.PENDING,
@@ -112,7 +108,7 @@ class ResendEmailConfirmationUseCase:
             token_repository.add(replacement_token)
             return ResendConfirmationResult(
                 result=ResendConfirmationResultStatus.ACCEPTED,
-                identity_confirmation_id=identity_confirmation_id,
+                identity_action_token_id=identity_action_token_id,
                 communication_id=communication_id,
                 confirmation_token=confirmation_token,
                 confirmation_expires_at=expires_at,
@@ -130,11 +126,11 @@ class ResendEmailConfirmationUseCase:
         if confirmation_token.communication_id is None:
             return
         repositories.events.add(
-            AccountConfirmationCancelledEvent(
-                payload=AccountConfirmationCancelledPayload(
+            AccountActionTokenCancelledEvent(
+                payload=AccountActionTokenCancelledPayload(
                     communication_id=confirmation_token.communication_id,
-                    identity_confirmation_id=confirmation_token.id,
-                    reason=AccountConfirmationCancellationReason.REISSUED,
+                    identity_action_token_id=confirmation_token.id,
+                    reason=AccountActionTokenCancellationReason.REISSUED,
                 )
             )
         )

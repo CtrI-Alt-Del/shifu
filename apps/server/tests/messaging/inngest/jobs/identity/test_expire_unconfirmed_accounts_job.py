@@ -123,6 +123,6 @@ def _is_expired_and_redacted(
         and communication is not None
         and communication.account_id is None
         and communication.recipient_email is None
-        and communication.identity_confirmation_id is None
+        and communication.identity_action_token_id is None
         and communication.encrypted_content is None
     )

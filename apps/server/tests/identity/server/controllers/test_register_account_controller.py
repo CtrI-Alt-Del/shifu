@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
     from httpx import Response
-    from shifu.identity.core.interfaces import ConfirmationAccountActionTokensRepository
 
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
@@ -83,10 +82,7 @@ class TestRegisterAccountController:
         with identity_database.transaction() as repositories:
             account = repositories.accounts.find_non_deleted_by_email('ada@example.com')
             assert account is not None
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
+            token_repository = repositories.account_action_tokens
             token = token_repository.find_by_pending_handle_hash(pending_handle_hash)
             assert token is not None
             assert token.account_id == account.id

@@ -5,19 +5,18 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationCancellationReason,
+    AccountActionTokenCancellationReason,
     AccountStatus,
 )
 from shifu.identity.core.domain.events import (
-    AccountConfirmationCancelledEvent,
-    AccountConfirmationCancelledPayload,
+    AccountActionTokenCancelledEvent,
+    AccountActionTokenCancelledPayload,
     AccountExpiredEvent,
     AccountExpiredPayload,
     AccountExpiryRequestedEvent,
     AccountExpiryRequestedPayload,
 )
 from shifu.identity.core.interfaces import (
-    ConfirmationAccountActionTokensRepository,
     ExpiringAccountsRepository,
     IdentityDatabase,
     IdentityDatabaseRepositories,
@@ -80,10 +79,7 @@ class ExpireUnconfirmedAccountsUseCase:
 
             account.expire(now)
             repositories.accounts.update(account)
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
+            token_repository = repositories.account_action_tokens
             confirmation_tokens = token_repository.find_many_by_account_id_and_type(
                 account.id,
                 AccountActionTokenType.EMAIL_CONFIRMATION,
@@ -112,11 +108,11 @@ class ExpireUnconfirmedAccountsUseCase:
         if confirmation_token.communication_id is None:
             return
         repositories.events.add(
-            AccountConfirmationCancelledEvent(
-                payload=AccountConfirmationCancelledPayload(
+            AccountActionTokenCancelledEvent(
+                payload=AccountActionTokenCancelledPayload(
                     communication_id=confirmation_token.communication_id,
-                    identity_confirmation_id=confirmation_token.id,
-                    reason=AccountConfirmationCancellationReason.EXPIRED,
+                    identity_action_token_id=confirmation_token.id,
+                    reason=AccountActionTokenCancellationReason.EXPIRED,
                 )
             )
         )

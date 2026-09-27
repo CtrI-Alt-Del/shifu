@@ -1,5 +1,6 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
+@bffSharedSecret = replace-with-local-bff-secret
 
 ### Identity sign-in
 POST {{baseUrl}}/identity/sign-in
@@ -53,4 +54,51 @@ Content-Type: application/json
 
 {
   "token": "replace-with-43-character-base64url-token"
+}
+
+### Password recovery request (generic/opaque response)
+POST {{baseUrl}}/identity/password-recovery-requests
+X-Shifu-Bff-Secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{
+  "email": "learner@example.com"
+}
+
+### Password recovery status (opaque handle)
+POST {{baseUrl}}/identity/password-recoveries/status
+X-Shifu-Bff-Secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{
+  "recovery_handle": "replace-with-opaque-recovery-handle"
+}
+
+### Password recovery retry (opaque handle)
+POST {{baseUrl}}/identity/password-recoveries/retry
+X-Shifu-Bff-Secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{
+  "recovery_handle": "replace-with-opaque-recovery-handle"
+}
+
+### Password reset (one-time token)
+POST {{baseUrl}}/identity/password-resets
+X-Shifu-Bff-Secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{
+  "token": "replace-with-recovery-token",
+  "password": "replace-with-new-password",
+  "password_confirmation": "replace-with-new-password"
+}
+
+### Password reset link status (one-time token placeholder)
+POST {{baseUrl}}/identity/password-reset-links/status
+X-Shifu-Bff-Secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{
+  "token": "replace-with-43-character-base64url-recovery-token"
 }

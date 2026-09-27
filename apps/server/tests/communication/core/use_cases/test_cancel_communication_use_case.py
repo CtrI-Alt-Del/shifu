@@ -25,6 +25,8 @@ from shifu.shared.core.interfaces import ClockProvider
 
 
 class TestCancelCommunicationUseCase:
+    IDENTITY_ACTION_TOKEN_ID = '01JCONFIRMATION000000000000001'
+
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.communication_database = create_autospec(
@@ -57,7 +59,7 @@ class TestCancelCommunicationUseCase:
             idempotency_key='01JCOMMUNICATION000000000000001',
             created_at=self.now,
             updated_at=self.now,
-            identity_confirmation_id='01JCONFIRMATION000000000000001',
+            identity_action_token_id=self.IDENTITY_ACTION_TOKEN_ID,
             encrypted_content=SecretEnvelope(ciphertext='encrypted-content'),
         )
         self.repositories.communications.find_by_id.return_value = self.communication
@@ -71,7 +73,7 @@ class TestCancelCommunicationUseCase:
     ) -> None:
         cancelled = self.subject.execute(
             self.communication.id,
-            self.communication.identity_confirmation_id or '',
+            self.communication.identity_action_token_id or '',
             CommunicationCancellationReason.CONFIRMED,
         )
 
@@ -82,14 +84,12 @@ class TestCancelCommunicationUseCase:
         event = self.repositories.events.add.call_args.args[0]
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.CANCELLED
-        assert event.payload.identity_confirmation_id == (
-            '01JCONFIRMATION000000000000001'
-        )
+        assert event.payload.identity_action_token_id == (self.IDENTITY_ACTION_TOKEN_ID)
 
     def test_should_redact_every_active_association_when_expired(self) -> None:
         cancelled = self.subject.execute(
             self.communication.id,
-            self.communication.identity_confirmation_id or '',
+            self.communication.identity_action_token_id or '',
             'expired',
         )
 
@@ -98,7 +98,7 @@ class TestCancelCommunicationUseCase:
         assert self.communication.account_id is None
         assert self.communication.recipient_email is None
         assert self.communication.recipient_name is None
-        assert self.communication.identity_confirmation_id is None
+        assert self.communication.identity_action_token_id is None
         assert self.communication.content is None
         assert self.communication.encrypted_content is None
         assert self.communication.is_redacted
@@ -111,7 +111,7 @@ class TestCancelCommunicationUseCase:
 
         cancelled = self.subject.execute(
             self.communication.id,
-            self.communication.identity_confirmation_id or '',
+            self.communication.identity_action_token_id or '',
             CommunicationCancellationReason.EXPIRED,
         )
 
@@ -123,7 +123,7 @@ class TestCancelCommunicationUseCase:
     def test_should_ignore_duplicate_or_mismatched_cancellation(self) -> None:
         first = self.subject.execute(
             self.communication.id,
-            self.communication.identity_confirmation_id or '',
+            self.communication.identity_action_token_id or '',
             CommunicationCancellationReason.REISSUED,
         )
         updates = self.repositories.communications.update.call_count
@@ -145,7 +145,7 @@ class TestCancelCommunicationUseCase:
         with pytest.raises(InvalidCommunicationError):
             self.subject.execute(
                 self.communication.id,
-                self.communication.identity_confirmation_id or '',
+                self.communication.identity_action_token_id or '',
                 'unknown',
             )
 

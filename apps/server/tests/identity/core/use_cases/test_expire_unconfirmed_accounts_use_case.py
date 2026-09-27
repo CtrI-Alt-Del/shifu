@@ -7,12 +7,12 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationCancellationReason,
+    AccountActionTokenCancellationReason,
     AccountDeletionReason,
     AccountStatus,
 )
 from shifu.identity.core.domain.events import (
-    AccountConfirmationCancelledEvent,
+    AccountActionTokenCancelledEvent,
     AccountExpiredEvent,
     AccountExpiryRequestedEvent,
 )
@@ -107,14 +107,14 @@ class TestExpireUnconfirmedAccountsUseCase:
         cancellation_events = [
             event
             for event in events
-            if isinstance(event, AccountConfirmationCancelledEvent)
+            if isinstance(event, AccountActionTokenCancelledEvent)
         ]
         assert {event.payload.communication_id for event in cancellation_events} == {
             pending_token.communication_id,
             invalidated_token.communication_id,
         }
         assert all(
-            event.payload.reason is AccountConfirmationCancellationReason.EXPIRED
+            event.payload.reason is AccountActionTokenCancellationReason.EXPIRED
             for event in cancellation_events
         )
         expired_event = next(
