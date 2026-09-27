@@ -1,7 +1,7 @@
 ---
 title: Identity password recovery and reset
-status: ready
-revision: 3
+status: completed
+revision: 4
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63
@@ -124,23 +124,22 @@ account-confirmation template and requires `display_name`.
 
 ## Design Contract
 
-`design/shifu.pen` is the visual source. The following frames were inspected at
-`1440 x 900`, exported at Pencil scale `1`, and recorded in
-[`design/handoff.md`](./design/handoff.md). Pencil reported no clipping or
-overflow. This removes the design-evidence blocker; this Spec remains `draft`
-until the registration-confirmation correlation amendment is reviewed.
+`design/shifu.pen` and [`design/handoff.md`](./design/handoff.md) remain
+implementation references for the existing public recovery surfaces. They do
+not define acceptance evidence for this delivery; no visual comparison or
+screenshot capture is required.
 
-| Reference | Source/node | Route/surface/state | Viewport | Screenshot | Visible inventory | Interaction/state coverage | Ambiguities/exclusions | Validation target |
+| Reference | Source/node | Route/surface/state | Viewport | Screenshot | Visible inventory | Interaction/state coverage | Ambiguities/exclusions | Scope |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Request | Pencil `CGmXc` | `/forgot-password`, default and derived generic-status states | 1440 x 900 | [`CGmXc.png`](./design/CGmXc.png) | Public shell, e-mail form, primary request action and entry navigation | Validation, submitting, generic accepted/cooldown/delivery-issue/retry | Status states are approved derived states on the same route | `CA-01` to `CA-04`, `VM-01` to `VM-03` |
-| Reset | Pencil `VcFmX` | `/reset-password`, valid form and success states | 1440 x 900 | [`VcFmX.png`](./design/VcFmX.png) | Public shell, password/confirmation inputs, primary action | Valid, validation, submitting, success and pending-confirmation explanation | Mobile states are derived from this frame | `CA-07` to `CA-09`, `VM-05`, `VM-06` |
-| Link outcomes | Pencil `lfk5T` | `/reset-password`, expired, used and invalid | 1440 x 900 | [`lfk5T.png`](./design/lfk5T.png) | Textual status, icon reinforcement and one recovery action | URL cleanup, focus and navigation by outcome | No extra account disclosure or session continuation | `CA-07`, `VM-05` |
+| Request | Pencil `CGmXc` | `/forgot-password`, default and derived generic-status states | 1440 x 900 | [`CGmXc.png`](./design/CGmXc.png) | Public shell, e-mail form, primary request action and entry navigation | Validation, submitting, generic accepted/cooldown/delivery-issue/retry | Implementation reference only |
+| Reset | Pencil `VcFmX` | `/reset-password`, valid form and success states | 1440 x 900 | [`VcFmX.png`](./design/VcFmX.png) | Public shell, password/confirmation inputs, primary action | Valid, validation, submitting, success and pending-confirmation explanation | Implementation reference only |
+| Link outcomes | Pencil `lfk5T` | `/reset-password`, expired, used and invalid | 1440 x 900 | [`lfk5T.png`](./design/lfk5T.png) | Textual status, icon reinforcement and one recovery action | URL cleanup, focus and navigation by outcome | Implementation reference only |
 
 The implementation uses the existing dark-only Dojo editorial tokens, Instrument
 Serif headings, DM Sans controls, textual and icon-supported status, 44 px mobile
 targets and two-pixel focus treatment. Runtime-only countdown/status updates must
-respect `prefers-reduced-motion`. Narrow validation covers `375 x 812`; short mobile
-validation covers `375 x 667` with scroll rather than clipped actions.
+respect `prefers-reduced-motion`. Responsive behavior remains covered by automated
+route and widget tests, without manual visual comparison.
 
 # 3. Technical Contract
 
@@ -351,13 +350,13 @@ apps/web/src/ui/identity/
 
 | Acceptance | Automated boundary | Manual scenario | Evidence target |
 | --- | --- | --- | --- |
-| `CA-01` | Request widget and route suites | `VM-01` | Future `evaluation.md` design/browser evidence |
+| `CA-01` | Request widget and route suites | `VM-01` | Future `evaluation.md` browser evidence |
 | `CA-02` | Request use-case/controller/handler/route suites | `VM-02` | Future Identity persistence and browser evidence |
 | `CA-03` | Request/retry use-case, controller and cancellation-job suites | `VM-02` | Future concurrency/persistence evidence |
 | `CA-04` | Status/retry handler, Communication job and route suites | `VM-03` | Future Mailpit and browser evidence |
 | `CA-05` | Package, renderer and real Inngest job suites | `VM-04` | Future generated-template/Mailpit evidence |
 | `CA-06` | Communication use-case and job suites | `VM-04` | Future retry/idempotency evidence |
-| `CA-07` | Reset use-case/controller/widget/route suites | `VM-05` | Future browser screenshot/URL evidence |
+| `CA-07` | Reset use-case/controller/widget/route suites | `VM-05` | Future browser/URL evidence |
 | `CA-08` | Reset use-case/controller and BFF handler suites | `VM-06` | Future database/session evidence |
 | `CA-09` | Reset widget/controller/handler/route suites | `VM-06` | Future validation/recovery evidence |
 
@@ -365,11 +364,11 @@ apps/web/src/ui/identity/
 
 | ID | CA coverage | Scenario |
 | --- | --- | --- |
-| `VM-01` | `CA-01` | With web/API healthy, open `/forgot-password` at `1440 x 900`, `375 x 812`, and `375 x 667`; tab through the form, submit invalid e-mail, inspect visible focus/announcement/layout, final URL, console and failed requests, then compare with saved `CGmXc` reference. |
+| `VM-01` | `CA-01` | With web/API healthy, open `/forgot-password`; tab through the form, submit invalid e-mail, inspect visible focus/announcement, final URL, console and failed requests. |
 | `VM-02` | `CA-02`, `CA-03` | Submit active, pending, deleted and unknown addresses through the real BFF/API. Inspect identical public response, request/network details, persisted tokens/Communication rows, 60-second cooldown and replacement invalidation without exposing protected values. |
 | `VM-03` | `CA-04` | Force a controlled terminal delivery failure after request, reload the generic status, trigger its available recovery action, and inspect keyboard/focus, console, request and persisted generic delivery state. |
 | `VM-04` | `CA-05`, `CA-06` | Using local Mailpit and the registered Inngest app, inspect the recovery e-mail subject/body/action, verify its one-hour expiry and absence of name, replay its event and exercise temporary/permanent failure behavior. Confirm logs/events contain IDs only. |
-| `VM-05` | `CA-07` | Open valid, expired, used, invalid and malformed reset links at desktop and narrow viewport. Verify token removal from final URL, outcome-specific recovery action, accessible focus, console/network state, and screenshot comparison with `VcFmX`/`lfk5T`. |
+| `VM-05` | `CA-07` | Open valid, expired, used, invalid and malformed reset links. Verify token removal from final URL, outcome-specific recovery action, accessible focus, and console/network state. |
 | `VM-06` | `CA-08`, `CA-09` | Create multiple Better Auth sessions for active and pending accounts, reset with valid and invalid/mismatched passwords, verify persisted password/token/status, old-session rejection/deletion, cleared current cookie, final sign-in URL and pending-confirmation explanation. |
 | `VM-07` | `CA-03`, `CA-05`, `CA-06` | In a disposable PostgreSQL environment, apply the forward migration from `d7f4e9a1c2b3` after inserting a confirmation row; inspect that its correlation is preserved as `identity_action_token_id`, the old partial index is removed, and the replacement partial unique index is active. Record the upgrade command/output and index inspection in `evaluation.md`; do not add a dedicated migration test module. |
 
@@ -402,7 +401,8 @@ apps/web/src/ui/identity/
 | `documentation/features/identity/registration-confirmation/spec.md` | Existing confirmation/Communication correlation contract | amended and reviewed | Revision 13 generalizes `identity_confirmation_id` to `identity_action_token_id`; the paired Specs passed independent compatibility review. |
 | `documentation/modules.md` | Identity/Communication ownership | confirmed | Identity retains eligibility/tokens/password/session authority; Communication retains catalog/delivery/retry authority. |
 | `documentation/architecture.md` | BFF, FastAPI, PostgreSQL and Inngest boundaries | confirmed | No module-core cross-imports; BFF remains the browser-facing secret/session boundary. |
-| `documentation/design.md` | Public Identity visual/accessibility language | confirmed | Implement supplied and derived recovery states with current dark-only tokens and accessibility rules. |
+| `documentation/design.md` | Public Identity visual/accessibility language | confirmed | Implement current tokens and accessibility rules; visual comparison is outside this delivery's validation contract. |
+| `AGENTS.md` | Rendered UI validation | task-specific exception | The user explicitly waived screenshots and visual comparison for SHIFU-63; functional, responsive and accessibility validation remains required. |
 | `documentation/rules/ui-layer-rules.md` | Identity widgets, hooks and BFF-facing web adapter | confirmed | New stateful widgets require colocated hooks/tests. |
 | `documentation/rules/web-app-routing-rules.md` | Public routes/search/generated route tree | confirmed | Add route constants/files, validate search and generate metadata. |
 | `documentation/rules/widget-testing-rules.md` | Widget and browser test placement | confirmed | Use owning widget tests and Identity Playwright suites. |
@@ -435,3 +435,4 @@ apps/web/src/ui/identity/
 | 1 | 2026-09-25 | Created draft Contract for recovery/reset and the generic action-token correlation amendment. | Confirmed SHIFU-63 scope and product/technical decisions. |
 | 2 | 2026-09-25 | Added Pencil export references, migration-preservation delivery evidence and the feature-local design handoff; promoted the contract to `ready`. | Design nodes `CGmXc`, `VcFmX` and `lfk5T` are saved evidence, the correlation amendment passed independent review, and migration proof remains a disposable-environment delivery record. |
 | 3 | 2026-09-26 | Added a BFF-only, non-mutating reset-link status operation and its server/web/REST-client validation boundaries. | User approved the technical contract amendment required to resolve link outcomes before rendering the reset form. |
+| 4 | 2026-09-27 | Removed visual-comparison and screenshot-capture obligations from the validation contract. | User explicitly removed visual validation from SHIFU-63 while retaining functional, responsive and accessibility coverage. |

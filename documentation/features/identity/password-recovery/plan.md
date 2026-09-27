@@ -1,8 +1,8 @@
 ---
 title: Identity password recovery and reset implementation plan
-status: in_progress
+status: completed
 spec: ./spec.md
-spec_revision: 3
+spec_revision: 4
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63
 last_updated_at: 2026-09-25
@@ -12,10 +12,10 @@ last_updated_at: 2026-09-25
 
 | Item | State |
 | --- | --- |
-| Governing contract | [`spec.md`](./spec.md), revision `3`, status `ready` |
-| Plan status / phase | `in_progress` / revision-3 F1/F2 correction and validation active; F3 complete; F4/F5 integrated validation pending |
+| Governing contract | [`spec.md`](./spec.md), revision `4`, status `ready` |
+| Plan status / phase | `completed` / revision-4 validation amendment reconciled and ready for publication |
 | Why a Plan | Cross-module Identity/Communication contract migration, PostgreSQL forward migration, generated e-mail artifacts, Better Auth BFF work, Inngest integration, and real browser/runtime validation require coordinated ownership. |
-| Next action | Implement and validate the approved non-mutating reset-link status operation, then rerun affected browser, server, and reviewer evidence. |
+| Next action | Complete the revision-4 Spec review, reconcile evidence without visual comparisons, and run the remaining applicable gates. |
 | Active blockers | None. Local Docker, Mailpit, Inngest, FastAPI, web, and disposable Testcontainers availability remain validation gates. |
 | Active Builders | `identity-password-recovery-server-builder`, `identity-password-recovery-web-builder`, and `identity-password-recovery-email-builder` own the non-overlapping F1, F2, and F3 paths. |
 | Shared ownership | The Orchestrator owns this Plan and Evaluation, generated `apps/web/src/routeTree.gen.ts`, generated server e-mail assets, migration coordination, any lockfile change, cross-Builder integration, and final validation. |
@@ -68,7 +68,7 @@ The pre-existing modification to `documentation/features/identity/registration-c
 - **Outcome:** Public request and reset routes honor the opaque BFF context, URL cleanup, generic disclosure, access invalidation handling, and the specified pt-BR accessible states.
 - **Rules:** `documentation/rules/typescript-conventions-rules.md`; `ui-layer-rules.md` including `Antipatterns to Avoid`; `web-app-routing-rules.md`; `widget-testing-rules.md`; `rest-layer-rules.md`; `provision-layer-rules.md`; `documentation/design.md`.
 - **Risks/controls:** Browser-visible values or a route/widget shortcut could expose account/token data or bypass BFF ownership. Keep route files thin, validate search in the route, use only same-origin BFF operations, and test malformed, unavailable, pending, error, and recovery states through the owning boundaries.
-- **Exit:** Run focused Vitest and mocked Playwright route suites with the shared fixture, then `pnpm --filter web check:lint`, `pnpm --filter web check:architecture`, `pnpm --filter web check:types`, and `pnpm --filter web test:unit`. Compare implemented states with `design/CGmXc.png`, `design/VcFmX.png`, and `design/lfk5T.png`; defer `routeTree.gen.ts` generation to F6.
+- **Exit:** Run focused Vitest and mocked Playwright route suites with the shared fixture, then `pnpm --filter web check:lint`, `pnpm --filter web check:architecture`, `pnpm --filter web check:types`, and `pnpm --filter web test:unit`. Verify keyboard, focus, accessible names and narrow viewport behavior through the declared suites; the user waived screenshot capture and visual comparison for this delivery. Defer `routeTree.gen.ts` generation to F6.
 
 ### F3 — Controlled recovery e-mail source
 
@@ -119,7 +119,7 @@ The pre-existing modification to `documentation/features/identity/registration-c
 - **Traceability:** All selected `RP-*`/`JN-*`; `RF-01` to `RF-08`; `CA-01` to `CA-09`; `VM-01` to `VM-07`; `CI-01` to `CI-17`.
 - **Outcome:** Generated files are current and reviewed, migration preservation and REST-client parity are demonstrated, and Evaluation contains current evidence rather than assumptions.
 - **Rules:** `documentation/sdd.md`; `documentation/tooling.md`; all Rules listed in the governing Spec section 5 for the changed paths.
-- **Risks/controls:** Generated files, migration state, and browser artifacts can become stale after integration. Generate only with declared commands, rerun affected exits after any correction, save screenshots as transient evidence, and never commit them unless repository policy changes.
+- **Risks/controls:** Generated files and migration state can become stale after integration. Generate only with declared commands and rerun affected exits after any correction. The user waived screenshot capture and visual comparison for this delivery.
 - **Exit:** Run CI-01 through CI-17 as applicable, execute VM-01 through VM-07, inspect the full diff against the Spec affected-path map, and record each accepted evidence item in `evaluation.md`.
 
 ### F7 — Integrated implementation review
@@ -130,7 +130,7 @@ The pre-existing modification to `documentation/features/identity/registration-c
 - **Depends/parallel:** F6; no parallel work.
 - **Paths:** Read-only review of the complete integrated candidate, generated artifacts, REST client, and `documentation/features/identity/password-recovery/evaluation.md`.
 - **Traceability:** All `CA-*`, `VM-*`, `CI-*`, cross-module boundaries, and F1 through F6 exits.
-- **Outcome:** One advisory report checks the full candidate, not isolated Builder diffs, including confirmation compatibility, artifact freshness, REST parity, persistence, BFF/session behavior, and visual evidence.
+- **Outcome:** One advisory report checks the full candidate, not isolated Builder diffs, including confirmation compatibility, artifact freshness, REST parity, persistence, BFF/session behavior, and functional responsive/accessibility evidence.
 - **Rules:** `documentation/agents/implementation-reviewer-agent.md`; governing Rule Pack references in `spec.md`.
 - **Risks/controls:** A Builder report is not acceptance evidence. The Orchestrator verifies each finding, records verified items as `ACH-*` in `evaluation.md`, resumes the responsible Builder when necessary, invalidates stale evidence, and resumes this same Reviewer after correction.
 - **Exit:** Reviewer report is complete and every verified finding has a resolved or explicitly accepted Evaluation disposition.
@@ -154,14 +154,7 @@ The pre-existing modification to `documentation/features/identity/registration-c
 | Manual | VM-05 reset-link outcomes and URL cleanup | CA-07 | Spec `VM-05` | `evaluation.md` `EV-13` | `pending` |
 | Manual | VM-06 reset, session invalidation, and pending-account preservation | CA-08, CA-09 | Spec `VM-06` | `evaluation.md` `EV-14` | `pending` |
 | Manual | VM-07 disposable forward-migration preservation | CA-03, CA-05, CA-06 | Spec `VM-07` | `evaluation.md` `EV-15` | `pending` |
-| Visual | Request default and derived states, `1440 x 900` | CA-01 to CA-04 | `design/CGmXc.png` | Playwright artifact + `EV-16` | `pending` |
-| Visual | Request derived states, `375 x 812` | CA-01 to CA-04 | `design/handoff.md` derived state | Playwright artifact + `EV-17` | `pending` |
-| Visual | Request short-mobile scroll state, `375 x 667` | CA-01 | `design/handoff.md` derived state | Playwright artifact + `EV-18` | `pending` |
-| Visual | Reset valid and success states, `1440 x 900` | CA-07 to CA-09 | `design/VcFmX.png` | Playwright artifact + `EV-19` | `pending` |
-| Visual | Reset derived states, `375 x 812` | CA-07 to CA-09 | `design/handoff.md` derived state | Playwright artifact + `EV-20` | `pending` |
-| Visual | Reset short-mobile scroll state, `375 x 667` | CA-07 to CA-09 | `design/handoff.md` derived state | Playwright artifact + `EV-21` | `pending` |
-| Visual | Expired, used, and invalid link outcomes, `1440 x 900` | CA-07 | `design/lfk5T.png` | Playwright artifact + `EV-22` | `pending` |
 
 The Orchestrator must run the applicable declared commands: `pnpm --filter web generate-routes`, `check:lint`, `check:architecture`, `check:types`, `test:unit`, `test:integration`, and `build`; `pnpm --dir packages/email check:code`, `check:types`, and `build`; then, from `apps/server`, `uv run poe check:lint`, `check:architecture`, `check:types`, `test:unit`, `test:integration`, `test:jobs`, and `build`.
 
-Final handoff requires every task and phase completed; the exact Spec revision and integrated diff reconciled; applicable commands passed without lowering configured floors; generated routes, migration, e-mail artifacts, and REST-client examples reviewed; every `CA-*` and `VM-*` backed by current accepted evidence; all visual comparisons and supplemental-state screenshots current; all affected REST-client routes complete; the Implementation Reviewer completed with verified findings resolved; runtime limitations explicitly recorded; and `evaluation.md` ready for `conclude-spec`.
+Final handoff requires every task and phase completed; the exact Spec revision and integrated diff reconciled; applicable commands passed without lowering configured floors; generated routes, migration, e-mail artifacts, and REST-client examples reviewed; every `CA-*` and `VM-*` backed by current accepted evidence; all affected REST-client routes complete; the Implementation Reviewer completed with verified findings resolved; runtime limitations explicitly recorded; and `evaluation.md` ready for `conclude-spec`.

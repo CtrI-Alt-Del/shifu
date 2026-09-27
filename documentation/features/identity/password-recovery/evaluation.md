@@ -1,8 +1,8 @@
 ---
 title: Identity password recovery and reset evaluation
-status: ready
+status: completed
 spec: ./spec.md
-spec_revision: 3
+spec_revision: 4
 plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63
 prd:
@@ -15,16 +15,16 @@ last_updated_at: 2026-09-27
 
 # Evaluation Status
 
-`ready` — SHIFU-63 is implemented against Spec revision 3. Identity and
+`completed` — SHIFU-63 is implemented against Spec revision 4. Identity and
 Communication PRDs remain at content versions 1; no external PRD checkbox was
-changed. The revision-3 reset-link status endpoint, privacy corrections, and
-final integrated gates are recorded below.
+changed. The user removed visual-comparison and screenshot-capture obligations;
+functional, responsive and accessibility evidence remains required.
 
 # Acceptance Coverage
 
 | Criterion | Spec coverage | Required evidence | Disposition | Status |
 | --- | --- | --- | --- | --- |
-| CA-01 | RF-01, RF-08 | Widget/route tests; VM-01; request screenshots | EV-03, EV-11 | passed |
+| CA-01 | RF-01, RF-08 | Widget/route tests; VM-01 | EV-03, EV-11 | passed |
 | CA-02 | RF-01 to RF-03 | Use-case/controller/handler tests; VM-02 | EV-06, EV-11 | passed |
 | CA-03 | RF-02, RF-03 | Cooldown/concurrency/replacement tests; VM-02 | EV-06, EV-11 | passed |
 | CA-04 | RF-03, RF-04 | Status/retry and delivery tests; VM-03 | EV-11, EV-13 | passed |
@@ -56,20 +56,17 @@ final integrated gates are recorded below.
 | CI-16 | `REDIS_URL=redis://localhost:6379/0 uv run poe test:jobs` | Inngest jobs | passed, 7 tests | EV-13 |
 | CI-17 | `REDIS_URL=redis://localhost:6379/0 uv run poe build` | Server build | passed | EV-13 |
 
-# Manual and Visual Evidence
+# Manual Evidence
 
 | VM scenario | Exact viewport/state | Reference | Artifact path | Expected/observed result | Status |
 | --- | --- | --- | --- | --- | --- |
-| VM-01 request form/accessibility | 1440x900, 375x812, 375x667; invalid input | `design/CGmXc.png`, handoff derived states | `%LOCALAPPDATA%/Temp/opencode/password-recovery-request-{desktop,mobile,short-mobile}.png` | Labeled form, validation, preserved input, focus and responsive scroll observed | passed |
+| VM-01 request form/accessibility | Invalid input | None | EV-11, EV-14 | Labeled form, validation, preserved input, focus and responsive behavior observed through automated browser coverage | passed |
 | VM-02 privacy/cooldown/replacement | Active, pending, deleted, unknown accounts | None | EV-06, EV-14 | Generic outcome and persisted eligible-only token/request behavior covered through unit, controller and handler boundaries | passed |
 | VM-03 terminal delivery recovery | Generic status/retry; desktop and mobile | handoff derived delivery issue | EV-11, EV-13 | Only ready/cooldown/delivery-issue states reach the browser; expiry cancels delivery | passed |
 | VM-04 Mailpit/retry/idempotency/privacy | Real local Inngest/Mailpit flow | None | EV-12, EV-13 | One pt-BR message, one reset URL, one-hour validity and ID-only job data asserted | passed |
-| VM-05 reset link outcomes | 1440x900, 375x812; valid/expired/used/invalid/malformed | `design/VcFmX.png`, `design/lfk5T.png` | `%LOCALAPPDATA%/Temp/opencode/password-recovery-reset-invalid-desktop.png`; EV-14 | Token removal and valid/expired/used/invalid paths resolve before form rendering | passed |
-| VM-06 reset/session/pending account | Active and pending sessions | `design/VcFmX.png` | EV-06, EV-14 | Password/token/access-version changes, cookie clear, session cleanup failure safety and pending preservation covered | passed |
+| VM-05 reset link outcomes | Valid/expired/used/invalid/malformed | None | EV-14 | Token removal and valid/expired/used/invalid paths resolve before form rendering | passed |
+| VM-06 reset/session/pending account | Active and pending sessions | None | EV-06, EV-14 | Password/token/access-version changes, cookie clear, session cleanup failure safety and pending preservation covered | passed |
 | VM-07 forward migration preservation | Disposable PostgreSQL from d7f4e9a1c2b3 | None | EV-10 | Legacy confirmation correlation, expiry and partial unique index preserved | passed |
-| Visual request states | 1440x900, 375x812, 375x667 | `design/CGmXc.png`, handoff | pending | Expected supplied dark grid/card language and responsive scroll; not yet run | pending |
-| Visual reset states | 1440x900, 375x812, 375x667 | `design/VcFmX.png`, handoff | pending | Expected reset form/success language and responsive scroll; not yet run | pending |
-| Visual link outcomes | 1440x900, 375x812 | `design/lfk5T.png`, handoff | pending | Expected textual/icon-supported generic outcomes; not yet run | pending |
 
 # Review Findings
 
@@ -91,6 +88,7 @@ final integrated gates are recorded below.
 | ACH-14 | Medium implementation defect | Independent integrated review | CA-04, VM-03 | resolved | Status polling uses the opaque context expiry and stops when it is no longer valid. |
 | ACH-15 | Medium implementation defect | Independent integrated review | CA-08, VM-06 | resolved | A successful reset automatically follows only the validated BFF-provided `/login` destination. |
 | ACH-16 | Medium missing coverage | Independent integrated review | CA-08, VM-06 | resolved | Registered-handler coverage proves session deletion failure keeps reset successful, clears the cookie, and emits only the fixed operational observation. |
+| ACH-17 | Validation-contract amendment | User request | Visual rows and screenshot references | resolved | Spec revision 4 removes visual comparisons and screenshot captures; functional responsive and accessibility coverage remains required. |
 
 # Evidence Log
 
@@ -111,6 +109,7 @@ final integrated gates are recorded below.
 | EV-12 | 2026-09-27 | E-mail package and generated assets | `corepack pnpm --dir packages/email check:code`; `check:types`; `build` | Passed | None | Controlled recovery template and generated HTML/manifest are current | CA-05, CA-06 |
 | EV-13 | 2026-09-27 | Server candidate | `REDIS_URL=redis://localhost:6379/0 uv run poe check:lint`; `check:architecture`; `check:types`; `test:unit`; `test:integration`; `test:jobs`; `build` | Passed | ACH-11, ACH-12 resolved | 141 unit, 87 PostgreSQL integration and 7 real Inngest/Testcontainers tests; jobs took 605.70 seconds | CA-02 to CA-09; VM-02 to VM-07 |
 | EV-14 | 2026-09-27 | Full browser integration | `corepack pnpm --filter web test:integration` | Passed | Rate-limit concurrency finding resolved | 103 tests with six workers; recovery BFF endpoints are exempt only from generic Better Auth throttling while Identity cooldown remains authoritative | CA-01 to CA-04, CA-07 to CA-09 |
+| EV-15 | 2026-09-27 | Revision-4 validation amendment | Spec/Plan/Evaluation/handoff reconciliation; independent Spec Reviewer re-review | Passed | ACH-17 resolved | The user waived screenshots and visual comparison only; current automated functional, narrow-viewport and accessibility evidence remains applicable | CA-01 to CA-09 |
 
 # Builder Assignments
 
@@ -120,14 +119,11 @@ final integrated gates are recorded below.
 | `identity-password-recovery-web-builder` | F2/F5, Builder Web; BFF, public routes, widgets and web tests | `apps/web/src/constants/routes.ts`; `apps/web/src/rest/services/identity-service.ts`; `apps/web/src/provision/auth/better-auth/better-auth-provider.ts`; `apps/web/src/routes/forgot-password/**`; `apps/web/src/routes/reset-password/**`; `apps/web/src/ui/identity/hooks/**` limited to listed recovery hooks; `apps/web/src/ui/identity/widgets/pages/forgot-password-page/**`; `apps/web/src/ui/identity/widgets/pages/reset-password-page/**`; `apps/web/tests/routes/identity/**`; `apps/web/tests/identity/password-recovery-auth-handler.test.ts` | Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, design artifacts, `apps/web/src/routeTree.gen.ts`, `packages/email/**`, `apps/server/**` | Focused Vitest/route checks; no route generation; report pnpm/runtime limitations |
 | `identity-password-recovery-email-builder` | F3, Builder Email; controlled template and multi-template generator | `packages/email/templates/identity/password-recovery-email.tsx`; `packages/email/templates/index.ts`; `packages/email/scripts/build-templates.ts` | Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, all `apps/server/**`, all `apps/web/**`, generated server email artifacts | Email code/types/build; generated artifacts reported, never hand-edited |
 
-# Design Authority Preflight
+# Design Reference
 
 Feature root: `documentation/features/identity/password-recovery/`.
 
-Canonical design authority: `design/handoff.md`, with saved references
-`design/CGmXc.png`, `design/VcFmX.png`, and `design/lfk5T.png`. The affected
-surfaces are `/forgot-password` and `/reset-password`; exact reference viewport
-is `1440x900`, with approved derived states at `375x812` and short-mobile
-`375x667`. The scope fence excludes adjacent Identity routes and shared visual
-language changes. Every visual row above is stale/pending until a fresh
-post-change comparison is captured.
+`design/handoff.md` and its saved references remain implementation context for
+`/forgot-password` and `/reset-password`. The user explicitly waived screenshot
+capture and visual comparison for SHIFU-63; responsive, keyboard and
+accessibility behavior remains covered by the declared widget and route suites.
