@@ -20,7 +20,13 @@ HTTP response classes, environment objects, or SDK exceptions.
 
 Cross-module provider contracts that are genuinely technical and shared belong under
 `apps/server/src/shifu/shared/core/interfaces`. Their concrete implementations belong
-under `apps/server/src/shifu/shared/providers`.
+under `apps/server/src/shifu/shared/providers` when the integration itself is
+module-neutral. When one business module owns the external capability, its
+provider may implement a Shared port under that module's `providers` directory.
+For example, Intelligence's Jev code-rubric provider implements a Shared
+assessor port over immutable Shared snapshots. It must not import another
+business module's entities, repositories, or use cases; application composition
+injects it into consumers, and the consuming module keeps its own business rules.
 
 ## Adapters name technology and capability
 

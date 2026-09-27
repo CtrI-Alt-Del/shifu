@@ -32,7 +32,7 @@ Não criar telas para nada abaixo. Todos são exclusões explícitas dos PRDs.
 - Modo "prática" separado de modo "avaliação"
 - Marcar material como lido / percentual de leitura / biblioteca geral de materiais
 - Desafio final obrigatório após dominar todas as Competências
-- Rascunho de resposta não enviada
+- Rascunhos no servidor ou sincronizados entre dispositivos. Questões de código com frontend usam autosave local no navegador; diagnóstico não salva rascunhos
 - Configuração de IA pelo usuário (modelo, chave, parâmetros)
 - Exportação de dados ou de conversas
 - Painel de métricas / analytics
@@ -212,9 +212,10 @@ Alerta em linha (info, sucesso, aviso, erro) · Aviso de topo de página · Noti
 - **Cartão de próxima Atividade** — dificuldade, tipo, motivo (nova ou reforço), botão Iniciar
 - **Selo de dificuldade** — Fácil / Média / Difícil, com forma distinta além da cor
 - **Grafo de Habilidades** — nós = Habilidades do Objetivo, arestas = relações do Currículo. **Precisa de uma visão em lista equivalente** (Learning RP-25: o grafo não pode ser a única forma de descobrir nomes e caminhos)
-- **Editor de código** — mono, numeração de linhas, botão Enviar. Sem execução local
-- **Cartão de caso de teste** — entrada, esperado, obtido, aprovado/reprovado
-- **Cartão de critério qualitativo** — nome, peso, nota 0 a 100, explicação curta
+- **Editor de código** — Monaco, arquivos iniciais editáveis do Currículo, criação controlada de arquivos quando autorizada, numeração de linhas, prática no navegador e avaliação da questão
+- **Aba Terminal do painel de prática** — comandos permitidos pelo modelo da questão, saída e erros; nunca determina a nota
+- **Painel HTTP** — requisição e resposta de uma API Fastify em execução no navegador; status, corpo e erro legíveis
+- **Cartão de critério de código** — nome, peso, nível 0/25/50/75/100 ou inconclusivo e comentário predefinido
 - **Linha de histórico de tentativa** — data, nota, expansível para resposta + avaliação
 
 ### 4.4 Gamification
@@ -447,13 +448,17 @@ Caminho de volta claro para a Competência de origem — o mesmo material pode a
 
 #### T24 — Atividade de escolha única
 Enunciado + alternativas. Uma correta. Sem crédito parcial.
-Aviso ao tentar sair com resposta não enviada: **o conteúdo será perdido** (não existe rascunho).
-Após o envio, a avaliação começa sozinha. **Não existe segundo botão "avaliar"**.
+Mostrar dificuldade, posição e barra de progresso. A questão pode receber retorno provisório antes do envio final da Atividade; somente esse envio cria a tentativa e inicia a avaliação oficial.
+Avisar sobre perda de resposta não enviada quando ela não estiver salva localmente.
 
 #### T25 — Atividade de código
-Enunciado + editor mono. Botão **Enviar**.
-Os casos de avaliação ficam ocultos antes do primeiro resultado.
-Mesmo aviso de perda de resposta não enviada.
+Mostrar dificuldade, posição, barra de progresso, enunciado e editor Monaco com os arquivos iniciais editáveis definidos pelo Currículo. O aluno pode praticar na execução e avaliar a questão preliminarmente; a tentativa oficial só nasce no envio final da Atividade.
+Os tipos de aprendizagem são função JavaScript, programa JavaScript com entrada e saída padrão, página HTML/CSS/JavaScript, React, API REST Fastify e projeto integrado React + Fastify. O projeto integrado ocupa uma questão.
+Em questões React e React + Fastify que autorizem arquivos adicionais, mostrar **Novo arquivo**, os diretórios, extensões e limite aceitos e erros de nome ou caminho inválido. Os arquivos criados aparecem no editor e integram a resposta enviada.
+Questões com frontend salvam automaticamente os arquivos iniciais editáveis e os novos arquivos autorizados neste navegador e indicam salvando, salvo ou falha. O rascunho fica associado à conta, persiste após sair e entrar no mesmo navegador e não sincroniza entre dispositivos.
+No desktop, a estação de código usa uma lateral recolhível com abas **Enunciado** e **Arquivos**. A árvore de arquivos, as abas do editor e as abas **Prévia**/**HTTP**/**Terminal** começam na mesma altura, abaixo de uma barra de ações contínua. Editor e painel de prática compartilham bordas, sem espaços entre eles; a aba **Arquivos** mostra a hierarquia e destaca o arquivo aberto no editor. O terminal ocupa uma aba do painel de prática, inclusive quando é a única forma de saída da questão; nesse caso, a aba **Terminal** aparece selecionada.
+O Terminal é interativo, implementado com xterm.js, e reúne prompt, histórico, entrada padrão e saída no mesmo fluxo; aceita somente comandos permitidos. Página e React usam prévia visual; API Fastify usa painel de requisição/resposta HTTP; o projeto integrado oferece ambos. Em navegador compatível, toda questão de código inicia a prática e atualiza a saída automaticamente após edições, sem botão **Executar**, mostrando inicialização, atualização, pronto e erro. Programas JavaScript com entrada padrão executam com entrada vazia antes da primeira entrada informada e mostram imediatamente a saída independente de dados; o terminal também orienta a fornecer entrada. Depois disso, reexecutam com a última entrada informada. As requisições HTTP continuam sob controle do aluno. Em navegador incompatível, editar e enviar continuam disponíveis.
+A execução e as requisições de prática não participam da nota. Código de aprendizagem e de diagnóstico usa rubricas do Currículo avaliadas por IA, sem casos de teste. O diagnóstico preserva o sigilo das respostas e avaliações individuais.
 
 #### T26 — Avaliação em andamento / com falha
 Dois desenhos diferentes, e nenhum deles se parece com nota zero.
@@ -465,8 +470,8 @@ Enquanto houver pendência: novas tentativas bloqueadas **só nesta Habilidade**
 
 #### T27 — Resultado da avaliação
 Nota final + detalhes de cada parte usada:
-- **Código:** todos os casos avaliados, com esperado e obtido, aprovados e reprovados. Erro de sintaxe aparece como problema da solução, com nota 0 na parte funcional, **sem fingir que todos os casos foram avaliados**
-- **Critérios de IA:** cada critério com nota 0 a 100 e explicação curta
+- **Código de aprendizagem:** nota, critérios, pesos, níveis 0/25/50/75/100 ou inconclusivo, comentários predefinidos e arquivos enviados em modo somente leitura. Após uma questão intermediária, mostrar **Próxima questão**; após a última, **Enviar atividade** para criar a tentativa oficial e, quando a avaliação terminar, mostrar o resultado da Atividade
+- **Código diagnóstico:** somente o resultado consolidado é exibido; respostas, notas, critérios e comentários individuais continuam ocultos para o aluno
 
 Mostra o efeito no progresso e na situação da Competência, e indica a próxima recomendação, mudança de foco ou conclusão.
 **Notas menores e perda de domínio não podem ser escondidas.**
@@ -627,7 +632,7 @@ Adaptações principais no mobile:
 - Barra lateral vira barra inferior de 4 itens
 - Mentor vira folha em tela cheia
 - Lista de Competências vira cartões empilhados
-- Editor de código ocupa a largura toda, com enunciado em aba separada
+- Editor de código ocupa a largura toda, com enunciado, prévia, requisições HTTP e terminal acessíveis por abas quando aplicáveis
 - Grafo de Habilidades abre por padrão na **visão em lista**
 - Calendário mantém 7 colunas, com célula reduzida
 
