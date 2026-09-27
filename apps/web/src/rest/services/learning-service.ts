@@ -1,9 +1,14 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
+import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  ActivityAnswer,
+  ActivityQuestion,
+  ActivityResultQuestion,
+  PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
 import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
@@ -29,11 +34,62 @@ type ActivityWire = {
   activity_id: string
   title: string
   difficulty: ChoiceActivityDetail['difficulty']
-  questions: ChoiceActivityDetail['questions']
+  activity_revision?: string | null
+  questions: Array<
+    | {
+        key: string
+        kind: 'single_choice' | 'multiple_selection'
+        prompt: string
+        options: { key: string; text: string }[]
+      }
+    | {
+        key: string
+        kind: 'javascript_stdin'
+        prompt: string
+        initial_files: { path: string; content: string; editable: boolean }[]
+        entrypoint: string
+        editable_paths: string[]
+        fixed_dependencies: { name: string; version: string }[]
+        permitted_commands: { id: string; executable: string; arguments: string[] }[]
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
+  >
   can_submit: boolean
   latest_attempt_id?: string | null
   unresolved_attempt_id?: string | null
   is_diagnostic?: boolean
+}
+
+function mapActivityQuestion(
+  question: ActivityWire['questions'][number],
+): ActivityQuestion {
+  if (question.kind !== 'javascript_stdin') return question
+  return {
+    key: question.key,
+    kind: question.kind,
+    prompt: question.prompt,
+    initialFiles: question.initial_files,
+    entrypoint: question.entrypoint,
+    editablePaths: question.editable_paths,
+    fixedDependencies: question.fixed_dependencies,
+    permittedCommands: question.permitted_commands,
+    criteria: question.criteria.map((criterion) => ({
+      key: criterion.key,
+      name: criterion.name,
+      weightPercentage: criterion.weight_percentage,
+    })),
+  }
+}
+
+function mapAnswer(answer: ActivityAnswer) {
+  if (answer.kind === 'javascript_stdin') {
+    return { kind: answer.kind, question_key: answer.questionKey, files: answer.files }
+  }
+  return {
+    kind: answer.kind ?? 'single_choice',
+    question_key: answer.questionKey,
+    selected_option_keys: answer.selectedOptionKeys,
+  }
 }
 
 type AttemptWire = {
@@ -54,15 +110,36 @@ type AttemptWire = {
     difficulty: 'easy' | 'medium' | 'hard'
     type: 'new-activity' | 'reinforcement'
   } | null
-  questions?: Array<{
-    question_key: string
-    prompt: string
-    selected_option_keys: string[]
-    score: number
-    is_correct: boolean
-    explanation: string
-    disclosed_correct_option_keys?: string[]
-  }>
+  questions?: Array<
+    | {
+        question_key: string
+        prompt: string
+        selected_option_keys: string[]
+        score: number
+        is_correct: boolean
+        explanation: string
+        disclosed_correct_option_keys?: string[]
+      }
+    | {
+        question_key: string
+        kind: 'javascript_stdin'
+        prompt: string
+        submitted_files: { path: string; content: string }[]
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
+  >
 }
 
 function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
@@ -86,15 +163,41 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           type: wire.next_action.type,
         }
       : wire.next_action,
-    questions: wire.questions?.map((question) => ({
-      key: question.question_key,
-      prompt: question.prompt,
-      submittedOptionKeys: question.selected_option_keys,
-      score: question.score,
-      isCorrect: question.is_correct,
-      explanation: question.explanation,
-      correctOptionKeys: question.disclosed_correct_option_keys,
-    })),
+    questions: wire.questions?.map((question): ActivityResultQuestion => {
+      if ('kind' in question && question.kind === 'javascript_stdin') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          score: question.score,
+          submittedFiles: question.submitted_files,
+          criterionResults: question.criterion_results.map((criterion) => ({
+            key: criterion.key,
+            weightPercentage: criterion.weight_percentage,
+            level: criterion.level,
+            commentId: criterion.comment_id,
+            comment: criterion.comment,
+          })),
+          conceptObservations: question.concept_observations.map((observation) => ({
+            conceptId: observation.concept_id,
+            level: observation.level,
+            observationId: observation.observation_id,
+          })),
+        }
+      }
+      if (!('selected_option_keys' in question)) {
+        throw new Error('Resposta de questão desconhecida.')
+      }
+      return {
+        key: question.question_key,
+        prompt: question.prompt,
+        submittedOptionKeys: question.selected_option_keys,
+        score: question.score,
+        isCorrect: question.is_correct,
+        explanation: question.explanation,
+        correctOptionKeys: question.disclosed_correct_option_keys,
+      }
+    }),
   }
 }
 
@@ -191,6 +294,18 @@ export const LearningService = (restClient: RestClient) => {
       return response.body.goals
     },
 
+    async getSkillExperienceDetail(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<SkillExperienceDetail> {
+      const response = await restClient.get<SkillExperienceDetail>(
+        `/learning/goals/${goalId}/skills/${skillId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      return response.body
+    },
+
     async getCompetencyDetail(
       accessToken: string,
       goalId: string,
@@ -234,11 +349,55 @@ export const LearningService = (restClient: RestClient) => {
         activityId: body.activity_id,
         title: body.title,
         difficulty: body.difficulty,
-        questions: body.questions,
+        activityRevision: body.activity_revision,
+        questions: body.questions.map(mapActivityQuestion),
         canSubmit: body.can_submit,
         latestAttemptId: body.latest_attempt_id ?? null,
         unresolvedAttemptId: body.unresolved_attempt_id ?? null,
         isDiagnostic: body.is_diagnostic ?? false,
+      }
+    },
+
+    async previewActivityQuestion(
+      accessToken: string,
+      ids: ActivityIds,
+      questionKey: string,
+      activityRevision: string,
+      answer: ActivityAnswer,
+    ): Promise<PreliminaryQuestionResult> {
+      const response = await restClient.post<{
+        status: 'conclusive' | 'inconclusive'
+        score?: number | null
+        explanation?: string
+        is_correct?: boolean
+        criteria?: {
+          key: string
+          weight_percentage: number
+          level: string
+          comment_id: string
+          comment: string
+        }[]
+        submitted_files?: { path: string; content: string }[]
+      }>(
+        `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
+        { activity_revision: activityRevision, answer: mapAnswer(answer) },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      const body = response.body
+      return {
+        status: body.status,
+        score: body.score ?? null,
+        explanation: body.explanation,
+        isCorrect: body.is_correct,
+        criteria: body.criteria?.map((criterion) => ({
+          key: criterion.key,
+          weightPercentage: criterion.weight_percentage,
+          level: criterion.level,
+          commentId: criterion.comment_id,
+          comment: criterion.comment,
+        })),
+        submittedFiles: body.submitted_files,
       }
     },
 
@@ -256,10 +415,18 @@ export const LearningService = (restClient: RestClient) => {
         learningAttemptsPath(ids),
         {
           submission_key: submission.submissionKey,
-          answers: submission.answers.map((answer) => ({
-            question_key: answer.questionKey,
-            selected_option_keys: answer.selectedOptionKeys,
-          })),
+          ...(submission.activityRevision
+            ? { activity_revision: submission.activityRevision }
+            : {}),
+          answers: submission.answers.map((answer) =>
+            submission.activityRevision
+              ? mapAnswer(answer)
+              : {
+                  question_key: answer.questionKey,
+                  selected_option_keys:
+                    'selectedOptionKeys' in answer ? answer.selectedOptionKeys : [],
+                },
+          ),
         },
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
@@ -330,6 +497,20 @@ export const LearningService = (restClient: RestClient) => {
     async deleteGoal(accessToken: string, goalId: string): Promise<void> {
       const response = await restClient.delete<void>(
         `/learning/goals/${goalId}`,
+        undefined,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+
+      if (response.isFailure) response.throwError()
+    },
+
+    async removeSkill(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}`,
         undefined,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )

@@ -36,6 +36,17 @@ from .choice_submission_outcome import (
     ChoiceSubmissionOutcome as ChoiceSubmissionOutcome,
 )
 from .code_answer import CodeAnswer as CodeAnswer
+from .code_answer import CodeSubmittedFile as CodeSubmittedFile
+from .code_question_detail import CodeQuestionDetail as CodeQuestionDetail
+from .code_question_detail import (
+    CodeQuestionCriterionDetail as CodeQuestionCriterionDetail,
+)
+from .code_rubric_result import CodeRubricResult as CodeRubricResult
+from .code_rubric_result import CodeCriterionResult as CodeCriterionResult
+from .code_rubric_result import (
+    CodeConceptObservationResult as CodeConceptObservationResult,
+)
+from .code_result_detail import CodeResultDetail as CodeResultDetail
 from .code_case_result import CodeCaseResult as CodeCaseResult
 from .code_evaluation_result import CodeEvaluationResult as CodeEvaluationResult
 from .competency_activity_detail import (
@@ -75,7 +86,13 @@ from .skill_catalog_row import (
     SkillCatalogRow as SkillCatalogRow,
     SuggestedFoundation as SuggestedFoundation,
 )
+from .skill_competency_summary import (
+    SkillCompetencySummary as SkillCompetencySummary,
+)
 from .skill_completion_summary import SkillCompletionSummary as SkillCompletionSummary
+from .skill_evaluation_state import SkillEvaluationState as SkillEvaluationState
+from .skill_experience_detail import SkillExperienceDetail as SkillExperienceDetail
+from .skill_recommendation import SkillRecommendation as SkillRecommendation
 from .unavailable_competency_detail import (
     UnavailableCompetencyDetail as UnavailableCompetencyDetail,
 )

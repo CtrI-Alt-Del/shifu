@@ -2,7 +2,8 @@ import { useCallback, useRef } from 'react'
 import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router'
 
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
-import { ChoiceActivityPage } from '@/ui/learning/widgets/pages/choice-activity-page'
+import { WebContainerCodePracticeRunner } from '@/provision/learning/webcontainer-code-practice-runner'
+import { ActivityPage } from '@/ui/learning/widgets/pages/activity-page'
 
 export const Route = createFileRoute(
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/',
@@ -41,12 +42,13 @@ function ActivityIndexRoute() {
   }, [])
 
   return (
-    <ChoiceActivityPage
+    <ActivityPage
       {...ids}
       onNavigateToAttempt={navigateToAttempt}
       onNavigateToDiagnostic={navigateToDiagnostic}
       onSessionExpired={onSessionExpired}
       onUnsentAnswersChange={onUnsentAnswersChange}
+      runnerFactory={WebContainerCodePracticeRunner}
     />
   )
 }

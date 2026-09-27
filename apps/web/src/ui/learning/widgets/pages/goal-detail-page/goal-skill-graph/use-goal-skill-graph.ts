@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ELK from 'elkjs/lib/elk.bundled.js'
 import type { Edge } from '@xyflow/react'
 
@@ -18,7 +18,10 @@ export function useGoalSkillGraph(
   skills: readonly GoalSkillDetail[],
   relations: readonly GoalSkillRelation[],
   title: string,
+  onRemoveSkill: (skill: GoalSkillDetail, trigger: HTMLButtonElement) => void,
 ) {
+  const onRemoveSkillRef = useRef(onRemoveSkill)
+  onRemoveSkillRef.current = onRemoveSkill
   const [nodes, setNodes] = useState<GoalFlowNodeType[]>([])
   const [isLayoutError, setIsLayoutError] = useState(false)
   const [zoom, setZoom] = useState(1)
@@ -136,7 +139,11 @@ export function useGoalSkillGraph(
               id: skill.skillId,
               type: 'goalSkill',
               position: { x: child?.x ?? 0, y: child?.y ?? 0 },
-              data: { goalId, skill },
+              data: {
+                goalId,
+                skill,
+                onRemove: (trigger) => onRemoveSkillRef.current(skill, trigger),
+              },
             }
           }),
         ])
@@ -159,7 +166,11 @@ export function useGoalSkillGraph(
                 x: (index % 3) * (NODE_WIDTH + 40),
                 y: 180 + Math.floor(index / 3) * 200,
               },
-              data: { goalId, skill },
+              data: {
+                goalId,
+                skill,
+                onRemove: (trigger) => onRemoveSkillRef.current(skill, trigger),
+              },
             }),
           ),
         ])

@@ -9,7 +9,10 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
-from shifu.learning.core.domain.errors import InvalidAttemptError
+from shifu.learning.core.domain.errors import (
+    InvalidAttemptError,
+    EvaluationUnavailableError,
+)
 from shifu.learning.core.domain.events.activity_evaluated_event import (
     ActivityEvaluatedEvent,
     ActivityEvaluatedPayload,
@@ -48,6 +51,8 @@ from shifu.learning.core.domain.structures import (
     OfficialActivityResult,
     SingleChoiceAnswer,
     SkillCompletionSummary,
+    CodeAnswer,
+    CodeRubricResult,
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
@@ -57,9 +62,20 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
     CurriculumSkillSnapshot,
 )
-from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
+from shifu.shared.core.interfaces import (
+    ClockProvider,
+    CurriculumContentProvider,
+    CodeRubricAssessorProvider,
+)
+from shifu.shared.core.domain.errors import ServiceUnavailableError, ValidationError
+from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
+    PreviewActivityQuestionFeedbackUseCase,
+)
 
 
 class EvaluateChoiceActivityUseCase:
@@ -68,16 +84,49 @@ class EvaluateChoiceActivityUseCase:
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
         curriculum_content_provider: CurriculumContentProvider | None = None,
+        code_rubric_assessor_provider: CodeRubricAssessorProvider | None = None,
+        max_code_assessment_input_bytes: int = 262144,
     ) -> None:
         self._learning_database = learning_database
         self._clock_provider = clock_provider
         self._curriculum_content_provider = curriculum_content_provider
+        self._code_rubric_assessor_provider = code_rubric_assessor_provider
+        self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
 
     def execute(self, attempt_id: str, run_id: str) -> None:  # noqa: C901
+        mixed_results: tuple[EvaluationPartResult, ...] | None = None
+        with self._learning_database.transaction() as repositories:
+            preflight = repositories.activity_attempts.find_by_id(attempt_id)
+            if preflight is None:
+                return
+            if isinstance(
+                preflight.grading_snapshot, CurriculumLearningActivitySnapshot
+            ):
+                active = repositories.activity_evaluations.find_by_attempt_id(
+                    attempt_id
+                )
+                saved_attempt = (
+                    preflight
+                    if active is not None
+                    and active.status is ActivityEvaluationStatus.PENDING
+                    and active.run_id == run_id
+                    else None
+                )
+                if saved_attempt is None:
+                    return
+            else:
+                saved_attempt = None
+        if saved_attempt is not None:
+            mixed_results = self._score_mixed(saved_attempt)
         now = self._clock_provider.now()
         with self._learning_database.transaction() as repositories:
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
             if attempt is None or attempt.grading_snapshot is None:
+                return
+            experience = repositories.skill_experiences.find_by_id_for_update(
+                attempt.skill_experience_id
+            )
+            if experience is None:
                 return
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
@@ -90,11 +139,6 @@ class EvaluateChoiceActivityUseCase:
                 or evaluation.run_id != run_id
             ):
                 return
-            experience = repositories.skill_experiences.find_by_id_for_update(
-                attempt.skill_experience_id
-            )
-            if experience is None:
-                return
             goal = repositories.goals.find_by_id(experience.goal_id)
             if goal is None:
                 return
@@ -104,10 +148,20 @@ class EvaluateChoiceActivityUseCase:
             if progress is None:
                 raise InvalidAttemptError
 
-            part_results = self._score(attempt.answers, attempt.grading_snapshot)
+            snapshot = attempt.grading_snapshot
+            if isinstance(snapshot, CurriculumLearningActivitySnapshot):
+                if mixed_results is None:
+                    raise EvaluationUnavailableError
+                part_results = mixed_results
+            else:
+                part_results = self._score(attempt.answers, snapshot)
+            if any(result.score is None for result in part_results):
+                raise EvaluationUnavailableError
             score = sum(
                 (
-                    result.score * part.weight_percentage / Decimal('100')
+                    (result.score if result.score is not None else Decimal(0))
+                    * part.weight_percentage
+                    / Decimal('100')
                     for part, result in zip(
                         attempt.grading_snapshot.parts, part_results, strict=True
                     )
@@ -278,7 +332,21 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, ChoiceEvaluationResult)
         }
+        code_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, CodeRubricResult)
+        }
         for question in snapshot.questions:
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                code_result = code_results.get(question.key)
+                if code_result is None:
+                    raise InvalidAttemptError
+                for item in code_result.concept_observations:
+                    observation_scores.setdefault(item.concept_id, []).append(
+                        Decimal(item.level) if isinstance(item.level, int) else None
+                    )
+                continue
             result = result_by_question.get(question.key)
             if result is None:
                 raise InvalidAttemptError
@@ -636,3 +704,75 @@ class EvaluateChoiceActivityUseCase:
                 )
             )
         return tuple(results)
+
+    def _score_mixed(
+        self, attempt: ActivityAttempt
+    ) -> tuple[EvaluationPartResult, ...]:
+        snapshot = attempt.grading_snapshot
+        if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
+            raise InvalidAttemptError
+        answers_by_key = {answer.question_key: answer for answer in attempt.answers}
+        questions_by_key = {question.key: question for question in snapshot.questions}
+        if len(answers_by_key) != len(attempt.answers) or set(answers_by_key) != set(
+            questions_by_key
+        ):
+            raise InvalidAttemptError
+        results: list[EvaluationPartResult] = []
+        for part in snapshot.parts:
+            question = questions_by_key[part.question_key]
+            answer = answers_by_key[part.question_key]
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                if (
+                    not isinstance(part, CurriculumCodeRubricPartSnapshot)
+                    or not isinstance(answer, CodeAnswer)
+                    or self._code_rubric_assessor_provider is None
+                ):
+                    raise EvaluationUnavailableError
+                try:
+                    request = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
+                        question, part, answer
+                    )
+                    self._validate_assessment_size(request.project_files)
+                    decisions = self._code_rubric_assessor_provider.assess(request)
+                    result = PreviewActivityQuestionFeedbackUseCase.code_result(
+                        question, part, answer, decisions
+                    )
+                except (ServiceUnavailableError, ValidationError) as error:
+                    raise EvaluationUnavailableError from error
+                if result.score is None:
+                    raise EvaluationUnavailableError
+                results.append(
+                    CodeRubricResult(
+                        question_key=question.key,
+                        score=result.score,
+                        criterion_results=result.criteria,
+                        concept_observations=result.concept_observations,
+                    )
+                )
+                continue
+            if isinstance(answer, SingleChoiceAnswer):
+                selected = {answer.selected_option_key}
+            elif isinstance(answer, MultipleSelectionAnswer):
+                selected = set(answer.selected_option_keys)
+            else:
+                raise InvalidAttemptError
+            correct = {option.key for option in question.options if option.is_correct}
+            is_correct = selected == correct
+            results.append(
+                ChoiceEvaluationResult(
+                    question_key=question.key,
+                    score=Decimal(100 if is_correct else 0),
+                    is_correct=is_correct,
+                    explanation=question.correct_explanation
+                    if is_correct
+                    else question.incorrect_explanation,
+                )
+            )
+        return tuple(results)
+
+    def _validate_assessment_size(self, files: tuple[tuple[str, str], ...]) -> None:
+        if (
+            sum(len(path.encode()) + len(content.encode()) for path, content in files)
+            > self._max_code_assessment_input_bytes
+        ):
+            raise ValidationError

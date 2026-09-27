@@ -4,6 +4,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceOptionDetail,
     ChoiceQuestionDetail,
+    CodeQuestionDetail,
+    CodeQuestionCriterionDetail,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
@@ -11,7 +13,12 @@ from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
 from shifu.shared.core.domain.errors import NotFoundError
-from shifu.shared.core.domain.structures import CurriculumChoiceActivitySnapshot
+from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+)
 from shifu.shared.core.interfaces import CurriculumContentProvider
 
 
@@ -61,7 +68,17 @@ class GetChoiceActivityUseCase:
             if not diagnostic and not progress.content_released:
                 raise NotFoundError
 
-        snapshot = self._curriculum_content_provider.get_choice_activity(activity_id)
+        mixed_getter = getattr(
+            self._curriculum_content_provider, 'get_learning_activity', None
+        )
+        snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
+        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
+            isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+            for item in snapshot.questions
+        ):
+            snapshot = self._curriculum_content_provider.get_choice_activity(
+                activity_id
+            )
         if (
             snapshot is None
             or snapshot.id != activity_id
@@ -70,7 +87,9 @@ class GetChoiceActivityUseCase:
             or not self._is_eligible(snapshot, diagnostic=diagnostic)
         ):
             raise NotFoundError
-        if experience.policy_id == AdaptiveLearningPolicy.policy_id:
+        if experience.policy_id == AdaptiveLearningPolicy.policy_id and isinstance(
+            snapshot, CurriculumChoiceActivitySnapshot
+        ):
             live_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
             if not ChoiceEvidenceEligibility.is_valid(snapshot, live_catalog):
                 raise NotFoundError
@@ -125,7 +144,33 @@ class GetChoiceActivityUseCase:
                 title=snapshot.title,
                 difficulty=ActivityDifficulty(snapshot.difficulty),
                 questions=tuple(
-                    ChoiceQuestionDetail(
+                    CodeQuestionDetail(
+                        key=question.key,
+                        kind=question.kind,
+                        prompt=question.prompt,
+                        initial_files=question.initial_files,
+                        entrypoint=question.entrypoint,
+                        editable_paths=tuple(
+                            item.path
+                            for item in question.initial_files
+                            if item.editable
+                        ),
+                        fixed_dependencies=question.fixed_dependencies,
+                        permitted_commands=question.permitted_commands,
+                        criteria=tuple(
+                            CodeQuestionCriterionDetail(
+                                key=item.key,
+                                name=item.name,
+                                weight_percentage=item.weight_percentage,
+                            )
+                            for part in snapshot.parts
+                            if isinstance(part, CurriculumCodeRubricPartSnapshot)
+                            and part.question_key == question.key
+                            for item in part.criteria
+                        ),
+                    )
+                    if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot)
+                    else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
                         prompt=question.prompt,
@@ -140,11 +185,18 @@ class GetChoiceActivityUseCase:
                 latest_attempt_id=latest_attempt.id if latest_attempt else None,
                 unresolved_attempt_id=unresolved_attempt_id,
                 is_diagnostic=diagnostic,
+                activity_revision=(
+                    snapshot.revision
+                    if isinstance(snapshot, CurriculumLearningActivitySnapshot)
+                    else None
+                ),
             )
 
     @staticmethod
     def _is_eligible(
-        snapshot: CurriculumChoiceActivitySnapshot, *, diagnostic: bool = False
+        snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
+        *,
+        diagnostic: bool = False,
     ) -> bool:
         question_keys = tuple(question.key for question in snapshot.questions)
         part_keys = tuple(part.question_key for part in snapshot.parts)

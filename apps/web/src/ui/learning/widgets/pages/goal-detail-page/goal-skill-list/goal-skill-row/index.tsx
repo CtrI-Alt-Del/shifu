@@ -4,11 +4,15 @@ import type { GoalSkillDetail } from '@/core/learning/goal-detail'
 import { SkillStatus } from '@/ui/learning/widgets/components/skill-status'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ProgressMeter } from '@/ui/shared/widgets/components/progress-meter'
-import { Button } from '@/ui/shadcn/button'
+import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 
-export type GoalSkillRowProps = { goalId: string; skill: GoalSkillDetail }
+export type GoalSkillRowProps = {
+  goalId: string
+  skill: GoalSkillDetail
+  onRemove: (trigger: HTMLButtonElement) => void
+}
 
-export const GoalSkillRow = ({ goalId, skill }: GoalSkillRowProps) => (
+export const GoalSkillRow = ({ goalId, skill, onRemove }: GoalSkillRowProps) => (
   <li className='flex min-h-16 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4'>
     <span
       className={`flex size-10 shrink-0 items-center justify-center rounded-md ${skill.status === 'learning' || skill.status === 'completed' ? 'bg-jade-tint text-success' : 'bg-muted text-muted-foreground'}`}
@@ -52,21 +56,7 @@ export const GoalSkillRow = ({ goalId, skill }: GoalSkillRowProps) => (
       <span className='rounded-md bg-muted px-3 py-1'>
         <SkillStatus status={skill.status} />
       </span>
-      <div>
-        <Button
-          aria-describedby={`skill-actions-${skill.skillExperienceId}`}
-          aria-label={`Mais ações de ${skill.name}`}
-          className='size-9 min-h-0! rounded-md border border-control-border bg-muted p-0! disabled:opacity-100'
-          disabled
-          type='button'
-          variant='ghost'
-        >
-          <Icon className='shrink-0 text-foreground' name='ellipsis' size={20} />
-        </Button>
-        <span className='sr-only' id={`skill-actions-${skill.skillExperienceId}`}>
-          Disponível em uma próxima atualização
-        </span>
-      </div>
+      <SkillActionsMenu onRemove={onRemove} skillName={skill.name} />
       <Icon className='text-muted-foreground' name='chevron-right' size={18} />
     </div>
   </li>

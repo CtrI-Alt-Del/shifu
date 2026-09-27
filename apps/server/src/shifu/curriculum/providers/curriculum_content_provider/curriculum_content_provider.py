@@ -1,9 +1,13 @@
 from decimal import Decimal
+from hashlib import sha256
+import json
 
 from shifu.curriculum.core.domain.structures import (
     ActivitySequenceItem,
+    CodeRubricEvaluationPart,
     CorrectnessEvaluationPart,
     MaterialSequenceItem,
+    JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
 )
@@ -16,6 +20,18 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumJavascriptInitialFileSnapshot,
+    CurriculumJavascriptDependencySnapshot,
+    CurriculumJavascriptPermittedCommandSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricCommentSnapshot,
+    CurriculumCodeInconclusiveCommentSnapshot,
+    CurriculumCodeConceptCriterionSnapshot,
+    CurriculumCodeLevelObservationSnapshot,
+    CurriculumCodeInconclusiveObservationSnapshot,
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
     CurriculumContentItem,
@@ -25,6 +41,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
+from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class DatabaseCurriculumContentProvider(CurriculumContentProvider):
@@ -147,13 +165,17 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         counts[criterion.concept_id] = (
                             counts.get(criterion.concept_id, 0) + 1
                         )
-                        possible = tuple(
-                            score
-                            for score in (
-                                criterion.correct_score,
-                                criterion.incorrect_score,
+                        possible = (
+                            (100,)
+                            if isinstance(question, JavascriptStdinQuestion)
+                            else tuple(
+                                score
+                                for score in (
+                                    criterion.correct_score,
+                                    criterion.incorrect_score,
+                                )
+                                if score is not None
                             )
-                            if score is not None
                         )
                         if possible:
                             possible_scores.setdefault(criterion.concept_id, []).append(
@@ -163,23 +185,31 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     concept_id: sum(scores) // len(scores)
                     for concept_id, scores in possible_scores.items()
                 }
-                is_choice = (
+                has_executable_evidence = (
                     all(
-                        isinstance(
-                            question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                        (
+                            isinstance(question, JavascriptStdinQuestion)
+                            or (
+                                isinstance(
+                                    question,
+                                    (SingleChoiceQuestion, MultipleSelectionQuestion),
+                                )
+                                and all(
+                                    criterion.correct_score is not None
+                                    or criterion.incorrect_score is not None
+                                    for criterion in question.concept_criteria
+                                )
+                            )
                         )
                         and bool(question.concept_criteria)
-                        and all(
-                            criterion.correct_score is not None
-                            or criterion.incorrect_score is not None
-                            for criterion in question.concept_criteria
-                        )
                         for question in activity.questions
                     )
                     and len(activity.evaluation_rule.parts) == len(activity.questions)
                     and bool(maximum)
                     and all(
-                        isinstance(part, CorrectnessEvaluationPart)
+                        isinstance(
+                            part, (CorrectnessEvaluationPart, CodeRubricEvaluationPart)
+                        )
                         for part in activity.evaluation_rule.parts
                     )
                     and {part.question_key for part in activity.evaluation_rule.parts}
@@ -199,7 +229,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     required_concept_ids=activity.required_concept_ids,
                     question_count_by_concept=tuple(sorted(counts.items())),
                     maximum_evidence_by_concept=tuple(sorted(maximum.items())),
-                    executable_concept_evidence=is_choice,
+                    executable_concept_evidence=has_executable_evidence,
                 )
 
             snapshot_competencies: list[CurriculumCompetencySnapshot] = []
@@ -374,6 +404,216 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 parts=parts,
                 required_concept_ids=activity.required_concept_ids,
                 activity_type=activity.activity_type.value,
+            )
+
+    def get_learning_activity(
+        self, activity_id: str
+    ) -> CurriculumLearningActivitySnapshot | None:
+        try:
+            return self._get_learning_activity(activity_id)
+        except (ValidationError, TypeError, KeyError, ValueError):
+            return None
+
+    def _get_learning_activity(  # noqa: C901 - validates mixed content before publishing a private snapshot
+        self, activity_id: str
+    ) -> CurriculumLearningActivitySnapshot | None:
+        with self._database.transaction() as repositories:
+            activity = repositories.activities.find_by_id(activity_id)
+            if (
+                activity is None
+                or activity.id != activity_id
+                or activity.activity_type.value != 'learning'
+                or not 3 <= len(activity.questions) <= 5
+            ):
+                return None
+            competency = repositories.competencies.find_by_id(activity.competency_id)
+            if competency is None or competency.id != activity.competency_id:
+                return None
+            concept_ids = {
+                concept.id
+                for concept in repositories.concepts.find_many_by_skill_id(
+                    competency.skill_id
+                )
+                if concept.competency_id == competency.id
+            }
+            questions: list[
+                CurriculumChoiceQuestionSnapshot
+                | CurriculumJavascriptStdinQuestionSnapshot
+            ] = []
+            parts: list[
+                CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
+            ] = []
+            for question in activity.questions:
+                if isinstance(
+                    question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                ):
+                    if (
+                        not question.correct_explanation
+                        or not question.incorrect_explanation
+                        or len({option.key for option in question.options})
+                        != len(question.options)
+                    ):
+                        return None
+                    questions.append(
+                        CurriculumChoiceQuestionSnapshot(
+                            key=question.key,
+                            kind='single_choice'
+                            if isinstance(question, SingleChoiceQuestion)
+                            else 'multiple_selection',
+                            prompt=question.prompt,
+                            options=tuple(
+                                CurriculumChoiceOptionSnapshot(
+                                    key=option.key,
+                                    text=option.text,
+                                    is_correct=option.is_correct,
+                                )
+                                for option in question.options
+                            ),
+                            correct_explanation=question.correct_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumChoiceConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    correct_score=Decimal(criterion.correct_score)
+                                    if criterion.correct_score is not None
+                                    else None,
+                                    incorrect_score=Decimal(criterion.incorrect_score)
+                                    if criterion.incorrect_score is not None
+                                    else None,
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                elif isinstance(question, JavascriptStdinQuestion):
+                    if not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+                    questions.append(
+                        CurriculumJavascriptStdinQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            initial_files=tuple(
+                                CurriculumJavascriptInitialFileSnapshot(
+                                    path=item.path,
+                                    content=item.content,
+                                    editable=item.editable,
+                                )
+                                for item in question.initial_files
+                            ),
+                            entrypoint=question.entrypoint,
+                            fixed_dependencies=tuple(
+                                CurriculumJavascriptDependencySnapshot(
+                                    name=item.name, version=item.version
+                                )
+                                for item in question.fixed_dependencies
+                            ),
+                            permitted_commands=tuple(
+                                CurriculumJavascriptPermittedCommandSnapshot(
+                                    id=item.id,
+                                    executable=item.executable,
+                                    arguments=item.arguments,
+                                )
+                                for item in question.permitted_commands
+                            ),
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                else:
+                    return None
+            for part in activity.evaluation_rule.parts:
+                if isinstance(part, CorrectnessEvaluationPart):
+                    parts.append(
+                        CurriculumChoicePartSnapshot(
+                            question_key=part.question_key,
+                            weight_percentage=Decimal(part.weight_percentage),
+                        )
+                    )
+                elif isinstance(part, CodeRubricEvaluationPart):
+                    parts.append(
+                        CurriculumCodeRubricPartSnapshot(
+                            question_key=part.question_key,
+                            weight_percentage=Decimal(part.weight_percentage),
+                            criteria=tuple(
+                                CurriculumCodeRubricCriterionSnapshot(
+                                    key=criterion.key,
+                                    name=criterion.name,
+                                    description=criterion.description,
+                                    weight_percentage=criterion.weight_percentage,
+                                    required=criterion.required,
+                                    fixed_comments=tuple(
+                                        CurriculumCodeRubricCommentSnapshot(
+                                            id=comment.id,
+                                            level=comment.level,
+                                            text=comment.text,
+                                        )
+                                        for comment in criterion.fixed_comments
+                                    ),
+                                    inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+                                        id=criterion.inconclusive_comment.id,
+                                        text=criterion.inconclusive_comment.text,
+                                    ),
+                                )
+                                for criterion in part.criteria
+                            ),
+                        )
+                    )
+                else:
+                    return None
+            if len(questions) != len(parts):
+                return None
+            payload = Serialization.serialize_value(
+                (
+                    activity.id,
+                    activity.competency_id,
+                    activity.difficulty.value,
+                    activity.title,
+                    tuple(questions),
+                    tuple(parts),
+                    activity.required_concept_ids,
+                    activity.activity_type.value,
+                    1,
+                )
+            )
+            revision = sha256(
+                json.dumps(
+                    payload, sort_keys=True, ensure_ascii=False, separators=(',', ':')
+                ).encode()
+            ).hexdigest()
+            return CurriculumLearningActivitySnapshot(
+                id=activity.id,
+                competency_id=activity.competency_id,
+                difficulty=activity.difficulty.value,
+                title=activity.title,
+                questions=tuple(questions),
+                parts=tuple(parts),
+                required_concept_ids=activity.required_concept_ids,
+                activity_type=activity.activity_type.value,
+                schema_version=1,
+                revision=revision,
             )
 
     def get_skill_overviews(

@@ -27,9 +27,16 @@ from shifu.curriculum.core.domain.structures import (
     ActivityQuestion,
     ChoiceConceptCriterion,
     ChoiceOption,
+    CodeInconclusiveComment,
+    CodeRubricComment,
+    CodeRubricCriterion,
+    CodeRubricEvaluationPart,
     CorrectnessEvaluationPart,
     CurriculumSequence,
     EvaluationRule,
+    JavascriptInitialFile,
+    JavascriptPermittedCommand,
+    JavascriptStdinQuestion,
     MaterialSequenceItem,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
@@ -86,6 +93,7 @@ SEED_ACTIVITY_FUNCTIONS_ID = '01SHF000000000000000000011'
 SEED_ACTIVITY_REPETITION_EASY_ID = '01SHF000000000000000000023'
 SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
 SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
+SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -1259,6 +1267,90 @@ def build_development_seed() -> DevelopmentSeed:
             objective='Resolver um problema usando estruturas de repetição.',
             difficulty=ActivityDifficulty.HARD,
         ),
+        Activity.create(
+            id=SEED_ACTIVITY_JAVASCRIPT_STDIN_ID,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            activity_type=ActivityType.LEARNING,
+            difficulty=ActivityDifficulty.MEDIUM,
+            title='Prática mista de JavaScript',
+            objective='Praticar cálculos e processar uma entrada em um programa JavaScript.',
+            questions=(
+                SingleChoiceQuestion(
+                    key='q1',
+                    prompt='Quanto é 2 + 2?',
+                    options=(
+                        ChoiceOption(key='a', text='4', is_correct=True),
+                        ChoiceOption(key='b', text='5', is_correct=False),
+                    ),
+                    correct_explanation='A soma de 2 e 2 é 4.',
+                    incorrect_explanation='Some os dois valores.',
+                ),
+                SingleChoiceQuestion(
+                    key='q2',
+                    prompt='Quanto é 4 + 4?',
+                    options=(
+                        ChoiceOption(key='a', text='8', is_correct=True),
+                        ChoiceOption(key='b', text='9', is_correct=False),
+                    ),
+                    correct_explanation='A soma de 4 e 4 é 8.',
+                    incorrect_explanation='Some os dois valores.',
+                ),
+                JavascriptStdinQuestion(
+                    key='q3',
+                    prompt='Leia a entrada e mostre o resultado no terminal.',
+                    initial_files=(
+                        JavascriptInitialFile(
+                            path='src/main.js', content='', editable=True
+                        ),
+                    ),
+                    entrypoint='src/main.js',
+                    fixed_dependencies=(),
+                    permitted_commands=(
+                        JavascriptPermittedCommand(
+                            id='run-main',
+                            executable='node',
+                            arguments=('src/main.js',),
+                        ),
+                    ),
+                    concept_criteria=(),
+                ),
+            ),
+            evaluation_rule=EvaluationRule(
+                parts=(
+                    CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                    CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
+                    CodeRubricEvaluationPart(
+                        question_key='q3',
+                        weight_percentage=40,
+                        criteria=(
+                            CodeRubricCriterion(
+                                key='correctness',
+                                name='Correção',
+                                description='Processa a entrada e apresenta a saída esperada.',
+                                weight_percentage=100,
+                                required=True,
+                                fixed_comments=tuple(
+                                    CodeRubricComment(
+                                        id=f'seed-js-correctness-{level}',
+                                        level=level,
+                                        text=(
+                                            'A solução ainda não processa a entrada corretamente.'
+                                            if level < 100
+                                            else 'A solução processa a entrada e apresenta a saída corretamente.'
+                                        ),
+                                    )
+                                    for level in (0, 25, 50, 75, 100)
+                                ),
+                                inconclusive_comment=CodeInconclusiveComment(
+                                    id='seed-js-correctness-inconclusive',
+                                    text='Não foi possível avaliar a resposta; tente novamente.',
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+            ),
+        ),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -1302,6 +1394,10 @@ def build_development_seed() -> DevelopmentSeed:
                 ActivitySequenceItem(
                     position=5,
                     activity_id=SEED_ACTIVITY_REPETITION_HARD_ID,
+                ),
+                ActivitySequenceItem(
+                    position=6,
+                    activity_id=SEED_ACTIVITY_JAVASCRIPT_STDIN_ID,
                 ),
             ),
         ),

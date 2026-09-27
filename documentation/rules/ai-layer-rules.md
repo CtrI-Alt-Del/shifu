@@ -1,12 +1,13 @@
 ---
-description: Feature-owned Agno agents, workflows, tools, model resolution, structured output, and AI boundaries.
+description: Intelligence-owned Agno workflows and typed AI decision providers, including model resolution, structured output, and module boundaries.
 ---
 
 # AI Layer Rules
 
-These rules apply to AI orchestration owned by Intelligence under
-`apps/server/src/shifu/intelligence/ai` and to shared model infrastructure used by
-that module.
+These rules apply to AI orchestration under
+`apps/server/src/shifu/intelligence/ai`, typed decision adapters under
+`apps/server/src/shifu/intelligence/providers`, and shared model infrastructure
+used by Intelligence.
 
 ## Intelligence owns its AI orchestration
 
@@ -29,8 +30,36 @@ Shared model selection, credentials, and reusable provider construction belong t
 provider or composition boundary. Feature prompts and capability-specific orchestration
 remain in Intelligence and must not move into `shared`.
 
-Other modules consume an Intelligence core contract or a documented event. They must
-not import concrete Agno agents, tools, workflows, prompts, or output models.
+Other modules consume an Intelligence core contract, a genuinely shared technical
+port, or a documented event. They must not import concrete Agno agents, tools,
+workflows, prompts, provider implementations, or output models.
+
+The Agno-specific rules below apply to workflows that use Agno. A bounded,
+single-step decision model may instead be exposed through an Intelligence-owned
+provider implementing a Shared core contract over immutable, module-neutral
+assessment input. In particular, Jev code-rubric assessment uses OpenRouter's Decisions
+API through a server-owned HTTP client with Pydantic transport models and does
+not require an Agno `Agent` or `Workflow`.
+It must still obey the provider, source-context, output-validation, lifecycle,
+privacy, and testing boundaries in this Rule Pack.
+
+### Typed decision providers
+
+Keep the client and credentials in `intelligence/providers`, with a technology-
+and capability-named adapter. When Learning and diagnostic consumers need the
+same decision capability, define its provider-neutral port and immutable values
+in `shared/core`, and inject the Intelligence implementation from application
+composition. The provider must not import Learning/Curriculum entities or
+repositories. Pass only the saved authorized source and rubric; let the prompt,
+project files and saved criteria determine each code assessment, without
+dispatching to another provider by question kind. Ask closed-set
+questions using stable rubric keys; map the typed response to the Shared core
+contract. Pydantic response validation is transport validation,
+not permission to change a Learning score. The owning Learning use case checks
+all returned keys and choices and applies the official grade. Provider errors,
+missing answers, or invalid choices become typed failure or inconclusive,
+never a learner score of zero. Test this path through consuming use cases and
+job/controller integration, not a provider-owned test file.
 
 ## Agents are concrete and task-focused
 
@@ -315,6 +344,10 @@ Use Pydantic structured output for every model result consumed by application co
 Configure the Agno output schema instead of parsing free-form model text as the primary
 success path. The schema constrains types, required fields, lengths, and bounded values;
 the owning use case validates domain meaning and authority.
+For the typed Jev provider, OpenRouter supplies structured Choice answers;
+the adapter checks the complete expected key set and allowed option IDs before
+returning its typed core DTO. No free-form text parser or Agno output schema is
+needed on that path.
 
 Use a reviewer loop when a capability has material quality, safety, or correctness
 criteria that can be evaluated before delivery. The feature workflow owns the bounded
@@ -378,6 +411,12 @@ classical NLP results only through typed contracts.
 
 ## Tests follow the AI boundary
 
+The agent/tool/workflow test requirements below apply when a feature uses
+Agno. For a typed Jev provider, validate question construction, response
+mapping and failure translation through its consuming use case and composed
+job/controller boundaries, following the Provider Layer prohibition on
+provider-owned test files.
+
 Keep focused agent, tool, output-schema, and workflow tests below the Intelligence AI
 package. Use-case tests mock core workflow protocols. Tool tests mock injected use cases
 or read contracts. Workflow tests use deterministic model and tool doubles to verify:
@@ -394,6 +433,11 @@ providers do not own dedicated test files. Real-model tests are opt-in, never th
 coverage, and never use production data.
 
 ## Review checklist
+
+Apply Agno-specific items only to features that use Agno; the typed Jev
+decision-provider path follows the Shared core-port and Intelligence provider
+rules above. The first checklist item applies to AI orchestration ownership,
+not the location of a provider-neutral Shared contract.
 
 - [ ] The AI implementation is owned by Intelligence, not a generic shared feature.
 - [ ] Each agent subclasses `Agent`, has one responsibility, and configures `super()`.

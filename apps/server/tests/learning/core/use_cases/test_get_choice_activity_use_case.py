@@ -5,7 +5,10 @@ import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
 from shifu.learning.core.domain.entities import CompetencyProgress
-from shifu.learning.core.domain.structures import ChoiceActivityDetail
+from shifu.learning.core.domain.structures import (
+    ChoiceActivityDetail,
+    ChoiceQuestionDetail,
+)
 from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
@@ -111,6 +114,7 @@ class TestGetChoiceActivityUseCase:
             'q2',
             'q3',
         )
+        assert isinstance(detail.questions[0], ChoiceQuestionDetail)
         assert tuple(option.key for option in detail.questions[0].options) == ('a', 'b')
         assert detail.can_submit is True
         assert not hasattr(detail.questions[0].options[0], 'is_correct')

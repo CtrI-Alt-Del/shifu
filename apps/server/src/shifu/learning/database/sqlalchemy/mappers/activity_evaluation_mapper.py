@@ -8,6 +8,7 @@ from shifu.learning.core.domain.enums import (
 from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
     CodeEvaluationResult,
+    CodeRubricResult,
     EvaluationPartResult,
     QualitativeEvaluationResult,
 )
@@ -25,6 +26,8 @@ class ActivityEvaluationMapper:
                 part_type = ChoiceEvaluationResult
             elif 'cases' in serialized_part:
                 part_type = CodeEvaluationResult
+            elif 'criterion_results' in serialized_part:
+                part_type = CodeRubricResult
             elif 'criteria' in serialized_part:
                 part_type = QualitativeEvaluationResult
             else:

@@ -8,6 +8,7 @@ import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { GoalDetail } from '@/core/learning/goal-detail'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
+import { useRemoveSkillAction } from '@/ui/learning/hooks/use-remove-skill-action'
 
 import { useDeleteGoalAction } from '../use-delete-goal-action'
 import { useGoalDetailPage } from '../use-goal-detail-page'
@@ -16,13 +17,19 @@ import { useGoalDetailQuery } from '../use-goal-detail-query'
 vi.mock('../use-goal-detail-query', () => ({ useGoalDetailQuery: vi.fn() }))
 vi.mock('../use-delete-goal-action', () => ({ useDeleteGoalAction: vi.fn() }))
 vi.mock('@/ui/shared/hooks/use-navigation', () => ({ useNavigation: vi.fn() }))
+vi.mock('@/ui/learning/hooks/use-remove-skill-action', () => ({
+  useRemoveSkillAction: vi.fn(),
+}))
 
 const useGoalDetailQueryMock = vi.mocked(useGoalDetailQuery)
 const useDeleteGoalActionMock = vi.mocked(useDeleteGoalAction)
 const useNavigationMock = vi.mocked(useNavigation)
+const useRemoveSkillActionMock = vi.mocked(useRemoveSkillAction)
 const navigateToMock = vi.fn()
 const refetchGoalDetailMock = vi.fn()
 const deleteGoalMock = vi.fn()
+const removeSkillMock = vi.fn()
+const resetRemoveSkillMock = vi.fn()
 const goalId = '01SHF000000000000000000003'
 const detail: GoalDetail = {
   goalId,
@@ -54,6 +61,8 @@ describe('useGoalDetailPage', () => {
     navigateToMock.mockReset()
     refetchGoalDetailMock.mockReset()
     deleteGoalMock.mockReset()
+    removeSkillMock.mockReset()
+    resetRemoveSkillMock.mockReset()
     useGoalDetailQueryMock.mockReset()
     useDeleteGoalActionMock.mockReset()
     useNavigationMock.mockReturnValue({
@@ -67,6 +76,12 @@ describe('useGoalDetailPage', () => {
       isDeletingGoal: false,
       deleteGoalError: null,
       resetDeleteGoal: vi.fn(),
+    })
+    useRemoveSkillActionMock.mockReturnValue({
+      removeSkill: removeSkillMock,
+      isRemovingSkill: false,
+      removeSkillError: null,
+      resetRemoveSkill: resetRemoveSkillMock,
     })
     mockQuery()
   })
@@ -183,5 +198,88 @@ describe('useGoalDetailPage', () => {
     act(() => result.current.handleOpenConfirmDialog())
     expect(result.current.isConfirmDialogOpen).toBe(true)
     expect(result.current.deleteGoalError).toBe('Falha ao remover o objetivo.')
+  })
+
+  it('removes one selected skill, refreshes detail and preserves list view', async () => {
+    const skill = {
+      skillExperienceId: 'a',
+      skillId: 'b',
+      name: 'Lógica',
+      status: 'learning' as const,
+      progress: 50,
+      inclusionReason: null,
+    }
+    mockQuery({ goalDetail: { ...detail, skills: [skill] } })
+    removeSkillMock.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useGoalDetailPage({ goalId }), {
+      wrapper: createWrapper(),
+    })
+
+    act(() => result.current.handleViewChange('list'))
+    act(() => result.current.handleOpenSkillRemoval(skill))
+    expect(result.current.selectedSkill).toEqual(skill)
+
+    await act(async () => result.current.handleConfirmSkillRemoval())
+
+    expect(removeSkillMock).toHaveBeenCalledOnce()
+    expect(result.current.selectedSkill).toBeNull()
+    expect(result.current.view).toBe('list')
+  })
+
+  it('submits a selected skill removal only once before mutation state rerenders', async () => {
+    const skill = {
+      skillExperienceId: 'a',
+      skillId: 'b',
+      name: 'Lógica',
+      status: 'learning' as const,
+      progress: 50,
+      inclusionReason: null,
+    }
+    mockQuery({ goalDetail: { ...detail, skills: [skill] } })
+    let resolveRemoval: (() => void) | undefined
+    removeSkillMock.mockImplementation(
+      () => new Promise<void>((resolve) => (resolveRemoval = resolve)),
+    )
+    const { result } = renderHook(() => useGoalDetailPage({ goalId }), {
+      wrapper: createWrapper(),
+    })
+
+    act(() => result.current.handleOpenSkillRemoval(skill))
+    const first = result.current.handleConfirmSkillRemoval()
+    const duplicate = result.current.handleConfirmSkillRemoval()
+    expect(removeSkillMock).toHaveBeenCalledOnce()
+
+    resolveRemoval?.()
+    await act(async () => Promise.all([first, duplicate]))
+  })
+
+  it('resets stale removal error on cancel and blocks closing while pending', () => {
+    const skill = {
+      skillExperienceId: 'a',
+      skillId: 'b',
+      name: 'Lógica',
+      status: 'learning' as const,
+      progress: 50,
+      inclusionReason: null,
+    }
+    mockQuery({ goalDetail: { ...detail, skills: [skill] } })
+    const { result, rerender } = renderHook(() => useGoalDetailPage({ goalId }), {
+      wrapper: createWrapper(),
+    })
+    act(() => result.current.handleOpenSkillRemoval(skill))
+    act(() => result.current.handleCancelSkillRemoval())
+    expect(result.current.selectedSkill).toBeNull()
+    expect(resetRemoveSkillMock).toHaveBeenCalled()
+
+    useRemoveSkillActionMock.mockReturnValue({
+      removeSkill: removeSkillMock,
+      isRemovingSkill: true,
+      removeSkillError: null,
+      resetRemoveSkill: resetRemoveSkillMock,
+    })
+    rerender()
+    act(() => result.current.handleOpenSkillRemoval(skill))
+    act(() => result.current.handleCancelSkillRemoval())
+    expect(result.current.selectedSkill).toEqual(skill)
   })
 })

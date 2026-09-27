@@ -18,6 +18,7 @@ from shifu.learning.core.domain.structures import (
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
+    CodeAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
@@ -36,7 +37,11 @@ from shifu.shared.core.domain.errors import (
     NotFoundError,
     ValidationError,
 )
-from shifu.shared.core.domain.structures import CurriculumChoiceActivitySnapshot
+from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+)
 from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
@@ -65,7 +70,8 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[ChoiceAnswerSubmission, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
+        activity_revision: str | None = None,
     ) -> ChoiceSubmissionOutcome:
         if not submission_key.strip():
             raise ValidationError
@@ -85,13 +91,28 @@ class SubmitChoiceActivityUseCase:
                     repositories, existing, competency_id, activity_id, answers
                 )
 
-        snapshot = self._curriculum_content_provider.get_choice_activity(activity_id)
+        mixed_getter = getattr(
+            self._curriculum_content_provider, 'get_learning_activity', None
+        )
+        snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
+        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
+            isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+            for item in snapshot.questions
+        ):
+            snapshot = self._curriculum_content_provider.get_choice_activity(
+                activity_id
+            )
         if (
             snapshot is None
             or snapshot.id != activity_id
             or snapshot.competency_id != competency_id
         ):
             raise NotFoundError
+        if (
+            isinstance(snapshot, CurriculumLearningActivitySnapshot)
+            and snapshot.revision != activity_revision
+        ):
+            raise ConflictError
         normalized_answers = self._normalize_answers(snapshot, answers)
         v2_catalog = (
             self._curriculum_content_provider.get_skill_content(skill_id)
@@ -127,6 +148,7 @@ class SubmitChoiceActivityUseCase:
                 )
             if (
                 experience.policy_id == AdaptiveLearningPolicy.policy_id
+                and isinstance(snapshot, CurriculumChoiceActivitySnapshot)
                 and not ChoiceEvidenceEligibility.is_valid(snapshot, v2_catalog)
             ):
                 raise NotFoundError
@@ -249,7 +271,7 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[ChoiceAnswerSubmission, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
@@ -307,15 +329,36 @@ class SubmitChoiceActivityUseCase:
         return experience
 
     @staticmethod
-    def _normalize_answers(
-        snapshot: CurriculumChoiceActivitySnapshot,
-        answers: tuple[ChoiceAnswerSubmission, ...],
+    def _normalize_answers(  # noqa: C901
+        snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
             raise ValidationError
         normalized: list[ActivityAnswer] = []
         for question, answer in zip(snapshot.questions, answers, strict=True):
             if answer.question_key != question.key:
+                raise ValidationError
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                if not isinstance(answer, CodeAnswer):
+                    raise ValidationError
+                editable_paths = {
+                    item.path for item in question.initial_files if item.editable
+                }
+                if (
+                    answer.source_code is not None
+                    or len({item.path for item in answer.files}) != len(answer.files)
+                    or {item.path for item in answer.files} != editable_paths
+                ):
+                    raise ValidationError
+                normalized.append(
+                    CodeAnswer(
+                        question_key=answer.question_key,
+                        files=tuple(sorted(answer.files, key=lambda item: item.path)),
+                    )
+                )
+                continue
+            if not isinstance(answer, ChoiceAnswerSubmission):
                 raise ValidationError
             option_keys = {option.key for option in question.options}
             selected = answer.selected_option_keys
