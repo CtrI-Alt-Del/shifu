@@ -27,8 +27,14 @@ from .list_available_skills_controller import (
     ListAvailableSkillsController as ListAvailableSkillsController,
 )
 from .remove_goal_controller import RemoveGoalController as RemoveGoalController
+from .remove_skill_from_goal_controller import (
+    RemoveSkillFromGoalController as RemoveSkillFromGoalController,
+)
 from .retry_choice_evaluation_controller import (
     RetryChoiceEvaluationController as RetryChoiceEvaluationController,
+)
+from .get_skill_experience_detail_controller import (
+    GetSkillExperienceDetailController as GetSkillExperienceDetailController,
 )
 from .search_skill_catalog_controller import (
     SearchSkillCatalogController as SearchSkillCatalogController,

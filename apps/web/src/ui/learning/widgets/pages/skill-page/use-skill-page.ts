@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 
@@ -14,6 +14,7 @@ import { getGoalDetail } from '@/provision/learning/get-goal-detail'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
+import { useRemoveSkillAction } from '@/ui/learning/hooks/use-remove-skill-action'
 
 export type SkillPageProps = { goalId: string; skillId: string }
 type ActionFailure = {
@@ -97,11 +98,17 @@ export const retryDiagnosticAction = createServerFn({ method: 'POST' })
   })
 
 export function useSkillPage(props: SkillPageProps) {
-  const { navigateTo } = useNavigation()
+  const { navigateTo, navigateToGoalDetail } = useNavigation()
+  const queryClient = useQueryClient()
+  const [isRemovalDialogOpen, setIsRemovalDialogOpen] = useState(false)
+  const removalTriggerRef = useRef<HTMLElement | null>(null)
+  const isRemovalSubmittingRef = useRef(false)
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [isRetrying, setIsRetrying] = useState(false)
   const [retryError, setRetryError] = useState(false)
+  const { isRemovingSkill, removeSkill, removeSkillError, resetRemoveSkill } =
+    useRemoveSkillAction(props)
   const goalQuery = useQuery({
     queryKey: ['learning', 'goal-detail', props.goalId],
     queryFn: async () => {
@@ -186,6 +193,34 @@ export function useSkillPage(props: SkillPageProps) {
     await diagnosticQuery.refetch()
   }
 
+  function handleOpenRemovalDialog(trigger?: HTMLButtonElement) {
+    if (trigger) removalTriggerRef.current = trigger
+    resetRemoveSkill()
+    setIsRemovalDialogOpen(true)
+  }
+
+  function handleCancelRemoval() {
+    if (isRemovingSkill) return
+    setIsRemovalDialogOpen(false)
+    resetRemoveSkill()
+  }
+
+  async function handleConfirmRemoval() {
+    if (isRemovingSkill || isRemovalSubmittingRef.current) return
+    isRemovalSubmittingRef.current = true
+    try {
+      await removeSkill()
+      await queryClient.invalidateQueries({
+        queryKey: ['learning', 'goal-detail', props.goalId],
+      })
+      navigateToGoalDetail(props.goalId)
+    } catch {
+      // Mutation state owns the recoverable user-facing error.
+    } finally {
+      isRemovalSubmittingRef.current = false
+    }
+  }
+
   return {
     diagnostic: diagnosticQuery.data ?? null,
     skillName:
@@ -203,8 +238,15 @@ export function useSkillPage(props: SkillPageProps) {
     startError,
     isRetrying,
     retryError,
+    isRemovalDialogOpen,
+    isRemovingSkill,
+    removeSkillError,
+    removalTriggerRef,
     handleStart,
     handleRetryDiagnostic,
+    handleOpenRemovalDialog,
+    handleCancelRemoval,
+    handleConfirmRemoval,
     handleRetry: diagnosticQuery.refetch,
   }
 }

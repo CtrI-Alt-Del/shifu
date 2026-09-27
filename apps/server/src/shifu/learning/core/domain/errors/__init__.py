@@ -31,6 +31,9 @@ from .material_detail_not_found_error import (
 from .skill_already_added_error import (
     SkillAlreadyAddedError as SkillAlreadyAddedError,
 )
+from .skill_experience_detail_not_found_error import (
+    SkillExperienceDetailNotFoundError as SkillExperienceDetailNotFoundError,
+)
 from .skill_experience_not_found_error import (
     SkillExperienceNotFoundError as SkillExperienceNotFoundError,
 )

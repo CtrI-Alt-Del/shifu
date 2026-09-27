@@ -5,6 +5,9 @@
 @goalId = replace-with-goal-id
 @skillId = replace-with-skill-id
 @competencyId = replace-with-competency-id
+@materialId = replace-with-material-id
+@activityId = replace-with-activity-id
+@attemptId = replace-with-attempt-id
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
@@ -52,6 +55,10 @@ GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
 DELETE {{baseUrl}}/learning/goals/{{goalId}}
 Authorization: Bearer {{accessToken}}
 
+### Remove skill from goal
+DELETE {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}
+Authorization: Bearer {{accessToken}}
+
 ### Search skill catalog
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/catalog?query=&cursor=&limit=20
 Authorization: Bearer {{accessToken}}
@@ -68,4 +75,33 @@ Content-Type: application/json
 
 ### Get competency detail
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}
+Authorization: Bearer {{accessToken}}
+
+### Get skill experience detail
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}
+Authorization: Bearer {{accessToken}}
+
+### Get material detail
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/materials/{{materialId}}
+Authorization: Bearer {{accessToken}}
+
+### Get choice activity
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}
+Authorization: Bearer {{accessToken}}
+
+### Submit choice activity
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "answers": []
+}
+
+### Get choice attempt
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}
+Authorization: Bearer {{accessToken}}
+
+### Retry choice evaluation
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/retry
 Authorization: Bearer {{accessToken}}

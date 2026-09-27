@@ -1,4 +1,5 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
+import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
@@ -293,6 +294,18 @@ export const LearningService = (restClient: RestClient) => {
       return response.body.goals
     },
 
+    async getSkillExperienceDetail(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<SkillExperienceDetail> {
+      const response = await restClient.get<SkillExperienceDetail>(
+        `/learning/goals/${goalId}/skills/${skillId}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      return response.body
+    },
+
     async getCompetencyDetail(
       accessToken: string,
       goalId: string,
@@ -484,6 +497,20 @@ export const LearningService = (restClient: RestClient) => {
     async deleteGoal(accessToken: string, goalId: string): Promise<void> {
       const response = await restClient.delete<void>(
         `/learning/goals/${goalId}`,
+        undefined,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+
+      if (response.isFailure) response.throwError()
+    },
+
+    async removeSkill(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}`,
         undefined,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )

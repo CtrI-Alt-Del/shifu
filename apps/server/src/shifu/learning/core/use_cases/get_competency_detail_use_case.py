@@ -113,7 +113,7 @@ class GetCompetencyDetailUseCase:
                     goal_id,
                     skill_id,
                 )
-            focus = self._find_focus(competencies, progress_by_competency)
+            focus = self.find_focus(competencies, progress_by_competency)
             focus_competency_id = focus.id if focus is not None else None
             focus_competency_name = focus.name if focus is not None else None
             requested_progress = progress_by_competency.get(competency.id)
@@ -173,7 +173,7 @@ class GetCompetencyDetailUseCase:
                 competency_id=competency.id,
                 competency_name=competency.name,
                 availability=CompetencyAvailability.AVAILABLE,
-                progress=self._display_progress(requested_progress),
+                progress=self.display_progress(requested_progress),
                 status=requested_progress.status or CompetencyProgressStatus.LEARNING,
                 is_focus=is_focus,
                 focus_returned=focus_returned,
@@ -324,7 +324,7 @@ class GetCompetencyDetailUseCase:
         return tuple(sorted(skill_content.competencies, key=lambda item: item.position))
 
     @staticmethod
-    def _find_focus(
+    def find_focus(
         competencies: tuple[CurriculumCompetencySnapshot, ...],
         progress_by_competency: dict[str, CompetencyProgress],
     ) -> CurriculumCompetencySnapshot | None:
@@ -338,7 +338,7 @@ class GetCompetencyDetailUseCase:
         return None
 
     @staticmethod
-    def _display_progress(progress: CompetencyProgress) -> Decimal:
+    def display_progress(progress: CompetencyProgress) -> Decimal:
         if progress.current_progress is not None:
             return progress.current_progress
         if progress.initial_progress is not None:
@@ -428,7 +428,7 @@ class GetCompetencyDetailUseCase:
         latest_results: dict[str, OfficialActivityResult],
     ) -> ActivityRecommendation | None:
         target_difficulty = GetCompetencyDetailUseCase._target_difficulty(
-            GetCompetencyDetailUseCase._display_progress(progress)
+            GetCompetencyDetailUseCase.display_progress(progress)
         )
         activities = tuple(
             item

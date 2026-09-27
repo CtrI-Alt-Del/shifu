@@ -18,6 +18,11 @@
   --color-selo-text: var(--selo-text);
   --color-surface-alt: var(--surface-alt);
   --color-jade-tint: var(--jade-tint);
+  --color-jade-fill: var(--jade-fill);
+  --color-jade-solid: var(--jade-solid);
+  --color-on-jade: var(--on-jade);
+  --color-secondary-foreground: var(--text-secondary);
+  --color-jade-text: var(--jade-text);
   --color-danger: var(--danger);
   --shadow-card: 0 1px 3px rgb(15 23 42 / 6%);
   --shadow-brand: 0 12px 30px rgb(15 118 110 / 16%);
@@ -40,6 +45,11 @@
   --success: #7bc9a9;
   --surface-alt: #1d1e22;
   --jade-tint: #0e2e26;
+  --jade-fill: #2f8c72;
+  --jade-solid: #3fa98a;
+  --on-jade: #0f0f12;
+  --text-secondary: #c4bfb6;
+  --jade-text: #7bd3b6;
 }
 
 * {
