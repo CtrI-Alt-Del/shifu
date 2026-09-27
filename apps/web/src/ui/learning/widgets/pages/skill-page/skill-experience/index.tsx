@@ -12,6 +12,7 @@ export type SkillExperienceProps = {
   isRetrying: boolean
   onRetryEvaluation: () => void
   retryFailed: boolean
+  onRemove: () => void
 }
 
 export const SkillExperience = ({
@@ -19,6 +20,7 @@ export const SkillExperience = ({
   isRetrying,
   onRetryEvaluation,
   retryFailed,
+  onRemove,
 }: SkillExperienceProps) => {
   return (
     <main className='flex w-full flex-col gap-6 px-5 py-10 sm:px-10 lg:px-20'>
@@ -36,6 +38,7 @@ export const SkillExperience = ({
         overallResult={experience.overallResult}
         skillName={experience.skillName}
         skillStatus={experience.skillStatus}
+        onRemove={onRemove}
       />
 
       {experience.evaluation ? (

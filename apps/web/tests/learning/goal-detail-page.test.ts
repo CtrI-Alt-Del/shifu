@@ -8,6 +8,17 @@ const ids = {
 
 const detailPath = `/learning/goals/${ids.goalId}/`
 
+function serverFnExport(url: string) {
+  const id = new URL(url).pathname.split('/_serverFn/')[1] ?? ''
+  try {
+    return String(
+      JSON.parse(Buffer.from(decodeURIComponent(id), 'base64').toString()).export ?? '',
+    )
+  } catch {
+    return ''
+  }
+}
+
 const detailResponse = {
   goalId: ids.goalId,
   title: 'Fundamentos de programação',
@@ -55,7 +66,7 @@ test('renders the real goal detail and preserves the skill destination through m
     authenticatedPage.getByRole('button', {
       name: 'Mais ações de Lógica de programação',
     }),
-  ).toBeDisabled()
+  ).toBeEnabled()
   expect(goalDetailRequests).toBe(1)
 })
 
@@ -360,4 +371,149 @@ test('keeps the dialog open with an error when removal fails', async ({
   await expect(
     authenticatedPage.getByRole('heading', { name: 'Remover este objetivo?' }),
   ).toBeVisible()
+})
+
+test('removes a Skill from Lista and preserves the selected view', async ({
+  authenticatedPage,
+}) => {
+  let removalRequests = 0
+  let removed = false
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (route.request().method() === 'POST') {
+      removalRequests += 1
+      expect(route.request().postData() ?? '').toContain(ids.goalId)
+      expect(route.request().postData() ?? '').toContain(ids.skillId)
+      removed = true
+      await route.fulfill({
+        body: JSON.stringify({ result: undefined }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (!route.request().url().includes(ids.goalId)) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({
+        result: {
+          kind: 'success',
+          detail: { ...detailResponse, skills: removed ? [] : detailResponse.skills },
+        },
+      }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  await authenticatedPage.getByRole('tab', { name: 'Lista' }).click()
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Mais ações de Lógica de programação',
+  })
+  await trigger.click()
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  await authenticatedPage
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Remover habilidade' })
+    .click()
+
+  await expect(authenticatedPage.getByRole('tab', { name: 'Lista' })).toHaveAttribute(
+    'data-state',
+    'active',
+  )
+  await expect(
+    authenticatedPage.getByRole('link', { name: 'Lógica de programação' }),
+  ).not.toBeVisible()
+  expect(removalRequests).toBe(1)
+})
+
+test('keeps Grafo selected and exposes a recoverable removal error', async ({
+  authenticatedPage,
+}) => {
+  let removalRequests = 0
+  await mockGoalDetail(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (!serverFnExport(route.request().url()).startsWith('removeSkill')) {
+      await route.fallback()
+      return
+    }
+    removalRequests += 1
+    await route.fulfill({
+      body: JSON.stringify({ error: 'Internal Server Error' }),
+      contentType: 'application/json',
+      status: 500,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Mais ações de Lógica de programação',
+  })
+  await trigger.focus()
+  await trigger.press('Enter')
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  await authenticatedPage
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Remover habilidade' })
+    .click()
+
+  await expect(
+    authenticatedPage.getByRole('tab', { name: 'Grafo', includeHidden: true }),
+  ).toHaveAttribute('data-state', 'active')
+  await expect(authenticatedPage.getByRole('alertdialog')).toContainText(
+    'Não foi possível remover a Habilidade. Tente novamente.',
+  )
+  expect(removalRequests).toBe(1)
+})
+
+test('removes a Skill from Grafo and preserves the selected view', async ({
+  authenticatedPage,
+}) => {
+  let removalRequests = 0
+  let removed = false
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    if (route.request().method() === 'POST') {
+      removalRequests += 1
+      removed = true
+      await route.fulfill({
+        body: JSON.stringify({ result: undefined }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (!route.request().url().includes(ids.goalId)) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({
+        result: {
+          kind: 'success',
+          detail: {
+            ...detailResponse,
+            skills: removed ? [] : detailResponse.skills,
+            relations: [],
+          },
+        },
+      }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, detailPath)
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Mais ações de Lógica de programação',
+  })
+  await trigger.click()
+  await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
+  await authenticatedPage
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Remover habilidade' })
+    .click()
+
+  await expect(
+    authenticatedPage.getByRole('tab', { name: 'Grafo', includeHidden: true }),
+  ).toHaveAttribute('data-state', 'active')
+  await expect(trigger).not.toBeVisible()
+  expect(removalRequests).toBe(1)
 })

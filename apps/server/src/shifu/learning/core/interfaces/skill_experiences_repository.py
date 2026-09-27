@@ -20,6 +20,12 @@ class SkillExperiencesRepository(Protocol):
         skill_id: str,
     ) -> SkillExperience | None: ...
 
+    def find_by_goal_id_and_skill_id_for_update(
+        self,
+        goal_id: str,
+        skill_id: str,
+    ) -> SkillExperience | None: ...
+
     def find_many_by_goal_id(self, goal_id: str) -> list[SkillExperience]: ...
 
     def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:

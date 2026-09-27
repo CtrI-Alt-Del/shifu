@@ -5,9 +5,13 @@ import type { GoalSkillDetail } from '@/core/learning/goal-detail'
 import { SkillStatus } from '@/ui/learning/widgets/components/skill-status'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ProgressMeter } from '@/ui/shared/widgets/components/progress-meter'
-import { Button } from '@/ui/shadcn/button'
+import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 
-export type GoalGraphNodeData = { goalId: string; skill: GoalSkillDetail }
+export type GoalGraphNodeData = {
+  goalId: string
+  skill: GoalSkillDetail
+  onRemove: (trigger: HTMLButtonElement) => void
+}
 export type GoalGraphNodeType = Node<GoalGraphNodeData, 'goalSkill'>
 export type GoalRootNodeType = Node<{ title: string }, 'goalRoot'>
 export type GoalFlowNodeType = GoalGraphNodeType | GoalRootNodeType
@@ -26,7 +30,7 @@ export const GoalRootNode = ({ data }: NodeProps<GoalRootNodeType>) => (
 )
 
 export const GoalGraphNode = ({ data }: NodeProps<GoalGraphNodeType>) => {
-  const { goalId, skill } = data
+  const { goalId, skill, onRemove } = data
   return (
     <article className='w-88 rounded-[10px] border border-border bg-surface-alt p-4 transition-colors hover:border-control-border focus-within:border-control-border'>
       <Handle className='opacity-0' position={Position.Top} type='target' />
@@ -53,19 +57,7 @@ export const GoalGraphNode = ({ data }: NodeProps<GoalGraphNodeType>) => {
         >
           {skill.name}
         </Link>
-        <Button
-          aria-describedby={`graph-skill-actions-${skill.skillExperienceId}`}
-          aria-label={`Mais ações de ${skill.name}`}
-          className='size-8 min-h-0! shrink-0 rounded-md border border-control-border bg-muted p-0! disabled:opacity-100'
-          disabled
-          type='button'
-          variant='ghost'
-        >
-          <Icon className='shrink-0 text-foreground' name='ellipsis' size={18} />
-        </Button>
-        <span className='sr-only' id={`graph-skill-actions-${skill.skillExperienceId}`}>
-          Disponível em uma próxima atualização
-        </span>
+        <SkillActionsMenu onRemove={onRemove} skillName={skill.name} />
       </div>
       {skill.status === 'learning' && skill.progress !== null ? (
         <div className='mt-3'>

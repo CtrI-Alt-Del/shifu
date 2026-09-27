@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { GoalDetail } from '@/core/learning/goal-detail'
@@ -75,11 +76,18 @@ function makeController(
     isConfirmDialogOpen: false,
     isDeletingGoal: false,
     deleteGoalError: null,
+    selectedSkill: null,
+    isRemovingSkill: false,
+    removeSkillError: null,
+    skillRemovalTriggerRef: { current: null },
     handleRetry: vi.fn(),
     handleViewChange: vi.fn(),
     handleOpenConfirmDialog: vi.fn(),
     handleCancelRemoval: vi.fn(),
     handleConfirmRemoval: vi.fn(),
+    handleOpenSkillRemoval: vi.fn(),
+    handleCancelSkillRemoval: vi.fn(),
+    handleConfirmSkillRemoval: vi.fn(async () => {}),
     ...overrides,
   }
 }
@@ -104,9 +112,11 @@ describe('GoalDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeDisabled()
   })
 
-  it('renders the semantic list, statuses and disabled future actions', () => {
+  it('renders the semantic list, statuses and delegates skill removal', async () => {
+    const user = userEvent.setup()
+    const handleOpenSkillRemoval = vi.fn()
     useGoalDetailPageMock.mockReturnValue(
-      makeController({ detail, state: 'success', view: 'list' }),
+      makeController({ detail, state: 'success', view: 'list', handleOpenSkillRemoval }),
     )
     render(<GoalDetailPage goalId={goalId} />)
 
@@ -121,7 +131,29 @@ describe('GoalDetailPage', () => {
       screen.queryByRole('progressbar', { name: 'Progresso de Algoritmos' }),
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Remover objetivo' })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Mais ações de Lógica' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Mais ações de Lógica' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Remover habilidade' }))
+    expect(handleOpenSkillRemoval).toHaveBeenCalledWith(
+      detail.skills[0],
+      expect.any(HTMLButtonElement),
+    )
+  })
+
+  it('keeps the skill dialog open with loss scope and recoverable error', () => {
+    useGoalDetailPageMock.mockReturnValue(
+      makeController({
+        detail,
+        state: 'success',
+        view: 'list',
+        selectedSkill: detail.skills[0],
+        removeSkillError: 'Não foi possível remover a Habilidade. Tente novamente.',
+      }),
+    )
+    render(<GoalDetailPage goalId={goalId} />)
+
+    expect(screen.getByRole('heading', { name: 'Remover Habilidade?' })).toBeVisible()
+    expect(screen.getByText('Tentativas, avaliações e resumo final')).toBeVisible()
+    expect(screen.getByRole('alert')).toHaveTextContent('Tente novamente')
   })
 
   it('opens the removal confirmation dialog from the header trigger', () => {

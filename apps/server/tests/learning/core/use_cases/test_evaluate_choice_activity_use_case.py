@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import create_autospec
+from unittest.mock import Mock, call, create_autospec
 
 import pytest
 
@@ -9,6 +9,7 @@ from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
     CompetencyProgress,
+    SkillExperience,
 )
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
@@ -170,4 +171,33 @@ class TestEvaluateChoiceActivityUseCase:
         assert self.evaluation.status is ActivityEvaluationStatus.PENDING
         self.repositories.activity_evaluations.update.assert_not_called()
         self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_lock_experience_before_evaluation(self) -> None:
+        calls = Mock()
+
+        def lock_experience(_experience_id: str) -> SkillExperience:
+            calls.experience()
+            return self.experience
+
+        def lock_evaluation(_attempt_id: str) -> ActivityEvaluation:
+            calls.evaluation()
+            return self.evaluation
+
+        self.repositories.skill_experiences.find_by_id_for_update.side_effect = (
+            lock_experience
+        )
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.side_effect = lock_evaluation
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        assert calls.mock_calls[:2] == [call.experience(), call.evaluation()]
+
+    def test_should_ignore_missing_experience_before_locking_evaluation(self) -> None:
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = None
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.assert_not_called()
+        self.repositories.activity_evaluations.update.assert_not_called()
         self.repositories.events.add.assert_not_called()

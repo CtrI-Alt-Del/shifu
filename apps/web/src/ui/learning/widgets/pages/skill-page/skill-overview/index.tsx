@@ -2,19 +2,21 @@ import {
   SKILL_STATUS_LABELS,
   type SkillExperienceStatus,
 } from '@/core/learning/skill-experience'
-import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 
 export type SkillOverviewProps = {
   overallResult: number
   skillName: string
   skillStatus: SkillExperienceStatus
+  onRemove: () => void
 }
 
 export const SkillOverview = ({
   overallResult,
   skillName,
   skillStatus,
+  onRemove,
 }: SkillOverviewProps) => {
   return (
     <header className='flex items-start justify-between gap-3'>
@@ -37,14 +39,7 @@ export const SkillOverview = ({
           </span>
         </div>
       </div>
-      <Button
-        aria-label='Ações da Habilidade'
-        className='size-9 min-h-0 shrink-0 bg-muted px-0 text-muted-foreground hover:bg-muted hover:text-foreground'
-        type='button'
-        variant='ghost'
-      >
-        <Icon name='ellipsis' size={18} />
-      </Button>
+      <SkillActionsMenu onRemove={onRemove} skillName={skillName} />
     </header>
   )
 }

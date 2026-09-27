@@ -349,5 +349,19 @@ export const LearningService = (restClient: RestClient) => {
 
       if (response.isFailure) response.throwError()
     },
+
+    async removeSkill(
+      accessToken: string,
+      goalId: string,
+      skillId: string,
+    ): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/learning/goals/${encodeURIComponent(goalId)}/skills/${encodeURIComponent(skillId)}`,
+        undefined,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+
+      if (response.isFailure) response.throwError()
+    },
   }
 }

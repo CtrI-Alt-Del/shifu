@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 import { Button } from '@/ui/shadcn/button'
 import {
@@ -22,6 +22,8 @@ export type ConfirmationDialogProps = {
   isOpen: boolean
   isSubmitting: boolean
   error?: string | null
+  losses?: readonly string[]
+  restoreFocusRef?: RefObject<HTMLElement | null>
   onConfirm: () => void
   onCancel: () => void
 }
@@ -36,12 +38,20 @@ export const ConfirmationDialog = ({
   isOpen,
   isSubmitting,
   error = null,
+  losses = [],
+  restoreFocusRef,
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps): ReactNode => {
   return (
     <AlertDialog open={isOpen} onOpenChange={onCancel}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          if (!restoreFocusRef?.current) return
+          event.preventDefault()
+          restoreFocusRef.current.focus()
+        }}
+      >
         <button
           type='button'
           aria-label='Fechar'
@@ -62,6 +72,16 @@ export const ConfirmationDialog = ({
                 <p className='text-sm font-semibold text-foreground'>{itemName}</p>
               )}
               <AlertDialogDescription>{description}</AlertDialogDescription>
+              {losses.length > 0 ? (
+                <ul className='mt-3 space-y-2 text-left text-sm text-secondary-foreground'>
+                  {losses.map((loss) => (
+                    <li className='flex gap-2' key={loss}>
+                      <Icon className='mt-0.5 h-4 w-4 shrink-0 text-selo-text' name='x' />
+                      <span>{loss}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <p className='text-sm font-medium text-selo-text'>
                 Esta ação não pode ser desfeita.
               </p>

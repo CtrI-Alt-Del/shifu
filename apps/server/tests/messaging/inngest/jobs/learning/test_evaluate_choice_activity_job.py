@@ -48,6 +48,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.core.use_cases import RemoveSkillFromGoalUseCase
 from shifu.learning.database.sqlalchemy.models import (
     CompetencyProgressModel,
 )
@@ -65,7 +66,7 @@ class TestEvaluateChoiceActivityJob:
     ) -> None:
         engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
         try:
-            database, provider, ids, activity, experience = _seed(engine)
+            database, provider, ids, activity, experience, account_id = _seed(engine)
             now = SystemClockProvider().now()
 
             delivery_started_at = time.monotonic()
@@ -178,14 +179,11 @@ class TestEvaluateChoiceActivityJob:
                 valid_answers=True,
                 publish_to_outbox=False,
             )
-            with engine.begin() as connection:
-                connection.execute(
-                    text(
-                        'DELETE FROM learning_skill_experiences '
-                        'WHERE id = :experience_id'
-                    ),
-                    {'experience_id': experience.id},
-                )
+            RemoveSkillFromGoalUseCase(database).execute(
+                account_id=account_id,
+                goal_id=experience.goal_id,
+                skill_id=experience.skill_id,
+            )
             deleted_payload = ActivitySubmissionRequestedPayload(
                 attempt_id=deleted_attempt.id,
                 run_id=deleted_evaluation.run_id or '',
@@ -221,6 +219,7 @@ def _seed(
     SystemIdentifierProvider,
     Activity,
     SkillExperience,
+    str,
 ]:
     ids = SystemIdentifierProvider()
     now = SystemClockProvider().now()
@@ -298,7 +297,7 @@ def _seed(
         repositories.competency_progresses.add(progress)
     provider = DatabaseCurriculumContentProvider(curriculum_database)
     assert provider.get_choice_activity(activity.id) is not None
-    return learning_database, provider, ids, activity, experience
+    return learning_database, provider, ids, activity, experience, account.id
 
 
 def _add_attempt(
