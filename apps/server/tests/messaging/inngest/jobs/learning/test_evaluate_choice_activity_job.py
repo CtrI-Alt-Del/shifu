@@ -503,7 +503,7 @@ def _seed_mixed(
     Activity,
     SkillExperience,
 ]:
-    database, provider, ids, base_activity, experience = _seed(engine)
+    database, provider, ids, base_activity, experience, _account_id = _seed(engine)
     choice_questions = tuple(
         SingleChoiceQuestion(
             key=f'q{number}',
