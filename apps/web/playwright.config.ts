@@ -16,7 +16,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `uv run --env-file .env.local uvicorn main:app --app-dir src --host 127.0.0.1 --port ${identityPort}`,
+      command: `uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port ${identityPort}`,
       cwd: '../server',
       env: {
         REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379/0',
