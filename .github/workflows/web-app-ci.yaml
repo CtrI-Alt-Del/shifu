@@ -86,20 +86,6 @@ jobs:
         working-directory: apps/server
         run: uv run poe db:upgrade
 
-      - name: Start FastAPI
-        working-directory: apps/server
-        run: |
-          nohup uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port 7777 \
-            > "$RUNNER_TEMP/shifu-fastapi.log" 2>&1 &
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:7777/health; then
-              exit 0
-            fi
-            sleep 2
-          done
-          cat "$RUNNER_TEMP/shifu-fastapi.log"
-          exit 1
-
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
         with:
