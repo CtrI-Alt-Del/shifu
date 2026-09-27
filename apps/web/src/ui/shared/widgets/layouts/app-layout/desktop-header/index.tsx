@@ -33,7 +33,7 @@ export const DesktopHeader = ({ accountMenu, items, pathname }: DesktopHeaderPro
           data-account-menu-trigger
           type='button'
         >
-          <Icon name='user-circle' />
+          <Icon name='user-round' size={16} />
         </button>
       )}
     </div>

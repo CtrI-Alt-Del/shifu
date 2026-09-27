@@ -15,7 +15,10 @@ from shifu.learning.core.domain.enums import (
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
 )
+from shifu.learning.core.domain.errors import EvaluationUnavailableError
 from shifu.learning.core.domain.structures import (
+    CodeAnswer,
+    CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -26,10 +29,16 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
 from shifu.shared.core.interfaces import ClockProvider
 from shifu.shared.core.domain.structures import (
+    CodeCriterionDecision,
+    CodeRubricDecisions,
     CurriculumChoiceActivitySnapshot,
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+)
+from shifu.shared.core.interfaces import CodeRubricAssessorProvider
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    mixed_snapshot,
 )
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
@@ -169,5 +178,100 @@ class TestEvaluateChoiceActivityUseCase:
 
         assert self.evaluation.status is ActivityEvaluationStatus.PENDING
         self.repositories.activity_evaluations.update.assert_not_called()
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_grade_saved_mixed_project_with_unequal_question_weights(
+        self,
+    ) -> None:
+        self.attempt = ActivityAttempt.create(
+            id='attempt-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='submitted'),),
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='submission-1',
+            grading_snapshot=mixed_snapshot(),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        assessor = create_autospec(CodeRubricAssessorProvider, instance=True)
+        assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+            concept_levels=(),
+        )
+        subject = EvaluateChoiceActivityUseCase(
+            self.database, self.clock, code_rubric_assessor_provider=assessor
+        )
+
+        subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal(90)
+        assert tuple(part.score for part in self.evaluation.parts) == (
+            Decimal(100),
+            Decimal(100),
+            Decimal(75),
+        )
+        assert assessor.assess.call_args.args[0].project_files == (
+            ('src/lib.js', 'fixed'),
+            ('src/main.js', 'submitted'),
+        )
+        assert self.evaluation.effect_applied_at == NOW
+
+    def test_should_leave_mixed_attempt_pending_when_mandatory_criterion_inconclusive(
+        self,
+    ) -> None:
+        self.attempt = ActivityAttempt.create(
+            id='attempt-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='submitted'),),
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='submission-1',
+            grading_snapshot=mixed_snapshot(),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        assessor = create_autospec(CodeRubricAssessorProvider, instance=True)
+        assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='correctness', level='inconclusive'),
+            ),
+            concept_levels=(),
+        )
+        subject = EvaluateChoiceActivityUseCase(
+            self.database, self.clock, code_rubric_assessor_provider=assessor
+        )
+
+        with pytest.raises(EvaluationUnavailableError):
+            subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
         self.repositories.competency_progresses.update.assert_not_called()
         self.repositories.events.add.assert_not_called()

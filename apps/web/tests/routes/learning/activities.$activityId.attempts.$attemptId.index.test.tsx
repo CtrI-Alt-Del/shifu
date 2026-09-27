@@ -173,6 +173,7 @@ test.describe('Attempt index route', () => {
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
     ).toBeVisible()
+    await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
     await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
     expect(retryUrl).not.toBe('')
     expect(attemptReads).toBeGreaterThanOrEqual(2)
@@ -208,6 +209,7 @@ test.describe('Attempt index route', () => {
     await expect(
       authenticatedPage.getByLabel('Nota da Atividade 100 de 100'),
     ).toBeVisible()
+    await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
     await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
     await expect(
       authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),

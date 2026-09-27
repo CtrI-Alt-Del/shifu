@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
+  CodeResultQuestion,
 } from '@/core/learning/choice-activity'
 import type {
   ActivityRecommendation,
@@ -271,7 +272,7 @@ describe('ChoiceResultPage', () => {
     ).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
     const progressHeading = screen.getByRole('heading', {
-      name: 'Domínio estimado da Competência',
+      name: 'Progresso da Competência',
     })
     expect(progressHeading).toBeVisible()
     expect(progressHeading.closest('section')).toHaveTextContent(
@@ -287,6 +288,7 @@ describe('ChoiceResultPage', () => {
         'A estimativa considera suas respostas nesta Atividade e, quando houver, evidências anteriores. Não é a nota acima.',
       ),
     ).toBeVisible()
+    fireEvent.click(screen.getByText(/Questão 1 · escolha única/))
     expect(screen.getByText('Revise a condição do laço.')).toBeVisible()
     expect(screen.getByText('Atividade de reforço recomendada')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Próxima Atividade' }))
@@ -367,5 +369,65 @@ describe('ChoiceResultPage', () => {
     )
 
     expect(screen.getByLabelText('Nota da Atividade 72,5 de 100')).toBeVisible()
+  })
+
+  it('keeps mixed result summaries independent and supports opening choice and code details', () => {
+    const codeQuestion = {
+      key: 'code-question-1',
+      kind: 'javascript_stdin' as const,
+      prompt: 'Dobre o número recebido.',
+      initialFiles: [{ path: 'main.js', content: '', editable: true }],
+      entrypoint: 'main.js',
+      editablePaths: ['main.js'],
+      fixedDependencies: [],
+      permittedCommands: [],
+      criteria: [{ key: 'logic', name: 'Lógica', weightPercentage: 100 }],
+    }
+    const mixedActivity: ChoiceActivityDetail = {
+      ...ACTIVITY,
+      questions: [ACTIVITY.questions[0], codeQuestion],
+    }
+    const codeResult: CodeResultQuestion = {
+      key: codeQuestion.key,
+      kind: 'javascript_stdin',
+      prompt: codeQuestion.prompt,
+      score: 75,
+      submittedFiles: [{ path: 'main.js', content: 'console.log(2 * input)' }],
+      criterionResults: [
+        {
+          key: 'logic',
+          weightPercentage: 100,
+          level: 75,
+          commentId: 'comment-logic',
+          comment: 'A lógica atende ao caso principal.',
+        },
+      ],
+      conceptObservations: [],
+    }
+    const mixedAttempt: ChoiceAttemptDetail = {
+      ...COMPLETED_ATTEMPT,
+      questions: [...(COMPLETED_ATTEMPT.questions ?? []), codeResult],
+    }
+
+    render(
+      <ChoiceResultPage
+        activity={mixedActivity}
+        attempt={mixedAttempt}
+        onRetryEvaluation={vi.fn()}
+        state='result'
+      />,
+    )
+
+    expect(screen.getByText(/Questão 1 · escolha única/)).toBeVisible()
+    expect(screen.getByText(/Questão 2 · JavaScript · entrada padrão/)).toBeVisible()
+    expect(screen.queryByText('Revise a condição do laço.')).not.toBeVisible()
+    expect(screen.queryByText('A lógica atende ao caso principal.')).not.toBeVisible()
+
+    fireEvent.click(screen.getByText(/Questão 1 · escolha única/))
+    fireEvent.click(screen.getByText(/Questão 2 · JavaScript · entrada padrão/))
+
+    expect(screen.getByText('Revise a condição do laço.')).toBeVisible()
+    expect(screen.getByText('A lógica atende ao caso principal.')).toBeVisible()
+    expect(screen.getByText('Lógica · peso 100% · nível 75')).toBeVisible()
   })
 })

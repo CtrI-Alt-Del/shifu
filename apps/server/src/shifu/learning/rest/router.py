@@ -17,6 +17,7 @@ from shifu.learning.rest.controllers import (
     SearchSkillCatalogController,
     StartSkillController,
     SubmitChoiceActivityController,
+    PreviewActivityQuestionFeedbackController,
 )
 
 
@@ -37,6 +38,7 @@ class LearningRouter:
         GetDiagnosticController.handle(router)
         GetMaterialController.handle(router)
         GetChoiceActivityController.handle(router)
+        PreviewActivityQuestionFeedbackController.handle(router)
         SubmitChoiceActivityController.handle(router)
         GetChoiceAttemptController.handle(router)
         RetryChoiceEvaluationController.handle(router)

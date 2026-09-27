@@ -4,10 +4,12 @@ from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
     CodeQuestion,
+    CodeRubricEvaluationPart,
     ChoiceConceptCriterion,
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
+    JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
@@ -33,17 +35,12 @@ class ActivityMapper:
             objective=model.objective,
             questions=questions,
             evaluation_rule=EvaluationRule(
-                parts=cast(
-                    'tuple[CorrectnessEvaluationPart | TestCasesEvaluationPart | QualitativeEvaluationPart, ...]',
-                    Serialization.deserialize_value(
+                parts=tuple(
+                    ActivityMapper._part_from_data(part, questions)
+                    for part in cast(
+                        'list[dict[str, object]]',
                         cast('dict[str, object]', model.evaluation_rule)['parts'],
-                        tuple[
-                            CorrectnessEvaluationPart
-                            | TestCasesEvaluationPart
-                            | QualitativeEvaluationPart,
-                            ...,
-                        ],
-                    ),
+                    )
                 )
             ),
             required_concept_ids=tuple(cast('list[str]', model.required_concept_ids)),
@@ -52,7 +49,17 @@ class ActivityMapper:
     @staticmethod
     def _question_from_data(
         data: dict[str, object],
-    ) -> SingleChoiceQuestion | MultipleSelectionQuestion | CodeQuestion:
+    ) -> (
+        SingleChoiceQuestion
+        | MultipleSelectionQuestion
+        | CodeQuestion
+        | JavascriptStdinQuestion
+    ):
+        if data.get('kind') == 'javascript_stdin':
+            return cast(
+                'JavascriptStdinQuestion',
+                Serialization.deserialize_value(data, JavascriptStdinQuestion),
+            )
         if 'options' not in data:
             return cast(
                 'CodeQuestion',
@@ -89,6 +96,44 @@ class ActivityMapper:
             correct_explanation=correct_explanation,
             incorrect_explanation=incorrect_explanation,
             concept_criteria=concept_criteria,
+        )
+
+    @staticmethod
+    def _part_from_data(
+        data: dict[str, object],
+        questions: tuple[
+            SingleChoiceQuestion
+            | MultipleSelectionQuestion
+            | CodeQuestion
+            | JavascriptStdinQuestion,
+            ...,
+        ],
+    ) -> (
+        CorrectnessEvaluationPart
+        | TestCasesEvaluationPart
+        | QualitativeEvaluationPart
+        | CodeRubricEvaluationPart
+    ):
+        question = next(
+            (item for item in questions if item.key == data.get('question_key')), None
+        )
+        criteria = data.get('criteria')
+        if isinstance(criteria, list) and criteria:
+            first = cast('object', criteria[0])
+            part_type = (
+                CodeRubricEvaluationPart
+                if isinstance(first, dict) and 'fixed_comments' in first
+                else QualitativeEvaluationPart
+            )
+        elif 'criteria' in data:
+            part_type = QualitativeEvaluationPart
+        elif isinstance(question, CodeQuestion):
+            part_type = TestCasesEvaluationPart
+        else:
+            part_type = CorrectnessEvaluationPart
+        return cast(
+            'CorrectnessEvaluationPart | TestCasesEvaluationPart | QualitativeEvaluationPart | CodeRubricEvaluationPart',
+            Serialization.deserialize_value(data, part_type),
         )
 
     @staticmethod

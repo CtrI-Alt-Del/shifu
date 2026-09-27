@@ -4,6 +4,25 @@ from .choice_option import ChoiceOption as ChoiceOption
 from .choice_concept_criterion import ChoiceConceptCriterion as ChoiceConceptCriterion
 from .code_evaluation_case import CodeEvaluationCase as CodeEvaluationCase
 from .code_question import CodeQuestion as CodeQuestion
+from .javascript_stdin_question import (
+    JavascriptStdinQuestion as JavascriptStdinQuestion,
+)
+from .javascript_stdin_question import JavascriptInitialFile as JavascriptInitialFile
+from .javascript_stdin_question import JavascriptDependency as JavascriptDependency
+from .javascript_stdin_question import (
+    JavascriptPermittedCommand as JavascriptPermittedCommand,
+)
+from .code_rubric_criterion import CodeRubricCriterion as CodeRubricCriterion
+from .code_rubric_criterion import CodeRubricComment as CodeRubricComment
+from .code_rubric_criterion import CodeInconclusiveComment as CodeInconclusiveComment
+from .code_concept_criterion import CodeConceptCriterion as CodeConceptCriterion
+from .code_concept_criterion import CodeLevelObservation as CodeLevelObservation
+from .code_concept_criterion import (
+    CodeInconclusiveObservation as CodeInconclusiveObservation,
+)
+from .code_rubric_evaluation_part import (
+    CodeRubricEvaluationPart as CodeRubricEvaluationPart,
+)
 from .correctness_evaluation_part import (
     CorrectnessEvaluationPart as CorrectnessEvaluationPart,
 )

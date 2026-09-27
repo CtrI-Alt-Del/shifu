@@ -2,13 +2,15 @@ import { Checkbox } from '@/ui/shadcn/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/ui/shadcn/radio-group'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 
-import type { ChoiceQuestionProps } from '../use-choice-activity-page'
+import { ActivityQuestionHeader } from '../components/activity-question-header'
+import type { ChoiceQuestionProps } from '../use-activity-page'
 
 import './choice-question.css'
 
 export const ChoiceQuestion = ({
   disabled = false,
-  difficultyLabel,
+  activityTitle,
+  difficulty,
   onToggleOption,
   question,
   questionNumber,
@@ -19,28 +21,19 @@ export const ChoiceQuestion = ({
 
   return (
     <section aria-labelledby={questionLabelId} className='space-y-6'>
-      <div className='space-y-5'>
-        <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
-          {difficultyLabel ? (
-            <span className='rounded-md bg-success/15 px-2 py-1 text-xs font-medium text-success'>
-              {difficultyLabel}
-            </span>
-          ) : null}
-          <p className='text-sm text-muted-foreground'>
-            <span>
-              Questão {questionNumber} de {totalQuestions}
-            </span>
-            <span aria-hidden='true'> · </span>
-            <span>
-              {question.kind === 'multiple_selection'
-                ? 'selecione todas as corretas'
-                : 'escolha uma alternativa'}
-            </span>
-          </p>
-        </div>
-        <div className='choice-question-prompt'>
-          <QuestionPrompt id={questionLabelId} prompt={question.prompt} />
-        </div>
+      <ActivityQuestionHeader
+        activityTitle={activityTitle}
+        difficulty={difficulty}
+        questionContext={
+          question.kind === 'multiple_selection'
+            ? 'selecione todas as corretas'
+            : 'escolha uma alternativa'
+        }
+        questionNumber={questionNumber}
+        totalQuestions={totalQuestions}
+      />
+      <div className='choice-question-prompt'>
+        <QuestionPrompt id={questionLabelId} prompt={question.prompt} />
       </div>
 
       {question.kind === 'single_choice' ? (

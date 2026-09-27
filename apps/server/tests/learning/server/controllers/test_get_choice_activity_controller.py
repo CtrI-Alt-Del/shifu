@@ -7,6 +7,21 @@ from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.curriculum.core.domain.entities import Activity
+from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
+from shifu.curriculum.core.domain.structures import (
+    ChoiceOption,
+    CodeInconclusiveComment,
+    CodeRubricComment,
+    CodeRubricCriterion,
+    CodeRubricEvaluationPart,
+    CorrectnessEvaluationPart,
+    EvaluationRule,
+    JavascriptDependency,
+    JavascriptInitialFile,
+    JavascriptStdinQuestion,
+    SingleChoiceQuestion,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -81,6 +96,101 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetChoiceActivityController:
+    def test_returns_safe_mixed_project_and_exact_fixed_dependencies(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        mixed_id = '01SHF000000000000000000090'
+        choice = tuple(
+            SingleChoiceQuestion(
+                key=f'q{index}',
+                prompt='Escolha',
+                options=(ChoiceOption(key='a', text='A', is_correct=True),),
+                correct_explanation='Certo',
+                incorrect_explanation='Errado',
+            )
+            for index in (1, 2)
+        )
+        code = JavascriptStdinQuestion(
+            key='q3',
+            prompt='Leia stdin',
+            initial_files=(
+                JavascriptInitialFile(
+                    path='src/main.js', content='console.log(1)', editable=True
+                ),
+                JavascriptInitialFile(
+                    path='src/helper.js', content='export const x = 1', editable=False
+                ),
+            ),
+            entrypoint='src/main.js',
+            fixed_dependencies=(
+                JavascriptDependency(name='left-pad', version='1.3.0'),
+            ),
+            permitted_commands=(),
+            concept_criteria=(),
+        )
+        criterion = CodeRubricCriterion(
+            key='correctness',
+            name='Correção',
+            description='Saída',
+            weight_percentage=100,
+            required=True,
+            fixed_comments=tuple(
+                CodeRubricComment(
+                    id=f'comment-{level}', level=level, text=f'Private {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CodeInconclusiveComment(
+                id='unknown', text='Private unknown'
+            ),
+        )
+        activity = Activity.create(
+            id=mixed_id,
+            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            activity_type=ActivityType.LEARNING,
+            difficulty=ActivityDifficulty.EASY,
+            title='Atividade mista',
+            objective='Aprender',
+            questions=(*choice, code),
+            evaluation_rule=EvaluationRule(
+                parts=(
+                    CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                    CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
+                    CodeRubricEvaluationPart(
+                        question_key='q3', weight_percentage=40, criteria=(criterion,)
+                    ),
+                )
+            ),
+        )
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(activity_id=mixed_id),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body['activity_revision']
+        assert [item['kind'] for item in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'javascript_stdin',
+        ]
+        assert body['questions'][2]['fixed_dependencies'] == [
+            {'name': 'left-pad', 'version': '1.3.0'}
+        ]
+        assert body['questions'][2]['editable_paths'] == ['src/main.js']
+        assert body['questions'][2]['criteria'] == [
+            {'key': 'correctness', 'name': 'Correção', 'weight_percentage': 100}
+        ]
+        assert 'Private' not in str(body)
+
     def test_returns_ordered_safe_questions_without_grading_data(
         self,
         client: TestClient,
@@ -173,9 +283,13 @@ class TestGetChoiceActivityController:
         assert detail.json()['can_submit'] is False
 
 
-def _activity_path(*, goal_id: str = SEED_GOAL_ID) -> str:
+def _activity_path(
+    *,
+    goal_id: str = SEED_GOAL_ID,
+    activity_id: str = SEED_ACTIVITY_REPETITION_EASY_ID,
+) -> str:
     return (
         f'/learning/goals/{goal_id}/skills/{SEED_SKILL_LOGIC_ID}'
         f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
-        f'/activities/{SEED_ACTIVITY_REPETITION_EASY_ID}'
+        f'/activities/{activity_id}'
     )

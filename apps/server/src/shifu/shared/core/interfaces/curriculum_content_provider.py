@@ -2,6 +2,7 @@ from typing import Protocol
 
 from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
+    CurriculumLearningActivitySnapshot,
     CurriculumMaterialContentSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
@@ -9,6 +10,9 @@ from shifu.shared.core.domain.structures import (
 
 
 class CurriculumContentProvider(Protocol):
+    def get_learning_activity(
+        self, activity_id: str
+    ) -> CurriculumLearningActivitySnapshot | None: ...
     def list_skill_content(self) -> tuple[CurriculumSkillSnapshot, ...]: ...
 
     def get_skill_content(self, skill_id: str) -> CurriculumSkillSnapshot | None: ...
