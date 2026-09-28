@@ -1,6 +1,6 @@
 ---
 title: Initial diagnosis implementation evaluation
-status: in_progress
+status: complete
 spec: ./spec.md
 spec_revision: 9
 plan: ./plan.md
@@ -39,8 +39,8 @@ database was not reseeded; automated tests and fresh browser validation remain
 pending. Current static and build gates pass at EV-36.
 
 **Integrated correction result (2026-09-28):** automated gates CI-02–CI-15
-passed on the pre-publication candidate. Post-publication GitHub Actions failures
-and the follow-up correction are tracked at EV-48; the remote rerun is pending. Web unit is 284/284; focused Web Playwright is
+passed on the pre-publication candidate. Post-publication GitHub Actions failures and their correction are tracked at
+EV-48–EV-50; the latest GitHub Server and Web workflows both pass. Web unit is
 15/15; Server Core unit is 163/163; PostgreSQL integration is 104/104,
 including the disposable migration cycle; registered Inngest jobs are 8/8.
 EV-38 remains the failed historical baseline; EV-42–EV-46 record current
@@ -282,3 +282,4 @@ and are not presented as revision-9 validation.
 | EV-47 | 2026-09-28 | Final integrated Implementation Reviewer refresh | Reviewer inspected integrated diff and current Plan/Evaluation after EV-43–EV-46 and owner-status assertion correction | PASS: no actionable code-contract findings. The sole reported issue was stale F6/Implementation Reviewer status in the Plan; those statuses now show complete/passed and the user's visual waiver is explicit. | Reviewer did not run tests or browser checks; validation evidence is recorded in EV-43/44 and EV-45. | Current user waiver for manual visual/browser checks remains in force. | CA-01–CA-20 |
 | EV-48 | 2026-09-28 | Correção das falhas de CI após publicação do PR #19 | `gh run view 36373028118 --log-failed`; `gh run view 36373028111 --log-failed`; Server `REDIS_URL=redis://127.0.0.1:6379/15 uv run poe test:integration`; Web focused Playwright for the three failed scenarios | CI Web exposed stale expectations for the result return destination, diagnostic entry CTA and pending indicator markup. Updated only those three Playwright tests to assert current behavior. Focused updated Web suites pass: 5/5 and Attempt route 3/3. CI Server showed two adaptive journey 404s, but both focused cases and full integration suite pass locally (104/104); no Server edit made without reproducible evidence. | Await new GitHub Actions run on the correction commit; PR checks are not yet confirmed green. | Local focused Web run used isolated port 7011; local Server integration used Redis DB 15 and disposable Testcontainers. | CI-12; full Web Playwright workflow |
 | EV-49 | 2026-09-28 | Correção determinística dos 404 do Server em CI | Server integration selector without `.env.local`, matching workflow environment, `REDIS_URL=redis://127.0.0.1:6379/15`; focused adaptive tests; `uv run poe check:lint`; `uv run poe check:types`; `git diff --check` | Root cause: CI does not load the developer `.env.local`, so diagnostic revision signing was disabled and activity GET returned 404 despite the seeded rows being present. The `adaptive_app` fixture now sets a deterministic test-only `DIAGNOSTIC_REVISION_HMAC_KEY` and clears cached settings before registration/after teardown. Focused tests 2/2, full Server integration 104/104; lint and types pass. | The workflow rerun on this correction commit is still required to confirm remote CI. DB tests used disposable Testcontainers; Redis cleanup targeted DB 15. | CI-12; CA-05, CA-07–CA-09 |
+| EV-50 | 2026-09-28 | CI do PR #19 após correções Web e HMAC | GitHub Actions runs 36374642391 (Server) and 36374642388 (Web), head `ce792ce5bce54a5997a47e3b33470cd4180a2fe8` | Server CI passou em todas as etapas: migrações/drift, tipos, lint, arquitetura, unit, integração, jobs Inngest e build. Web CI passou: tipos, lint, arquitetura, unit, Playwright integration (106 testes) e build. | Os dois checks requeridos do PR estão verdes; avisos de plataforma Ubuntu foram informativos. | GitHub CI usou Postgres/Redis de serviços descartáveis. | CI-02–CI-15; CA-01–CA-20 |
