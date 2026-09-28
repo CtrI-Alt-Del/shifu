@@ -7,7 +7,7 @@
 
 O incremento da Sprint 1 cobre a fundação de conta, organização de Objetivos e Habilidades, conteúdo curricular, diagnóstico, recomendação inicial, prática, avaliação e visualização de progresso. A meta funcional registrada no backlog é um fluxo demonstrável com persistência real, usando Lógica de Programação como Habilidade de validação e sem depender de IA para concluir o caminho principal.
 
-O solicitante confirmou que **todas as 11 User Stories e as 21 tasks foram concluídas**. Assim, o resultado funcional reportado é **32 de 32 tickets implementados (100%)**. No retrato do Jira consultado novamente em 27/09/2026, os estados operacionais ainda não refletem esse fechamento: **27 de 32** issues estão em `Concluído`, **4** em `Fazendo` e **1** em `Code Review`. As tabelas mantêm esses estados do Jira separados da conclusão funcional confirmada.
+Na atualização de fechamento informada pelo solicitante em 28/09/2026, **todas as 11 User Stories e as 21 tasks estão concluídas**. O Jira registra **32 de 32 tickets em `Concluído` (100%)**, sem itens em `Fazendo` ou `Code Review`.
 
 ## Requisitos entregues
 
@@ -38,23 +38,23 @@ O solicitante confirmou que **todas as 11 User Stories e as 21 tasks foram concl
 
 ## User Stories comprometidas
 
-As 11 histórias abaixo constam como compromisso da Sprint no [Backlog da Sprint 1 — Shifu](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/84017153/Backlog+da+Sprint+1+Shifu). Os critérios estão resumidos a partir das descrições atuais do Jira.
+As 11 histórias abaixo constam como compromisso da Sprint no [Backlog da Sprint 1 — Shifu](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/84017153/Backlog+da+Sprint+1+Shifu). Os critérios estão resumidos a partir das descrições do Jira. Os estados refletem a atualização de fechamento informada pelo solicitante em 28/09/2026.
 
-| Chave | User Story | Épico | SP | Estado no Jira (consulta) |
+| Chave | User Story | Épico | SP | Estado no Jira (fechamento) |
 | --- | --- | --- | ---: | --- |
 | [SHIFU-31](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-31) | Cadastrar e confirmar conta | SHIFU-24 — Identidade e Conta | 5 | Concluído |
-| [SHIFU-32](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-32) | Entrar, sair e recuperar senha esquecida | SHIFU-24 — Identidade e Conta | 5 | Fazendo |
+| [SHIFU-32](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-32) | Entrar, sair e recuperar senha esquecida | SHIFU-24 — Identidade e Conta | 5 | Concluído |
 | [SHIFU-34](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-34) | Criar e editar Objetivos manualmente | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 | Concluído |
 | [SHIFU-35](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-35) | Adicionar e visualizar Habilidades independentes | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 | Concluído |
 | [SHIFU-40](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-40) | Definir sequência curricular por Competência | SHIFU-27 — Currículo Completo | 3 | Concluído |
 | [SHIFU-41](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-41) | Definir regras de avaliação e pesos | SHIFU-27 — Currículo Completo | 8 | Concluído |
-| [SHIFU-16](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-16) | Realizar diagnóstico inicial por Habilidade | SHIFU-7 — Onboarding e Diagnóstico Inicial | 8 | Fazendo |
-| [SHIFU-18](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-18) | Receber jornada inicial orientada pelo diagnóstico | SHIFU-9 — Jornada Inicial Orientada pelo Diagnóstico | 5 | Fazendo |
+| [SHIFU-16](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-16) | Realizar diagnóstico inicial por Habilidade | SHIFU-7 — Onboarding e Diagnóstico Inicial | 8 | Concluído |
+| [SHIFU-18](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-18) | Receber jornada inicial orientada pelo diagnóstico | SHIFU-9 — Jornada Inicial Orientada pelo Diagnóstico | 5 | Concluído |
 | [SHIFU-19](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-19) | Realizar Atividades práticas | SHIFU-10 — Atividades e Práticas | 5 | Concluído |
 | [SHIFU-20](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-20) | Receber resultado oficial de uma Atividade | SHIFU-11 — Avaliação e Resultados | 8 | Concluído |
 | [SHIFU-21](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-21) | Visualizar progresso por Competência e Habilidade | SHIFU-12 — Progresso | 5 | Concluído |
 
-**Total comprometido:** 58 SP, alinhados à capacidade inicial de referência registrada para a Sprint. **Concluído no Jira:** 40 SP em 8 histórias; **18 SP** permanecem em três histórias com estado `Fazendo`.
+**Total comprometido:** 58 SP, alinhados à capacidade inicial de referência registrada para a Sprint. **Concluído no Jira:** 58 SP em 11 histórias.
 
 ## Critérios de aceitação por User Story
 
@@ -136,9 +136,9 @@ As 11 histórias abaixo constam como compromisso da Sprint no [Backlog da Sprint
 
 ## Tasks realizadas
 
-O Jira contém 21 tasks técnicas/lógicas na Sprint. Todas foram reportadas como concluídas. A coluna de estado registra o Jira no momento da consulta; SP não foi preenchido no campo de estimativa consultado para essas tasks.
+O Jira contém 21 tasks técnicas/lógicas na Sprint. Todas estão concluídas conforme a atualização de fechamento informada pelo solicitante em 28/09/2026. SP não foi preenchido no campo de estimativa consultado para essas tasks.
 
-| Chave | Task | Responsável | Estado no Jira (consulta) |
+| Chave | Task | Responsável | Estado no Jira (fechamento) |
 | --- | --- | --- | --- |
 | [SHIFU-56](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-56) | Criar documentação e arquivo de design do projeto | Thigz | Concluído |
 | [SHIFU-57](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-57) | Configurar workflows de CI para cada aplicação | gabrielsoliveira1606 | Concluído |
@@ -147,7 +147,7 @@ O Jira contém 21 tasks técnicas/lógicas na Sprint. Todas foram reportadas com
 | [SHIFU-60](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60) | Implementar Home de Objetivos e entrada do Planejador | Kauan Fonseca | Concluído |
 | [SHIFU-61](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61) | Implementar cadastro e confirmação de conta full-stack | gabrielsoliveira1606 | Concluído |
 | [SHIFU-62](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-62) | Implementar login full-stack e criação de sessão | João Pedro Carvalho | Concluído |
-| [SHIFU-63](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63) | Implementar recuperação e redefinição de senha full-stack | gabrielsoliveira1606 | Code Review |
+| [SHIFU-63](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63) | Implementar recuperação e redefinição de senha full-stack | gabrielsoliveira1606 | Concluído |
 | [SHIFU-64](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64) | Implementar página de Objetivo com Grafo e Lista | João Gabriel | Concluído |
 | [SHIFU-65](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-65) | Implementar adição full-stack de Habilidade com bases sugeridas | Kauan Fonseca | Concluído |
 | [SHIFU-66](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-66) | Implementar experiência full-stack da Habilidade em aprendizagem | Thigz | Concluído |
@@ -160,38 +160,34 @@ O Jira contém 21 tasks técnicas/lógicas na Sprint. Todas foram reportadas com
 | [SHIFU-73](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-73) | Implementar experiência full-stack de Material de apoio | Thigz | Concluído |
 | [SHIFU-74](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74) | Implementar questões de escolha única e múltipla seleção | João Pedro Carvalho | Concluído |
 | [SHIFU-75](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-75) | Implementar questões de código em Atividades de aprendizagem | João Pedro Carvalho | Concluído |
-| [SHIFU-77](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77) | Implementar diagnóstico inicial completo por Habilidade | João Pedro Carvalho | Fazendo |
+| [SHIFU-77](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77) | Implementar diagnóstico inicial completo por Habilidade | João Pedro Carvalho | Concluído |
 
 ## Métricas de fechamento
 
 | Métrica | Resultado observado |
 | --- | ---: |
 | Tickets na Sprint | 32 |
-| Tickets implementados e concluídos, conforme confirmação do solicitante | 32 de 32 (100%) |
-| User Stories concluídas, conforme confirmação do solicitante | 11 de 11 (100%) |
-| Tasks técnicas/lógicas concluídas, conforme confirmação do solicitante | 21 de 21 (100%) |
-| Tickets em `Concluído` no Jira | 27 de 32 (84,4%) |
-| Tickets em `Fazendo` no Jira | 4 |
-| Tickets em `Code Review` no Jira | 1 |
+| Tickets em `Concluído` no Jira, conforme atualização do solicitante em 28/09/2026 | 32 de 32 (100%) |
+| Tickets em `Fazendo` no Jira | 0 |
+| Tickets em `Code Review` no Jira | 0 |
 | User Stories | 11 |
-| User Stories em `Concluído` no Jira | 8 de 11 |
-| Tasks técnicas/lógicas em `Concluído` no Jira | 19 de 21 |
+| User Stories em `Concluído` no Jira | 11 de 11 |
+| Tasks técnicas/lógicas em `Concluído` no Jira | 21 de 21 |
 | Capacidade inicial de referência | 58 SP |
 | Story Points comprometidos | 58 SP |
 | Story Points implementados, conforme confirmação do solicitante | 58 SP |
-| Story Points em histórias `Concluído` no Jira | 40 SP |
-| Story Points em histórias ainda `Fazendo` no Jira | 18 SP |
+| Story Points em histórias `Concluído` no Jira | 58 SP |
+| Story Points em histórias ainda não concluídas no Jira | 0 SP |
 
 ## Gráfico Burndown
 
 ![Gráfico de burndown da Sprint 1](../media/burndown-sprint-1.png)
 
-O gráfico do Jira usa **Quantidade de tickets** e mostra a curva de trabalho restante chegando a zero em 27/09/2026. A consulta direta às issues feita em 27/09 ainda mostra cinco tickets fora do estado `Concluído`; portanto, a evidência do burndown e os estados atuais das issues devem ser reconciliados ao sincronizar o fechamento no Jira.
+O gráfico do Jira usa **Quantidade de tickets** e mostra a curva de trabalho restante chegando a zero em 27/09/2026. A atualização de fechamento informada pelo solicitante em 28/09/2026 registra todos os 32 tickets em `Concluído`, alinhando os estados das issues ao burndown.
 
 ## Riscos e observações para o fechamento
 
-- Sincronizar os estados de SHIFU-16, SHIFU-18, SHIFU-32, SHIFU-63 e SHIFU-77 no Jira com a conclusão funcional confirmada e o fluxo de revisão.
-- O resultado demonstrável definido no backlog deve ser validado ponta a ponta com persistência real: conta, Objetivo, Habilidade, diagnóstico, jornada, Atividade, resultado e progresso.
+- O backlog da Sprint define o fluxo demonstrável ponta a ponta: conta, Objetivo, Habilidade, diagnóstico, jornada, Atividade, resultado e progresso. Este relatório registra o fechamento informado pelo solicitante; as evidências técnicas permanecem nos artefatos de validação próprios.
 - A página [Backlogs — Evidência de Avaliação API](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/85229570/Backlogs+Evid+ncia+de+Avalia+o+API) ainda contém campos de resultado da Sprint como “A preencher”.
 - Esta página local resume os critérios atuais do Jira e não substitui os PRDs canônicos, as evidências de validação ou a atualização autorizada das páginas do Confluence.
 
@@ -199,4 +195,4 @@ O gráfico do Jira usa **Quantidade de tickets** e mostra a curva de trabalho re
 
 - [Backlog da Sprint 1 — Shifu](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/84017153/Backlog+da+Sprint+1+Shifu), versão 3, consultado em 27/09/2026.
 - [Backlogs — Evidência de Avaliação API](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/85229570/Backlogs+Evid+ncia+de+Avalia+o+API), versão 1, consultado em 27/09/2026.
-- Jira: issues do projeto Shifu na Sprint 1 (`Sprint = 497`), consultadas em 27/09/2026.
+- Jira: issues do projeto Shifu na Sprint 1 (`Sprint = 497`), consulta inicial em 27/09/2026; estados de fechamento atualizados conforme informação do solicitante em 28/09/2026.
