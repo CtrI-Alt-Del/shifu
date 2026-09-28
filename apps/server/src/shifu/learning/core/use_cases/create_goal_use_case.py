@@ -1,4 +1,3 @@
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.errors import CurriculumGapError
 from shifu.learning.core.domain.entities import (
     CompetencyProgress,
@@ -72,7 +71,6 @@ class CreateGoalUseCase:
                     status=SkillExperienceStatus.NOT_STARTED,
                     created_at=now,
                     updated_at=now,
-                    policy_id=AdaptiveLearningPolicy.policy_id,
                 )
                 repositories.skill_experiences.add_many([experience])
                 repositories.competency_progresses.add_many(

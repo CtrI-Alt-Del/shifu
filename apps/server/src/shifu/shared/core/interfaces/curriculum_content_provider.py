@@ -10,6 +10,10 @@ from shifu.shared.core.domain.structures import (
 
 
 class CurriculumContentProvider(Protocol):
+    def get_diagnostic_activity(
+        self, activity_id: str
+    ) -> CurriculumLearningActivitySnapshot | None: ...
+
     def get_learning_activity(
         self, activity_id: str
     ) -> CurriculumLearningActivitySnapshot | None: ...

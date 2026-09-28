@@ -35,11 +35,15 @@ class DiagnosticSequence:
         skill: CurriculumSkillSnapshot,
         attempts: tuple[ActivityAttempt, ...],
         evaluations: tuple[ActivityEvaluation, ...],
+        diagnostic_run_id: str | None = None,
     ) -> tuple[str, CurriculumActivitySnapshot, ActivityAttempt | None] | None:
         evaluation_by_attempt = {item.attempt_id: item for item in evaluations}
         by_activity: dict[str, ActivityAttempt] = {}
         for attempt in attempts:
-            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
+                diagnostic_run_id is None
+                or attempt.diagnostic_run_id == diagnostic_run_id
+            ):
                 by_activity[attempt.activity_id] = attempt
         for competency_id, activity in DiagnosticSequence.ordered(skill):
             attempt = by_activity.get(activity.id)

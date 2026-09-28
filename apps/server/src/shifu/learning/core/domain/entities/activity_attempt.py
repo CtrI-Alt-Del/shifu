@@ -22,6 +22,7 @@ class ActivityAttempt:
     grading_snapshot: (
         CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None
     ) = None
+    diagnostic_run_id: str | None = None
 
     @classmethod
     def create(
@@ -38,6 +39,7 @@ class ActivityAttempt:
         grading_snapshot: CurriculumChoiceActivitySnapshot
         | CurriculumLearningActivitySnapshot
         | None = None,
+        diagnostic_run_id: str | None = None,
     ) -> 'ActivityAttempt':
         return cls(
             id=id,
@@ -49,4 +51,5 @@ class ActivityAttempt:
             submitted_at=submitted_at,
             submission_key=submission_key,
             grading_snapshot=grading_snapshot,
+            diagnostic_run_id=diagnostic_run_id,
         )

@@ -182,8 +182,8 @@ class TestGetSkillExperienceDetailController:
         blocked = body['competencies'][0]
         assert blocked['competencyId'] == SEED_COMPETENCY_FUNCTIONS_ID
         assert blocked['availability'] == 'unavailable'
-        assert blocked['progress'] == 0.0
-        assert body['overallResult'] == 0.0
+        assert blocked['progress'] is None
+        assert body['overallResult'] is None
         assert body['recommendation'] is None
 
     def test_skill_outside_the_goal_is_a_private_absence(

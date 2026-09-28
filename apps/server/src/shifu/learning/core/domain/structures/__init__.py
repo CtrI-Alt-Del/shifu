@@ -55,6 +55,9 @@ from .competency_activity_detail import (
 from .competency_completion_summary import (
     CompetencyCompletionSummary as CompetencyCompletionSummary,
 )
+from .concept_completion_summary import (
+    ConceptCompletionSummary as ConceptCompletionSummary,
+)
 from .competency_detail import (
     CompetencyDetail as CompetencyDetail,
     CompetencyDetailItem as CompetencyDetailItem,

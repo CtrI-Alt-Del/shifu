@@ -18,7 +18,6 @@ class SkillResponse(BaseModel):
     skill_id: str = Field(serialization_alias='skillId')
     skill_name: str = Field(serialization_alias='skillName')
     status: str
-    policy_id: str = Field(serialization_alias='policyId')
 
 
 class Response(BaseModel):
@@ -57,7 +56,6 @@ class GetGoalController:
                         skill_id=item.skill_id,
                         skill_name=item.skill_name,
                         status=item.status.value,
-                        policy_id=item.policy_id,
                     )
                     for item in detail.skills
                 ),

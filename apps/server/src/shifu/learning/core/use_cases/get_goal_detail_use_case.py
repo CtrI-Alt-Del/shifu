@@ -144,7 +144,6 @@ class GetGoalDetailUseCase:
             status=experience.status,
             progress=progress,
             inclusion_reason=experience.inclusion_reason,
-            policy_id=experience.policy_id,
         )
 
     @staticmethod

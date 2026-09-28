@@ -8,6 +8,9 @@
 @materialId = replace-with-material-id
 @activityId = replace-with-activity-id
 @attemptId = replace-with-attempt-id
+@entryKey = 75e29c3d-8bc2-4e4d-9103-cc747a170011
+@diagnosticRunId = 75e29c3d-8bc2-4e4d-9103-cc747a170011
+@diagnosticSubmissionKey = 75e29c3d-8bc2-4e4d-9103-cc747a170014
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
@@ -35,10 +38,45 @@ Authorization: Bearer {{accessToken}}
 ### Start eligible Skill diagnostic after creating the Goal above
 POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/start
 Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "entry_key": "{{entryKey}}"
+}
 
 ### Diagnostic overview; individual results remain private
 GET {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic
 Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
+
+### Submit the complete ordered activitySequence returned above once.
+### Replace the sample item with every Activity and its activity_revision from GET Activity.
+POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic/submissions
+Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{diagnosticSubmissionKey}}",
+  "items": [
+    {
+      "competency_id": "replace-with-first-competency-id",
+      "activity_id": "replace-with-first-activity-id",
+      "activity_revision": "replace-with-opaque-revision",
+      "answers": [{ "question_key": "q1", "selected_option_keys": ["a"] }]
+    }
+  ]
+}
+
+### Abandon the current diagnostic run
+POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic/abandon
+Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
+
+### Confirm all evaluated diagnostic Activities
+POST {{baseUrl}}/learning/goals/{{newGoalId}}/skills/{{adaptiveSkillId}}/diagnostic/complete
+Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
 
 ### Goal detail
 GET {{baseUrl}}/learning/goals/01SHF000000000000000000012
@@ -95,7 +133,10 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "answers": []
+  "submission_key": "75e29c3d-8bc2-4e4d-9103-cc747a170013",
+  "answers": [
+    { "question_key": "question-one", "selected_option_keys": ["a"] }
+  ]
 }
 
 ### Get choice attempt

@@ -152,18 +152,25 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
         goal_id = cast('dict[str, Any]', created.json())['goalId']
         skill_path = f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_SKILL_ID}'
         with postgres_database.engine.connect() as connection:
-            policy_id = connection.scalar(
-                select(SkillExperienceModel.policy_id).where(
+            persisted_experience_id = connection.scalar(
+                select(SkillExperienceModel.id).where(
                     SkillExperienceModel.goal_id == goal_id
                 )
             )
-        assert policy_id == 'learning-adaptive-v2'
+        assert persisted_experience_id is not None
 
-        started = _post(client, f'{skill_path}/start', headers)
+        diagnostic_run_id = str(uuid4())
+        started = _post(
+            client,
+            f'{skill_path}/start',
+            headers,
+            {'entry_key': diagnostic_run_id},
+        )
         assert started.status_code == 200, started.text
+        diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
         visited: list[str] = []
         for expected_difficulty in ('easy', 'medium', 'hard'):
-            overview = _get(client, f'{skill_path}/diagnostic', headers)
+            overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
             assert overview.status_code == 200, overview.text
             data = cast('dict[str, Any]', overview.json())
             assert data['status'] == 'diagnosing'
@@ -176,7 +183,7 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
             activity_path = (
                 f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
             )
-            activity = _get(client, activity_path, headers)
+            activity = _get(client, activity_path, diagnostic_headers)
             assert activity.status_code == 200, activity.text
             activity_data = cast('dict[str, Any]', activity.json())
             assert activity_data['is_diagnostic'] is True
@@ -191,7 +198,7 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
             submitted = _post(
                 client,
                 f'{activity_path}/attempts',
-                headers,
+                diagnostic_headers,
                 {'submission_key': str(uuid4()), 'answers': answers},
             )
             assert submitted.status_code == 201, submitted.text
@@ -205,7 +212,7 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
             assert private_result.status_code == 404
             pending = cast(
                 'dict[str, Any]',
-                _get(client, f'{skill_path}/diagnostic', headers).json(),
+                _get(client, f'{skill_path}/diagnostic', diagnostic_headers).json(),
             )
             assert pending['pendingAttemptId'] == attempt_id
             assert pending['pendingAttemptStatus'] == 'pending'
@@ -219,23 +226,39 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
                 learning, SystemClockProvider(), provider
             ).execute(attempt_id, run_id)
 
-        completed = _get(client, f'{skill_path}/diagnostic', headers)
+        confirmation = _post(
+            client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+        )
+        assert confirmation.status_code == 200, confirmation.text
+        assert confirmation.json()['status'] == 'learning'
+
+        completed = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
         assert completed.status_code == 200, completed.text
         summary = cast('dict[str, Any]', completed.json())
         assert summary['status'] == 'learning'
         assert len(summary['competencies']) == 1
         assert summary['competencies'][0]['competencyId'] is not None
         assert summary['competencies'][0]['progress'] is not None
-        assert 'status' not in summary['competencies'][0]
-        assert 'coverageComplete' not in summary['competencies'][0]
+        assert summary['competencies'][0]['status'] is not None
+        assert isinstance(summary['competencies'][0]['coverageComplete'], bool)
         baseline = summary['competencies'][0]['progress']
         competency_id = summary['competencies'][0]['competencyId']
         detail_path = f'{skill_path}/competencies/{competency_id}'
         detail = _get(client, detail_path, headers)
         assert detail.status_code == 200, detail.text
-        recommendation = cast('dict[str, Any]', detail.json())['adaptive']
+        detail_body = cast('dict[str, Any]', detail.json())
+        recommendation = detail_body['adaptive']
         assert recommendation['targetConceptId'] == SEED_ADAPTIVE_CONCEPT_ID
         assert recommendation['activityId'] is not None
+        assert summary['initialRecommendation'] is not None
+        assert (
+            summary['initialRecommendation']['activityId']
+            == recommendation['activityId']
+        )
+        assert (
+            summary['initialRecommendation']['targetConceptName']
+            == detail_body['adaptive']['targetConceptName']
+        )
         activity_id = recommendation['activityId']
         learning_activity_path = f'{detail_path}/activities/{activity_id}'
         learning_activity = _get(client, learning_activity_path, headers)
@@ -272,11 +295,13 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
         )
         assert learning_result.status_code == 200, learning_result.text
         assert cast('dict[str, Any]', learning_result.json())['status'] == 'completed'
-        later_summary = _get(client, f'{skill_path}/diagnostic', headers)
+        later_summary = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
         assert later_summary.status_code == 200, later_summary.text
+        later_summary_data = cast('dict[str, Any]', later_summary.json())
+        assert later_summary_data['competencies'] == summary['competencies']
         assert (
-            cast('dict[str, Any]', later_summary.json())['competencies'][0]['progress']
-            == baseline
+            later_summary_data['initialRecommendation']
+            == summary['initialRecommendation']
         )
         with postgres_database.engine.connect() as connection:
             assert (
@@ -292,7 +317,7 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
                 ).where(ConceptStateModel.concept_id == SEED_ADAPTIVE_CONCEPT_ID)
             ).one()
             assert state.initial_progress is not None
-            assert float(state.initial_progress) == baseline
+            assert float(state.initial_progress) == pytest.approx(baseline)
 
 
 class TestAdaptiveLabSeed:
@@ -335,10 +360,16 @@ class TestAdaptiveLabSeed:
             activity_id: str,
             *,
             correct: bool,
+            diagnostic_run_id: str | None = None,
         ) -> None:
+            request_headers = (
+                headers
+                if diagnostic_run_id is None
+                else {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
+            )
             activity = activities[activity_id]
             path = f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
-            response = _get(client, path, headers)
+            response = _get(client, path, request_headers)
             assert response.status_code == 200, response.text
             wire_questions = cast('dict[str, Any]', response.json())['questions']
             for question, wire in zip(activity.questions, wire_questions, strict=True):
@@ -369,7 +400,7 @@ class TestAdaptiveLabSeed:
             submission = _post(
                 client,
                 f'{path}/attempts',
-                headers,
+                request_headers,
                 {'submission_key': str(uuid4()), 'answers': answers},
             )
             assert submission.status_code == 201, submission.text
@@ -400,12 +431,19 @@ class TestAdaptiveLabSeed:
             skill_path = (
                 f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
             )
-            started = _post(client, f'{skill_path}/start', headers)
+            diagnostic_run_id = str(uuid4())
+            started = _post(
+                client,
+                f'{skill_path}/start',
+                headers,
+                {'entry_key': diagnostic_run_id},
+            )
             assert started.status_code == 200, started.text
+            diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
 
             diagnostic_ids: list[str] = []
             for index in range(9):
-                overview = _get(client, f'{skill_path}/diagnostic', headers)
+                overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
                 assert overview.status_code == 200, overview.text
                 data = cast('dict[str, Any]', overview.json())
                 competency_id = data['nextCompetencyId']
@@ -423,9 +461,16 @@ class TestAdaptiveLabSeed:
                     competency_id,
                     activity_id,
                     correct=index in (6, 7),
+                    diagnostic_run_id=diagnostic_run_id,
                 )
 
-            overview = _get(client, f'{skill_path}/diagnostic', headers)
+            confirmation = _post(
+                client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+            )
+            assert confirmation.status_code == 200, confirmation.text
+            assert confirmation.json()['status'] in {'learning', 'completed'}
+
+            overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
             assert overview.status_code == 200, overview.text
             summary = cast('dict[str, Any]', overview.json())
             assert summary['status'] == 'learning'
@@ -511,7 +556,7 @@ class TestAdaptiveLabSeed:
             assert mastered_data['status'] == 'mastered'
             assert mastered_data['progress'] >= 85
 
-            later = _get(client, f'{skill_path}/diagnostic', headers)
+            later = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
             assert later.status_code == 200
             later_baseline = {
                 item['competencyId']: item['progress']

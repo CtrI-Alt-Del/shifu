@@ -177,7 +177,6 @@ class TestSubmitChoiceActivityUseCase:
     def test_should_reject_v2_choice_without_trusted_live_concept_criteria(
         self,
     ) -> None:
-        self.experience.policy_id = 'learning-adaptive-v2'
         self.experience.status = SkillExperienceStatus.LEARNING
         self.provider.get_skill_content.return_value = None
 
@@ -195,16 +194,12 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
-    def test_should_replay_diagnostic_key_after_experience_enters_learning(
+    def test_should_reject_diagnostic_replay_after_experience_enters_learning(
         self,
     ) -> None:
-        from shifu.learning.core.domain.entities import (
-            ActivityAttempt,
-            ActivityEvaluation,
-        )
+        from shifu.learning.core.domain.entities import ActivityAttempt
         from shifu.learning.core.domain.enums import ActivityAttemptKind
 
-        self.experience.policy_id = 'learning-adaptive-v2'
         self.experience.status = SkillExperienceStatus.LEARNING
         snapshot = choice_snapshot()
         diagnostic_snapshot = CurriculumChoiceActivitySnapshot(
@@ -231,35 +226,23 @@ class TestSubmitChoiceActivityUseCase:
             ),
             submitted_at=NOW,
             submission_key='submission-key',
+            diagnostic_run_id='diagnostic-run',
             grading_snapshot=diagnostic_snapshot,
         )
-        evaluation = ActivityEvaluation.create(
-            id='evaluation-prior',
-            attempt_id=attempt.id,
-            status=ActivityEvaluationStatus.COMPLETED,
-            parts=(),
-            started_at=NOW,
-            completed_at=NOW,
-            score=Decimal('100'),
-        )
         self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
-        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
-            evaluation
-        )
 
-        replay = self.subject.execute(
-            ACCOUNT_ID,
-            GOAL_ID,
-            SKILL_ID,
-            COMPETENCY_ID,
-            ACTIVITY_ID,
-            'submission-key',
-            answers(),
-        )
+        with pytest.raises(ConflictError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'submission-key',
+                answers(),
+                diagnostic_run_id='diagnostic-run',
+            )
 
-        assert replay.replayed
-        assert replay.is_diagnostic
-        assert replay.attempt.attempt_id == attempt.id
         self.provider.get_choice_activity.assert_not_called()
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()

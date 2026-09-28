@@ -13,12 +13,14 @@ class SkillCompetencySummary:
     competency_id: str
     competency_name: str
     position: int
-    progress: Decimal
-    status: CompetencyProgressStatus
+    progress: Decimal | None
+    status: CompetencyProgressStatus | None
     availability: CompetencyAvailability
     is_focus: bool
+    coverage_complete: bool = False
 
     def __post_init__(self) -> None:
-        require_percentage(self.progress)
+        if self.progress is not None:
+            require_percentage(self.progress)
         if self.position < 1:
             raise ValueError('Curricular position starts at one.')

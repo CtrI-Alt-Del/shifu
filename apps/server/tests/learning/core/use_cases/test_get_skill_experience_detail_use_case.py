@@ -186,6 +186,7 @@ def expected_recommendation(competency_id: str, position: int) -> SkillRecommend
         activity_title='Atividade',
         difficulty=ActivityDifficulty.EASY,
         type=ActivityRecommendationType.NEW_ACTIVITY,
+        reason=ActivityRecommendationType.NEW_ACTIVITY.value,
     )
 
 
@@ -346,7 +347,7 @@ class TestGetSkillExperienceDetailUseCase:
         assert second.status is CompetencyProgressStatus.LEARNING
         assert second.availability is CompetencyAvailability.UNAVAILABLE
 
-    def test_should_treat_a_competency_without_progress_as_blocked_at_zero(
+    def test_should_leave_progress_unknown_when_a_competency_has_no_progress(
         self,
     ) -> None:
         self.repositories.competency_progresses.find_many_by_skill_experience_id.return_value = []
@@ -354,9 +355,9 @@ class TestGetSkillExperienceDetailUseCase:
         detail = self.execute()
 
         summary = detail.competencies[0]
-        assert summary.progress == Decimal('0')
+        assert summary.progress is None
         assert summary.availability is CompetencyAvailability.UNAVAILABLE
-        assert summary.status is CompetencyProgressStatus.LEARNING
+        assert summary.status is None
 
     def test_should_average_every_competency_including_the_blocked_ones(self) -> None:
         self.curriculum_content_provider.get_skill_content.return_value = skill_content(

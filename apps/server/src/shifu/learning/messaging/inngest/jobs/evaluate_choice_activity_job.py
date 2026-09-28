@@ -11,7 +11,11 @@ from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 from inngest import Context, Function, Inngest, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+    SkillExperienceStatus,
+)
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
 
 
@@ -186,6 +190,17 @@ class EvaluateChoiceActivityJob:
                 or attempt.activity_id != payload['activity_id']
             ):
                 return False
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
+                experience = repositories.skill_experiences.find_by_id(
+                    attempt.skill_experience_id
+                )
+                if (
+                    experience is None
+                    or experience.status is not SkillExperienceStatus.DIAGNOSING
+                    or attempt.diagnostic_run_id is None
+                    or experience.diagnostic_run_id != attempt.diagnostic_run_id
+                ):
+                    return False
             evaluation = repositories.activity_evaluations.find_by_attempt_id(
                 attempt.id
             )
@@ -236,6 +251,20 @@ class EvaluateChoiceActivityJob:
         payload: EvaluationJobPayload,
     ) -> None:
         with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(payload['attempt_id'])
+            if attempt is None:
+                return
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
+                experience = repositories.skill_experiences.find_by_id_for_update(
+                    attempt.skill_experience_id
+                )
+                if (
+                    experience is None
+                    or experience.status is not SkillExperienceStatus.DIAGNOSING
+                    or attempt.diagnostic_run_id is None
+                    or experience.diagnostic_run_id != attempt.diagnostic_run_id
+                ):
+                    return
             evaluation: ActivityEvaluation | None = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     payload['attempt_id']

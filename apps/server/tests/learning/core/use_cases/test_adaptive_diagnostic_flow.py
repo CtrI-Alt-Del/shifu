@@ -1,5 +1,3 @@
-import asyncio
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -14,12 +12,13 @@ from shifu.learning.core.domain.entities import (
     CompetencyProgress,
 )
 from shifu.learning.core.domain.enums import (
+    ActivityDifficulty,
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
     SkillExperienceStatus,
 )
-from shifu.learning.core.domain.structures import SingleChoiceAnswer
+from shifu.learning.core.domain.structures import ConceptObservation, SingleChoiceAnswer
 from shifu.learning.core.domain.structures import AvailableCompetencyDetail
 from shifu.learning.core.domain.errors import CurriculumGapError
 from shifu.learning.core.interfaces import (
@@ -38,9 +37,6 @@ from shifu.learning.core.use_cases.retry_choice_evaluation_use_case import (
     RetryChoiceEvaluationUseCase,
 )
 from shifu.learning.core.use_cases.start_skill_use_case import StartSkillUseCase
-from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
-    EvaluateChoiceActivityJob,
-)
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
@@ -60,6 +56,7 @@ from shifu.shared.core.interfaces import (
 )
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+DIAGNOSTIC_RUN_ID = 'entry-1'
 
 
 def catalog(gaps: tuple[str, ...] = ()) -> CurriculumSkillSnapshot:
@@ -148,7 +145,29 @@ def attempt(level: str) -> ActivityAttempt:
         answers=(SingleChoiceAnswer(question_key='q', selected_option_key='a'),),
         submitted_at=NOW,
         submission_key=f'key-{level}',
+        diagnostic_run_id=DIAGNOSTIC_RUN_ID,
         grading_snapshot=snapshot,
+    )
+
+
+def diagnostic_observation(
+    *,
+    attempt_id: str,
+    activity_id: str,
+    concept_id: str,
+    difficulty: str,
+    score: Decimal,
+) -> ConceptObservation:
+    return ConceptObservation(
+        attempt_id=attempt_id,
+        activity_id=activity_id,
+        concept_id=concept_id,
+        difficulty=ActivityDifficulty(difficulty),
+        first_submitted_at=NOW,
+        submitted_at=NOW,
+        completed_at=NOW,
+        question_scores=(score,),
+        diagnostic=True,
     )
 
 
@@ -169,7 +188,7 @@ def rig():
         skill_id='skill',
         status=SkillExperienceStatus.DIAGNOSING,
     )
-    experience.policy_id = 'learning-adaptive-v2'
+    experience.diagnostic_run_id = DIAGNOSTIC_RUN_ID
     progress = CompetencyProgress(
         id='progress',
         skill_experience_id='experience',
@@ -199,7 +218,6 @@ def test_goal_pins_v2_only_for_eligible_catalog(rig: Any) -> None:
     )
     assert goal.id == 'goal-new'
     created = repositories.skill_experiences.add_many.call_args.args[0][0]
-    assert created.policy_id == 'learning-adaptive-v2'
     assert created.status is SkillExperienceStatus.NOT_STARTED
     assert (
         repositories.competency_progresses.add_many.call_args.args[0][
@@ -220,13 +238,13 @@ def test_start_reports_safe_catalog_drift_after_owned_goal(rig: Any) -> None:
     curriculum.get_skill_content.return_value = catalog(('new-gap',))
     with pytest.raises(CurriculumGapError):
         StartSkillUseCase(database, curriculum, clock).execute(
-            'account', 'goal', 'skill'
+            'account', 'goal', 'skill', 'entry-1'
         )
     repositories.skill_experiences.update.assert_not_called()
     repositories.goals.find_by_id.return_value.account_id = 'other-account'
     with pytest.raises(NotFoundError):
         StartSkillUseCase(database, curriculum, clock).execute(
-            'account', 'goal', 'skill'
+            'account', 'goal', 'skill', 'entry-1'
         )
 
 
@@ -242,12 +260,12 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
         failure_code='temporary',
         run_id='old-run',
     )
-    repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+    repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = [
         first
     ]
     repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [failed]
     overview = GetDiagnosticUseCase(database, curriculum, clock).execute(
-        'account', 'goal', 'skill'
+        'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
     assert (
         overview.next_activity_id,
@@ -260,12 +278,18 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
     )
     ids.generate.return_value = 'new-run'
     RetryChoiceEvaluationUseCase(database, clock, ids).execute(
-        'account', 'goal', 'skill', 'competency', first.activity_id, first.id
+        'account',
+        'goal',
+        'skill',
+        'competency',
+        first.activity_id,
+        first.id,
+        diagnostic_run_id=DIAGNOSTIC_RUN_ID,
     )
     assert failed.run_id == 'new-run'
     assert (
         GetDiagnosticUseCase(database, curriculum, clock)
-        .execute('account', 'goal', 'skill')
+        .execute('account', 'goal', 'skill', DIAGNOSTIC_RUN_ID)
         .pending_attempt_status
         is ActivityEvaluationStatus.PENDING
     )
@@ -274,20 +298,28 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
         first.id, 'new-run'
     )
     assert failed.status is ActivityEvaluationStatus.COMPLETED
-    assert failed.effect_applied_at == NOW
-    repositories.events.add.assert_called_once()
-    assert (
-        repositories.events.add.call_args.args[0].name
-        == 'learning/activity-submission.requested'
-    )
+    assert failed.effect_applied_at is None
+    assert repositories.competency_progresses.update.call_count == 0
+    assert [call.args[0].name for call in repositories.events.add.call_args_list] == [
+        'learning/activity-submission.requested'
+    ]
     assert (
         GetDiagnosticUseCase(database, curriculum, clock)
-        .execute('account', 'goal', 'skill')
+        .execute('account', 'goal', 'skill', DIAGNOSTIC_RUN_ID)
         .next_activity_id
         == 'diagnostic-medium'
     )
     progress.initial_progress = Decimal('30')
     progress.current_progress = Decimal('95')
+    repositories.concept_observations.find_many_by_skill_experience_id.return_value = [
+        diagnostic_observation(
+            attempt_id=first.id,
+            activity_id=first.activity_id,
+            concept_id='concept',
+            difficulty='easy',
+            score=Decimal('30'),
+        )
+    ]
     experience.status = SkillExperienceStatus.LEARNING
     completed = GetDiagnosticUseCase(database, curriculum, clock).execute(
         'account', 'goal', 'skill'
@@ -297,11 +329,6 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
     with pytest.raises(NotFoundError):
         GetDiagnosticUseCase(database, curriculum, clock).execute(
             'intruder', 'goal', 'skill'
-        )
-    experience.policy_id = 'learning-v1'
-    with pytest.raises(NotFoundError):
-        GetDiagnosticUseCase(database, curriculum, clock).execute(
-            'account', 'goal', 'skill'
         )
 
 
@@ -318,7 +345,7 @@ def test_stale_pending_diagnostic_becomes_retryable_without_result_leak(
         started_at=NOW - timedelta(minutes=6),
         run_id='old-run',
     )
-    repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+    repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = [
         first
     ]
     repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [pending]
@@ -326,7 +353,7 @@ def test_stale_pending_diagnostic_becomes_retryable_without_result_leak(
         pending
     )
     overview = GetDiagnosticUseCase(database, curriculum, clock).execute(
-        'account', 'goal', 'skill'
+        'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
     assert overview.pending_attempt_status is ActivityEvaluationStatus.FAILED
     assert not hasattr(overview, 'score')
@@ -334,7 +361,13 @@ def test_stale_pending_diagnostic_becomes_retryable_without_result_leak(
     repositories.activity_attempts.find_by_id.return_value = first
     ids.generate.return_value = 'new-run'
     retry = RetryChoiceEvaluationUseCase(database, clock, ids).execute(
-        'account', 'goal', 'skill', 'competency', first.activity_id, first.id
+        'account',
+        'goal',
+        'skill',
+        'competency',
+        first.activity_id,
+        first.id,
+        diagnostic_run_id=DIAGNOSTIC_RUN_ID,
     )
     assert retry.status is ActivityEvaluationStatus.PENDING
     assert pending.run_id == 'new-run'
@@ -440,14 +473,12 @@ def test_diagnostic_resumes_in_second_competency_and_hides_scores_until_consolid
         for activity in competency.diagnostic_activities
     )
     for competency_id, activity_id in expected:
-        repositories.activity_attempts.find_many_by_skill_experience_id.return_value = (
-            completed_attempts
-        )
+        repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = completed_attempts
         repositories.activity_evaluations.find_many_by_attempt_ids.return_value = (
             completed_evaluations
         )
         overview = GetDiagnosticUseCase(database, curriculum, clock).execute(
-            'account', 'goal', 'skill'
+            'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
         )
         assert (overview.next_competency_id, overview.next_activity_id) == (
             competency_id,
@@ -462,6 +493,7 @@ def test_diagnostic_resumes_in_second_competency_and_hides_scores_until_consolid
             kind=ActivityAttemptKind.DIAGNOSTIC,
             answers=(),
             submitted_at=NOW,
+            diagnostic_run_id=DIAGNOSTIC_RUN_ID,
         )
         completed_attempts.append(item)
         completed_evaluations.append(
@@ -488,13 +520,32 @@ def test_diagnostic_resumes_in_second_competency_and_hides_scores_until_consolid
     )
     first_progress.initial_progress = Decimal('80')
     first_progress.current_progress = Decimal('95')
+    competencies = (first_competency, second_competency)
+    competency_by_id = {item.id: item for item in competencies}
+    difficulty_by_activity = {
+        activity.id: activity.difficulty
+        for item in competencies
+        for activity in item.diagnostic_activities
+    }
+    repositories.concept_observations.find_many_by_skill_experience_id.return_value = [
+        diagnostic_observation(
+            attempt_id=item.id,
+            activity_id=item.activity_id,
+            concept_id=competency_by_id[item.competency_id].concepts[0].id,
+            difficulty=difficulty_by_activity[item.activity_id],
+            score=(
+                Decimal('80') if item.competency_id == 'competency' else Decimal('60')
+            ),
+        )
+        for item in completed_attempts
+    ]
     repositories.competency_progresses.find_many_by_skill_experience_id.return_value = [
         first_progress,
         second_progress,
     ]
     experience.status = SkillExperienceStatus.LEARNING
     consolidated = GetDiagnosticUseCase(database, curriculum, clock).execute(
-        'account', 'goal', 'skill'
+        'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
     assert consolidated.next_activity_id is None
     assert tuple(item.progress for item in consolidated.competencies) == (
@@ -529,9 +580,7 @@ def test_final_diagnostic_handles_missing_current_evaluation_and_emits_only_summ
         run_id='run-hard',
     )
     repositories.activity_attempts.find_by_id.return_value = attempts[-1]
-    repositories.activity_attempts.find_many_by_skill_experience_id.return_value = (
-        attempts
-    )
+    repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = attempts
     repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = (
         current
     )
@@ -541,12 +590,12 @@ def test_final_diagnostic_handles_missing_current_evaluation_and_emits_only_summ
     EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
         attempts[-1].id, 'run-hard'
     )
-    assert current.effect_applied_at == NOW
-    assert experience.status is SkillExperienceStatus.LEARNING
-    assert progress.initial_progress == Decimal('90')
-    assert [call.args[0].name for call in repositories.events.add.call_args_list] == [
-        'learning/diagnostic-completed'
-    ]
+    assert current.status is ActivityEvaluationStatus.COMPLETED
+    assert current.effect_applied_at is None
+    assert experience.status is SkillExperienceStatus.DIAGNOSING
+    assert progress.initial_progress is None
+    repositories.competency_progresses.update.assert_not_called()
+    repositories.events.add.assert_not_called()
 
 
 def test_frozen_diagnostic_rubric_survives_new_catalog_coverage_gap(rig: Any) -> None:
@@ -561,7 +610,7 @@ def test_frozen_diagnostic_rubric_survives_new_catalog_coverage_gap(rig: Any) ->
         run_id='run-easy',
     )
     repositories.activity_attempts.find_by_id.return_value = current_attempt
-    repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+    repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = [
         current_attempt
     ]
     repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = (
@@ -573,65 +622,7 @@ def test_frozen_diagnostic_rubric_survives_new_catalog_coverage_gap(rig: Any) ->
     EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
         current_attempt.id, 'run-easy'
     )
-    assert current.effect_applied_at == NOW
+    assert current.status is ActivityEvaluationStatus.COMPLETED
+    assert current.effect_applied_at is None
     assert experience.status is SkillExperienceStatus.DIAGNOSING
     repositories.events.add.assert_not_called()
-
-
-def test_review_job_accepts_kind_and_scores_without_changing_completed_progress(
-    rig: Any,
-) -> None:
-    database, repositories, curriculum, clock, _, experience, progress = rig
-    experience.status = SkillExperienceStatus.COMPLETED
-    progress.current_progress = Decimal('90')
-    base = attempt('easy')
-    frozen = base.grading_snapshot
-    assert frozen is not None
-    review = ActivityAttempt.create(
-        id='review-attempt',
-        skill_experience_id='experience',
-        competency_id='competency',
-        activity_id='diagnostic-easy',
-        kind=ActivityAttemptKind.REVIEW,
-        answers=base.answers,
-        submitted_at=NOW,
-        submission_key='review-key',
-        grading_snapshot=replace(frozen, activity_type='learning'),
-    )
-    evaluation = ActivityEvaluation.create(
-        id='review-evaluation',
-        attempt_id=review.id,
-        status=ActivityEvaluationStatus.PENDING,
-        parts=(),
-        started_at=NOW,
-        run_id='review-run',
-    )
-    payload = asyncio.run(
-        EvaluateChoiceActivityJob._normalize_payload(  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
-            {
-                'attempt_id': review.id,
-                'run_id': 'review-run',
-                'skill_experience_id': experience.id,
-                'activity_id': review.activity_id,
-                'kind': 'review',
-                'requested_at': NOW.isoformat(),
-            }
-        )
-    )
-    assert payload['kind'] == 'review'
-    repositories.activity_attempts.find_by_id.return_value = review
-    repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = (
-        evaluation
-    )
-    EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
-        review.id, 'review-run'
-    )
-    assert evaluation.status is ActivityEvaluationStatus.COMPLETED
-    assert evaluation.effect_applied_at == NOW
-    assert progress.current_progress == Decimal('90')
-    repositories.concept_observations.add_many.assert_not_called()
-    repositories.events.add.assert_not_called()
-    EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
-        review.id, 'review-run'
-    )
-    repositories.activity_evaluations.update.assert_called_once_with(evaluation)

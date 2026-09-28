@@ -1,6 +1,10 @@
 from datetime import UTC
 
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+    SkillExperienceStatus,
+)
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
     ActivitySubmissionRequestedPayload,
@@ -30,6 +34,7 @@ class RetryChoiceEvaluationUseCase:
         competency_id: str,
         activity_id: str,
         attempt_id: str,
+        diagnostic_run_id: str | None = None,
     ) -> ChoiceAttemptDetail:
         now = self._clock_provider.now()
         with self._learning_database.transaction() as repositories:
@@ -59,6 +64,15 @@ class RetryChoiceEvaluationUseCase:
                 or attempt.grading_snapshot is None
             ):
                 raise NotFoundError
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
+                locked_experience.status is not SkillExperienceStatus.DIAGNOSING
+                or diagnostic_run_id is None
+                or diagnostic_run_id != locked_experience.diagnostic_run_id
+                or attempt.diagnostic_run_id != diagnostic_run_id
+            ):
+                raise ConflictError
+            if attempt.kind is not ActivityAttemptKind.DIAGNOSTIC and diagnostic_run_id:
+                raise ConflictError
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     attempt_id

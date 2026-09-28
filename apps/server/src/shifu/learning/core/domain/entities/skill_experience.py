@@ -18,8 +18,8 @@ class SkillExperience:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     completion_summary: SkillCompletionSummary | None = None
-    policy_id: str = 'learning-v1'
     recommended_concept_id: str | None = None
+    diagnostic_run_id: str | None = None
 
     @classmethod
     def create(
@@ -35,8 +35,8 @@ class SkillExperience:
         started_at: datetime | None = None,
         completed_at: datetime | None = None,
         completion_summary: SkillCompletionSummary | None = None,
-        policy_id: str = 'learning-v1',
         recommended_concept_id: str | None = None,
+        diagnostic_run_id: str | None = None,
     ) -> 'SkillExperience':
         return cls(
             id=id,
@@ -49,8 +49,8 @@ class SkillExperience:
             started_at=started_at,
             completed_at=completed_at,
             completion_summary=completion_summary,
-            policy_id=policy_id,
             recommended_concept_id=recommended_concept_id,
+            diagnostic_run_id=diagnostic_run_id,
         )
 
     def start_diagnosis(self, started_at: datetime) -> None:

@@ -1,6 +1,12 @@
 from .add_skill_to_goal_controller import (
     AddSkillToGoalController as AddSkillToGoalController,
 )
+from .abandon_diagnostic_controller import (
+    AbandonDiagnosticController as AbandonDiagnosticController,
+)
+from .complete_diagnostic_controller import (
+    CompleteDiagnosticController as CompleteDiagnosticController,
+)
 from .create_goal_controller import CreateGoalController as CreateGoalController
 from .get_choice_activity_controller import (
     GetChoiceActivityController as GetChoiceActivityController,
@@ -42,6 +48,9 @@ from .search_skill_catalog_controller import (
 from .start_skill_controller import StartSkillController as StartSkillController
 from .submit_choice_activity_controller import (
     SubmitChoiceActivityController as SubmitChoiceActivityController,
+)
+from .submit_diagnostic_batch_controller import (
+    SubmitDiagnosticBatchController as SubmitDiagnosticBatchController,
 )
 from .preview_activity_question_feedback_controller import (
     PreviewActivityQuestionFeedbackController as PreviewActivityQuestionFeedbackController,

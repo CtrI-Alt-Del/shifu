@@ -1,4 +1,3 @@
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.errors import CurriculumGapError
 from shifu.learning.core.domain.entities import SkillExperience
 from shifu.learning.core.domain.enums import SkillExperienceStatus
@@ -21,7 +20,13 @@ class StartSkillUseCase:
         self._curriculum = curriculum
         self._clock = clock
 
-    def execute(self, account_id: str, goal_id: str, skill_id: str) -> SkillExperience:
+    def execute(
+        self,
+        account_id: str,
+        goal_id: str,
+        skill_id: str,
+        entry_key: str,
+    ) -> SkillExperience:
         with self._database.transaction() as repositories:
             goal = repositories.goals.find_by_id(goal_id)
             experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
@@ -37,10 +42,20 @@ class StartSkillUseCase:
             locked = repositories.skill_experiences.find_by_id_for_update(experience.id)
             if locked is None:
                 raise NotFoundError
-            if locked.policy_id != AdaptiveLearningPolicy.policy_id:
-                raise ConflictError
+            if locked.status is SkillExperienceStatus.DIAGNOSING:
+                if locked.diagnostic_run_id == entry_key:
+                    return locked
+                repositories.activity_attempts.remove_diagnostic_by_experience(
+                    locked.id
+                )
+                locked.diagnostic_run_id = entry_key
+                locked.updated_at = self._clock.now()
+                repositories.skill_experiences.update(locked)
+                return locked
             if locked.status is not SkillExperienceStatus.NOT_STARTED:
                 raise ConflictError
-            locked.start_diagnosis(self._clock.now())
+            now = self._clock.now()
+            locked.start_diagnosis(now)
+            locked.diagnostic_run_id = entry_key
             repositories.skill_experiences.update(locked)
             return locked

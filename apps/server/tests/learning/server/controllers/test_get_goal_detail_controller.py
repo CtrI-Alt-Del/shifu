@@ -152,7 +152,6 @@ class TestGetGoalDetailController:
                 'status': 'learning',
                 'progress': pytest.approx(78.33333333333333),
                 'inclusionReason': 'Fundamento para todo o restante do percurso.',
-                'policyId': 'learning-v1',
             },
             {
                 'skillExperienceId': '01SHF000000000000000000014',
@@ -162,7 +161,6 @@ class TestGetGoalDetailController:
                 'status': 'not-started',
                 'progress': None,
                 'inclusionReason': 'Aplicar a lógica em uma linguagem prática.',
-                'policyId': 'learning-v1',
             },
         ]
         assert body['relations'] == [

@@ -37,7 +37,6 @@ class GetGoalUseCase:
                     status=experience.status,
                     progress=None,
                     inclusion_reason=experience.inclusion_reason,
-                    policy_id=experience.policy_id,
                 )
                 for experience in experiences
                 for catalog in (

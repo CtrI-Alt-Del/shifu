@@ -1,5 +1,4 @@
 from shifu.learning.core.domain.enums import ActivityDifficulty, SkillExperienceStatus
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceOptionDetail,
@@ -12,7 +11,7 @@ from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
-from shifu.shared.core.domain.errors import NotFoundError
+from shifu.shared.core.domain.errors import ConflictError, NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumLearningActivitySnapshot,
@@ -38,6 +37,7 @@ class GetChoiceActivityUseCase:
         skill_id: str,
         competency_id: str,
         activity_id: str,
+        diagnostic_run_id: str | None = None,
     ) -> ChoiceActivityDetail:
         with self._learning_database.transaction() as repositories:
             goal = repositories.goals.find_by_id(goal_id)
@@ -61,61 +61,67 @@ class GetChoiceActivityUseCase:
                 or progress.competency_id != competency_id
             ):
                 raise NotFoundError
-            diagnostic = (
-                experience.policy_id == AdaptiveLearningPolicy.policy_id
-                and experience.status is SkillExperienceStatus.DIAGNOSING
-            )
+            diagnostic = experience.status is SkillExperienceStatus.DIAGNOSING
+            if diagnostic and (
+                diagnostic_run_id is None
+                or diagnostic_run_id != experience.diagnostic_run_id
+            ):
+                raise ConflictError
             if not diagnostic and not progress.content_released:
                 raise NotFoundError
 
-        mixed_getter = getattr(
-            self._curriculum_content_provider, 'get_learning_activity', None
-        )
-        snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-            isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
-            for item in snapshot.questions
-        ):
-            snapshot = self._curriculum_content_provider.get_choice_activity(
+        if diagnostic:
+            snapshot = self._curriculum_content_provider.get_diagnostic_activity(
                 activity_id
             )
+        else:
+            mixed_getter = getattr(
+                self._curriculum_content_provider, 'get_learning_activity', None
+            )
+            snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
+            if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
+                isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+                for item in snapshot.questions
+            ):
+                snapshot = self._curriculum_content_provider.get_choice_activity(
+                    activity_id
+                )
         if (
             snapshot is None
             or snapshot.id != activity_id
             or snapshot.competency_id != competency_id
             or snapshot.activity_type != ('diagnostic' if diagnostic else 'learning')
-            or not self._is_eligible(snapshot, diagnostic=diagnostic)
+            or not self.is_eligible(snapshot, diagnostic=diagnostic)
         ):
             raise NotFoundError
-        if experience.policy_id == AdaptiveLearningPolicy.policy_id and isinstance(
-            snapshot, CurriculumChoiceActivitySnapshot
-        ):
+        if isinstance(snapshot, CurriculumChoiceActivitySnapshot):
             live_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
             if not ChoiceEvidenceEligibility.is_valid(snapshot, live_catalog):
                 raise NotFoundError
 
         with self._learning_database.transaction() as repositories:
             if diagnostic:
+                locked_experience = (
+                    repositories.skill_experiences.find_by_id_for_update(experience.id)
+                )
+                if (
+                    locked_experience is None
+                    or locked_experience.status is not SkillExperienceStatus.DIAGNOSING
+                    or locked_experience.diagnostic_run_id != diagnostic_run_id
+                ):
+                    raise ConflictError
+                experience = locked_experience
                 catalog = self._curriculum_content_provider.get_skill_content(skill_id)
                 if catalog is None or not catalog.v2_eligible:
                     raise NotFoundError
                 diagnostic_attempts = tuple(
-                    repositories.activity_attempts.find_many_by_skill_experience_id(
-                        experience.id
+                    repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                        experience.id, diagnostic_run_id or ''
                     )
                 )
-                diagnostic_evaluations = tuple(
-                    repositories.activity_evaluations.find_many_by_attempt_ids(
-                        tuple(item.id for item in diagnostic_attempts)
-                    )
-                )
-                next_item = DiagnosticSequence.next_item(
-                    catalog, diagnostic_attempts, diagnostic_evaluations
-                )
-                if (
-                    next_item is None
-                    or next_item[0] != competency_id
-                    or next_item[1].id != activity_id
+                if diagnostic_attempts or not any(
+                    item_competency_id == competency_id and item.id == activity_id
+                    for item_competency_id, item in DiagnosticSequence.ordered(catalog)
                 ):
                     raise NotFoundError
             unresolved = repositories.activity_evaluations.find_unresolved_by_skill_experience_id(
@@ -135,8 +141,18 @@ class GetChoiceActivityUseCase:
                     unresolved_attempt_id = None
             else:
                 unresolved_attempt_id = None
-            attempts = repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id(
-                experience.id, activity_id
+            attempts = (
+                [
+                    item
+                    for item in repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                        experience.id, diagnostic_run_id or ''
+                    )
+                    if item.activity_id == activity_id
+                ]
+                if diagnostic
+                else repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id(
+                    experience.id, activity_id
+                )
             )
             latest_attempt = attempts[-1] if attempts else None
             return ChoiceActivityDetail(
@@ -163,7 +179,7 @@ class GetChoiceActivityUseCase:
                                 name=item.name,
                                 weight_percentage=item.weight_percentage,
                             )
-                            for part in snapshot.parts
+                            for part in (() if diagnostic else snapshot.parts)
                             if isinstance(part, CurriculumCodeRubricPartSnapshot)
                             and part.question_key == question.key
                             for item in part.criteria
@@ -186,14 +202,12 @@ class GetChoiceActivityUseCase:
                 unresolved_attempt_id=unresolved_attempt_id,
                 is_diagnostic=diagnostic,
                 activity_revision=(
-                    snapshot.revision
-                    if isinstance(snapshot, CurriculumLearningActivitySnapshot)
-                    else None
+                    snapshot.diagnostic_revision if diagnostic else snapshot.revision
                 ),
             )
 
     @staticmethod
-    def _is_eligible(
+    def is_eligible(
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
         *,
         diagnostic: bool = False,

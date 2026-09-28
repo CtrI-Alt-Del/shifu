@@ -1,7 +1,14 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Response as FastAPIResponse, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    Path,
+    Response as FastAPIResponse,
+    status,
+)
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
@@ -103,6 +110,10 @@ class SubmitChoiceActivityController:
                 IdentifierProvider,
                 Depends(LearningPipe.get_identifier_provider),
             ],
+            diagnostic_run_id: Annotated[
+                UUID | None,
+                Header(alias='X-Diagnostic-Run-Id'),
+            ] = None,
         ) -> Response:
             outcome = _OUTCOME_ADAPTER.validate_python(
                 SubmitChoiceActivityUseCase(
@@ -133,6 +144,7 @@ class SubmitChoiceActivityController:
                         for answer in request.answers
                     ),
                     request.activity_revision,
+                    str(diagnostic_run_id) if diagnostic_run_id is not None else None,
                 ),
                 from_attributes=True,
             )
