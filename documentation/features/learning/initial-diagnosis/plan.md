@@ -1,6 +1,6 @@
 ---
 title: Initial diagnosis implementation plan
-status: complete
+status: in_progress
 spec: ./spec.md
 spec_revision: 9
 evaluation: ./evaluation.md
@@ -17,11 +17,11 @@ last_updated_at: 2026-09-28
   integrated desktop/mobile validation with persisted state.
 - **Plan status / phase:** `complete` — the Spec Reviewer accepted revision 9
   after the policy-consumer, revision-token and seed-safety corrections.
-- **Next action:** publish the reviewed SHIFU-77 pull request.
-- **Active blockers:** none for automated validation or publication. The user
-  waived manual browser validation and fresh screenshots on 2026-09-28; those
-  scenarios are explicitly recorded as waived, not passed. GitHub review/checks
-  remain pending after publication.
+- **Next action:** commit the CI regression-test corrections, push to PR #19, and verify the new GitHub Actions run.
+- **Active blockers:** GitHub Actions reported three stale Web assertions and two
+  non-reproducible Server integration 404s on PR #19. Web assertions are corrected
+  and focused suites pass; the remote rerun is pending. Manual browser validation
+  remains waived by the user.
 - **External dependencies:** none block execution. Jira records SHIFU-16 and
   SHIFU-18 as complete; the reused activity-question work SHIFU-74 and SHIFU-75
   is complete.
@@ -71,7 +71,7 @@ evidence is asserted here.
 | 4 | `learning-curriculum-snapshot-builder` | F4 | Existing readiness gate, mixed diagnostic snapshot and private revision token | F1/F2 | Web contract work | `implemented` | Ready Skills remain eligible; server-only HMAC token and mixed code snapshot available; integration review pending |
 | 4 | `learning-web-single-submit-builder` | F4 | Revision-9 DTO, session answers, Activity traversal and final-submit UI | F1/F2 and fixed Spec REST contract | Curriculum work | `implemented` | No intermediate POST; one final request; learning Activity flow preserved; integration review pending |
 | 5 | `learning-server-batch-builder` | F5 | Global policy and atomic diagnostic batch with REST/job parity | F4 Curriculum port and revision token | — | `implemented` | All-or-none attempts/evaluations/events and replay; route group examples current; integrated behavioral evidence pending |
-| 6 | `Orchestrator` | F6 | Integrated validation, evidence and review reconciliation | F4/F5 | Implementation Reviewer passed; visual capture comparison waived by user | `complete` | Automated criteria pass; VM-01–03 explicitly waived by user |
+| 6 | `Orchestrator` | F6 | Integrated validation, evidence and CI follow-up | F4/F5 | Implementation Reviewer passed; visual comparison waived; CI rerun pending | `in_progress` | Resolve GitHub checks and retain manual waiver |
 | 6 | `initial-diagnosis-web-fix` | F6 | Correct stale or failing Web component, hook and route assertions against revision-9 single-submit behavior; fix MaterialContent width required by Design System T23 | EV-38 baseline | F6 server fixes | `complete` | CI-05 and CI-06 pass; MaterialContent uses the approved 68ch reading width; fresh affected UI evidence is captured after correction |
 | 6 | `initial-diagnosis-core-fix` | F6 | Correct Learning Core behavior and unit fixtures exposed by revision-9 execution | EV-38 baseline | F6 Web/server-boundary fixes | `complete` | CI-11 passes; only Learning Core and its unit-test paths listed in EV-39 change |
 | 6 | `initial-diagnosis-server-boundary-fix` | F6 | Correct Learning controller integration fixtures/contracts and establish CI-15 disposable migration cycle | EV-38 baseline | F6 Web/Core fixes | `complete` | CI-12 passes and CI-15 upgrade/downgrade/re-upgrade is verified; only Server REST/test/fixture paths listed in EV-39 change |

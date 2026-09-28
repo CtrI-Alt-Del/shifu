@@ -10,6 +10,7 @@ const ids = {
   nextActivityId: '01SHF000000000000000000010',
 }
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
+const competencyPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}`
 const attemptPath = `${activityPath}/attempts/${ids.attemptId}`
 const activity = {
   activityId: ids.activityId,
@@ -178,14 +179,11 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   await expect(
     authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),
   ).toHaveCount(0)
-  const backToSkill = authenticatedPage.getByRole('link', {
-    name: 'Voltar para a Habilidade',
+  const backToCompetency = authenticatedPage.getByRole('link', {
+    name: 'Voltar para a Competência',
   })
-  await expect(backToSkill).toBeVisible()
-  await expect(backToSkill).toHaveAttribute(
-    'href',
-    `/learning/goals/${ids.goalId}/skills/${ids.skillId}`,
-  )
+  await expect(backToCompetency).toBeVisible()
+  await expect(backToCompetency).toHaveAttribute('href', competencyPath)
   await authenticatedPage
     .getByRole('link', { name: /Abrir Atividade recomendada/ })
     .click()

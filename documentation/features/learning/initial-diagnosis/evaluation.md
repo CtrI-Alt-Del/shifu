@@ -1,6 +1,6 @@
 ---
 title: Initial diagnosis implementation evaluation
-status: complete
+status: in_progress
 spec: ./spec.md
 spec_revision: 9
 plan: ./plan.md
@@ -38,8 +38,9 @@ function using built-in cases without stdin or external packages. The local
 database was not reseeded; automated tests and fresh browser validation remain
 pending. Current static and build gates pass at EV-36.
 
-**Integrated correction result (2026-09-28):** all automated gates CI-02–CI-15
-pass on the current candidate. Web unit is 284/284; focused Web Playwright is
+**Integrated correction result (2026-09-28):** automated gates CI-02–CI-15
+passed on the pre-publication candidate. Post-publication GitHub Actions failures
+and the follow-up correction are tracked at EV-48; the remote rerun is pending. Web unit is 284/284; focused Web Playwright is
 15/15; Server Core unit is 163/163; PostgreSQL integration is 104/104,
 including the disposable migration cycle; registered Inngest jobs are 8/8.
 EV-38 remains the failed historical baseline; EV-42–EV-46 record current
@@ -279,3 +280,4 @@ and are not presented as revision-9 validation.
 | EV-45 | 2026-09-28 | Implementation Reviewer findings and correction | Integrated Implementation Reviewer report; exact owner-read controller test rerun | The reviewer’s stale-evidence finding is reconciled by EV-42–EV-44. The reviewer identified an owner-read test allowing any skill status; assertion now requires `not-started`, and its focused test passes 1/1. | Re-review the refreshed candidate after SDD reconciliation; no other code-contract finding was reported. | Reviewer did not run tests or browser checks. | CA-01–CA-20; CI-12 |
 | EV-46 | 2026-09-28 | Visual evidence disposition | Visual Reviewer report and explicit user waiver | Existing captures are historical and cannot establish current revision-9 rendering. The reviewer noted that `MaterialContent` is outside the diagnostic Activity/result screens; parent inspection confirms the 68ch class is in the current worktree. | Fresh comparison waived by the user; visual review is not claimed as passed. | No current captures were created. | CA-03, CA-04, CA-10–CA-13, CA-15; VM-01–VM-03 |
 | EV-47 | 2026-09-28 | Final integrated Implementation Reviewer refresh | Reviewer inspected integrated diff and current Plan/Evaluation after EV-43–EV-46 and owner-status assertion correction | PASS: no actionable code-contract findings. The sole reported issue was stale F6/Implementation Reviewer status in the Plan; those statuses now show complete/passed and the user's visual waiver is explicit. | Reviewer did not run tests or browser checks; validation evidence is recorded in EV-43/44 and EV-45. | Current user waiver for manual visual/browser checks remains in force. | CA-01–CA-20 |
+| EV-48 | 2026-09-28 | Correção das falhas de CI após publicação do PR #19 | `gh run view 36373028118 --log-failed`; `gh run view 36373028111 --log-failed`; Server `REDIS_URL=redis://127.0.0.1:6379/15 uv run poe test:integration`; Web focused Playwright for the three failed scenarios | CI Web exposed stale expectations for the result return destination, diagnostic entry CTA and pending indicator markup. Updated only those three Playwright tests to assert current behavior. Focused updated Web suites pass: 5/5 and Attempt route 3/3. CI Server showed two adaptive journey 404s, but both focused cases and full integration suite pass locally (104/104); no Server edit made without reproducible evidence. | Await new GitHub Actions run on the correction commit; PR checks are not yet confirmed green. | Local focused Web run used isolated port 7011; local Server integration used Redis DB 15 and disposable Testcontainers. | CI-12; full Web Playwright workflow |

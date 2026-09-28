@@ -34,9 +34,13 @@ test('redirects authenticated learning visitors to Home and protects anonymous v
   await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
 })
 
-test('renders a resumable diagnostic on the protected Skill route', async ({
+test('starts an interrupted diagnostic and opens its next Activity', async ({
   authenticatedPage,
 }) => {
+  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
+  let diagnosticRequests = 0
+  let startRequests = 0
+  let activityRequestPayload = ''
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
     const fn = serverFnExport(route.request().url())
     if (fn?.startsWith('getGoalDetail_')) {
@@ -69,16 +73,63 @@ test('renders a resumable diagnostic on the protected Skill route', async ({
       return
     }
     if (fn?.startsWith('getDiagnosticAction_')) {
+      diagnosticRequests += 1
       await route.fulfill({
         body: JSON.stringify({
           result: {
             status: 'diagnosing',
+            runState: diagnosticRequests === 1 ? 'requires_entry' : 'active',
+            readyToComplete: false,
             nextCompetencyId: COMPETENCY_ID,
             nextActivityId: ACTIVITY_ID,
             pendingAttemptId: null,
             pendingAttemptStatus: null,
             focusCompetencyId: null,
+            activitySequence: [{ competencyId: COMPETENCY_ID, activityId: ACTIVITY_ID }],
             competencies: [],
+            initialOverallResult: null,
+            overallCoverageComplete: false,
+            directCompletion: false,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (fn?.startsWith('startSkillAction_')) {
+      startRequests += 1
+      await route.fulfill({
+        body: JSON.stringify({ result: { diagnosticRunId } }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (fn?.startsWith('getActivityAction_')) {
+      activityRequestPayload = decodeURIComponent(
+        `${route.request().url()} ${route.request().postData() ?? ''}`,
+      )
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            activityId: ACTIVITY_ID,
+            title: 'Somar os números pares',
+            difficulty: 'medium',
+            activityRevision: 'revision-1',
+            canSubmit: true,
+            latestAttemptId: null,
+            unresolvedAttemptId: null,
+            isDiagnostic: true,
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual é o resultado?',
+                options: [
+                  { key: 'a', text: '4' },
+                  { key: 'b', text: '6' },
+                ],
+              },
+            ],
           },
         }),
         contentType: 'application/json',
@@ -89,17 +140,17 @@ test('renders a resumable diagnostic on the protected Skill route', async ({
   })
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
-  await expect(authenticatedPage.getByRole('heading', { name: 'Lógica' })).toBeVisible()
-  await expect(
-    authenticatedPage.getByText('As respostas são avaliadas em conjunto.'),
-  ).toBeVisible()
-  await expect(
-    authenticatedPage.getByRole('link', { name: 'Continuar diagnóstico' }),
-  ).toHaveAttribute(
-    'href',
-    `/learning/goals/${GOAL_ID}/skills/${SKILL_ID}/competencies/${COMPETENCY_ID}/activities/${ACTIVITY_ID}`,
+  await expect(authenticatedPage).toHaveURL(
+    `${skillPath}/competencies/${COMPETENCY_ID}/activities/${ACTIVITY_ID}`,
   )
+  await expect(authenticatedPage.getByText('Qual é o resultado?')).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
+  ).toBeVisible()
   await expect(authenticatedPage.getByText(/nota de|resposta correta/i)).not.toBeVisible()
+  expect(diagnosticRequests).toBeGreaterThanOrEqual(2)
+  expect(startRequests).toBe(1)
+  expect(activityRequestPayload).toContain(diagnosticRunId)
 })
 
 test('redirects anonymous visitors before the Skill contract loader', async ({
