@@ -9,8 +9,8 @@ const baseURL =
 const identityURL =
   process.env.SHIFU_IDENTITY_API_URL ?? `http://127.0.0.1:${identityPort}`
 const webServerCommand = process.env.CI
-  ? `corepack pnpm preview -- --host 0.0.0.0 --port ${port}`
-  : `corepack pnpm dev -- --host 0.0.0.0 --port ${port}`
+  ? `corepack pnpm preview --host 0.0.0.0 --port ${port}`
+  : `corepack pnpm dev --host 0.0.0.0 --port ${port}`
 
 export default defineConfig({
   testDir: './tests',
