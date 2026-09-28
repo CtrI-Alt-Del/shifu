@@ -20,7 +20,10 @@ if TYPE_CHECKING:
 
 _PLACEHOLDER_PATTERN = re.compile(r'\{\{([a-z][a-z0-9_]*)\}\}')
 _TEMPLATE_PACKAGE = 'shifu.communication.providers.email.template.generated'
-_TEMPLATE_NAME = 'account-confirmation'
+_TEMPLATE_NAMES = {
+    CommunicationType.ACCOUNT_CONFIRMATION: 'account-confirmation',
+    CommunicationType.PASSWORD_RECOVERY: 'password-recovery',
+}
 
 
 class GeneratedEmailMessageRenderer:
@@ -31,20 +34,35 @@ class GeneratedEmailMessageRenderer:
         message_type: CommunicationType,
         values: MessageContent | MessageTemplateValues,
     ) -> EmailMessage:
-        if message_type is not CommunicationType.ACCOUNT_CONFIRMATION:
+        template_name = _TEMPLATE_NAMES.get(message_type)
+        if template_name is None:
             raise InvalidCommunicationError
         if not isinstance(values, MessageTemplateValues):
             raise InvalidCommunicationError
 
-        html, subject, placeholders = self._load_contract()
-        if placeholders != {'display_name', 'action_url', 'expires_at'}:
+        html, subject, placeholders = self._load_contract(template_name)
+        expected_placeholders = (
+            {'display_name', 'action_url', 'expires_at'}
+            if message_type is CommunicationType.ACCOUNT_CONFIRMATION
+            else {'action_url', 'expires_at'}
+        )
+        if placeholders != expected_placeholders:
+            raise InvalidCommunicationError
+        if message_type is CommunicationType.ACCOUNT_CONFIRMATION and (
+            values.display_name is None
+        ):
+            raise InvalidCommunicationError
+        if message_type is CommunicationType.PASSWORD_RECOVERY and (
+            values.display_name is not None
+        ):
             raise InvalidCommunicationError
 
         replacement_values = {
-            'display_name': escape(values.display_name),
             'action_url': escape(values.action_url, quote=True),
             'expires_at': escape(self._format_expiry(values.expires_at)),
         }
+        if values.display_name is not None:
+            replacement_values['display_name'] = escape(values.display_name)
         rendered_html = _PLACEHOLDER_PATTERN.sub(
             lambda match: replacement_values[match.group(1)],
             html,
@@ -63,10 +81,10 @@ class GeneratedEmailMessageRenderer:
         )
 
     @staticmethod
-    def _load_contract() -> tuple[str, str, set[str]]:
+    def _load_contract(template_name: str) -> tuple[str, str, set[str]]:
         package = importlib.resources.files(_TEMPLATE_PACKAGE)
-        html = package.joinpath(f'{_TEMPLATE_NAME}.html').read_text(encoding='utf-8')
-        raw_manifest = package.joinpath(f'{_TEMPLATE_NAME}.manifest.json').read_text(
+        html = package.joinpath(f'{template_name}.html').read_text(encoding='utf-8')
+        raw_manifest = package.joinpath(f'{template_name}.manifest.json').read_text(
             encoding='utf-8'
         )
         manifest_value: object = json.loads(raw_manifest)

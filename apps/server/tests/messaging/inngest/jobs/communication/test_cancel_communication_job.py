@@ -7,11 +7,12 @@ from urllib.request import Request, urlopen
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from shifu.communication.core.domain.enums import CommunicationType
 from shifu.communication.database.sqlalchemy.models import CommunicationModel
-from shifu.identity.core.domain.enums import AccountConfirmationCancellationReason
+from shifu.identity.core.domain.enums import AccountActionTokenCancellationReason
 from shifu.identity.core.domain.events import (
-    AccountConfirmationCancelledEvent,
-    AccountConfirmationCancelledPayload,
+    AccountActionTokenCancelledEvent,
+    AccountActionTokenCancelledPayload,
 )
 
 if TYPE_CHECKING:
@@ -39,6 +40,21 @@ def _register_account(fixture: 'InngestFixture') -> None:
         assert response.status == 202
 
 
+def _request_password_recovery(fixture: 'InngestFixture') -> None:
+    body = json.dumps({'email': 'cancellation-job@example.com'}).encode()
+    request = Request(  # noqa: S310 - local FastAPI fixture URL
+        f'{fixture.server_url}/identity/password-recovery-requests',
+        data=body,
+        headers={
+            'content-type': 'application/json',
+            'x-shifu-bff-secret': fixture.bff_shared_secret,
+        },
+        method='POST',
+    )
+    with urlopen(request, timeout=10) as response:  # noqa: S310
+        assert response.status == 202
+
+
 class TestCancelCommunicationJob:
     def test_expired_cancellation_redacts_a_delivered_request_and_is_idempotent(
         self,
@@ -46,21 +62,26 @@ class TestCancelCommunicationJob:
     ) -> None:
         _register_account(inngest_fixture)
         inngest_fixture.wait_for_mail()
+        inngest_fixture.clear_mailpit()
+        _request_password_recovery(inngest_fixture)
+        inngest_fixture.wait_for_mail()
 
         with inngest_fixture.inspection_session() as session:
             communication = session.scalar(
-                select(CommunicationModel).order_by(CommunicationModel.created_at)
+                select(CommunicationModel)
+                .where(CommunicationModel.type == CommunicationType.PASSWORD_RECOVERY)
+                .order_by(CommunicationModel.created_at)
             )
             assert communication is not None
             communication_id = communication.id
-            identity_confirmation_id = communication.identity_confirmation_id
-            assert identity_confirmation_id is not None
+            identity_action_token_id = communication.identity_action_token_id
+            assert identity_action_token_id is not None
 
-        cancellation = AccountConfirmationCancelledEvent(
-            payload=AccountConfirmationCancelledPayload(
+        cancellation = AccountActionTokenCancelledEvent(
+            payload=AccountActionTokenCancelledPayload(
                 communication_id=communication_id,
-                identity_confirmation_id=identity_confirmation_id,
-                reason=AccountConfirmationCancellationReason.EXPIRED,
+                identity_action_token_id=identity_action_token_id,
+                reason=AccountActionTokenCancellationReason.EXPIRED,
             )
         )
 
@@ -68,7 +89,7 @@ class TestCancelCommunicationJob:
             cancellation.name,
             {
                 'communication_id': cancellation.payload.communication_id,
-                'identity_confirmation_id': cancellation.payload.identity_confirmation_id,
+                'identity_action_token_id': cancellation.payload.identity_action_token_id,
                 'reason': cancellation.payload.reason.value,
                 'unexpected': 'rejected by the strict transport schema',
             },
@@ -79,13 +100,13 @@ class TestCancelCommunicationJob:
             unchanged = session.get(CommunicationModel, communication_id)
         assert unchanged is not None
         assert unchanged.recipient_email is not None
-        assert unchanged.identity_confirmation_id == identity_confirmation_id
+        assert unchanged.identity_action_token_id == identity_action_token_id
 
         inngest_fixture.publish(
             cancellation.name,
             {
                 'communication_id': cancellation.payload.communication_id,
-                'identity_confirmation_id': cancellation.payload.identity_confirmation_id,
+                'identity_action_token_id': cancellation.payload.identity_action_token_id,
                 'reason': cancellation.payload.reason.value,
             },
             f'{communication_id}-expired',
@@ -98,7 +119,7 @@ class TestCancelCommunicationJob:
             cancellation.name,
             {
                 'communication_id': cancellation.payload.communication_id,
-                'identity_confirmation_id': cancellation.payload.identity_confirmation_id,
+                'identity_action_token_id': cancellation.payload.identity_action_token_id,
                 'reason': cancellation.payload.reason.value,
             },
             f'{communication_id}-expired-duplicate',
@@ -115,6 +136,6 @@ def _is_redacted(session: Session, communication_id: str) -> bool:
         and communication.status == 'sent'
         and communication.account_id is None
         and communication.recipient_email is None
-        and communication.identity_confirmation_id is None
+        and communication.identity_action_token_id is None
         and communication.encrypted_content is None
     )

@@ -8,7 +8,7 @@ from shifu.identity.core.domain.entities import AccountActionToken
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationCancellationReason,
+    AccountActionTokenCancellationReason,
     AccountStatus,
     ResendConfirmationResultStatus,
 )
@@ -25,7 +25,7 @@ from shifu.fakers.identity.entities import AccountFaker
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
 if TYPE_CHECKING:
-    from shifu.identity.core.domain.events import AccountConfirmationCancelledEvent
+    from shifu.identity.core.domain.events import AccountActionTokenCancelledEvent
 
 
 class TestResendEmailConfirmationUseCase:
@@ -98,7 +98,7 @@ class TestResendEmailConfirmationUseCase:
         result = self.subject.execute('pending-handle')
 
         assert result.result is ResendConfirmationResultStatus.ACCEPTED
-        assert result.identity_confirmation_id == '01JREPLACEMENT000000000001'
+        assert result.identity_action_token_id == '01JREPLACEMENT000000000001'
         assert result.communication_id == '01JCOMMUNICATION000000000002'
         assert result.confirmation_token == 'replacement-token'
         assert result.confirmation_expires_at == self.now + timedelta(hours=24)
@@ -109,18 +109,18 @@ class TestResendEmailConfirmationUseCase:
         assert replacement_token.account_id == account.id
         assert replacement_token.pending_handle_hash == 'pending-handle-hash'
         assert replacement_token.token_hash == 'replacement-token-hash'
-        assert replacement_token.id == result.identity_confirmation_id
+        assert replacement_token.id == result.identity_action_token_id
         assert replacement_token.communication_id == result.communication_id
 
         cancellation_event = cast(
-            'AccountConfirmationCancelledEvent',
+            'AccountActionTokenCancelledEvent',
             self.repositories.events.add.call_args.args[0],
         )
         assert cancellation_event.payload.communication_id == old_token.communication_id
-        assert cancellation_event.payload.identity_confirmation_id == old_token.id
+        assert cancellation_event.payload.identity_action_token_id == old_token.id
         assert (
             cancellation_event.payload.reason
-            is AccountConfirmationCancellationReason.REISSUED
+            is AccountActionTokenCancellationReason.REISSUED
         )
 
     def test_should_return_cooldown_without_creating_replacement(self) -> None:

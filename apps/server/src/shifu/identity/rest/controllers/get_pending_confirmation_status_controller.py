@@ -1,18 +1,17 @@
 from datetime import timedelta
 from math import ceil
-from typing import Annotated, Literal, cast
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
-    AccountConfirmationDeliveryStatus,
+    AccountActionTokenDeliveryStatus,
     AccountStatus,
 )
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
-    ConfirmationAccountActionTokensRepository,
     IdentityDatabase,
 )
 from shifu.identity.pipes import IdentityPipe
@@ -58,10 +57,7 @@ class GetPendingConfirmationStatusController:
             pending_handle_hash = pending_handle_provider.hash(request.pending_handle)
             now = clock_provider.now()
             with database.transaction() as repositories:
-                token_repository = cast(
-                    'ConfirmationAccountActionTokensRepository',
-                    repositories.account_action_tokens,
-                )
+                token_repository = repositories.account_action_tokens
                 token = token_repository.find_by_pending_handle_hash(
                     pending_handle_hash
                 )
@@ -83,10 +79,10 @@ class GetPendingConfirmationStatusController:
                 if latest_token.status is not AccountActionTokenStatus.PENDING:
                     return Response(state='delivery_issue')
                 if latest_token.delivery_status in {
-                    AccountConfirmationDeliveryStatus.DELIVERY_UNAVAILABLE,
-                    AccountConfirmationDeliveryStatus.TEMPORARY_FAILURE,
-                    AccountConfirmationDeliveryStatus.PERMANENT_FAILURE,
-                    AccountConfirmationDeliveryStatus.EXHAUSTED,
+                    AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
+                    AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE,
+                    AccountActionTokenDeliveryStatus.PERMANENT_FAILURE,
+                    AccountActionTokenDeliveryStatus.EXHAUSTED,
                 }:
                     return Response(state='delivery_issue')
                 cooldown_ends_at = latest_token.issued_at + timedelta(seconds=60)

@@ -5,6 +5,7 @@ class CommunicationCancellationReason(StrEnum):
     CONFIRMED = 'confirmed'
     REISSUED = 'reissued'
     EXPIRED = 'expired'
+    RESET = 'reset'
 
 
 CancellationReason = CommunicationCancellationReason

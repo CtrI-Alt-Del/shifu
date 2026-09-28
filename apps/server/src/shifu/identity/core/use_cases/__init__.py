@@ -21,3 +21,16 @@ from .sign_in_use_case import SignInUseCase as SignInUseCase
 from .verify_pending_confirmation_context_use_case import (
     VerifyPendingConfirmationContextUseCase as VerifyPendingConfirmationContextUseCase,
 )
+from .get_password_recovery_status_use_case import (
+    GetPasswordRecoveryStatusUseCase as GetPasswordRecoveryStatusUseCase,
+)
+from .request_password_recovery_use_case import (
+    RequestPasswordRecoveryUseCase as RequestPasswordRecoveryUseCase,
+)
+from .reset_password_use_case import ResetPasswordUseCase as ResetPasswordUseCase
+from .resolve_password_reset_link_use_case import (
+    ResolvePasswordResetLinkUseCase as ResolvePasswordResetLinkUseCase,
+)
+from .retry_password_recovery_use_case import (
+    RetryPasswordRecoveryUseCase as RetryPasswordRecoveryUseCase,
+)

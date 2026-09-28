@@ -22,10 +22,10 @@ class SqlalchemyAccountActionTokensRepository:
         )
         return AccountActionTokenMapper.to_domain(model) if model is not None else None
 
-    def find_by_id(self, identity_confirmation_id: str) -> AccountActionToken | None:
+    def find_by_id(self, identity_action_token_id: str) -> AccountActionToken | None:
         model = self._session.scalar(
             select(AccountActionTokenModel)
-            .where(AccountActionTokenModel.id == identity_confirmation_id)
+            .where(AccountActionTokenModel.id == identity_action_token_id)
             .with_for_update()
         )
         return AccountActionTokenMapper.to_domain(model) if model is not None else None

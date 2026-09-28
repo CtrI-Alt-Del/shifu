@@ -10,7 +10,7 @@ from shifu.shared.core.domain.validation import require_non_empty
 @structure
 class CommunicationDeliveryStateChangedPayload:
     communication_id: str
-    identity_confirmation_id: str
+    identity_action_token_id: str
     state: CommunicationDeliveryState | str
 
     def __post_init__(self) -> None:
@@ -21,9 +21,9 @@ class CommunicationDeliveryStateChangedPayload:
         )
         object.__setattr__(
             self,
-            'identity_confirmation_id',
+            'identity_action_token_id',
             require_non_empty(
-                self.identity_confirmation_id,
+                self.identity_action_token_id,
                 InvalidCommunicationError,
             ),
         )

@@ -1,13 +1,12 @@
 from datetime import datetime
 
 from shifu.identity.core.domain.enums import (
+    AccountActionTokenDeliveryStatus,
     AccountActionTokenStatus,
     AccountActionTokenType,
-    AccountConfirmationDeliveryStatus,
 )
 from shifu.identity.core.domain.errors import (
     AccountActionTokenAlreadyUsedError,
-    AccountConfirmationNotAllowedError,
     AccountActionTokenExpiredError,
     AccountActionTokenInvalidatedError,
 )
@@ -28,10 +27,10 @@ class AccountActionToken:
     invalidated_at: datetime | None = None
     communication_id: str | None = None
     pending_handle_hash: str | None = None
-    delivery_status: AccountConfirmationDeliveryStatus | None = None
+    delivery_status: AccountActionTokenDeliveryStatus | None = None
 
     @property
-    def identity_confirmation_id(self) -> str:
+    def identity_action_token_id(self) -> str:
         return self.id
 
     def use(self, used_at: datetime) -> None:
@@ -66,18 +65,17 @@ class AccountActionToken:
 
     def record_delivery_status(
         self,
-        status: AccountConfirmationDeliveryStatus,
+        status: AccountActionTokenDeliveryStatus,
         recorded_at: datetime,
     ) -> bool:
-        if self.type is not AccountActionTokenType.EMAIL_CONFIRMATION:
-            raise AccountConfirmationNotAllowedError
         if self.delivery_status is status:
             return False
         if self.delivery_status in {
-            AccountConfirmationDeliveryStatus.DELIVERED,
-            AccountConfirmationDeliveryStatus.PERMANENT_FAILURE,
-            AccountConfirmationDeliveryStatus.EXHAUSTED,
-            AccountConfirmationDeliveryStatus.CANCELLED,
+            AccountActionTokenDeliveryStatus.DELIVERED,
+            AccountActionTokenDeliveryStatus.PERMANENT_FAILURE,
+            AccountActionTokenDeliveryStatus.EXHAUSTED,
+            AccountActionTokenDeliveryStatus.CANCELLED,
+            AccountActionTokenDeliveryStatus.EXPIRED,
         }:
             return False
         self.delivery_status = status
@@ -89,8 +87,6 @@ class AccountActionToken:
         pending_handle_hash: str,
         updated_at: datetime,
     ) -> None:
-        if self.type is not AccountActionTokenType.EMAIL_CONFIRMATION:
-            raise AccountConfirmationNotAllowedError
         if self.status is not AccountActionTokenStatus.PENDING:
             raise AccountActionTokenInvalidatedError
         self.pending_handle_hash = pending_handle_hash

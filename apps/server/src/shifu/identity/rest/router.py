@@ -3,11 +3,26 @@ from fastapi import APIRouter
 from shifu.identity.rest.controllers.get_current_session_controller import (
     GetCurrentSessionController,
 )
+from shifu.identity.rest.controllers.get_password_recovery_status_controller import (
+    GetPasswordRecoveryStatusController,
+)
 from shifu.identity.rest.controllers.get_pending_confirmation_status_controller import (
     GetPendingConfirmationStatusController,
 )
 from shifu.identity.rest.controllers.main_page_entered_controller import (
     MainPageEnteredController,
+)
+from shifu.identity.rest.controllers.request_password_recovery_controller import (
+    RequestPasswordRecoveryController,
+)
+from shifu.identity.rest.controllers.reset_password_controller import (
+    ResetPasswordController,
+)
+from shifu.identity.rest.controllers.resolve_password_reset_link_controller import (
+    ResolvePasswordResetLinkController,
+)
+from shifu.identity.rest.controllers.retry_password_recovery_controller import (
+    RetryPasswordRecoveryController,
 )
 from shifu.identity.rest.controllers.confirm_account_controller import (
     ConfirmAccountController,
@@ -36,4 +51,9 @@ class IdentityRouter:
         ResendEmailConfirmationController.handle(router)
         GetPendingConfirmationStatusController.handle(router)
         VerifyPendingConfirmationContextController.handle(router)
+        RequestPasswordRecoveryController.handle(router)
+        GetPasswordRecoveryStatusController.handle(router)
+        RetryPasswordRecoveryController.handle(router)
+        ResolvePasswordResetLinkController.handle(router)
+        ResetPasswordController.handle(router)
         return router

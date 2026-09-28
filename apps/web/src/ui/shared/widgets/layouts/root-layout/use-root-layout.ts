@@ -7,6 +7,7 @@ export const PUBLIC_ROUTE_PATHS = [
   ROUTES.login,
   ROUTES.register,
   ROUTES.forgotPassword,
+  ROUTES.resetPassword,
   ROUTES.pendingConfirmation,
   ROUTES.confirmEmail,
 ] as const

@@ -18,7 +18,6 @@ from shifu.shared.constants import ENVIRONMENT
 if TYPE_CHECKING:
     from httpx import Response
 
-    from shifu.identity.core.interfaces import ConfirmationAccountActionTokensRepository
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
@@ -98,10 +97,7 @@ class TestConfirmAccountController:
             )
             assert account is not None
             assert account.status is AccountStatus.ACTIVE
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
+            token_repository = repositories.account_action_tokens
             tokens = token_repository.find_many_by_account_id_and_type(
                 account.id,
                 AccountActionTokenType.EMAIL_CONFIRMATION,

@@ -1,6 +1,5 @@
 from .account_action_tokens_repository import (
     AccountActionTokensRepository as AccountActionTokensRepository,
-    ConfirmationAccountActionTokensRepository as ConfirmationAccountActionTokensRepository,
 )
 from .accounts_repository import (
     AccountsRepository as AccountsRepository,
@@ -18,4 +17,9 @@ from .identity_database import (
 )
 from .password_hashing_provider import (
     PasswordHashingProvider as PasswordHashingProvider,
+)
+from .password_recovery_delivery_gateway import (
+    PasswordRecoveryDeliveryGateway as PasswordRecoveryDeliveryGateway,
+    PasswordRecoveryDeliveryRequest as PasswordRecoveryDeliveryRequest,
+    PasswordRecoveryDeliveryResult as PasswordRecoveryDeliveryResult,
 )

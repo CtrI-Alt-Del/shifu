@@ -11,7 +11,7 @@ from shifu.identity.core.domain.enums import (
 )
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
-    ConfirmationAccountActionTokensRepository,
+    AccountActionTokensRepository,
     IdentityDatabase,
     IdentityDatabaseRepositories,
 )
@@ -30,7 +30,7 @@ class TestIssuePendingConfirmationContextUseCase:
         self.database = create_autospec(IdentityDatabase, instance=True)
         self.repositories = create_autospec(IdentityDatabaseRepositories, instance=True)
         self.token_repository = create_autospec(
-            ConfirmationAccountActionTokensRepository,
+            AccountActionTokensRepository,
             instance=True,
         )
         self.repositories.account_action_tokens = self.token_repository

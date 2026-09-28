@@ -4,3 +4,6 @@ from .registration_confirmation_workflow import (
     build_message_renderer as build_message_renderer,
     build_secret_envelope_provider as build_secret_envelope_provider,
 )
+from .password_recovery_workflow import (
+    PasswordRecoveryWorkflow as PasswordRecoveryWorkflow,
+)

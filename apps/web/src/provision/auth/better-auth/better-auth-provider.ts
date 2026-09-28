@@ -21,6 +21,10 @@ import { BETTER_AUTH_OPTIONS, BetterAuthConfig } from './better-auth-config'
 const PENDING_COOKIE_NAME = 'shifu-pending-flow'
 const PENDING_FLOW_LIFETIME_SECONDS = 15 * 60
 const PENDING_FLOW_LIFETIME_MS = PENDING_FLOW_LIFETIME_SECONDS * 1000
+const PASSWORD_RECOVERY_COOKIE_NAME = 'shifu-password-recovery'
+const PASSWORD_RECOVERY_LIFETIME_SECONDS = 60 * 60
+const PASSWORD_RECOVERY_LIFETIME_MS = PASSWORD_RECOVERY_LIFETIME_SECONDS * 1000
+const PASSWORD_RECOVERY_COOLDOWN_MS = 60 * 1000
 
 export type LayoutAccount = {
   displayName: string
@@ -39,6 +43,13 @@ const registerBody = z.object({
 })
 
 const confirmEmailBody = z.object({ token: z.string().min(1) })
+const passwordRecoveryBody = z.object({ email: z.string().min(1) })
+const passwordResetBody = z.object({
+  password: z.string().min(1),
+  passwordConfirmation: z.string().min(1),
+  token: z.string().optional().default(''),
+})
+const passwordResetLinkBody = z.object({ token: z.string().optional().default('') })
 
 type ServerAuthenticatedAccess = {
   accountId: string
@@ -167,6 +178,11 @@ const BetterAuthProvider = () => {
         '/get-session': false,
         '/jwks': false,
         '/pending-confirmation/sign-out': false,
+        '/password-recovery': false,
+        '/password-recovery/status': false,
+        '/password-recovery/retry': false,
+        '/password-reset': false,
+        '/password-reset-link/status': false,
         '/sign-out': false,
         '/token': false,
       },
@@ -269,6 +285,167 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
   return {
     id: 'shifu-identity-sign-in',
     endpoints: {
+      requestPasswordRecovery: createAuthEndpoint(
+        '/password-recovery',
+        { method: 'POST', body: passwordRecoveryBody },
+        async (context) => {
+          let result: Awaited<ReturnType<typeof identityService.requestPasswordRecovery>>
+          try {
+            result = await identityService.requestPasswordRecovery(context.body.email)
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível solicitar a recuperação agora. Tente novamente.',
+            })
+          }
+
+          try {
+            await createPasswordRecoveryContext(
+              context,
+              result.recovery_handle,
+              result.is_decoy,
+            )
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'auth_persistence_unavailable',
+              message: 'Não foi possível solicitar a recuperação agora. Tente novamente.',
+            })
+          }
+
+          return context.json({ accepted: true })
+        },
+      ),
+      getPasswordRecoveryStatus: createAuthEndpoint(
+        '/password-recovery/status',
+        { method: 'GET' },
+        async (context) => {
+          const recoveryContext = await getPasswordRecoveryContext(context)
+          if (!recoveryContext) {
+            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+          }
+          if (recoveryContext.isDecoy) {
+            const retryAfterSeconds = getPasswordRecoveryCooldownSeconds(
+              recoveryContext.expiresAt,
+            )
+            return context.json({
+              state: retryAfterSeconds === null ? 'ready' : 'cooldown',
+              retryAfterSeconds,
+            })
+          }
+
+          try {
+            const status = await identityService.getPasswordRecoveryStatus(
+              recoveryContext.handle,
+            )
+            return context.json({
+              state: status.state,
+              retryAfterSeconds: status.retry_after_seconds,
+            })
+          } catch {
+            return context.json({
+              state: 'delivery_issue',
+              retryAfterSeconds: null,
+            })
+          }
+        },
+      ),
+      retryPasswordRecovery: createAuthEndpoint(
+        '/password-recovery/retry',
+        { method: 'POST' },
+        async (context) => {
+          const recoveryContext = await getPasswordRecoveryContext(context)
+          if (!recoveryContext) {
+            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+          }
+          if (recoveryContext.isDecoy) {
+            return context.json({ state: 'cooldown', retryAfterSeconds: 60 })
+          }
+
+          try {
+            const result = await identityService.retryPasswordRecovery(
+              recoveryContext.handle,
+            )
+            await replacePasswordRecoveryContext(
+              context,
+              result.recovery_handle,
+              result.is_decoy,
+            )
+            return context.json({
+              state: result.is_decoy ? 'cooldown' : 'ready',
+              retryAfterSeconds: result.is_decoy ? 60 : null,
+            })
+          } catch {
+            return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
+          }
+        },
+      ),
+      getPasswordResetLinkStatus: createAuthEndpoint(
+        '/password-reset-link/status',
+        { method: 'POST', body: passwordResetLinkBody },
+        async (context) => {
+          if (!isRecoveryToken(context.body.token)) {
+            return context.json({ result: 'invalid' })
+          }
+
+          try {
+            const result = await identityService.getPasswordResetLinkStatus(
+              context.body.token,
+            )
+            return context.json({ result: result.result })
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível verificar este link agora. Tente novamente.',
+            })
+          }
+        },
+      ),
+      resetPassword: createAuthEndpoint(
+        '/password-reset',
+        { method: 'POST', body: passwordResetBody },
+        async (context) => {
+          if (!isRecoveryToken(context.body.token)) {
+            return context.json({ result: 'invalid', redirectTo: ROUTES.login })
+          }
+
+          let result: Awaited<ReturnType<typeof identityService.resetPassword>>
+          try {
+            result = await identityService.resetPassword(
+              context.body.token,
+              context.body.password,
+              context.body.passwordConfirmation,
+            )
+          } catch {
+            throw APIError.from('SERVICE_UNAVAILABLE', {
+              code: 'identity_unavailable',
+              message: 'Não foi possível redefinir sua senha agora. Tente novamente.',
+            })
+          }
+
+          if (result.result !== 'reset') {
+            return context.json({ result: result.result, redirectTo: ROUTES.login })
+          }
+
+          try {
+            await context.context.internalAdapter.deleteUserSessions(result.account_id)
+          } catch {
+            console.warn('password_reset_session_cleanup_failed')
+          }
+
+          try {
+            await clearPasswordRecoveryContext(context)
+          } catch {
+            console.warn('password_reset_recovery_context_cleanup_failed')
+          }
+          deleteSessionCookie(context)
+
+          return context.json({
+            result: 'reset',
+            redirectTo: ROUTES.login,
+            requiresEmailConfirmation: result.requires_email_confirmation,
+          })
+        },
+      ),
       registerIdentity: createAuthEndpoint(
         '/register/identity',
         { method: 'POST', body: registerBody },
@@ -528,6 +705,21 @@ async function clearPendingCookie(context: GenericEndpointContext) {
   })
 }
 
+async function clearPasswordRecoveryCookie(context: GenericEndpointContext) {
+  await context.setSignedCookie(
+    PASSWORD_RECOVERY_COOKIE_NAME,
+    '',
+    context.context.secret,
+    {
+      httpOnly: true,
+      maxAge: 0,
+      path: '/',
+      sameSite: 'lax',
+      secure: context.context.options.advanced?.useSecureCookies ?? false,
+    },
+  )
+}
+
 async function createPendingContext(
   context: GenericEndpointContext,
   pendingHandle: string,
@@ -566,6 +758,46 @@ async function createRecoverablePendingContext(
       secure: context.context.options.advanced?.useSecureCookies ?? false,
     },
   )
+}
+
+async function createPasswordRecoveryContext(
+  context: GenericEndpointContext,
+  recoveryHandle: string,
+  isDecoy: boolean,
+) {
+  const identifier = crypto.randomUUID()
+  await context.context.internalAdapter.createVerificationValue({
+    identifier,
+    value: JSON.stringify({ isDecoy, recoveryHandle }),
+    expiresAt: new Date(Date.now() + PASSWORD_RECOVERY_LIFETIME_MS),
+  })
+  await context.setSignedCookie(
+    PASSWORD_RECOVERY_COOKIE_NAME,
+    identifier,
+    context.context.secret,
+    {
+      httpOnly: true,
+      maxAge: PASSWORD_RECOVERY_LIFETIME_SECONDS,
+      path: '/',
+      sameSite: 'lax',
+      secure: context.context.options.advanced?.useSecureCookies ?? false,
+    },
+  )
+}
+
+async function replacePasswordRecoveryContext(
+  context: GenericEndpointContext,
+  recoveryHandle: string,
+  isDecoy: boolean,
+) {
+  const identifier = await context.getSignedCookie(
+    PASSWORD_RECOVERY_COOKIE_NAME,
+    context.context.secret,
+  )
+  if (identifier) {
+    await context.context.internalAdapter.deleteVerificationByIdentifier(identifier)
+  }
+  await createPasswordRecoveryContext(context, recoveryHandle, isDecoy)
 }
 
 async function getPendingContext(
@@ -607,12 +839,67 @@ async function clearPendingContext(context: GenericEndpointContext) {
   await clearPendingCookie(context)
 }
 
+async function getPasswordRecoveryContext(
+  context: GenericEndpointContext,
+): Promise<{ expiresAt: Date; handle: string; isDecoy: boolean } | null> {
+  const identifier = await context.getSignedCookie(
+    PASSWORD_RECOVERY_COOKIE_NAME,
+    context.context.secret,
+  )
+  if (!identifier) return null
+
+  const verification =
+    await context.context.internalAdapter.findVerificationValue(identifier)
+  if (!verification || verification.expiresAt <= new Date()) return null
+
+  try {
+    const value: unknown = JSON.parse(verification.value)
+    if (
+      !isRecord(value) ||
+      typeof value.recoveryHandle !== 'string' ||
+      !isPendingHandle(value.recoveryHandle)
+    ) {
+      return null
+    }
+    return {
+      expiresAt: verification.expiresAt,
+      handle: value.recoveryHandle,
+      isDecoy: value.isDecoy === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+function getPasswordRecoveryCooldownSeconds(expiresAt: Date): number | null {
+  const cooldownEndsAt =
+    expiresAt.getTime() - PASSWORD_RECOVERY_LIFETIME_MS + PASSWORD_RECOVERY_COOLDOWN_MS
+  const remainingMilliseconds = cooldownEndsAt - Date.now()
+  if (remainingMilliseconds <= 0) return null
+  return Math.max(1, Math.ceil(remainingMilliseconds / 1000))
+}
+
+async function clearPasswordRecoveryContext(context: GenericEndpointContext) {
+  const identifier = await context.getSignedCookie(
+    PASSWORD_RECOVERY_COOKIE_NAME,
+    context.context.secret,
+  )
+  if (identifier) {
+    await context.context.internalAdapter.deleteVerificationByIdentifier(identifier)
+  }
+  await clearPasswordRecoveryCookie(context)
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
 function isPendingHandle(value: unknown): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{43}$/.test(value)
+}
+
+function isRecoveryToken(value: unknown): value is string {
+  return isPendingHandle(value)
 }
 
 async function upsertTechnicalUser(
