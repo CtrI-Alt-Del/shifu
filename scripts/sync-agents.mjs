@@ -29,14 +29,14 @@ function parseFrontmatter(agentPath) {
   const relativeAgentPath = relativePath(agentPath)
   const lines = fs.readFileSync(agentPath, 'utf8').split(/\r?\n/)
   if (!lines.length || lines[0].trim() !== '---') {
-    fail('Missing YAML frontmatter in ' + relativeAgentPath)
+    fail(`Missing YAML frontmatter in ${relativeAgentPath}`)
   }
 
   const frontmatterEnd = lines.findIndex(function findEnd(line, index) {
     return index > 0 && line.trim() === '---'
   })
   if (frontmatterEnd === -1) {
-    fail('Unclosed YAML frontmatter in ' + relativeAgentPath)
+    fail(`Unclosed YAML frontmatter in ${relativeAgentPath}`)
   }
 
   const metadata = {}
@@ -58,8 +58,8 @@ function parseFrontmatter(agentPath) {
   const name = metadata.name || ''
   const description = metadata.description || ''
   const expectedName = path.basename(agentPath, path.extname(agentPath))
-  if (!name) fail('Missing name in ' + relativeAgentPath)
-  if (!description) fail('Missing description in ' + relativeAgentPath)
+  if (!name) fail(`Missing name in ${relativeAgentPath}`)
+  if (!description) fail(`Missing description in ${relativeAgentPath}`)
   if (name !== expectedName) {
     fail(
       "Agent name '" +
@@ -71,15 +71,14 @@ function parseFrontmatter(agentPath) {
     )
   }
   if (!namePattern.test(name)) {
-    fail("Invalid agent name '" + name + "' in " + relativeAgentPath)
+    fail(`Invalid agent name '${name}' in ${relativeAgentPath}`)
   }
 
-  const body =
-    lines
-      .slice(frontmatterEnd + 1)
-      .join('\n')
-      .trim() + '\n'
-  if (!body.trim()) fail('Missing agent instructions in ' + relativeAgentPath)
+  const body = `${lines
+    .slice(frontmatterEnd + 1)
+    .join('\n')
+    .trim()}\n`
+  if (!body.trim()) fail(`Missing agent instructions in ${relativeAgentPath}`)
   return { name, description, body, source: agentPath }
 }
 
@@ -87,17 +86,17 @@ function writeIfChanged(filePath, content, managedToken) {
   if (fs.existsSync(filePath)) {
     const existingContent = fs.readFileSync(filePath, 'utf8')
     if (existingContent === content) {
-      console.log('unchanged: ' + relativePath(filePath))
+      console.log(`unchanged: ${relativePath(filePath)}`)
       return
     }
     if (managedToken && !existingContent.includes(managedToken)) {
-      fail('Refusing to overwrite unmanaged file: ' + relativePath(filePath))
+      fail(`Refusing to overwrite unmanaged file: ${relativePath(filePath)}`)
     }
   }
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   fs.writeFileSync(filePath, content, 'utf8')
-  console.log('synced:    ' + relativePath(filePath))
+  console.log(`synced:    ${relativePath(filePath)}`)
 }
 
 function cleanupStale(directory, suffix, validNames) {
@@ -110,7 +109,7 @@ function cleanupStale(directory, suffix, validNames) {
     const sample = fs.readFileSync(filePath, 'utf8').slice(0, 2048)
     if (!sample.includes('Auto-generated from documentation/agents/')) continue
     fs.unlinkSync(filePath)
-    console.log('removed:   ' + relativePath(filePath))
+    console.log(`removed:   ${relativePath(filePath)}`)
   }
 }
 
@@ -118,7 +117,7 @@ function removeGeneratedBlock(config, beginMarker, endMarker) {
   const beginCount = config.split(beginMarker).length - 1
   const endCount = config.split(endMarker).length - 1
   if (beginCount !== endCount) {
-    fail('Unbalanced generated-agent markers in ' + relativePath(codexConfigPath))
+    fail(`Unbalanced generated-agent markers in ${relativePath(codexConfigPath)}`)
   }
   if (!beginCount) return config
 
@@ -130,7 +129,7 @@ function removeGeneratedBlock(config, beginMarker, endMarker) {
 }
 
 if (!fs.existsSync(sourceDirectory)) {
-  fail('Agent source directory not found: ' + sourceDirectory)
+  fail(`Agent source directory not found: ${sourceDirectory}`)
 }
 
 fs.mkdirSync(codexAgentsDirectory, { recursive: true })
@@ -171,21 +170,21 @@ for (const agent of agents) {
     '# Auto-generated from ' +
     sourceRelative +
     '\nmodel_instructions_file = ' +
-    JSON.stringify('../../' + sourceRelative) +
+    JSON.stringify(`../../${sourceRelative}`) +
     '\nsandbox_mode = ' +
     JSON.stringify(sandboxMode) +
     '\n'
   writeIfChanged(
-    path.join(codexAgentsDirectory, agent.name + '.toml'),
+    path.join(codexAgentsDirectory, `${agent.name}.toml`),
     codexRole,
     'Auto-generated from documentation/agents/',
   )
 
   codexRoles.push(
     '',
-    '[agents.' + JSON.stringify(agent.name) + ']',
-    'description = ' + JSON.stringify(agent.description),
-    'config_file = ' + JSON.stringify('agents/' + agent.name + '.toml'),
+    `[agents.${JSON.stringify(agent.name)}]`,
+    `description = ${JSON.stringify(agent.description)}`,
+    `config_file = ${JSON.stringify(`agents/${agent.name}.toml`)}`,
   )
 
   let opencodeMode = 'subagent'
@@ -214,15 +213,15 @@ for (const agent of agents) {
     ' -->\n\n' +
     agent.body
   writeIfChanged(
-    path.join(opencodeAgentsDirectory, agent.name + '.md'),
+    path.join(opencodeAgentsDirectory, `${agent.name}.md`),
     opencodeAgent,
     'Auto-generated from documentation/agents/',
   )
 
   const claudeFields = [
     '---',
-    'name: ' + agent.name,
-    'description: ' + JSON.stringify(agent.description),
+    `name: ${agent.name}`,
+    `description: ${JSON.stringify(agent.description)}`,
   ]
   if (agent.name.startsWith('judge-')) {
     claudeFields.push('tools: Read, Glob, Grep', 'permissionMode: plan')
@@ -234,13 +233,13 @@ for (const agent of agents) {
   claudeFields.push(
     '---',
     '',
-    '<!-- Auto-generated from ' + sourceRelative + ' -->',
+    `<!-- Auto-generated from ${sourceRelative} -->`,
     '',
     agent.body.trimEnd(),
     '',
   )
   writeIfChanged(
-    path.join(claudeAgentsDirectory, agent.name + '.md'),
+    path.join(claudeAgentsDirectory, `${agent.name}.md`),
     claudeFields.join('\n'),
     'Auto-generated from documentation/agents/',
   )
@@ -258,6 +257,6 @@ existingConfig = removeGeneratedBlock(
 )
 let newConfig = existingConfig.trimEnd()
 if (newConfig) newConfig += '\n\n'
-newConfig += codexRoles.join('\n') + '\n'
+newConfig += `${codexRoles.join('\n')}\n`
 writeIfChanged(codexConfigPath, newConfig, '')
 console.log('Configured agents for Codex, OpenCode and Claude Code.')
