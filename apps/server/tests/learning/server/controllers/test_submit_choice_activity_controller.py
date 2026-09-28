@@ -26,16 +26,19 @@ from shifu.curriculum.core.domain.structures import (
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.core.domain.structures import CodeAnswer
+from shifu.learning.core.domain.enums import (
+    CompetencyProgressStatus,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_EASY_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_GOAL_ID,
-    SEED_SKILL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -46,6 +49,7 @@ if TYPE_CHECKING:
 
 
 _SUBMISSION_KEY = '75e29c3d-8bc2-4e4d-9103-cc747a170012'
+_ACTIVITY_ID = SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[3]
 
 
 class _TestAuthenticationProvider:
@@ -73,11 +77,21 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    learning_started_at = datetime(2026, 1, 1, tzinfo=UTC)
+    for experience in seed.skill_experiences:
+        experience.start_diagnosis(learning_started_at)
+        experience.start_learning(learning_started_at)
+    for progress in seed.competency_progresses:
+        progress.content_released = True
+        progress.initial_progress = Decimal('55')
+        progress.current_progress = Decimal('55')
+        progress.status = CompetencyProgressStatus.DEVELOPING
     curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
         repositories.skill_foundations.add_many(list(seed.skill_foundations))
         repositories.competencies.add_many(list(seed.competencies))
+        repositories.concepts.add_many(list(seed.concepts))
         repositories.materials.add_many(list(seed.materials))
         repositories.activities.add_many(list(seed.activities))
         repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
@@ -112,10 +126,11 @@ class TestSubmitChoiceActivityController:
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
                 _attempts_path(),
-                json=_body(),
+                json=_body(client),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+        assert first.status_code == 201, first.json()
         attempt_id = cast('str', first.json()['attempt_id'])
         learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
         with learning_database.transaction() as repositories:
@@ -129,13 +144,13 @@ class TestSubmitChoiceActivityController:
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
                 _attempts_path(),
-                json=_body(),
+                json=_body(client),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
-        changed_answer = _body()
+        changed_answer = _body(client)
         changed_answers = cast('list[dict[str, object]]', changed_answer['answers'])
-        changed_answers[0]['selected_option_keys'] = ['incorrect']
+        changed_answers[0]['selected_option_keys'] = ['b']
         key_mismatch = cast(
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
@@ -169,9 +184,13 @@ class TestSubmitChoiceActivityController:
         client: TestClient,
         postgres_database: PostgresDatabase,
     ) -> None:
-        invalid_answer = _body()
+        invalid_answer = _body(client)
         invalid_answers = cast('list[dict[str, object]]', invalid_answer['answers'])
         invalid_answers[0]['selected_option_keys'] = ['not-an-option']
+        with postgres_database.engine.connect() as connection:
+            attempts_before = connection.scalar(
+                select(func.count()).select_from(ActivityAttemptModel)
+            )
         invalid = cast(
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
@@ -197,7 +216,7 @@ class TestSubmitChoiceActivityController:
                 connection.scalar(
                     select(func.count()).select_from(ActivityAttemptModel)
                 )
-                == 3
+                == attempts_before
             )
 
     def test_mixed_submission_persists_the_saved_snapshot_and_code_files(
@@ -282,25 +301,42 @@ class TestSubmitChoiceActivityController:
 
 
 def _attempts_path(
-    activity_id: str = SEED_ACTIVITY_REPETITION_EASY_ID,
+    activity_id: str = _ACTIVITY_ID,
 ) -> str:
     return (
-        f'/learning/goals/{SEED_GOAL_ID}/skills/{SEED_SKILL_LOGIC_ID}'
-        f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
+        f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}'
+        f'/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
         f'/activities/{activity_id}/attempts'
     )
 
 
-def _body() -> dict[str, object]:
+def _body(client: TestClient) -> dict[str, object]:
+    detail = cast(
+        'Response',
+        client.get(  # pyright: ignore[reportUnknownMemberType]
+            _activity_path(_ACTIVITY_ID),
+            headers={'Authorization': 'Bearer test-access-token'},
+        ),
+    )
+    assert detail.status_code == 200, detail.json()
+    questions = cast('list[dict[str, object]]', detail.json()['questions'])
+    answers = [
+        {
+            'kind': 'single_choice',
+            'question_key': question['key'],
+            'selected_option_keys': [
+                cast('dict[str, str]', cast('list[object]', question['options'])[0])[
+                    'key'
+                ]
+            ],
+        }
+        for question in questions
+    ]
     return {
         'submission_key': str(UUID(_SUBMISSION_KEY)),
-        'answers': [
-            {
-                'question_key': question_key,
-                'selected_option_keys': ['correct'],
-            }
-            for question_key in ('question-one', 'question-two', 'question-three')
-        ],
+        'activity_revision': detail.json()['activity_revision'],
+        'answers': answers,
     }
 
 
@@ -313,7 +349,10 @@ def _mixed_activity() -> Activity:
         SingleChoiceQuestion(
             key=f'q{index}',
             prompt='Escolha',
-            options=(ChoiceOption(key='a', text='A', is_correct=True),),
+            options=(
+                ChoiceOption(key='a', text='A', is_correct=True),
+                ChoiceOption(key='b', text='B', is_correct=False),
+            ),
             correct_explanation='Certo',
             incorrect_explanation='Errado',
         )
@@ -348,7 +387,7 @@ def _mixed_activity() -> Activity:
     )
     return Activity.create(
         id='01SHF000000000000000000091',
-        competency_id=SEED_COMPETENCY_REPETITION_ID,
+        competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
         activity_type=ActivityType.LEARNING,
         difficulty=ActivityDifficulty.EASY,
         title='Atividade mista',

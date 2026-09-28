@@ -24,10 +24,15 @@ from shifu.shared.core.domain.errors import (
     ValidationError,
 )
 from shifu.shared.core.domain.structures import (
+    CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCompetencySnapshot,
+    CurriculumConceptSnapshot,
+    CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -65,6 +70,16 @@ def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
             ),
             correct_explanation='Correta',
             incorrect_explanation='Incorreta',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id=f'concept-{index}',
+                    criterion='Critério observável',
+                    examples='Exemplo',
+                    limits='Limite',
+                    correct_score=Decimal('100'),
+                    incorrect_score=Decimal('0'),
+                ),
+            ),
         )
         for index in range(1, 4)
     )
@@ -81,6 +96,7 @@ def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
             )
             for index, weight in enumerate(('34', '33', '33'), 1)
         ),
+        required_concept_ids=('concept-1', 'concept-2', 'concept-3'),
     )
 
 
@@ -109,6 +125,7 @@ class TestSubmitChoiceActivityUseCase:
         self.experience = SkillExperienceFaker.fake(
             id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
         )
+        self.experience.status = SkillExperienceStatus.LEARNING
         self.progress = CompetencyProgress(
             id='progress-1',
             skill_experience_id=EXPERIENCE_ID,
@@ -127,6 +144,50 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = None
         self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
         self.provider.get_choice_activity.return_value = choice_snapshot()
+        self.provider.get_skill_content.return_value = CurriculumSkillSnapshot(
+            id=SKILL_ID,
+            name='Habilidade',
+            competencies=(
+                CurriculumCompetencySnapshot(
+                    id=COMPETENCY_ID,
+                    skill_id=SKILL_ID,
+                    name='Competência',
+                    position=1,
+                    concepts=tuple(
+                        CurriculumConceptSnapshot(
+                            id=f'concept-{index}',
+                            competency_id=COMPETENCY_ID,
+                            name=f'Conceito {index}',
+                            position=index,
+                            prerequisite_ids=(),
+                            observation_criteria='Critério observável',
+                        )
+                        for index in range(1, 4)
+                    ),
+                    items=(
+                        CurriculumActivitySnapshot(
+                            id=ACTIVITY_ID,
+                            title='Atividade',
+                            activity_type='learning',
+                            difficulty='easy',
+                            position=1,
+                            concept_ids=('concept-1', 'concept-2', 'concept-3'),
+                            required_concept_ids=(
+                                'concept-1',
+                                'concept-2',
+                                'concept-3',
+                            ),
+                            question_count_by_concept=(
+                                ('concept-1', 1),
+                                ('concept-2', 1),
+                                ('concept-3', 1),
+                            ),
+                            executable_concept_evidence=True,
+                        ),
+                    ),
+                ),
+            ),
+        )
         self.subject = SubmitChoiceActivityUseCase(
             self.database, self.provider, self.clock, self.ids
         )

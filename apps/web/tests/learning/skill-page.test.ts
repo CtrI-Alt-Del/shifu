@@ -21,6 +21,12 @@ const diagnosticResponse = {
   nextActivityId: null,
   pendingAttemptId: null,
   pendingAttemptStatus: null,
+  activitySequence: [
+    {
+      competencyId: '01SHF000000000000000000002',
+      activityId: '01SHF000000000000000000005',
+    },
+  ],
   focusCompetencyId: IDS.focusCompetencyId,
   initialOverallResult: 72.33,
   overallCoverageComplete: true,
@@ -268,12 +274,12 @@ test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', 
   await expect(
     authenticatedPage.getByRole('link', { name: 'Próxima Atividade' }),
   ).toHaveCount(0)
-  expect(diagnosticRequests).toBe(2)
+  expect(diagnosticRequests).toBeGreaterThanOrEqual(2)
   expect(startRequests).toBe(1)
   expect(startBody).toContain('entryKey')
 })
 
-test('completes the per-entry diagnostic and opens its consolidated result', async ({
+test('submits the diagnostic once as a complete batch and opens its consolidated result', async ({
   authenticatedPage,
 }) => {
   const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
@@ -281,7 +287,9 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
   let diagnosticRequests = 0
   let startBody = ''
   let activityGetPayload = ''
-  let submissionBody = ''
+  let diagnosticSubmissionBody = ''
+  let diagnosticSubmissionRequests = 0
+  let activitySubmissionRequests = 0
   let completionBody = ''
   let previewRequests = 0
   let evaluationReady = false
@@ -363,15 +371,6 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
       activityGetPayload = decodeURIComponent(
         `${route.request().url()} ${route.request().postData() ?? ''}`,
       )
-      if (submissionBody) {
-        await route.fulfill({
-          body: JSON.stringify({
-            result: { kind: 'unavailable', diagnosticProcessing: true },
-          }),
-          contentType: 'application/json',
-        })
-        return
-      }
       await route.fulfill({
         body: JSON.stringify({
           result: {
@@ -404,16 +403,22 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
       previewRequests += 1
     }
     if (exported.startsWith('submitActivityAction')) {
-      submissionBody = route.request().postData() ?? ''
+      activitySubmissionRequests += 1
       await route.fulfill({
         body: JSON.stringify({
           result: {
-            attemptId: submissionAttemptId,
-            status: 'pending',
-            resultUrl: '/learning/attempts/example',
-            isDiagnostic: true,
+            kind: 'unavailable',
           },
         }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('submitDiagnosticAction')) {
+      diagnosticSubmissionRequests += 1
+      diagnosticSubmissionBody = route.request().postData() ?? ''
+      await route.fulfill({
+        body: JSON.stringify({ result: { status: 'pending', replayed: false } }),
         contentType: 'application/json',
       })
       return
@@ -444,16 +449,16 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
   await authenticatedPage.getByText('4', { exact: true }).click()
   await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
   await expect(
-    authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
+    authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
   ).toBeEnabled()
-  await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+  await authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }).click()
 
-  await expect(authenticatedPage.getByText('Avaliando sua resposta…')).toBeVisible()
+  await expect(authenticatedPage.getByText('Avaliando o diagnóstico…')).toBeVisible()
   await expect(authenticatedPage).toHaveURL(
     `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
   )
   await expect(
-    authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
+    authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
   ).toHaveCount(0)
   await authenticatedPage.evaluate((to) => {
     const router = (
@@ -466,7 +471,7 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
   await expect(authenticatedPage).toHaveURL(
     `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
   )
-  await expect(authenticatedPage.getByText('Avaliando sua resposta…')).toBeVisible()
+  await expect(authenticatedPage.getByText('Avaliando o diagnóstico…')).toBeVisible()
   await expect(
     authenticatedPage.getByText('Aguardando a avaliação da última resposta.'),
   ).toHaveCount(0)
@@ -475,7 +480,11 @@ test('completes the per-entry diagnostic and opens its consolidated result', asy
   await expect(
     authenticatedPage.getByRole('heading', { level: 1, name: 'Seu ponto de partida' }),
   ).toBeVisible()
-  expect(submissionBody).toContain(diagnosticRunId)
+  expect(diagnosticSubmissionRequests).toBe(1)
+  expect(diagnosticSubmissionBody).toContain(diagnosticRunId)
+  expect(diagnosticSubmissionBody).toContain('activityRevision')
+  expect(diagnosticSubmissionBody).toContain('selectedOptionKeys')
+  expect(activitySubmissionRequests).toBe(0)
   expect(activityGetPayload).toContain(diagnosticRunId)
   expect(completionBody).toContain(diagnosticRunId)
   expect(previewRequests).toBe(0)

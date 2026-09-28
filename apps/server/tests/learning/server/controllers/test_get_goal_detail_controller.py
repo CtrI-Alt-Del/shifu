@@ -15,19 +15,11 @@ from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_ADAPTIVE_SKILL_ID,
     SEED_GOAL_ID,
-    SEED_GRAPH_APIS_SKILL_ID,
-    SEED_GRAPH_DATA_MODELING_SKILL_ID,
-    SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
     SEED_GRAPH_GOAL_ID,
-    SEED_GRAPH_PROJECT_SKILL_ID,
-    SEED_GRAPH_SEARCH_SKILL_ID,
-    SEED_GRAPH_SKILL_IDS,
-    SEED_GRAPH_TESTING_SKILL_ID,
-    SEED_SKILL_LOGIC_ID,
-    SEED_SKILL_PYTHON_ID,
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -73,7 +65,7 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetGoalDetailController:
-    def test_should_return_branching_seed_goal_for_graph_exploration(
+    def test_removed_incompatible_seed_goal_is_not_exposed(
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,
@@ -88,35 +80,10 @@ class TestGetGoalDetailController:
             ),
         )
 
-        assert response.status_code == 200
-        body = response.json()
-        assert body['goalId'] == SEED_GRAPH_GOAL_ID
-        assert body['title'] == 'Mapa de desenvolvimento de software'
-        assert {skill['skillId'] for skill in body['skills']} == set(
-            SEED_GRAPH_SKILL_IDS
-        )
-        assert len(body['skills']) == 10
-        assert all(
-            skill['status'] == 'not-started' and skill['progress'] is None
-            for skill in body['skills']
-        )
-        assert {
-            (relation['foundationSkillId'], relation['skillId'])
-            for relation in body['relations']
-        } == {
-            (SEED_SKILL_LOGIC_ID, SEED_SKILL_PYTHON_ID),
-            (SEED_SKILL_LOGIC_ID, SEED_ADAPTIVE_SKILL_ID),
-            (SEED_SKILL_LOGIC_ID, SEED_GRAPH_DATA_STRUCTURES_SKILL_ID),
-            (SEED_ADAPTIVE_SKILL_ID, SEED_ADAPTIVE_LAB_SKILL_ID),
-            (SEED_GRAPH_DATA_STRUCTURES_SKILL_ID, SEED_GRAPH_SEARCH_SKILL_ID),
-            (SEED_SKILL_PYTHON_ID, SEED_GRAPH_DATA_MODELING_SKILL_ID),
-            (SEED_SKILL_PYTHON_ID, SEED_GRAPH_APIS_SKILL_ID),
-            (SEED_GRAPH_DATA_MODELING_SKILL_ID, SEED_GRAPH_APIS_SKILL_ID),
-            (SEED_SKILL_PYTHON_ID, SEED_GRAPH_TESTING_SKILL_ID),
-            (SEED_GRAPH_SEARCH_SKILL_ID, SEED_GRAPH_PROJECT_SKILL_ID),
-            (SEED_ADAPTIVE_LAB_SKILL_ID, SEED_GRAPH_PROJECT_SKILL_ID),
-            (SEED_GRAPH_APIS_SKILL_ID, SEED_GRAPH_PROJECT_SKILL_ID),
-            (SEED_GRAPH_TESTING_SKILL_ID, SEED_GRAPH_PROJECT_SKILL_ID),
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'O objetivo de aprendizagem não foi encontrado.',
         }
         assert _learning_count(postgres_database) == before
 
@@ -130,7 +97,7 @@ class TestGetGoalDetailController:
         response = cast(
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
-                _detail_path(SEED_GOAL_ID),
+                _detail_path(SEED_ADAPTIVE_LAB_GOAL_ID),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
@@ -138,37 +105,13 @@ class TestGetGoalDetailController:
         assert response.status_code == 200
         assert response.headers['cache-control'] == 'private, no-store'
         body = response.json()
-        assert body['goalId'] == SEED_GOAL_ID
-        assert body['title'] == 'Aprender a programar'
-        assert body['description'] == (
-            'Construir uma base prática para resolver problemas com código.'
-        )
-        assert body['skills'] == [
-            {
-                'skillExperienceId': '01SHF000000000000000000013',
-                'skillId': SEED_SKILL_LOGIC_ID,
-                'name': 'Lógica de programação',
-                'skillName': 'Lógica de programação',
-                'status': 'learning',
-                'progress': pytest.approx(78.33333333333333),
-                'inclusionReason': 'Fundamento para todo o restante do percurso.',
-            },
-            {
-                'skillExperienceId': '01SHF000000000000000000014',
-                'skillId': SEED_SKILL_PYTHON_ID,
-                'name': 'Python essencial',
-                'skillName': 'Python essencial',
-                'status': 'not-started',
-                'progress': None,
-                'inclusionReason': 'Aplicar a lógica em uma linguagem prática.',
-            },
-        ]
-        assert body['relations'] == [
-            {
-                'foundationSkillId': SEED_SKILL_LOGIC_ID,
-                'skillId': SEED_SKILL_PYTHON_ID,
-            }
-        ]
+        assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
+        assert body['title'] == 'Laboratório de progresso adaptativo'
+        assert body['skills']
+        assert {skill['skillId'] for skill in body['skills']} <= {
+            SEED_ADAPTIVE_LAB_SKILL_ID,
+            SEED_ADAPTIVE_SKILL_ID,
+        }
         assert _learning_count(postgres_database) == before
 
     def test_should_keep_unknown_goal_private(self, client: TestClient) -> None:

@@ -14,9 +14,9 @@ from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityDifficulty,
     ActivityEvaluationStatus,
-    ActivityRecommendationType,
     CompetencyAvailability,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.errors import CompetencyDetailNotFoundError
 from shifu.learning.core.domain.structures import (
@@ -177,6 +177,7 @@ class TestGetCompetencyDetailUseCase:
             goal_id=GOAL_ID,
             skill_id=SKILL_ID,
         )
+        self.skill_experience.status = SkillExperienceStatus.LEARNING
         self.repositories.goals.find_by_id.return_value = self.goal
         self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = self.skill_experience
         self.repositories.competency_progresses.find_many_by_skill_experience_id.return_value = []
@@ -265,7 +266,7 @@ class TestGetCompetencyDetailUseCase:
 
         assert isinstance(result, AvailableCompetencyDetail)
         assert result.availability is CompetencyAvailability.AVAILABLE
-        assert result.progress == Decimal('35')
+        assert result.progress is None
         assert result.status is CompetencyProgressStatus.LEARNING
         assert [item.id for item in result.items] == [
             'material-1',
@@ -279,9 +280,8 @@ class TestGetCompetencyDetailUseCase:
             ('activity-1', Decimal('80')),
             ('activity-2', None),
         ]
-        assert result.recommendation is not None
-        assert result.recommendation.activity_id == 'activity-2'
-        assert result.recommendation.type is ActivityRecommendationType.NEW_ACTIVITY
+        assert result.recommendation is None
+        assert result.adaptive is None
         self._assert_no_writes()
 
     def test_should_preserve_zero_current_progress_before_initial_progress(
@@ -310,9 +310,8 @@ class TestGetCompetencyDetailUseCase:
         result = self.subject.execute(ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID)
 
         assert isinstance(result, AvailableCompetencyDetail)
-        assert result.progress == Decimal('0')
-        assert result.recommendation is not None
-        assert result.recommendation.difficulty is ActivityDifficulty.EASY
+        assert result.progress is None
+        assert result.recommendation is None
         self._assert_no_writes()
 
     def test_should_derive_focus_returned_and_avoid_an_equal_score_repeat(self) -> None:
@@ -362,27 +361,25 @@ class TestGetCompetencyDetailUseCase:
         assert result.is_focus is True
         assert result.focus_returned is True
         assert result.focus_competency_id == COMPETENCY_ID
-        assert result.recommendation is not None
-        assert result.recommendation.activity_id == 'easy-1'
-        assert result.recommendation.type is ActivityRecommendationType.REINFORCEMENT
+        assert result.recommendation is None
+        assert result.adaptive is None
         self._assert_no_writes()
 
     @pytest.mark.parametrize(
-        ('progress_value', 'expected_difficulty'),
+        'legacy_progress',
         [
-            (Decimal('40'), ActivityDifficulty.MEDIUM),
-            (Decimal('70'), ActivityDifficulty.HARD),
+            Decimal('40'),
+            Decimal('70'),
         ],
     )
-    def test_should_map_threshold_edges_to_target_difficulty(
+    def test_should_not_infer_recommendation_from_legacy_progress(
         self,
-        progress_value: Decimal,
-        expected_difficulty: ActivityDifficulty,
+        legacy_progress: Decimal,
     ) -> None:
         current_competency = competency(
             COMPETENCY_ID,
             1,
-            (activity('target', 1, expected_difficulty),),
+            (activity('target', 1, ActivityDifficulty.EASY),),
         )
         self.curriculum_content_provider.get_skill_content.return_value = (
             CurriculumSkillSnapshot(
@@ -392,14 +389,14 @@ class TestGetCompetencyDetailUseCase:
             )
         )
         self.repositories.competency_progresses.find_many_by_skill_experience_id.return_value = [
-            progress(COMPETENCY_ID, current=progress_value)
+            progress(COMPETENCY_ID, current=legacy_progress)
         ]
 
         result = self.subject.execute(ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID)
 
         assert isinstance(result, AvailableCompetencyDetail)
-        assert result.recommendation is not None
-        assert result.recommendation.difficulty is expected_difficulty
+        assert result.progress is None
+        assert result.recommendation is None
         self._assert_no_writes()
 
     def test_should_return_unavailable_without_progress_or_content_reads(self) -> None:

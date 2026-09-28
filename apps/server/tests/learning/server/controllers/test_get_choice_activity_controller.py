@@ -25,13 +25,15 @@ from shifu.curriculum.core.domain.structures import (
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_EASY_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_GOAL_ID,
-    SEED_REPETITION_ATTEMPT_ID,
-    SEED_SKILL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -39,6 +41,9 @@ from tests.fixtures.redis_fixture import RedisFixture
 
 if TYPE_CHECKING:
     from httpx import Response
+
+
+_LEARNING_ACTIVITY_ID = SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[4]
 
 
 class _TestAuthenticationProvider:
@@ -71,6 +76,7 @@ def application(
         repositories.skills.add_many(list(seed.skills))
         repositories.skill_foundations.add_many(list(seed.skill_foundations))
         repositories.competencies.add_many(list(seed.competencies))
+        repositories.concepts.add_many(list(seed.concepts))
         repositories.materials.add_many(list(seed.materials))
         repositories.activities.add_many(list(seed.activities))
         repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
@@ -81,6 +87,18 @@ def application(
         repositories.competency_progresses.add_many(list(seed.competency_progresses))
         repositories.activity_attempts.add_many(list(seed.activity_attempts))
         repositories.activity_evaluations.add_many(list(seed.activity_evaluations))
+        experience = repositories.skill_experiences.find_by_id(
+            SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+        )
+        assert experience is not None
+        experience.status = SkillExperienceStatus.LEARNING
+        repositories.skill_experiences.update(experience)
+        progress = repositories.competency_progresses.find_by_id(
+            SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+        )
+        assert progress is not None
+        progress.content_released = True
+        repositories.competency_progresses.update(progress)
 
     application = FastAPIApp.register(postgres_database.engine)
     application.state.authentication_provider = _TestAuthenticationProvider()
@@ -146,7 +164,7 @@ class TestGetChoiceActivityController:
         )
         activity = Activity.create(
             id=mixed_id,
-            competency_id=SEED_COMPETENCY_REPETITION_ID,
+            competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
             activity_type=ActivityType.LEARNING,
             difficulty=ActivityDifficulty.EASY,
             title='Atividade mista',
@@ -205,15 +223,15 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 200, response.json()
         body = response.json()
-        assert body['activity_id'] == SEED_ACTIVITY_REPETITION_EASY_ID
+        assert body['activity_id'] == _LEARNING_ACTIVITY_ID
         assert body['difficulty'] == 'easy'
         assert [question['key'] for question in body['questions']] == [
-            'question-one',
-            'question-two',
-            'question-three',
+            'q1',
+            'q2',
+            'q3',
         ]
         assert body['can_submit'] is True
-        assert body['latest_attempt_id'] == SEED_REPETITION_ATTEMPT_ID
+        assert body['latest_attempt_id'] is None
         assert body['unresolved_attempt_id'] is None
         assert set(body['questions'][0]['options'][0]) == {'key', 'text'}
         assert 'is_correct' not in str(body)
@@ -255,13 +273,9 @@ class TestGetChoiceActivityController:
                     'answers': [
                         {
                             'question_key': question_key,
-                            'selected_option_keys': ['correct'],
+                            'selected_option_keys': ['a'],
                         }
-                        for question_key in (
-                            'question-one',
-                            'question-two',
-                            'question-three',
-                        )
+                        for question_key in ('q1', 'q2', 'q3')
                     ],
                 },
                 headers={'Authorization': 'Bearer test-access-token'},
@@ -285,11 +299,11 @@ class TestGetChoiceActivityController:
 
 def _activity_path(
     *,
-    goal_id: str = SEED_GOAL_ID,
-    activity_id: str = SEED_ACTIVITY_REPETITION_EASY_ID,
+    goal_id: str = SEED_ADAPTIVE_LAB_GOAL_ID,
+    activity_id: str = _LEARNING_ACTIVITY_ID,
 ) -> str:
     return (
-        f'/learning/goals/{goal_id}/skills/{SEED_SKILL_LOGIC_ID}'
-        f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
+        f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
         f'/activities/{activity_id}'
     )

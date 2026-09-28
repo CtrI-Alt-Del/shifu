@@ -87,14 +87,13 @@ test.describe('Attempt index route', () => {
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
     ).toBeVisible()
-    const indicatorDots = authenticatedPage
-      .getByRole('heading', { name: 'Avaliação em andamento' })
-      .locator('[aria-hidden="true"] span')
-    await expect(indicatorDots).toHaveCount(3)
-    await expect(indicatorDots.first()).toHaveCSS('animation-name', 'pulse')
-    await expect(authenticatedPage.getByRole('status')).toContainText(
-      'Estamos avaliando suas respostas.',
-    )
+    const pendingStatus = authenticatedPage
+      .getByRole('status')
+      .filter({ hasText: 'Estamos avaliando suas respostas.' })
+    await expect(pendingStatus).toHaveAttribute('aria-busy', 'true')
+    const indicator = pendingStatus.locator('[aria-hidden="true"] span')
+    await expect(indicator).toHaveCount(1)
+    await expect(indicator).toHaveCSS('animation-name', 'choice-result-pending-sweep')
 
     await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
     await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
@@ -107,7 +106,7 @@ test.describe('Attempt index route', () => {
       authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
     ).toBeVisible()
     await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-    await expect(indicatorDots.first()).toHaveCSS('animation-name', 'none')
+    await expect(indicator).toHaveCSS('animation-name', 'none')
 
     await authenticatedPage.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
