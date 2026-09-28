@@ -85,6 +85,22 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetCompetencyDetailController:
+    def test_migrations_support_upgrade_downgrade_and_reupgrade_cycle(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        revision_before = _current_migration_revision(postgres_database)
+
+        try:
+            _run_alembic(postgres_database.url, 'downgrade', 'e7b5c8d9f012')
+            revision_after_downgrade = _current_migration_revision(postgres_database)
+            assert revision_after_downgrade != revision_before
+
+            _run_alembic(postgres_database.url, 'upgrade', 'head')
+            assert _current_migration_revision(postgres_database) == revision_before
+        finally:
+            _run_alembic(postgres_database.url, 'upgrade', 'head')
+
     def test_available_detail_uses_ordered_content_and_does_not_write_events(
         self,
         client: TestClient,
@@ -469,6 +485,11 @@ def _run_alembic(
         capture_output=True,
         text=True,
     )
+
+
+def _current_migration_revision(database: PostgresDatabase) -> str:
+    with database.engine.connect() as connection:
+        return str(connection.scalar(text('SELECT version_num FROM alembic_version')))
 
 
 def _reset_database_to_revision(database: PostgresDatabase, revision: str) -> None:
