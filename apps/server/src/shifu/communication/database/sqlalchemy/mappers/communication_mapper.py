@@ -40,7 +40,8 @@ class CommunicationMapper:
             provider_message_id=model.provider_message_id,
             attempt_count=model.attempt_count,
             next_attempt_at=model.next_attempt_at,
-            identity_confirmation_id=model.identity_confirmation_id,
+            identity_action_token_id=model.identity_action_token_id,
+            expires_at=model.expires_at,
             encrypted_content=cast(
                 'SecretEnvelope | None',
                 (
@@ -78,7 +79,8 @@ class CommunicationMapper:
             provider_message_id=communication.provider_message_id,
             attempt_count=communication.attempt_count,
             next_attempt_at=communication.next_attempt_at,
-            identity_confirmation_id=communication.identity_confirmation_id,
+            identity_action_token_id=communication.identity_action_token_id,
+            expires_at=communication.expires_at,
             encrypted_content=cast(
                 'dict[str, object] | None',
                 Serialization.serialize_value(communication.encrypted_content),

@@ -20,10 +20,10 @@ class _Payload(BaseModel):
     )
 
     communication_id: str = Field(min_length=1)
-    identity_confirmation_id: str = Field(min_length=1)
-    reason: Literal['confirmed', 'reissued', 'expired']
+    identity_action_token_id: str = Field(min_length=1)
+    reason: Literal['confirmed', 'reissued', 'expired', 'reset']
 
-    @field_validator('communication_id', 'identity_confirmation_id')
+    @field_validator('communication_id', 'identity_action_token_id')
     @classmethod
     def validate_identifier(cls, value: str) -> str:
         if not value.strip():
@@ -42,7 +42,7 @@ class CancelCommunicationJob:
     """Stop or redact one correlated Communication request idempotently."""
 
     FUNCTION_ID: ClassVar[str] = 'communication-cancel'
-    _EVENT_NAME: ClassVar[str] = 'identity.account-confirmation-cancelled'
+    _EVENT_NAME: ClassVar[str] = 'identity.action-token-cancelled'
 
     @staticmethod
     def handle(
@@ -75,7 +75,7 @@ class CancelCommunicationJob:
         payload = _validate_payload(data)
         return {
             'communication_id': payload.communication_id,
-            'identity_confirmation_id': payload.identity_confirmation_id,
+            'identity_action_token_id': payload.identity_action_token_id,
             'reason': payload.reason,
         }
 
@@ -87,6 +87,6 @@ class CancelCommunicationJob:
         return await asyncio.to_thread(
             use_case.execute,
             payload['communication_id'],
-            payload['identity_confirmation_id'],
+            payload['identity_action_token_id'],
             payload['reason'],
         )

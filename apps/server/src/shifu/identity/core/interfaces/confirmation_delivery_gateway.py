@@ -10,7 +10,7 @@ class ConfirmationDeliveryRequest:
     """The minimum in-process data needed to queue one confirmation message."""
 
     communication_id: str
-    identity_confirmation_id: str
+    identity_action_token_id: str
     account_id: str
     recipient_email: str
     recipient_name: str

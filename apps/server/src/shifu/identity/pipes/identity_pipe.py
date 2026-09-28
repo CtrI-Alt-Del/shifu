@@ -8,6 +8,7 @@ from shifu.identity.core.interfaces import IdentityDatabase
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
     ConfirmationDeliveryGateway,
+    PasswordRecoveryDeliveryGateway,
 )
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
     Argon2idHashProvider,
@@ -64,6 +65,19 @@ class IdentityPipe:
             'ConfirmationDeliveryGateway',
             request.app.state.confirmation_delivery_gateway,
         )
+
+    @staticmethod
+    def get_password_recovery_delivery_gateway(
+        request: Request,
+    ) -> PasswordRecoveryDeliveryGateway:
+        return cast(
+            'PasswordRecoveryDeliveryGateway',
+            request.app.state.password_recovery_delivery_gateway,
+        )
+
+    @staticmethod
+    def get_recovery_handle_provider() -> ActionTokenProvider:
+        return PendingConfirmationHandleProvider()
 
     @staticmethod
     def get_authentication_provider(request: Request) -> AuthenticationProvider:

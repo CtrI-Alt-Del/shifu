@@ -7,3 +7,12 @@ from .account_registration import (
 from .auth_credentials import AuthCredentials as AuthCredentials
 from .authentication import Authentication as Authentication
 from .resend_confirmation import ResendConfirmationResult as ResendConfirmationResult
+from .password_recovery import (
+    PasswordRecoveryDeliverySnapshot as PasswordRecoveryDeliverySnapshot,
+    PasswordRecoveryRequest as PasswordRecoveryRequest,
+    PasswordRecoveryRequestResult as PasswordRecoveryRequestResult,
+    PasswordRecoveryStatusResult as PasswordRecoveryStatusResult,
+    PasswordResetLinkStatusResult as PasswordResetLinkStatusResult,
+    PasswordResetRequest as PasswordResetRequest,
+    PasswordResetResult as PasswordResetResult,
+)

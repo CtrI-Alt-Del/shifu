@@ -46,7 +46,7 @@ class AccountRegistrationResult:
 
     pending_handle: str
     account_id: str | None
-    identity_confirmation_id: str | None
+    identity_action_token_id: str | None
     communication_id: str | None
     confirmation_token: str | None
     confirmation_expires_at: datetime | None

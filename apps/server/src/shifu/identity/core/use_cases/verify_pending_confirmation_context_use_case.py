@@ -1,5 +1,3 @@
-from typing import cast
-
 from shifu.identity.core.domain.enums import (
     AccountActionTokenStatus,
     AccountActionTokenType,
@@ -7,7 +5,6 @@ from shifu.identity.core.domain.enums import (
 )
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
-    ConfirmationAccountActionTokensRepository,
     IdentityDatabase,
 )
 
@@ -29,10 +26,7 @@ class VerifyPendingConfirmationContextUseCase:
         )
 
         with self._identity_database.transaction() as repositories:
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
+            token_repository = repositories.account_action_tokens
             confirmation_token = token_repository.find_by_pending_handle_hash(
                 pending_handle_hash
             )

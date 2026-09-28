@@ -18,16 +18,17 @@ class _Payload(BaseModel):
     )
 
     communication_id: str = Field(min_length=1)
-    identity_confirmation_id: str = Field(min_length=1)
+    identity_action_token_id: str = Field(min_length=1)
     state: Literal[
         'delivered',
         'temporary_failure',
         'permanent_failure',
         'exhausted',
         'cancelled',
+        'expired',
     ]
 
-    @field_validator('communication_id', 'identity_confirmation_id')
+    @field_validator('communication_id', 'identity_action_token_id')
     @classmethod
     def validate_identifier(cls, value: str) -> str:
         if not value.strip():
@@ -81,7 +82,7 @@ class RecordCommunicationDeliveryStateJob:
         payload = _validate_payload(data)
         return {
             'communication_id': payload.communication_id,
-            'identity_confirmation_id': payload.identity_confirmation_id,
+            'identity_action_token_id': payload.identity_action_token_id,
             'state': payload.state,
         }
 
@@ -93,6 +94,6 @@ class RecordCommunicationDeliveryStateJob:
         return await asyncio.to_thread(
             use_case.execute,
             payload['communication_id'],
-            payload['identity_confirmation_id'],
+            payload['identity_action_token_id'],
             payload['state'],
         )

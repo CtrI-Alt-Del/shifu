@@ -33,7 +33,8 @@ class Communication:
     provider_message_id: str | None = None
     attempt_count: int = 0
     next_attempt_at: datetime | None = None
-    identity_confirmation_id: str | None = None
+    identity_action_token_id: str | None = None
+    expires_at: datetime | None = None
     encrypted_content: SecretEnvelope | None = None
     redacted_at: datetime | None = None
 
@@ -50,9 +51,9 @@ class Communication:
                 self.recipient_email,
                 InvalidCommunicationError,
             )
-        if self.identity_confirmation_id is not None:
-            self.identity_confirmation_id = require_non_empty(
-                self.identity_confirmation_id,
+        if self.identity_action_token_id is not None:
+            self.identity_action_token_id = require_non_empty(
+                self.identity_action_token_id,
                 InvalidCommunicationError,
             )
         self.idempotency_key = require_non_empty(
@@ -83,7 +84,8 @@ class Communication:
         provider_message_id: str | None = None,
         attempt_count: int = 0,
         next_attempt_at: datetime | None = None,
-        identity_confirmation_id: str | None = None,
+        identity_action_token_id: str | None = None,
+        expires_at: datetime | None = None,
         encrypted_content: SecretEnvelope | None = None,
         redacted_at: datetime | None = None,
     ) -> 'Communication':
@@ -105,7 +107,8 @@ class Communication:
             provider_message_id=provider_message_id,
             attempt_count=attempt_count,
             next_attempt_at=next_attempt_at,
-            identity_confirmation_id=identity_confirmation_id,
+            identity_action_token_id=identity_action_token_id,
+            expires_at=expires_at,
             encrypted_content=encrypted_content,
             redacted_at=redacted_at,
         )
@@ -179,7 +182,7 @@ class Communication:
         self.account_id = None
         self.recipient_email = None
         self.recipient_name = None
-        self.identity_confirmation_id = None
+        self.identity_action_token_id = None
         self.content = None
         self.encrypted_content = None
         self.provider_message_id = None
@@ -200,7 +203,7 @@ class Communication:
         return (
             self.account_id is None
             and self.recipient_email is None
-            and self.identity_confirmation_id is None
+            and self.identity_action_token_id is None
             and self.content is None
             and self.encrypted_content is None
         )

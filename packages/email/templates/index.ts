@@ -7,3 +7,10 @@ export {
   renderAccountConfirmationEmail,
 } from './identity/account-confirmation-email.js'
 export type { AccountConfirmationEmailProps } from './identity/account-confirmation-email.js'
+
+export {
+  PASSWORD_RECOVERY_SUBJECT,
+  PasswordRecoveryEmail,
+  renderPasswordRecoveryEmail,
+} from './identity/password-recovery-email.js'
+export type { PasswordRecoveryEmailProps } from './identity/password-recovery-email.js'

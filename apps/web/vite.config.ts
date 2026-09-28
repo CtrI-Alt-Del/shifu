@@ -44,7 +44,13 @@ const config = defineConfig(({ mode }) => {
       headers: webContainerIsolationHeaders,
     },
     preview: { headers: webContainerIsolationHeaders },
-    plugins: [webContainerIsolationPlugin, devtools(), tailwindcss(), tanstackStart(), viteReact()],
+    plugins: [
+      webContainerIsolationPlugin,
+      ...(process.env.CI ? [] : [devtools()]),
+      tailwindcss(),
+      tanstackStart(),
+      viteReact(),
+    ],
   }
 })
 

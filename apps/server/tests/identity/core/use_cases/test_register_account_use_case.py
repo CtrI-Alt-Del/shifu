@@ -85,7 +85,7 @@ class TestRegisterAccountUseCase:
 
         assert result.pending_handle == 'pending-handle'
         assert result.account_id == '01JACCOUNT000000000000000001'
-        assert result.identity_confirmation_id == '01JCONFIRM00000000000000001'
+        assert result.identity_action_token_id == '01JCONFIRM00000000000000001'
         assert result.communication_id == '01JCOMMUNICATION000000000001'
         assert result.confirmation_token == 'confirmation-token'
         assert result.confirmation_expires_at == self.now + timedelta(hours=24)
@@ -102,7 +102,7 @@ class TestRegisterAccountUseCase:
         confirmation_token = self.repositories.account_action_tokens.add.call_args.args[
             0
         ]
-        assert confirmation_token.id == result.identity_confirmation_id
+        assert confirmation_token.id == result.identity_action_token_id
         assert confirmation_token.account_id == result.account_id
         assert confirmation_token.token_hash == 'confirmation-token-hash'
         assert confirmation_token.communication_id == result.communication_id
@@ -145,7 +145,7 @@ class TestRegisterAccountUseCase:
 
         assert result.pending_handle == 'pending-handle'
         assert result.account_id is None
-        assert result.identity_confirmation_id is None
+        assert result.identity_action_token_id is None
         assert result.communication_id is None
         assert result.confirmation_token is None
         assert result.confirmation_expires_at is None

@@ -69,7 +69,8 @@ shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -
 shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No server integration tests found'; fi"
 
 [tool.poe.tasks."test:jobs"]
-shell = "SHIFU_RUN_REAL_INNGEST_TESTS=1 pytest tests/messaging/inngest/jobs"
+cmd = "pytest tests/messaging/inngest/jobs"
+env = { SHIFU_RUN_REAL_INNGEST_TESTS = "1" }
 
 [tool.poe.tasks."check:types"]
 cmd = "basedpyright"

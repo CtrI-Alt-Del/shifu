@@ -10,10 +10,10 @@ class CommunicationModel(Model):
     __tablename__ = 'communication_messages'
     __table_args__ = (
         Index(
-            'uq_communication_messages_identity_confirmation_id',
-            'identity_confirmation_id',
+            'uq_communication_messages_identity_action_token_id',
+            'identity_action_token_id',
             unique=True,
-            postgresql_where=text('identity_confirmation_id IS NOT NULL'),
+            postgresql_where=text('identity_action_token_id IS NOT NULL'),
         ),
         Index(
             'ix_communication_messages_status_next_attempt_at',
@@ -51,8 +51,11 @@ class CommunicationModel(Model):
     next_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    identity_confirmation_id: Mapped[str | None] = mapped_column(
+    identity_action_token_id: Mapped[str | None] = mapped_column(
         String(26), nullable=True
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     encrypted_content: Mapped[dict[str, object] | None] = mapped_column(
         JSON,

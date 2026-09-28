@@ -31,15 +31,15 @@ class CancelCommunicationUseCase:
     def execute(
         self,
         communication_id: str,
-        identity_confirmation_id: str,
+        identity_action_token_id: str,
         reason: CommunicationCancellationReason | str,
     ) -> bool:
         communication_id = require_non_empty(
             communication_id,
             InvalidCommunicationError,
         )
-        identity_confirmation_id = require_non_empty(
-            identity_confirmation_id,
+        identity_action_token_id = require_non_empty(
+            identity_action_token_id,
             InvalidCommunicationError,
         )
         try:
@@ -51,14 +51,14 @@ class CancelCommunicationUseCase:
             communication = self._find_correlated_communication(
                 repositories,
                 communication_id,
-                identity_confirmation_id,
+                identity_action_token_id,
             )
             if communication is None:
                 return False
             return self._apply_cancellation(
                 repositories,
                 communication,
-                identity_confirmation_id,
+                identity_action_token_id,
                 cancellation_reason,
             )
 
@@ -66,12 +66,12 @@ class CancelCommunicationUseCase:
     def _find_correlated_communication(
         repositories: CommunicationDatabaseRepositories,
         communication_id: str,
-        identity_confirmation_id: str,
+        identity_action_token_id: str,
     ) -> Communication | None:
         communication = repositories.communications.find_by_id(communication_id)
         if not isinstance(communication, Communication):
             return None
-        if communication.identity_confirmation_id != identity_confirmation_id:
+        if communication.identity_action_token_id != identity_action_token_id:
             return None
         return communication
 
@@ -79,7 +79,7 @@ class CancelCommunicationUseCase:
         self,
         repositories: CommunicationDatabaseRepositories,
         communication: Communication,
-        identity_confirmation_id: str,
+        identity_action_token_id: str,
         cancellation_reason: CommunicationCancellationReason,
     ) -> bool:
         if communication.status is CommunicationStatus.CANCELLED and (
@@ -103,7 +103,7 @@ class CancelCommunicationUseCase:
                 self._add_cancelled_event(
                     repositories,
                     communication,
-                    identity_confirmation_id,
+                    identity_action_token_id,
                 )
             return True
 
@@ -114,7 +114,7 @@ class CancelCommunicationUseCase:
         self._add_cancelled_event(
             repositories,
             communication,
-            identity_confirmation_id,
+            identity_action_token_id,
         )
         return True
 
@@ -122,13 +122,13 @@ class CancelCommunicationUseCase:
     def _add_cancelled_event(
         repositories: CommunicationDatabaseRepositories,
         communication: Communication,
-        identity_confirmation_id: str,
+        identity_action_token_id: str,
     ) -> None:
         repositories.events.add(
             CommunicationDeliveryStateChangedEvent(
                 payload=CommunicationDeliveryStateChangedPayload(
                     communication_id=communication.id,
-                    identity_confirmation_id=identity_confirmation_id,
+                    identity_action_token_id=identity_action_token_id,
                     state=CommunicationDeliveryState.CANCELLED,
                 )
             )

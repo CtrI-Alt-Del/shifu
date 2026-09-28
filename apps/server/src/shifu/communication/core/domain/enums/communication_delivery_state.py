@@ -7,6 +7,7 @@ class CommunicationDeliveryState(StrEnum):
     PERMANENT_FAILURE = 'permanent_failure'
     EXHAUSTED = 'exhausted'
     CANCELLED = 'cancelled'
+    EXPIRED = 'expired'
 
 
 DeliveryState = CommunicationDeliveryState

@@ -1,18 +1,17 @@
 from datetime import datetime
-from typing import Annotated, Literal, cast
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from shifu.identity.core.domain.enums import (
-    AccountConfirmationDeliveryStatus,
+    AccountActionTokenDeliveryStatus,
     AccountStatus,
     ConfirmationDeliveryQueueStatus,
 )
 from shifu.identity.core.domain.structures import ResendConfirmationResult
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
-    ConfirmationAccountActionTokensRepository,
     ConfirmationDeliveryGateway,
     ConfirmationDeliveryRequest,
     IdentityDatabase,
@@ -90,7 +89,7 @@ class ResendEmailConfirmationController:
                 ):
                     ResendEmailConfirmationController._record_delivery_unavailable(
                         database,
-                        result.identity_confirmation_id,
+                        result.identity_action_token_id,
                         clock_provider.now(),
                     )
             return Response(
@@ -101,21 +100,18 @@ class ResendEmailConfirmationController:
     @staticmethod
     def _record_delivery_unavailable(
         database: IdentityDatabase,
-        identity_confirmation_id: str | None,
+        identity_action_token_id: str | None,
         recorded_at: datetime,
     ) -> None:
-        if identity_confirmation_id is None:
+        if identity_action_token_id is None:
             return
         with database.transaction() as repositories:
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
-            token = token_repository.find_by_id(identity_confirmation_id)
+            token_repository = repositories.account_action_tokens
+            token = token_repository.find_by_id(identity_action_token_id)
             if token is None:
                 return
             if token.record_delivery_status(
-                AccountConfirmationDeliveryStatus.DELIVERY_UNAVAILABLE,
+                AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                 recorded_at,
             ):
                 token_repository.update(token)
@@ -128,18 +124,15 @@ class ResendEmailConfirmationController:
         result: ResendConfirmationResult,
     ) -> ConfirmationDeliveryRequest | None:
         if (
-            result.identity_confirmation_id is None
+            result.identity_action_token_id is None
             or result.communication_id is None
             or result.confirmation_token is None
             or result.confirmation_expires_at is None
         ):
             return None
         with database.transaction() as repositories:
-            token_repository = cast(
-                'ConfirmationAccountActionTokensRepository',
-                repositories.account_action_tokens,
-            )
-            token = token_repository.find_by_id(result.identity_confirmation_id)
+            token_repository = repositories.account_action_tokens
+            token = token_repository.find_by_id(result.identity_action_token_id)
             if token is None or token.pending_handle_hash is None:
                 return None
             account = repositories.accounts.find_by_id(token.account_id)
@@ -150,7 +143,7 @@ class ResendEmailConfirmationController:
                 return None
             return ConfirmationDeliveryRequest(
                 communication_id=result.communication_id,
-                identity_confirmation_id=result.identity_confirmation_id,
+                identity_action_token_id=result.identity_action_token_id,
                 account_id=account.id,
                 recipient_email=account.email,
                 recipient_name=account.display_name,
