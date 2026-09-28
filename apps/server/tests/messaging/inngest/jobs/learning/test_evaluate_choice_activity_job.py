@@ -287,25 +287,12 @@ class TestEvaluateChoiceActivityJob:
                             competency_id=activity.competency_id,
                             name='Diagnostic concept',
                             description='A concept used to verify provisional scoring.',
-                            position=1,
+                            position=2,
                             observation_criteria='Observe the correct choice.',
                         )
                     ]
                 )
                 repositories.activities.add_many([diagnostic_activity])
-                repositories.curriculum_sequences.add_many(
-                    [
-                        CurriculumSequence(
-                            competency_id=activity.competency_id,
-                            items=(
-                                ActivitySequenceItem(
-                                    activity_id=diagnostic_activity.id,
-                                    position=1,
-                                ),
-                            ),
-                        )
-                    ]
-                )
 
             diagnostic_run_id = ids.generate()
             with database.transaction() as repositories:
@@ -584,6 +571,14 @@ def _seed(
     account = AccountFaker.fake(created_at=now)
     skill = SkillFaker.fake()
     competency = CompetencyFaker.fake(skill_id=skill.id)
+    concept = Concept(
+        id=ids.generate(),
+        competency_id=competency.id,
+        name='Choice evaluation concept',
+        description='A concept used by the learning evaluation fixture.',
+        position=1,
+        observation_criteria='Observe whether the learner identifies the rule.',
+    )
     activity = ActivityFaker.fake(
         competency_id=competency.id,
         difficulty=ActivityDifficulty.EASY,
@@ -597,6 +592,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
             MultipleSelectionQuestion(
                 key='question-two',
@@ -610,6 +615,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
             SingleChoiceQuestion(
                 key='question-three',
@@ -620,6 +635,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
         ),
     )
@@ -627,6 +652,7 @@ def _seed(
     experience = SkillExperienceFaker.fake(
         goal_id=goal.id,
         skill_id=skill.id,
+        status=SkillExperienceStatus.LEARNING,
         created_at=now,
         updated_at=now,
     )
@@ -648,12 +674,24 @@ def _seed(
         repositories.skills.add_many([skill])
         repositories.competencies.add_many([competency])
         repositories.activities.add_many([activity])
+        repositories.concepts.add_many([concept])
+        repositories.curriculum_sequences.add_many(
+            [
+                CurriculumSequence(
+                    competency_id=competency.id,
+                    items=(ActivitySequenceItem(activity_id=activity.id, position=1),),
+                )
+            ]
+        )
     learning_database = SqlalchemyLearningDatabase(engine, id_provider=ids)
     with learning_database.transaction() as repositories:
         repositories.goals.add(goal)
         repositories.skill_experiences.add_many([experience])
         repositories.competency_progresses.add(progress)
-    provider = DatabaseCurriculumContentProvider(curriculum_database)
+    provider = DatabaseCurriculumContentProvider(
+        curriculum_database,
+        diagnostic_revision_hmac_key=b'job-test-diagnostic-revision-key',
+    )
     assert provider.get_choice_activity(activity.id) is not None
     return learning_database, provider, ids, activity, experience, account.id
 
@@ -668,6 +706,20 @@ def _seed_mixed(
     SkillExperience,
 ]:
     database, provider, ids, base_activity, experience, _account_id = _seed(engine)
+    skill_content = provider.get_skill_content(experience.skill_id)
+    assert skill_content is not None
+    concept = skill_content.competencies[0].concepts[0]
+
+    def concept_criterion() -> ChoiceConceptCriterion:
+        return ChoiceConceptCriterion(
+            concept_id=concept.id,
+            criterion='Identifies the concept rule.',
+            examples='Expected answer',
+            limits='The answer provides limited evidence.',
+            correct_score=100,
+            incorrect_score=0,
+        )
+
     choice_questions = tuple(
         SingleChoiceQuestion(
             key=f'q{number}',
@@ -678,6 +730,7 @@ def _seed_mixed(
             ),
             correct_explanation='Correta',
             incorrect_explanation='Incorreta',
+            concept_criteria=(concept_criterion(),),
         )
         for number in (1, 2)
     )

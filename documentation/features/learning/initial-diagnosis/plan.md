@@ -1,11 +1,11 @@
 ---
 title: Initial diagnosis implementation plan
-status: in_progress
+status: complete
 spec: ./spec.md
 spec_revision: 9
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77
-last_updated_at: 2026-09-27
+last_updated_at: 2026-09-28
 ---
 
 # 1. Execution status
@@ -15,21 +15,18 @@ last_updated_at: 2026-09-27
 - **Why Plan-backed:** the Spec spans Learning Core, persistence and migration,
   REST and Inngest, Web pages and routing, two HTTP route-group examples, and
   integrated desktop/mobile validation with persisted state.
-- **Plan status / phase:** `in_progress` — the Spec Reviewer accepted revision 9
+- **Plan status / phase:** `complete` — the Spec Reviewer accepted revision 9
   after the policy-consumer, revision-token and seed-safety corrections.
-- **Next action:** reconcile required automated and browser evidence for the
-  current single-submit flow when validation is requested, including disposable
-  migration and persisted VM-01 runs.
-- **Active blockers:** CI-05/06/11/12/13/15 and revision-9 browser evidence
-  remain pending under the current request. The obsolete policy-field
-  references in existing tests were updated without executing tests; global
-  Basedpyright now passes. The server-only HMAC key is configured locally.
+- **Next action:** publish the reviewed SHIFU-77 pull request.
+- **Active blockers:** none for automated validation or publication. The user
+  waived manual browser validation and fresh screenshots on 2026-09-28; those
+  scenarios are explicitly recorded as waived, not passed. GitHub review/checks
+  remain pending after publication.
 - **External dependencies:** none block execution. Jira records SHIFU-16 and
   SHIFU-18 as complete; the reused activity-question work SHIFU-74 and SHIFU-75
   is complete.
-- **Active Builders:** none. Curriculum, Web, Learning and seed Builders
-  returned their scoped revision-9 reports; Orchestrator integration review
-  and current Evaluation evidence are in progress.
+- **Active Builders:** none. F6 corrections and integrated automated validation
+  are complete; evidence is recorded in EV-42–EV-46.
 - **Completed implementation:** all F1/F2 implementation exits
   passed, including the disposable migration sequence, focused Core coverage,
   aggregate scenario ownership migration, and all Web gates. F2-T2 passed on
@@ -70,11 +67,15 @@ evidence is asserted here.
 | 1 | `Builder Server` | F1 | Learning Core and persistence support for isolated diagnostic runs, provisional evaluation, explicit confirmation, and nullable summaries | — | F1 `Builder Web` | `complete` | F1-T1 and F1-T2 exits pass; migration is reviewed and verified only against a disposable database |
 | 1 | `Builder Web` | F1 | Activity, Skill and result pages consume the Spec contracts; result route and required Page suites are present | Spec revision 6 | F1 `Builder Server` | `complete` | F1-T3 exit passes; generated route tree is synchronized and reviewed by the Orchestrator |
 | 2 | `Builder Server` | F2 | Authenticated Learning HTTP operations, route-complete REST examples and stale-job protection are integrated | F1 | — | `complete` | F2-T1 exit passes through PostgreSQL HTTP tests, real Inngest job tests and REST parity |
-| 3 | `learning-web-continuation-builder` + `Orchestrator` | F3 | Historical ACH-12 Activity continuation, revision 6; authenticated VM-01 evidence moves to F6 | F1, F2 | — | `in_progress` | EV-29 preserves historical evidence only; close F3 after F6 records current persisted VM-01 |
+| 3 | `learning-web-continuation-builder` + `Orchestrator` | F3 | Historical ACH-12 Activity continuation, revision 6; authenticated VM-01 evidence moves to F6 | F1, F2 | — | `complete` | Web behavior and automated checks passed at EV-29; current persisted VM-01 was waived by the user at EV-42 |
 | 4 | `learning-curriculum-snapshot-builder` | F4 | Existing readiness gate, mixed diagnostic snapshot and private revision token | F1/F2 | Web contract work | `implemented` | Ready Skills remain eligible; server-only HMAC token and mixed code snapshot available; integration review pending |
 | 4 | `learning-web-single-submit-builder` | F4 | Revision-9 DTO, session answers, Activity traversal and final-submit UI | F1/F2 and fixed Spec REST contract | Curriculum work | `implemented` | No intermediate POST; one final request; learning Activity flow preserved; integration review pending |
 | 5 | `learning-server-batch-builder` | F5 | Global policy and atomic diagnostic batch with REST/job parity | F4 Curriculum port and revision token | — | `implemented` | All-or-none attempts/evaluations/events and replay; route group examples current; integrated behavioral evidence pending |
-| 6 | `Orchestrator` | F6 | Integrated validation, evidence and parallel code/visual review | F4/F5 | Implementation Reviewer + Visual Reviewer after integrated candidate | `pending` | Current CA-01–CA-20, VM-01/02 and CI gates accepted or precisely reported pending |
+| 6 | `Orchestrator` | F6 | Integrated validation, evidence and review reconciliation | F4/F5 | Implementation Reviewer passed; visual capture comparison waived by user | `complete` | Automated criteria pass; VM-01–03 explicitly waived by user |
+| 6 | `initial-diagnosis-web-fix` | F6 | Correct stale or failing Web component, hook and route assertions against revision-9 single-submit behavior; fix MaterialContent width required by Design System T23 | EV-38 baseline | F6 server fixes | `complete` | CI-05 and CI-06 pass; MaterialContent uses the approved 68ch reading width; fresh affected UI evidence is captured after correction |
+| 6 | `initial-diagnosis-core-fix` | F6 | Correct Learning Core behavior and unit fixtures exposed by revision-9 execution | EV-38 baseline | F6 Web/server-boundary fixes | `complete` | CI-11 passes; only Learning Core and its unit-test paths listed in EV-39 change |
+| 6 | `initial-diagnosis-server-boundary-fix` | F6 | Correct Learning controller integration fixtures/contracts and establish CI-15 disposable migration cycle | EV-38 baseline | F6 Web/Core fixes | `complete` | CI-12 passes and CI-15 upgrade/downgrade/re-upgrade is verified; only Server REST/test/fixture paths listed in EV-39 change |
+| 6 | `initial-diagnosis-job-fix` | F6 | Correct the two real Learning evaluation-job failures on the isolated Inngest runtime | EV-40 baseline | F6 Web/Core/controller fixes | `complete` | CI-13 passes with all 8 tests executing; only the named job/test/fixture paths listed in EV-39 change |
 
 ### F1 — Core, persistence and Web implementation
 
@@ -391,44 +392,33 @@ evidence is asserted here.
 
 #### F6-T1 — Evidence, runtime and review
 
-- **Status/owner:** `pending` — Orchestrator.
-- **Depends/parallel:** F4-T1/T2 and F5-T1 integrated; then Implementation Reviewer and Visual Reviewer run in parallel on the same candidate.
+- **Status/owner:** `complete` — Implementation Reviewer found no actionable code-contract issues; visual comparison was waived by the user.
+- **Depends/parallel:** F4-T1/T2 and F5-T1 integrated; Implementation Reviewer inspected the integrated candidate, then parent reconciled evidence and assertion findings.
 - **Paths:** `documentation/features/learning/initial-diagnosis/{plan.md,evaluation.md}`, generated routes, migrations, shared/config/seed integration and transient browser evidence.
 - **Traceability:** all current RF-01–RF-11 and CA-01–CA-20.
-- **Outcome:** reconcile revision-9 behavior and artifacts with current evidence, including real persisted VM-01 and mobile VM-02.
+- **Outcome:** automated revision-9 gates pass; manual VM-01–VM-03 and fresh captures are waived by the user and are not claimed as passing.
 - **Rules:** Spec Rule Pack, `documentation/tooling.md`, Playwright CLI workflow from `AGENTS.md`.
 - **Risks/controls:** historical EV-29 cannot prove batch behavior; do not touch shared database or claim mocked transport as persistence.
-- **Exit:** current CI/VM and REST parity evidence, fresh captures, reviewer findings resolved; conclusion only after every required gate passes.
+- **Exit:** current automated gates and REST parity are recorded; final implementation review findings are resolved; manual/visual evidence is explicitly waived.
 
 # 4. Validation and handoff
 
-Every EV-23/EV-29 reference in this table is historical revision-6 context,
-not current accepted evidence. All rows require fresh revision-8 evidence in
-Evaluation before their status can pass. Under the current request, no tests
-are added or run; corresponding automated gates remain pending.
+The user explicitly waived manual validation and fresh screenshots on
+2026-09-28. Automated gates and current route parity evidence are recorded in
+Evaluation EV-42–EV-46. Historical screenshots remain audit-only and are not
+claimed as current revision-9 visual evidence.
 
 | Type | Scenario/surface | Criteria | Reference | Evidence target | Status |
 | --- | --- | --- | --- | --- | --- |
-| Automated | Learning Core unit suites, including migration of valid aggregate-suite cases | CA-01–CA-12, CA-14 | Spec Validation Contract; CI-11 | `evaluation.md` EV-23 | `pending` |
-| Automated | FastAPI Learning controllers with disposable PostgreSQL | CA-01–CA-04, CA-06–CA-14 | Spec Technical/Validation Contracts; CI-12 | `evaluation.md` EV-23 | `pending` |
-| Automated | Registered Inngest evaluation job with Testcontainers | CA-05, CA-07–CA-09 | Spec Validation Contract; CI-13 | `evaluation.md` EV-18/EV-19 | `pending` |
-| Automated | Web widget/component/hook suites | CA-01–CA-06, CA-10–CA-15 | Spec Validation Contract; CI-05 | `evaluation.md` EV-23 | `pending` |
-| Automated | Learning Page browser integration suites with mocked transport | CA-01–CA-07, CA-10–CA-15 | Spec Validation Contract; CI-06 | `evaluation.md` EV-23 | `pending` |
-| Automated | Web route generation, lint, architecture, types and build | CA-01–CA-15 | Spec Validation Contract; CI-01–CI-04, CI-07 | `evaluation.md` EV-07/EV-23 | `pending` |
-| Automated | Server lint, architecture, types and build | CA-01–CA-14 | Spec Validation Contract; CI-08–CI-10, CI-14 | `evaluation.md` EV-23 | `pending` |
-| Automated | Atomic batch Core/HTTP and browser Page contract | CA-18–CA-20 | Spec Validation Contract | Fresh `evaluation.md` EV | `pending` |
-| Automated | Curriculum mixed diagnostic snapshot and HMAC token | CA-05, CA-17–CA-19 | Spec Technical Contract | Fresh `evaluation.md` EV | `pending` |
-| Migration | Alembic upgrade, downgrade and re-upgrade on disposable PostgreSQL | CA-02, CA-08, CA-09 | Spec migration contract; CI-15 | `evaluation.md` EV-16 | `pending` |
-| Runtime | Authenticated persisted diagnostic, result re-open and return to Skill page (VM-01) | CA-01, CA-03, CA-04, CA-06, CA-08, CA-11, CA-13, CA-15 | Spec VM-01; 1440 × 900 | `evaluation.md` EV-23 includes URL, HTTP 200, Experience ID, run ID and two captures | `pending` |
-| Runtime | Mocked-transport mobile keyboard/layout journey (VM-02) | CA-15 | Spec VM-02; 390 × 844 | `evaluation.md` EV-23 includes URL, keyboard/focus observations and two captures | `pending` |
-| Visual | Activity selection, desktop | CA-03, CA-04, CA-06, CA-15 | `design/references/XhhBc.png` or `S4YpF1.png`; 1440 × 900 | Fresh screenshot path + comparison in EV-23 | `pending` |
-| Visual | Normal consolidated result, desktop | CA-10, CA-11, CA-13, CA-15 | `design/references/Yn7tE.png`; 1440 × 900 | Fresh screenshot path + comparison in EV-23 | `pending` |
-| Visual | Activity selection, mobile | CA-15 | Same selected design reference; 390 × 844 | Fresh screenshot path + mobile inspection in EV-23 | `pending` |
-| Visual | Normal consolidated result, mobile | CA-15 | `design/references/Yn7tE.png`; 390 × 844 | Fresh screenshot path + mobile inspection in EV-23 | `pending` |
-| REST client | Learning route group | CA-01, CA-02, CA-06, CA-08, CA-10–CA-14 | `apps/server/rest-client/learning/learning.rest` | Static route parity + EV-19; request playback not run against shared API | `pending` |
-| REST client | Activity route group | CA-03–CA-07, CA-09 | `apps/server/rest-client/learning/activities.rest` | Static route parity + EV-19; request playback not run against shared API | `pending` |
-| Review | One integrated Implementation Reviewer | CA-01–CA-15 and complete candidate | `documentation/agents/implementation-reviewer-agent.md` | PASS + Orchestrator reconciliation in EV-23 | `pending` |
-| Review | One parallel Visual Reviewer | CA-03, CA-04, CA-10–CA-13, CA-15 | `documentation/agents/visual-reviewer-agent.md` and four fresh captures | PASS + Orchestrator reconciliation in EV-23 | `pending` |
+| Automated | Web unit, mocked Page integration, lint, architecture, types and build | CA-01–CA-15 | Spec Validation Contract; CI-02–CI-07 | `evaluation.md` EV-43 | `passed` |
+| Automated | Server lint, architecture, types, Core unit, controller integration, jobs and build | CA-01–CA-20 | Spec Validation Contract; CI-08–CI-14 | `evaluation.md` EV-43/44 | `passed` |
+| Migration | Alembic upgrade, downgrade and re-upgrade on disposable PostgreSQL | CA-02, CA-08, CA-09 | Spec migration contract; CI-15 | `evaluation.md` EV-43 | `passed` within CI-12 integration suite |
+| REST client | Learning and Activity route-group parity | CA-01–CA-14 | `apps/server/rest-client/learning/{learning,activities}.rest`; EV-19 | Evaluation historical static parity review; route files unchanged in F6 | `passed; request playback not run` |
+| Runtime/manual | Authenticated persisted diagnostic and result reopen (VM-01) | CA-01, CA-03, CA-04, CA-06, CA-08, CA-11, CA-13, CA-15 | Spec VM-01 | `evaluation.md` §4 | `waived by user` |
+| Runtime/manual | Mobile keyboard/layout journey (VM-02) | CA-15 | Spec VM-02 | `evaluation.md` §4 | `waived by user` |
+| Visual/manual | Current Activity and result captures, desktop/mobile (VM-03) | CA-03, CA-04, CA-10–CA-13, CA-15 | Design handoff references | `evaluation.md` §4 | `waived by user; historical captures only` |
+| Review | Integrated Implementation Reviewer | CA-01–CA-20 | `documentation/agents/implementation-reviewer-agent.md` | `evaluation.md` EV-47 | `passed; no actionable code-contract findings` |
+| Review | Visual Reviewer comparison | CA-03, CA-04, CA-10–CA-13, CA-15 | `documentation/agents/visual-reviewer-agent.md` | `evaluation.md` EV-46 | `waived by user; no fresh captures` |
 
 Use only the commands declared by the Spec and current manifests:
 

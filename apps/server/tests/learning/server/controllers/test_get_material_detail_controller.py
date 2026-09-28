@@ -16,15 +16,12 @@ from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_MEDIUM_ID,
-    SEED_COMPETENCY_FUNCTIONS_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_GOAL_ID,
-    SEED_MATERIAL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_BOOLEAN_MATERIAL_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_MATERIAL_PYTHON_ID,
-    SEED_MATERIAL_REPETITION_FOR_ID,
-    SEED_MATERIAL_REPETITION_INTRO_ID,
-    SEED_SKILL_LOGIC_ID,
     SEED_SKILL_PYTHON_ID,
     build_development_seed,
 )
@@ -72,86 +69,65 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetMaterialDetailController:
-    def test_released_material_serializes_official_markdown_without_events(
+    def test_unreleased_material_does_not_disclose_content_or_write_events(
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,
     ) -> None:
         before_events = _event_count(postgres_database)
 
-        response = _get(client, material_id=SEED_MATERIAL_REPETITION_INTRO_ID)
+        response = _get(client, material_id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID)
 
         assert response.status_code == 200
         body = response.json()
-        assert body['availability'] == 'available'
-        assert body['goalId'] == SEED_GOAL_ID
-        assert body['skillId'] == SEED_SKILL_LOGIC_ID
-        assert body['competencyId'] == SEED_COMPETENCY_REPETITION_ID
-        assert body['materialId'] == SEED_MATERIAL_REPETITION_INTRO_ID
-        assert body['materialTitle'] == 'Por que repetir instruções?'
-        assert body['content'].startswith('Estruturas de repetição automatizam')
-        assert '```python' in body['content']
+        assert body['availability'] == 'unavailable'
+        assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
+        assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
+        assert body['competencyId'] == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+        assert body['materialId'] == SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID
+        assert 'materialTitle' not in body
+        assert 'content' not in body
+        assert 'recommendation' not in body
         assert 'material_id' not in body
         assert _event_count(postgres_database) == before_events
 
-    def test_released_material_exposes_the_recommendation_of_its_competency(
+    def test_unreleased_material_does_not_expose_a_recommendation(
         self,
         client: TestClient,
     ) -> None:
         material_response = _get(
-            client, material_id=SEED_MATERIAL_REPETITION_INTRO_ID
+            client, material_id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID
         ).json()
-        competency_response = cast(
-            'Response',
-            client.get(  # pyright: ignore[reportUnknownMemberType]
-                f'/learning/goals/{SEED_GOAL_ID}/skills/{SEED_SKILL_LOGIC_ID}'
-                f'/competencies/{SEED_COMPETENCY_REPETITION_ID}',
-                headers={'Authorization': 'Bearer test-access-token'},
-            ),
-        ).json()
+        assert material_response['availability'] == 'unavailable'
+        assert 'recommendation' not in material_response
 
-        assert material_response['recommendation'] is not None
-        assert (
-            material_response['recommendation'] == competency_response['recommendation']
-        )
-        assert (
-            material_response['recommendation']['activityId']
-            == SEED_ACTIVITY_REPETITION_MEDIUM_ID
-        )
-
-    def test_second_material_of_the_same_competency_keeps_the_same_context(
+    def test_second_unreleased_material_keeps_the_same_context(
         self,
         client: TestClient,
     ) -> None:
-        response = _get(client, material_id=SEED_MATERIAL_REPETITION_FOR_ID)
+        response = _get(client, material_id=SEED_ADAPTIVE_LAB_BOOLEAN_MATERIAL_ID)
 
         assert response.status_code == 200
         body = response.json()
-        assert body['materialTitle'] == 'Repetição com for'
-        assert body['competencyId'] == SEED_COMPETENCY_REPETITION_ID
-        assert body['content'].startswith('O laço `for` percorre')
+        assert body['availability'] == 'unavailable'
+        assert body['competencyId'] == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+        assert 'materialTitle' not in body
+        assert 'content' not in body
 
-    def test_material_of_another_competency_is_a_private_absence(
+    def test_unreleased_material_identifier_does_not_disclose_availability(
         self,
         client: TestClient,
     ) -> None:
-        response = _get(client, material_id=SEED_MATERIAL_LOGIC_ID)
+        response = _get(client, material_id='00000000000000000000000000')
 
-        assert response.status_code == 404
-        assert response.json() == {
-            'code': 'not_found',
-            'message': 'Recurso não encontrado.',
-        }
+        assert response.status_code == 200
+        body = response.json()
+        assert body['availability'] == 'unavailable'
+        assert 'materialTitle' not in body
+        assert 'content' not in body
+        assert 'recommendation' not in body
 
-    def test_material_of_another_skill_is_a_private_absence(
-        self,
-        client: TestClient,
-    ) -> None:
-        response = _get(client, material_id=SEED_MATERIAL_PYTHON_ID)
-
-        assert response.status_code == 404
-
-    def test_unreleased_competency_restricts_the_material_content(
+    def test_material_of_removed_incompatible_skill_is_a_private_absence(
         self,
         client: TestClient,
     ) -> None:
@@ -159,21 +135,34 @@ class TestGetMaterialDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _path(
-                    SEED_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
                     SEED_SKILL_PYTHON_ID,
-                    SEED_COMPETENCY_FUNCTIONS_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+                    SEED_MATERIAL_PYTHON_ID,
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert response.status_code == 404
+
+    def test_removed_incompatible_skill_is_a_private_absence(
+        self,
+        client: TestClient,
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _path(
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_SKILL_PYTHON_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                     SEED_MATERIAL_PYTHON_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
 
-        assert response.status_code == 200
-        body = response.json()
-        assert body['availability'] == 'unavailable'
-        assert 'content' not in body
-        assert 'materialTitle' not in body
-        assert 'recommendation' not in body
+        assert response.status_code == 404
 
     def test_goal_of_another_account_is_a_private_absence(
         self,
@@ -184,9 +173,9 @@ class TestGetMaterialDetailController:
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _path(
                     '01SHF000000000000000000099',
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
-                    SEED_MATERIAL_REPETITION_INTRO_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
@@ -199,10 +188,10 @@ class TestGetMaterialDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
-                    SEED_MATERIAL_REPETITION_INTRO_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID,
                 )
             ),
         )
@@ -218,9 +207,9 @@ class TestGetMaterialDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                     'not-a-valid-id',
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
@@ -235,9 +224,9 @@ def _get(client: TestClient, *, material_id: str) -> 'Response':
         'Response',
         client.get(  # pyright: ignore[reportUnknownMemberType]
             _path(
-                SEED_GOAL_ID,
-                SEED_SKILL_LOGIC_ID,
-                SEED_COMPETENCY_REPETITION_ID,
+                SEED_ADAPTIVE_LAB_GOAL_ID,
+                SEED_ADAPTIVE_LAB_SKILL_ID,
+                SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                 material_id,
             ),
             headers={'Authorization': 'Bearer test-access-token'},

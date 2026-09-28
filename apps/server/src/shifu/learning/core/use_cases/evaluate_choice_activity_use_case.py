@@ -274,8 +274,6 @@ class EvaluateChoiceActivityUseCase:
                     if result.is_correct
                     else criterion.incorrect_score
                 )
-        if not observation_scores:
-            raise InvalidAttemptError
         catalog_concept_ids = {
             concept.id
             for competency in catalog.competencies
@@ -300,9 +298,10 @@ class EvaluateChoiceActivityUseCase:
         existing = repositories.concept_observations.find_many_by_attempt_id(attempt.id)
         if existing:
             raise InvalidAttemptError
-        repositories.concept_observations.add_many(
-            experience.id, attempt.competency_id, observations
-        )
+        if observations:
+            repositories.concept_observations.add_many(
+                experience.id, attempt.competency_id, observations
+            )
 
         if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
             repositories.activity_evaluations.update(evaluation)

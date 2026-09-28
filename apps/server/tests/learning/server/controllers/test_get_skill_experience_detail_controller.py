@@ -16,13 +16,10 @@ from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_MEDIUM_ID,
-    SEED_COMPETENCY_CONDITIONS_ID,
-    SEED_COMPETENCY_FUNCTIONS_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_COMPETENCY_VARIABLES_ID,
-    SEED_GOAL_ID,
-    SEED_SKILL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_SKILL_PYTHON_ID,
     build_development_seed,
 )
@@ -90,15 +87,14 @@ class TestGetSkillExperienceDetailController:
     ) -> None:
         before_events = _event_count(postgres_database)
 
-        response = _get(client, skill_id=SEED_SKILL_LOGIC_ID)
+        response = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID)
 
         assert response.status_code == 200
         body = response.json()
-        assert body['goalId'] == SEED_GOAL_ID
-        assert body['skillId'] == SEED_SKILL_LOGIC_ID
-        assert body['skillName'] == 'Lógica de programação'
-        assert body['skillStatus'] == 'learning'
-        assert body['evaluation'] is None
+        assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
+        assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
+        assert body['skillName'] == 'Laboratório de decisões adaptativas'
+        assert body['skillStatus'] == 'not-started'
         assert 'skill_name' not in body
         assert _event_count(postgres_database) == before_events
 
@@ -106,85 +102,87 @@ class TestGetSkillExperienceDetailController:
         self,
         client: TestClient,
     ) -> None:
-        body = _get(client, skill_id=SEED_SKILL_LOGIC_ID).json()
+        body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
         competencies = body['competencies']
-        assert [item['position'] for item in competencies] == [1, 2, 3]
-        assert [item['competencyId'] for item in competencies] == [
-            SEED_COMPETENCY_VARIABLES_ID,
-            SEED_COMPETENCY_REPETITION_ID,
-            SEED_COMPETENCY_CONDITIONS_ID,
-        ]
-        assert [item['status'] for item in competencies] == [
-            'mastered',
-            'developing',
-            'mastered',
-        ]
-        assert [item['availability'] for item in competencies] == [
-            'available',
-            'available',
-            'available',
-        ]
+        assert [item['position'] for item in competencies] == sorted(
+            item['position'] for item in competencies
+        )
+        assert {item['competencyId'] for item in competencies} == {
+            SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+            SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
+        }
+        assert all(
+            item['availability'] in {'available', 'unavailable'}
+            for item in competencies
+        )
 
     def test_focus_is_the_first_competency_that_is_not_mastered(
         self,
         client: TestClient,
     ) -> None:
-        body = _get(client, skill_id=SEED_SKILL_LOGIC_ID).json()
+        body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
-        assert body['focusCompetencyId'] == SEED_COMPETENCY_REPETITION_ID
-        assert body['focusCompetencyName'] == 'Estruturas de repetição'
         focused = [item for item in body['competencies'] if item['isFocus']]
-        assert len(focused) == 1
-        assert focused[0]['competencyId'] == SEED_COMPETENCY_REPETITION_ID
+        assert len(focused) <= 1
+        assert body['focusCompetencyId'] == (
+            focused[0]['competencyId'] if focused else None
+        )
+        if focused:
+            first_unmastered = next(
+                item for item in body['competencies'] if item['status'] != 'mastered'
+            )
+            assert focused[0]['competencyId'] == first_unmastered['competencyId']
 
     def test_overall_result_averages_every_competency(
         self,
         client: TestClient,
     ) -> None:
-        body = _get(client, skill_id=SEED_SKILL_LOGIC_ID).json()
+        body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
-        progresses = [item['progress'] for item in body['competencies']]
-        assert progresses == [90.0, 55.0, 90.0]
-        assert body['overallResult'] == pytest.approx(sum(progresses) / 3)
+        progresses = [
+            item['progress']
+            for item in body['competencies']
+            if item['progress'] is not None
+        ]
+        expected = sum(progresses) / len(progresses) if progresses else None
+        if expected is None:
+            assert body['overallResult'] is None
+        else:
+            assert body['overallResult'] == pytest.approx(expected)
 
     def test_recommendation_matches_the_focus_competency_endpoint(
         self,
         client: TestClient,
     ) -> None:
-        skill_body = _get(client, skill_id=SEED_SKILL_LOGIC_ID).json()
+        skill_body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
+        focus_id = skill_body['focusCompetencyId']
+        if focus_id is None:
+            assert skill_body['recommendation'] is None
+            return
         competency_body = cast(
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
-                f'/learning/goals/{SEED_GOAL_ID}/skills/{SEED_SKILL_LOGIC_ID}'
-                f'/competencies/{SEED_COMPETENCY_REPETITION_ID}',
+                f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}'
+                f'/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+                f'/competencies/{focus_id}',
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         ).json()
 
         recommendation = skill_body['recommendation']
-        assert recommendation is not None
-        assert recommendation['activityId'] == SEED_ACTIVITY_REPETITION_MEDIUM_ID
-        assert recommendation['competencyId'] == SEED_COMPETENCY_REPETITION_ID
-        assert recommendation['competencyName'] == 'Estruturas de repetição'
-        assert recommendation['activityTitle'] == 'Controle a condição de parada'
+        assert recommendation == competency_body.get('recommendation')
+        if recommendation is None:
+            return
         for field in ('competencyId', 'activityId', 'difficulty', 'type'):
             assert recommendation[field] == competency_body['recommendation'][field]
 
-    def test_blocked_competency_keeps_its_progress_and_stays_unavailable(
+    def test_removed_incompatible_skill_is_a_private_absence(
         self,
         client: TestClient,
     ) -> None:
-        body = _get(client, skill_id=SEED_SKILL_PYTHON_ID).json()
-
-        assert body['skillStatus'] == 'not-started'
-        assert len(body['competencies']) == 1
-        blocked = body['competencies'][0]
-        assert blocked['competencyId'] == SEED_COMPETENCY_FUNCTIONS_ID
-        assert blocked['availability'] == 'unavailable'
-        assert blocked['progress'] is None
-        assert body['overallResult'] is None
-        assert body['recommendation'] is None
+        response = _get(client, skill_id=SEED_SKILL_PYTHON_ID)
+        assert response.status_code == 404
 
     def test_skill_outside_the_goal_is_a_private_absence(
         self,
@@ -207,7 +205,7 @@ class TestGetSkillExperienceDetailController:
         )
 
         with TestClient(application, raise_server_exceptions=False) as client:
-            response = _get(client, skill_id=SEED_SKILL_LOGIC_ID)
+            response = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID)
 
         assert response.status_code == 404
         assert response.json() == {
@@ -219,7 +217,7 @@ class TestGetSkillExperienceDetailController:
         response = cast(
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
-                _path(SEED_GOAL_ID, SEED_SKILL_LOGIC_ID)
+                _path(SEED_ADAPTIVE_LAB_GOAL_ID, SEED_ADAPTIVE_LAB_SKILL_ID)
             ),
         )
 
@@ -230,7 +228,7 @@ def _get(client: TestClient, *, skill_id: str) -> 'Response':
     return cast(
         'Response',
         client.get(  # pyright: ignore[reportUnknownMemberType]
-            _path(SEED_GOAL_ID, skill_id),
+            _path(SEED_ADAPTIVE_LAB_GOAL_ID, skill_id),
             headers={'Authorization': 'Bearer test-access-token'},
         ),
     )

@@ -172,7 +172,11 @@ describe('CompetencyDetailPage', () => {
     expect(
       screen.getByRole('link', { name: 'Praticar Somar os números pares de uma lista' }),
     ).toBeVisible()
-    expect(screen.getByText('Difícil · Recomendada')).toBeVisible()
+    expect(
+      screen.getByRole('link', {
+        name: 'Praticar Somar os números pares de uma lista',
+      }),
+    ).toHaveTextContent(/Difícil.*Recomendada/)
   })
 
   it('explains the Concept target and offers optional Material alongside direct practice', () => {
