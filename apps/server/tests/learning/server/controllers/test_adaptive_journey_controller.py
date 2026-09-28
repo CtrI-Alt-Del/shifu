@@ -58,6 +58,7 @@ from shifu.shared.database.seed_data import (
 )
 from shifu.shared.database.sqlalchemy.settings import SeedSettings
 from shifu.shared.database.sqlalchemy.models import EventModel
+from shifu.shared.settings import get_settings
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
@@ -171,7 +172,17 @@ def _practice_until_mastered(
 def adaptive_app(
     postgres_database: PostgresDatabase,
     redis_fixture: RedisFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[FastAPI]:
+    # CI intentionally has no .env.local. Diagnostic activity snapshots are
+    # unavailable unless their revision can be signed, so give this HTTP
+    # fixture an explicit deterministic key instead of inheriting a developer's
+    # local settings file.
+    monkeypatch.setenv(
+        'DIAGNOSTIC_REVISION_HMAC_KEY',
+        'adaptive-journey-test-diagnostic-revision-key',
+    )
+    get_settings.cache_clear()
     seed = build_development_seed()
     curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum.transaction() as repositories:
@@ -187,6 +198,7 @@ def adaptive_app(
     app.state.inngest_broker = _NoopBroker()
     yield app
     app.dependency_overrides.clear()
+    get_settings.cache_clear()
 
 
 def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
@@ -258,7 +270,11 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
                 f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
             )
             activity = _get(client, activity_path, diagnostic_headers)
-            assert activity.status_code == 200, activity.text
+            assert activity.status_code == 200, (
+                f'goal_id={goal_id}, skill_id={SEED_ADAPTIVE_SKILL_ID}, '
+                f'competency_id={competency_id}, activity_id={activity_id}: '
+                f'{activity.text}'
+            )
             activity_data = cast('dict[str, Any]', activity.json())
             assert activity_data['is_diagnostic'] is True
             assert activity_data['difficulty'] == expected_difficulty
@@ -473,7 +489,12 @@ class TestAdaptiveLabSeed:
             activity = activities[activity_id]
             path = f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
             response = _get(client, path, request_headers)
-            assert response.status_code == 200, response.text
+            assert response.status_code == 200, (
+                f'goal_id={SEED_ADAPTIVE_LAB_GOAL_ID}, '
+                f'skill_id={SEED_ADAPTIVE_LAB_SKILL_ID}, '
+                f'competency_id={competency_id}, activity_id={activity_id}: '
+                f'{response.text}'
+            )
             wire_questions = cast('dict[str, Any]', response.json())['questions']
             answers: list[dict[str, object]] = []
             for question, wire in zip(activity.questions, wire_questions, strict=True):
