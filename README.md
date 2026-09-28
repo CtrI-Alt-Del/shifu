@@ -38,7 +38,7 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 
 | Sprint |    Período da Sprint    |                                       Link para a documentação                                       |      Status      |
 | :----: | :---------------------: | :--------------------------------------------------------------------------------------------------: | :-------------: |
-|   01   | A definir | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-1-report.md)  | Não iniciada |
+|   01   | 15/09/2026 – 27/09/2026 | [Relatório](documentation/sprints/sprint-1.md) | Concluída |
 |   02   | A definir | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-2-report.md)  | Não iniciada |
 |   03   | A definir | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-3-report.md)  | Não iniciada |
 
@@ -89,10 +89,10 @@ O projeto ainda não possui aplicação executável. As instruções de execuç�
 
 - [PRDs do produto](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/82804737/PRD+s)
 - [Design System e Especificação de Telas](https://github.com/CtrI-Alt-Del/shifu/blob/main/design.md)
-- [DoR (Definition of Ready)](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/dor.md)
-- [DoD (Definition of Done)](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/dod.md)
-- [Estratégia de branches](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/branch-strategy.md)
-- [Padrão de commit](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/commit-pattern.md)
+- [DoR (Definition of Ready)](documentation/development/dor.md)
+- [DoD (Definition of Done)](documentation/development/dod.md)
+- [Estratégia de branches](documentation/development/branch-strategy.md)
+- [Padrão de commit](documentation/development/commit-pattern.md)
 
 ## 👷🏻 Equipe
 
