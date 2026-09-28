@@ -208,44 +208,44 @@ and isolate it from the feature change.
 
 ## Route integration tests
 
-Route behavior is tested with Playwright under:
+Routed Page and Layout behavior is tested with Playwright under the owning
+module:
 
 ```text
-apps/web/tests/routes/
+apps/web/tests/<module>/
 ```
 
-Organize route suites by bounded module, then name the file after the feature or
-route behavior:
+Name each suite after its owning Page or Layout widget in kebab-case:
 
 ```text
-apps/web/tests/routes/
+apps/web/tests/
 ├── identity/
-│   ├── colaboradores.index.test.tsx
-│   └── colaboradores.$colaboradorId.test.tsx
-└── intake/
-    └── intake.novo.test.tsx
+│   └── account-page.test.ts
+└── shared/
+    └── app-layout.test.ts
 ```
 
-When a feature exposes multiple route files, keep one test file per route file:
-`<route-file>.test.tsx`. This keeps list-route behavior separate from dynamic
-detail-route behavior and makes a failing route boundary immediately visible.
+Every routed Page and Layout owns one browser integration file named after its
+widget declaration, using `.test.ts` even when the widget is `.tsx`. A Page
+suite exercises its actual route; a Layout suite exercises the routes needed to
+verify its shared boundary. Do not name suites after route source files or URL
+segments. Follow `widget-testing-rules.md` for widget and browser test ownership.
 
-The first directory is the domain module that owns the route, not a translation
-of the URL segment. Collaborators belong to `identity` because identity owns
-users, authentication, authorization, and collaborator access management. This
-keeps route tests aligned with `documentation/modules.md`, keeps related server,
-core, UI, and browser tests discoverable together, and prevents a URL rename or
-localization from moving tests between unrelated technical areas.
+The first directory is the domain module that owns the Page or Layout, not a
+translation of the URL segment. Shared application layouts belong to `shared`.
+This keeps browser tests aligned with `documentation/modules.md` and prevents a
+URL rename or localization from moving tests between unrelated technical areas.
 
-These are browser route-integration tests, not backend end-to-end tests. Route tests
-under `apps/web/tests/routes/` must never start, call, or depend on a real backend,
+These are browser integration tests with mocked transport, not backend end-to-end
+tests. Page and Layout suites under `apps/web/tests/<module>/` must never start,
+call, or depend on a real backend,
 database, authentication service, or external service. Use `page.route` or the shared
 browser fixtures to provide deterministic mocked transport. When transport is mocked,
 the test must model the relevant response state instead of returning the same fixture
 forever. Real server persistence, authorization, and cross-tenant behavior belong in
-server/Core integration suites, not under `apps/web/tests/routes/`.
+server/Core integration suites, not in mocked Page or Layout suites.
 
-Explicit HTTP-handler integration suites outside `apps/web/tests/routes/` are a
+Explicit HTTP-handler integration suites are a
 separate boundary. An authentication-handler suite may use the local FastAPI service,
 real PostgreSQL state, and the registered web handler when that is the behavior under
 test. Such a suite must use the canonical shared Playwright fixture, wait for the
@@ -407,19 +407,20 @@ For route changes, run the checks in this order:
 
 ```bash
 pnpm --dir apps/web generate-routes
-pnpm --dir apps/web check:code
+pnpm --dir apps/web check:lint
+pnpm --dir apps/web check:architecture
 pnpm --dir apps/web check:types
-pnpm --dir apps/web test
+pnpm --dir apps/web test:unit
 ```
 
-If `check:code` reports unrelated pre-existing findings, identify them clearly;
+If a check reports unrelated pre-existing findings, identify them clearly;
 do not weaken Biome rules or edit unrelated files merely to hide the failure.
 
 For route, authentication, form, search, or REST changes, also run the focused
 browser integration suite:
 
 ```bash
-pnpm --dir apps/web test:integration tests/routes/<module>/<feature>.test.tsx
+pnpm --dir apps/web test:integration tests/<module>/<page-or-layout>.test.ts
 ```
 
 Do not skip the focused browser suite merely because unit tests pass. Record

@@ -22,6 +22,7 @@ implement-spec
              scoped Reviewers, when warranted
                        ↓
              final integrated Implementation Reviewer
+             + Visual Reviewer in parallel for design-backed UI
                        ↓
                  conclude-spec
 ```
@@ -223,19 +224,21 @@ these tables:
 
 Use the existing feature's names when a table has additional authoritative
 columns. Add a row for every CA-*, executed automated/runtime gate, VM-* and
-acceptance-relevant visual reference or supplemental state. Use stable EV-* for
+required happy-path visual reference or executed supplemental functional state. Use stable EV-* for
 evidence and CI-* for automated gates; use ACH-* for review findings. Ordinary
 evidence may be pending, passed, failed, stale or not_applicable. A manual row
-records both expected and observed behavior. Preserve failed attempts and
+records expected and observed behavior, a clear verdict, and the evidence
+limit. Preserve failed attempts and
 historical evidence rather than overwriting them.
 
 Preserve existing Evaluation evidence, failed attempts and findings. Reconcile
 missing columns or rows without deleting history. Use stable EV-* for evidence,
 CI-* for automated gates and ACH-* for accepted/rejected review findings.
 One row is required for each CA-*, each executed automated/runtime gate, each
-VM-*, each acceptance-relevant visual reference or supplemental state, and each
+VM-*, each required happy-path visual reference or executed supplemental state, and each
 finding. Use pending, passed, failed, stale or not_applicable for ordinary
-evidence. Every manual row records expected and observed behavior.
+evidence. Every manual row records expected and observed behavior, a verdict
+and the evidence limit.
 
 Do not overwrite prior evidence. Evidence captured before the latest affected
 change is historical or stale, not proof for the current candidate. Keep
@@ -319,12 +322,22 @@ When an HTTP route group changes:
 - record parity in Evaluation.
 
 When UI/browser behavior changes, use the repository Playwright CLI workflow
-and accessible role/name locators where possible. Exercise applicable keyboard,
-focus, narrow-viewport, loading, empty, error and recovery states. Inspect
-console errors, failed requests, HTTP statuses and final URLs. Capture and
-inspect a fresh screenshot for each affected design state at its exact viewport.
-Do not create a feature evidence directory or rely on a mocked transport test as
-visual/runtime proof.
+and accessible role/name locators where possible. Manually exercise required
+happy paths, including applicable keyboard, focus and narrow-viewport behavior.
+Keep each manual scenario concise and conclusive: one representative journey,
+minimal actions and artifacts, explicit pass/fail observations, and its evidence
+limit. Do not add a second account, fixture or viewport without a distinct
+acceptance claim.
+Cover loading, empty, error, recovery, concurrency and unusual outcomes with
+automated tests. Inspect console errors, failed requests, HTTP statuses and
+final URLs during the happy-path run. Capture and
+inspect fresh screenshots only for happy-path design states and viewports that
+the current Spec marks as required for visual acceptance. Exercise error, empty
+and recovery behavior through functional assertions; diagnostic screenshots
+of those states are optional when investigating a defect.
+Do not create a feature evidence directory. A rendered Playwright run with
+mocked transport can prove layout and interaction, but not authentication,
+persistence, or server behavior.
 
 Builder checks are focused feedback, not official evidence. The Orchestrator
 verifies required exits on the integrated candidate and records them in
@@ -366,11 +379,13 @@ visual maintenance changes as well as new screens.
 This is a hard completion gate. A design-backed UI task cannot be marked
 complete, a phase cannot be marked completed, Evaluation cannot be returned to
 ready, and an implementation cannot be described as design-aligned until the
-integrated candidate has a fresh Playwright CLI capture for every affected
-reference state and viewport. The Orchestrator must inspect the rendered
+integrated candidate has a fresh Playwright CLI capture for every happy-path reference
+state and viewport required for visual acceptance by the current Spec. The Orchestrator must inspect the rendered
 captures against the saved references; a Builder report, passing component
-tests, a mocked transport test, an old screenshot, matching dimensions, OCR or
-the existence of an artifact is not visual validation. If the required app,
+tests, an old screenshot, matching dimensions, OCR or the existence of an
+artifact is not visual validation. Mocked transport is suitable for required
+visual states when the current Spec explicitly permits it; it does not prove
+server behavior. If the required app,
 account, fixture or browser is unavailable, keep the task and Evaluation
 in_progress and record the environment block. Do not substitute a unit test or
 historical capture for the missing comparison.
@@ -407,7 +422,7 @@ For each affected visual surface:
    network classification in Evaluation.
 
 The final comparison must happen after all Builders are integrated and after
-the last UI edit. Inspect each reference and candidate as an image at the same
+the last UI edit. Inspect each Spec-required reference and candidate as an image at the same
 viewport/state, record the concrete differences (including intentional
 differences), and link both paths in the corresponding VM/VIS/EV row. A
 material mismatch is an unresolved implementation finding, not a design
@@ -446,8 +461,9 @@ When the Spec has a Design Contract:
 - follow the stateful widget index.tsx plus colocated hook convention;
 - keep routes thin and business decisions outside UI;
 - do not depend on live Pencil during normal implementation;
-- compare each affected state at the same viewport with Playwright CLI and
-  record one visual evidence row per reference/state; and
+- compare each Spec-required happy-path visual state at the same viewport with Playwright CLI and
+  record one visual evidence row per required reference/state; record
+  supplemental functional states without requiring visual evidence; and
 - inspect every fresh capture yourself as the Orchestrator after integration;
   do not accept a Builder's screenshot summary as the comparison;
 - require a fresh capture after the final UI change, even when an earlier
@@ -540,7 +556,7 @@ the relevant Builder wave starts:
 
 | Material risk in the Plan | Required scoped review | Minimum review boundary |
 | --- | --- | --- |
-| Design-backed UI or responsive states | Visual/UI Reviewer | Exact reference states, Playwright screenshots, focus, keyboard, overflow, console and network |
+| Design-backed UI or responsive states | Visual Reviewer at final integrated review | Required happy-path references and fresh Playwright screenshots; mobile focus, clipping and overflow |
 | REST, persistence, authorization or concurrency | Server Boundary Reviewer | Controllers, schemas, database effects, account scope and conflict behavior |
 | Provider, job, retry or once-only side effects | Runtime/Job Reviewer | Provider boundary, Inngest trace, retry/failure behavior and durable effects |
 | Two or more material boundaries | Final Integrated Reviewer | Complete candidate, cross-layer contracts and evidence freshness |
@@ -549,23 +565,30 @@ Do not activate a row merely because a package exists. The Plan must name the
 independent risk and evidence exit, and Evaluation must record `not_applicable`
 with a reason when a row is not needed.
 
-Design-backed UI work requires a scoped visual Reviewer when the Plan has a
-separate Web/UI stream. That Reviewer must inspect fresh Playwright captures at
-the exact reference states and viewports, replay responsive and keyboard paths,
-and classify console/network findings. A server-backed stream requires a scoped
+Design-backed UI work uses the repository
+`documentation/agents/visual-reviewer-agent.md` role at the final integrated
+review. The Visual Reviewer opens the required fresh captures and references
+as images and reports differences; it does not replay the manual journey or
+create more screenshots. A server-backed stream requires a scoped
 boundary Reviewer when persistence, authorization, jobs or side effects are
 material. Other scopes are warranted only when the Plan records a distinct
 failure mode and independent evidence exit.
 
 After all scoped reviews and corrections, activate exactly one final integrated
-Implementation Reviewer for Plan-backed work. Give it the exact Spec revision,
+Implementation Reviewer for Plan-backed work or when the Spec explicitly
+requires one. When design-backed UI is affected,
+activate the Visual Reviewer as a separate read-only subagent **in parallel**
+with that code review on the same candidate revision. Do not wait for one
+report before starting the other, and do not add a third serial reviewer. Give
+the Implementation Reviewer the exact Spec revision,
 Plan, Rule Pack, complete integrated diff, changed paths, required file/widget
 tree, design references, REST-client artifacts, current Evaluation index,
 required services/fixtures and known risks. It checks cross-Builder contracts,
 full Spec conformance, stale or unsupported evidence, and the highest-risk
 responsive, accessibility, console, network, authorization, persistence and
-side-effect interactions. It must independently inspect the visual evidence;
-scoped review reports do not replace the final integrated review.
+side-effect interactions. The Visual Reviewer owns image comparison; the code
+reviewer checks the presence and freshness of visual evidence without
+duplicating the comparison. Both reports are required for design-backed UI.
 
 Direct execution does not require Reviewers unless the Spec or repository
 authority explicitly requires one. Do not substitute or reactivate the Spec
@@ -576,8 +599,8 @@ resolve Contract ambiguity. Their reports are not evidence. The Orchestrator
 verifies each finding, records accepted ACH-* entries, invalidates affected
 evidence, resumes the responsible Builder and reruns the affected exits. Resume
 the same scoped Reviewer after a correction that remains within its boundary;
-activate the final integrated Reviewer again after any correction that changes
-cross-boundary behavior or final visual evidence. Give every Reviewer the
+reactivate the affected final reviewer after a correction, and both in parallel
+when the correction changes code and visual evidence. Give every Reviewer the
 current conformance record and Evaluation index; none replaces those records
 with an unrecorded personal verdict.
 
@@ -604,15 +627,18 @@ After all implementation work is complete:
    shared configuration when affected;
 5. preflight actual services, database/auth/provider state, accounts and
    fixtures;
-6. execute every applicable VM-* with the Playwright CLI or the real boundary
-   required by the Spec;
+6. execute every happy-path VM-* marked required by the current Spec with the
+   Playwright CLI or the real boundary it requires; investigate negative cases
+   manually only to diagnose a concrete defect, without adding a delivery gate;
 7. verify every affected REST-client file against its controller route group
    and shared request schemas;
-8. inspect every CA-* and every supplied/required supplemental screenshot with
-   exact viewport/state, console/network, accessibility, layout and persistence
-   evidence;
-9. activate and complete all applicable scoped Reviewers, then the final
-   integrated Implementation Reviewer when Plan-backed;
+8. inspect evidence for every CA-* and every required happy-path or actually
+   captured diagnostic screenshot, with exact viewport/state,
+   console/network, accessibility, layout and persistence evidence as applicable;
+9. activate and complete applicable scoped Reviewers, then launch the final
+   integrated Implementation Reviewer and Visual Reviewer in parallel for
+   design-backed UI when the Plan or Spec requires review; for other
+   Plan-backed work, launch the integrated reviewer;
 10. verify and classify every Reviewer finding; and
 11. record all commands, captures, parity results, findings and resolutions in
     Evaluation.
@@ -623,7 +649,7 @@ non-repeatable, times out or fails is a blocking validation finding. Stop
 unrelated feature implementation until the environment or implementation changes
 and the scenario is freshly rerun.
 
-The final integrated Reviewer must confirm that every applicable scoped review
+The Orchestrator must confirm that every applicable scoped and final review
 has a current result, that no affected evidence predates the last correction,
 and that every `BLOCKED` or `FAIL` result has a recorded resolution and rerun.
 

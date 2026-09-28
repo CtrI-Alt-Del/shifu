@@ -182,7 +182,8 @@ evidence is current for the exact implementation revision and identifies:
 - runtime request/response, persistence, authorization and side effects when
   server-backed;
 - manual route, viewport, account/fixture, actions and expected result when
-  VM-* applies;
+  VM-* applies, with concise observed evidence, a pass/fail verdict and the
+  check's evidence limit;
 - visual reference, exact state/viewport, fresh screenshot/artifact path and
   inspected differences when design-backed; and
 - relevant ACH-* findings, stale evidence and resolution.
@@ -218,12 +219,16 @@ persistence or authorization evidence.
 For every affected UI or browser surface, verify:
 
 - exact Spec widget hierarchy and expected file tree;
-- all required supplied and supplemental design states at their exact viewport;
-- loading, empty, success, error, recovery, disabled, selected and pending
-  behavior where applicable;
+- happy-path design states and viewports required for visual acceptance by
+  the current Spec; supplemental states are checked with functional evidence
+  when executed or when a concrete finding requires them;
+- success, selected, keyboard and focus behavior on required manual happy
+  paths; loading, empty, error, recovery, disabled and pending behavior through
+  automated tests where applicable;
 - semantic names, focus order, keyboard path, focus visibility, reduced motion,
   responsive/narrow-viewport behavior and pt-BR visible labels;
-- fresh Playwright CLI screenshots for each acceptance-relevant design state;
+- fresh Playwright CLI screenshots for each happy-path design state and
+  viewport the current Spec marks as required for visual acceptance;
 - console errors, failed requests, HTTP statuses and final URL; and
 - persistence/authentication/navigation effects that matter to the criterion.
 
