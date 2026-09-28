@@ -76,6 +76,9 @@ describe('AppLayout', () => {
       '/intelligence',
     )
     expect(screen.getByText('Page content')).toBeVisible()
+    expect(screen.getByText('Page content').closest('main')?.parentElement).toHaveClass(
+      'bg-transparent',
+    )
     expect(screen.getByRole('button', { name: 'Abrir menu da conta' })).toBeVisible()
   })
 

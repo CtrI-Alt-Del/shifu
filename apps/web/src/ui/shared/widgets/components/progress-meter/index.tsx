@@ -12,6 +12,7 @@ export const ProgressMeter = ({
   value,
 }: ProgressMeterProps) => {
   const boundedValue = Math.min(100, Math.max(0, value))
+  const displayValue = Math.round(boundedValue)
   const toneClassName = tone === 'success' ? 'text-success' : 'text-primary'
   const fillClassName = tone === 'success' ? 'bg-success' : 'bg-primary'
 
@@ -24,7 +25,7 @@ export const ProgressMeter = ({
           }
         >
           <span className='font-semibold text-foreground'>{label}</span>
-          <span className={`font-bold ${toneClassName}`}>{boundedValue}%</span>
+          <span className={`font-bold ${toneClassName}`}>{displayValue}%</span>
         </div>
       ) : null}
       <div
@@ -32,6 +33,7 @@ export const ProgressMeter = ({
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={boundedValue}
+        aria-valuetext={`${displayValue}%`}
         className={`${compact ? 'h-1' : 'h-2.5'} overflow-hidden rounded-full bg-muted`}
         role='progressbar'
       >

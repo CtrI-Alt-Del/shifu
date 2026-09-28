@@ -20,15 +20,18 @@ class SkillExperienceDetail:
     skill_id: str
     skill_name: str
     skill_status: SkillExperienceStatus
-    overall_result: Decimal
+    overall_result: Decimal | None
     focus_competency_id: str | None
     focus_competency_name: str | None
     competencies: tuple[SkillCompetencySummary, ...]
     recommendation: SkillRecommendation | None
     evaluation: SkillEvaluationState | None
+    overall_coverage_complete: bool = False
+    recommendation_gap: str | None = None
 
     def __post_init__(self) -> None:
-        require_percentage(self.overall_result)
+        if self.overall_result is not None:
+            require_percentage(self.overall_result)
         positions = [competency.position for competency in self.competencies]
         if positions != sorted(positions):
             raise ValueError('Competencies follow the curricular order.')

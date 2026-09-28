@@ -81,7 +81,10 @@ describe('GoalsListSection', () => {
     })
     render(<GoalsListSection />)
 
-    expect(screen.getByRole('status')).toHaveTextContent('Carregando seus objetivos...')
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Carregando seus objetivos...')
+    expect(status.querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
+    expect(screen.queryByText('0 objetivos')).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })

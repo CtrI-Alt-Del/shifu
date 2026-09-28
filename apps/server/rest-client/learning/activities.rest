@@ -5,7 +5,7 @@
 @competencyId = 01SHF000000000000000000020
 @activityId = 01SHF000000000000000000023
 @attemptId = replace-with-submitted-attempt-id
-@submissionKey = 75e29c3d-8bc2-4e4d-9103-cc747a170012
+@submissionKey = 75e29c3d-8bc2-4e4d-9103-cc747a170011
 @activityRevision = replace-with-activity-revision-from-get
 @codeQuestionKey = replace-with-stdin-question-key
 
@@ -59,23 +59,34 @@ Authorization: Bearer {{accessToken}}
 @adaptiveCompetencyId = 01SHF000000000000000000033
 @firstDiagnosticActivityId = 01SHF000000000000000000036
 @diagnosticAttemptId = replace-with-submitted-diagnostic-attempt-id
+@diagnosticRunId = 75e29c3d-8bc2-4e4d-9103-cc747a170011
+@diagnosticSubmissionKey = 75e29c3d-8bc2-4e4d-9103-cc747a170014
 
-### Get the currently offered diagnostic Activity after starting the adaptive Skill
+### Get any diagnostic Activity in the activitySequence before final submission
 GET {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}
 Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
 
-### Submit one diagnostic answer; result_url points to the consolidated overview
-POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}/attempts
+### Submit all diagnostic Activities once at the end (repeat the same key/body for replay)
+### Include every ordered item from GET /diagnostic; this one-item body is a template only.
+POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/diagnostic/submissions
 Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}
 Content-Type: application/json
 
 {
-  "submission_key": "replace-with-new-uuid",
-  "answers": [
-    { "question_key": "q1", "selected_option_keys": ["a"] }
+  "submission_key": "{{diagnosticSubmissionKey}}",
+  "items": [
+    {
+      "competency_id": "{{adaptiveCompetencyId}}",
+      "activity_id": "{{firstDiagnosticActivityId}}",
+      "activity_revision": "replace-with-opaque-revision",
+      "answers": [{ "question_key": "q1", "selected_option_keys": ["a"] }]
+    }
   ]
 }
 
 ### Retry a failed diagnostic evaluation; individual result GET stays private
 POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}/attempts/{{diagnosticAttemptId}}/retry
 Authorization: Bearer {{accessToken}}
+X-Diagnostic-Run-Id: {{diagnosticRunId}}

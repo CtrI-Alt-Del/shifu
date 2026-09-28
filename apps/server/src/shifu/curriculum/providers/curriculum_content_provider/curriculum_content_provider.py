@@ -1,5 +1,7 @@
+from dataclasses import replace
 from decimal import Decimal
 from hashlib import sha256
+import hmac
 import json
 
 from shifu.curriculum.core.domain.structures import (
@@ -11,7 +13,9 @@ from shifu.curriculum.core.domain.structures import (
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
 )
-from shifu.curriculum.core.domain.structures.skill_v2_coverage import v2_coverage_gaps
+from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
+    diagnostic_coverage_gaps,
+)
 from shifu.curriculum.core.interfaces import CurriculumDatabase
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
@@ -46,8 +50,30 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 class DatabaseCurriculumContentProvider(CurriculumContentProvider):
-    def __init__(self, database: CurriculumDatabase) -> None:
+    def __init__(
+        self,
+        database: CurriculumDatabase,
+        diagnostic_revision_hmac_key: bytes | None = None,
+    ) -> None:
+        if (
+            diagnostic_revision_hmac_key is not None
+            and len(diagnostic_revision_hmac_key) < 32
+        ):
+            raise ValueError('Diagnostic revision key must be at least 32 bytes')
         self._database: CurriculumDatabase = database
+        self._diagnostic_revision_hmac_key: bytes | None = (
+            diagnostic_revision_hmac_key or None
+        )
+
+    def _diagnostic_revision(self, evaluator_content: object) -> str | None:
+        key = self._diagnostic_revision_hmac_key
+        if key is None:
+            return None
+        payload = Serialization.serialize_value(evaluator_content)
+        canonical = json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, separators=(',', ':')
+        ).encode()
+        return hmac.new(key, canonical, sha256).hexdigest()
 
     def get_material_content(
         self, material_id: str
@@ -301,7 +327,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 id=snapshot.id,
                 name=snapshot.name,
                 competencies=snapshot.competencies,
-                v2_coverage_gaps=v2_coverage_gaps(snapshot),
+                v2_coverage_gaps=diagnostic_coverage_gaps(snapshot),
             )
 
     def get_choice_activity(
@@ -395,7 +421,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 or {part.question_key for part in parts} != keys
             ):
                 return None
-            return CurriculumChoiceActivitySnapshot(
+            snapshot = CurriculumChoiceActivitySnapshot(
                 id=activity.id,
                 competency_id=activity.competency_id,
                 difficulty=activity.difficulty.value,
@@ -405,25 +431,57 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 required_concept_ids=activity.required_concept_ids,
                 activity_type=activity.activity_type.value,
             )
+            if activity.activity_type.value != 'diagnostic':
+                return snapshot
+            revision = self._diagnostic_revision(
+                (
+                    activity.id,
+                    activity.competency_id,
+                    activity.difficulty.value,
+                    activity.title,
+                    tuple(questions),
+                    parts,
+                    activity.required_concept_ids,
+                    activity.activity_type.value,
+                    1,
+                )
+            )
+            if revision is None:
+                return None
+            return replace(snapshot, diagnostic_revision=revision)
 
     def get_learning_activity(
         self, activity_id: str
     ) -> CurriculumLearningActivitySnapshot | None:
         try:
-            return self._get_learning_activity(activity_id)
+            return self._get_activity(activity_id, 'learning')
         except (ValidationError, TypeError, KeyError, ValueError):
             return None
 
-    def _get_learning_activity(  # noqa: C901 - validates mixed content before publishing a private snapshot
+    def get_diagnostic_activity(
         self, activity_id: str
+    ) -> CurriculumLearningActivitySnapshot | None:
+        if self._diagnostic_revision_hmac_key is None:
+            return None
+        try:
+            return self._get_activity(activity_id, 'diagnostic')
+        except (ValidationError, TypeError, KeyError, ValueError):
+            return None
+
+    def _get_activity(  # noqa: C901 - validates mixed content before publishing a private snapshot
+        self, activity_id: str, activity_type: str
     ) -> CurriculumLearningActivitySnapshot | None:
         with self._database.transaction() as repositories:
             activity = repositories.activities.find_by_id(activity_id)
             if (
                 activity is None
                 or activity.id != activity_id
-                or activity.activity_type.value != 'learning'
-                or not 3 <= len(activity.questions) <= 5
+                or activity.activity_type.value != activity_type
+                or (
+                    not 3 <= len(activity.questions) <= 5
+                    if activity_type == 'learning'
+                    else not activity.questions
+                )
             ):
                 return None
             competency = repositories.competencies.find_by_id(activity.competency_id)
@@ -598,11 +656,19 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     1,
                 )
             )
-            revision = sha256(
-                json.dumps(
-                    payload, sort_keys=True, ensure_ascii=False, separators=(',', ':')
-                ).encode()
-            ).hexdigest()
+            if activity_type == 'diagnostic':
+                revision = self._diagnostic_revision(payload)
+                if revision is None:
+                    return None
+            else:
+                revision = sha256(
+                    json.dumps(
+                        payload,
+                        sort_keys=True,
+                        ensure_ascii=False,
+                        separators=(',', ':'),
+                    ).encode()
+                ).hexdigest()
             return CurriculumLearningActivitySnapshot(
                 id=activity.id,
                 competency_id=activity.competency_id,
@@ -614,6 +680,9 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 activity_type=activity.activity_type.value,
                 schema_version=1,
                 revision=revision,
+                diagnostic_revision=(
+                    revision if activity_type == 'diagnostic' else None
+                ),
             )
 
     def get_skill_overviews(

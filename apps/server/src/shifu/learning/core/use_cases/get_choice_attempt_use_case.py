@@ -2,7 +2,6 @@ from datetime import timedelta
 from decimal import Decimal
 
 from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityDifficulty,
@@ -133,33 +132,12 @@ class GetChoiceAttemptUseCase:
                 evaluation,
             )
             detail = self._result_detail(attempt, evaluation, disclosure)
-            next_action_context = (
-                experience.skill_id,
-                progress.current_progress
-                if progress is not None and progress.current_progress is not None
-                else (progress.initial_progress if progress is not None else None),
-                tuple(all_attempts),
-                tuple(all_evaluations),
-            )
-            is_adaptive = experience.policy_id == AdaptiveLearningPolicy.policy_id
             score = evaluation.score
             progress_before = evaluation.progress_before
             progress_after = evaluation.progress_after
             status_before = evaluation.status_before
             status_after = evaluation.status_after
 
-        recommendation = None
-        if not is_adaptive:
-            skill_content = self._curriculum_content_provider.get_skill_content(
-                next_action_context[0]
-            )
-            recommendation = self._recommendation(
-                skill_content,
-                competency_id,
-                next_action_context[1],
-                next_action_context[2],
-                next_action_context[3],
-            )
         return ChoiceAttemptDetail(
             attempt_id=attempt.id,
             activity_id=attempt.activity_id,
@@ -171,7 +149,7 @@ class GetChoiceAttemptUseCase:
             progress_after=progress_after,
             status_before=status_before,
             status_after=status_after,
-            next_action=recommendation,
+            next_action=None,
             questions=detail,
         )
 

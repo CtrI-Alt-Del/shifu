@@ -24,10 +24,15 @@ from shifu.shared.core.domain.errors import (
     ValidationError,
 )
 from shifu.shared.core.domain.structures import (
+    CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCompetencySnapshot,
+    CurriculumConceptSnapshot,
+    CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -65,6 +70,16 @@ def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
             ),
             correct_explanation='Correta',
             incorrect_explanation='Incorreta',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id=f'concept-{index}',
+                    criterion='Critério observável',
+                    examples='Exemplo',
+                    limits='Limite',
+                    correct_score=Decimal('100'),
+                    incorrect_score=Decimal('0'),
+                ),
+            ),
         )
         for index in range(1, 4)
     )
@@ -81,6 +96,7 @@ def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
             )
             for index, weight in enumerate(('34', '33', '33'), 1)
         ),
+        required_concept_ids=('concept-1', 'concept-2', 'concept-3'),
     )
 
 
@@ -109,6 +125,7 @@ class TestSubmitChoiceActivityUseCase:
         self.experience = SkillExperienceFaker.fake(
             id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
         )
+        self.experience.status = SkillExperienceStatus.LEARNING
         self.progress = CompetencyProgress(
             id='progress-1',
             skill_experience_id=EXPERIENCE_ID,
@@ -127,6 +144,50 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = None
         self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
         self.provider.get_choice_activity.return_value = choice_snapshot()
+        self.provider.get_skill_content.return_value = CurriculumSkillSnapshot(
+            id=SKILL_ID,
+            name='Habilidade',
+            competencies=(
+                CurriculumCompetencySnapshot(
+                    id=COMPETENCY_ID,
+                    skill_id=SKILL_ID,
+                    name='Competência',
+                    position=1,
+                    concepts=tuple(
+                        CurriculumConceptSnapshot(
+                            id=f'concept-{index}',
+                            competency_id=COMPETENCY_ID,
+                            name=f'Conceito {index}',
+                            position=index,
+                            prerequisite_ids=(),
+                            observation_criteria='Critério observável',
+                        )
+                        for index in range(1, 4)
+                    ),
+                    items=(
+                        CurriculumActivitySnapshot(
+                            id=ACTIVITY_ID,
+                            title='Atividade',
+                            activity_type='learning',
+                            difficulty='easy',
+                            position=1,
+                            concept_ids=('concept-1', 'concept-2', 'concept-3'),
+                            required_concept_ids=(
+                                'concept-1',
+                                'concept-2',
+                                'concept-3',
+                            ),
+                            question_count_by_concept=(
+                                ('concept-1', 1),
+                                ('concept-2', 1),
+                                ('concept-3', 1),
+                            ),
+                            executable_concept_evidence=True,
+                        ),
+                    ),
+                ),
+            ),
+        )
         self.subject = SubmitChoiceActivityUseCase(
             self.database, self.provider, self.clock, self.ids
         )
@@ -177,7 +238,6 @@ class TestSubmitChoiceActivityUseCase:
     def test_should_reject_v2_choice_without_trusted_live_concept_criteria(
         self,
     ) -> None:
-        self.experience.policy_id = 'learning-adaptive-v2'
         self.experience.status = SkillExperienceStatus.LEARNING
         self.provider.get_skill_content.return_value = None
 
@@ -195,16 +255,12 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
-    def test_should_replay_diagnostic_key_after_experience_enters_learning(
+    def test_should_reject_diagnostic_replay_after_experience_enters_learning(
         self,
     ) -> None:
-        from shifu.learning.core.domain.entities import (
-            ActivityAttempt,
-            ActivityEvaluation,
-        )
+        from shifu.learning.core.domain.entities import ActivityAttempt
         from shifu.learning.core.domain.enums import ActivityAttemptKind
 
-        self.experience.policy_id = 'learning-adaptive-v2'
         self.experience.status = SkillExperienceStatus.LEARNING
         snapshot = choice_snapshot()
         diagnostic_snapshot = CurriculumChoiceActivitySnapshot(
@@ -231,35 +287,23 @@ class TestSubmitChoiceActivityUseCase:
             ),
             submitted_at=NOW,
             submission_key='submission-key',
+            diagnostic_run_id='diagnostic-run',
             grading_snapshot=diagnostic_snapshot,
         )
-        evaluation = ActivityEvaluation.create(
-            id='evaluation-prior',
-            attempt_id=attempt.id,
-            status=ActivityEvaluationStatus.COMPLETED,
-            parts=(),
-            started_at=NOW,
-            completed_at=NOW,
-            score=Decimal('100'),
-        )
         self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
-        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
-            evaluation
-        )
 
-        replay = self.subject.execute(
-            ACCOUNT_ID,
-            GOAL_ID,
-            SKILL_ID,
-            COMPETENCY_ID,
-            ACTIVITY_ID,
-            'submission-key',
-            answers(),
-        )
+        with pytest.raises(ConflictError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'submission-key',
+                answers(),
+                diagnostic_run_id='diagnostic-run',
+            )
 
-        assert replay.replayed
-        assert replay.is_diagnostic
-        assert replay.attempt.attempt_id == attempt.id
         self.provider.get_choice_activity.assert_not_called()
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()

@@ -22,12 +22,16 @@ export const SkillActionsMenu = ({ skillName, onRemove }: SkillActionsMenuProps)
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={`Mais ações de ${skillName}`}
-          className='size-11 min-h-0! shrink-0 rounded-md border border-control-border bg-muted p-0! text-muted-foreground hover:bg-muted hover:text-foreground'
+          className='group relative size-11 min-h-0! shrink-0 rounded-md bg-transparent p-0! text-muted-foreground hover:bg-transparent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text'
           ref={triggerRef}
           type='button'
           variant='ghost'
         >
-          <Icon name='ellipsis' size={18} />
+          <span
+            aria-hidden='true'
+            className='pointer-events-none absolute inset-1 rounded-md border border-control-border bg-muted transition-colors group-hover:bg-muted/70'
+          />
+          <Icon className='relative' name='ellipsis' size={16} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>

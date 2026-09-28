@@ -1,8 +1,7 @@
-"""Pure, versioned Learning policy. Curriculum data enters as immutable inputs."""
+"""Pure global Learning policy. Curriculum data enters as immutable inputs."""
 
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import ClassVar
 
 from shifu.learning.core.domain.enums import (
     ActivityDifficulty,
@@ -41,9 +40,7 @@ _EIGHTY_FIVE = Decimal('85')
 
 
 class AdaptiveLearningPolicy:
-    """Reconstruct v2 state and next action from accepted evidence and catalog."""
-
-    policy_id: ClassVar[str] = 'learning-adaptive-v2'
+    """Reconstruct state and next action from accepted evidence and catalog."""
 
     def evaluate(
         self,

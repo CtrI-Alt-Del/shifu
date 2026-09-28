@@ -22,7 +22,6 @@ class GoalSkillResponse(BaseModel):
     status: str
     progress: float | None
     inclusion_reason: str | None = Field(serialization_alias='inclusionReason')
-    policy_id: str = Field(serialization_alias='policyId')
 
 
 class GoalSkillRelationResponse(BaseModel):

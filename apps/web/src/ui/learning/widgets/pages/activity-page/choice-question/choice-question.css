@@ -38,6 +38,11 @@
   background: var(--accent);
 }
 
+.choice-question-options .choice-question-option:has(input:focus-visible) {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
 .choice-question-options .choice-question-option:has(input:checked)::after {
   margin-left: auto;
   color: var(--selo-text);

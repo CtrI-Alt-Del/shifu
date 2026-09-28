@@ -21,8 +21,14 @@ class CurriculumChoiceActivitySnapshot:
     parts: tuple[CurriculumChoicePartSnapshot, ...]
     required_concept_ids: tuple[str, ...] = ()
     activity_type: str = 'learning'
+    revision: str | None = None
+    diagnostic_revision: str | None = None
 
     def __post_init__(self) -> None:
+        if self.revision is not None:
+            require_non_empty(self.revision, ValidationError)
+        if self.diagnostic_revision is not None:
+            require_non_empty(self.diagnostic_revision, ValidationError)
         for name in ('id', 'competency_id', 'difficulty', 'title'):
             object.__setattr__(
                 self, name, require_non_empty(getattr(self, name), ValidationError)

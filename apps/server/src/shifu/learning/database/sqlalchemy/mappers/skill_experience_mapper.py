@@ -30,8 +30,8 @@ class SkillExperienceMapper:
                 if model.completion_summary is not None
                 else None
             ),
-            policy_id=model.policy_id,
             recommended_concept_id=model.recommended_concept_id,
+            diagnostic_run_id=model.diagnostic_run_id,
         )
 
     @staticmethod
@@ -51,6 +51,6 @@ class SkillExperienceMapper:
                 if experience.completion_summary is not None
                 else None
             ),
-            policy_id=experience.policy_id,
             recommended_concept_id=experience.recommended_concept_id,
+            diagnostic_run_id=experience.diagnostic_run_id,
         )

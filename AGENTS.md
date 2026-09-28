@@ -31,6 +31,13 @@ integrated candidate. Use descriptive names such as `identity-api-builder`,
 `learning-widget-reviewer`, or `gamification-schema-explorer`, never generic
 names such as `worker` or `subagent`.
 
+When a feature Spec requires parallel code and visual review, launch the
+read-only `implementation-reviewer-agent` and `visual-reviewer-agent` on the
+same integrated candidate. The visual agent follows
+`documentation/agents/visual-reviewer-agent.md` and uses existing required
+captures; the Orchestrator reconciles both reports without a third serial
+reviewer.
+
 ## Atlassian Shifu MCP
 
 Use Atlassian Shifu MCP for internal Jira, Confluence, and connected Atlassian
@@ -135,12 +142,14 @@ status` before operations that require private or elevated GitHub access.
 
 ## CodeGraph MCP
 
-Before exploring implementation code, check whether `.codegraph/` exists at the
-repository root. If it does, CodeGraph is a required first discovery step:
-query the relevant symbol, file, or behavior and its callers/callees with the MCP
-tool when available, or `codegraph explore "<question>"` from the shell. Inspect
-the returned source before editing. Do this before `rg`/text search or broad file
-reading; use those tools afterward to inspect the narrowed paths and details.
+Before every new exploration of implementation code, check whether `.codegraph/`
+exists at the repository root. If it does, always query the relevant symbol,
+file, or behavior and its callers/callees with the CodeGraph MCP tool when
+available, or `codegraph explore "<question>"` from the shell. Inspect the
+returned source before editing. Do this before each new `rg`/text search or
+broad file read; use those tools afterward only to inspect the paths and details
+narrowed by that CodeGraph query. An earlier query about another symbol or
+module does not replace discovery for a new code question.
 
 Repeat CodeGraph discovery when work expands to a new module or call path. Record
 the CodeGraph query and what it established in the task's working evidence. If
@@ -173,8 +182,16 @@ route, form, responsive, accessibility, authentication, or API integration
 changes. Use accessible role/name locators where possible. Inspect DOM, final
 URL, requests, console messages, viewport behavior, and keyboard paths.
 
-For rendered UI changes, capture and inspect a fresh post-change screenshot
-against the applicable design reference. A screenshot supports behavioral
+Manual validation, including browser and visual checks, covers required happy
+paths only. Verify negative cases, failures, recovery, concurrency and unusual
+outcomes with automated tests. A targeted manual investigation may help diagnose
+a concrete defect but does not become a delivery gate. Keep each required manual
+scenario concise and conclusive: one representative journey, the fewest actions
+and artifacts needed, explicit pass/fail observations, and a stated evidence
+limit. Do not add repeated accounts, fixtures or viewports without a distinct
+acceptance claim. For rendered UI changes,
+capture and inspect fresh post-change screenshots of the happy-path states and
+viewports required by the current Spec against their design references. A screenshot supports behavioral
 assertions but does not replace them. Mocked transport tests are not evidence
 that a real authenticated, persisted, or server-backed flow works.
 
@@ -195,9 +212,10 @@ that a real authenticated, persisted, or server-backed flow works.
    URL, network request, and persisted state that matter to the criterion.
 6. Inspect console errors, failed requests, and HTTP 4xx/5xx responses; classify
    each as fixed, pre-existing, or blocking.
-7. For relevant UI work, test a narrow viewport, keyboard path, focus, loading,
-   empty, error, and recovery states.
-8. Capture fresh screenshots for materially changed rendered states and record
+7. For relevant UI work, test the required happy path at a narrow viewport,
+   including keyboard navigation and focus. Cover loading, empty, error and
+   recovery states in automated tests.
+8. Capture fresh screenshots for required happy-path rendered states and record
    paths/results as Evaluation evidence.
 9. Stop application processes started for validation. Leave shared Docker
    services running unless teardown was explicitly requested.

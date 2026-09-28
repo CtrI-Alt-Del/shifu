@@ -25,6 +25,9 @@ from shifu.fakers.curriculum.entities import (
 from shifu.curriculum.core.domain.structures import (
     ActivitySequenceItem,
     ActivityQuestion,
+    CodeConceptCriterion,
+    CodeInconclusiveObservation,
+    CodeLevelObservation,
     ChoiceConceptCriterion,
     ChoiceOption,
     CodeInconclusiveComment,
@@ -59,7 +62,6 @@ from shifu.learning.core.domain.entities import (
     Goal,
     SkillExperience,
 )
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
     ActivityEvaluationFaker,
@@ -159,6 +161,10 @@ SEED_GRAPH_SKILL_IDS = (
 SEED_GRAPH_EXPERIENCE_IDS = tuple(
     f'01SHF000000000000000000{number:03d}' for number in range(210, 220)
 )
+SEED_INITIAL_DIAGNOSTIC_GOAL_ID = '01SHF000000000000000000220'
+SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID = '01SHF000000000000000000221'
+SEED_INITIAL_DIAGNOSTIC_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000222'
+SEED_INITIAL_DIAGNOSTIC_PRIORITY_PROGRESS_ID = '01SHF000000000000000000223'
 
 SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 SEED_ACCOUNT_PASSWORD: str = 'ShifuSeed123!'
@@ -276,6 +282,153 @@ def _adaptive_choice_activity(
                 )
                 for question, weight in zip(questions, weights, strict=True)
             )
+        ),
+    )
+
+
+def _adaptive_boolean_code_diagnostic(
+    *,
+    activity_id: str,
+    competency_id: str,
+    concept_id: str,
+    difficulty: ActivityDifficulty,
+    title: str,
+    objective: str,
+    requires_input: bool = True,
+) -> Activity:
+    question_key = 'q1'
+    operator = 'and' if requires_input else 'or'
+    concept_description = (
+        'Aplica E lógico para exigir senha e documento.'
+        if requires_input
+        else 'Aplica OU lógico para aceitar qualquer uma das alternativas.'
+    )
+    criterion_key = f'{operator}-logic'
+    expected_behavior = (
+        'A solução imprime true somente quando senha e documento são true.'
+        if requires_input
+        else 'A função retorna true quando ingresso ou convite é true.'
+    )
+    concept_criterion = CodeConceptCriterion(
+        concept_id=concept_id,
+        description=concept_description,
+        level_observations=tuple(
+            CodeLevelObservation(
+                id=f'seed-diagnostic-{operator}-{level}',
+                level=level,
+                evidence=(
+                    expected_behavior
+                    if level == 100
+                    else f'A implementação demonstra o nível {level} de aplicação da regra {operator.upper()}.'
+                ),
+                interpretation_limit='Avalia somente a lógica observável nesta resposta.',
+            )
+            for level in (0, 25, 50, 75, 100)
+        ),
+        inconclusive_observation=CodeInconclusiveObservation(
+            id=f'seed-diagnostic-{operator}-inconclusive',
+            text=f'Não foi possível determinar se a resposta aplica a regra {operator.upper()}.',
+        ),
+    )
+    if requires_input:
+        prompt = (
+            'Complete e execute o programa. Ele deve imprimir `true` somente quando '
+            'a pessoa tiver senha e documento. Teste combinações de `true` e `false`.'
+        )
+        initial_content = (
+            "let entrada = ''\n"
+            "process.stdin.on('data', (trecho) => { entrada += trecho })\n"
+            "process.stdin.on('end', () => {\n"
+            '  const [senha, documento] = entrada.trim().split(/\\s+/)\n'
+            "  const temSenha = senha === 'true'\n"
+            "  const temDocumento = documento === 'true'\n"
+            '  const podeEntrar = false // Complete a regra E.\n'
+            '  console.log(podeEntrar)\n'
+            '})\n'
+        )
+    else:
+        prompt = (
+            'Complete a função `podeEntrar`. O programa executa os casos abaixo '
+            'automaticamente; não é necessário ler dados de entrada. Avaliaremos '
+            'somente a lógica implementada na função.'
+        )
+        initial_content = (
+            'function podeEntrar(temIngresso, temConvite) {\n'
+            '  // Complete a regra OU.\n'
+            '  return false\n'
+            '}\n\n'
+            'const casos = [[false, false], [false, true], [true, false], [true, true]]\n'
+            'for (const [ingresso, convite] of casos) {\n'
+            '  console.log(podeEntrar(ingresso, convite))\n'
+            '}\n'
+        )
+    question = JavascriptStdinQuestion(
+        key=question_key,
+        prompt=prompt,
+        initial_files=(
+            JavascriptInitialFile(
+                path='src/main.js',
+                content=initial_content,
+                editable=True,
+            ),
+        ),
+        entrypoint='src/main.js',
+        fixed_dependencies=(),
+        permitted_commands=(
+            JavascriptPermittedCommand(
+                id='run-main',
+                executable='node',
+                arguments=('src/main.js',),
+            ),
+        ),
+        concept_criteria=(concept_criterion,),
+    )
+    rubric = CodeRubricCriterion(
+        key=criterion_key,
+        name=f'Regra {operator.upper()}',
+        description=(
+            'Exige senha e documento para permitir a entrada.'
+            if requires_input
+            else 'Permite a entrada quando houver ingresso ou convite.'
+        ),
+        weight_percentage=100,
+        required=True,
+        fixed_comments=tuple(
+            CodeRubricComment(
+                id=f'seed-diagnostic-{operator}-comment-{level}',
+                level=level,
+                text={
+                    0: 'A solução não aplica a regra lógica pedida.',
+                    25: 'A solução reconhece uma das condições, mas não aplica a regra completa.',
+                    50: 'A solução aplica parte da regra, mas falha em alguns casos.',
+                    75: 'A solução está quase correta; revise os casos de teste.',
+                    100: expected_behavior,
+                }[level],
+            )
+            for level in (0, 25, 50, 75, 100)
+        ),
+        inconclusive_comment=CodeInconclusiveComment(
+            id=f'seed-diagnostic-{operator}-rubric-inconclusive',
+            text='Não foi possível avaliar a implementação; tente enviar novamente.',
+        ),
+    )
+    return Activity(
+        id=activity_id,
+        competency_id=competency_id,
+        activity_type=ActivityType.DIAGNOSTIC,
+        difficulty=difficulty,
+        title=title,
+        objective=objective,
+        required_concept_ids=(),
+        questions=(question,),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CodeRubricEvaluationPart(
+                    question_key=question_key,
+                    weight_percentage=100,
+                    criteria=(rubric,),
+                ),
+            ),
         ),
     )
 
@@ -628,22 +781,12 @@ def _adaptive_lab_activities() -> tuple[Activity, ...]:
         (
             'Diagnóstico: regra E',
             'Exigir duas condições verdadeiras',
-            (
-                _MultipleSelectionSeedQuestion(
-                    prompt='A entrada exige senha **e** documento. Quais pessoas podem entrar?',
-                    options=(
-                        ('a', 'Ana tem senha e documento.', True),
-                        ('b', 'Beto tem apenas senha.', False),
-                        ('c', 'Cris tem documento e senha.', True),
-                        ('d', 'Dani tem apenas documento.', False),
-                    ),
-                ),
-            ),
+            (),
         ),
         (
             'Diagnóstico: regra OU',
             'Aceitar uma alternativa válida',
-            (('Basta ingresso ou convite; há convite. Entra?', 'Sim', 'Não', 'a'),),
+            (),
         ),
         (
             'Diagnóstico: negação',
@@ -912,6 +1055,39 @@ def _adaptive_lab_activities() -> tuple[Activity, ...]:
         ):
             title, objective, items = scenario
             is_diagnostic = index < 3
+            if (
+                competency_id == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+                and concept_id == SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID
+                and index == 0
+            ):
+                result.append(
+                    _adaptive_boolean_code_diagnostic(
+                        activity_id=activity_id,
+                        competency_id=competency_id,
+                        concept_id=concept_id,
+                        difficulty=difficulty,
+                        title=title,
+                        objective=objective,
+                    )
+                )
+                continue
+            if (
+                competency_id == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+                and concept_id == SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID
+                and index == 1
+            ):
+                result.append(
+                    _adaptive_boolean_code_diagnostic(
+                        activity_id=activity_id,
+                        competency_id=competency_id,
+                        concept_id=concept_id,
+                        difficulty=difficulty,
+                        title=title,
+                        objective=objective,
+                        requires_input=False,
+                    )
+                )
+                continue
             result.append(
                 _adaptive_choice_activity(
                     activity_id=activity_id,
@@ -1204,7 +1380,42 @@ def build_development_seed() -> DevelopmentSeed:
             id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID,
             skill_id=SEED_ADAPTIVE_LAB_SKILL_ID,
             title='Condições, limites e combinações',
-            content='Compare o valor com o limite e verifique se o limite é inclusivo. Em uma regra com "e", todos os requisitos devem ser verdadeiros; uma negação impede o resultado quando a condição negada ocorre.',
+            content=(
+                'Uma condição compara valores e produz `True` ou `False`. Para decidir '
+                'qual resultado será produzido, observe o operador: `==` verifica se '
+                'dois valores são iguais; `!=` verifica se são diferentes; `<` e `>` '
+                'comparam valores sem incluir o limite; `<=` e `>=` também incluem '
+                'a igualdade.\n\n'
+                'Por exemplo, se a idade mínima é 18, `idade >= idade_minima` aceita '
+                '18 e qualquer valor maior. Já `idade > idade_minima` só aceita valores '
+                'acima de 18. A diferença aparece exatamente no limite.\n\n'
+                '```python\n'
+                'idade = 18\n'
+                'idade_minima = 18\n'
+                'pode_entrar = idade >= idade_minima\n'
+                'print(pode_entrar)\n'
+                '```\n\n'
+                'Esse código imprime `True`, porque os dois valores são iguais e o '
+                'operador `>=` inclui a igualdade. Se a regra exigisse uma idade '
+                'estritamente maior que 18, o operador seria `>`.\n\n'
+                'O mesmo raciocínio vale para faixas. Para aceitar valores entre 10 e '
+                '20, incluindo as duas pontas, compare cada limite: o valor precisa ser '
+                'maior ou igual a 10 e menor ou igual a 20. Com `and`, as duas '
+                'comparações precisam ser verdadeiras.\n\n'
+                '```python\n'
+                'valor = 20\n'
+                'dentro_da_faixa = valor >= 10 and valor <= 20\n'
+                'print(dentro_da_faixa)\n'
+                '```\n\n'
+                'O resultado é `True`: 20 está no limite superior e a condição o inclui. '
+                'Com 21, a segunda comparação seria falsa e o resultado seria `False`. '
+                'Se o limite superior não fosse inclusivo, use `< 20` no lugar de '
+                '`<= 20`.\n\n'
+                'Ao analisar uma regra, substitua cada variável pelo valor recebido, '
+                'resolva cada comparação e só então combine os resultados. Confira '
+                'especialmente o valor imediatamente abaixo do limite, o próprio limite '
+                'e o valor imediatamente acima dele.'
+            ),
             material_type=MaterialType.THEORY,
             concept_ids=(SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,),
         ),
@@ -1479,6 +1690,14 @@ def build_development_seed() -> DevelopmentSeed:
             updated_at=SEED_CREATED_AT,
         ),
         Goal(
+            id=SEED_INITIAL_DIAGNOSTIC_GOAL_ID,
+            account_id=SEED_ACCOUNT_ID,
+            title='Testar diagnóstico inicial',
+            description='Percurso limpo para testar o diagnóstico nas competências, conceitos e recomendações.',
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+        ),
+        Goal(
             id=SEED_GRAPH_GOAL_ID,
             account_id=SEED_ACCOUNT_ID,
             title='Mapa de desenvolvimento de software',
@@ -1514,7 +1733,15 @@ def build_development_seed() -> DevelopmentSeed:
             status=SkillExperienceStatus.NOT_STARTED,
             created_at=SEED_CREATED_AT,
             updated_at=SEED_CREATED_AT,
-            policy_id=AdaptiveLearningPolicy.policy_id,
+        ),
+        SkillExperience(
+            id=SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID,
+            goal_id=SEED_INITIAL_DIAGNOSTIC_GOAL_ID,
+            skill_id=SEED_ADAPTIVE_LAB_SKILL_ID,
+            inclusion_reason='Testar o diagnóstico inicial em duas competências e seus conceitos.',
+            status=SkillExperienceStatus.NOT_STARTED,
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
         ),
         *(
             SkillExperience(
@@ -1572,6 +1799,24 @@ def build_development_seed() -> DevelopmentSeed:
         CompetencyProgress(
             id=SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID,
             skill_experience_id=SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+            competency_id=SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
+            content_released=False,
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+            status=CompetencyProgressStatus.LEARNING,
+        ),
+        CompetencyProgress(
+            id=SEED_INITIAL_DIAGNOSTIC_CONDITIONS_PROGRESS_ID,
+            skill_experience_id=SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID,
+            competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+            content_released=False,
+            created_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT,
+            status=CompetencyProgressStatus.LEARNING,
+        ),
+        CompetencyProgress(
+            id=SEED_INITIAL_DIAGNOSTIC_PRIORITY_PROGRESS_ID,
+            skill_experience_id=SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID,
             competency_id=SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
             content_released=False,
             created_at=SEED_CREATED_AT,
@@ -1664,21 +1909,81 @@ def build_development_seed() -> DevelopmentSeed:
         ),
     )
 
+    # Keep this development fixture usable with the existing diagnostic-readiness
+    # gate. Building the fixture does not execute the destructive db:seed command.
+    ready_skill_ids = {SEED_ADAPTIVE_SKILL_ID, SEED_ADAPTIVE_LAB_SKILL_ID}
+    retained_goal_ids = {SEED_ADAPTIVE_LAB_GOAL_ID, SEED_INITIAL_DIAGNOSTIC_GOAL_ID}
+    ready_competency_ids = {
+        competency.id
+        for competency in competencies
+        if competency.skill_id in ready_skill_ids
+    }
+    retained_experience_ids = {
+        experience.id
+        for experience in skill_experiences
+        if experience.goal_id in retained_goal_ids
+        and experience.skill_id in ready_skill_ids
+    }
+    retained_attempt_ids = {
+        attempt.id
+        for attempt in activity_attempts
+        if attempt.skill_experience_id in retained_experience_ids
+    }
+
     return DevelopmentSeed(
         accounts=(account,),
         account_action_tokens=(),
-        skills=skills,
-        skill_foundations=skill_foundations,
-        competencies=competencies,
-        concepts=concepts,
-        materials=materials,
-        activities=activities,
-        curriculum_sequences=curriculum_sequences,
-        goals=goals,
-        skill_experiences=skill_experiences,
-        competency_progresses=competency_progresses,
-        activity_attempts=activity_attempts,
-        activity_evaluations=activity_evaluations,
+        skills=tuple(skill for skill in skills if skill.id in ready_skill_ids),
+        skill_foundations=tuple(
+            foundation
+            for foundation in skill_foundations
+            if foundation.skill_id in ready_skill_ids
+            and foundation.foundation_skill_id in ready_skill_ids
+        ),
+        competencies=tuple(
+            competency
+            for competency in competencies
+            if competency.id in ready_competency_ids
+        ),
+        concepts=tuple(
+            concept
+            for concept in concepts
+            if concept.competency_id in ready_competency_ids
+        ),
+        materials=tuple(
+            material for material in materials if material.skill_id in ready_skill_ids
+        ),
+        activities=tuple(
+            activity
+            for activity in activities
+            if activity.competency_id in ready_competency_ids
+        ),
+        curriculum_sequences=tuple(
+            sequence
+            for sequence in curriculum_sequences
+            if sequence.competency_id in ready_competency_ids
+        ),
+        goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
+        skill_experiences=tuple(
+            experience
+            for experience in skill_experiences
+            if experience.id in retained_experience_ids
+        ),
+        competency_progresses=tuple(
+            progress
+            for progress in competency_progresses
+            if progress.skill_experience_id in retained_experience_ids
+        ),
+        activity_attempts=tuple(
+            attempt
+            for attempt in activity_attempts
+            if attempt.id in retained_attempt_ids
+        ),
+        activity_evaluations=tuple(
+            evaluation
+            for evaluation in activity_evaluations
+            if evaluation.attempt_id in retained_attempt_ids
+        ),
         communications=communications,
         delivery_attempts=delivery_attempts,
     )

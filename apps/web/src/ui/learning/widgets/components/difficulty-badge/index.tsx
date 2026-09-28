@@ -1,4 +1,5 @@
 import type { ActivityDifficulty } from '@/core/learning/competency-detail'
+import { DIFFICULTY_STYLES } from './difficulty-badge-styles'
 
 type DifficultyBadgeProps = { difficulty: ActivityDifficulty }
 
@@ -8,15 +9,9 @@ const DIFFICULTY_LABELS = {
   hard: 'Difícil',
 } satisfies Record<ActivityDifficulty, string>
 
-const DIFFICULTY_STYLES = {
-  easy: 'bg-success/15 text-success',
-  medium: 'bg-amber-400/15 text-amber-300',
-  hard: 'bg-danger/15 text-selo-text',
-} satisfies Record<ActivityDifficulty, string>
-
 export const DifficultyBadge = ({ difficulty }: DifficultyBadgeProps) => (
   <span
-    className={`rounded-md px-2.5 py-1 text-xs font-medium ${DIFFICULTY_STYLES[difficulty]}`}
+    className={`rounded-md px-2.5 py-1 text-xs font-medium ${DIFFICULTY_STYLES[difficulty].badge}`}
   >
     {DIFFICULTY_LABELS[difficulty]}
   </span>

@@ -2,8 +2,8 @@ from decimal import Decimal
 
 from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.enums import (
+    ActivityRecommendationType,
     CompetencyAvailability,
-    CompetencyProgressStatus,
 )
 from shifu.learning.core.domain.errors import SkillExperienceDetailNotFoundError
 from shifu.learning.core.domain.structures import (
@@ -114,6 +114,11 @@ class GetSkillExperienceDetailUseCase:
             competencies=summaries,
             recommendation=recommendation,
             evaluation=evaluation,
+            overall_coverage_complete=bool(summaries)
+            and all(item.coverage_complete for item in summaries),
+            recommendation_gap=(
+                recommendation.gap if recommendation is not None else None
+            ),
         )
 
     def _focus_recommendation(
@@ -134,6 +139,22 @@ class GetSkillExperienceDetailUseCase:
             return None
 
         recommendation = detail.recommendation
+        adaptive = detail.adaptive
+        if adaptive is not None:
+            if adaptive.activity_id is None or adaptive.difficulty is None:
+                return None
+            return SkillRecommendation(
+                competency_id=focus.id,
+                competency_name=focus.name,
+                activity_id=adaptive.activity_id,
+                activity_title=activity_titles.get(adaptive.activity_id, ''),
+                difficulty=adaptive.difficulty,
+                type=ActivityRecommendationType.NEW_ACTIVITY,
+                reason=adaptive.reason,
+                target_concept_name=adaptive.target_concept_name,
+                material_id=adaptive.material_id,
+                gap=adaptive.gap,
+            )
         if recommendation is None:
             return None
 
@@ -144,6 +165,7 @@ class GetSkillExperienceDetailUseCase:
             activity_title=activity_titles.get(recommendation.activity_id, ''),
             difficulty=recommendation.difficulty,
             type=recommendation.type,
+            reason=recommendation.type.value,
         )
 
     @staticmethod
@@ -173,34 +195,41 @@ class GetSkillExperienceDetailUseCase:
                     competency_name=competency.name,
                     position=competency.position,
                     progress=(
-                        GetCompetencyDetailUseCase.display_progress(progress)
+                        progress.current_progress
                         if progress is not None
-                        else Decimal('0')
+                        and progress.current_progress is not None
+                        else progress.initial_progress
+                        if progress is not None
+                        else None
                     ),
-                    status=(
-                        progress.status
-                        if progress is not None and progress.status is not None
-                        else CompetencyProgressStatus.LEARNING
-                    ),
+                    status=(progress.status if progress is not None else None),
                     availability=(
                         CompetencyAvailability.AVAILABLE
                         if released
                         else CompetencyAvailability.UNAVAILABLE
                     ),
                     is_focus=focus is not None and focus.id == competency.id,
+                    coverage_complete=(
+                        progress.coverage_complete if progress is not None else False
+                    ),
                 )
             )
         return tuple(summaries)
 
     @staticmethod
-    def _overall_result(summaries: tuple[SkillCompetencySummary, ...]) -> Decimal:
+    def _overall_result(
+        summaries: tuple[SkillCompetencySummary, ...],
+    ) -> Decimal | None:
         if not summaries:
-            return Decimal('0')
+            return None
+        known = tuple(item.progress for item in summaries if item.progress is not None)
+        if not known:
+            return None
         total = sum(
-            (summary.progress for summary in summaries),
+            known,
             start=Decimal('0'),
         )
-        return total / Decimal(len(summaries))
+        return total / Decimal(len(known))
 
     @staticmethod
     def _held_evaluation(

@@ -103,84 +103,14 @@ class GetCompetencyDetailUseCase:
                 for progress in progress_rows
                 if progress.skill_experience_id == skill_experience.id
             }
-            if skill_experience.policy_id == AdaptiveLearningPolicy.policy_id:
-                return self._v2_detail(
-                    repositories,
-                    skill_experience,
-                    skill_content,
-                    competency,
-                    progress_by_competency,
-                    goal_id,
-                    skill_id,
-                )
-            focus = self.find_focus(competencies, progress_by_competency)
-            focus_competency_id = focus.id if focus is not None else None
-            focus_competency_name = focus.name if focus is not None else None
-            requested_progress = progress_by_competency.get(competency.id)
-
-            if requested_progress is None or not requested_progress.content_released:
-                return UnavailableCompetencyDetail(
-                    goal_id=goal_id,
-                    skill_id=skill_id,
-                    skill_name=skill_content.name,
-                    competency_id=competency.id,
-                    competency_name=competency.name,
-                    availability=CompetencyAvailability.UNAVAILABLE,
-                    focus_competency_id=focus_competency_id,
-                    focus_competency_name=focus_competency_name,
-                )
-
-            attempts = repositories.activity_attempts.find_many_by_skill_experience_id(
-                skill_experience.id
-            )
-            learning_attempts = tuple(
-                attempt
-                for attempt in attempts
-                if attempt.skill_experience_id == skill_experience.id
-                and attempt.competency_id == competency.id
-                and attempt.kind is ActivityAttemptKind.LEARNING
-            )
-            evaluations = repositories.activity_evaluations.find_many_by_attempt_ids(
-                tuple(attempt.id for attempt in learning_attempts)
-            )
-            latest_results = self._latest_official_results(
-                learning_attempts,
-                evaluations,
-            )
-            items = self._build_items(competency, latest_results)
-            is_focus = focus is not None and focus.id == competency.id
-            focus_returned = is_focus and self._has_later_released_competency(
+            return self._v2_detail(
+                repositories,
+                skill_experience,
+                skill_content,
                 competency,
-                competencies,
                 progress_by_competency,
-            )
-            recommendation = (
-                self._recommend(
-                    competency,
-                    requested_progress,
-                    items,
-                    learning_attempts,
-                    latest_results,
-                )
-                if is_focus
-                else None
-            )
-
-            return AvailableCompetencyDetail(
-                goal_id=goal_id,
-                skill_id=skill_id,
-                skill_name=skill_content.name,
-                competency_id=competency.id,
-                competency_name=competency.name,
-                availability=CompetencyAvailability.AVAILABLE,
-                progress=self.display_progress(requested_progress),
-                status=requested_progress.status or CompetencyProgressStatus.LEARNING,
-                is_focus=is_focus,
-                focus_returned=focus_returned,
-                focus_competency_id=focus_competency_id,
-                focus_competency_name=focus_competency_name,
-                items=items,
-                recommendation=recommendation,
+                goal_id,
+                skill_id,
             )
 
     @staticmethod

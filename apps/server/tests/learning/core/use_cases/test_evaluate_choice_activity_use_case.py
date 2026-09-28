@@ -15,6 +15,7 @@ from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.errors import EvaluationUnavailableError
 from shifu.learning.core.domain.structures import (
@@ -32,12 +33,20 @@ from shifu.shared.core.interfaces import ClockProvider
 from shifu.shared.core.domain.structures import (
     CodeCriterionDecision,
     CodeRubricDecisions,
+    CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCompetencySnapshot,
+    CurriculumConceptSnapshot,
+    CurriculumSkillSnapshot,
 )
-from shifu.shared.core.interfaces import CodeRubricAssessorProvider
+from shifu.shared.core.interfaces import (
+    CodeRubricAssessorProvider,
+    CurriculumContentProvider,
+)
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
 )
@@ -72,6 +81,16 @@ def grading_snapshot() -> CurriculumChoiceActivitySnapshot:
             ),
             correct_explanation='Resposta correta.',
             incorrect_explanation='Resposta incorreta.',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id=f'concept-{index}',
+                    criterion='Critério observável',
+                    examples='Exemplo',
+                    limits='Limite',
+                    correct_score=Decimal('100'),
+                    incorrect_score=Decimal('0'),
+                ),
+            ),
         )
         for index in range(1, 4)
     )
@@ -88,6 +107,7 @@ def grading_snapshot() -> CurriculumChoiceActivitySnapshot:
             )
             for index, weight in enumerate(('50', '30', '20'), 1)
         ),
+        required_concept_ids=('concept-1', 'concept-2', 'concept-3'),
     )
 
 
@@ -104,6 +124,57 @@ class TestEvaluateChoiceActivityUseCase:
         self.goal = GoalFaker.fake(id=GOAL_ID, account_id=ACCOUNT_ID)
         self.experience = SkillExperienceFaker.fake(
             id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
+        )
+        self.experience.status = SkillExperienceStatus.LEARNING
+        self.curriculum = create_autospec(CurriculumContentProvider, instance=True)
+        self.curriculum.get_skill_content.return_value = CurriculumSkillSnapshot(
+            id=SKILL_ID,
+            name='Habilidade',
+            competencies=(
+                CurriculumCompetencySnapshot(
+                    id=COMPETENCY_ID,
+                    skill_id=SKILL_ID,
+                    name='Competência',
+                    position=1,
+                    concepts=tuple(
+                        CurriculumConceptSnapshot(
+                            id=f'concept-{index}',
+                            competency_id=COMPETENCY_ID,
+                            name=f'Conceito {index}',
+                            position=index,
+                            prerequisite_ids=(),
+                            observation_criteria='Critério observável',
+                        )
+                        for index in range(1, 4)
+                    ),
+                    items=(
+                        CurriculumActivitySnapshot(
+                            id=ACTIVITY_ID,
+                            title='Atividade',
+                            activity_type='learning',
+                            difficulty='hard',
+                            position=1,
+                            concept_ids=('concept-1', 'concept-2', 'concept-3'),
+                            required_concept_ids=(
+                                'concept-1',
+                                'concept-2',
+                                'concept-3',
+                            ),
+                            question_count_by_concept=(
+                                ('concept-1', 1),
+                                ('concept-2', 1),
+                                ('concept-3', 1),
+                            ),
+                            maximum_evidence_by_concept=(
+                                ('concept-1', 1),
+                                ('concept-2', 1),
+                                ('concept-3', 1),
+                            ),
+                            executable_concept_evidence=True,
+                        ),
+                    ),
+                ),
+            ),
         )
         self.attempt = ActivityAttempt.create(
             id='attempt-1',
@@ -151,10 +222,19 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
             self.attempt
         ]
+        self.repositories.competency_progresses.find_many_by_skill_experience_id.return_value = [
+            self.progress
+        ]
         self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
             self.evaluation
         ]
-        self.subject = EvaluateChoiceActivityUseCase(self.database, self.clock)
+        self.repositories.concept_observations.find_many_by_attempt_id.return_value = []
+        self.repositories.concept_observations.find_many_by_skill_experience_id.return_value = []
+        self.subject = EvaluateChoiceActivityUseCase(
+            self.database,
+            self.clock,
+            self.curriculum,
+        )
 
     def test_should_score_exact_sets_and_apply_weighted_result_once(self) -> None:
         self.subject.execute(self.attempt.id, 'run-1')
@@ -167,12 +247,128 @@ class TestEvaluateChoiceActivityUseCase:
             Decimal('0'),
         )
         assert self.evaluation.progress_before == Decimal('0')
-        assert self.evaluation.progress_after == Decimal('24.0')
+        assert self.evaluation.progress_after == Decimal(
+            '66.66666666666666666666666667'
+        )
         assert self.evaluation.effect_applied_at == NOW
         self.repositories.competency_progresses.update.assert_called_once_with(
             self.progress
         )
         self.repositories.events.add.assert_called_once()
+
+    def test_should_apply_diagnostic_score_provisionally_using_frozen_rubric(
+        self,
+    ) -> None:
+        self.experience.status = SkillExperienceStatus.DIAGNOSING
+        self.experience.diagnostic_run_id = 'diagnostic-run'
+        concept = CurriculumConceptSnapshot(
+            id='concept',
+            competency_id=COMPETENCY_ID,
+            name='Conceito',
+            position=1,
+            prerequisite_ids=(),
+            observation_criteria='Critério',
+        )
+        self.attempt = ActivityAttempt.create(
+            id='diagnostic-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            answers=(SingleChoiceAnswer(question_key='q', selected_option_key='a'),),
+            submitted_at=NOW,
+            submission_key='diagnostic-submission',
+            diagnostic_run_id='diagnostic-run',
+            grading_snapshot=CurriculumChoiceActivitySnapshot(
+                id=ACTIVITY_ID,
+                competency_id=COMPETENCY_ID,
+                difficulty='easy',
+                title='Diagnóstico',
+                activity_type='diagnostic',
+                required_concept_ids=('concept',),
+                questions=(
+                    CurriculumChoiceQuestionSnapshot(
+                        key='q',
+                        kind='single_choice',
+                        prompt='Pergunta?',
+                        options=(
+                            CurriculumChoiceOptionSnapshot(
+                                key='a', text='A', is_correct=True
+                            ),
+                            CurriculumChoiceOptionSnapshot(
+                                key='b', text='B', is_correct=False
+                            ),
+                        ),
+                        correct_explanation='Correta.',
+                        incorrect_explanation='Incorreta.',
+                        concept_criteria=(
+                            CurriculumChoiceConceptCriterionSnapshot(
+                                concept_id='concept',
+                                criterion='Critério',
+                                examples='Exemplos',
+                                limits='Limites',
+                                correct_score=Decimal('90'),
+                                incorrect_score=Decimal('10'),
+                            ),
+                        ),
+                    ),
+                ),
+                parts=(
+                    CurriculumChoicePartSnapshot(
+                        question_key='q', weight_percentage=Decimal('100')
+                    ),
+                ),
+            ),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = [
+            self.attempt
+        ]
+        self.evaluation = ActivityEvaluation.create(
+            id='diagnostic-evaluation',
+            attempt_id=self.attempt.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW,
+            run_id='run-1',
+        )
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = self.evaluation
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            self.evaluation
+        ]
+        self.repositories.concept_observations.find_many_by_attempt_id.return_value = []
+        curriculum = create_autospec(CurriculumContentProvider, instance=True)
+        curriculum.get_skill_content.return_value = CurriculumSkillSnapshot(
+            id=SKILL_ID,
+            name='Skill',
+            competencies=(
+                CurriculumCompetencySnapshot(
+                    id=COMPETENCY_ID,
+                    skill_id=SKILL_ID,
+                    name='Competência',
+                    position=1,
+                    concepts=(concept,),
+                    items=(),
+                ),
+            ),
+        )
+        self.subject = EvaluateChoiceActivityUseCase(
+            self.database, self.clock, curriculum
+        )
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal('100')
+        assert self.evaluation.effect_applied_at is None
+        assert self.progress.current_progress == Decimal('0')
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.skill_experiences.update.assert_not_called()
+        self.repositories.concept_observations.add_many.assert_called_once()
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        assert observations[0].concept_id == 'concept'
+        assert observations[0].diagnostic is True
+        self.repositories.events.add.assert_not_called()
 
     def test_should_ignore_stale_run_without_mutating_result_or_progress(self) -> None:
         self.subject.execute(self.attempt.id, 'stale-run')
@@ -216,7 +412,10 @@ class TestEvaluateChoiceActivityUseCase:
             concept_levels=(),
         )
         subject = EvaluateChoiceActivityUseCase(
-            self.database, self.clock, code_rubric_assessor_provider=assessor
+            self.database,
+            self.clock,
+            self.curriculum,
+            code_rubric_assessor_provider=assessor,
         )
 
         subject.execute(self.attempt.id, 'run-1')

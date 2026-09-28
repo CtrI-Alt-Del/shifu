@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
 
@@ -9,6 +10,7 @@ from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluat
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -120,6 +122,58 @@ class TestRetryChoiceEvaluationUseCase:
         event = self.repositories.events.add.call_args.args[0]
         assert event.payload.attempt_id == self.attempt.id
         assert event.payload.run_id == 'run-2'
+
+    def test_should_retry_the_same_diagnostic_answer_in_the_active_run(self) -> None:
+        self.experience.status = SkillExperienceStatus.DIAGNOSING
+        self.experience.diagnostic_run_id = 'diagnostic-run'
+        self.attempt = replace(
+            self.attempt,
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            diagnostic_run_id='diagnostic-run',
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+
+        detail = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            self.attempt.id,
+            diagnostic_run_id='diagnostic-run',
+        )
+
+        assert detail.attempt_id == self.attempt.id
+        assert self.attempt.answers == ()
+        assert self.attempt.diagnostic_run_id == 'diagnostic-run'
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+        assert self.evaluation.run_id == 'run-2'
+        event = self.repositories.events.add.call_args.args[0]
+        assert event.payload.attempt_id == self.attempt.id
+        assert event.payload.run_id == 'run-2'
+
+    def test_should_reject_diagnostic_retry_with_a_stale_run_key(self) -> None:
+        self.experience.status = SkillExperienceStatus.DIAGNOSING
+        self.experience.diagnostic_run_id = 'current-run'
+        self.attempt = replace(
+            self.attempt,
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            diagnostic_run_id='old-run',
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+
+        with pytest.raises(ConflictError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                self.attempt.id,
+                diagnostic_run_id='old-run',
+            )
+
+        self.repositories.events.add.assert_not_called()
 
     def test_should_reject_retry_when_evaluation_is_not_failed(self) -> None:
         self.evaluation.status = ActivityEvaluationStatus.PENDING

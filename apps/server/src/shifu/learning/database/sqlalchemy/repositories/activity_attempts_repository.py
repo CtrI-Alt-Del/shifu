@@ -58,6 +58,21 @@ class SqlalchemyActivityAttemptsRepository:
         ).all()
         return [ActivityAttemptMapper.to_domain(model) for model in models]
 
+    def find_many_by_skill_experience_id_and_diagnostic_run_id(
+        self,
+        skill_experience_id: str,
+        diagnostic_run_id: str,
+    ) -> list[ActivityAttempt]:
+        models = self._session.scalars(
+            select(ActivityAttemptModel)
+            .where(
+                ActivityAttemptModel.skill_experience_id == skill_experience_id,
+                ActivityAttemptModel.diagnostic_run_id == diagnostic_run_id,
+            )
+            .order_by(ActivityAttemptModel.submitted_at)
+        ).all()
+        return [ActivityAttemptMapper.to_domain(model) for model in models]
+
     def find_many_by_skill_experience_id_and_activity_id(
         self,
         skill_experience_id: str,
@@ -79,6 +94,14 @@ class SqlalchemyActivityAttemptsRepository:
     def add_many(self, attempts: list[ActivityAttempt]) -> None:
         self._session.add_all(
             [ActivityAttemptMapper.to_model(attempt) for attempt in attempts]
+        )
+
+    def remove_diagnostic_by_experience(self, skill_experience_id: str) -> None:
+        self._session.execute(
+            delete(ActivityAttemptModel).where(
+                ActivityAttemptModel.skill_experience_id == skill_experience_id,
+                ActivityAttemptModel.kind == ActivityAttemptKind.DIAGNOSTIC.value,
+            )
         )
         self._session.flush()
 

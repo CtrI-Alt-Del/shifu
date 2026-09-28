@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 import atexit
@@ -11,7 +12,7 @@ from typing import ClassVar, cast
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
 
-from shifu.curriculum.core.domain.entities import Activity
+from shifu.curriculum.core.domain.entities import Activity, Concept
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
     ChoiceOption,
@@ -19,7 +20,10 @@ from shifu.curriculum.core.domain.structures import (
     CodeRubricComment,
     CodeRubricCriterion,
     CodeRubricEvaluationPart,
+    ChoiceConceptCriterion,
+    ActivitySequenceItem,
     CorrectnessEvaluationPart,
+    CurriculumSequence,
     EvaluationRule,
     JavascriptInitialFile,
     JavascriptStdinQuestion,
@@ -51,6 +55,7 @@ from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
@@ -251,6 +256,152 @@ class TestEvaluateChoiceActivityJob:
             assert failed.effect_applied_at is None
             assert _evaluated_event_count(engine) == 1
 
+            concept_id = ids.generate()
+            diagnostic_activity = ActivityFaker.fake(
+                competency_id=activity.competency_id,
+                activity_type=ActivityType.DIAGNOSTIC,
+                difficulty=ActivityDifficulty.EASY,
+                questions=tuple(
+                    replace(
+                        question,
+                        concept_criteria=(
+                            ChoiceConceptCriterion(
+                                concept_id=concept_id,
+                                criterion='Identifies the concept rule.',
+                                examples='Expected answer',
+                                limits='Choice responses do not assess code.',
+                                correct_score=100,
+                                incorrect_score=0,
+                            ),
+                        ),
+                    )
+                    for question in activity.questions
+                ),
+            )
+            curriculum_database = SqlalchemyCurriculumDatabase(engine)
+            with curriculum_database.transaction() as repositories:
+                repositories.concepts.add_many(
+                    [
+                        Concept(
+                            id=concept_id,
+                            competency_id=activity.competency_id,
+                            name='Diagnostic concept',
+                            description='A concept used to verify provisional scoring.',
+                            position=2,
+                            observation_criteria='Observe the correct choice.',
+                        )
+                    ]
+                )
+                repositories.activities.add_many([diagnostic_activity])
+
+            diagnostic_run_id = ids.generate()
+            with database.transaction() as repositories:
+                diagnostic_experience = repositories.skill_experiences.find_by_id(
+                    experience.id
+                )
+                assert diagnostic_experience is not None
+                diagnostic_experience.status = SkillExperienceStatus.DIAGNOSING
+                diagnostic_experience.diagnostic_run_id = diagnostic_run_id
+                repositories.skill_experiences.update(diagnostic_experience)
+
+            diagnostic_attempt, diagnostic_evaluation, diagnostic_event = _add_attempt(
+                database,
+                provider,
+                ids,
+                diagnostic_activity.id,
+                experience.id,
+                now,
+                valid_answers=True,
+                publish_to_outbox=True,
+                kind=ActivityAttemptKind.DIAGNOSTIC,
+                diagnostic_run_id=diagnostic_run_id,
+            )
+            inngest_fixture.wait_for_log(
+                f'choice_activity_job_completed attempt_id={diagnostic_attempt.id} '
+                f'run_id={diagnostic_evaluation.run_id}'
+            )
+            provisional = _evaluation(database, diagnostic_attempt.id)
+            assert provisional.status is ActivityEvaluationStatus.COMPLETED
+            assert provisional.score == 100
+            assert provisional.effect_applied_at is None
+            assert _progress_current(engine) == progress_after_completion
+            assert _evaluated_event_count(engine) == 1
+            assert _outbox_status(engine, diagnostic_event.name) == 'published'
+
+            stale_diagnostic_run_id = ids.generate()
+            stale_diagnostic_attempt, stale_diagnostic_evaluation, _ = _add_attempt(
+                database,
+                provider,
+                ids,
+                diagnostic_activity.id,
+                experience.id,
+                now,
+                valid_answers=True,
+                publish_to_outbox=False,
+                kind=ActivityAttemptKind.DIAGNOSTIC,
+                diagnostic_run_id=stale_diagnostic_run_id,
+            )
+            with database.transaction() as repositories:
+                diagnostic_experience = repositories.skill_experiences.find_by_id(
+                    experience.id
+                )
+                assert diagnostic_experience is not None
+                diagnostic_experience.diagnostic_run_id = ids.generate()
+                repositories.skill_experiences.update(diagnostic_experience)
+            stale_diagnostic_event = ActivitySubmissionRequestedEvent(
+                payload=ActivitySubmissionRequestedPayload(
+                    attempt_id=stale_diagnostic_attempt.id,
+                    run_id=stale_diagnostic_evaluation.run_id or '',
+                    skill_experience_id=experience.id,
+                    activity_id=diagnostic_activity.id,
+                    kind=ActivityAttemptKind.DIAGNOSTIC,
+                    requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
+                )
+            )
+            inngest_fixture.publish(
+                stale_diagnostic_event.name,
+                cast(
+                    'dict[str, object]',
+                    Serialization.serialize_value(stale_diagnostic_event.payload),
+                ),
+                event_id=ids.generate(),
+            )
+            inngest_fixture.wait_for_log(
+                f'choice_activity_job_stale_run '
+                f'attempt_id={stale_diagnostic_attempt.id} '
+                f'run_id={stale_diagnostic_evaluation.run_id}'
+            )
+            stale_diagnostic = _evaluation(database, stale_diagnostic_attempt.id)
+            assert stale_diagnostic.status is ActivityEvaluationStatus.PENDING
+            assert stale_diagnostic.score is None
+            assert _progress_current(engine) == progress_after_completion
+            assert _evaluated_event_count(engine) == 1
+
+            failed_diagnostic_attempt, failed_diagnostic_evaluation, _ = _add_attempt(
+                database,
+                provider,
+                ids,
+                diagnostic_activity.id,
+                experience.id,
+                now,
+                valid_answers=False,
+                publish_to_outbox=True,
+                kind=ActivityAttemptKind.DIAGNOSTIC,
+                diagnostic_run_id=diagnostic_experience.diagnostic_run_id,
+            )
+            inngest_fixture.wait_for_log(
+                f'choice_activity_job_failure_handled '
+                f'attempt_id={failed_diagnostic_attempt.id} '
+                f'run_id={failed_diagnostic_evaluation.run_id}'
+            )
+            failed_diagnostic = _evaluation(database, failed_diagnostic_attempt.id)
+            assert failed_diagnostic.status is ActivityEvaluationStatus.FAILED
+            assert failed_diagnostic.failure_code == 'evaluation_failed'
+            assert failed_diagnostic.score is None
+            assert failed_diagnostic.effect_applied_at is None
+            assert _progress_current(engine) == progress_after_completion
+            assert _evaluated_event_count(engine) == 1
+
             deleted_attempt, deleted_evaluation, _ = _add_attempt(
                 database,
                 provider,
@@ -420,6 +571,14 @@ def _seed(
     account = AccountFaker.fake(created_at=now)
     skill = SkillFaker.fake()
     competency = CompetencyFaker.fake(skill_id=skill.id)
+    concept = Concept(
+        id=ids.generate(),
+        competency_id=competency.id,
+        name='Choice evaluation concept',
+        description='A concept used by the learning evaluation fixture.',
+        position=1,
+        observation_criteria='Observe whether the learner identifies the rule.',
+    )
     activity = ActivityFaker.fake(
         competency_id=competency.id,
         difficulty=ActivityDifficulty.EASY,
@@ -433,6 +592,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
             MultipleSelectionQuestion(
                 key='question-two',
@@ -446,6 +615,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
             SingleChoiceQuestion(
                 key='question-three',
@@ -456,6 +635,16 @@ def _seed(
                 ),
                 correct_explanation='Correta',
                 incorrect_explanation='Incorreta',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=concept.id,
+                        criterion='Identifies the concept rule.',
+                        examples='Expected answer',
+                        limits='The answer provides limited evidence.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
             ),
         ),
     )
@@ -463,6 +652,7 @@ def _seed(
     experience = SkillExperienceFaker.fake(
         goal_id=goal.id,
         skill_id=skill.id,
+        status=SkillExperienceStatus.LEARNING,
         created_at=now,
         updated_at=now,
     )
@@ -484,12 +674,24 @@ def _seed(
         repositories.skills.add_many([skill])
         repositories.competencies.add_many([competency])
         repositories.activities.add_many([activity])
+        repositories.concepts.add_many([concept])
+        repositories.curriculum_sequences.add_many(
+            [
+                CurriculumSequence(
+                    competency_id=competency.id,
+                    items=(ActivitySequenceItem(activity_id=activity.id, position=1),),
+                )
+            ]
+        )
     learning_database = SqlalchemyLearningDatabase(engine, id_provider=ids)
     with learning_database.transaction() as repositories:
         repositories.goals.add(goal)
         repositories.skill_experiences.add_many([experience])
         repositories.competency_progresses.add(progress)
-    provider = DatabaseCurriculumContentProvider(curriculum_database)
+    provider = DatabaseCurriculumContentProvider(
+        curriculum_database,
+        diagnostic_revision_hmac_key=b'job-test-diagnostic-revision-key',
+    )
     assert provider.get_choice_activity(activity.id) is not None
     return learning_database, provider, ids, activity, experience, account.id
 
@@ -504,6 +706,20 @@ def _seed_mixed(
     SkillExperience,
 ]:
     database, provider, ids, base_activity, experience, _account_id = _seed(engine)
+    skill_content = provider.get_skill_content(experience.skill_id)
+    assert skill_content is not None
+    concept = skill_content.competencies[0].concepts[0]
+
+    def concept_criterion() -> ChoiceConceptCriterion:
+        return ChoiceConceptCriterion(
+            concept_id=concept.id,
+            criterion='Identifies the concept rule.',
+            examples='Expected answer',
+            limits='The answer provides limited evidence.',
+            correct_score=100,
+            incorrect_score=0,
+        )
+
     choice_questions = tuple(
         SingleChoiceQuestion(
             key=f'q{number}',
@@ -514,6 +730,7 @@ def _seed_mixed(
             ),
             correct_explanation='Correta',
             incorrect_explanation='Incorreta',
+            concept_criteria=(concept_criterion(),),
         )
         for number in (1, 2)
     )
@@ -645,6 +862,8 @@ def _add_attempt(
     *,
     valid_answers: bool,
     publish_to_outbox: bool,
+    kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+    diagnostic_run_id: str | None = None,
 ) -> tuple[
     ActivityAttempt,
     ActivityEvaluation,
@@ -675,10 +894,11 @@ def _add_attempt(
         skill_experience_id=experience_id,
         competency_id=snapshot.competency_id,
         activity_id=activity_id,
-        kind=ActivityAttemptKind.LEARNING,
+        kind=kind,
         answers=answers,
         submitted_at=now,
         submission_key=ids.generate(),
+        diagnostic_run_id=diagnostic_run_id,
         grading_snapshot=snapshot,
     )
     evaluation = ActivityEvaluation.create(
@@ -695,7 +915,7 @@ def _add_attempt(
             run_id=evaluation.run_id or '',
             skill_experience_id=experience_id,
             activity_id=activity_id,
-            kind=ActivityAttemptKind.LEARNING,
+            kind=kind,
             requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
         )
     )

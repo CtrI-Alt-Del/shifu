@@ -1,0 +1,32 @@
+.choice-result-pending-progress {
+  height: 3px;
+  overflow: hidden;
+  background: var(--muted);
+}
+
+.choice-result-pending-progress span {
+  display: block;
+  width: 32%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--primary);
+  animation: choice-result-pending-sweep 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes choice-result-pending-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+
+  to {
+    transform: translateX(420%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choice-result-pending-progress span {
+    width: 28%;
+    margin-inline: auto;
+    animation: none;
+  }
+}

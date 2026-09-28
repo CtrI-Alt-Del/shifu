@@ -78,6 +78,16 @@ choices as a dependency tree. The frontier is every decision whose
 prerequisites are settled. Ask the whole frontier in one numbered round and
 recommend an answer for each question:
 
+Use the format below literally in the direct user-facing message. Treat it as
+the required message structure, not an illustrative example: give each
+independent decision its own `❓ **Q<n>**` item, state the relevant choices,
+recommend one answer with `➡️`, and separate questions with `---`. Do not
+replace this with prose questions, a question tool, or a single bundled prompt.
+After each answer, recompute the dependency tree and ask the next frontier in
+the same format. When the frontier is empty, present the shared execution
+understanding and wait for the user's explicit confirmation before writing the
+Plan.
+
 ```yaml
 ❓ **Q1** - **<question title>**: <question and relevant choices>
 

@@ -17,7 +17,7 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
     accountMenu ?? (account ? <AccountMenu account={account} /> : undefined)
 
   return (
-    <div className='relative isolate min-h-screen bg-background text-foreground'>
+    <div className='relative isolate min-h-screen bg-transparent text-foreground'>
       <header className='relative z-20 border-b border-border bg-background/80'>
         <DesktopHeader
           accountMenu={renderedAccountMenu}

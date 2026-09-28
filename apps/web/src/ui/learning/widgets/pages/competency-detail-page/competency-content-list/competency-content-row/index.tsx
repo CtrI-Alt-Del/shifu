@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 import type { CompetencyDetailItem } from '@/core/learning/competency-detail'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { DIFFICULTY_STYLES } from '@/ui/learning/widgets/components/difficulty-badge/difficulty-badge-styles'
 
 const DIFFICULTY_LABELS = {
   easy: 'Fácil',
@@ -93,11 +94,25 @@ export const CompetencyContentRow = ({
             {item.title}
           </span>
           <span
-            className={`mt-1 block text-sm ${isRecommended ? 'text-selo-text' : 'text-success'}`}
+            className={`mt-1 block text-sm ${isRecommended ? 'text-selo-text' : 'text-muted-foreground'}`}
           >
-            {isRecommended
-              ? `${DIFFICULTY_LABELS[item.difficulty]} · Recomendada`
-              : metadata}
+            {isRecommended ? (
+              <>
+                {activityLabel} ·{' '}
+                <span className={DIFFICULTY_STYLES[item.difficulty].text}>
+                  {DIFFICULTY_LABELS[item.difficulty]}
+                </span>{' '}
+                · Recomendada
+              </>
+            ) : (
+              <>
+                {activityLabel} ·{' '}
+                <span className={DIFFICULTY_STYLES[item.difficulty].text}>
+                  {DIFFICULTY_LABELS[item.difficulty]}
+                </span>
+                {item.latestScore === null ? '' : ` · Nota ${item.latestScore}`}
+              </>
+            )}
           </span>
         </span>
         {isRecommended ? (

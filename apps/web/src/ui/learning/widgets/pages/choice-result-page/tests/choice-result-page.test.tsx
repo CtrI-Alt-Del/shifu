@@ -195,13 +195,14 @@ describe('ChoiceResultPage', () => {
     const pendingHeading = screen.getByRole('heading', {
       name: 'Avaliação em andamento',
     })
-    const indicatorDots = pendingHeading.querySelectorAll('[aria-hidden="true"] span')
-    expect(indicatorDots).toHaveLength(3)
-    for (const dot of indicatorDots) {
-      expect(dot).toHaveClass('motion-safe:animate-pulse', 'motion-reduce:animate-none')
-    }
+    expect(pendingHeading).toBeVisible()
+    expect(
+      screen.getByText('Você pode sair; o resultado ficará disponível aqui.'),
+    ).toBeVisible()
     expect(screen.queryByText('/ 100')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Tentar novamente' }),
+    ).not.toBeInTheDocument()
   })
 
   it('offers a retry only for an allowed failure and preserves saved answers', () => {
@@ -259,12 +260,13 @@ describe('ChoiceResultPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Resultado da Atividade' })).toBeVisible()
     expect(
-      screen.getByRole('link', { name: 'Voltar para a Habilidade' }),
+      screen.getByRole('link', { name: 'Voltar para a Competência' }),
     ).toHaveAttribute(
       'data-params',
       JSON.stringify({
         goalId: ADAPTIVE_DETAIL.goalId,
         skillId: ADAPTIVE_DETAIL.skillId,
+        competencyId: ADAPTIVE_DETAIL.competencyId,
       }),
     )
     expect(

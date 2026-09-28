@@ -6,7 +6,8 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 
 export type SkillOverviewProps = {
-  overallResult: number
+  overallResult: number | null
+  overallCoverageComplete: boolean
   skillName: string
   skillStatus: SkillExperienceStatus
   onRemove: () => void
@@ -14,6 +15,7 @@ export type SkillOverviewProps = {
 
 export const SkillOverview = ({
   overallResult,
+  overallCoverageComplete,
   skillName,
   skillStatus,
   onRemove,
@@ -25,16 +27,18 @@ export const SkillOverview = ({
           {skillName}
         </h1>
         <div className='flex flex-wrap items-center gap-4'>
-          <span className='inline-flex items-center gap-1.5 rounded-md bg-jade-tint px-2.5 py-[5px] text-xs font-semibold text-jade-text'>
-            <Icon name='circle' size={12} />
+          <span className='inline-flex items-center gap-1.5 rounded-md bg-jade-tint px-2.5 py-[5px] text-base font-semibold text-jade-text'>
+            <Icon name='circle' size={14} />
             {SKILL_STATUS_LABELS[skillStatus]}
           </span>
           <span className='inline-flex items-center gap-2 rounded-md bg-surface-alt px-2 py-1'>
-            <span className='text-[11px] font-medium text-secondary-foreground'>
+            <span className='text-sm font-medium text-secondary-foreground'>
               Resultado geral
             </span>
-            <strong className='text-base font-bold tabular-nums text-jade-text'>
-              {Math.round(overallResult)}%
+            <strong className='text-lg font-bold tabular-nums text-jade-text'>
+              {overallResult === null
+                ? 'Sem evidência'
+                : `${Math.round(overallResult)}%${overallCoverageComplete ? '' : ' · parcial'}`}
             </strong>
           </span>
         </div>

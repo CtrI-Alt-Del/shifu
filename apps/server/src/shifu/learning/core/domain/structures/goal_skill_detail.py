@@ -12,4 +12,3 @@ class GoalSkillDetail:
     status: SkillExperienceStatus
     progress: Decimal | None
     inclusion_reason: str | None
-    policy_id: str

@@ -151,7 +151,12 @@ class FastAPIApp:
             id_provider=id_provider,
         )
         curriculum_content_provider = DatabaseCurriculumContentProvider(
-            curriculum_database
+            curriculum_database,
+            diagnostic_revision_hmac_key=(
+                settings.diagnostic_revision_hmac_key.get_secret_value().encode()
+                if settings.diagnostic_revision_hmac_key is not None
+                else None
+            ),
         )
         curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
             curriculum_database

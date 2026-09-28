@@ -71,6 +71,18 @@ describe('CodeQuestion', () => {
     )
   })
 
+  it('keeps code practice available without exposing preliminary evaluation in diagnosis', () => {
+    render(<CodeQuestion question={question} onFilesChange={vi.fn()} />)
+
+    expect(screen.getByRole('group', { name: 'Editor de código' })).toBeVisible()
+    expect(screen.getByRole('group', { name: 'Terminal de prática' })).toBeVisible()
+    expect(screen.getByText(/não mostram o resultado do diagnóstico/i)).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Avaliar questão' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Como será avaliado')).not.toBeInTheDocument()
+  })
+
   it('renders named desktop separators with values and keyboard controls', () => {
     render(<CodeQuestion question={question} />)
     const sidebar = screen.getByRole('separator', {
@@ -116,7 +128,7 @@ describe('CodeQuestion', () => {
       handleResizePointerEnd: vi.fn(),
       handleResizeKeyDown: vi.fn(),
     })
-    render(<CodeQuestion question={question} />)
+    render(<CodeQuestion onAssess={vi.fn()} question={question} />)
     expect(screen.getByRole('button', { name: 'Avaliando questão…' })).toBeDisabled()
     expect(screen.getByRole('alert')).toHaveTextContent('Tente novamente')
     expect(

@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Header, Path, status
 from pydantic import BaseModel, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -56,6 +57,10 @@ class RetryChoiceEvaluationController:
                 IdentifierProvider,
                 Depends(LearningPipe.get_identifier_provider),
             ],
+            diagnostic_run_id: Annotated[
+                UUID | None,
+                Header(alias='X-Diagnostic-Run-Id'),
+            ] = None,
         ) -> Response:
             detail = RetryChoiceEvaluationUseCase(
                 database,
@@ -68,5 +73,6 @@ class RetryChoiceEvaluationController:
                 competency_id,
                 activity_id,
                 attempt_id,
+                str(diagnostic_run_id) if diagnostic_run_id is not None else None,
             )
             return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)

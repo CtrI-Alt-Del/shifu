@@ -1,0 +1,70 @@
+.home-page > * {
+  animation: home-section-enter 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-page > :nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.home-page__goals > * {
+  animation: home-goal-enter 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.home-page__goals > :nth-child(1) {
+  animation-delay: 160ms;
+}
+
+.home-page__goals > :nth-child(2) {
+  animation-delay: 205ms;
+}
+
+.home-page__goals > :nth-child(3) {
+  animation-delay: 250ms;
+}
+
+.home-page__goals > :nth-child(n + 4) {
+  animation-delay: 295ms;
+}
+
+@keyframes home-section-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-goal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page > :nth-child(n),
+  .home-page__goals > :nth-child(n) {
+    animation-name: home-page-fade-in;
+    animation-duration: 180ms;
+    animation-delay: 0ms;
+  }
+}
+
+@keyframes home-page-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}

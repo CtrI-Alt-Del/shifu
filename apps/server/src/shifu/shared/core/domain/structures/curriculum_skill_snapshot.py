@@ -15,6 +15,14 @@ class CurriculumSkillSnapshot:
     def v2_eligible(self) -> bool:
         return not self.v2_coverage_gaps and bool(self.competencies)
 
+    @property
+    def diagnostic_coverage_gaps(self) -> tuple[str, ...]:
+        return self.v2_coverage_gaps
+
+    @property
+    def diagnostic_ready(self) -> bool:
+        return self.v2_eligible
+
     def __post_init__(self) -> None:
         positions = tuple(competency.position for competency in self.competencies)
         identifiers = tuple(competency.id for competency in self.competencies)

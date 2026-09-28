@@ -21,10 +21,11 @@ class CompetencyResponse(BaseModel):
     competency_id: str = Field(serialization_alias='competencyId')
     competency_name: str = Field(serialization_alias='competencyName')
     position: int
-    progress: float
-    status: str
+    progress: float | None
+    status: str | None
     availability: str
     is_focus: bool = Field(serialization_alias='isFocus')
+    coverage_complete: bool = Field(serialization_alias='coverageComplete')
 
 
 class RecommendationResponse(BaseModel):
@@ -34,6 +35,10 @@ class RecommendationResponse(BaseModel):
     activity_title: str = Field(serialization_alias='activityTitle')
     difficulty: str
     type: str
+    reason: str
+    target_concept_name: str | None = Field(serialization_alias='targetConceptName')
+    material_id: str | None = Field(serialization_alias='materialId')
+    gap: str | None
 
 
 class EvaluationResponse(BaseModel):
@@ -49,12 +54,16 @@ class Response(BaseModel):
     skill_id: str = Field(serialization_alias='skillId')
     skill_name: str = Field(serialization_alias='skillName')
     skill_status: str = Field(serialization_alias='skillStatus')
-    overall_result: float = Field(serialization_alias='overallResult')
+    overall_result: float | None = Field(serialization_alias='overallResult')
     focus_competency_id: str | None = Field(serialization_alias='focusCompetencyId')
     focus_competency_name: str | None = Field(serialization_alias='focusCompetencyName')
     competencies: tuple[CompetencyResponse, ...]
     recommendation: RecommendationResponse | None
     evaluation: EvaluationResponse | None
+    overall_coverage_complete: bool = Field(
+        serialization_alias='overallCoverageComplete'
+    )
+    recommendation_gap: str | None = Field(serialization_alias='recommendationGap')
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

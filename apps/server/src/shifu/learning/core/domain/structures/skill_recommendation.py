@@ -13,3 +13,7 @@ class SkillRecommendation:
     activity_title: str
     difficulty: ActivityDifficulty
     type: ActivityRecommendationType
+    reason: str = ''
+    target_concept_name: str | None = None
+    material_id: str | None = None
+    gap: str | None = None

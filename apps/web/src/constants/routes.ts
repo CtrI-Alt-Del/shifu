@@ -18,11 +18,12 @@ export const ROUTES = {
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
   learningAttempt:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/attempts/$attemptId',
+  learningDiagnosticResult: '/learning/goals/$goalId/skills/$skillId/diagnostic/result',
 } as const
 
 type StaticRouteName = Exclude<
   keyof typeof ROUTES,
-  'learningActivity' | 'learningAttempt'
+  'learningActivity' | 'learningAttempt' | 'learningDiagnosticResult'
 >
 
 type LearningActivityRouteIds = {
@@ -58,6 +59,18 @@ export function learningAttemptPath(
 
 export function learningAttemptsPath(ids: LearningActivityRouteIds) {
   return `${learningActivityPath(ids)}/attempts`
+}
+
+export function learningDiagnosticResultPath({
+  goalId,
+  skillId,
+}: {
+  goalId: string
+  skillId: string
+}) {
+  return ROUTES.learningDiagnosticResult
+    .replace('$goalId', encodeURIComponent(goalId))
+    .replace('$skillId', encodeURIComponent(skillId))
 }
 
 export type RouteName = StaticRouteName

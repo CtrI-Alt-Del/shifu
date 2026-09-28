@@ -10,7 +10,6 @@ from shifu.learning.core.domain.enums import (
     ActivityEvaluationStatus,
     SkillExperienceStatus,
 )
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     ChoiceAnswerSubmission,
@@ -28,7 +27,6 @@ from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
 )
-from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
@@ -72,6 +70,7 @@ class SubmitChoiceActivityUseCase:
         submission_key: str,
         answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
         activity_revision: str | None = None,
+        diagnostic_run_id: str | None = None,
     ) -> ChoiceSubmissionOutcome:
         if not submission_key.strip():
             raise ValidationError
@@ -82,11 +81,15 @@ class SubmitChoiceActivityUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+            if experience.status is SkillExperienceStatus.DIAGNOSING:
+                raise ConflictError
             experience_id = experience.id
             existing = repositories.activity_attempts.find_by_skill_experience_id_and_submission_key(
                 experience_id, submission_key
             )
             if existing is not None:
+                if existing.kind is ActivityAttemptKind.DIAGNOSTIC:
+                    raise ConflictError
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
@@ -108,17 +111,15 @@ class SubmitChoiceActivityUseCase:
             or snapshot.competency_id != competency_id
         ):
             raise NotFoundError
+        if snapshot.activity_type == 'diagnostic':
+            raise ConflictError
         if (
             isinstance(snapshot, CurriculumLearningActivitySnapshot)
             and snapshot.revision != activity_revision
         ):
             raise ConflictError
-        normalized_answers = self._normalize_answers(snapshot, answers)
-        v2_catalog = (
-            self._curriculum_content_provider.get_skill_content(skill_id)
-            if experience.policy_id == AdaptiveLearningPolicy.policy_id
-            else None
-        )
+        normalized_answers = self.normalize_answers(snapshot, answers)
+        v2_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
 
         now = self._clock_provider.now()
         with self._learning_database.transaction() as repositories:
@@ -138,77 +139,40 @@ class SubmitChoiceActivityUseCase:
                 or progress is None
             ):
                 raise NotFoundError
+            if experience.status is SkillExperienceStatus.DIAGNOSING:
+                raise ConflictError
 
             existing = repositories.activity_attempts.find_by_skill_experience_id_and_submission_key(
                 experience_id, submission_key
             )
             if existing is not None:
+                if existing.kind is ActivityAttemptKind.DIAGNOSTIC and (
+                    diagnostic_run_id is None
+                    or existing.diagnostic_run_id != diagnostic_run_id
+                    or experience.diagnostic_run_id != diagnostic_run_id
+                ):
+                    raise ConflictError
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
-            if (
-                experience.policy_id == AdaptiveLearningPolicy.policy_id
-                and isinstance(snapshot, CurriculumChoiceActivitySnapshot)
-                and not ChoiceEvidenceEligibility.is_valid(snapshot, v2_catalog)
-            ):
+            if isinstance(
+                snapshot, CurriculumChoiceActivitySnapshot
+            ) and not ChoiceEvidenceEligibility.is_valid(snapshot, v2_catalog):
                 raise NotFoundError
 
-            diagnostic = (
-                experience.policy_id == AdaptiveLearningPolicy.policy_id
-                and experience.status is SkillExperienceStatus.DIAGNOSING
+            if snapshot.activity_type != 'learning' or not progress.content_released:
+                raise NotFoundError
+            if experience.status not in {
+                SkillExperienceStatus.LEARNING,
+                SkillExperienceStatus.COMPLETED,
+            }:
+                raise NotFoundError
+            kind = (
+                ActivityAttemptKind.REVIEW
+                if experience.status is SkillExperienceStatus.COMPLETED
+                else ActivityAttemptKind.LEARNING
             )
-            if diagnostic:
-                if (
-                    snapshot.activity_type != 'diagnostic'
-                    or v2_catalog is None
-                    or not v2_catalog.v2_eligible
-                ):
-                    raise NotFoundError
-                kind = ActivityAttemptKind.DIAGNOSTIC
-            elif experience.policy_id == AdaptiveLearningPolicy.policy_id:
-                if (
-                    snapshot.activity_type != 'learning'
-                    or not progress.content_released
-                ):
-                    raise NotFoundError
-                kind = (
-                    ActivityAttemptKind.REVIEW
-                    if experience.status is SkillExperienceStatus.COMPLETED
-                    else ActivityAttemptKind.LEARNING
-                )
-                if experience.status not in {
-                    SkillExperienceStatus.LEARNING,
-                    SkillExperienceStatus.COMPLETED,
-                }:
-                    raise NotFoundError
-            else:
-                if not progress.content_released:
-                    raise NotFoundError
-                kind = ActivityAttemptKind.LEARNING
 
-            if diagnostic:
-                if v2_catalog is None:
-                    raise NotFoundError
-                diagnostic_attempts = tuple(
-                    repositories.activity_attempts.find_many_by_skill_experience_id(
-                        experience_id
-                    )
-                )
-                diagnostic_evaluations = tuple(
-                    repositories.activity_evaluations.find_many_by_attempt_ids(
-                        tuple(item.id for item in diagnostic_attempts)
-                    )
-                )
-                next_item = DiagnosticSequence.next_item(
-                    v2_catalog, diagnostic_attempts, diagnostic_evaluations
-                )
-                if (
-                    next_item is None
-                    or next_item[0] != competency_id
-                    or next_item[1].id != activity_id
-                    or next_item[2] is not None
-                ):
-                    raise ConflictError
             unresolved = repositories.activity_evaluations.find_unresolved_by_skill_experience_id(
                 experience_id
             )
@@ -228,6 +192,7 @@ class SubmitChoiceActivityUseCase:
                 submitted_at=now,
                 submission_key=submission_key,
                 grading_snapshot=snapshot,
+                diagnostic_run_id=None,
             )
             evaluation = ActivityEvaluation.create(
                 id=evaluation_id,
@@ -262,7 +227,7 @@ class SubmitChoiceActivityUseCase:
                     retry_allowed=False,
                 ),
                 replayed=False,
-                is_diagnostic=kind is ActivityAttemptKind.DIAGNOSTIC,
+                is_diagnostic=False,
             )
 
     @staticmethod
@@ -279,7 +244,7 @@ class SubmitChoiceActivityUseCase:
             or existing.activity_id != activity_id
             or existing.competency_id != competency_id
             or existing.answers
-            != SubmitChoiceActivityUseCase._normalize_answers(snapshot, answers)
+            != SubmitChoiceActivityUseCase.normalize_answers(snapshot, answers)
         ):
             raise ConflictError
         evaluation = repositories.activity_evaluations.find_by_attempt_id(existing.id)
@@ -329,7 +294,7 @@ class SubmitChoiceActivityUseCase:
         return experience
 
     @staticmethod
-    def _normalize_answers(  # noqa: C901
+    def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
         answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
     ) -> tuple[ActivityAnswer, ...]:

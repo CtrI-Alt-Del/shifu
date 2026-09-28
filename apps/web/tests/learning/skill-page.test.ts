@@ -15,11 +15,22 @@ const skillPath = `/learning/goals/${IDS.goalId}/skills/${IDS.skillId}`
 
 const diagnosticResponse = {
   status: 'learning',
+  runState: 'settled',
+  readyToComplete: false,
   nextCompetencyId: null,
   nextActivityId: null,
   pendingAttemptId: null,
   pendingAttemptStatus: null,
+  activitySequence: [
+    {
+      competencyId: '01SHF000000000000000000002',
+      activityId: '01SHF000000000000000000005',
+    },
+  ],
   focusCompetencyId: IDS.focusCompetencyId,
+  initialOverallResult: 72.33,
+  overallCoverageComplete: true,
+  directCompletion: false,
   competencies: [],
 }
 
@@ -29,6 +40,7 @@ const experienceResponse = {
   skillName: 'Lógica de programação',
   skillStatus: 'learning',
   overallResult: 72.33,
+  overallCoverageComplete: true,
   focusCompetencyId: IDS.focusCompetencyId,
   focusCompetencyName: 'Estruturas de repetição',
   competencies: [
@@ -37,6 +49,7 @@ const experienceResponse = {
       competencyName: 'Variáveis e tipos',
       position: 1,
       progress: 92,
+      coverageComplete: true,
       status: 'mastered',
       availability: 'available',
       isFocus: false,
@@ -46,6 +59,7 @@ const experienceResponse = {
       competencyName: 'Estruturas de repetição',
       position: 2,
       progress: 72,
+      coverageComplete: true,
       status: 'proficient',
       availability: 'available',
       isFocus: true,
@@ -55,6 +69,7 @@ const experienceResponse = {
       competencyName: 'Funções',
       position: 3,
       progress: 35,
+      coverageComplete: false,
       status: 'learning',
       availability: 'unavailable',
       isFocus: false,
@@ -67,7 +82,12 @@ const experienceResponse = {
     activityTitle: 'Somar os números pares de uma lista',
     difficulty: 'hard',
     type: 'new-activity',
+    reason: 'Praticar o conceito principal',
+    targetConceptName: null,
+    materialId: null,
+    gap: null,
   },
+  recommendationGap: null,
   evaluation: null,
 }
 
@@ -149,9 +169,325 @@ test('renders the Skill experience with its result, focus and recommendation', a
   await expect(authenticatedPage.getByText('Em aprendizado')).toBeVisible()
   await expect(authenticatedPage.getByText('Resultado geral')).toBeVisible()
   await expect(
+    authenticatedPage.getByRole('link', { name: 'Ver diagnóstico consolidado' }),
+  ).toHaveAttribute('href', `${skillPath}/diagnostic/result`)
+  await expect(
     authenticatedPage.getByText('Somar os números pares de uma lista'),
   ).toBeVisible()
   await expect(authenticatedPage.getByRole('listitem')).toHaveCount(3)
+})
+
+test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', async ({
+  authenticatedPage,
+}) => {
+  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
+  let diagnosticRequests = 0
+  let startRequests = 0
+  let startBody = ''
+  await mockTransport(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const exported = serverFnExport(route.request().url())
+    if (exported.startsWith('getDiagnosticAction')) {
+      diagnosticRequests += 1
+      const result =
+        diagnosticRequests === 1
+          ? {
+              ...diagnosticResponse,
+              status: 'diagnosing',
+              runState: 'requires_entry',
+            }
+          : {
+              ...diagnosticResponse,
+              status: 'diagnosing',
+              runState: 'active',
+              nextCompetencyId: IDS.focusCompetencyId,
+              nextActivityId: IDS.activityId,
+            }
+      await route.fulfill({
+        body: JSON.stringify({ result }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('startSkillAction')) {
+      startRequests += 1
+      startBody = route.request().postData() ?? ''
+      await route.fulfill({
+        body: JSON.stringify({ result: { diagnosticRunId } }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('getActivityAction')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            activityId: IDS.activityId,
+            title: 'Somar os números pares',
+            difficulty: 'medium',
+            activityRevision: 'revision-1',
+            canSubmit: true,
+            latestAttemptId: null,
+            unresolvedAttemptId: null,
+            isDiagnostic: true,
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual é o resultado?',
+                options: [
+                  { key: 'a', text: '4' },
+                  { key: 'b', text: '6' },
+                ],
+              },
+            ],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, skillPath)
+
+  await expect(authenticatedPage).toHaveURL(
+    `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
+  )
+  await expect(authenticatedPage.getByText('Qual é o resultado?')).toBeVisible()
+  expect(await authenticatedPage.evaluate(() => window.scrollY)).toBe(0)
+  await authenticatedPage.getByRole('radio', { name: '4' }).focus()
+  await authenticatedPage.keyboard.press('Space')
+  await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
+  const secondChoice = authenticatedPage.getByRole('radio', { name: '6' })
+  await expect(secondChoice).toBeVisible()
+  await expect
+    .poll(() =>
+      secondChoice.evaluate(
+        (element) =>
+          window.getComputedStyle(element.closest('.choice-question-option') ?? element)
+            .opacity,
+      ),
+    )
+    .toBe('1')
+  await expect(
+    authenticatedPage.getByRole('link', { name: 'Próxima Atividade' }),
+  ).toHaveCount(0)
+  expect(diagnosticRequests).toBeGreaterThanOrEqual(2)
+  expect(startRequests).toBe(1)
+  expect(startBody).toContain('entryKey')
+})
+
+test('submits the diagnostic once as a complete batch and opens its consolidated result', async ({
+  authenticatedPage,
+}) => {
+  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
+  const submissionAttemptId = '01SHF000000000000000000007'
+  let diagnosticRequests = 0
+  let startBody = ''
+  let activityGetPayload = ''
+  let diagnosticSubmissionBody = ''
+  let diagnosticSubmissionRequests = 0
+  let activitySubmissionRequests = 0
+  let completionBody = ''
+  let previewRequests = 0
+  let evaluationReady = false
+  let completionRequested = false
+  await mockTransport(authenticatedPage)
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const exported = serverFnExport(route.request().url())
+    if (exported.startsWith('startSkillAction')) {
+      startBody = route.request().postData() ?? ''
+      await route.fulfill({
+        body: JSON.stringify({ result: { diagnosticRunId } }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('getDiagnosticAction')) {
+      diagnosticRequests += 1
+      let result: Record<string, unknown>
+      if (diagnosticRequests === 1) {
+        result = {
+          ...diagnosticResponse,
+          status: 'not-started',
+          runState: 'requires_entry',
+          competencies: [],
+        }
+      } else if (diagnosticRequests === 2) {
+        result = {
+          ...diagnosticResponse,
+          status: 'diagnosing',
+          runState: 'active',
+          nextCompetencyId: IDS.focusCompetencyId,
+          nextActivityId: IDS.activityId,
+        }
+      } else if (!evaluationReady) {
+        result = {
+          ...diagnosticResponse,
+          status: 'diagnosing',
+          runState: 'active',
+          nextCompetencyId: IDS.focusCompetencyId,
+          nextActivityId: IDS.activityId,
+          pendingAttemptId: submissionAttemptId,
+          pendingAttemptStatus: 'pending',
+        }
+      } else if (!completionRequested) {
+        result = {
+          ...diagnosticResponse,
+          status: 'diagnosing',
+          runState: 'ready_to_complete',
+          readyToComplete: true,
+        }
+      } else {
+        result = {
+          ...diagnosticResponse,
+          status: 'learning',
+          runState: 'settled',
+          competencies: [
+            {
+              competencyId: IDS.focusCompetencyId,
+              competencyName: 'Estruturas de repetição',
+              position: 1,
+              progress: 65,
+              coverageComplete: false,
+              status: 'developing',
+              isFocus: true,
+              contentReleased: true,
+            },
+          ],
+          initialOverallResult: 65,
+          overallCoverageComplete: false,
+        }
+      }
+      await route.fulfill({
+        body: JSON.stringify({ result }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('getActivityAction')) {
+      activityGetPayload = decodeURIComponent(
+        `${route.request().url()} ${route.request().postData() ?? ''}`,
+      )
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            activityId: IDS.activityId,
+            title: 'Somar os números pares',
+            difficulty: 'medium',
+            activityRevision: 'revision-1',
+            canSubmit: true,
+            latestAttemptId: null,
+            unresolvedAttemptId: null,
+            isDiagnostic: true,
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual é o resultado?',
+                options: [
+                  { key: 'a', text: '4' },
+                  { key: 'b', text: '6' },
+                ],
+              },
+            ],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('previewActivityQuestionAction')) {
+      previewRequests += 1
+    }
+    if (exported.startsWith('submitActivityAction')) {
+      activitySubmissionRequests += 1
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            kind: 'unavailable',
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('submitDiagnosticAction')) {
+      diagnosticSubmissionRequests += 1
+      diagnosticSubmissionBody = route.request().postData() ?? ''
+      await route.fulfill({
+        body: JSON.stringify({ result: { status: 'pending', replayed: false } }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (exported.startsWith('completeDiagnosticAction')) {
+      completionRequested = true
+      completionBody = route.request().postData() ?? ''
+      await route.fulfill({
+        body: JSON.stringify({ result: { ok: true } }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, skillPath)
+  await authenticatedPage.getByRole('button', { name: 'Iniciar Habilidade' }).click()
+
+  await expect(authenticatedPage).toHaveURL(
+    `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
+  )
+  await expect(authenticatedPage.getByText('Qual é o resultado?')).toBeVisible()
+  expect(startBody).toContain('entryKey')
+  expect(startBody).toContain(IDS.goalId)
+  expect(startBody).toContain(IDS.skillId)
+
+  await authenticatedPage.getByText('4', { exact: true }).click()
+  await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
+  ).toBeEnabled()
+  await authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }).click()
+
+  await expect(authenticatedPage.getByText('Avaliando o diagnóstico…')).toBeVisible()
+  await expect(authenticatedPage).toHaveURL(
+    `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
+  )
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
+  ).toHaveCount(0)
+  await authenticatedPage.evaluate((to) => {
+    const router = (
+      window as Window & {
+        __TSR_ROUTER__: { navigate: (options: { to: string }) => Promise<void> }
+      }
+    ).__TSR_ROUTER__
+    return router.navigate({ to })
+  }, skillPath)
+  await expect(authenticatedPage).toHaveURL(
+    `${skillPath}/competencies/${IDS.focusCompetencyId}/activities/${IDS.activityId}`,
+  )
+  await expect(authenticatedPage.getByText('Avaliando o diagnóstico…')).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('Aguardando a avaliação da última resposta.'),
+  ).toHaveCount(0)
+  evaluationReady = true
+  await expect(authenticatedPage).toHaveURL(`${skillPath}/diagnostic/result`)
+  await expect(
+    authenticatedPage.getByRole('heading', { level: 1, name: 'Seu ponto de partida' }),
+  ).toBeVisible()
+  expect(diagnosticSubmissionRequests).toBe(1)
+  expect(diagnosticSubmissionBody).toContain(diagnosticRunId)
+  expect(diagnosticSubmissionBody).toContain('activityRevision')
+  expect(diagnosticSubmissionBody).toContain('selectedOptionKeys')
+  expect(activitySubmissionRequests).toBe(0)
+  expect(activityGetPayload).toContain(diagnosticRunId)
+  expect(completionBody).toContain(diagnosticRunId)
+  expect(previewRequests).toBe(0)
 })
 
 test('opens a released Competency and keeps the identifiers of the route', async ({

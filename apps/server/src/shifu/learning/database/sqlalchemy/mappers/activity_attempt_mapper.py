@@ -40,6 +40,7 @@ class ActivityAttemptMapper:
             submitted_at=model.submitted_at,
             submission_key=model.submission_key,
             grading_snapshot=grading_snapshot,
+            diagnostic_run_id=model.diagnostic_run_id,
         )
 
     @staticmethod
@@ -52,6 +53,10 @@ class ActivityAttemptMapper:
         normalized = {**data}
         normalized.setdefault('required_concept_ids', [])
         normalized.setdefault('activity_type', 'learning')
+        # Persisted attempts created before diagnostic revisions used the
+        # ordinary activity revision field. Keep that historical value while
+        # accepting the new opaque diagnostic revision when present.
+        normalized.setdefault('diagnostic_revision', None)
         questions = cast('list[dict[str, object]]', normalized.get('questions', []))
         normalized['questions'] = [
             {**question, 'concept_criteria': question.get('concept_criteria', [])}
@@ -95,6 +100,9 @@ class ActivityAttemptMapper:
                 activity_type=cast('str', normalized['activity_type']),
                 schema_version=cast('int', normalized['schema_version']),
                 revision=cast('str', normalized['revision']),
+                diagnostic_revision=cast(
+                    'str | None', normalized['diagnostic_revision']
+                ),
             )
         return cast(
             'CurriculumChoiceActivitySnapshot',
@@ -184,4 +192,5 @@ class ActivityAttemptMapper:
                 if attempt.grading_snapshot is not None
                 else None
             ),
+            diagnostic_run_id=attempt.diagnostic_run_id,
         )

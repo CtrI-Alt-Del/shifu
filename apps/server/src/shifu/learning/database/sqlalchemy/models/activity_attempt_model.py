@@ -22,6 +22,12 @@ class ActivityAttemptModel(Model):
             unique=True,
             postgresql_where=text('submission_key IS NOT NULL'),
         ),
+        Index(
+            'ix_learning_attempt_experience_diagnostic_run_kind',
+            'skill_experience_id',
+            'diagnostic_run_id',
+            'kind',
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
@@ -39,3 +45,4 @@ class ActivityAttemptModel(Model):
     )
     submission_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
     grading_snapshot: Mapped[object | None] = mapped_column(JSON, nullable=True)
+    diagnostic_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

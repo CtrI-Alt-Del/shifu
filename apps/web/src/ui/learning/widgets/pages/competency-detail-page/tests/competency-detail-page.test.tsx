@@ -121,7 +121,12 @@ describe('CompetencyDetailPage', () => {
         skillId={IDS.skillId}
       />,
     )
-    expect(screen.getByRole('status')).toHaveTextContent('Carregando Competência')
+    const loadingStatus = screen.getByRole('status')
+    expect(loadingStatus).toHaveTextContent('Carregando Competência')
+    expect(loadingStatus.querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('list', { name: 'Conteúdos da Competência' }),
+    ).not.toBeInTheDocument()
 
     useCompetencyDetailPageMock.mockReturnValue(
       makeController({ isPrivateAbsence: true }),
@@ -167,7 +172,11 @@ describe('CompetencyDetailPage', () => {
     expect(
       screen.getByRole('link', { name: 'Praticar Somar os números pares de uma lista' }),
     ).toBeVisible()
-    expect(screen.getByText('Difícil · Recomendada')).toBeVisible()
+    expect(
+      screen.getByRole('link', {
+        name: 'Praticar Somar os números pares de uma lista',
+      }),
+    ).toHaveTextContent(/Difícil.*Recomendada/)
   })
 
   it('explains the Concept target and offers optional Material alongside direct practice', () => {

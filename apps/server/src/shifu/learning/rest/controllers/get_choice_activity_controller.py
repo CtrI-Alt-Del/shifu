@@ -1,6 +1,7 @@
 from typing import Annotated, Literal
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Header, Path, status
 from pydantic import BaseModel, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -102,6 +103,10 @@ class GetChoiceActivityController:
                 CurriculumContentProvider,
                 Depends(LearningPipe.get_curriculum_content_provider),
             ],
+            diagnostic_run_id: Annotated[
+                UUID | None,
+                Header(alias='X-Diagnostic-Run-Id'),
+            ] = None,
         ) -> Response:
             detail = GetChoiceActivityUseCase(database, provider).execute(
                 user.account_id,
@@ -109,5 +114,6 @@ class GetChoiceActivityController:
                 skill_id,
                 competency_id,
                 activity_id,
+                str(diagnostic_run_id) if diagnostic_run_id is not None else None,
             )
             return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)

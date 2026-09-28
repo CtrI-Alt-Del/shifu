@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator, Field, HttpUrl
+from pydantic import BeforeValidator, Field, HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env.local', extra='ignore')
 
     redis_url: str
+    diagnostic_revision_hmac_key: SecretStr | None = None
     openrouter_api_key: str | None = None
     openrouter_decisions_url: HttpUrl = HttpUrl(
         'https://openrouter.ai/api/alpha/decisions'

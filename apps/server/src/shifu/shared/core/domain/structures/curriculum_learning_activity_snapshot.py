@@ -27,6 +27,7 @@ class CurriculumLearningActivitySnapshot:
     activity_type: str
     schema_version: int
     revision: str
+    diagnostic_revision: str | None = None
 
     def __post_init__(self) -> None:
         for value in (
@@ -37,12 +38,18 @@ class CurriculumLearningActivitySnapshot:
             self.revision,
         ):
             require_non_empty(value, ValidationError)
+        if self.diagnostic_revision is not None:
+            require_non_empty(self.diagnostic_revision, ValidationError)
         question_keys = tuple(question.key for question in self.questions)
         part_keys = tuple(part.question_key for part in self.parts)
         if (
-            self.activity_type != 'learning'
+            self.activity_type not in {'learning', 'diagnostic'}
             or self.schema_version != 1
-            or not 3 <= len(self.questions) <= 5
+            or (
+                not 3 <= len(self.questions) <= 5
+                if self.activity_type == 'learning'
+                else not self.questions
+            )
             or len(question_keys) != len(set(question_keys))
             or len(part_keys) != len(set(part_keys))
             or set(question_keys) != set(part_keys)

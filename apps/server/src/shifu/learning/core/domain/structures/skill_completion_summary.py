@@ -16,6 +16,7 @@ class SkillCompletionSummary:
     final_progress: Decimal
     started_at: datetime
     completed_at: datetime
+    initial_coverage_complete: bool = True
 
     def __post_init__(self) -> None:
         if self.initial_progress is not None:

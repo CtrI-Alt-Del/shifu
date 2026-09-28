@@ -67,13 +67,26 @@ function createControllerMock(
     currentQuestionNumber: 1,
     handleContinue: vi.fn(),
     handleRetryLoad: vi.fn(),
+    handleReturnToSkill: vi.fn(),
     handleToggleOption: vi.fn(),
     hasSubmissionError: false,
     hasUnsentAnswers: true,
     isSubmissionLocked: false,
+    isDiagnosticProcessing: false,
+    diagnosticStatus: null,
+    hasDiagnosticStatusError: false,
+    diagnosticRetryError: false,
+    diagnosticCompletionError: false,
+    isRetryingDiagnostic: false,
+    isCompletingDiagnostic: false,
+    handleRetryDiagnostic: vi.fn(),
+    handleRetryDiagnosticStatus: vi.fn(),
+    handleRetryDiagnosticCompletion: vi.fn(),
     isLastQuestion: true,
     isLoading: false,
     isPrivateAbsence: false,
+    isInvalidated: false,
+    isDiagnosticEntryRequired: false,
     isRecoverableError: false,
     isSubmitting: false,
     selectedOptionKeys: ['a'],
@@ -120,6 +133,58 @@ describe('ActivityPage', () => {
     expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeDisabled()
   })
 
+  it('shows diagnostic progress and submission without individual feedback', () => {
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, isDiagnostic: true },
+        feedback: { status: 'conclusive', score: 100 },
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Diagnóstico' })).toBeVisible()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Estruturas de repetição' }),
+    ).toBeVisible()
+    const prompt = screen.getByRole('heading', {
+      name: 'Quais afirmações são verdadeiras?',
+    })
+    expect(prompt.closest('section')?.parentElement).toHaveClass(
+      'border-control-border',
+      'bg-card',
+    )
+    expect(
+      screen.getByText(/resultado aparecerá apenas no resumo consolidado/i),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeEnabled()
+    expect(
+      screen.queryByText(/100%|resposta correta|resposta incorreta/i),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Resultado da questão' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows a distinct stale-run state and a recovery action', () => {
+    const handleReturnToSkill = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: null,
+        isInvalidated: true,
+        handleReturnToSkill,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(
+      screen.getByRole('heading', { name: 'Este diagnóstico foi substituído' }),
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à Habilidade' }))
+    expect(handleReturnToSkill).toHaveBeenCalledOnce()
+  })
+
   it('shows submission recovery while preserving the selected answer', () => {
     const handleContinueMock = vi.fn()
     useActivityPageMock.mockReturnValue(
@@ -142,6 +207,31 @@ describe('ActivityPage', () => {
     expect(
       screen.getByRole('checkbox', { name: 'O laço executa três vezes.' }),
     ).toBeChecked()
+  })
+
+  it('keeps a submitted diagnostic on its Activity and retries its failed evaluation', () => {
+    const handleRetryDiagnostic = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, isDiagnostic: true },
+        feedback: null,
+        isDiagnosticProcessing: true,
+        diagnosticStatus: 'failed',
+        handleRetryDiagnostic,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(
+      screen.getByText('A avaliação falhou no Shifu. Sua resposta foi preservada.'),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Enviar respostas' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/nota|resposta correta|correção/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar avaliação novamente' }))
+    expect(handleRetryDiagnostic).toHaveBeenCalledOnce()
   })
 
   it('passes the route runner factory through to the code-question boundary', () => {

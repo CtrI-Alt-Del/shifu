@@ -20,12 +20,18 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 vi.mock('../use-skill-page', () => ({ useSkillPage: vi.fn() }))
+vi.mock('@/ui/learning/hooks/use-diagnostic-leave-guard', () => ({
+  useDiagnosticLeaveGuard: vi.fn(),
+}))
 vi.mock('../use-skill-experience', () => ({
   useSkillExperience: () => ({
     experience: null,
     handleRetryEvaluation: vi.fn(),
     isExperienceLoading: false,
     isRetrying: false,
+    isCompleting: false,
+    completionError: false,
+    diagnosticRunId: null,
     retryFailed: false,
   }),
 }))
@@ -54,6 +60,7 @@ function controller(overrides: Partial<ReturnType<typeof useSkillPage>> = {}) {
     removeSkillError: null,
     handleStart: vi.fn(async () => {}),
     handleRetryDiagnostic: vi.fn(async () => {}),
+    handleRetryCompletion: vi.fn(async () => {}),
     handleRetry: vi.fn(async () => ({}) as never),
     handleOpenRemovalDialog: vi.fn(),
     handleCancelRemoval: vi.fn(),
@@ -65,18 +72,35 @@ function controller(overrides: Partial<ReturnType<typeof useSkillPage>> = {}) {
 describe('SkillPage', () => {
   afterEach(cleanup)
 
+  it('shows a non-interactive Skill skeleton while the diagnostic loads', () => {
+    useSkillPageMock.mockReturnValue(controller({ isLoading: true }))
+    render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
+
+    const status = screen.getByRole('status')
+    expect(status).toHaveTextContent('Carregando Habilidade...')
+    expect(status.querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Iniciar Habilidade' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('starts an eligible Skill without exposing diagnostic scores', () => {
     const handleStart = vi.fn(async () => {})
     useSkillPageMock.mockReturnValue(
       controller({
         diagnostic: {
           status: 'not-started',
+          runState: 'requires_entry',
+          readyToComplete: false,
           nextCompetencyId: null,
           nextActivityId: null,
           pendingAttemptId: null,
           pendingAttemptStatus: null,
           focusCompetencyId: null,
           competencies: [],
+          initialOverallResult: null,
+          overallCoverageComplete: false,
+          directCompletion: false,
         },
         handleStart,
       }),
@@ -92,12 +116,17 @@ describe('SkillPage', () => {
     const handleOpenRemovalDialog = vi.fn()
     const diagnostic = {
       status: 'not-started' as const,
+      runState: 'requires_entry' as const,
+      readyToComplete: false,
       nextCompetencyId: null,
       nextActivityId: null,
       pendingAttemptId: null,
       pendingAttemptStatus: null,
       focusCompetencyId: null,
       competencies: [],
+      initialOverallResult: null,
+      overallCoverageComplete: false,
+      directCompletion: false,
     }
     useSkillPageMock.mockReturnValue(controller({ diagnostic, handleOpenRemovalDialog }))
     const { rerender } = render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
@@ -125,12 +154,17 @@ describe('SkillPage', () => {
       controller({
         diagnostic: {
           status: 'not-started',
+          runState: 'requires_entry',
+          readyToComplete: false,
           nextCompetencyId: null,
           nextActivityId: null,
           pendingAttemptId: null,
           pendingAttemptStatus: null,
           focusCompetencyId: null,
           competencies: [],
+          initialOverallResult: null,
+          overallCoverageComplete: false,
+          directCompletion: false,
         },
         startError:
           'O Currículo desta Habilidade ainda não tem cobertura suficiente para iniciar o diagnóstico.',
@@ -139,31 +173,64 @@ describe('SkillPage', () => {
     render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
     expect(screen.getByRole('alert')).toHaveTextContent('cobertura suficiente')
     expect(
-      screen.queryByRole('link', { name: 'Continuar diagnóstico' }),
+      screen.queryByRole('link', { name: 'Próxima Atividade' }),
     ).not.toBeInTheDocument()
   })
 
-  it('resumes the next diagnostic Activity and shows no item result', () => {
+  it('shows a brief automatic transition to the next diagnostic Activity without a pause action', () => {
     useSkillPageMock.mockReturnValue(
       controller({
         diagnostic: {
           status: 'diagnosing',
+          runState: 'active',
+          readyToComplete: false,
           nextCompetencyId: IDS.competencyId,
           nextActivityId: IDS.activityId,
           pendingAttemptId: null,
           pendingAttemptStatus: null,
           focusCompetencyId: null,
           competencies: [],
+          initialOverallResult: null,
+          overallCoverageComplete: false,
+          directCompletion: false,
         },
       }),
     )
     render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
-    expect(screen.getByRole('link', { name: 'Continuar diagnóstico' })).toHaveAttribute(
-      'data-params',
-      expect.stringContaining(IDS.activityId),
-    )
+    expect(screen.getByRole('status')).toHaveTextContent('Abrindo a próxima Atividade...')
+    expect(
+      screen.queryByRole('link', { name: 'Próxima Atividade' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.queryByText(/resposta correta|resposta incorreta|nota de/i),
+    ).not.toBeInTheDocument()
+  })
+
+  it('opens the pending Activity without showing a Skill page pause', () => {
+    useSkillPageMock.mockReturnValue(
+      controller({
+        diagnosticRunId: 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98',
+        diagnostic: {
+          status: 'diagnosing',
+          runState: 'active',
+          readyToComplete: false,
+          nextCompetencyId: IDS.competencyId,
+          nextActivityId: IDS.activityId,
+          pendingAttemptId: '01SHF000000000000000000005',
+          pendingAttemptStatus: 'pending',
+          focusCompetencyId: null,
+          competencies: [],
+          initialOverallResult: null,
+          overallCoverageComplete: false,
+          directCompletion: false,
+        },
+      }),
+    )
+    render(<SkillPage goalId={IDS.goalId} skillId={IDS.skillId} />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando')
+    expect(
+      screen.queryByRole('link', { name: 'Próxima Atividade' }),
     ).not.toBeInTheDocument()
   })
 
@@ -173,12 +240,17 @@ describe('SkillPage', () => {
       controller({
         diagnostic: {
           status: 'diagnosing',
+          runState: 'active',
+          readyToComplete: false,
           nextCompetencyId: IDS.competencyId,
           nextActivityId: IDS.activityId,
           pendingAttemptId: '01SHF000000000000000000005',
           pendingAttemptStatus: 'failed',
           focusCompetencyId: null,
           competencies: [],
+          initialOverallResult: null,
+          overallCoverageComplete: false,
+          directCompletion: false,
         },
         handleRetryDiagnostic,
       }),
@@ -188,7 +260,7 @@ describe('SkillPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar avaliação novamente' }))
     expect(handleRetryDiagnostic).toHaveBeenCalledOnce()
     expect(
-      screen.queryByRole('link', { name: 'Continuar diagnóstico' }),
+      screen.queryByRole('link', { name: 'Próxima Atividade' }),
     ).not.toBeInTheDocument()
   })
 
@@ -197,6 +269,8 @@ describe('SkillPage', () => {
       controller({
         diagnostic: {
           status: 'learning',
+          runState: 'settled',
+          readyToComplete: false,
           nextCompetencyId: null,
           nextActivityId: null,
           pendingAttemptId: null,
@@ -206,9 +280,17 @@ describe('SkillPage', () => {
             {
               competencyId: IDS.competencyId,
               competencyName: 'Sequências',
+              position: 1,
               progress: 72,
+              coverageComplete: true,
+              status: 'proficient',
+              isFocus: true,
+              contentReleased: true,
             },
           ],
+          initialOverallResult: 72,
+          overallCoverageComplete: true,
+          directCompletion: false,
         },
       }),
     )

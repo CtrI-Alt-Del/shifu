@@ -11,15 +11,18 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import ClockProvider
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_EASY_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_GOAL_ID,
-    SEED_SKILL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -30,6 +33,7 @@ if TYPE_CHECKING:
 
 
 _NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+_LEARNING_ACTIVITY_ID = SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[4]
 
 
 class _TestAuthenticationProvider:
@@ -67,6 +71,7 @@ def application(
         repositories.skills.add_many(list(seed.skills))
         repositories.skill_foundations.add_many(list(seed.skill_foundations))
         repositories.competencies.add_many(list(seed.competencies))
+        repositories.concepts.add_many(list(seed.concepts))
         repositories.materials.add_many(list(seed.materials))
         repositories.activities.add_many(list(seed.activities))
         repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
@@ -77,6 +82,18 @@ def application(
         repositories.competency_progresses.add_many(list(seed.competency_progresses))
         repositories.activity_attempts.add_many(list(seed.activity_attempts))
         repositories.activity_evaluations.add_many(list(seed.activity_evaluations))
+        experience = repositories.skill_experiences.find_by_id(
+            SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+        )
+        assert experience is not None
+        experience.status = SkillExperienceStatus.LEARNING
+        repositories.skill_experiences.update(experience)
+        progress = repositories.competency_progresses.find_by_id(
+            SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+        )
+        assert progress is not None
+        progress.content_released = True
+        repositories.competency_progresses.update(progress)
 
     application = FastAPIApp.register(postgres_database.engine)
     application.state.authentication_provider = _TestAuthenticationProvider()
@@ -102,7 +119,8 @@ class TestGetChoiceAttemptController:
     ) -> None:
         body = _submission_body()
         answers = cast('list[dict[str, object]]', body['answers'])
-        answers[0]['selected_option_keys'] = ['incorrect']
+        answers[0]['selected_option_keys'] = ['b']
+        answers[1]['selected_option_keys'] = ['b']
         created = cast(
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
@@ -121,9 +139,11 @@ class TestGetChoiceAttemptController:
             assert evaluation is not None
             run_id = evaluation.run_id
             assert run_id is not None
-        EvaluateChoiceActivityUseCase(database, _FixedClockProvider()).execute(
-            attempt_id, run_id
-        )
+        EvaluateChoiceActivityUseCase(
+            database,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, run_id)
 
         response = cast(
             'Response',
@@ -138,21 +158,21 @@ class TestGetChoiceAttemptController:
         assert payload['status'] == 'completed'
         questions = cast('list[dict[str, object]]', payload['questions'])
         assert [question['question_key'] for question in questions] == [
-            'question-one',
-            'question-two',
-            'question-three',
+            'q1',
+            'q2',
+            'q3',
         ]
         assert [question['selected_option_keys'] for question in questions] == [
-            ['incorrect'],
-            ['correct'],
-            ['correct'],
+            ['b'],
+            ['b'],
+            ['a'],
         ]
         assert [
             question['disclosed_correct_option_keys'] for question in questions
         ] == [
             [],
-            ['correct'],
-            ['correct'],
+            ['b'],
+            ['a'],
         ]
 
     def test_stale_pending_attempt_becomes_failed_without_result_disclosure(
@@ -211,9 +231,9 @@ class TestGetChoiceAttemptController:
 
 def _attempts_path() -> str:
     return (
-        f'/learning/goals/{SEED_GOAL_ID}/skills/{SEED_SKILL_LOGIC_ID}'
-        f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
-        f'/activities/{SEED_ACTIVITY_REPETITION_EASY_ID}/attempts'
+        f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
+        f'/activities/{_LEARNING_ACTIVITY_ID}/attempts'
     )
 
 
@@ -227,8 +247,8 @@ def _submission_body() -> dict[str, object]:
         'answers': [
             {
                 'question_key': question_key,
-                'selected_option_keys': ['correct'],
+                'selected_option_keys': ['b' if question_key == 'q2' else 'a'],
             }
-            for question_key in ('question-one', 'question-two', 'question-three')
+            for question_key in ('q1', 'q2', 'q3')
         ],
     }

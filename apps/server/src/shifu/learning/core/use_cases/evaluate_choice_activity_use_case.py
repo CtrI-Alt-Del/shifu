@@ -32,10 +32,6 @@ from shifu.learning.core.domain.entities import (
     Goal,
     SkillExperience,
 )
-from shifu.learning.core.domain.events.diagnostic_completed_event import (
-    DiagnosticCompletedEvent,
-    DiagnosticCompletedPayload,
-)
 from shifu.learning.core.domain.events.skill_completed_event import (
     SkillCompletedEvent,
     SkillCompletedPayload,
@@ -48,14 +44,12 @@ from shifu.learning.core.domain.structures import (
     CompetencyCompletionSummary,
     EvaluationPartResult,
     MultipleSelectionAnswer,
-    OfficialActivityResult,
     SingleChoiceAnswer,
     SkillCompletionSummary,
     CodeAnswer,
     CodeRubricResult,
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
-from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
@@ -128,6 +122,12 @@ class EvaluateChoiceActivityUseCase:
             )
             if experience is None:
                 return
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
+                experience.status is not SkillExperienceStatus.DIAGNOSING
+                or attempt.diagnostic_run_id is None
+                or attempt.diagnostic_run_id != experience.diagnostic_run_id
+            ):
+                return
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     attempt_id
@@ -168,110 +168,21 @@ class EvaluateChoiceActivityUseCase:
                 ),
                 start=Decimal('0'),
             )
-            status_before = progress.status or CompetencyProgressStatus.LEARNING
             progress_before = progress.current_progress
             if progress_before is None:
                 progress_before = progress.initial_progress or Decimal('0')
             evaluation.complete(score, now, part_results)
 
-            if experience.policy_id == AdaptiveLearningPolicy.policy_id:
-                self._apply_v2(
-                    repositories,
-                    goal,
-                    experience,
-                    attempt,
-                    evaluation,
-                    part_results,
-                    now,
-                )
-                return
-
-            attempts = repositories.activity_attempts.find_many_by_skill_experience_id(
-                experience.id
-            )
-            competency_attempts = tuple(
-                item
-                for item in attempts
-                if item.competency_id == attempt.competency_id
-                and item.grading_snapshot is not None
-            )
-            evaluations = repositories.activity_evaluations.find_many_by_attempt_ids(
-                tuple(item.id for item in competency_attempts)
-            )
-            evaluations_by_attempt_id = {item.attempt_id: item for item in evaluations}
-            evaluations_by_attempt_id[attempt.id] = evaluation
-            latest_results: dict[str, OfficialActivityResult] = {}
-            hard_activity_ids: set[str] = set()
-            for prior_attempt in competency_attempts:
-                snapshot = prior_attempt.grading_snapshot
-                if snapshot is not None and snapshot.difficulty == 'hard':
-                    hard_activity_ids.add(prior_attempt.activity_id)
-                prior_evaluation = evaluations_by_attempt_id.get(prior_attempt.id)
-                if (
-                    prior_evaluation is None
-                    or prior_evaluation.status is not ActivityEvaluationStatus.COMPLETED
-                    or prior_evaluation.score is None
-                    or prior_evaluation.completed_at is None
-                ):
-                    continue
-                latest_results[prior_attempt.activity_id] = OfficialActivityResult(
-                    activity_id=prior_attempt.activity_id,
-                    attempt_id=prior_attempt.id,
-                    score=prior_evaluation.score,
-                    submitted_at=prior_attempt.submitted_at,
-                    completed_at=prior_evaluation.completed_at,
-                )
-
-            status_before_recompute = status_before
-            progress.recompute(
-                results=tuple(latest_results.values()),
-                hard_activity_ids=frozenset(hard_activity_ids),
-                updated_at=now,
-            )
-            progress_after = progress.current_progress or Decimal('0')
-            status_after = progress.status or CompetencyProgressStatus.LEARNING
-            evaluation.save_progress_effect(
-                progress_before=progress_before,
-                progress_after=progress_after,
-                status_before=status_before_recompute,
-                status_after=status_after,
-            )
-            evaluation.apply_effect(now)
-            repositories.competency_progresses.update(progress)
-            repositories.activity_evaluations.update(evaluation)
-
-            evaluated_at = now.astimezone(UTC).isoformat().replace('+00:00', 'Z')
-            repositories.events.add(
-                ActivityEvaluatedEvent(
-                    payload=ActivityEvaluatedPayload(
-                        account_id=goal.account_id,
-                        goal_id=goal.id,
-                        skill_experience_id=experience.id,
-                        skill_id=experience.skill_id,
-                        competency_id=attempt.competency_id,
-                        activity_id=attempt.activity_id,
-                        attempt_id=attempt.id,
-                        evaluation_id=evaluation.id,
-                        kind=attempt.kind,
-                        difficulty=ActivityDifficulty(
-                            attempt.grading_snapshot.difficulty
-                        ),
-                        score=str(score),
-                        evaluated_at=evaluated_at,
-                    )
-                )
-            )
-            self._publish_mastery_transition(
+            self._apply_v2(
                 repositories,
                 goal,
                 experience,
-                attempt.competency_id,
-                progress_after,
-                status_before_recompute,
-                status_after,
-                progress.mastered_at,
-                evaluated_at,
+                attempt,
+                evaluation,
+                part_results,
+                now,
             )
+            return
 
     def _apply_v2(  # noqa: C901
         self,
@@ -296,6 +207,8 @@ class EvaluateChoiceActivityUseCase:
             if (
                 experience.status is not SkillExperienceStatus.DIAGNOSING
                 or snapshot.activity_type != 'diagnostic'
+                or attempt.diagnostic_run_id is None
+                or attempt.diagnostic_run_id != experience.diagnostic_run_id
             ):
                 raise InvalidAttemptError
         elif attempt.kind is ActivityAttemptKind.LEARNING:
@@ -314,7 +227,12 @@ class EvaluateChoiceActivityUseCase:
             raise InvalidAttemptError
 
         attempts = tuple(
-            repositories.activity_attempts.find_many_by_skill_experience_id(
+            repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                experience.id, attempt.diagnostic_run_id
+            )
+            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC
+            and attempt.diagnostic_run_id is not None
+            else repositories.activity_attempts.find_many_by_skill_experience_id(
                 experience.id
             )
         )
@@ -356,8 +274,6 @@ class EvaluateChoiceActivityUseCase:
                     if result.is_correct
                     else criterion.incorrect_score
                 )
-        if not observation_scores:
-            raise InvalidAttemptError
         catalog_concept_ids = {
             concept.id
             for competency in catalog.competencies
@@ -382,29 +298,14 @@ class EvaluateChoiceActivityUseCase:
         existing = repositories.concept_observations.find_many_by_attempt_id(attempt.id)
         if existing:
             raise InvalidAttemptError
-        repositories.concept_observations.add_many(
-            experience.id, attempt.competency_id, observations
-        )
+        if observations:
+            repositories.concept_observations.add_many(
+                experience.id, attempt.competency_id, observations
+            )
 
         if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
-            evaluations = tuple(
-                repositories.activity_evaluations.find_many_by_attempt_ids(
-                    tuple(item.id for item in attempts)
-                )
-            )
-            current_evaluations = tuple(
-                evaluation if item.attempt_id == attempt.id else item
-                for item in evaluations
-            )
-            if all(item.attempt_id != attempt.id for item in current_evaluations):
-                current_evaluations += (evaluation,)
-            if (
-                DiagnosticSequence.next_item(catalog, attempts, current_evaluations)
-                is not None
-            ):
-                evaluation.apply_effect(now)
-                repositories.activity_evaluations.update(evaluation)
-                return
+            repositories.activity_evaluations.update(evaluation)
+            return
 
         all_observations = (
             tuple(
@@ -473,7 +374,7 @@ class EvaluateChoiceActivityUseCase:
                 if concept_baselines
                 else None
             )
-            progress.current_progress = state.progress
+            progress.current_progress = state.partial_progress
             progress.status = state.status
             progress.mastered_at = state.mastered_at
             progress.content_released = state.content_released
@@ -483,38 +384,15 @@ class EvaluateChoiceActivityUseCase:
             progress.updated_at = now
             repositories.competency_progresses.update(progress)
         after = progress_by_id[attempt.competency_id]
-        if attempt.kind is ActivityAttemptKind.LEARNING:
-            evaluation.save_progress_effect(
-                progress_before=progress_before,
-                progress_after=after.current_progress,
-                status_before=status_before,
-                status_after=after.status or CompetencyProgressStatus.LEARNING,
-            )
+        evaluation.save_progress_effect(
+            progress_before=progress_before,
+            progress_after=after.current_progress,
+            status_before=status_before,
+            status_after=after.status or CompetencyProgressStatus.LEARNING,
+        )
         evaluation.apply_effect(now)
         repositories.activity_evaluations.update(evaluation)
         evaluated_at = now.astimezone(UTC).isoformat().replace('+00:00', 'Z')
-        if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
-            repositories.events.add(
-                DiagnosticCompletedEvent(
-                    payload=DiagnosticCompletedPayload(
-                        account_id=goal.account_id,
-                        goal_id=goal.id,
-                        skill_experience_id=experience.id,
-                        skill_id=experience.skill_id,
-                        initial_progress=self._aggregate_progress(progress_rows),
-                        completed_at=evaluated_at,
-                    )
-                )
-            )
-            if result.focus_competency_id is None:
-                self._complete_skill(
-                    repositories, goal, experience, catalog, progress_rows, now
-                )
-            else:
-                experience.start_learning(now)
-                repositories.skill_experiences.update(experience)
-            return
-
         repositories.events.add(
             ActivityEvaluatedEvent(
                 payload=ActivityEvaluatedPayload(
@@ -548,17 +426,6 @@ class EvaluateChoiceActivityUseCase:
             self._complete_skill(
                 repositories, goal, experience, catalog, progress_rows, now
             )
-
-    @staticmethod
-    def _aggregate_progress(progress_rows: list[CompetencyProgress]) -> str:
-        values = tuple(
-            item.initial_progress
-            for item in progress_rows
-            if item.initial_progress is not None
-        )
-        if not values:
-            return 'unknown'
-        return str(sum(values, Decimal('0')) / Decimal(len(values)))
 
     @staticmethod
     def _complete_skill(

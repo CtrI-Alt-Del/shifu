@@ -1,10 +1,12 @@
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '@/ui/shadcn/button'
+import { useDiagnosticLeaveGuard } from '@/ui/learning/hooks/use-diagnostic-leave-guard'
 import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 
 import { SkillExperience } from './skill-experience'
+import { SkillPageLoading } from './skill-page-loading'
 import { type SkillPageProps, useSkillPage } from './use-skill-page'
 import { useSkillExperience } from './use-skill-experience'
 
@@ -20,6 +22,9 @@ export const SkillPage = (props: SkillPageProps) => {
     isStarting,
     startError,
     isRetrying,
+    isCompleting,
+    completionError,
+    diagnosticRunId,
     retryError,
     isRemovalDialogOpen,
     isRemovingSkill,
@@ -27,11 +32,18 @@ export const SkillPage = (props: SkillPageProps) => {
     removalTriggerRef,
     handleStart,
     handleRetryDiagnostic,
+    handleRetryCompletion,
     handleRetry,
     handleOpenRemovalDialog,
     handleCancelRemoval,
     handleConfirmRemoval,
   } = useSkillPage(props)
+  useDiagnosticLeaveGuard({
+    goalId: props.goalId,
+    skillId: props.skillId,
+    diagnosticRunId: diagnosticRunId ?? '',
+    isActive: diagnostic?.status === 'diagnosing' && Boolean(diagnosticRunId),
+  })
   const {
     experience,
     handleRetryEvaluation,
@@ -74,10 +86,16 @@ export const SkillPage = (props: SkillPageProps) => {
       </>
     )
 
-  if (isLoading || (isLearning && isExperienceLoading))
-    return (
-      <output className='mx-auto block w-full max-w-7xl'>Carregando Habilidade...</output>
-    )
+  if (isLoading || (isLearning && isExperienceLoading)) return <SkillPageLoading />
+  if (
+    diagnostic?.status === 'diagnosing' &&
+    diagnostic.runState === 'active' &&
+    diagnostic.pendingAttemptStatus &&
+    diagnostic.nextCompetencyId &&
+    diagnostic.nextActivityId &&
+    diagnosticRunId
+  )
+    return <SkillPageLoading />
   if (isPrivateAbsence)
     return (
       <h1 className='mx-auto w-full max-w-7xl font-serif text-3xl'>
@@ -96,7 +114,7 @@ export const SkillPage = (props: SkillPageProps) => {
 
   return (
     <main className='mx-auto w-full max-w-7xl space-y-8 pb-10'>
-      <div className='mx-auto w-full max-w-4xl space-y-8'>
+      <div className='mx-auto w-full max-w-7xl space-y-8'>
         <header className='flex items-start justify-between gap-4'>
           <div>
             <Link
@@ -147,6 +165,18 @@ export const SkillPage = (props: SkillPageProps) => {
               As respostas são avaliadas em conjunto. Notas e correções individuais não
               aparecem durante o diagnóstico.
             </p>
+            {startError ? (
+              <div className='mt-5 space-y-3' role='alert'>
+                <p className='text-sm text-destructive'>{startError}</p>
+                <Button
+                  disabled={isStarting}
+                  onClick={() => void handleStart()}
+                  type='button'
+                >
+                  {isStarting ? 'Iniciando...' : 'Tentar iniciar novamente'}
+                </Button>
+              </div>
+            ) : null}
             {diagnostic.pendingAttemptStatus === 'failed' ? (
               <div
                 className='mt-5 space-y-3 rounded-md border border-border bg-muted p-4'
@@ -165,24 +195,23 @@ export const SkillPage = (props: SkillPageProps) => {
                   {isRetrying ? 'Tentando novamente...' : 'Tentar avaliação novamente'}
                 </Button>
               </div>
-            ) : diagnostic.pendingAttemptStatus === 'pending' ? (
-              <output className='mt-5 block rounded-md bg-muted p-4'>
-                Aguardando a avaliação da última resposta. Esta página será atualizada
-                automaticamente.
-              </output>
+            ) : diagnostic.readyToComplete || isCompleting ? (
+              <div className='mt-5 space-y-3'>
+                <output aria-live='polite' className='block rounded-md bg-muted p-4'>
+                  {completionError
+                    ? 'Não foi possível consolidar o resultado da Habilidade.'
+                    : 'Consolidando o resultado da Habilidade...'}
+                </output>
+                {completionError ? (
+                  <Button onClick={() => void handleRetryCompletion()} type='button'>
+                    Tentar novamente
+                  </Button>
+                ) : null}
+              </div>
             ) : diagnostic.nextActivityId && diagnostic.nextCompetencyId ? (
-              <Link
-                className='mt-6 inline-flex min-h-11 items-center rounded-md bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90'
-                params={{
-                  goalId: props.goalId,
-                  skillId: props.skillId,
-                  competencyId: diagnostic.nextCompetencyId,
-                  activityId: diagnostic.nextActivityId,
-                }}
-                to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
-              >
-                Continuar diagnóstico
-              </Link>
+              <output aria-live='polite' className='mt-5 block'>
+                Abrindo a próxima Atividade...
+              </output>
             ) : (
               <output className='mt-5 block'>Preparando a próxima Atividade...</output>
             )}
@@ -218,9 +247,16 @@ export const SkillPage = (props: SkillPageProps) => {
                     <p className='font-mono text-xl font-semibold'>
                       {competency.progress === null
                         ? 'Sem evidência'
-                        : `${Math.round(competency.progress)}%`}
+                        : `${Math.round(competency.progress)}%${competency.coverageComplete ? '' : ' · estimativa parcial'}`}
                     </p>
                   </div>
+                  <p className='mt-2 text-sm text-muted-foreground'>
+                    {competency.contentReleased
+                      ? 'Conteúdo liberado'
+                      : competency.isFocus
+                        ? 'Competência em foco'
+                        : 'Conteúdo ainda bloqueado'}
+                  </p>
                   <Link
                     className='mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline'
                     params={{
@@ -235,6 +271,13 @@ export const SkillPage = (props: SkillPageProps) => {
                 </li>
               ))}
             </ul>
+            <Link
+              className='inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline'
+              params={{ goalId: props.goalId, skillId: props.skillId }}
+              to='/learning/goals/$goalId/skills/$skillId/diagnostic/result'
+            >
+              Ver diagnóstico consolidado
+            </Link>
             {diagnostic.focusCompetencyId ? (
               <Link
                 className='inline-flex min-h-11 items-center rounded-md bg-primary px-5 font-semibold text-primary-foreground hover:bg-primary/90'

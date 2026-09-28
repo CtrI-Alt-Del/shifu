@@ -1,8 +1,11 @@
 import { ObjectiveCard } from '@/ui/learning/widgets/components/objective-card'
 import { Button } from '@/ui/shadcn/button'
+import { Skeleton } from '@/ui/shadcn/skeleton'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { useGoalsListSection } from './use-goals-list-section'
+
+const SKELETON_CARD_KEYS = ['first', 'second', 'third'] as const
 
 export const GoalsListSection = () => {
   const { goals, goalsCountLabel, handleRetry, state } = useGoalsListSection()
@@ -19,11 +22,30 @@ export const GoalsListSection = () => {
         {state === 'populated' && (
           <span className='text-sm text-muted-foreground'>{goalsCountLabel}</span>
         )}
+        {state === 'loading' && <Skeleton aria-hidden='true' className='h-4 w-20' />}
       </div>
 
       {state === 'loading' && (
-        <output className='mt-6 block text-sm text-muted-foreground'>
-          Carregando seus objetivos...
+        <output className='mt-6 block'>
+          <span className='sr-only'>Carregando seus objetivos...</span>
+          <div aria-hidden='true' className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+            {SKELETON_CARD_KEYS.map((key) => (
+              <div
+                className='flex min-h-50 flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-6'
+                key={key}
+              >
+                <div className='space-y-3'>
+                  <Skeleton className='h-6 w-3/4' />
+                  <Skeleton className='h-4 w-full' />
+                  <Skeleton className='h-4 w-5/6' />
+                </div>
+                <div className='flex items-center justify-between'>
+                  <Skeleton className='h-4 w-24' />
+                  <Skeleton className='h-5 w-5' />
+                </div>
+              </div>
+            ))}
+          </div>
         </output>
       )}
 
@@ -49,7 +71,7 @@ export const GoalsListSection = () => {
       )}
 
       {state === 'populated' && (
-        <div className='mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+        <div className='home-page__goals mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
           {goals.map((goal) => (
             <ObjectiveCard
               description={goal.description}

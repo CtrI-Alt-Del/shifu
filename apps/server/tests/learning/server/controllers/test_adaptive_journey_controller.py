@@ -1,6 +1,6 @@
 """Persisted HTTP journey for an eligible adaptive Skill in disposable PostgreSQL."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any, cast
 from uuid import uuid4
 
@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.structures import (
+    JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
 )
@@ -30,6 +31,13 @@ from shifu.learning.database.sqlalchemy.models import (
 )
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser, RateLimitDecision
+from shifu.shared.core.domain.structures import (
+    CodeConceptDecision,
+    CodeCriterionDecision,
+    CodeRubricAssessmentInput,
+    CodeRubricDecisions,
+)
+from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from shifu.shared.database.seed import seed as seed_database
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
@@ -50,6 +58,7 @@ from shifu.shared.database.seed_data import (
 )
 from shifu.shared.database.sqlalchemy.settings import SeedSettings
 from shifu.shared.database.sqlalchemy.models import EventModel
+from shifu.shared.settings import get_settings
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
@@ -81,6 +90,23 @@ class _UnlimitedCache:
         return RateLimitDecision(allowed=True, retry_after_seconds=0)
 
 
+class _FixedCodeRubricAssessor:
+    def __init__(self, score: CodeRubricLevel = 75) -> None:
+        self._score: CodeRubricLevel = score
+
+    def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
+        return CodeRubricDecisions(
+            criterion_levels=tuple(
+                CodeCriterionDecision(key=item.key, level=self._score)
+                for item in request.rubric_criteria
+            ),
+            concept_levels=tuple(
+                CodeConceptDecision(concept_id=item.concept_id, level=self._score)
+                for item in request.concept_criteria
+            ),
+        )
+
+
 def _get(client: TestClient, path: str, headers: dict[str, str]) -> Response:
     return cast('Response', client.get(path, headers=headers))  # pyright: ignore[reportUnknownMemberType]
 
@@ -97,11 +123,66 @@ def _post(
     )
 
 
+def _practice_until_mastered(
+    client: TestClient,
+    skill_path: str,
+    headers: dict[str, str],
+    submit_and_evaluate: Callable[..., object],
+) -> tuple[set[str], set[str]]:
+    practiced: set[str] = set()
+    targeted: set[str] = set()
+    for _ in range(24):
+        detail = _get(
+            client,
+            f'{skill_path}/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}',
+            headers,
+        )
+        assert detail.status_code == 200, detail.text
+        current = cast('dict[str, Any]', detail.json())
+        if current['status'] == 'mastered':
+            break
+        target_id = current['adaptive']['targetConceptId']
+        assert target_id in {
+            SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
+            SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID,
+        }
+        if (
+            target_id == SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID
+            and target_id not in targeted
+        ):
+            assert current['adaptive']['materialId'] == (
+                SEED_ADAPTIVE_LAB_BOOLEAN_MATERIAL_ID
+            )
+        targeted.add(target_id)
+        activity_id = current['adaptive']['activityId']
+        practiced.add(activity_id)
+        submit_and_evaluate(
+            client,
+            skill_path,
+            SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+            activity_id,
+            correct=True,
+        )
+    else:
+        pytest.fail('Laboratory did not reach first-Competency mastery')
+    return practiced, targeted
+
+
 @pytest.fixture
 def adaptive_app(
     postgres_database: PostgresDatabase,
     redis_fixture: RedisFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[FastAPI]:
+    # CI intentionally has no .env.local. Diagnostic activity snapshots are
+    # unavailable unless their revision can be signed, so give this HTTP
+    # fixture an explicit deterministic key instead of inheriting a developer's
+    # local settings file.
+    monkeypatch.setenv(
+        'DIAGNOSTIC_REVISION_HMAC_KEY',
+        'adaptive-journey-test-diagnostic-revision-key',
+    )
+    get_settings.cache_clear()
     seed = build_development_seed()
     curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum.transaction() as repositories:
@@ -117,6 +198,7 @@ def adaptive_app(
     app.state.inngest_broker = _NoopBroker()
     yield app
     app.dependency_overrides.clear()
+    get_settings.cache_clear()
 
 
 def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
@@ -152,90 +234,147 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
         goal_id = cast('dict[str, Any]', created.json())['goalId']
         skill_path = f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_SKILL_ID}'
         with postgres_database.engine.connect() as connection:
-            policy_id = connection.scalar(
-                select(SkillExperienceModel.policy_id).where(
+            persisted_experience_id = connection.scalar(
+                select(SkillExperienceModel.id).where(
                     SkillExperienceModel.goal_id == goal_id
                 )
             )
-        assert policy_id == 'learning-adaptive-v2'
+        assert persisted_experience_id is not None
 
-        started = _post(client, f'{skill_path}/start', headers)
+        diagnostic_run_id = str(uuid4())
+        started = _post(
+            client,
+            f'{skill_path}/start',
+            headers,
+            {'entry_key': diagnostic_run_id},
+        )
         assert started.status_code == 200, started.text
+        diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
         visited: list[str] = []
-        for expected_difficulty in ('easy', 'medium', 'hard'):
-            overview = _get(client, f'{skill_path}/diagnostic', headers)
-            assert overview.status_code == 200, overview.text
-            data = cast('dict[str, Any]', overview.json())
-            assert data['status'] == 'diagnosing'
-            assert data['competencies'] == []
-            assert data['pendingAttemptId'] is None
-            competency_id = data['nextCompetencyId']
-            activity_id = data['nextActivityId']
+        diagnostic_items: list[dict[str, object]] = []
+        overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
+        assert overview.status_code == 200, overview.text
+        data = cast('dict[str, Any]', overview.json())
+        assert data['status'] == 'diagnosing'
+        assert data['competencies'] == []
+        assert data['pendingAttemptId'] is None
+        activity_sequence = cast('list[dict[str, Any]]', data['activitySequence'])
+        assert len(activity_sequence) == 3
+        for index, expected_difficulty in enumerate(('easy', 'medium', 'hard')):
+            sequence_item = activity_sequence[index]
+            competency_id = sequence_item['competencyId']
+            activity_id = sequence_item['activityId']
             assert activity_id not in visited
             visited.append(activity_id)
             activity_path = (
                 f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
             )
-            activity = _get(client, activity_path, headers)
-            assert activity.status_code == 200, activity.text
+            activity = _get(client, activity_path, diagnostic_headers)
+            assert activity.status_code == 200, (
+                f'goal_id={goal_id}, skill_id={SEED_ADAPTIVE_SKILL_ID}, '
+                f'competency_id={competency_id}, activity_id={activity_id}: '
+                f'{activity.text}'
+            )
             activity_data = cast('dict[str, Any]', activity.json())
             assert activity_data['is_diagnostic'] is True
             assert activity_data['difficulty'] == expected_difficulty
             answers = [
                 {
                     'question_key': question['key'],
+                    'kind': question['kind'],
                     'selected_option_keys': ['a'],
                 }
                 for question in activity_data['questions']
             ]
-            submitted = _post(
-                client,
-                f'{activity_path}/attempts',
-                headers,
-                {'submission_key': str(uuid4()), 'answers': answers},
+            diagnostic_items.append(
+                {
+                    'competency_id': competency_id,
+                    'activity_id': activity_id,
+                    'activity_revision': activity_data['activity_revision'],
+                    'answers': answers,
+                }
             )
-            assert submitted.status_code == 201, submitted.text
-            submitted_data = cast('dict[str, Any]', submitted.json())
-            assert submitted_data['is_diagnostic'] is True
-            assert submitted_data['result_url'] == f'{skill_path}/diagnostic'
-            attempt_id = submitted_data['attempt_id']
+
+        submitted = _post(
+            client,
+            f'{skill_path}/diagnostic/submissions',
+            diagnostic_headers,
+            {'submission_key': str(uuid4()), 'items': diagnostic_items},
+        )
+        assert submitted.status_code == 201, submitted.text
+        assert submitted.json() == {'status': 'pending', 'replayed': False}
+        pending = cast(
+            'dict[str, Any]',
+            _get(client, f'{skill_path}/diagnostic', diagnostic_headers).json(),
+        )
+        assert pending['pendingAttemptId'] is not None
+        assert pending['pendingAttemptStatus'] == 'pending'
+        with learning.transaction() as repositories:
+            diagnostic_attempts = repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                persisted_experience_id, diagnostic_run_id
+            )
+            pending_evaluations = tuple(
+                repositories.activity_evaluations.find_by_attempt_id(attempt.id)
+                for attempt in diagnostic_attempts
+            )
+        assert len(diagnostic_attempts) == len(visited)
+        for attempt in diagnostic_attempts:
+            activity_path = (
+                f'{skill_path}/competencies/{attempt.competency_id}'
+                f'/activities/{attempt.activity_id}'
+            )
             private_result = _get(
-                client, f'{activity_path}/attempts/{attempt_id}', headers
+                client, f'{activity_path}/attempts/{attempt.id}', headers
             )
             assert private_result.status_code == 404
-            pending = cast(
-                'dict[str, Any]',
-                _get(client, f'{skill_path}/diagnostic', headers).json(),
-            )
-            assert pending['pendingAttemptId'] == attempt_id
-            assert pending['pendingAttemptStatus'] == 'pending'
-            with learning.transaction() as repositories:
-                evaluation = repositories.activity_evaluations.find_by_attempt_id(
-                    attempt_id
-                )
-                assert evaluation is not None and evaluation.run_id is not None
-                run_id = evaluation.run_id
+        for evaluation in pending_evaluations:
+            assert evaluation is not None
+            assert evaluation.status.value == 'pending'
+            assert evaluation.run_id is not None
+        for attempt, evaluation in zip(
+            diagnostic_attempts, pending_evaluations, strict=True
+        ):
+            assert evaluation is not None and evaluation.run_id is not None
             EvaluateChoiceActivityUseCase(
-                learning, SystemClockProvider(), provider
-            ).execute(attempt_id, run_id)
+                learning,
+                SystemClockProvider(),
+                provider,
+                _FixedCodeRubricAssessor(),
+            ).execute(attempt.id, evaluation.run_id)
 
-        completed = _get(client, f'{skill_path}/diagnostic', headers)
+        confirmation = _post(
+            client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+        )
+        assert confirmation.status_code == 200, confirmation.text
+        assert confirmation.json()['status'] == 'learning'
+
+        completed = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
         assert completed.status_code == 200, completed.text
         summary = cast('dict[str, Any]', completed.json())
         assert summary['status'] == 'learning'
         assert len(summary['competencies']) == 1
         assert summary['competencies'][0]['competencyId'] is not None
         assert summary['competencies'][0]['progress'] is not None
-        assert 'status' not in summary['competencies'][0]
-        assert 'coverageComplete' not in summary['competencies'][0]
+        assert summary['competencies'][0]['status'] is not None
+        assert isinstance(summary['competencies'][0]['coverageComplete'], bool)
         baseline = summary['competencies'][0]['progress']
         competency_id = summary['competencies'][0]['competencyId']
         detail_path = f'{skill_path}/competencies/{competency_id}'
         detail = _get(client, detail_path, headers)
         assert detail.status_code == 200, detail.text
-        recommendation = cast('dict[str, Any]', detail.json())['adaptive']
+        detail_body = cast('dict[str, Any]', detail.json())
+        recommendation = detail_body['adaptive']
         assert recommendation['targetConceptId'] == SEED_ADAPTIVE_CONCEPT_ID
         assert recommendation['activityId'] is not None
+        assert summary['initialRecommendation'] is not None
+        assert (
+            summary['initialRecommendation']['activityId']
+            == recommendation['activityId']
+        )
+        assert (
+            summary['initialRecommendation']['targetConceptName']
+            == detail_body['adaptive']['targetConceptName']
+        )
         activity_id = recommendation['activityId']
         learning_activity_path = f'{detail_path}/activities/{activity_id}'
         learning_activity = _get(client, learning_activity_path, headers)
@@ -263,7 +402,10 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
             assert evaluation is not None and evaluation.run_id is not None
             learning_run_id = evaluation.run_id
         EvaluateChoiceActivityUseCase(
-            learning, SystemClockProvider(), provider
+            learning,
+            SystemClockProvider(),
+            provider,
+            _FixedCodeRubricAssessor(),
         ).execute(learning_attempt_id, learning_run_id)
         learning_result = _get(
             client,
@@ -272,11 +414,13 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
         )
         assert learning_result.status_code == 200, learning_result.text
         assert cast('dict[str, Any]', learning_result.json())['status'] == 'completed'
-        later_summary = _get(client, f'{skill_path}/diagnostic', headers)
+        later_summary = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
         assert later_summary.status_code == 200, later_summary.text
+        later_summary_data = cast('dict[str, Any]', later_summary.json())
+        assert later_summary_data['competencies'] == summary['competencies']
         assert (
-            cast('dict[str, Any]', later_summary.json())['competencies'][0]['progress']
-            == baseline
+            later_summary_data['initialRecommendation']
+            == summary['initialRecommendation']
         )
         with postgres_database.engine.connect() as connection:
             assert (
@@ -292,7 +436,7 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
                 ).where(ConceptStateModel.concept_id == SEED_ADAPTIVE_CONCEPT_ID)
             ).one()
             assert state.initial_progress is not None
-            assert float(state.initial_progress) == baseline
+            assert float(state.initial_progress) == pytest.approx(baseline)
 
 
 class TestAdaptiveLabSeed:
@@ -335,24 +479,52 @@ class TestAdaptiveLabSeed:
             activity_id: str,
             *,
             correct: bool,
-        ) -> None:
+            diagnostic_run_id: str | None = None,
+        ) -> dict[str, object] | None:
+            request_headers = (
+                headers
+                if diagnostic_run_id is None
+                else {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
+            )
             activity = activities[activity_id]
             path = f'{skill_path}/competencies/{competency_id}/activities/{activity_id}'
-            response = _get(client, path, headers)
-            assert response.status_code == 200, response.text
+            response = _get(client, path, request_headers)
+            assert response.status_code == 200, (
+                f'goal_id={SEED_ADAPTIVE_LAB_GOAL_ID}, '
+                f'skill_id={SEED_ADAPTIVE_LAB_SKILL_ID}, '
+                f'competency_id={competency_id}, activity_id={activity_id}: '
+                f'{response.text}'
+            )
             wire_questions = cast('dict[str, Any]', response.json())['questions']
+            answers: list[dict[str, object]] = []
             for question, wire in zip(activity.questions, wire_questions, strict=True):
                 assert wire['prompt'] == question.prompt
-                assert wire['kind'] == (
+                if isinstance(question, JavascriptStdinQuestion):
+                    assert wire['kind'] == 'javascript_stdin'
+                    answers.append(
+                        {
+                            'kind': 'javascript_stdin',
+                            'question_key': question.key,
+                            'files': [
+                                {
+                                    'path': item['path'],
+                                    'content': item['content'],
+                                }
+                                for item in wire['initial_files']
+                                if item['editable']
+                            ],
+                        }
+                    )
+                    continue
+                assert isinstance(
+                    question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                )
+                expected_kind = (
                     'multiple_selection'
                     if isinstance(question, MultipleSelectionQuestion)
                     else 'single_choice'
                 )
-            answers: list[dict[str, object]] = []
-            for question in activity.questions:
-                assert isinstance(
-                    question, (SingleChoiceQuestion, MultipleSelectionQuestion)
-                )
+                assert wire['kind'] == expected_kind
                 selected_keys = [
                     option.key
                     for option in question.options
@@ -361,15 +533,24 @@ class TestAdaptiveLabSeed:
                 answers.append(
                     {
                         'question_key': question.key,
+                        'kind': expected_kind,
                         'selected_option_keys': (
                             selected_keys if correct else selected_keys[:1]
                         ),
                     }
                 )
+            if diagnostic_run_id is not None:
+                activity_data = cast('dict[str, Any]', response.json())
+                return {
+                    'competency_id': competency_id,
+                    'activity_id': activity_id,
+                    'activity_revision': activity_data['activity_revision'],
+                    'answers': answers,
+                }
             submission = _post(
                 client,
                 f'{path}/attempts',
-                headers,
+                request_headers,
                 {'submission_key': str(uuid4()), 'answers': answers},
             )
             assert submission.status_code == 201, submission.text
@@ -381,8 +562,93 @@ class TestAdaptiveLabSeed:
                 assert evaluation is not None and evaluation.run_id is not None
                 run_id = evaluation.run_id
             EvaluateChoiceActivityUseCase(
-                learning, SystemClockProvider(), provider
+                learning,
+                SystemClockProvider(),
+                provider,
+                _FixedCodeRubricAssessor(
+                    0 if diagnostic_run_id is not None else 100 if correct else 0
+                ),
             ).execute(attempt_id, run_id)
+            return None
+
+        def submit_diagnostic_batch(
+            client: TestClient,
+            skill_path: str,
+            diagnostic_run_id: str,
+        ) -> None:
+            diagnostic_headers = {
+                **headers,
+                'X-Diagnostic-Run-Id': diagnostic_run_id,
+            }
+            initial_overview = _get(
+                client, f'{skill_path}/diagnostic', diagnostic_headers
+            )
+            assert initial_overview.status_code == 200, initial_overview.text
+            activity_sequence = cast(
+                'list[dict[str, Any]]',
+                cast('dict[str, Any]', initial_overview.json())['activitySequence'],
+            )
+            assert len(activity_sequence) == 9
+            expected_competency_ids = [
+                SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+            ] * 6 + [SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID] * 3
+            diagnostic_ids: set[str] = set()
+            diagnostic_items: list[dict[str, object]] = []
+            for index, sequence_item in enumerate(activity_sequence):
+                competency_id = sequence_item['competencyId']
+                activity_id = sequence_item['activityId']
+                assert competency_id == expected_competency_ids[index]
+                assert activity_id not in diagnostic_ids
+                diagnostic_ids.add(activity_id)
+                diagnostic_item = submit_and_evaluate(
+                    client,
+                    skill_path,
+                    competency_id,
+                    activity_id,
+                    correct=index in (6, 7),
+                    diagnostic_run_id=diagnostic_run_id,
+                )
+                assert diagnostic_item is not None
+                diagnostic_items.append(diagnostic_item)
+
+            diagnostic_submission = _post(
+                client,
+                f'{skill_path}/diagnostic/submissions',
+                diagnostic_headers,
+                {'submission_key': str(uuid4()), 'items': diagnostic_items},
+            )
+            assert diagnostic_submission.status_code == 201, diagnostic_submission.text
+            assert diagnostic_submission.json() == {
+                'status': 'pending',
+                'replayed': False,
+            }
+            with learning.transaction() as repositories:
+                diagnostic_experience = (
+                    repositories.skill_experiences.find_by_goal_id_and_skill_id(
+                        SEED_ADAPTIVE_LAB_GOAL_ID,
+                        SEED_ADAPTIVE_LAB_SKILL_ID,
+                    )
+                )
+                assert diagnostic_experience is not None
+                diagnostic_attempts = repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                    diagnostic_experience.id,
+                    diagnostic_run_id,
+                )
+                diagnostic_evaluations = tuple(
+                    repositories.activity_evaluations.find_by_attempt_id(attempt.id)
+                    for attempt in diagnostic_attempts
+                )
+            assert len(diagnostic_attempts) == len(diagnostic_items)
+            for attempt, evaluation in zip(
+                diagnostic_attempts, diagnostic_evaluations, strict=True
+            ):
+                assert evaluation is not None and evaluation.run_id is not None
+                EvaluateChoiceActivityUseCase(
+                    learning,
+                    SystemClockProvider(),
+                    provider,
+                    _FixedCodeRubricAssessor(score=0),
+                ).execute(attempt.id, evaluation.run_id)
 
         with TestClient(adaptive_app, raise_server_exceptions=True) as client:
             adaptive_app.state.cache_provider = _UnlimitedCache()
@@ -400,32 +666,24 @@ class TestAdaptiveLabSeed:
             skill_path = (
                 f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
             )
-            started = _post(client, f'{skill_path}/start', headers)
+            diagnostic_run_id = str(uuid4())
+            started = _post(
+                client,
+                f'{skill_path}/start',
+                headers,
+                {'entry_key': diagnostic_run_id},
+            )
             assert started.status_code == 200, started.text
+            diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
+            submit_diagnostic_batch(client, skill_path, diagnostic_run_id)
 
-            diagnostic_ids: list[str] = []
-            for index in range(9):
-                overview = _get(client, f'{skill_path}/diagnostic', headers)
-                assert overview.status_code == 200, overview.text
-                data = cast('dict[str, Any]', overview.json())
-                competency_id = data['nextCompetencyId']
-                activity_id = data['nextActivityId']
-                assert competency_id == (
-                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
-                    if index < 6
-                    else SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID
-                )
-                assert activity_id not in diagnostic_ids
-                diagnostic_ids.append(activity_id)
-                submit_and_evaluate(
-                    client,
-                    skill_path,
-                    competency_id,
-                    activity_id,
-                    correct=index in (6, 7),
-                )
+            confirmation = _post(
+                client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+            )
+            assert confirmation.status_code == 200, confirmation.text
+            assert confirmation.json()['status'] in {'learning', 'completed'}
 
-            overview = _get(client, f'{skill_path}/diagnostic', headers)
+            overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
             assert overview.status_code == 200, overview.text
             summary = cast('dict[str, Any]', overview.json())
             assert summary['status'] == 'learning'
@@ -459,42 +717,12 @@ class TestAdaptiveLabSeed:
             )
             assert first_data['adaptive']['materialIsOptional'] is True
 
-            practiced: set[str] = set()
-            targeted: set[str] = set()
-            for _ in range(24):
-                detail = _get(
-                    client,
-                    f'{skill_path}/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}',
-                    headers,
-                )
-                assert detail.status_code == 200, detail.text
-                current = cast('dict[str, Any]', detail.json())
-                if current['status'] == 'mastered':
-                    break
-                target_id = current['adaptive']['targetConceptId']
-                assert target_id in {
-                    SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
-                    SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID,
-                }
-                if (
-                    target_id == SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID
-                    and target_id not in targeted
-                ):
-                    assert current['adaptive']['materialId'] == (
-                        SEED_ADAPTIVE_LAB_BOOLEAN_MATERIAL_ID
-                    )
-                targeted.add(target_id)
-                activity_id = current['adaptive']['activityId']
-                practiced.add(activity_id)
-                submit_and_evaluate(
-                    client,
-                    skill_path,
-                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
-                    activity_id,
-                    correct=True,
-                )
-            else:
-                pytest.fail('Laboratory did not reach first-Competency mastery')
+            practiced, targeted = _practice_until_mastered(
+                client,
+                skill_path,
+                headers,
+                submit_and_evaluate,
+            )
             assert targeted == {
                 SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
                 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID,
@@ -511,7 +739,7 @@ class TestAdaptiveLabSeed:
             assert mastered_data['status'] == 'mastered'
             assert mastered_data['progress'] >= 85
 
-            later = _get(client, f'{skill_path}/diagnostic', headers)
+            later = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
             assert later.status_code == 200
             later_baseline = {
                 item['competencyId']: item['progress']

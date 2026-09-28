@@ -105,6 +105,69 @@ describe('useActivityPage', () => {
       ],
     })
   })
+
+  it('submits diagnostic choices without preliminary feedback', async () => {
+    const diagnosticActivity = {
+      ...activity,
+      isDiagnostic: true,
+      questions: [activity.questions[0]],
+    }
+    const onPreview = vi.fn()
+    const onSubmit = vi.fn().mockResolvedValue({ ...submitted, isDiagnostic: true })
+    vi.stubGlobal('crypto', { randomUUID: () => 'diagnostic-key' })
+    const { result } = renderHook(
+      () => useActivityPage({ activity: diagnosticActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleToggleOption('a'))
+    await act(async () => result.current.handleContinue())
+
+    expect(onPreview).not.toHaveBeenCalled()
+    expect(onSubmit).toHaveBeenCalledWith({
+      submissionKey: 'diagnostic-key',
+      activityRevision: 'revision-1',
+      answers: [
+        { kind: 'single_choice', questionKey: 'single-1', selectedOptionKeys: ['a'] },
+      ],
+    })
+    expect(result.current.feedback).toBeNull()
+  })
+
+  it('submits the edited diagnostic code without an official preview', async () => {
+    const diagnosticActivity = {
+      ...activity,
+      isDiagnostic: true,
+      questions: [activity.questions[1]],
+    }
+    const onPreview = vi.fn()
+    const onSubmit = vi.fn().mockResolvedValue({ ...submitted, isDiagnostic: true })
+    vi.stubGlobal('crypto', { randomUUID: () => 'diagnostic-code-key' })
+    const { result } = renderHook(
+      () => useActivityPage({ activity: diagnosticActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+
+    act(() =>
+      result.current.handleCodeFilesChange([
+        { path: 'index.js', content: 'console.log(2)' },
+      ]),
+    )
+    await act(async () => result.current.handleContinue())
+
+    expect(onPreview).not.toHaveBeenCalled()
+    expect(onSubmit).toHaveBeenCalledWith({
+      submissionKey: 'diagnostic-code-key',
+      activityRevision: 'revision-1',
+      answers: [
+        {
+          kind: 'javascript_stdin',
+          questionKey: 'code-1',
+          files: [{ path: 'index.js', content: 'console.log(2)' }],
+        },
+      ],
+    })
+  })
   it('previews in order, freezes editable source, and submits the complete revisioned answer set', async () => {
     const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 75 })
     const onSubmit = vi.fn().mockResolvedValue(submitted)

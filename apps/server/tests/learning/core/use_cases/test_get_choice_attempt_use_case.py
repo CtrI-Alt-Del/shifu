@@ -224,7 +224,6 @@ class TestGetChoiceAttemptUseCase:
         self.repositories.activity_attempts.find_by_id.assert_not_called()
 
     def test_should_not_project_legacy_next_action_for_adaptive_result(self) -> None:
-        self.experience.policy_id = 'learning-adaptive-v2'
         self.evaluation.status = ActivityEvaluationStatus.COMPLETED
         self.evaluation.score = Decimal('100')
         self.evaluation.completed_at = NOW
