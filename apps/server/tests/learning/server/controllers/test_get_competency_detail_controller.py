@@ -91,7 +91,7 @@ class TestGetCompetencyDetailController:
         revision_before = _current_migration_revision(postgres_database)
 
         try:
-            _run_alembic(postgres_database.url, 'downgrade', '-1')
+            _run_alembic(postgres_database.url, 'downgrade', 'e7b5c8d9f012')
             revision_after_downgrade = _current_migration_revision(postgres_database)
             assert revision_after_downgrade != revision_before
 
