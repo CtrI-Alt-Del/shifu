@@ -7096,11 +7096,21 @@
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Você já domina duas das quatro Competências. Estruturas de repetição é seu foco e já está liberada para começar.",
+                      "content": "Você já domina duas das quatro Competências. Estruturas de repetição é seu foco; a estimativa é parcial. Funções ainda não tem evidência suficiente para uma estimativa.",
                       "lineHeight": 1.5,
                       "fontFamily": "$font-ui",
                       "fontSize": 16,
                       "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ehvMW",
+                      "name": "Escala do ponto de partida",
+                      "fill": "$text-secondary",
+                      "content": "Ponto de partida por Competência (0–100)",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "500"
                     },
                     {
                       "type": "frame",
@@ -7351,7 +7361,7 @@
                                   "type": "text",
                                   "id": "Z0oeu",
                                   "fill": "$latao-text",
-                                  "content": "Em desenvolvimento",
+                                  "content": "Estimativa parcial",
                                   "fontFamily": "$font-ui",
                                   "fontSize": 11,
                                   "fontWeight": "500"
@@ -7418,7 +7428,7 @@
                                   "cornerRadius": 3,
                                   "id": "q0k32R",
                                   "fill": "$control-border",
-                                  "width": 66,
+                                  "width": 0,
                                   "height": 6
                                 }
                               ]
@@ -7429,7 +7439,7 @@
                               "fill": "$text-secondary",
                               "textGrowth": "fixed-width",
                               "width": 32,
-                              "content": "30",
+                              "content": "—",
                               "textAlign": "right",
                               "fontFamily": "$font-mono",
                               "fontSize": 14,
@@ -7451,7 +7461,7 @@
                                   "id": "e4PGe",
                                   "name": "Competence status label",
                                   "fill": "$text-primary",
-                                  "content": "Em aprendizagem",
+                                  "content": "Sem evidência",
                                   "fontFamily": "$font-ui",
                                   "fontSize": 11,
                                   "fontWeight": "500"
@@ -7511,7 +7521,7 @@
                           "ref": "ygtpy",
                           "descendants": {
                             "G5Acqe": {
-                              "content": "Começar por Estruturas de repetição"
+                              "content": "Iniciar Somar os números pares"
                             }
                           }
                         }
@@ -21369,6 +21379,16 @@
                       "fontFamily": "$font-ui",
                       "fontSize": 16,
                       "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "SZiJK",
+                      "name": "Escala do resultado final",
+                      "fill": "$text-secondary",
+                      "content": "Resultado por Competência (0–100)",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "500"
                     },
                     {
                       "type": "frame",

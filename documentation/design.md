@@ -412,11 +412,17 @@ Mostra a Competência atual e o avanço geral.
 **Não mostra** nota, correção, casos de avaliação nem retorno de IA de item algum.
 Material de apoio, dicas e Mentor ficam **indisponíveis para a Atividade diagnóstica atual**. O Mentor continua acessível para outros assuntos — desenhar esse bloqueio como mensagem dentro do Mentor, não removendo o botão.
 Uma resposta válida por Atividade. Sem rascunho.
-Ao sair e voltar, retoma no próximo item não resolvido. Itens já avaliados permanecem concluídos.
+Antes de sair de um diagnóstico incompleto, informar que o avanço será perdido. Ao
+voltar, começar uma nova execução na primeira Atividade. Respostas, envios e avaliações
+da execução interrompida não entram no resultado; avaliações pendentes dessa execução
+não produzem efeito posterior.
 
 #### T20 — Resultado do diagnóstico
 Aparece só no fim do diagnóstico inteiro.
-Lista consolidada por Competência: progresso inicial 0 a 100 e situação.
+Lista consolidada por Competência: progresso inicial de 0 a 100 quando houver
+observação numérica, com estimativa completa ou parcial identificada. Sem observação
+numérica, mostrar ausência de evidência; não convertê-la em zero. Zero observado
+permanece zero.
 **Não expõe** respostas individuais, correções ou casos.
 Se todas as Competências estiverem dominadas, a Habilidade é concluída direto e o resumo **não pode alegar evolução** — inicial e final são iguais.
 Caso contrário, mostra qual é a Competência em foco e leva para T21.
@@ -424,14 +430,22 @@ Caso contrário, mostra qual é a Competência em foco e leva para T21.
 #### T21 — Habilidade em aprendizado
 A tela central do produto. Três blocos:
 
-**a) Cabeçalho** — nome da Habilidade, nota geral (média dos progressos atuais de **todas** as Competências, inclusive as bloqueadas), selo de situação.
+**a) Cabeçalho** — nome da Habilidade, resultado geral e selo de situação. O resultado
+completo é a média dos progressos atuais de **todas** as Competências, inclusive as
+bloqueadas, somente quando todas as estimativas estiverem completas. Caso contrário,
+identificar qualquer média exibida como parcial e distinguir ausência de evidência de
+desempenho zero.
 
-**b) Próxima Atividade recomendada** — em destaque. Mostra dificuldade e se é Atividade nova ou **reforço**. A dificuldade segue o progresso da Competência em foco: abaixo de 40 → fácil, de 40 a 69 → média, 70 ou mais sem domínio → difícil.
+**b) Próxima Atividade recomendada** — em destaque. Mostra dificuldade, finalidade e
+se é Atividade nova ou **reforço**. Learning escolhe a ação conforme as evidências,
+cobertura, verificações e pré-requisitos do Conceito alvo, pela política de RP-17; a
+média da Competência não determina sozinha a dificuldade.
 A recomendação **orienta, não obriga**. O usuário pode abrir qualquer Atividade de qualquer Competência liberada.
 Nada começa automaticamente depois de uma avaliação.
 
 **c) Lista de Competências** — na ordem do Currículo, cada uma com: número de ordem, nome, barra de progresso com marcas em 40/70/85, valor numérico, selo de situação, marcador de **foco** e cadeado quando bloqueada.
-A Competência em foco é sempre a primeira ainda não dominada.
+A Competência em foco é a primeira na ordem curricular que ainda não esteja dominada ou
+tenha verificação de regressão ou de evidência pendente.
 Conteúdo já liberado **nunca volta a ser bloqueado**, mesmo com queda de desempenho. Se o foco voltar para uma Competência anterior, a interface explica a mudança sem esconder o que já foi liberado.
 
 Se existir avaliação pendente ou com falha nesta Habilidade, um aviso de topo explica que **apenas novas tentativas desta Habilidade estão pausadas** e que outras Habilidades seguem normais.
@@ -465,6 +479,9 @@ Dois desenhos diferentes, e nenhum deles se parece com nota zero.
 
 **Em andamento** — indica processamento. A avaliação continua mesmo se o usuário sair da tela.
 **Com falha do Shifu** — erro recuperável com **Tentar novamente**, preservando a resposta já enviada. Não exige reenviar. Apresentado como problema do Shifu, **nunca** como erro pedagógico do usuário.
+
+No diagnóstico interrompido, a avaliação pendente da execução abandonada não produz
+resultado posterior; a nova execução recomeça conforme T19 e Learning RP-06.
 
 Enquanto houver pendência: novas tentativas bloqueadas **só nesta Habilidade**, materiais e Atividades liberados continuam navegáveis, e a recomendação espera a resolução.
 
