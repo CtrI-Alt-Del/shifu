@@ -47,7 +47,7 @@ export const MaterialPage = (props: MaterialPageProps) => {
   const { recommendation } = detail
 
   return (
-    <article className='space-y-7 pb-6 sm:space-y-9'>
+    <article className='mx-auto max-w-7xl space-y-8'>
       <MaterialHeader
         competencyId={detail.competencyId}
         competencyName={detail.competencyName}

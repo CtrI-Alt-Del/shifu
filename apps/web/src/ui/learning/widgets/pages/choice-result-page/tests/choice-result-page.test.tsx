@@ -259,12 +259,13 @@ describe('ChoiceResultPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Resultado da Atividade' })).toBeVisible()
     expect(
-      screen.getByRole('link', { name: 'Voltar para a Habilidade' }),
+      screen.getByRole('link', { name: 'Voltar para a Competência' }),
     ).toHaveAttribute(
       'data-params',
       JSON.stringify({
         goalId: ADAPTIVE_DETAIL.goalId,
         skillId: ADAPTIVE_DETAIL.skillId,
+        competencyId: ADAPTIVE_DETAIL.competencyId,
       }),
     )
     expect(

@@ -1,5 +1,8 @@
 import { Button } from '@/ui/shadcn/button'
+import { Skeleton } from '@/ui/shadcn/skeleton'
 import { Link } from '@tanstack/react-router'
+
+import './choice-result-page.css'
 
 import type {
   ActivityQuestion,
@@ -33,20 +36,74 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
 
   if (pageProps.state === 'loading') {
     return (
-      <main className='mx-auto w-full max-w-7xl'>
+      <main className='mx-auto w-full max-w-7xl space-y-3 pb-8'>
         <output
+          aria-busy='true'
           aria-label='Carregando resultado da Atividade...'
-          className='block space-y-4 rounded-md border border-border bg-card p-6'
+          className='block space-y-3'
         >
           <div
             aria-hidden='true'
-            className='motion-safe:animate-pulse h-7 w-2/3 rounded bg-muted'
-          />
-          <div
+            className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'
+          >
+            <div>
+              <Skeleton className='h-9 w-72 max-w-full sm:h-10' />
+              <Skeleton className='mt-2 h-4 w-44' />
+            </div>
+            <div className='flex items-end gap-1'>
+              <Skeleton className='h-10 w-16' />
+              <Skeleton className='mb-0.5 h-4 w-12' />
+            </div>
+          </div>
+
+          <section
             aria-hidden='true'
-            className='motion-safe:animate-pulse h-20 rounded bg-muted'
-          />
-          <p>Carregando resultado da Atividade...</p>
+            className='flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:gap-4'
+          >
+            <div className='min-w-0 space-y-2 sm:w-60 sm:shrink-0'>
+              <Skeleton className='h-3 w-40' />
+              <div className='flex gap-2'>
+                <Skeleton className='h-4 w-16' />
+                <Skeleton className='h-4 w-16' />
+              </div>
+              <Skeleton className='h-3 w-32' />
+            </div>
+            <div className='min-w-0 flex-1'>
+              <Skeleton className='h-1.5 w-full rounded-full' />
+              <Skeleton className='mt-2 h-4 w-full' />
+            </div>
+          </section>
+
+          <section aria-hidden='true' className='space-y-1'>
+            {['first', 'second', 'third', 'fourth', 'fifth'].map((key) => (
+              <div
+                className='flex min-h-11 flex-col gap-2 rounded-md border border-border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4'
+                key={key}
+              >
+                <div className='flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1'>
+                  <Skeleton className='h-4 w-40' />
+                  <Skeleton className='h-4 w-36 max-w-full' />
+                </div>
+                <div className='flex shrink-0 items-center justify-end gap-3'>
+                  <Skeleton className='h-4 w-12' />
+                  <Skeleton className='size-4' />
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <section
+            aria-hidden='true'
+            className='space-y-3 rounded-md border border-control-border bg-card p-5 sm:p-6'
+          >
+            <Skeleton className='h-3 w-40' />
+            <Skeleton className='h-8 w-64 max-w-full' />
+            <Skeleton className='h-4 w-3/4 max-w-2xl' />
+            <Skeleton className='h-11 w-full sm:w-64' />
+          </section>
+
+          <Skeleton className='h-11 w-56 max-w-full' aria-hidden='true' />
+          <span className='sr-only'>Carregando resultado da Atividade...</span>
         </output>
       </main>
     )
@@ -85,42 +142,45 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   if (pageProps.state !== 'result') return null
 
   const { activity, attempt, onOpenRecommendation, recommendation } = pageProps
-  const backToSkillLink = pageProps.detailIds ? (
+  const backToCompetencyLink = pageProps.detailIds ? (
     <Link
       className='inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-md border border-control-border px-4 font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring'
       params={{
         goalId: pageProps.detailIds.goalId,
         skillId: pageProps.detailIds.skillId,
+        competencyId: pageProps.detailIds.competencyId,
       }}
-      to='/learning/goals/$goalId/skills/$skillId'
+      to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
     >
       <Icon name='arrow-left' size={16} />
-      Voltar para a Habilidade
+      Voltar para a Competência
     </Link>
   ) : null
 
   if (attempt.status === 'pending') {
     return (
-      <main className='mx-auto w-full max-w-7xl space-y-4'>
-        <h1 className='font-serif text-3xl text-foreground'>
+      <main className='mx-auto w-full max-w-7xl space-y-6 pb-8'>
+        <h1 className='font-serif text-3xl font-normal text-foreground sm:text-4xl'>
           Avaliação em andamento
-          <span
-            aria-hidden='true'
-            className='ml-2 inline-flex items-center gap-1.5 align-middle text-muted-foreground'
-          >
-            <span className='motion-safe:animate-pulse motion-reduce:animate-none h-1.5 w-1.5 rounded-full bg-current' />
-            <span className='motion-safe:animate-pulse motion-reduce:animate-none [animation-delay:160ms] h-1.5 w-1.5 rounded-full bg-current' />
-            <span className='motion-safe:animate-pulse motion-reduce:animate-none [animation-delay:320ms] h-1.5 w-1.5 rounded-full bg-current' />
-          </span>
         </h1>
         <output
+          aria-busy='true'
           aria-live='polite'
-          className='block rounded-md border border-border bg-card p-5 text-foreground'
+          className='block overflow-hidden rounded-lg border border-border bg-card text-foreground'
         >
-          Estamos avaliando suas respostas. Você pode sair; o resultado ficará disponível
-          aqui.
+          <div aria-hidden='true' className='choice-result-pending-progress'>
+            <span />
+          </div>
+          <div className='space-y-2 p-5 sm:p-7'>
+            <p className='text-lg font-semibold sm:text-xl'>
+              Estamos avaliando suas respostas.
+            </p>
+            <p className='max-w-2xl leading-relaxed text-muted-foreground'>
+              Você pode sair; o resultado ficará disponível aqui.
+            </p>
+          </div>
         </output>
-        {backToSkillLink}
+        {backToCompetencyLink}
       </main>
     )
   }
@@ -158,7 +218,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
             </output>
           ) : null}
         </section>
-        {backToSkillLink}
+        {backToCompetencyLink}
       </main>
     )
   }
@@ -315,7 +375,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
         </section>
       ) : null}
 
-      {backToSkillLink}
+      {backToCompetencyLink}
     </main>
   )
 }

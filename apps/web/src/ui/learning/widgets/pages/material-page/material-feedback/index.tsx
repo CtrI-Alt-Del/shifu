@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
+import { Skeleton } from '@/ui/shadcn/skeleton'
 
 type FeedbackRouteProps = {
   competencyId: string
@@ -26,31 +27,37 @@ export type MaterialFeedbackProps =
 export const MaterialFeedback = (props: MaterialFeedbackProps) => {
   if (props.state === 'loading') {
     return (
-      <div className='flex min-h-[calc(100dvh-10rem)] w-full flex-1 items-center justify-center'>
-        <output
-          aria-label='Carregando Material de apoio...'
-          aria-live='polite'
-          className='flex w-full max-w-[68ch] flex-col gap-5 rounded-2xl border border-border bg-card p-8 sm:p-10'
-        >
-          <div
-            aria-hidden='true'
-            className='h-7 w-2/3 animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-5 w-1/2 animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-24 w-full animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-24 w-full animate-pulse rounded-md bg-muted'
-          />
-          <p>Carregando Material de apoio...</p>
-        </output>
-      </div>
+      <output
+        aria-busy='true'
+        aria-label='Carregando Material de apoio...'
+        className='mx-auto block w-full max-w-7xl space-y-8 pb-10'
+      >
+        <div aria-hidden='true' className='max-w-[68ch] space-y-5'>
+          <Skeleton className='h-11 w-52' />
+          <div className='space-y-3'>
+            <Skeleton className='h-5 w-52' />
+            <Skeleton className='h-10 w-4/5 sm:h-12' />
+            <Skeleton className='h-8 w-36' />
+          </div>
+        </div>
+
+        <div aria-hidden='true' className='max-w-[68ch] space-y-6'>
+          {['first', 'second', 'third'].map((key) => (
+            <div className='space-y-3' key={key}>
+              <Skeleton className='h-4 w-full' />
+              <Skeleton className='h-4 w-[94%]' />
+              <Skeleton className='h-4 w-4/5' />
+            </div>
+          ))}
+        </div>
+
+        <div aria-hidden='true' className='max-w-[68ch] space-y-2'>
+          <Skeleton className='h-4 w-full' />
+          <Skeleton className='h-4 w-2/3' />
+        </div>
+
+        <span className='sr-only'>Carregando Material de apoio...</span>
+      </output>
     )
   }
 

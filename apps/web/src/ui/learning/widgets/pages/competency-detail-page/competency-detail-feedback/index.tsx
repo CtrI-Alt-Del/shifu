@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
+import { Skeleton } from '@/ui/shadcn/skeleton'
 
 type FeedbackRouteProps = {
   goalId: string
@@ -26,35 +27,65 @@ export const CompetencyDetailFeedback = (props: CompetencyDetailFeedbackProps) =
 
   if (props.state === 'loading') {
     return (
-      <div className='mx-auto flex min-h-[calc(100dvh-10rem)] w-full max-w-7xl flex-1 items-center justify-center'>
-        <output
-          aria-live='polite'
-          aria-label='Carregando Competência e seu progresso...'
-          className='flex w-full max-w-3xl flex-col gap-5 rounded-2xl border border-border bg-card p-8 sm:p-10'
+      <output
+        aria-busy='true'
+        aria-label='Carregando Competência e seu progresso...'
+        className='mx-auto block w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'
+      >
+        <div aria-hidden='true' className='space-y-5'>
+          <Skeleton className='h-11 w-52' />
+          <div className='flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between'>
+            <div className='min-w-0 max-w-4xl flex-1'>
+              <Skeleton className='mb-3 hidden h-5 w-48 lg:block' />
+              <Skeleton className='h-10 w-3/4 sm:h-14' />
+              <div className='mt-4 flex gap-2'>
+                <Skeleton className='h-8 w-24' />
+                <Skeleton className='h-8 w-32' />
+              </div>
+            </div>
+            <div className='w-full max-w-xl lg:min-w-[22rem]'>
+              <Skeleton className='h-4 w-48' />
+              <Skeleton className='mt-2 h-2.5 w-full rounded-full' />
+            </div>
+          </div>
+          <div className='flex items-start gap-3 rounded-md border border-border bg-card px-3 py-3'>
+            <Skeleton className='mt-0.5 size-5 shrink-0' />
+            <div className='flex-1 space-y-2'>
+              <Skeleton className='h-4 w-full' />
+              <Skeleton className='h-4 w-2/3' />
+            </div>
+          </div>
+        </div>
+
+        <section
+          aria-hidden='true'
+          className='rounded-md border border-control-border bg-card p-5 sm:p-6'
         >
-          <div
-            aria-hidden='true'
-            className='h-7 w-2/3 animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-5 w-1/2 animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-14 w-full animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-14 w-full animate-pulse rounded-md bg-muted'
-          />
-          <div
-            aria-hidden='true'
-            className='h-14 w-full animate-pulse rounded-md bg-muted'
-          />
-          <p>Carregando Competência e seu progresso...</p>
-        </output>
-      </div>
+          <Skeleton className='h-3 w-40' />
+          <Skeleton className='mt-3 h-8 w-2/3 max-w-md' />
+          <Skeleton className='mt-3 h-4 w-5/6' />
+          <div className='mt-5 flex flex-col gap-3 sm:flex-row'>
+            <Skeleton className='h-11 w-full sm:w-48' />
+            <Skeleton className='h-11 w-full sm:w-64' />
+          </div>
+        </section>
+
+        <ol aria-hidden='true' className='relative space-y-3'>
+          {['first', 'second', 'third'].map((key) => (
+            <li className='flex gap-4 lg:gap-5' key={key}>
+              <Skeleton className='size-11 shrink-0 rounded-full lg:size-12' />
+              <div className='flex min-h-16 min-w-0 flex-1 items-center justify-between gap-4 rounded-md border border-border bg-card px-4 py-3 lg:min-h-[68px] lg:px-5'>
+                <div className='min-w-0 flex-1 space-y-2'>
+                  <Skeleton className='h-5 w-3/4' />
+                  <Skeleton className='h-4 w-40' />
+                </div>
+                <Skeleton className='size-5 shrink-0' />
+              </div>
+            </li>
+          ))}
+        </ol>
+        <span className='sr-only'>Carregando Competência e seu progresso...</span>
+      </output>
     )
   }
 

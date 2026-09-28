@@ -3,6 +3,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
 import { Input } from '@/ui/shadcn/input'
 import { Label } from '@/ui/shadcn/label'
+import { SquareBackground } from '@/ui/shared/widgets/components/square-background'
 
 import { useSignInPage } from './use-sign-in-page'
 
@@ -19,6 +20,7 @@ export const SignInPage = () => {
 
   return (
     <div className='relative isolate mx-auto flex min-h-dvh w-full max-w-7xl items-center justify-center overflow-x-hidden px-5 py-8 sm:py-12'>
+      <SquareBackground />
       <main className='relative z-10 flex w-full max-w-[440px] flex-col rounded-2xl border border-border bg-card p-6 sm:p-8'>
         <div className='mb-8 text-center'>
           <p className='font-serif text-3xl leading-none text-foreground'>

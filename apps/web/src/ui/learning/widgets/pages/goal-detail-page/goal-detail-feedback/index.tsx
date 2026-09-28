@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
+import { Skeleton } from '@/ui/shadcn/skeleton'
 
 export type GoalDetailFeedbackProps =
   | { state: 'loading' }
@@ -15,11 +16,50 @@ export const GoalDetailFeedback = (props: GoalDetailFeedbackProps) => {
       <output
         aria-busy='true'
         aria-label='Carregando objetivo'
-        className='block space-y-5 rounded-lg border border-border bg-card p-6'
+        className='mx-auto block w-full max-w-7xl space-y-7 pb-6'
       >
-        <div aria-hidden='true' className='h-10 w-2/3 animate-pulse rounded bg-muted' />
-        <div aria-hidden='true' className='h-5 w-full animate-pulse rounded bg-muted' />
-        <div aria-hidden='true' className='h-64 animate-pulse rounded bg-muted' />
+        <div
+          aria-hidden='true'
+          className='flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'
+        >
+          <div className='w-full max-w-4xl space-y-3'>
+            <Skeleton className='h-10 w-3/5 max-w-md' />
+            <Skeleton className='h-5 w-full max-w-lg' />
+          </div>
+          <Skeleton className='h-11 w-40 shrink-0' />
+        </div>
+        <div
+          aria-hidden='true'
+          className='flex flex-wrap items-center justify-between gap-4'
+        >
+          <Skeleton className='h-11 w-36' />
+          <Skeleton className='h-11 w-52' />
+        </div>
+        <div
+          aria-hidden='true'
+          className='relative h-[40rem] overflow-hidden rounded-[10px] border border-border bg-surface-alt px-5'
+        >
+          <Skeleton className='absolute left-3 top-3 size-11' />
+          <div className='mx-auto flex h-full max-w-[388px] flex-col items-center pt-28'>
+            <div className='w-full rounded-[10px] border border-border bg-card p-4'>
+              <Skeleton className='h-5 w-2/3' />
+              <Skeleton className='mt-2 h-4 w-1/3' />
+            </div>
+            <div className='h-14 w-px bg-border' />
+            <div className='w-full max-w-[352px] rounded-[10px] border border-border bg-card p-4'>
+              <Skeleton className='h-5 w-3/4' />
+              <Skeleton className='mt-5 h-2 w-full' />
+              <Skeleton className='mt-3 h-4 w-1/2' />
+            </div>
+            <div className='h-10 w-px bg-border' />
+            <div className='w-full max-w-[352px] rounded-[10px] border border-border bg-card p-4'>
+              <Skeleton className='h-5 w-2/3' />
+              <Skeleton className='mt-5 h-2 w-full' />
+              <Skeleton className='mt-3 h-4 w-1/3' />
+            </div>
+          </div>
+          <Skeleton className='absolute bottom-5 right-5 h-11 w-32' />
+        </div>
         <span className='sr-only'>Carregando objetivo</span>
       </output>
     )

@@ -24,15 +24,15 @@ export const SkillRecommendationCard = ({
     >
       <div className='flex min-w-0 flex-col gap-2'>
         <p className='flex flex-wrap items-center gap-2'>
-          <span className='rounded-md bg-accent px-2 py-1 text-[11px] font-medium text-selo-text'>
+          <span className='rounded-md bg-accent px-2 py-1 text-[13px] leading-5 font-medium text-selo-text'>
             {DIFFICULTY_LABELS[recommendation.difficulty]}
           </span>
-          <span className='rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-secondary-foreground'>
+          <span className='rounded-md bg-muted px-2 py-1 text-[13px] leading-5 font-medium text-secondary-foreground'>
             {RECOMMENDATION_TYPE_LABELS[recommendation.type]}
           </span>
         </p>
         <h2
-          className='truncate text-[17px] font-medium text-foreground'
+          className='truncate text-lg font-medium text-foreground'
           id='skill-recommendation-title'
         >
           {recommendation.activityTitle}
@@ -41,7 +41,7 @@ export const SkillRecommendationCard = ({
 
       <div className='flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row-reverse sm:gap-2.5'>
         <Link
-          className='inline-flex min-h-[38px] items-center justify-center rounded-md bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
+          className='inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-[18px] text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
           params={{
             activityId: recommendation.activityId,
             competencyId: recommendation.competencyId,
@@ -53,7 +53,7 @@ export const SkillRecommendationCard = ({
           Continuar praticando
         </Link>
         <Link
-          className='inline-flex min-h-[38px] items-center justify-center rounded-md border border-control-border px-[18px] text-sm font-semibold text-foreground transition-colors hover:bg-muted'
+          className='inline-flex min-h-11 items-center justify-center rounded-md border border-control-border px-[18px] text-base font-semibold text-foreground transition-colors hover:bg-muted'
           params={{
             competencyId: recommendation.competencyId,
             goalId,

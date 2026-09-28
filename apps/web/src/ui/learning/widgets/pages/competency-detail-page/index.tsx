@@ -1,3 +1,5 @@
+import './competency-detail-page.css'
+
 import { CompetencyContentList } from './competency-content-list'
 import { CompetencyDetailFeedback } from './competency-detail-feedback'
 import { CompetencyDetailHeader } from './competency-detail-header'
@@ -37,7 +39,7 @@ export const CompetencyDetailPage = (props: CompetencyDetailPageProps) => {
   }
 
   return (
-    <div className='mx-auto w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'>
+    <div className='competency-detail-page mx-auto w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'>
       <CompetencyDetailHeader
         detail={detail}
         goalId={props.goalId}

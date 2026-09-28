@@ -104,15 +104,25 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
                 <p className='whitespace-pre-wrap text-[13px] leading-5 text-foreground/80'>
                   {props.question.prompt}
                 </p>
-                <div className='space-y-2 rounded-md bg-jade-tint p-3'>
-                  <h2 className='text-sm font-semibold text-success'>
-                    Como será avaliado
-                  </h2>
-                  <p className='text-xs leading-5 text-foreground/80'>
-                    Sua avaliação usa a rubrica desta questão. A prática no Terminal ajuda
-                    a testar sua solução.
-                  </p>
-                </div>
+                {props.onAssess ? (
+                  <div className='space-y-2 rounded-md bg-jade-tint p-3'>
+                    <h2 className='text-sm font-semibold text-success'>
+                      Como será avaliado
+                    </h2>
+                    <p className='text-xs leading-5 text-foreground/80'>
+                      Sua avaliação usa a rubrica desta questão. A prática no Terminal
+                      ajuda a testar sua solução.
+                    </p>
+                  </div>
+                ) : (
+                  <div aria-live='polite' className='space-y-2 rounded-md bg-muted p-3'>
+                    <h2 className='text-sm font-semibold text-foreground'>Prática</h2>
+                    <p className='text-xs leading-5 text-foreground/80'>
+                      Teste sua solução no Terminal. A saída e os erros da prática não
+                      mostram o resultado do diagnóstico.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <CodeFileTree
@@ -138,7 +148,7 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
         ) : null}
         <div className='flex min-h-0 min-w-0 flex-col'>
           <div className='flex min-h-[52px] shrink-0 items-center justify-end border-b border-border bg-muted px-4'>
-            {!props.readOnly ? (
+            {!props.readOnly && props.onAssess ? (
               <Button
                 type='button'
                 disabled={isFrozen}

@@ -38,6 +38,7 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
     skillName: 'Lógica de programação',
     skillStatus: 'learning',
     overallResult: 72.4,
+    overallCoverageComplete: true,
     focusCompetencyId: IDS.focusCompetencyId,
     focusCompetencyName: 'Estruturas de repetição',
     competencies: [
@@ -46,6 +47,7 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
         competencyName: 'Variáveis e tipos',
         position: 1,
         progress: 92,
+        coverageComplete: true,
         status: 'mastered',
         availability: 'available',
         isFocus: false,
@@ -55,6 +57,7 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
         competencyName: 'Estruturas de repetição',
         position: 2,
         progress: 72,
+        coverageComplete: true,
         status: 'proficient',
         availability: 'available',
         isFocus: true,
@@ -64,6 +67,7 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
         competencyName: 'Funções',
         position: 3,
         progress: 35,
+        coverageComplete: false,
         status: 'learning',
         availability: 'unavailable',
         isFocus: false,
@@ -76,7 +80,12 @@ function detail(overrides: Partial<SkillExperienceDetail> = {}): SkillExperience
       activityTitle: 'Somar os números pares de uma lista',
       difficulty: 'hard',
       type: 'new-activity',
+      reason: 'Continue desenvolvendo esta Competência.',
+      targetConceptName: null,
+      materialId: null,
+      gap: null,
     },
+    recommendationGap: null,
     evaluation: null,
     ...overrides,
   }
@@ -119,6 +128,14 @@ describe('SkillExperience', () => {
     expect(screen.getByText('Em aprendizado')).toBeVisible()
     expect(screen.getByText('Resultado geral').parentElement).toHaveTextContent(
       'Resultado geral72%',
+    )
+  })
+
+  it('shows unknown overall evidence distinctly from a measured zero', () => {
+    renderExperience({ overallResult: null, overallCoverageComplete: false })
+
+    expect(screen.getByText('Resultado geral').parentElement).toHaveTextContent(
+      'Resultado geralSem evidência',
     )
   })
 
@@ -251,5 +268,13 @@ describe('SkillExperience', () => {
       'href',
       '/learning/goals/$goalId',
     )
+  })
+
+  it('keeps the consolidated diagnostic result available after confirmation', () => {
+    renderExperience()
+
+    expect(
+      screen.getByRole('link', { name: 'Ver diagnóstico consolidado' }),
+    ).toHaveAttribute('href', '/learning/goals/$goalId/skills/$skillId/diagnostic/result')
   })
 })

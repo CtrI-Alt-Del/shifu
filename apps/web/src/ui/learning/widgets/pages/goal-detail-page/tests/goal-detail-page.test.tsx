@@ -99,7 +99,10 @@ describe('GoalDetailPage', () => {
 
   it('renders loading, private absence and retry states without stale data', () => {
     const { rerender } = render(<GoalDetailPage goalId={goalId} />)
-    expect(screen.getByLabelText('Carregando objetivo')).toBeVisible()
+    const loadingStatus = screen.getByLabelText('Carregando objetivo')
+    expect(loadingStatus).toBeVisible()
+    expect(loadingStatus.querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
 
     useGoalDetailPageMock.mockReturnValue(makeController({ state: 'not-found' }))
     rerender(<GoalDetailPage goalId={goalId} />)

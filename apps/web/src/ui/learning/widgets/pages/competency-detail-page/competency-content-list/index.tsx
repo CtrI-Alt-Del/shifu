@@ -26,7 +26,7 @@ export const CompetencyContentList = ({
   return (
     <ol
       aria-label='Conteúdos da Competência'
-      className='relative space-y-3 before:absolute before:bottom-8 before:left-[22px] before:top-8 before:w-px before:bg-border lg:space-y-3 lg:before:left-6'
+      className='competency-detail-page__content relative space-y-3 before:absolute before:bottom-8 before:left-[22px] before:top-8 before:w-px before:bg-border lg:space-y-3 lg:before:left-6'
     >
       {detail.items.map((item: CompetencyDetailItem) => {
         const rowProps: CompetencyContentRowProps = {

@@ -17,8 +17,9 @@ export type SkillCompetencySummary = {
   competencyId: string
   competencyName: string
   position: number
-  progress: number
-  status: CompetencyProgressStatus
+  progress: number | null
+  coverageComplete: boolean
+  status: CompetencyProgressStatus | null
   availability: CompetencyAvailability
   isFocus: boolean
 }
@@ -30,6 +31,10 @@ export type SkillRecommendation = {
   activityTitle: string
   difficulty: ActivityDifficulty
   type: ActivityRecommendationType
+  reason: string
+  targetConceptName: string | null
+  materialId: string | null
+  gap: string | null
 }
 
 export type SkillEvaluationState = {
@@ -45,11 +50,13 @@ export type SkillExperienceDetail = {
   skillId: string
   skillName: string
   skillStatus: SkillExperienceStatus
-  overallResult: number
+  overallResult: number | null
+  overallCoverageComplete: boolean
   focusCompetencyId: string | null
   focusCompetencyName: string | null
   competencies: SkillCompetencySummary[]
   recommendation: SkillRecommendation | null
+  recommendationGap: string | null
   evaluation: SkillEvaluationState | null
 }
 

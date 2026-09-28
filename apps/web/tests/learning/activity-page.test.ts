@@ -48,8 +48,24 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   })
 
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
-  await authenticatedPage.getByText('4', { exact: true }).click()
-  await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
+  const firstOption = authenticatedPage.getByRole('radio', { name: '4' })
+  await firstOption.focus()
+  await authenticatedPage.keyboard.press('Shift+Tab')
+  await authenticatedPage.keyboard.press('Tab')
+  await expect(firstOption).toBeFocused()
+  expect(await firstOption.evaluate((input) => input.matches(':focus-visible'))).toBe(
+    true,
+  )
+  expect(
+    await firstOption.evaluate((input) => {
+      const label = input.closest('label')
+      if (!label) return null
+      const style = getComputedStyle(label)
+      return { outlineStyle: style.outlineStyle, outlineWidth: style.outlineWidth }
+    }),
+  ).toEqual({ outlineStyle: 'solid', outlineWidth: '2px' })
+  await authenticatedPage.keyboard.press('Space')
+  await expect(firstOption).toBeChecked()
 
   const dialogMessage = new Promise<string>((resolve) => {
     authenticatedPage.once('dialog', async (dialog) => {
