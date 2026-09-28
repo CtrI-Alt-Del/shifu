@@ -74,8 +74,9 @@ describe('CompetencyContentRow', () => {
       />,
     )
 
-    expect(screen.getByText('Atividade · Média · Nota 80')).toBeVisible()
-    expect(screen.getByRole('link', { name: /Somar uma lista/ })).toHaveAttribute(
+    const activityLink = screen.getByRole('link', { name: /Somar uma lista/ })
+    expect(activityLink).toHaveTextContent('Atividade · Média · Nota 80')
+    expect(activityLink).toHaveAttribute(
       'data-to',
       '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
     )
@@ -100,8 +101,11 @@ describe('CompetencyContentRow', () => {
       />,
     )
 
-    expect(screen.getByText('Difícil · Recomendada')).toBeVisible()
-    expect(screen.getByText('Praticar')).toBeVisible()
+    const recommendedActivityLink = screen.getByRole('link', {
+      name: 'Praticar Somar os números pares de uma lista',
+    })
+    expect(recommendedActivityLink).toHaveTextContent(/Difícil.*Recomendada/)
+    expect(recommendedActivityLink).toHaveTextContent('Praticar')
     expect(screen.queryByText(/Nota/)).not.toBeInTheDocument()
   })
 })

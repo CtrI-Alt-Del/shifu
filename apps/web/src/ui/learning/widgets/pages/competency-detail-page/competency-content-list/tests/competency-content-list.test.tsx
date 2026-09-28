@@ -81,11 +81,12 @@ describe('CompetencyContentList', () => {
     expect(
       screen.getByRole('link', { name: 'Repetição com for — Material de apoio' }),
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Praticar Contar de 1 até n' })).toBeVisible()
-    expect(screen.getByText('Fácil · Recomendada')).toBeVisible()
-    expect(
-      screen.getByRole('link', { name: 'Praticar Contar de 1 até n' }),
-    ).toHaveAttribute(
+    const recommendedActivityLink = screen.getByRole('link', {
+      name: 'Praticar Contar de 1 até n',
+    })
+    expect(recommendedActivityLink).toBeVisible()
+    expect(recommendedActivityLink).toHaveTextContent(/Fácil.*Recomendada/)
+    expect(recommendedActivityLink).toHaveAttribute(
       'data-params',
       JSON.stringify({
         activityId: IDS.activityId,

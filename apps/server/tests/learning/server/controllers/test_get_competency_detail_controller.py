@@ -24,13 +24,12 @@ from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_EASY_ID,
-    SEED_ACTIVITY_JAVASCRIPT_STDIN_ID,
-    SEED_COMPETENCY_FUNCTIONS_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_COMPETENCY_REPETITION_ID,
     SEED_GOAL_ID,
     SEED_SKILL_LOGIC_ID,
-    SEED_SKILL_PYTHON_ID,
     build_development_seed,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
@@ -85,7 +84,23 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetCompetencyDetailController:
-    def test_available_detail_uses_ordered_content_and_does_not_write_events(
+    def test_migrations_support_upgrade_downgrade_and_reupgrade_cycle(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        revision_before = _current_migration_revision(postgres_database)
+
+        try:
+            _run_alembic(postgres_database.url, 'downgrade', 'e7b5c8d9f012')
+            revision_after_downgrade = _current_migration_revision(postgres_database)
+            assert revision_after_downgrade != revision_before
+
+            _run_alembic(postgres_database.url, 'upgrade', 'head')
+            assert _current_migration_revision(postgres_database) == revision_before
+        finally:
+            _run_alembic(postgres_database.url, 'upgrade', 'head')
+
+    def test_unreleased_detail_hides_content_and_does_not_write_events(
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,
@@ -96,9 +111,9 @@ class TestGetCompetencyDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _detail_path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
@@ -106,35 +121,22 @@ class TestGetCompetencyDetailController:
 
         assert response.status_code == 200
         body = response.json()
-        assert body['availability'] == 'available'
-        assert body['goalId'] == SEED_GOAL_ID
-        assert body['skillId'] == SEED_SKILL_LOGIC_ID
-        assert body['isFocus'] is True
+        assert body['availability'] == 'unavailable'
+        assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
+        assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
         assert 'goal_id' not in body
-        assert body['progress'] == 55
-        assert [item['position'] for item in body['items']] == [1, 2, 3, 4, 5, 6]
-        assert [item['kind'] for item in body['items']] == [
-            'material',
-            'activity',
-            'material',
-            'activity',
-            'activity',
-            'activity',
-        ]
-        assert body['items'][1]['id'] == SEED_ACTIVITY_REPETITION_EASY_ID
-        assert body['items'][1]['latestScore'] == 65
-        assert body['recommendation']['activityId'] == body['items'][3]['id']
-        assert body['recommendation']['type'] == 'new-activity'
-        assert body['items'][5]['id'] == SEED_ACTIVITY_JAVASCRIPT_STDIN_ID
+        assert 'progress' not in body
+        assert 'items' not in body
+        assert 'recommendation' not in body
         assert _event_count(postgres_database) == before_events
 
         second_response = cast(
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _detail_path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
@@ -142,7 +144,7 @@ class TestGetCompetencyDetailController:
         assert second_response.status_code == 200
         assert _event_count(postgres_database) == before_events
 
-    def test_available_detail_preserves_rows_and_hard_score_snapshots(
+    def test_unreleased_detail_preserves_rows_and_hard_score_snapshots(
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,
@@ -153,9 +155,9 @@ class TestGetCompetencyDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _detail_path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_LOGIC_ID,
-                    SEED_COMPETENCY_REPETITION_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
@@ -326,7 +328,7 @@ class TestGetCompetencyDetailController:
 
         assert response.status_code == 422
 
-    def test_unavailable_detail_omits_protected_fields(
+    def test_unreleased_detail_omits_protected_fields(
         self,
         client: TestClient,
     ) -> None:
@@ -334,9 +336,9 @@ class TestGetCompetencyDetailController:
             'Response',
             client.get(  # pyright: ignore[reportUnknownMemberType]
                 _detail_path(
-                    SEED_GOAL_ID,
-                    SEED_SKILL_PYTHON_ID,
-                    SEED_COMPETENCY_FUNCTIONS_ID,
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
                 ),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
@@ -469,6 +471,11 @@ def _run_alembic(
         capture_output=True,
         text=True,
     )
+
+
+def _current_migration_revision(database: PostgresDatabase) -> str:
+    with database.engine.connect() as connection:
+        return str(connection.scalar(text('SELECT version_num FROM alembic_version')))
 
 
 def _reset_database_to_revision(database: PostgresDatabase, revision: str) -> None:

@@ -1,4 +1,6 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -9,15 +11,16 @@ from sqlalchemy import func, select
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.learning.core.domain.enums import CompetencyProgressStatus
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
-    SEED_ACTIVITY_REPETITION_EASY_ID,
-    SEED_COMPETENCY_REPETITION_ID,
-    SEED_GOAL_ID,
-    SEED_SKILL_LOGIC_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
@@ -53,11 +56,21 @@ def application(
     redis_fixture: RedisFixture,
 ) -> Iterator[FastAPI]:
     seed = build_development_seed()
+    learning_started_at = datetime(2026, 1, 1, tzinfo=UTC)
+    for experience in seed.skill_experiences:
+        experience.start_diagnosis(learning_started_at)
+        experience.start_learning(learning_started_at)
+    for progress in seed.competency_progresses:
+        progress.content_released = True
+        progress.initial_progress = Decimal('55')
+        progress.current_progress = Decimal('55')
+        progress.status = CompetencyProgressStatus.DEVELOPING
     curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
     with curriculum_database.transaction() as repositories:
         repositories.skills.add_many(list(seed.skills))
         repositories.skill_foundations.add_many(list(seed.skill_foundations))
         repositories.competencies.add_many(list(seed.competencies))
+        repositories.concepts.add_many(list(seed.concepts))
         repositories.materials.add_many(list(seed.materials))
         repositories.activities.add_many(list(seed.activities))
         repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
@@ -93,7 +106,7 @@ class TestRetryChoiceEvaluationController:
             'Response',
             client.post(  # pyright: ignore[reportUnknownMemberType]
                 _attempts_path(),
-                json=_submission_body(),
+                json=_submission_body(client),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
@@ -158,30 +171,50 @@ class TestRetryChoiceEvaluationController:
 
 def _attempts_path() -> str:
     return (
-        f'/learning/goals/{SEED_GOAL_ID}/skills/{SEED_SKILL_LOGIC_ID}'
-        f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
-        f'/activities/{SEED_ACTIVITY_REPETITION_EASY_ID}/attempts'
+        f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}'
+        f'/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
+        f'/activities/{SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[3]}/attempts'
     )
 
 
-def _retry_path(attempt_id: str, *, goal_id: str = SEED_GOAL_ID) -> str:
+def _retry_path(
+    attempt_id: str,
+    *,
+    goal_id: str = SEED_ADAPTIVE_LAB_GOAL_ID,
+) -> str:
     return (
-        f'/learning/goals/{goal_id}/skills/{SEED_SKILL_LOGIC_ID}'
-        f'/competencies/{SEED_COMPETENCY_REPETITION_ID}'
-        f'/activities/{SEED_ACTIVITY_REPETITION_EASY_ID}'
+        f'/learning/goals/{goal_id}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
+        f'/activities/{SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[3]}'
         f'/attempts/{attempt_id}/retry'
     )
 
 
-def _submission_body() -> dict[str, object]:
+def _submission_body(client: TestClient) -> dict[str, object]:
+    detail = cast(
+        'Response',
+        client.get(  # pyright: ignore[reportUnknownMemberType]
+            _attempts_path().removesuffix('/attempts'),
+            headers={'Authorization': 'Bearer test-access-token'},
+        ),
+    )
+    assert detail.status_code == 200, detail.json()
+    questions = cast('list[dict[str, object]]', detail.json()['questions'])
     return {
         'submission_key': '75e29c3d-8bc2-4e4d-9103-cc747a170012',
+        'activity_revision': detail.json()['activity_revision'],
         'answers': [
             {
-                'question_key': question_key,
-                'selected_option_keys': ['correct'],
+                'kind': 'single_choice',
+                'question_key': question['key'],
+                'selected_option_keys': [
+                    cast(
+                        'dict[str, str]', cast('list[object]', question['options'])[0]
+                    )['key']
+                ],
             }
-            for question_key in ('question-one', 'question-two', 'question-three')
+            for question in questions
         ],
     }
 

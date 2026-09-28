@@ -157,7 +157,7 @@ describe('ActivityPage', () => {
     expect(
       screen.getByText(/resultado aparecerá apenas no resumo consolidado/i),
     ).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Enviar respostas' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeEnabled()
     expect(
       screen.queryByText(/100%|resposta correta|resposta incorreta/i),
     ).not.toBeInTheDocument()

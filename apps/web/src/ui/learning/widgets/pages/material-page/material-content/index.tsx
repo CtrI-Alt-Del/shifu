@@ -8,7 +8,7 @@ export const MaterialContent = ({ content }: MaterialContentProps) => {
   const { blocks } = useMaterialContent({ content })
 
   return (
-    <div className='space-y-6 text-base leading-7 text-foreground'>
+    <div className='max-w-[68ch] space-y-6 text-base leading-7 text-foreground'>
       {blocks.map((block) =>
         block.kind === 'code' ? (
           <section
