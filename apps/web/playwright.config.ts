@@ -8,7 +8,7 @@ const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://127.0.0.1:${port}`
 const identityURL =
   process.env.SHIFU_IDENTITY_API_URL ?? `http://127.0.0.1:${identityPort}`
-const webServerCommand = `exec corepack pnpm dev --host 0.0.0.0 --port ${port}`
+const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --port ${port}`
 
 export default defineConfig({
   testDir: './tests',
@@ -27,7 +27,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `exec uv run uvicorn main:app --app-dir src --host 127.0.0.1 --port ${identityPort}`,
+      command: `exec .venv/bin/uvicorn main:app --app-dir src --host 127.0.0.1 --port ${identityPort}`,
       cwd: '../server',
       env: {
         REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379/0',
