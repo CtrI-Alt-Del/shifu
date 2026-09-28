@@ -17,11 +17,11 @@ last_updated_at: 2026-09-28
   integrated desktop/mobile validation with persisted state.
 - **Plan status / phase:** `complete` — the Spec Reviewer accepted revision 9
   after the policy-consumer, revision-token and seed-safety corrections.
-- **Next action:** commit the CI regression-test corrections, push to PR #19, and verify the new GitHub Actions run.
-- **Active blockers:** GitHub Actions reported three stale Web assertions and two
-  non-reproducible Server integration 404s on PR #19. Web assertions are corrected
-  and focused suites pass; the remote rerun is pending. Manual browser validation
-  remains waived by the user.
+- **Next action:** commit and push the Server signer-fixture correction to PR #19, then verify the GitHub Actions rerun.
+- **Active blockers:** Web assertions are corrected and its GitHub workflow passes.
+  Server signer fixture is corrected; focused and full local integration pass without
+  `.env.local`. The next remote rerun is pending. Manual browser validation remains
+  waived by the user.
 - **External dependencies:** none block execution. Jira records SHIFU-16 and
   SHIFU-18 as complete; the reused activity-question work SHIFU-74 and SHIFU-75
   is complete.
@@ -405,7 +405,7 @@ evidence is asserted here.
 
 The user explicitly waived manual validation and fresh screenshots on
 2026-09-28. Automated gates and current route parity evidence are recorded in
-Evaluation EV-42–EV-46. Historical screenshots remain audit-only and are not
+Evaluation EV-42–EV-49. Historical screenshots remain audit-only and are not
 claimed as current revision-9 visual evidence.
 
 | Type | Scenario/surface | Criteria | Reference | Evidence target | Status |
