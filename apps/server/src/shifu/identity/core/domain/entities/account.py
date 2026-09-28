@@ -6,6 +6,7 @@ from shifu.identity.core.domain.errors import (
     AccountDeletionNotAllowedError,
     InvalidDisplayNameError,
     InvalidEmailError,
+    InvalidPasswordError,
 )
 from shifu.shared.core.domain.entities import entity
 from shifu.shared.core.domain.validation import normalize_email, require_non_empty
@@ -113,5 +114,12 @@ class Account:
         self.updated_at = updated_at
 
     def invalidate_other_accesses(self, updated_at: datetime) -> None:
+        self.access_version += 1
+        self.updated_at = updated_at
+
+    def replace_password(self, password_hash: str, updated_at: datetime) -> None:
+        if not password_hash:
+            raise InvalidPasswordError
+        self.password_hash = password_hash
         self.access_version += 1
         self.updated_at = updated_at

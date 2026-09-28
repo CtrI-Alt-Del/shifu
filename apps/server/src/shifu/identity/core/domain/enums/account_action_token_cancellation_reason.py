@@ -1,7 +1,8 @@
 from enum import StrEnum
 
 
-class AccountConfirmationCancellationReason(StrEnum):
+class AccountActionTokenCancellationReason(StrEnum):
     CONFIRMED = 'confirmed'
     REISSUED = 'reissued'
     EXPIRED = 'expired'
+    RESET = 'reset'

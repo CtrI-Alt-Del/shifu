@@ -13,12 +13,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as ConfirmEmailIndexRouteImport } from './routes/confirm-email/index'
 import { Route as CurriculumIndexRouteImport } from './routes/curriculum/index'
+import { Route as ForgotPasswordIndexRouteImport } from './routes/forgot-password/index'
 import { Route as GamificationIndexRouteImport } from './routes/gamification/index'
 import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/index'
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-confirmation/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
+import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
@@ -52,6 +54,11 @@ const CurriculumIndexRoute = CurriculumIndexRouteImport.update({
   path: '/curriculum/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForgotPasswordIndexRoute = ForgotPasswordIndexRouteImport.update({
+  id: '/forgot-password/',
+  path: '/forgot-password/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamificationIndexRoute = GamificationIndexRouteImport.update({
   id: '/gamification/',
   path: '/gamification/',
@@ -81,6 +88,11 @@ const PendingConfirmationIndexRoute =
 const RegisterIndexRoute = RegisterIndexRouteImport.update({
   id: '/register/',
   path: '/register/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordIndexRoute = ResetPasswordIndexRouteImport.update({
+  id: '/reset-password/',
+  path: '/reset-password/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -171,12 +183,14 @@ export interface FileRoutesByFullPath {
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
+  '/forgot-password/': typeof ForgotPasswordIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/pending-confirmation/': typeof PendingConfirmationIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -195,12 +209,14 @@ export interface FileRoutesByTo {
   '/account': typeof AccountIndexRoute
   '/confirm-email': typeof ConfirmEmailIndexRoute
   '/curriculum': typeof CurriculumIndexRoute
+  '/forgot-password': typeof ForgotPasswordIndexRoute
   '/gamification': typeof GamificationIndexRoute
   '/intelligence': typeof IntelligenceIndexRoute
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
   '/pending-confirmation': typeof PendingConfirmationIndexRoute
   '/register': typeof RegisterIndexRoute
+  '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
@@ -219,12 +235,14 @@ export interface FileRoutesById {
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
+  '/forgot-password/': typeof ForgotPasswordIndexRoute
   '/gamification/': typeof GamificationIndexRoute
   '/intelligence/': typeof IntelligenceIndexRoute
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/pending-confirmation/': typeof PendingConfirmationIndexRoute
   '/register/': typeof RegisterIndexRoute
+  '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -245,12 +263,14 @@ export interface FileRouteTypes {
     | '/account/'
     | '/confirm-email/'
     | '/curriculum/'
+    | '/forgot-password/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
     | '/pending-confirmation/'
     | '/register/'
+    | '/reset-password/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -269,12 +289,14 @@ export interface FileRouteTypes {
     | '/account'
     | '/confirm-email'
     | '/curriculum'
+    | '/forgot-password'
     | '/gamification'
     | '/intelligence'
     | '/learning'
     | '/login'
     | '/pending-confirmation'
     | '/register'
+    | '/reset-password'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
@@ -292,12 +314,14 @@ export interface FileRouteTypes {
     | '/account/'
     | '/confirm-email/'
     | '/curriculum/'
+    | '/forgot-password/'
     | '/gamification/'
     | '/intelligence/'
     | '/learning/'
     | '/login/'
     | '/pending-confirmation/'
     | '/register/'
+    | '/reset-password/'
     | '/api/auth/$'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -317,12 +341,14 @@ export interface RootRouteChildren {
   AccountIndexRoute: typeof AccountIndexRoute
   ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
+  ForgotPasswordIndexRoute: typeof ForgotPasswordIndexRoute
   GamificationIndexRoute: typeof GamificationIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   PendingConfirmationIndexRoute: typeof PendingConfirmationIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
+  ResetPasswordIndexRoute: typeof ResetPasswordIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
@@ -361,6 +387,13 @@ declare module '@tanstack/react-router' {
       path: '/curriculum'
       fullPath: '/curriculum/'
       preLoaderRoute: typeof CurriculumIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password/': {
+      id: '/forgot-password/'
+      path: '/forgot-password'
+      fullPath: '/forgot-password/'
+      preLoaderRoute: typeof ForgotPasswordIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gamification/': {
@@ -403,6 +436,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register/'
       preLoaderRoute: typeof RegisterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password/': {
+      id: '/reset-password/'
+      path: '/reset-password'
+      fullPath: '/reset-password/'
+      preLoaderRoute: typeof ResetPasswordIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -533,12 +573,14 @@ const rootRouteChildren: RootRouteChildren = {
   AccountIndexRoute: AccountIndexRoute,
   ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,
+  ForgotPasswordIndexRoute: ForgotPasswordIndexRoute,
   GamificationIndexRoute: GamificationIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   PendingConfirmationIndexRoute: PendingConfirmationIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
+  ResetPasswordIndexRoute: ResetPasswordIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   IntelligencePlannerPlanningIdIndexRoute:
     IntelligencePlannerPlanningIdIndexRoute,

@@ -61,7 +61,8 @@ class QueueCommunicationUseCase:
                 idempotency_key=request.idempotency_key,
                 created_at=created_at,
                 updated_at=created_at,
-                identity_confirmation_id=request.identity_confirmation_id,
+                identity_action_token_id=request.identity_action_token_id,
+                expires_at=request.expires_at,
                 encrypted_content=encrypted_content,
             )
             repositories.communications.add(communication)
@@ -81,7 +82,7 @@ class QueueCommunicationUseCase:
     ) -> None:
         if existing.id != request.communication_id:
             raise InvalidCommunicationError
-        if existing.identity_confirmation_id != request.identity_confirmation_id:
+        if existing.identity_action_token_id != request.identity_action_token_id:
             raise InvalidCommunicationError
         if existing.idempotency_key != request.idempotency_key:
             raise InvalidCommunicationError

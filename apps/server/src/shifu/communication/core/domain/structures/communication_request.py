@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from shifu.communication.core.domain.enums import (
     CommunicationChannel,
     CommunicationType,
@@ -14,7 +16,7 @@ from shifu.shared.core.domain.validation import normalize_email, require_non_emp
 @structure
 class CommunicationRequest:
     communication_id: str
-    identity_confirmation_id: str
+    identity_action_token_id: str
     account_id: str | None
     type: CommunicationType
     channel: CommunicationChannel
@@ -23,6 +25,7 @@ class CommunicationRequest:
     content: MessageContent | None = None
     message_values: MessageTemplateValues | None = None
     idempotency_key: str = ''
+    expires_at: datetime | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -32,9 +35,9 @@ class CommunicationRequest:
         )
         object.__setattr__(
             self,
-            'identity_confirmation_id',
+            'identity_action_token_id',
             require_non_empty(
-                self.identity_confirmation_id,
+                self.identity_action_token_id,
                 InvalidCommunicationError,
             ),
         )
@@ -54,6 +57,15 @@ class CommunicationRequest:
         )
         if self.content is None and self.message_values is None:
             raise InvalidCommunicationError
+        if self.message_values is not None:
+            if message_type is CommunicationType.ACCOUNT_CONFIRMATION and (
+                self.message_values.display_name is None
+            ):
+                raise InvalidCommunicationError
+            if message_type is CommunicationType.PASSWORD_RECOVERY and (
+                self.message_values.display_name is not None
+            ):
+                raise InvalidCommunicationError
         object.__setattr__(
             self,
             'idempotency_key',

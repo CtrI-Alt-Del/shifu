@@ -4,24 +4,55 @@ import { fileURLToPath } from 'node:url'
 
 import {
   ACCOUNT_CONFIRMATION_SUBJECT,
+  PASSWORD_RECOVERY_SUBJECT,
   renderAccountConfirmationEmail,
+  renderPasswordRecoveryEmail,
 } from '../templates/index.js'
-import type { AccountConfirmationEmailProps } from '../templates/index.js'
+import type {
+  AccountConfirmationEmailProps,
+  PasswordRecoveryEmailProps,
+} from '../templates/index.js'
 
-const TEMPLATE_NAME = 'account-confirmation'
-const TEMPLATE_VERSION = 1
-const HTML_FILE_NAME = `${TEMPLATE_NAME}.html`
-const MANIFEST_FILE_NAME = `${TEMPLATE_NAME}.manifest.json`
+type TemplatePlaceholder = {
+  name: string
+  type: 'text' | 'url'
+}
 
-const PLACEHOLDERS = [
+type RenderedTemplate = {
+  subject: string
+  html: string
+}
+
+type TemplateManifest = {
+  template: string
+  version: number
+  subject: string
+  placeholders: readonly TemplatePlaceholder[]
+}
+
+type TemplateDefinition = TemplateManifest & {
+  render: () => Promise<RenderedTemplate>
+}
+
+const ACCOUNT_CONFIRMATION_PLACEHOLDERS = [
   { name: 'display_name', type: 'text' },
   { name: 'action_url', type: 'url' },
   { name: 'expires_at', type: 'text' },
 ] as const
 
-const PLACEHOLDER_VALUES: AccountConfirmationEmailProps = {
+const ACCOUNT_CONFIRMATION_PLACEHOLDER_VALUES: AccountConfirmationEmailProps = {
   actionUrl: '{{action_url}}',
   displayName: '{{display_name}}',
+  expiresAt: '{{expires_at}}',
+}
+
+const PASSWORD_RECOVERY_PLACEHOLDERS = [
+  { name: 'action_url', type: 'url' },
+  { name: 'expires_at', type: 'text' },
+] as const
+
+const PASSWORD_RECOVERY_PLACEHOLDER_VALUES: PasswordRecoveryEmailProps = {
+  actionUrl: '{{action_url}}',
   expiresAt: '{{expires_at}}',
 }
 
@@ -32,12 +63,22 @@ const OUTPUT_DIRECTORY = resolve(
   'apps/server/src/shifu/communication/providers/email/template/generated',
 )
 
-const MANIFEST = {
-  template: TEMPLATE_NAME,
-  version: TEMPLATE_VERSION,
-  subject: ACCOUNT_CONFIRMATION_SUBJECT,
-  placeholders: PLACEHOLDERS,
-}
+const TEMPLATES: readonly TemplateDefinition[] = [
+  {
+    template: 'account-confirmation',
+    version: 1,
+    subject: ACCOUNT_CONFIRMATION_SUBJECT,
+    placeholders: ACCOUNT_CONFIRMATION_PLACEHOLDERS,
+    render: () => renderAccountConfirmationEmail(ACCOUNT_CONFIRMATION_PLACEHOLDER_VALUES),
+  },
+  {
+    template: 'password-recovery',
+    version: 1,
+    subject: PASSWORD_RECOVERY_SUBJECT,
+    placeholders: PASSWORD_RECOVERY_PLACEHOLDERS,
+    render: () => renderPasswordRecoveryEmail(PASSWORD_RECOVERY_PLACEHOLDER_VALUES),
+  },
+]
 
 class TemplateBuildError extends Error {
   constructor(message: string) {
@@ -60,45 +101,92 @@ function collectPlaceholderNames(html: string): Set<string> {
   return names
 }
 
-function validateRenderedContract(html: string): void {
-  const declaredNames: Set<string> = new Set(PLACEHOLDERS.map(({ name }) => name))
+function validateManifest(manifest: TemplateManifest): void {
+  if (!/^[a-z][a-z0-9-]*$/.test(manifest.template)) {
+    throw new TemplateBuildError(
+      `Template name must be kebab-case: ${manifest.template}.`,
+    )
+  }
+
+  if (!Number.isInteger(manifest.version) || manifest.version < 1) {
+    throw new TemplateBuildError(
+      `Template version must be a positive integer: ${manifest.template}.`,
+    )
+  }
+
+  if (manifest.subject.trim().length === 0) {
+    throw new TemplateBuildError(
+      `Template subject must not be empty: ${manifest.template}.`,
+    )
+  }
+
+  const placeholderNames = manifest.placeholders.map(({ name }) => name)
+  if (new Set(placeholderNames).size !== placeholderNames.length) {
+    throw new TemplateBuildError(
+      `Template manifest contains duplicate placeholders: ${manifest.template}.`,
+    )
+  }
+}
+
+function validateRenderedContract(html: string, manifest: TemplateManifest): void {
+  const declaredNames: Set<string> = new Set(
+    manifest.placeholders.map(({ name }) => name),
+  )
   const renderedNames = collectPlaceholderNames(html)
   const missingNames = [...declaredNames].filter((name) => !renderedNames.has(name))
   const unknownNames = [...renderedNames].filter((name) => !declaredNames.has(name))
 
   if (missingNames.length > 0 || unknownNames.length > 0) {
     throw new TemplateBuildError(
-      `Template placeholder mismatch. Missing: ${missingNames.join(', ') || 'none'}; ` +
+      `${manifest.template} placeholder mismatch. Missing: ${missingNames.join(', ') || 'none'}; ` +
         `unknown: ${unknownNames.join(', ') || 'none'}.`,
     )
   }
 
   if (!html.includes('lang="pt-BR"') || !html.includes('dir="ltr"')) {
     throw new TemplateBuildError(
-      'Generated template must declare lang="pt-BR" and dir="ltr".',
+      `${manifest.template} must declare lang="pt-BR" and dir="ltr".`,
     )
   }
 }
 
-async function buildTemplates(): Promise<void> {
-  const rendered = await renderAccountConfirmationEmail(PLACEHOLDER_VALUES)
+async function buildTemplate(template: TemplateDefinition): Promise<void> {
+  validateManifest(template)
+  const rendered = await template.render()
 
-  if (rendered.subject !== MANIFEST.subject) {
-    throw new TemplateBuildError('Rendered subject does not match the template manifest.')
+  if (rendered.subject !== template.subject) {
+    throw new TemplateBuildError(
+      `Rendered subject does not match the ${template.template} manifest.`,
+    )
   }
 
-  validateRenderedContract(rendered.html)
+  validateRenderedContract(rendered.html, template)
   await mkdir(OUTPUT_DIRECTORY, { recursive: true })
   await writeFile(
-    resolve(OUTPUT_DIRECTORY, HTML_FILE_NAME),
+    resolve(OUTPUT_DIRECTORY, `${template.template}.html`),
     `${rendered.html.trimEnd()}\n`,
     'utf8',
   )
   await writeFile(
-    resolve(OUTPUT_DIRECTORY, MANIFEST_FILE_NAME),
-    `${JSON.stringify(MANIFEST, null, 2)}\n`,
+    resolve(OUTPUT_DIRECTORY, `${template.template}.manifest.json`),
+    `${JSON.stringify(
+      {
+        template: template.template,
+        version: template.version,
+        subject: template.subject,
+        placeholders: template.placeholders,
+      },
+      null,
+      2,
+    )}\n`,
     'utf8',
   )
+}
+
+async function buildTemplates(): Promise<void> {
+  for (const template of TEMPLATES) {
+    await buildTemplate(template)
+  }
 }
 
 buildTemplates().catch((error: unknown) => {

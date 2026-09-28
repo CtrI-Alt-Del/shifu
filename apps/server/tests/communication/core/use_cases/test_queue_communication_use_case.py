@@ -26,6 +26,8 @@ from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
 
 class TestQueueCommunicationUseCase:
+    IDENTITY_ACTION_TOKEN_ID = '01JCONFIRMATION000000000000001'
+
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.communication_database = create_autospec(
@@ -61,7 +63,7 @@ class TestQueueCommunicationUseCase:
         )
         self.request = CommunicationRequest(
             communication_id='01JCOMMUNICATION000000000000001',
-            identity_confirmation_id='01JCONFIRMATION000000000000001',
+            identity_action_token_id=self.IDENTITY_ACTION_TOKEN_ID,
             account_id='01JACCOUNT000000000000000001',
             type=CommunicationType.ACCOUNT_CONFIRMATION,
             channel=CommunicationChannel.EMAIL,
@@ -78,8 +80,8 @@ class TestQueueCommunicationUseCase:
         result = self.subject.execute(self.request)
 
         assert result.id == self.request.communication_id
-        assert result.identity_confirmation_id == (
-            self.request.identity_confirmation_id
+        assert result.identity_action_token_id == (
+            self.request.identity_action_token_id
         )
         assert result.status is CommunicationStatus.PENDING
         assert result.recipient_email == 'learner@example.com'
@@ -109,7 +111,7 @@ class TestQueueCommunicationUseCase:
             idempotency_key=self.request.idempotency_key,
             created_at=self.created_at,
             updated_at=self.created_at,
-            identity_confirmation_id=self.request.identity_confirmation_id,
+            identity_action_token_id=self.request.identity_action_token_id,
             encrypted_content=self.envelope_provider.encrypt.return_value,
         )
         self.repositories.communications.find_by_id.return_value = existing
@@ -128,7 +130,7 @@ class TestQueueCommunicationUseCase:
         with pytest.raises(InvalidCommunicationError):
             CommunicationRequest(
                 communication_id=self.request.communication_id,
-                identity_confirmation_id=self.request.identity_confirmation_id,
+                identity_action_token_id=self.request.identity_action_token_id,
                 account_id=self.request.account_id,
                 type='marketing',  # type: ignore[arg-type]
                 channel=CommunicationChannel.EMAIL,

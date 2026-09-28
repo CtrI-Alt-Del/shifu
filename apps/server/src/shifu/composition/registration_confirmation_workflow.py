@@ -85,7 +85,7 @@ class RegistrationConfirmationWorkflow:
             self._queue.execute(
                 CommunicationRequest(
                     communication_id=request.communication_id,
-                    identity_confirmation_id=request.identity_confirmation_id,
+                    identity_action_token_id=request.identity_action_token_id,
                     account_id=request.account_id,
                     type=CommunicationType.ACCOUNT_CONFIRMATION,
                     channel=CommunicationChannel.EMAIL,
@@ -97,6 +97,7 @@ class RegistrationConfirmationWorkflow:
                         expires_at=request.expires_at,
                     ),
                     idempotency_key=request.communication_id,
+                    expires_at=request.expires_at,
                 )
             )
         except Exception:  # noqa: BLE001 - queue failure is a recoverable state.

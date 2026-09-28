@@ -12,7 +12,7 @@ from shifu.identity.core.domain.enums import (
 )
 from shifu.identity.core.domain.events import (
     AccountActivatedEvent,
-    AccountConfirmationCancelledEvent,
+    AccountActionTokenCancelledEvent,
 )
 from shifu.identity.core.domain.structures import AccountConfirmationResult
 from shifu.identity.core.interfaces import (
@@ -113,7 +113,7 @@ class TestConfirmAccountUseCase:
         cancellation_events = [
             event
             for event in events
-            if isinstance(event, AccountConfirmationCancelledEvent)
+            if isinstance(event, AccountActionTokenCancelledEvent)
         ]
         assert {event.payload.communication_id for event in cancellation_events} == {
             current_token.communication_id,

@@ -55,7 +55,7 @@ class RegisterAccountUseCase:
                 return AccountRegistrationResult(
                     pending_handle=pending_handle,
                     account_id=None,
-                    identity_confirmation_id=None,
+                    identity_action_token_id=None,
                     communication_id=None,
                     confirmation_token=None,
                     confirmation_expires_at=None,
@@ -63,7 +63,7 @@ class RegisterAccountUseCase:
 
             created_at = self._clock_provider.now()
             account_id = self._id_provider.generate()
-            identity_confirmation_id = self._id_provider.generate()
+            identity_action_token_id = self._id_provider.generate()
             communication_id = self._id_provider.generate()
             confirmation_token = self._action_token_provider.generate()
             password_hash = self._password_hashing_provider.hash(registration.password)
@@ -81,7 +81,7 @@ class RegisterAccountUseCase:
                 updated_at=created_at,
             )
             confirmation_token_entity = AccountActionToken(
-                id=identity_confirmation_id,
+                id=identity_action_token_id,
                 account_id=account_id,
                 type=AccountActionTokenType.EMAIL_CONFIRMATION,
                 status=AccountActionTokenStatus.PENDING,
@@ -108,7 +108,7 @@ class RegisterAccountUseCase:
             return AccountRegistrationResult(
                 pending_handle=pending_handle,
                 account_id=account_id,
-                identity_confirmation_id=identity_confirmation_id,
+                identity_action_token_id=identity_action_token_id,
                 communication_id=communication_id,
                 confirmation_token=confirmation_token,
                 confirmation_expires_at=confirmation_expires_at,

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import create_autospec
 
 import pytest
@@ -31,6 +31,8 @@ from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
 
 class TestDeliverCommunicationUseCase:
+    IDENTITY_ACTION_TOKEN_ID = '01JCONFIRMATION000000000000001'
+
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.communication_database = create_autospec(
@@ -84,7 +86,7 @@ class TestDeliverCommunicationUseCase:
             created_at=self.now,
             updated_at=self.now,
             attempt_count=1,
-            identity_confirmation_id='01JCONFIRMATION000000000000001',
+            identity_action_token_id=self.IDENTITY_ACTION_TOKEN_ID,
             encrypted_content=SecretEnvelope(ciphertext='encrypted-content'),
         )
         self.attempt = DeliveryAttempt.create(
@@ -122,3 +124,28 @@ class TestDeliverCommunicationUseCase:
         event = self.repositories.events.add.call_args.args[0]
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.PERMANENT_FAILURE
+
+    def test_should_not_send_when_action_expires_after_preparation(self) -> None:
+        self.communication.status = CommunicationStatus.PENDING
+        self.communication.attempt_count = 0
+        self.communication.expires_at = self.now + timedelta(seconds=1)
+        self.clock_provider.now.side_effect = [
+            self.now,
+            self.communication.expires_at,
+            self.communication.expires_at,
+        ]
+        self.repositories.delivery_attempts.find_by_communication_id_and_attempt_number.side_effect = [
+            None,
+            self.attempt,
+        ]
+
+        result = self.subject.execute(self.communication.id)
+
+        assert result is self.communication
+        assert self.communication.status is CommunicationStatus.REJECTED
+        assert self.communication.failure_code == 'action_expired'
+        assert self.attempt.status is DeliveryAttemptStatus.FAILED
+        self.email_delivery_provider.send.assert_not_called()
+        event = self.repositories.events.add.call_args.args[0]
+        assert isinstance(event, CommunicationDeliveryStateChangedEvent)
+        assert event.payload.state is CommunicationDeliveryState.EXPIRED

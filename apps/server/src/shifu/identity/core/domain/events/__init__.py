@@ -1,7 +1,7 @@
-from .account_confirmation_cancelled import (
-    AccountConfirmationCancelled as AccountConfirmationCancelled,
-    AccountConfirmationCancelledEvent as AccountConfirmationCancelledEvent,
-    AccountConfirmationCancelledPayload as AccountConfirmationCancelledPayload,
+from .account_action_token_cancelled import (
+    AccountActionTokenCancelled as AccountActionTokenCancelled,
+    AccountActionTokenCancelledEvent as AccountActionTokenCancelledEvent,
+    AccountActionTokenCancelledPayload as AccountActionTokenCancelledPayload,
 )
 from .account_activated_event import (
     AccountActivatedEvent as AccountActivatedEvent,
