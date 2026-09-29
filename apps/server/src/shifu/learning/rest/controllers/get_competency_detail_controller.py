@@ -14,11 +14,17 @@ from shifu.shared.pipes import AuthenticationPipe
 _ULID_PATTERN = r'^[0-9A-Z]{26}$'
 
 
+class ConceptResponse(BaseModel):
+    id: str
+    name: str
+
+
 class MaterialResponse(BaseModel):
     kind: Literal['material'] = 'material'
     id: str
     title: str
     position: int
+    concepts: tuple[ConceptResponse, ...]
 
 
 class ActivityResponse(BaseModel):
@@ -26,6 +32,7 @@ class ActivityResponse(BaseModel):
     id: str
     title: str
     position: int
+    concepts: tuple[ConceptResponse, ...]
     activity_type: str = Field(serialization_alias='activityType')
     difficulty: str
     latest_score: float | None = Field(serialization_alias='latestScore')

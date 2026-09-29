@@ -1,4 +1,9 @@
+import Markdown from 'react-markdown'
+import rehypePrism from 'rehype-prism-plus/common'
+
 import { useMaterialContent } from './use-material-content'
+
+import './material-content.css'
 
 export type MaterialContentProps = {
   content: string
@@ -20,9 +25,20 @@ export const MaterialContent = ({ content }: MaterialContentProps) => {
             // biome-ignore lint/a11y/noNoninteractiveTabindex: A labelled region that scrolls horizontally must be reachable by keyboard (WCAG 2.1.1).
             tabIndex={0}
           >
-            <pre className='font-mono text-[13px] leading-[21px] text-foreground'>
-              <code>{block.code}</code>
-            </pre>
+            <Markdown
+              allowedElements={['pre', 'code', 'div', 'span']}
+              components={{
+                pre: ({ children }) => (
+                  <pre className='material-content-code font-mono text-[13px] leading-[21px] text-foreground'>
+                    {children}
+                  </pre>
+                ),
+              }}
+              rehypePlugins={[[rehypePrism, { ignoreMissing: true }]]}
+              skipHtml
+            >
+              {`\`\`\`${block.language ?? ''}\n${block.code}\n\`\`\``}
+            </Markdown>
           </section>
         ) : (
           <p key={block.key}>

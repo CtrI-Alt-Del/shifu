@@ -9,6 +9,7 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
+from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.learning.core.domain.errors import (
     InvalidAttemptError,
     EvaluationUnavailableError,
@@ -333,6 +334,7 @@ class EvaluateChoiceActivityUseCase:
             for item in progress_rows
         )
         result = AdaptiveLearningPolicy().evaluate(
+            limited_diagnostic=bool(catalog.initial_diagnostic_activity_ids),
             concepts=context.concepts,
             competency_ids=context.competency_ids,
             activities=context.activities,
@@ -348,6 +350,21 @@ class EvaluateChoiceActivityUseCase:
             else None
         )
         repositories.skill_experiences.update(experience)
+        previous_concept_states = {
+            state.concept_id: state
+            for state in repositories.concept_states.find_many_by_skill_experience_id(
+                experience.id
+            )
+        }
+        skill_concept_ids = tuple(concept.id for concept in context.concepts)
+        displayed_before = demonstrated_progress(
+            tuple(
+                previous_concept_states[concept_id].progress
+                if concept_id in previous_concept_states
+                else None
+                for concept_id in skill_concept_ids
+            )
+        )
         concept_to_competency = {
             item.id: item.competency_id for item in context.concepts
         }
@@ -356,6 +373,12 @@ class EvaluateChoiceActivityUseCase:
         )
         states_by_id = {item.competency_id: item for item in result.competency_states}
         concept_states_by_id = {item.concept_id: item for item in result.concept_states}
+        displayed_after = demonstrated_progress(
+            tuple(
+                concept_states_by_id[concept_id].progress
+                for concept_id in skill_concept_ids
+            )
+        )
         before = progress_by_id[attempt.competency_id]
         status_before = before.status or CompetencyProgressStatus.LEARNING
         progress_before = before.current_progress
@@ -385,8 +408,10 @@ class EvaluateChoiceActivityUseCase:
             repositories.competency_progresses.update(progress)
         after = progress_by_id[attempt.competency_id]
         evaluation.save_progress_effect(
-            progress_before=progress_before,
-            progress_after=after.current_progress,
+            progress_before=displayed_before
+            if displayed_before is not None
+            else progress_before,
+            progress_after=displayed_after,
             status_before=status_before,
             status_after=after.status or CompetencyProgressStatus.LEARNING,
         )

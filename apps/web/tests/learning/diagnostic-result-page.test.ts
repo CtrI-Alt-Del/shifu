@@ -20,7 +20,7 @@ function serverFnExport(url: string) {
 
 test('shows the authenticated consolidated diagnostic result without answer details', async ({
   authenticatedPage,
-}) => {
+}, testInfo) => {
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
     const exported = serverFnExport(route.request().url())
 
@@ -126,7 +126,7 @@ test('shows the authenticated consolidated diagnostic result without answer deta
   await expect(
     authenticatedPage.getByRole('heading', { level: 1, name: 'Seu ponto de partida' }),
   ).toBeVisible()
-  await expect(authenticatedPage.getByText('65% · estimativa parcial')).toBeVisible()
+  await expect(authenticatedPage.getByText('65%', { exact: true }).first()).toBeVisible()
   await expect(
     authenticatedPage.getByRole('heading', {
       name: 'Ponto de partida por Competência (0–100)',
@@ -141,10 +141,38 @@ test('shows the authenticated consolidated diagnostic result without answer deta
     authenticatedPage.getByText('Conteúdo posterior', { exact: false }),
   ).toHaveCount(0)
   await expect(authenticatedPage.getByText('Respostas individuais')).toHaveCount(0)
+  const skillLink = authenticatedPage.getByRole('link', { name: 'Ver Habilidade' })
+  await expect(skillLink).toHaveCount(1)
+  await expect(skillLink).toHaveAttribute(
+    'href',
+    `/learning/goals/${ids.goalId}/skills/${ids.skillId}`,
+  )
   await expect(
-    authenticatedPage.getByRole('link', { name: 'Ver Habilidade' }),
-  ).toHaveAttribute('href', `/learning/goals/${ids.goalId}/skills/${ids.skillId}`)
+    authenticatedPage.getByRole('link', { name: 'Escolher outra' }),
+  ).toHaveCount(0)
   await expect(
     authenticatedPage.getByRole('link', { name: 'Continuar praticando' }),
+  ).toBeVisible()
+
+  const recommendationSection = authenticatedPage
+    .getByRole('heading', { name: 'Próximo passo recomendado' })
+    .locator('..')
+  await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+  await recommendationSection.screenshot({
+    path: testInfo.outputPath('diagnostic-result-desktop.png'),
+  })
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  await expect(skillLink).toBeVisible()
+  await authenticatedPage.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+  await recommendationSection.screenshot({
+    path: testInfo.outputPath('diagnostic-result-mobile.png'),
+  })
+
+  await skillLink.click()
+  await expect(authenticatedPage).toHaveURL(
+    new RegExp(`/learning/goals/${ids.goalId}/skills/${ids.skillId}/?$`),
+  )
+  await expect(
+    authenticatedPage.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
   ).toBeVisible()
 })

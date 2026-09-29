@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="656.39952pt" height="383.054443pt" viewBox="0 0 656.39952 383.054443" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-09-28T10:34:59.246715</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 383.054443 
+L 656.39952 383.054443 
+L 656.39952 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 47.903125 312.654863 
+L 638.39952 312.654863 
+L 638.39952 46.71875 
+L 47.903125 46.71875 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1">
+      <defs>
+       <path id="m44d85831e5" d="M 0 0 
+L 0 3.5 
+" style="stroke: #5b6b78; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m44d85831e5" x="166.567472" y="312.654863" style="fill: #5b6b78; stroke: #5b6b78; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #5b6b78" x="166.567472" y="327.253301" transform="rotate(-0 166.567472 327.253301)">Antes: A = 0, B = 100</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2">
+      <g>
+       <use xlink:href="#m44d85831e5" x="519.735173" y="312.654863" style="fill: #5b6b78; stroke: #5b6b78; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #5b6b78" x="519.735173" y="327.253301" transform="rotate(-0 519.735173 327.253301)">Depois: A = 10, B = 100</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_3">
+      <path d="M 47.903125 312.654863 
+L 638.39952 312.654863 
+" clip-path="url(#p6b732aded0)" style="fill: none; stroke: #e6edf2; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_4"/>
+     <g id="text_3">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #5b6b78" x="44.403125" y="316.454082" transform="rotate(-0 44.403125 316.454082)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_5">
+      <path d="M 47.903125 236.673117 
+L 638.39952 236.673117 
+" clip-path="url(#p6b732aded0)" style="fill: none; stroke: #e6edf2; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6"/>
+     <g id="text_4">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #5b6b78" x="44.403125" y="240.472335" transform="rotate(-0 44.403125 240.472335)">20</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_7">
+      <path d="M 47.903125 160.69137 
+L 638.39952 160.69137 
+" clip-path="url(#p6b732aded0)" style="fill: none; stroke: #e6edf2; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8"/>
+     <g id="text_5">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #5b6b78" x="44.403125" y="164.490589" transform="rotate(-0 44.403125 164.490589)">40</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_9">
+      <path d="M 47.903125 84.709623 
+L 638.39952 84.709623 
+" clip-path="url(#p6b732aded0)" style="fill: none; stroke: #e6edf2; stroke-width: 0.8; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10"/>
+     <g id="text_6">
+      <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: end; fill: #5b6b78" x="44.403125" y="88.508842" transform="rotate(-0 44.403125 88.508842)">60</text>
+     </g>
+    </g>
+    <g id="text_7">
+     <text style="font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #17324d" x="25.598438" y="179.686807" transform="rotate(-90 25.598438 179.686807)">Progresso (%)</text>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 74.74387 312.654863 
+L 258.391074 312.654863 
+L 258.391074 105.604604 
+L 74.74387 105.604604 
+z
+" clip-path="url(#p6b732aded0)" style="fill: #2474a6"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 427.911571 312.654863 
+L 611.558775 312.654863 
+L 611.558775 97.62652 
+L 427.911571 97.62652 
+z
+" clip-path="url(#p6b732aded0)" style="fill: #18867a"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 47.903125 312.654863 
+L 638.39952 312.654863 
+" style="fill: none; stroke: #e6edf2; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="text_8">
+    <text style="font-weight: 700; font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #17324d" x="166.567472" y="98.006429" transform="rotate(-0 166.567472 98.006429)">54,5</text>
+   </g>
+   <g id="text_9">
+    <text style="font-weight: 700; font-size: 10px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #17324d" x="519.735173" y="90.028346" transform="rotate(-0 519.735173 90.028346)">56,6</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #5b6b78" x="47.903125" y="363.182725" transform="rotate(-0 47.903125 363.182725)">Base = 50  •  A mantém a posição original  •  B permanece igual  •  Duas contribuições, não três</text>
+   </g>
+   <g id="text_11">
+    <text style="font-weight: 700; font-size: 14px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #17324d" x="47.903125" y="28.71875" transform="rotate(-0 47.903125 28.71875)">Retentativa substitui a contribuição de A</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p6b732aded0">
+   <rect x="47.903125" y="46.71875" width="590.496395" height="265.936113"/>
+  </clipPath>
+ </defs>
+</svg>

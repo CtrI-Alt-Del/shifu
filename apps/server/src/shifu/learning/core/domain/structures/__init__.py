@@ -52,6 +52,9 @@ from .code_evaluation_result import CodeEvaluationResult as CodeEvaluationResult
 from .competency_activity_detail import (
     CompetencyActivityDetail as CompetencyActivityDetail,
 )
+from .competency_content_concept import (
+    CompetencyContentConcept as CompetencyContentConcept,
+)
 from .competency_completion_summary import (
     CompetencyCompletionSummary as CompetencyCompletionSummary,
 )

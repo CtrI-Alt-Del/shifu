@@ -22,6 +22,7 @@ export type CompetencyContentRowProps = {
   isRecommended: boolean
   item: CompetencyDetailItem
   skillId: string
+  targetConceptId?: string | null
 }
 
 export const CompetencyContentRow = ({
@@ -30,7 +31,31 @@ export const CompetencyContentRow = ({
   isRecommended,
   item,
   skillId,
+  targetConceptId,
 }: CompetencyContentRowProps) => {
+  const concepts = item.concepts ?? []
+  const conceptDescription =
+    concepts.length > 0
+      ? ` · Conceitos: ${concepts.map((concept) => `${concept.name}${isRecommended && concept.id === targetConceptId ? ' (Foco atual)' : ''}`).join(', ')}`
+      : ''
+  const conceptChips = concepts.length > 0 && (
+    <span className='mt-2 flex min-w-0 flex-wrap gap-1.5'>
+      {concepts.map((concept) => {
+        const isCurrentFocus = isRecommended && concept.id === targetConceptId
+
+        return (
+          <span
+            className={`max-w-full break-words rounded-md border px-2.5 py-0.5 text-xs leading-5 ${isCurrentFocus ? 'border-primary bg-primary/10 text-foreground' : 'border-control-border bg-muted text-muted-foreground'}`}
+            key={concept.id}
+          >
+            {concept.name}
+            {isCurrentFocus ? ' · Foco atual' : ''}
+          </span>
+        )
+      })}
+    </span>
+  )
+
   if (item.kind === 'material') {
     return (
       <li className='relative flex gap-4 lg:gap-5'>
@@ -38,18 +63,19 @@ export const CompetencyContentRow = ({
           <Icon name='book-open' size={20} />
         </span>
         <Link
-          aria-label={`${item.title} — Material de apoio`}
+          aria-label={`${item.title} — Material de apoio${conceptDescription}`}
           className={`group flex min-h-16 min-w-0 flex-1 items-center justify-between gap-4 rounded-md border px-4 py-3 transition-colors lg:min-h-[68px] lg:px-5 ${isRecommended ? 'border-primary bg-primary/5 hover:bg-primary/10' : 'border-border bg-card hover:border-control-border hover:bg-muted'}`}
           params={{ goalId, skillId, competencyId, materialId: item.id }}
           to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
         >
-          <span className='min-w-0'>
+          <span className='min-w-0 flex-1'>
             <span className='block break-words font-semibold text-foreground'>
               {item.title}
             </span>
             <span className='mt-1 block text-sm text-muted-foreground'>
               {isRecommended ? 'Material de apoio · Opcional' : 'Material de apoio'}
             </span>
+            {conceptChips}
           </span>
           <Icon
             className='shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5'
@@ -79,7 +105,9 @@ export const CompetencyContentRow = ({
       </span>
       <Link
         aria-label={
-          isRecommended ? `Praticar ${item.title}` : `${item.title} — ${metadata}`
+          isRecommended
+            ? `Praticar ${item.title}${conceptDescription}`
+            : `${item.title} — ${metadata}${conceptDescription}`
         }
         className={`group flex min-h-16 min-w-0 flex-1 items-center justify-between gap-4 rounded-md border px-4 py-3 transition-colors lg:min-h-[68px] lg:px-5 ${
           isRecommended
@@ -89,7 +117,7 @@ export const CompetencyContentRow = ({
         params={{ activityId: item.id, competencyId, goalId, skillId }}
         to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
       >
-        <span className='min-w-0'>
+        <span className='min-w-0 flex-1'>
           <span className='block break-words font-semibold text-foreground'>
             {item.title}
           </span>
@@ -114,6 +142,7 @@ export const CompetencyContentRow = ({
               </>
             )}
           </span>
+          {conceptChips}
         </span>
         {isRecommended ? (
           <span className='inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-primary px-4 font-bold text-primary-foreground'>

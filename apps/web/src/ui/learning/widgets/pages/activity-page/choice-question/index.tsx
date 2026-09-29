@@ -11,6 +11,7 @@ export const ChoiceQuestion = ({
   disabled = false,
   activityTitle,
   difficulty,
+  isDiagnostic,
   onToggleOption,
   question,
   questionNumber,
@@ -31,6 +32,7 @@ export const ChoiceQuestion = ({
         }
         questionNumber={questionNumber}
         totalQuestions={totalQuestions}
+        showQuestionProgress={!isDiagnostic}
       />
       <div className='choice-question-prompt'>
         <QuestionPrompt id={questionLabelId} prompt={question.prompt} />

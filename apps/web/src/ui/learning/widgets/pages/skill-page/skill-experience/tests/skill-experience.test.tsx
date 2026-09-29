@@ -126,16 +126,16 @@ describe('SkillExperience', () => {
       screen.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
     ).toBeVisible()
     expect(screen.getByText('Em aprendizado')).toBeVisible()
-    expect(screen.getByText('Resultado geral').parentElement).toHaveTextContent(
-      'Resultado geral72%',
+    expect(screen.getByText('Progresso demonstrado').parentElement).toHaveTextContent(
+      'Progresso demonstrado72%',
     )
   })
 
   it('shows unknown overall evidence distinctly from a measured zero', () => {
     renderExperience({ overallResult: null, overallCoverageComplete: false })
 
-    expect(screen.getByText('Resultado geral').parentElement).toHaveTextContent(
-      'Resultado geralSem evidência',
+    expect(screen.getByText('Progresso demonstrado').parentElement).toHaveTextContent(
+      'Progresso demonstradoSem evidência',
     )
   })
 
@@ -152,6 +152,26 @@ describe('SkillExperience', () => {
     expect(items[1]).toHaveTextContent('Em foco')
     expect(items[2]).toHaveTextContent('Funções')
     expect(items[2]).toHaveTextContent('Bloqueada')
+  })
+
+  it('shows the status matching the displayed progress range', () => {
+    const competencies = detail().competencies.map((competency) =>
+      competency.competencyId === IDS.focusCompetencyId
+        ? { ...competency, progress: 34, coverageComplete: false }
+        : competency.competencyId === IDS.firstCompetencyId
+          ? { ...competency, progress: 67, status: 'proficient' as const }
+          : competency,
+    )
+    renderExperience({ competencies })
+
+    const focus = screen.getByRole('link', { name: /Estruturas de repetição/ })
+    expect(focus).toHaveTextContent('34%')
+    expect(focus).toHaveTextContent('Em aprendizagem')
+    expect(focus).not.toHaveTextContent('Proficiente')
+    const first = screen.getByRole('link', { name: /Variáveis e tipos/ })
+    expect(first).toHaveTextContent('67%')
+    expect(first).toHaveTextContent('Em desenvolvimento')
+    expect(screen.queryByText(/evidência parcial/)).not.toBeInTheDocument()
   })
 
   it('links a released Competency to its detail route', () => {

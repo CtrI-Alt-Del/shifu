@@ -25,12 +25,20 @@ export const SkillCompetencyRow = ({
   onBlockedSelect,
 }: SkillCompetencyRowProps) => {
   const isBlocked = competency.availability === 'unavailable'
-  const isMastered = competency.status === 'mastered'
   const progress = competency.progress === null ? 0 : Math.round(competency.progress)
+  const isMastered = competency.status === 'mastered' && progress >= 85
   const statusLabel =
-    competency.status === null
+    competency.progress === null
       ? 'Sem evidência'
-      : COMPETENCY_STATUS_LABELS[competency.status]
+      : COMPETENCY_STATUS_LABELS[
+          isMastered
+            ? 'mastered'
+            : progress >= 70
+              ? 'proficient'
+              : progress >= 40
+                ? 'developing'
+                : 'learning'
+        ]
   const rowClassName = competency.isFocus ? `${ROW} bg-muted` : ROW
 
   const content = (
@@ -55,9 +63,7 @@ export const SkillCompetencyRow = ({
             isBlocked ? 'text-secondary-foreground' : 'text-foreground'
           }`}
         >
-          {competency.progress === null
-            ? 'Sem evidência'
-            : `${progress}%${competency.coverageComplete ? '' : ' · parcial'}`}
+          {competency.progress === null ? 'Sem evidência' : `${progress}%`}
         </span>
       </span>
 

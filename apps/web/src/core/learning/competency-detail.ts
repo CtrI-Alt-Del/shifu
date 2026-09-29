@@ -14,6 +14,12 @@ export type CompetencyMaterialDetail = {
   id: string
   title: string
   position: number
+  concepts?: readonly CompetencyItemConcept[]
+}
+
+export type CompetencyItemConcept = {
+  id: string
+  name: string
 }
 
 export type CompetencyActivityDetail = {
@@ -21,6 +27,7 @@ export type CompetencyActivityDetail = {
   id: string
   title: string
   position: number
+  concepts?: readonly CompetencyItemConcept[]
   activityType: string
   difficulty: ActivityDifficulty
   latestScore: number | null
@@ -150,7 +157,13 @@ function isAdaptiveRecommendation(value: unknown): value is AdaptiveRecommendati
 }
 
 function isCompetencyDetailItem(value: unknown): value is CompetencyDetailItem {
-  if (!isRecord(value) || !isIdentifier(value.id) || !isNonEmptyString(value.title)) {
+  if (
+    !isRecord(value) ||
+    !isIdentifier(value.id) ||
+    !isNonEmptyString(value.title) ||
+    (value.concepts !== undefined &&
+      (!Array.isArray(value.concepts) || !value.concepts.every(isCompetencyItemConcept)))
+  ) {
     return false
   }
 
@@ -165,6 +178,10 @@ function isCompetencyDetailItem(value: unknown): value is CompetencyDetailItem {
     isActivityDifficulty(value.difficulty) &&
     (value.latestScore === null || isPercentage(value.latestScore))
   )
+}
+
+function isCompetencyItemConcept(value: unknown): value is CompetencyItemConcept {
+  return isRecord(value) && isIdentifier(value.id) && isNonEmptyString(value.name)
 }
 
 function isActivityRecommendation(value: unknown): value is ActivityRecommendation {

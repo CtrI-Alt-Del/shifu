@@ -69372,6 +69372,2491 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "Ioaz5",
+      "x": 3080,
+      "y": 6000,
+      "name": "Landing · Shifu · Desktop",
+      "clip": true,
+      "width": 1440,
+      "height": 2410,
+      "fill": "$page",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "K8CY8",
+          "name": "Navegação pública",
+          "width": "fill_container",
+          "height": 76,
+          "fill": "#00000000",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "padding": [
+            0,
+            72
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "IDVCV",
+              "name": "Marca Shifu",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "F66T6K",
+                  "fill": "$text-primary",
+                  "content": "Shifu",
+                  "fontFamily": "$font-display",
+                  "fontSize": 26,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "nnvQK",
+                  "fill": "$selo-text",
+                  "content": "師",
+                  "fontFamily": "$font-display",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "tLnLd",
+              "name": "Links de navegação",
+              "gap": 28,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "STF0H",
+                  "name": "Link Como funciona",
+                  "fill": "$text-secondary",
+                  "content": "Como funciona",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ojm9H",
+                  "name": "Link Exemplo",
+                  "fill": "$text-secondary",
+                  "content": "Exemplo",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                },
+                {
+                  "id": "lebLO",
+                  "type": "ref",
+                  "ref": "RaoIi",
+                  "name": "Botão Entrar",
+                  "descendants": {
+                    "vC77H": {
+                      "content": "Entrar"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "X6een5",
+          "name": "Hero · proposta e percurso",
+          "width": "fill_container",
+          "height": 760,
+          "fill": "#00000000",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "gap": 56,
+          "padding": [
+            96,
+            72
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "mJGnb",
+              "name": "Mensagem principal",
+              "width": 600,
+              "layout": "vertical",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "sstAO",
+                  "name": "Título principal",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Aprender fica mais claro quando o próximo passo é seu.",
+                  "lineHeight": 0.98,
+                  "fontFamily": "$font-display",
+                  "fontSize": 74,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Ffj0h",
+                  "name": "Descrição principal",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": 530,
+                  "content": "Defina um objetivo. O Shifu organiza o caminho, identifica o que você já sabe e recomenda o que estudar e praticar agora.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 19,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "HfG9J",
+                  "name": "Ações principais",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "nfuix",
+                      "type": "ref",
+                      "ref": "ygtpy",
+                      "name": "Botão Ver demonstração",
+                      "descendants": {
+                        "G5Acqe": {
+                          "content": "Ver demonstração"
+                        }
+                      }
+                    },
+                    {
+                      "id": "QuiAv",
+                      "type": "ref",
+                      "ref": "RaoIi",
+                      "name": "Botão Entender percurso",
+                      "descendants": {
+                        "vC77H": {
+                          "content": "Entender o percurso"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "svD28",
+                  "name": "Legenda do exemplo",
+                  "fill": "$text-muted",
+                  "content": "Um exemplo real da Sprint 1: lógica de programação.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Rh714",
+              "name": "Diagrama · objetivo ao conceito",
+              "width": "fill_container",
+              "height": 544,
+              "fill": "$surface",
+              "cornerRadius": "$radius-card",
+              "stroke": "$glass-border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 10,
+              "padding": 28,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g0Pdf",
+                  "name": "Título do percurso",
+                  "fill": "$text-primary",
+                  "content": "Um caminho que faz sentido",
+                  "fontFamily": "$font-display",
+                  "fontSize": 30,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "wGSqJ",
+                  "name": "Descrição do percurso",
+                  "fill": "$text-muted",
+                  "content": "Do que você quer alcançar ao que precisa praticar.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "apnFb",
+                  "name": "Nível · Objetivo",
+                  "width": "fill_container",
+                  "height": 86,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "PDaCp",
+                      "name": "Marcador · Objetivo",
+                      "fill": "$selo-fill",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "frame",
+                      "id": "IFGwW",
+                      "name": "Texto · Objetivo",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "DE2sH",
+                          "name": "Categoria · Objetivo",
+                          "fill": "$text-muted",
+                          "content": "Objetivo",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Uzd6W",
+                          "name": "Exemplo · Objetivo",
+                          "fill": "$text-primary",
+                          "content": "Aprender a programar",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Rfkof",
+                  "name": "Nível · Habilidade",
+                  "width": "fill_container",
+                  "height": 86,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    36
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "SYUWu",
+                      "name": "Marcador · Habilidade",
+                      "fill": "$selo-fill",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZICzl",
+                      "name": "Texto · Habilidade",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Q3M8EA",
+                          "name": "Categoria · Habilidade",
+                          "fill": "$text-muted",
+                          "content": "Habilidade",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "oMKhT",
+                          "name": "Exemplo · Habilidade",
+                          "fill": "$text-primary",
+                          "content": "Lógica de programação",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "iuWdk",
+                  "name": "Nível · Competência",
+                  "width": "fill_container",
+                  "height": 86,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    56
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "YgYFH",
+                      "name": "Marcador · Competência",
+                      "fill": "$selo-fill",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PQqCI",
+                      "name": "Texto · Competência",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BhpzX",
+                          "name": "Categoria · Competência",
+                          "fill": "$text-muted",
+                          "content": "Competência",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "B8xy1",
+                          "name": "Exemplo · Competência",
+                          "fill": "$text-primary",
+                          "content": "Decisões",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OIUO2",
+                  "name": "Nível · Conceito",
+                  "width": "fill_container",
+                  "height": 86,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 14,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    76
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "nXl6N",
+                      "name": "Marcador · Conceito",
+                      "fill": "$jade-solid",
+                      "width": 10,
+                      "height": 10
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lBsHI",
+                      "name": "Texto · Conceito",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Gmqol",
+                          "name": "Categoria · Conceito",
+                          "fill": "$text-muted",
+                          "content": "Conceito",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ashQg",
+                          "name": "Exemplo · Conceito",
+                          "fill": "$text-primary",
+                          "content": "Decisão condicional",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 19,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "VYhWc",
+          "name": "Como funciona · diagnóstico à prática",
+          "width": "fill_container",
+          "height": 560,
+          "fill": "#00000000",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "layout": "vertical",
+          "gap": 44,
+          "padding": [
+            88,
+            72
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "C7vpL",
+              "name": "Título Como funciona",
+              "fill": "$text-primary",
+              "content": "Do objetivo ao próximo passo.",
+              "fontFamily": "$font-display",
+              "fontSize": 58,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "uHrNd",
+              "name": "Explicação Como funciona",
+              "fill": "$text-secondary",
+              "content": "A estrutura mostra o que aprender. As respostas mostram por onde começar.",
+              "fontFamily": "$font-ui",
+              "fontSize": 18,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "b7QepJ",
+              "name": "Três momentos do percurso",
+              "width": "fill_container",
+              "height": 240,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "yInUy",
+                  "name": "Momento 1 · Diagnóstico",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 22,
+                  "padding": [
+                    8,
+                    28,
+                    8,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "asylG",
+                      "name": "Número do momento 1",
+                      "fill": "$selo-text",
+                      "content": "1",
+                      "fontFamily": "$font-display",
+                      "fontSize": 40,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Ihrm1",
+                      "name": "Título do momento 1",
+                      "fill": "$text-primary",
+                      "content": "Diagnóstico",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 22,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "VEdcV",
+                      "name": "Descrição do momento 1",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Questões curtas observam o que você já sabe em cada conceito.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "x9xt0",
+                  "name": "Momento 2 · Recomendação",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 22,
+                  "padding": [
+                    8,
+                    28,
+                    8,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "IfZ6Y",
+                      "name": "Número do momento 2",
+                      "fill": "$selo-text",
+                      "content": "2",
+                      "fontFamily": "$font-display",
+                      "fontSize": 40,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "iBL8A",
+                      "name": "Título do momento 2",
+                      "fill": "$text-primary",
+                      "content": "Recomendação",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 22,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "QDdW5",
+                      "name": "Descrição do momento 2",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Material de apoio e atividade apontam um próximo passo concreto.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "hdUYW",
+                  "name": "Momento 3 · Progresso",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 22,
+                  "padding": [
+                    8,
+                    28,
+                    8,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "G2ktj1",
+                      "name": "Número do momento 3",
+                      "fill": "$selo-text",
+                      "content": "3",
+                      "fontFamily": "$font-display",
+                      "fontSize": 40,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZCWgy",
+                      "name": "Título do momento 3",
+                      "fill": "$text-primary",
+                      "content": "Progresso",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 22,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Gkd4s",
+                      "name": "Descrição do momento 3",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Novas respostas atualizam a proficiência conforme você pratica.",
+                      "lineHeight": 1.5,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "mMh1P",
+          "name": "Exemplo · Lógica de programação",
+          "width": "fill_container",
+          "height": 660,
+          "fill": "#00000000",
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "gap": 80,
+          "padding": [
+            94,
+            72
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "NVwz5",
+              "name": "Situação concreta",
+              "width": 520,
+              "layout": "vertical",
+              "gap": 22,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "nUcWc",
+                  "name": "Título do exemplo",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Uma resposta revela onde praticar.",
+                  "lineHeight": 1.02,
+                  "fontFamily": "$font-display",
+                  "fontSize": 58,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "af46o",
+                  "name": "Descrição do exemplo",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Se você acerta a comparação, mas erra o caminho para n = 0, o Shifu concentra a prática em decisão condicional.",
+                  "lineHeight": 1.5,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 18,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "vhV9m",
+                  "name": "Nota de evidência",
+                  "fill": "$text-muted",
+                  "content": "Conceitos não avaliados permanecem sem evidência.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "m0z3P",
+              "name": "Do diagnóstico à recomendação",
+              "width": "fill_container",
+              "height": 440,
+              "fill": "$surface",
+              "cornerRadius": "$radius-card",
+              "stroke": "$glass-border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 24,
+              "padding": 32,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "k2aa0",
+                  "name": "Etiqueta do diagnóstico",
+                  "fill": "$text-muted",
+                  "content": "No diagnóstico",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ymiRD",
+                  "name": "Questão do zero",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Se n < 0 imprime N; senão Z. Para n = 0, qual é a saída?",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-mono",
+                  "fontSize": 17,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "lk2t2",
+                  "name": "Resposta observada",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "NQzKV",
+                      "name": "Resposta escolhida",
+                      "fill": "$selo-text",
+                      "content": "Resposta escolhida: N",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "r62trI",
+                  "name": "Divisória do exemplo",
+                  "fill": "$divider",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "text",
+                  "id": "MVsPn",
+                  "name": "Etiqueta da recomendação",
+                  "fill": "$text-muted",
+                  "content": "Próximo passo",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ctIya",
+                  "name": "Recomendação de prática",
+                  "fill": "$text-primary",
+                  "content": "Classificar um número",
+                  "fontFamily": "$font-display",
+                  "fontSize": 34,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Ve091",
+                  "name": "Material opcional",
+                  "fill": "$jade-text",
+                  "content": "Material de apoio: Introdução: Decisões",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 15,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hJDnJ",
+          "name": "Convite final",
+          "width": "fill_container",
+          "height": 304,
+          "fill": "$surface-alt",
+          "stroke": "#00000000",
+          "padding": [
+            52,
+            72
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "ibldN",
+              "name": "Mensagem final",
+              "width": 720,
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "vyDG7",
+                  "name": "Título final",
+                  "fill": "$text-primary",
+                  "content": "Veja o percurso em ação.",
+                  "fontFamily": "$font-display",
+                  "fontSize": 50,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "LZtly",
+                  "name": "Descrição final",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "A demonstração começa em Lógica de programação e segue até uma questão de código.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "qNQbz",
+              "type": "ref",
+              "ref": "ygtpy",
+              "name": "Botão final Ver demonstração",
+              "descendants": {
+                "G5Acqe": {
+                  "content": "Ver demonstração"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "IcQov",
+      "x": 4680,
+      "y": 6000,
+      "name": "Landing · Shifu · Mobile",
+      "clip": true,
+      "width": 390,
+      "height": 3050,
+      "fill": "$page",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "ss1wK",
+          "name": "Navegação pública · Mobile",
+          "width": "fill_container",
+          "height": 64,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "padding": [
+            0,
+            20
+          ],
+          "justifyContent": "space_between",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "HkzG5",
+              "name": "Marca Shifu · Mobile",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pTVgX",
+                  "fill": "$text-primary",
+                  "content": "Shifu",
+                  "fontFamily": "$font-display",
+                  "fontSize": 26,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "xiajU",
+                  "fill": "$selo-text",
+                  "content": "師",
+                  "fontFamily": "$font-display",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "h2w6Dk",
+              "type": "ref",
+              "ref": "RaoIi",
+              "name": "Botão Entrar · Mobile",
+              "descendants": {
+                "vC77H": {
+                  "content": "Entrar"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "nUV3d",
+          "name": "Hero · Mobile",
+          "width": "fill_container",
+          "height": 1040,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "layout": "vertical",
+          "gap": 34,
+          "padding": [
+            60,
+            20
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "hB6QD",
+              "name": "Mensagem principal · Mobile",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "g4kxG",
+                  "name": "Título principal · Mobile",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Aprender fica mais claro quando o próximo passo é seu.",
+                  "lineHeight": 0.99,
+                  "fontFamily": "$font-display",
+                  "fontSize": 54,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "zqYCi",
+                  "name": "Descrição principal · Mobile",
+                  "fill": "$text-secondary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Defina um objetivo. O Shifu identifica o que você já sabe e recomenda o que estudar e praticar agora.",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-ui",
+                  "fontSize": 16,
+                  "fontWeight": "normal"
+                },
+                {
+                  "id": "G2ub1z",
+                  "type": "ref",
+                  "ref": "ygtpy",
+                  "name": "Botão Ver demonstração · Mobile",
+                  "width": "fill_container",
+                  "height": 48,
+                  "descendants": {
+                    "G5Acqe": {
+                      "content": "Ver demonstração"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "W7nxzu",
+              "name": "Diagrama dos quatro níveis · Mobile",
+              "width": "fill_container",
+              "height": 430,
+              "fill": "$surface",
+              "cornerRadius": "$radius-card",
+              "stroke": "$glass-border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 8,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "dH6Gw",
+                  "name": "Título dos níveis · Mobile",
+                  "fill": "$text-primary",
+                  "content": "Um caminho que faz sentido",
+                  "fontFamily": "$font-display",
+                  "fontSize": 25,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "Sj4rV",
+                  "name": "Descrição dos níveis · Mobile",
+                  "fill": "$text-muted",
+                  "content": "Do objetivo ao conceito que pede prática.",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "B4LLh",
+                  "name": "Nível Objetivo · Mobile",
+                  "width": "fill_container",
+                  "height": 70,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 10,
+                  "padding": [
+                    7,
+                    6
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "yjO2D",
+                      "name": "Marcador Objetivo · Mobile",
+                      "fill": "$selo-fill",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k25ka",
+                      "name": "Texto Objetivo · Mobile",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "EIYex",
+                          "name": "Categoria Objetivo · Mobile",
+                          "fill": "$text-muted",
+                          "content": "Objetivo",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "HMe4l",
+                          "name": "Exemplo Objetivo · Mobile",
+                          "fill": "$text-primary",
+                          "content": "Aprender a programar",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 16,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BgPXN",
+                  "name": "Nível Habilidade · Mobile",
+                  "width": "fill_container",
+                  "height": 70,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 10,
+                  "padding": [
+                    7,
+                    6,
+                    7,
+                    14
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "qNTlT",
+                      "name": "Marcador Habilidade · Mobile",
+                      "fill": "$selo-fill",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "t896O",
+                      "name": "Texto Habilidade · Mobile",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "R2Rwd8",
+                          "name": "Categoria Habilidade · Mobile",
+                          "fill": "$text-muted",
+                          "content": "Habilidade",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PiWkG",
+                          "name": "Exemplo Habilidade · Mobile",
+                          "fill": "$text-primary",
+                          "content": "Lógica de programação",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 16,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "mRUOe",
+                  "name": "Nível Competência · Mobile",
+                  "width": "fill_container",
+                  "height": 70,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 10,
+                  "padding": [
+                    7,
+                    6,
+                    7,
+                    22
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "ynv4N",
+                      "name": "Marcador Competência · Mobile",
+                      "fill": "$selo-fill",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "T96ZVf",
+                      "name": "Texto Competência · Mobile",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "c7FJd",
+                          "name": "Categoria Competência · Mobile",
+                          "fill": "$text-muted",
+                          "content": "Competência",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "et9fO",
+                          "name": "Exemplo Competência · Mobile",
+                          "fill": "$text-primary",
+                          "content": "Decisões",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 16,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ID8eA",
+                  "name": "Nível Conceito · Mobile",
+                  "width": "fill_container",
+                  "height": 70,
+                  "stroke": "$divider",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 10,
+                  "padding": [
+                    7,
+                    6,
+                    7,
+                    30
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "rXb45",
+                      "name": "Marcador Conceito · Mobile",
+                      "fill": "$jade-solid",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "frame",
+                      "id": "h1MFi",
+                      "name": "Texto Conceito · Mobile",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "s80He",
+                          "name": "Categoria Conceito · Mobile",
+                          "fill": "$text-muted",
+                          "content": "Conceito",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "L2WRO",
+                          "name": "Exemplo Conceito · Mobile",
+                          "fill": "$text-primary",
+                          "content": "Decisão condicional",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 16,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "eFMnO",
+          "name": "Como funciona · Mobile",
+          "width": "fill_container",
+          "height": 850,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "layout": "vertical",
+          "gap": 24,
+          "padding": [
+            68,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "vxbes",
+              "name": "Título Como funciona · Mobile",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Do objetivo ao próximo passo.",
+              "lineHeight": 1.02,
+              "fontFamily": "$font-display",
+              "fontSize": 44,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "Op7AJ",
+              "name": "Explicação Como funciona · Mobile",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "A estrutura mostra o que aprender. As respostas mostram por onde começar.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-ui",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "ypQhZ",
+              "name": "Momento 1 · Mobile",
+              "width": "fill_container",
+              "height": 155,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 20,
+              "padding": [
+                20,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "efgWc",
+                  "name": "Número 1 · Mobile",
+                  "fill": "$selo-text",
+                  "content": "1",
+                  "fontFamily": "$font-display",
+                  "fontSize": 34,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "e3gCPM",
+                  "name": "Texto 1 · Mobile",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "JIrzz",
+                      "name": "Título 1 · Mobile",
+                      "fill": "$text-primary",
+                      "content": "Diagnóstico",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 20,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "xpfJJ",
+                      "name": "Descrição 1 · Mobile",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Questões curtas observam o que você já sabe em cada conceito.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "v7BfX",
+              "name": "Momento 2 · Mobile",
+              "width": "fill_container",
+              "height": 155,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 20,
+              "padding": [
+                20,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "V4elR",
+                  "name": "Número 2 · Mobile",
+                  "fill": "$selo-text",
+                  "content": "2",
+                  "fontFamily": "$font-display",
+                  "fontSize": 34,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "XR8Vj",
+                  "name": "Texto 2 · Mobile",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "U3TTeB",
+                      "name": "Título 2 · Mobile",
+                      "fill": "$text-primary",
+                      "content": "Recomendação",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 20,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "RHZAA",
+                      "name": "Descrição 2 · Mobile",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Material de apoio e atividade apontam um próximo passo concreto.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Kyvwf",
+              "name": "Momento 3 · Mobile",
+              "width": "fill_container",
+              "height": 155,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 20,
+              "padding": [
+                20,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "a5ht3",
+                  "name": "Número 3 · Mobile",
+                  "fill": "$selo-text",
+                  "content": "3",
+                  "fontFamily": "$font-display",
+                  "fontSize": 34,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "NyYfi",
+                  "name": "Texto 3 · Mobile",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ikVPJ",
+                      "name": "Título 3 · Mobile",
+                      "fill": "$text-primary",
+                      "content": "Progresso",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 20,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NtTyk",
+                      "name": "Descrição 3 · Mobile",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Novas respostas atualizam a proficiência conforme você pratica.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 15,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "hZZPD",
+          "name": "Exemplo · Mobile",
+          "width": "fill_container",
+          "height": 850,
+          "stroke": "$divider",
+          "strokeWidth": {
+            "bottom": 1
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            68,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "uQaSR",
+              "name": "Título do exemplo · Mobile",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Uma resposta revela onde praticar.",
+              "lineHeight": 1.03,
+              "fontFamily": "$font-display",
+              "fontSize": 46,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "UGLPQ",
+              "name": "Descrição do exemplo · Mobile",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Se você acerta a comparação, mas erra o caminho para n = 0, o Shifu concentra a prática em decisão condicional.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-ui",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "xCaL3",
+              "name": "Do diagnóstico à prática · Mobile",
+              "width": "fill_container",
+              "height": 380,
+              "fill": "$surface",
+              "cornerRadius": "$radius-card",
+              "stroke": "$glass-border",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "gap": 16,
+              "padding": 20,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "j2PSi",
+                  "name": "Rótulo No diagnóstico · Mobile",
+                  "fill": "$text-muted",
+                  "content": "No diagnóstico",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "r465y",
+                  "name": "Questão do zero · Mobile",
+                  "fill": "$text-primary",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Se n < 0 imprime N; senão Z. Para n = 0, qual saída?",
+                  "lineHeight": 1.45,
+                  "fontFamily": "$font-mono",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "yIw7n",
+                  "name": "Resposta escolhida · Mobile",
+                  "fill": "$selo-text",
+                  "content": "Resposta escolhida: N",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "rectangle",
+                  "id": "mLP2F",
+                  "name": "Divisória do caso · Mobile",
+                  "fill": "$divider",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "text",
+                  "id": "iIFwZ",
+                  "name": "Rótulo Próximo passo · Mobile",
+                  "fill": "$text-muted",
+                  "content": "Próximo passo",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "PTpMz",
+                  "name": "Atividade recomendada · Mobile",
+                  "fill": "$text-primary",
+                  "content": "Classificar um número",
+                  "fontFamily": "$font-display",
+                  "fontSize": 29,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "SwPka",
+                  "name": "Material recomendado · Mobile",
+                  "fill": "$jade-text",
+                  "content": "Material: Introdução: Decisões",
+                  "fontFamily": "$font-ui",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "CPq0l",
+              "name": "Nota de evidência · Mobile",
+              "fill": "$text-muted",
+              "content": "Conceitos não avaliados ficam sem evidência.",
+              "fontFamily": "$font-ui",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "OaPOc",
+          "name": "Convite final · Mobile",
+          "width": "fill_container",
+          "height": 246,
+          "fill": "$surface-alt",
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            38,
+            20
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "HsiLS",
+              "name": "Título final · Mobile",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Veja o Shifu em ação.",
+              "fontFamily": "$font-display",
+              "fontSize": 37,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "m7Hcs",
+              "name": "Descrição final · Mobile",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Da habilidade Lógica de programação até a questão de código.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-ui",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "id": "DYz0o",
+              "type": "ref",
+              "ref": "ygtpy",
+              "name": "Botão final · Mobile",
+              "height": 48,
+              "descendants": {
+                "G5Acqe": {
+                  "content": "Ver demonstração"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NIm0Y",
+      "x": 5190,
+      "y": 6000,
+      "name": "Apresentação · Como o Shifu recomenda",
+      "clip": true,
+      "width": 1600,
+      "height": 900,
+      "fill": "$page",
+      "layout": "none",
+      "children": [
+        {
+          "type": "text",
+          "id": "ITsPH",
+          "x": 72,
+          "y": 54,
+          "name": "Chamada",
+          "fill": "$selo-text",
+          "content": "COMO FUNCIONA",
+          "fontFamily": "$font-mono",
+          "fontSize": 18,
+          "fontWeight": "normal",
+          "letterSpacing": 2
+        },
+        {
+          "type": "text",
+          "id": "O8MV2t",
+          "x": 72,
+          "y": 96,
+          "name": "Título",
+          "fill": "$text-primary",
+          "textGrowth": "fixed-width",
+          "width": 1300,
+          "content": "Do objetivo ao próximo passo",
+          "lineHeight": 0.98,
+          "fontFamily": "$font-display",
+          "fontSize": 64,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "x6r02",
+          "x": 72,
+          "y": 180,
+          "name": "Subtítulo",
+          "fill": "$text-secondary",
+          "textGrowth": "fixed-width",
+          "width": 1250,
+          "content": "O Shifu identifica o que o estudante já sabe e indica onde avançar.",
+          "lineHeight": 1.5,
+          "fontFamily": "$font-ui",
+          "fontSize": 23,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "frame",
+          "id": "ChetU",
+          "x": 72,
+          "y": 286,
+          "name": "1 · Estrutura",
+          "width": 450,
+          "height": 478,
+          "fill": "$surface",
+          "cornerRadius": 14,
+          "stroke": "$glass-border",
+          "strokeWidth": 1,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "h9vFK",
+              "x": 24,
+              "y": 24,
+              "name": "Etapa",
+              "fill": "$selo-text",
+              "content": "01  /  ESTRUTURA",
+              "fontFamily": "$font-mono",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "LKYBt",
+              "x": 24,
+              "y": 58,
+              "name": "Título do card",
+              "fill": "$text-primary",
+              "content": "Onde quer chegar",
+              "fontFamily": "$font-display",
+              "fontSize": 35,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "NVMiA",
+              "x": 16,
+              "y": 132,
+              "name": "Objetivo",
+              "width": 418,
+              "height": 79,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 14,
+              "padding": [
+                12,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Bf3nX",
+                  "name": "Marcador · Objetivo",
+                  "fill": "$selo-fill",
+                  "width": 10,
+                  "height": 10
+                },
+                {
+                  "type": "frame",
+                  "id": "k8Xsg",
+                  "name": "Texto · Objetivo",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nkTuo",
+                      "name": "Categoria · Objetivo",
+                      "fill": "$text-muted",
+                      "content": "Objetivo",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "rXvmm",
+                      "name": "Exemplo · Objetivo",
+                      "fill": "$text-primary",
+                      "content": "Aprender a programar",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 19,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N9AdC",
+              "x": 16,
+              "y": 211,
+              "name": "Habilidade",
+              "width": 418,
+              "height": 79,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 14,
+              "padding": [
+                12,
+                16,
+                12,
+                36
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "EmCWG",
+                  "name": "Marcador · Habilidade",
+                  "fill": "$selo-fill",
+                  "width": 10,
+                  "height": 10
+                },
+                {
+                  "type": "frame",
+                  "id": "VnR0g",
+                  "name": "Texto · Habilidade",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "DBVff",
+                      "name": "Categoria · Habilidade",
+                      "fill": "$text-muted",
+                      "content": "Habilidade",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "R5Srus",
+                      "name": "Exemplo · Habilidade",
+                      "fill": "$text-primary",
+                      "content": "Lógica de programação",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 19,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JISDg",
+              "x": 16,
+              "y": 290,
+              "name": "Competência",
+              "width": 418,
+              "height": 79,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 14,
+              "padding": [
+                12,
+                16,
+                12,
+                56
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Xnj06",
+                  "name": "Marcador · Competência",
+                  "fill": "$selo-fill",
+                  "width": 10,
+                  "height": 10
+                },
+                {
+                  "type": "frame",
+                  "id": "rHXba",
+                  "name": "Texto · Competência",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nTQ9s",
+                      "name": "Categoria · Competência",
+                      "fill": "$text-muted",
+                      "content": "Competência",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "R3qksG",
+                      "name": "Exemplo · Competência",
+                      "fill": "$text-primary",
+                      "content": "Decisões",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 19,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mwSvx",
+              "x": 16,
+              "y": 369,
+              "name": "Conceito",
+              "width": 418,
+              "height": 79,
+              "stroke": "$divider",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 14,
+              "padding": [
+                12,
+                16,
+                12,
+                76
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "ellipse",
+                  "id": "Sqops",
+                  "name": "Marcador · Conceito",
+                  "fill": "$jade-solid",
+                  "width": 10,
+                  "height": 10
+                },
+                {
+                  "type": "frame",
+                  "id": "n8quIe",
+                  "name": "Texto · Conceito",
+                  "layout": "vertical",
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "zlWew",
+                      "name": "Categoria · Conceito",
+                      "fill": "$text-muted",
+                      "content": "Conceito",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Eau23",
+                      "name": "Exemplo · Conceito",
+                      "fill": "$text-primary",
+                      "content": "Decisão condicional",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 19,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "J5jEo",
+          "x": 574,
+          "y": 286,
+          "name": "2 · Diagnóstico",
+          "width": 400,
+          "height": 478,
+          "fill": "$surface",
+          "cornerRadius": 14,
+          "stroke": "$glass-border",
+          "strokeWidth": 1,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "Y7qC5",
+              "x": 24,
+              "y": 24,
+              "name": "Etapa",
+              "fill": "$selo-text",
+              "content": "02  /  DIAGNÓSTICO",
+              "fontFamily": "$font-mono",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "ZTMNh",
+              "x": 24,
+              "y": 58,
+              "name": "Título do card",
+              "fill": "$text-primary",
+              "content": "O que já sabe",
+              "fontFamily": "$font-display",
+              "fontSize": 35,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "j5xmKr",
+              "x": 24,
+              "y": 139,
+              "name": "Oito perguntas",
+              "fill": "$text-primary",
+              "content": "8 questões fixas",
+              "fontFamily": "$font-ui",
+              "fontSize": 28,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "BdxDa",
+              "x": 24,
+              "y": 184,
+              "name": "Tipos de questão",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 350,
+              "content": "Escolha única e seleção múltipla",
+              "lineHeight": 1.5,
+              "fontFamily": "$font-ui",
+              "fontSize": 17,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "ellipse",
+              "id": "wq4Le",
+              "x": 32,
+              "y": 248,
+              "name": "Questão 1",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "Iju6A",
+              "x": 49,
+              "y": 260,
+              "name": "Número 1",
+              "fill": "$text-primary",
+              "content": "1",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "PUmpI",
+              "x": 114,
+              "y": 248,
+              "name": "Questão 2",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "wqAqJ",
+              "x": 131,
+              "y": 260,
+              "name": "Número 2",
+              "fill": "$text-primary",
+              "content": "2",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "vgTOH",
+              "x": 196,
+              "y": 248,
+              "name": "Questão 3",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "kpsNf",
+              "x": 213,
+              "y": 260,
+              "name": "Número 3",
+              "fill": "$text-primary",
+              "content": "3",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "Q10ti",
+              "x": 278,
+              "y": 248,
+              "name": "Questão 4",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "hqW6i",
+              "x": 295,
+              "y": 260,
+              "name": "Número 4",
+              "fill": "$text-primary",
+              "content": "4",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "z3Fjg",
+              "x": 32,
+              "y": 322,
+              "name": "Questão 5",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "krNoP",
+              "x": 49,
+              "y": 334,
+              "name": "Número 5",
+              "fill": "$text-primary",
+              "content": "5",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "Ilbgh",
+              "x": 114,
+              "y": 322,
+              "name": "Questão 6",
+              "fill": "$surface-alt",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "pGg4a",
+              "x": 131,
+              "y": 334,
+              "name": "Número 6",
+              "fill": "$text-primary",
+              "content": "6",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "hDxm5",
+              "x": 196,
+              "y": 322,
+              "name": "Questão 7",
+              "fill": "$selo-fill",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "dFTK9",
+              "x": 213,
+              "y": 334,
+              "name": "Número 7",
+              "fill": "$text-primary",
+              "content": "7",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "ellipse",
+              "id": "IzKoP",
+              "x": 278,
+              "y": 322,
+              "name": "Questão 8",
+              "fill": "$selo-fill",
+              "width": 52,
+              "height": 52
+            },
+            {
+              "type": "text",
+              "id": "vpJWF",
+              "x": 295,
+              "y": 334,
+              "name": "Número 8",
+              "fill": "$text-primary",
+              "content": "8",
+              "fontFamily": "$font-ui",
+              "fontSize": 19,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "BdHcb",
+              "x": 24,
+              "y": 407,
+              "name": "Lacuna",
+              "fill": "$selo-text",
+              "content": "FOCO IDENTIFICADO",
+              "fontFamily": "$font-mono",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "g5i4ce",
+              "x": 24,
+              "y": 430,
+              "name": "Conceito identificado",
+              "fill": "$text-primary",
+              "content": "Decisão condicional",
+              "fontFamily": "$font-ui",
+              "fontSize": 23,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ZJNyY",
+          "x": 1026,
+          "y": 286,
+          "name": "3 · Recomendação",
+          "width": 502,
+          "height": 478,
+          "fill": "$surface",
+          "cornerRadius": 14,
+          "stroke": "$glass-border",
+          "strokeWidth": 1,
+          "layout": "none",
+          "children": [
+            {
+              "type": "text",
+              "id": "i2WLQ",
+              "x": 24,
+              "y": 24,
+              "name": "Etapa",
+              "fill": "$selo-text",
+              "content": "03  /  PRÓXIMO PASSO",
+              "fontFamily": "$font-mono",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "A8fvqC",
+              "x": 24,
+              "y": 58,
+              "name": "Título do card",
+              "fill": "$text-primary",
+              "content": "O que fazer agora",
+              "fontFamily": "$font-display",
+              "fontSize": 35,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "ZQOQY",
+              "x": 24,
+              "y": 142,
+              "name": "Etiqueta atividade",
+              "fill": "$selo-text",
+              "content": "ATIVIDADE RECOMENDADA",
+              "fontFamily": "$font-mono",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "PgUeJ",
+              "x": 24,
+              "y": 170,
+              "name": "Atividade recomendada",
+              "fill": "$text-primary",
+              "content": "Classificar um número",
+              "fontFamily": "$font-ui",
+              "fontSize": 27,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "gWns8",
+              "x": 24,
+              "y": 220,
+              "name": "Enunciado",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 445,
+              "content": "Escreva um programa que classifica um número como positivo, negativo ou zero.",
+              "lineHeight": 1.5,
+              "fontFamily": "$font-ui",
+              "fontSize": 18,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "IQSMz",
+              "x": 24,
+              "y": 342,
+              "name": "Etiqueta material",
+              "fill": "$jade-text",
+              "content": "MATERIAL DE APOIO",
+              "fontFamily": "$font-mono",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "text",
+              "id": "fiKA4",
+              "x": 24,
+              "y": 370,
+              "name": "Material recomendado",
+              "fill": "$text-primary",
+              "content": "Introdução: decisões",
+              "fontFamily": "$font-ui",
+              "fontSize": 25,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "WM14L",
+              "x": 24,
+              "y": 415,
+              "name": "Critério do material",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": 445,
+              "content": "Disponível para apoiar o conceito que precisa de reforço.",
+              "lineHeight": 1.5,
+              "fontFamily": "$font-ui",
+              "fontSize": 17,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "PmHqy",
+          "x": 534,
+          "y": 501,
+          "name": "Seta 1",
+          "fill": "$selo-text",
+          "content": "→",
+          "fontFamily": "$font-display",
+          "fontSize": 28,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "DQLMi",
+          "x": 986,
+          "y": 501,
+          "name": "Seta 2",
+          "fill": "$selo-text",
+          "content": "→",
+          "fontFamily": "$font-display",
+          "fontSize": 28,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "YMN1p",
+          "x": 72,
+          "y": 819,
+          "name": "Fechamento",
+          "fill": "$text-muted",
+          "textGrowth": "fixed-width",
+          "width": 1450,
+          "content": "Após a prática, o progresso na habilidade é atualizado e orienta as próximas recomendações.",
+          "lineHeight": 1.5,
+          "fontFamily": "$font-ui",
+          "fontSize": 20,
+          "fontWeight": "normal"
+        }
+      ]
     }
   ],
   "variables": {

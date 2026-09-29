@@ -98,14 +98,11 @@ export const DiagnosticResultPage = (props: DiagnosticResultPageProps) => {
           Resultado geral
         </h2>
         <p className='mt-3 text-2xl font-semibold tabular-nums'>
-          {overallResult === null
-            ? 'Sem evidência'
-            : `${Math.round(overallResult)}%${diagnostic.overallCoverageComplete ? '' : ' · estimativa parcial'}`}
+          {overallResult === null ? 'Sem evidência' : `${Math.round(overallResult)}%`}
         </p>
         <p className='mt-2 text-sm text-muted-foreground'>
-          {diagnostic.overallCoverageComplete
-            ? 'A cobertura do diagnóstico está completa.'
-            : 'A cobertura é parcial; Competências sem observação numérica permanecem sem evidência.'}
+          Progresso demonstrado em todos os Conceitos da Habilidade. O status de cada
+          Competência considera os Conceitos avaliados.
         </p>
       </section>
 
@@ -152,6 +149,7 @@ export const DiagnosticResultPage = (props: DiagnosticResultPageProps) => {
             goalId={props.goalId}
             recommendation={recommendation}
             skillId={props.skillId}
+            viewSkillAction
           />
         </section>
       ) : diagnostic.initialRecommendationGap ? (
@@ -172,15 +170,17 @@ export const DiagnosticResultPage = (props: DiagnosticResultPageProps) => {
         </section>
       ) : null}
 
-      <div className='mx-auto w-full max-w-4xl'>
-        <Link
-          className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 font-semibold text-foreground hover:bg-muted'
-          params={props}
-          to='/learning/goals/$goalId/skills/$skillId'
-        >
-          Ver Habilidade
-        </Link>
-      </div>
+      {!recommendation ? (
+        <div className='w-full'>
+          <Link
+            className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 font-semibold text-foreground hover:bg-muted'
+            params={props}
+            to='/learning/goals/$goalId/skills/$skillId'
+          >
+            Ver Habilidade
+          </Link>
+        </div>
+      ) : null}
     </main>
   )
 }

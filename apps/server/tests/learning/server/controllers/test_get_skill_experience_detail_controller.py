@@ -7,6 +7,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from shifu.app import FastAPIApp
+from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
+from shifu.curriculum.core.domain.structures import (
+    CodeRubricEvaluationPart,
+    JavascriptStdinQuestion,
+    MaterialSequenceItem,
+)
+from shifu.curriculum.database.logic_programming_seed import (
+    LOGIC_SKILL_ID,
+    build_logic_programming_seed,
+)
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
@@ -20,6 +30,7 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_PRIORITY_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
+    SEED_GOAL_ID,
     SEED_SKILL_PYTHON_ID,
     build_development_seed,
 )
@@ -80,6 +91,151 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetSkillExperienceDetailController:
+    def test_logic_seed_has_complete_concept_and_activity_coverage(
+        self,
+        client: TestClient,
+    ) -> None:
+        response = _get(client, goal_id=SEED_GOAL_ID, skill_id=LOGIC_SKILL_ID)
+        assert response.status_code == 200, response.text
+
+        bundle = build_logic_programming_seed()
+        competencies = sorted(bundle.competencies, key=lambda item: item.position)
+        concepts = sorted(
+            bundle.concepts,
+            key=lambda item: (
+                next(
+                    competency.position
+                    for competency in competencies
+                    if competency.id == item.competency_id
+                ),
+                item.position,
+            ),
+        )
+        assert len(concepts) == 15
+        assert len({concept.id for concept in concepts}) == 15
+        assert [concept.name for concept in concepts] == [
+            'Ordem de execução',
+            'Entrada e saída',
+            'Rastreamento de valores',
+            'Atribuição',
+            'Atualização de valores',
+            'Expressões aritméticas',
+            'Comparações e limites',
+            'Decisão condicional',
+            'E lógico',
+            'OU lógico',
+            'NÃO lógico',
+            'Repetição por quantidade',
+            'Condição de parada',
+            'Dividir em etapas',
+            'Parâmetros e retorno',
+        ]
+        ordinal = {concept.id: index for index, concept in enumerate(concepts)}
+        for concept in concepts:
+            assert all(
+                prerequisite in ordinal and ordinal[prerequisite] < ordinal[concept.id]
+                for prerequisite in concept.prerequisite_ids
+            )
+
+        for competency in competencies:
+            sequence = next(
+                sequence
+                for sequence in bundle.curriculum_sequences
+                if sequence.competency_id == competency.id
+            )
+            assert any(
+                isinstance(item, MaterialSequenceItem) for item in sequence.items
+            )
+            assert any(
+                activity.competency_id == competency.id
+                and any(
+                    isinstance(question, JavascriptStdinQuestion)
+                    for question in activity.questions
+                )
+                for activity in bundle.activities
+                if activity.activity_type is ActivityType.LEARNING
+            )
+
+        for activity in bundle.activities:
+            if activity.activity_type is ActivityType.LEARNING:
+                assert 3 <= len(activity.questions) <= 5
+            for question in activity.questions:
+                if not isinstance(question, JavascriptStdinQuestion):
+                    continue
+                part = next(
+                    item
+                    for item in activity.evaluation_rule.parts
+                    if item.question_key == question.key
+                )
+                assert isinstance(part, CodeRubricEvaluationPart)
+                for criterion in part.criteria:
+                    assert tuple(
+                        sorted(comment.level for comment in criterion.fixed_comments)
+                    ) == (0, 25, 50, 75, 100)
+                    assert criterion.inconclusive_comment is not None
+
+        for concept in concepts:
+            for difficulty in ActivityDifficulty:
+                covering = [
+                    activity
+                    for activity in bundle.activities
+                    if activity.difficulty is difficulty
+                    and any(
+                        criterion.concept_id == concept.id
+                        for question in activity.questions
+                        for criterion in getattr(question, 'concept_criteria', ())
+                    )
+                ]
+                assert any(
+                    activity.activity_type is ActivityType.DIAGNOSTIC
+                    for activity in covering
+                ), (concept.name, difficulty)
+                assert (
+                    len(
+                        {
+                            activity.id
+                            for activity in covering
+                            if activity.activity_type is ActivityType.LEARNING
+                        }
+                    )
+                    >= 2
+                ), (concept.name, difficulty)
+
+    def test_seeded_logic_skill_starts_fresh_with_five_ordered_competencies(
+        self,
+        client: TestClient,
+    ) -> None:
+        goal_response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'/learning/goals/{SEED_GOAL_ID}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        response = _get(client, goal_id=SEED_GOAL_ID, skill_id=LOGIC_SKILL_ID)
+
+        assert goal_response.status_code == 200, goal_response.text
+        assert any(
+            skill['skillId'] == LOGIC_SKILL_ID
+            for skill in goal_response.json()['skills']
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body['goalId'] == SEED_GOAL_ID
+        assert body['skillId'] == LOGIC_SKILL_ID
+        assert body['skillName'] == 'Lógica de programação'
+        assert body['skillStatus'] == 'not-started'
+        assert body['overallResult'] is None
+        assert [item['competencyName'] for item in body['competencies']] == [
+            'Sequência de instruções',
+            'Variáveis e expressões',
+            'Decisões',
+            'Repetição',
+            'Decomposição em funções',
+        ]
+        assert [item['position'] for item in body['competencies']] == [1, 2, 3, 4, 5]
+        assert all(item['progress'] is None for item in body['competencies'])
+
     def test_owner_reads_the_experience_without_writing_events(
         self,
         client: TestClient,
@@ -224,11 +380,16 @@ class TestGetSkillExperienceDetailController:
         assert response.status_code == 401
 
 
-def _get(client: TestClient, *, skill_id: str) -> 'Response':
+def _get(
+    client: TestClient,
+    *,
+    skill_id: str,
+    goal_id: str = SEED_ADAPTIVE_LAB_GOAL_ID,
+) -> 'Response':
     return cast(
         'Response',
         client.get(  # pyright: ignore[reportUnknownMemberType]
-            _path(SEED_ADAPTIVE_LAB_GOAL_ID, skill_id),
+            _path(goal_id, skill_id),
             headers={'Authorization': 'Bearer test-access-token'},
         ),
     )
@@ -250,6 +411,7 @@ def _seed_application(database: PostgresDatabase) -> None:
         repositories.skills.add_many(list(seed.skills))
         repositories.skill_foundations.add_many(list(seed.skill_foundations))
         repositories.competencies.add_many(list(seed.competencies))
+        repositories.concepts.add_many(list(seed.concepts))
         repositories.materials.add_many(list(seed.materials))
         repositories.activities.add_many(list(seed.activities))
         repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))

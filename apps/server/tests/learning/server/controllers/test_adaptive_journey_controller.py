@@ -11,6 +11,13 @@ from httpx import Response
 from sqlalchemy import func, select
 
 from shifu.app import FastAPIApp
+from shifu.curriculum.core.domain.entities import Activity
+from shifu.curriculum.database.logic_programming_seed import (
+    LOGIC_CLASSIFY_ACTIVITY_ID,
+    LOGIC_DECISIONS_COMPETENCY_ID,
+    LOGIC_SKILL_ID,
+    build_logic_programming_seed,
+)
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.structures import (
     JavascriptStdinQuestion,
@@ -768,3 +775,455 @@ class TestAdaptiveLabSeed:
                 == 0
             )
             assert connection.scalar(select(func.count()).select_from(EventModel)) == 0
+
+
+class TestLogicProgrammingSeed:
+    def test_fresh_skill_is_eligible_and_opens_an_actionable_diagnostic(
+        self,
+        adaptive_app: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        headers = {'Authorization': 'Bearer test-access-token'}
+        with TestClient(adaptive_app, raise_server_exceptions=True) as client:
+            adaptive_app.state.cache_provider = _UnlimitedCache()
+            available = _get(client, '/learning/available-skills', headers)
+            assert available.status_code == 200, available.text
+            skill = next(
+                item
+                for item in cast('dict[str, Any]', available.json())['skills']
+                if item['id'] == LOGIC_SKILL_ID
+            )
+            assert skill['available'] is True
+            assert skill['unavailableReason'] is None
+
+            created = _post(
+                client,
+                '/learning/goals',
+                headers,
+                {
+                    'title': 'Aprender lógica de programação',
+                    'description': 'Percurso completo de lógica.',
+                    'skillIds': [LOGIC_SKILL_ID],
+                },
+            )
+            assert created.status_code == 201, created.text
+            goal_id = cast('dict[str, Any]', created.json())['goalId']
+            skill_path = f'/learning/goals/{goal_id}/skills/{LOGIC_SKILL_ID}'
+            before = _get(client, skill_path, headers)
+            assert before.status_code == 200, before.text
+            assert before.json()['skillStatus'] == 'not-started'
+            assert before.json()['overallResult'] is None
+
+            run_id = str(uuid4())
+            started = _post(
+                client,
+                f'{skill_path}/start',
+                headers,
+                {'entry_key': run_id},
+            )
+            assert started.status_code == 200, started.text
+            diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': run_id}
+            overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
+            assert overview.status_code == 200, overview.text
+            body = cast('dict[str, Any]', overview.json())
+            assert body['status'] == 'diagnosing'
+            assert body['runState'] == 'active'
+            sequence = cast('list[dict[str, str]]', body['activitySequence'])
+            diagnostic_ids = (
+                build_logic_programming_seed().skill.initial_diagnostic_activity_ids
+            )
+            assert tuple(item['activityId'] for item in sequence) == diagnostic_ids
+            assert len(sequence) == 8
+            assert body['nextActivityId'] == sequence[0]['activityId']
+            first = sequence[0]
+            activity = _get(
+                client,
+                f'{skill_path}/competencies/{first["competencyId"]}'
+                f'/activities/{first["activityId"]}',
+                diagnostic_headers,
+            )
+            assert activity.status_code == 200, activity.text
+            assert activity.json()['is_diagnostic'] is True
+            assert activity.json()['can_submit'] is True
+            assert activity.json()['questions']
+
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    select(func.count()).select_from(ConceptObservationModel)
+                )
+                == 0
+            )
+
+    @pytest.mark.parametrize('profile', ['partial', 'high', 'classify'])
+    def test_diagnostic_evidence_leads_to_progress_or_completion(
+        self,
+        adaptive_app: FastAPI,
+        postgres_database: PostgresDatabase,
+        profile: str,
+    ) -> None:
+        headers = {'Authorization': 'Bearer test-access-token'}
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        provider = DatabaseCurriculumContentProvider(
+            SqlalchemyCurriculumDatabase(postgres_database.engine)
+        )
+        logic = build_logic_programming_seed()
+        activities = {item.id: item for item in logic.activities}
+        decision_concept_id = next(
+            concept.id
+            for concept in logic.concepts
+            if concept.name == 'Decisão condicional'
+        )
+        comparison_concept_id = next(
+            concept.id
+            for concept in logic.concepts
+            if concept.name == 'Comparações e limites'
+        )
+        with TestClient(adaptive_app, raise_server_exceptions=True) as client:
+            adaptive_app.state.cache_provider = _UnlimitedCache()
+            created = _post(
+                client,
+                '/learning/goals',
+                headers,
+                {
+                    'title': f'Diagnóstico de lógica: {profile}',
+                    'description': 'Observações de conceitos da habilidade completa.',
+                    'skillIds': [LOGIC_SKILL_ID],
+                },
+            )
+            assert created.status_code == 201, created.text
+            goal_id = cast('dict[str, Any]', created.json())['goalId']
+            skill_path = f'/learning/goals/{goal_id}/skills/{LOGIC_SKILL_ID}'
+            with postgres_database.engine.connect() as connection:
+                experience_id = connection.scalar(
+                    select(SkillExperienceModel.id).where(
+                        SkillExperienceModel.goal_id == goal_id
+                    )
+                )
+            assert experience_id is not None
+            run_id = str(uuid4())
+            started = _post(
+                client, f'{skill_path}/start', headers, {'entry_key': run_id}
+            )
+            assert started.status_code == 200, started.text
+            diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': run_id}
+            overview = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
+            assert overview.status_code == 200, overview.text
+            sequence = cast(
+                'list[dict[str, str]]',
+                cast('dict[str, Any]', overview.json())['activitySequence'],
+            )
+            assert len(sequence) == 8
+            assert (
+                sum(
+                    isinstance(
+                        activities[step['activityId']].questions[0],
+                        MultipleSelectionQuestion,
+                    )
+                    for step in sequence
+                )
+                == 2
+            )
+            items: list[dict[str, object]] = []
+            for index, step in enumerate(sequence):
+                activity_id = step['activityId']
+                activity_path = (
+                    f'{skill_path}/competencies/{step["competencyId"]}'
+                    f'/activities/{activity_id}'
+                )
+                activity_response = _get(client, activity_path, diagnostic_headers)
+                assert activity_response.status_code == 200, activity_response.text
+                wire = cast('dict[str, Any]', activity_response.json())
+                authored = activities[activity_id]
+                assert len(authored.questions) == 1
+                answers: list[dict[str, object]] = []
+                for question in authored.questions:
+                    assert isinstance(
+                        question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                    )
+                    assert len(question.options) == 4
+                    if profile == 'classify':
+                        tests_decision = any(
+                            criterion.concept_id == decision_concept_id
+                            for criterion in question.concept_criteria
+                        )
+                        correct = not tests_decision
+                    else:
+                        correct = profile == 'high' or index % 2 == 0
+                    selected = [
+                        option.key
+                        for option in question.options
+                        if option.is_correct is correct
+                    ]
+                    if not correct:
+                        selected = selected[:1]
+                    answers.append(
+                        {
+                            'question_key': question.key,
+                            'kind': (
+                                'multiple_selection'
+                                if isinstance(question, MultipleSelectionQuestion)
+                                else 'single_choice'
+                            ),
+                            'selected_option_keys': selected,
+                        }
+                    )
+                assert [question['key'] for question in wire['questions']] == [
+                    question.key for question in authored.questions
+                ]
+                assert len(wire['questions'][0]['options']) == 4
+                assert wire['questions'][0]['kind'] == answers[0]['kind']
+                items.append(
+                    {
+                        'competency_id': step['competencyId'],
+                        'activity_id': activity_id,
+                        'activity_revision': wire['activity_revision'],
+                        'answers': answers,
+                    }
+                )
+            submitted = _post(
+                client,
+                f'{skill_path}/diagnostic/submissions',
+                diagnostic_headers,
+                {'submission_key': str(uuid4()), 'items': items},
+            )
+            assert submitted.status_code == 201, submitted.text
+            pending = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
+            assert pending.status_code == 200, pending.text
+            assert pending.json()['pendingAttemptStatus'] == 'pending'
+            premature = _post(
+                client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+            )
+            assert premature.status_code == 409, premature.text
+
+            with learning.transaction() as repositories:
+                attempts = repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                    experience_id, run_id
+                )
+                evaluations = tuple(
+                    repositories.activity_evaluations.find_by_attempt_id(attempt.id)
+                    for attempt in attempts
+                )
+            assert len(attempts) == len(sequence)
+            assert len(attempts) == 8
+            for attempt, evaluation in zip(attempts, evaluations, strict=True):
+                assert evaluation is not None and evaluation.run_id is not None
+                EvaluateChoiceActivityUseCase(
+                    learning,
+                    SystemClockProvider(),
+                    provider,
+                    _FixedCodeRubricAssessor(),
+                ).execute(attempt.id, evaluation.run_id)
+
+            completed = _post(
+                client, f'{skill_path}/diagnostic/complete', diagnostic_headers
+            )
+            assert completed.status_code == 200, completed.text
+            settled = _get(client, f'{skill_path}/diagnostic', diagnostic_headers)
+            assert settled.status_code == 200, settled.text
+            body = cast('dict[str, Any]', settled.json())
+            assert body['runState'] == 'settled'
+            assert body['status'] in {'learning', 'completed'}
+            assert len(body['competencies']) == 5
+            assert all(item['progress'] is not None for item in body['competencies'])
+            assert body['overallCoverageComplete'] is False
+            assert all(not item['coverageComplete'] for item in body['competencies'])
+            if profile == 'high':
+                assert body['status'] == 'learning'
+                assert body['initialOverallResult'] == pytest.approx(800 / 15)
+                skill_detail = _get(client, skill_path, headers)
+                assert skill_detail.status_code == 200, skill_detail.text
+                assert skill_detail.json()['overallResult'] == pytest.approx(800 / 15)
+                recommendation = body['initialRecommendation']
+                assert recommendation is not None
+                activity_id = recommendation['activityId']
+                activity_path = (
+                    f'{skill_path}/competencies/{recommendation["competencyId"]}'
+                    f'/activities/{activity_id}'
+                )
+                practice_result = _submit_logic_learning_activity(
+                    client=client,
+                    path=activity_path,
+                    headers=headers,
+                    activity=activities[activity_id],
+                    correct=True,
+                    learning=learning,
+                    provider=provider,
+                )
+                assert float(practice_result['progress_before']) == pytest.approx(
+                    800 / 15, abs=0.01
+                )
+                updated_skill = _get(client, skill_path, headers)
+                assert updated_skill.status_code == 200, updated_skill.text
+                assert updated_skill.json()['overallResult'] == pytest.approx(
+                    float(practice_result['progress_after']), abs=0.01
+                )
+            if profile == 'partial':
+                assert body['status'] == 'learning'
+                recommendation = body['initialRecommendation']
+                assert recommendation is not None
+                target = recommendation['competencyId']
+                activity_id = recommendation['activityId']
+                opened = _get(
+                    client,
+                    f'{skill_path}/competencies/{target}/activities/{activity_id}',
+                    headers,
+                )
+                assert opened.status_code == 200, opened.text
+                assert opened.json()['can_submit'] is True
+                activity_path = (
+                    f'{skill_path}/competencies/{target}/activities/{activity_id}'
+                )
+                competency_path = f'{skill_path}/competencies/{target}'
+                for correct in (True, False, True):
+                    _submit_logic_learning_activity(
+                        client=client,
+                        path=activity_path,
+                        headers=headers,
+                        activity=activities[activity_id],
+                        correct=correct,
+                        learning=learning,
+                        provider=provider,
+                    )
+                    detail = _get(client, competency_path, headers)
+                    assert detail.status_code == 200, detail.text
+                    detail_body = cast('dict[str, Any]', detail.json())
+                    assert detail_body['availability'] == 'available'
+                    assert detail_body['adaptive'] is not None
+                    assert (
+                        detail_body['adaptive']['activityId'] is not None
+                        or detail_body['adaptive']['gap'] is not None
+                    )
+                    assert isinstance(detail_body['progress'], (int, float))
+                    assert 0 <= detail_body['progress'] <= 100
+            elif profile == 'classify':
+                assert body['status'] == 'learning'
+                assert body['focusCompetencyId'] == LOGIC_DECISIONS_COMPETENCY_ID
+                with postgres_database.engine.connect() as connection:
+                    decision_baseline = connection.scalar(
+                        select(ConceptStateModel.initial_progress).where(
+                            ConceptStateModel.skill_experience_id == experience_id,
+                            ConceptStateModel.concept_id == decision_concept_id,
+                        )
+                    )
+                    comparison_baseline = connection.scalar(
+                        select(ConceptStateModel.initial_progress).where(
+                            ConceptStateModel.skill_experience_id == experience_id,
+                            ConceptStateModel.concept_id == comparison_concept_id,
+                        )
+                    )
+                assert decision_baseline is not None
+                assert decision_baseline == 0
+                assert comparison_baseline == 100
+                unobserved_concept_id = next(
+                    concept.id
+                    for concept in logic.concepts
+                    if concept.name == 'E lógico'
+                )
+                with postgres_database.engine.connect() as connection:
+                    unobserved_baseline = connection.scalar(
+                        select(ConceptStateModel.initial_progress).where(
+                            ConceptStateModel.skill_experience_id == experience_id,
+                            ConceptStateModel.concept_id == unobserved_concept_id,
+                        )
+                    )
+                assert unobserved_baseline is None
+                recommendation = body['initialRecommendation']
+                assert recommendation is not None
+                assert recommendation['activityId'] == LOGIC_CLASSIFY_ACTIVITY_ID
+                assert recommendation['activityTitle'] == 'Classificar um número'
+                assert recommendation['competencyId'] == LOGIC_DECISIONS_COMPETENCY_ID
+                assert recommendation['targetConceptName'] == 'Decisão condicional'
+                assert recommendation['difficulty'] == 'easy'
+                decision_material = next(
+                    material
+                    for material in logic.materials
+                    if decision_concept_id in material.concept_ids
+                )
+                assert decision_material.title == 'Introdução: Decisões'
+                assert recommendation['materialId'] == decision_material.id
+                opened = _get(
+                    client,
+                    f'{skill_path}/competencies/{LOGIC_DECISIONS_COMPETENCY_ID}'
+                    f'/activities/{LOGIC_CLASSIFY_ACTIVITY_ID}',
+                    headers,
+                )
+                assert opened.status_code == 200, opened.text
+                assert opened.json()['can_submit'] is True
+                assert any(
+                    question['kind'] == 'javascript_stdin'
+                    and 'classificarNumero' in question['prompt']
+                    for question in opened.json()['questions']
+                )
+            else:
+                assert body['status'] == 'learning'
+                assert body['directCompletion'] is False
+                assert body['initialRecommendation'] is not None
+
+
+def _submit_logic_learning_activity(
+    *,
+    client: TestClient,
+    path: str,
+    headers: dict[str, str],
+    activity: Activity,
+    correct: bool,
+    learning: SqlalchemyLearningDatabase,
+    provider: DatabaseCurriculumContentProvider,
+) -> dict[str, Any]:
+    opened = _get(client, path, headers)
+    assert opened.status_code == 200, opened.text
+    wire = cast('dict[str, Any]', opened.json())
+    assert wire['can_submit'] is True
+    answers: list[dict[str, object]] = []
+    for question, presented in zip(activity.questions, wire['questions'], strict=True):
+        if isinstance(question, JavascriptStdinQuestion):
+            answers.append(
+                {
+                    'question_key': question.key,
+                    'kind': 'javascript_stdin',
+                    'files': [
+                        {'path': item['path'], 'content': item['content']}
+                        for item in presented['initial_files']
+                        if item['editable']
+                    ],
+                }
+            )
+            continue
+        assert isinstance(question, SingleChoiceQuestion)
+        selected = next(
+            option.key for option in question.options if option.is_correct is correct
+        )
+        answers.append(
+            {
+                'question_key': question.key,
+                'kind': 'single_choice',
+                'selected_option_keys': [selected],
+            }
+        )
+    submitted = _post(
+        client,
+        f'{path}/attempts',
+        headers,
+        {
+            'submission_key': str(uuid4()),
+            'answers': answers,
+            'activity_revision': wire.get('activity_revision'),
+        },
+    )
+    assert submitted.status_code == 201, submitted.text
+    attempt_id = cast('dict[str, Any]', submitted.json())['attempt_id']
+    with learning.transaction() as repositories:
+        evaluation = repositories.activity_evaluations.find_by_attempt_id(attempt_id)
+        assert evaluation is not None and evaluation.run_id is not None
+        run_id = evaluation.run_id
+    EvaluateChoiceActivityUseCase(
+        learning,
+        SystemClockProvider(),
+        provider,
+        _FixedCodeRubricAssessor(score=100 if correct else 0),
+    ).execute(attempt_id, run_id)
+    result = _get(client, f'{path}/attempts/{attempt_id}', headers)
+    assert result.status_code == 200, result.text
+    assert result.json()['status'] == 'completed'
+    return cast('dict[str, Any]', result.json())

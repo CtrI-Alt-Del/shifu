@@ -53,6 +53,7 @@ class AdaptiveLearningPolicy:
         memories: tuple[AdaptiveCompetencyMemory, ...] = (),
         previous_target_id: str | None = None,
         pending_evaluation: bool = False,
+        limited_diagnostic: bool = False,
         now: datetime,
     ) -> AdaptivePolicyResult:
         concept_by_id = {concept.id: concept for concept in concepts}
@@ -76,8 +77,42 @@ class AdaptiveLearningPolicy:
             )
             for competency_id in competency_ids
         )
-        released = self._release(competency_states)
+        provisionally_ready = frozenset(
+            state.competency_id
+            for state in competency_states
+            if limited_diagnostic
+            and not state.coverage_complete
+            and (
+                observed := tuple(
+                    states[concept.id]
+                    for concept in concepts
+                    if concept.competency_id == state.competency_id
+                    and states[concept.id].progress is not None
+                )
+            )
+            and all(
+                item.progress is not None
+                and item.progress >= _SEVENTY
+                and not item.evidence_verification
+                for item in observed
+            )
+        )
+        released = self._release(competency_states, provisionally_ready)
+        weak_competencies = {
+            concept.competency_id
+            for concept in concepts
+            if limited_diagnostic
+            and (progress := states[concept.id].progress) is not None
+            and progress < _SEVENTY
+        }
         focus = next(
+            (
+                state.competency_id
+                for state in released
+                if state.content_released and state.competency_id in weak_competencies
+            ),
+            None,
+        ) or next(
             (
                 state.competency_id
                 for state in released
@@ -97,6 +132,7 @@ class AdaptiveLearningPolicy:
                 materials,
                 observations,
                 previous_target_id,
+                limited_diagnostic,
             )
         return AdaptivePolicyResult(
             concept_states=tuple(states[concept.id] for concept in concepts),
@@ -347,6 +383,7 @@ class AdaptiveLearningPolicy:
     def _release(
         self,
         states: tuple[AdaptiveCompetencyState, ...],
+        provisionally_ready: frozenset[str] = frozenset(),
     ) -> tuple[AdaptiveCompetencyState, ...]:
         result: list[AdaptiveCompetencyState] = []
         previous_stable = True
@@ -365,10 +402,12 @@ class AdaptiveLearningPolicy:
                     content_released=released,
                 )
             )
-            previous_stable = (
-                previous_stable
-                and state.status is CompetencyProgressStatus.MASTERED
-                and state.verification_cause is None
+            previous_stable = previous_stable and (
+                (
+                    state.status is CompetencyProgressStatus.MASTERED
+                    and state.verification_cause is None
+                )
+                or state.competency_id in provisionally_ready
             )
         return tuple(result)
 
@@ -382,6 +421,7 @@ class AdaptiveLearningPolicy:
         materials: tuple[AdaptiveMaterial, ...],
         observations: tuple[ConceptObservation, ...],
         previous_target_id: str | None,
+        limited_diagnostic: bool,
     ) -> AdaptiveRecommendation | None:
         focus_concepts = tuple(
             concept for concept in concepts.values() if concept.competency_id == focus
@@ -412,12 +452,15 @@ class AdaptiveLearningPolicy:
             activities,
             observations,
             previous_target_id,
+            limited_diagnostic,
         )
         original = target
         seen: set[str] = set()
         while target.id not in seen:
             seen.add(target.id)
-            weak = self._weak_prerequisites(target.prerequisite_ids, concepts, states)
+            weak = self._weak_prerequisites(
+                target.prerequisite_ids, concepts, states, limited_diagnostic
+            )
             if not weak:
                 break
             target = weak[0]
@@ -445,6 +488,7 @@ class AdaptiveLearningPolicy:
             states,
             activities,
             observations,
+            limited_diagnostic=limited_diagnostic,
             hard_required=hard_required,
         )
         while selected is None:
@@ -455,7 +499,7 @@ class AdaptiveLearningPolicy:
                 and activity.available
                 and activity.executable_concept_evidence
                 for item in self._weak_prerequisites(
-                    activity.required_concept_ids, concepts, states
+                    activity.required_concept_ids, concepts, states, limited_diagnostic
                 )
                 if item.id not in seen
             )
@@ -474,7 +518,14 @@ class AdaptiveLearningPolicy:
             reason = 'prerequisite'
             preferred = self._preferred_difficulty(states[target.id], observations)
             selected = self._select_activity(
-                target.id, preferred, reason, concepts, states, activities, observations
+                target.id,
+                preferred,
+                reason,
+                concepts,
+                states,
+                activities,
+                observations,
+                limited_diagnostic=limited_diagnostic,
             )
         if len(states[target.id].inconclusive_activity_ids) >= 2:
             return AdaptiveRecommendation(
@@ -522,36 +573,14 @@ class AdaptiveLearningPolicy:
         activities: tuple[AdaptiveActivity, ...],
         observations: tuple[ConceptObservation, ...],
         previous_target_id: str | None,
+        limited_diagnostic: bool,
     ) -> tuple[AdaptiveConcept, str]:
         def rank(concept: AdaptiveConcept) -> tuple[int, Decimal, int, str]:
             state = states[concept.id]
-            if (
-                (
-                    competency.verification_cause == 'evidence'
-                    and competency.verification_concept_id == concept.id
-                )
-                or (
-                    competency.verification_cause in {'concept', 'hard'}
-                    and competency.verification_concept_id == concept.id
-                )
-                or competency.verification_cause == 'mean'
-                or state.evidence_verification
-            ):
-                priority = 0
-            elif (
-                state.progress is None
-                or not state.coverage_complete
-                or len(state.distinct_activity_ids) < 2
-            ):
-                priority = 1
-            elif state.progress < _SEVENTY:
-                priority = 2
-            elif not state.hard_confirmation:
-                priority = 3
-            else:
-                priority = 4
             return (
-                priority,
+                self._target_priority(
+                    concept.id, state, competency, limited_diagnostic
+                ),
                 state.progress if state.progress is not None else Decimal('-1'),
                 concept.position,
                 concept.id,
@@ -559,6 +588,23 @@ class AdaptiveLearningPolicy:
 
         ordered = sorted(concepts, key=rank)
         best = ordered[0]
+        if competency.verification_cause == 'mean':
+            best = next(
+                (
+                    concept
+                    for concept in ordered
+                    if self._has_viable_action(
+                        concept.id,
+                        all_concepts,
+                        states,
+                        activities,
+                        observations,
+                        frozenset(),
+                        limited_diagnostic,
+                    )
+                ),
+                best,
+            )
         if (
             previous_target_id is not None
             and rank(best)[0] != 4
@@ -577,23 +623,67 @@ class AdaptiveLearningPolicy:
                     activities,
                     observations,
                     frozenset(),
+                    limited_diagnostic,
                 )
             ):
                 best = prior
         priority = rank(best)[0]
-        reason = (
+        reasons = (
             'verification',
             'coverage',
             'practice',
             'hard_confirmation',
             'consolidation',
-        )[priority]
+        )
+        if limited_diagnostic:
+            reasons = (
+                'verification',
+                'practice',
+                'coverage',
+                'hard_confirmation',
+                'consolidation',
+            )
+        reason = reasons[priority]
         if (
             competency.verification_cause in {'concept', 'mean', 'hard'}
             and priority == 0
         ):
             reason = 'regression'
         return best, reason
+
+    @staticmethod
+    def _target_priority(
+        concept_id: str,
+        state: AdaptiveConceptState,
+        competency: AdaptiveCompetencyState,
+        limited_diagnostic: bool,
+    ) -> int:
+        if (
+            competency.verification_cause == 'mean'
+            or (
+                competency.verification_cause is not None
+                and competency.verification_concept_id == concept_id
+            )
+            or state.evidence_verification
+        ):
+            return 0
+        if (
+            limited_diagnostic
+            and state.progress is not None
+            and state.progress < _SEVENTY
+        ):
+            return 1
+        if (
+            state.progress is None
+            or not state.coverage_complete
+            or len(state.distinct_activity_ids) < 2
+        ):
+            return 2 if limited_diagnostic else 1
+        if state.progress < _SEVENTY:
+            return 2
+        if not state.hard_confirmation:
+            return 3
+        return 4
 
     def _has_viable_action(
         self,
@@ -603,16 +693,25 @@ class AdaptiveLearningPolicy:
         activities: tuple[AdaptiveActivity, ...],
         observations: tuple[ConceptObservation, ...],
         seen: frozenset[str],
+        limited_diagnostic: bool,
     ) -> bool:
         if concept_id in seen or concept_id not in concepts:
             return False
         seen = seen | {concept_id}
         concept = concepts[concept_id]
-        weak = self._weak_prerequisites(concept.prerequisite_ids, concepts, states)
+        weak = self._weak_prerequisites(
+            concept.prerequisite_ids, concepts, states, limited_diagnostic
+        )
         if weak:
             return any(
                 self._has_viable_action(
-                    item.id, concepts, states, activities, observations, seen
+                    item.id,
+                    concepts,
+                    states,
+                    activities,
+                    observations,
+                    seen,
+                    limited_diagnostic,
                 )
                 for item in weak
             )
@@ -626,20 +725,27 @@ class AdaptiveLearningPolicy:
                 states,
                 activities,
                 observations,
+                limited_diagnostic=limited_diagnostic,
             )
             is not None
         ):
             return True
         return any(
             self._has_viable_action(
-                required.id, concepts, states, activities, observations, seen
+                required.id,
+                concepts,
+                states,
+                activities,
+                observations,
+                seen,
+                limited_diagnostic,
             )
             for activity in activities
             if concept_id in activity.concept_ids
             and activity.available
             and activity.executable_concept_evidence
             for required in self._weak_prerequisites(
-                activity.required_concept_ids, concepts, states
+                activity.required_concept_ids, concepts, states, limited_diagnostic
             )
         )
 
@@ -648,6 +754,7 @@ class AdaptiveLearningPolicy:
         prerequisite_ids: tuple[str, ...],
         concepts: dict[str, AdaptiveConcept],
         states: dict[str, AdaptiveConceptState],
+        limited_diagnostic: bool = False,
     ) -> tuple[AdaptiveConcept, ...]:
         candidates = tuple(
             concepts[item_id]
@@ -656,7 +763,10 @@ class AdaptiveLearningPolicy:
             and (
                 (progress := states[item_id].progress) is None
                 or progress < _SEVENTY
-                or len(states[item_id].distinct_activity_ids) < 2
+                or (
+                    not limited_diagnostic
+                    and len(states[item_id].distinct_activity_ids) < 2
+                )
                 or states[item_id].evidence_verification
             )
         )
@@ -694,7 +804,12 @@ class AdaptiveLearningPolicy:
             if progress < _SEVENTY
             else 2
         )
-        current = self._current_valid(state.concept_id, observations)
+        suspended = frozenset(state.inconclusive_activity_ids)
+        current = tuple(
+            item
+            for item in self._current_valid(state.concept_id, observations)
+            if item.activity_id not in suspended
+        )
         for level in (ActivityDifficulty.EASY, ActivityDifficulty.MEDIUM):
             if (
                 len(
@@ -734,6 +849,7 @@ class AdaptiveLearningPolicy:
         activities: tuple[AdaptiveActivity, ...],
         observations: tuple[ConceptObservation, ...],
         *,
+        limited_diagnostic: bool = False,
         hard_required: bool = False,
     ) -> AdaptiveActivity | None:
         current = {
@@ -747,7 +863,7 @@ class AdaptiveLearningPolicy:
             and item.available
             and item.executable_concept_evidence
             and not self._weak_prerequisites(
-                item.required_concept_ids, concepts, states
+                item.required_concept_ids, concepts, states, limited_diagnostic
             )
         )
         if reason == 'hard_confirmation' or hard_required:
@@ -761,6 +877,14 @@ class AdaptiveLearningPolicy:
             key=lambda item: (item.completed_at, item.attempt_id),
             default=None,
         )
+        potential_gains: dict[str, Decimal] = {}
+
+        def potential_gain(item: AdaptiveActivity) -> Decimal:
+            if item.id not in potential_gains:
+                potential_gains[item.id] = self._potential_gain(
+                    target_id, item, observations
+                )
+            return potential_gains[item.id]
 
         def rank(
             item: AdaptiveActivity,
@@ -768,7 +892,7 @@ class AdaptiveLearningPolicy:
             contribution = current.get(item.id)
             value = contribution.value if contribution else None
             novel = value is None
-            gain = self._potential_gain(target_id, item, observations)
+            gain = potential_gain(item)
             focus_count = dict(item.question_count_by_concept).get(target_id, 0)
             total_count = sum(count for _, count in item.question_count_by_concept) or 1
             focus_share = Decimal(focus_count) / Decimal(total_count)
@@ -810,11 +934,24 @@ class AdaptiveLearningPolicy:
             item
             for item in candidates
             if item.difficulty in ordered_levels
-            and (
-                item.id not in current
-                or self._potential_gain(target_id, item, observations) > 0
-            )
+            and (item.id not in current or potential_gain(item) > 0)
         )
+        if reason in {'practice', 'consolidation', 'regression'} and not hard_required:
+            positive_gain = tuple(
+                item for item in consolidation if potential_gain(item) > 0
+            )
+            return min(
+                positive_gain,
+                key=lambda item: (
+                    -potential_gain(item),
+                    current[item.id].value
+                    if item.id in current and current[item.id].value is not None
+                    else Decimal('100'),
+                    item.position,
+                    item.id,
+                ),
+                default=None,
+            )
         return min(consolidation, key=rank) if consolidation else None
 
     def _potential_gain(

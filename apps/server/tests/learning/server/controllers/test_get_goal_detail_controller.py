@@ -4,8 +4,10 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
 from shifu.app import FastAPIApp
+from shifu.curriculum.database.sqlalchemy.models import CompetencyModel
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
@@ -20,6 +22,12 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_SKILL_ID,
     SEED_GOAL_ID,
     SEED_GRAPH_GOAL_ID,
+    SEED_GRAPH_APIS_SKILL_ID,
+    SEED_GRAPH_HTML_CSS_SKILL_ID,
+    SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+    SEED_GRAPH_REACT_SKILL_ID,
+    SEED_GRAPH_SKILL_IDS,
+    SEED_SKILL_LOGIC_ID,
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
@@ -65,6 +73,46 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetGoalDetailController:
+    def test_programming_goal_exposes_graph_only_skills_without_competencies(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path(SEED_GOAL_ID),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert {skill['skillId'] for skill in body['skills']} == {
+            SEED_SKILL_LOGIC_ID,
+            *SEED_GRAPH_SKILL_IDS,
+        }
+        assert len(body['skills']) == 5
+        assert {
+            (relation['foundationSkillId'], relation['skillId'])
+            for relation in body['relations']
+        } == {
+            (SEED_SKILL_LOGIC_ID, SEED_GRAPH_JAVASCRIPT_SKILL_ID),
+            (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
+            (SEED_GRAPH_HTML_CSS_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
+            (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_APIS_SKILL_ID),
+        }
+        assert all(skill['status'] == 'not-started' for skill in body['skills'])
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    select(func.count())
+                    .select_from(CompetencyModel)
+                    .where(CompetencyModel.skill_id.in_(SEED_GRAPH_SKILL_IDS))
+                )
+                == 0
+            )
+
     def test_removed_incompatible_seed_goal_is_not_exposed(
         self,
         client: TestClient,

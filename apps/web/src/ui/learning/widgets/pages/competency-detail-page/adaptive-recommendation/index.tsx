@@ -78,7 +78,7 @@ export const AdaptiveRecommendation = ({ detail }: AdaptiveRecommendationProps) 
             to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
           >
             <Icon name='book-open' size={17} />
-            {recommendation.materialIsOptional ? 'Ler Material opcional' : 'Ler Material'}
+            Ler material didático
           </Link>
         ) : null}
         {recommendation.activityId ? (

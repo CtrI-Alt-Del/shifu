@@ -55,6 +55,7 @@ def _activity(
     concept_ids: tuple[str, ...] = ('concept',),
     required_concept_ids: tuple[str, ...] = (),
     position: int = 1,
+    available: bool = True,
 ) -> AdaptiveActivity:
     return AdaptiveActivity(
         id=activity_id,
@@ -64,6 +65,7 @@ def _activity(
         concept_ids=concept_ids,
         required_concept_ids=required_concept_ids,
         question_count_by_concept=tuple((concept_id, 1) for concept_id in concept_ids),
+        available=available,
     )
 
 
@@ -232,6 +234,57 @@ class TestAdaptiveLearningPolicy:
         assert result.concept_states[0].current_contributions == (('a', Decimal('70')),)
         assert result.concept_states[0].evidence_verification
 
+    def test_should_suspend_difficulty_promotion_for_inconclusive_evidence(
+        self,
+    ) -> None:
+        observations = (
+            _observation(
+                'd-easy', ActivityDifficulty.EASY, Decimal('0'), 0, diagnostic=True
+            ),
+            _observation(
+                'd-medium', ActivityDifficulty.MEDIUM, Decimal('0'), 1, diagnostic=True
+            ),
+            _observation(
+                'd-hard', ActivityDifficulty.HARD, Decimal('0'), 2, diagnostic=True
+            ),
+            _observation('a', ActivityDifficulty.EASY, Decimal('80'), 3),
+            _observation('b', ActivityDifficulty.EASY, Decimal('80'), 4),
+            _observation('c', ActivityDifficulty.EASY, Decimal('0'), 5),
+            _observation('d', ActivityDifficulty.EASY, Decimal('0'), 6),
+        )
+        activities = (
+            _activity('easy'),
+            _activity('medium', ActivityDifficulty.MEDIUM),
+        )
+        progress, before = _evaluate(observations, activities=activities)
+        assert progress == Decimal('19.9920')
+        assert before.recommendation is not None
+        assert before.recommendation.activity_id == 'medium'
+
+        inconclusive = _observation('a', ActivityDifficulty.EASY, None, 7, first_day=3)
+        after_progress, pending = _evaluate(
+            (*observations, inconclusive), activities=activities
+        )
+        assert after_progress == progress
+        assert pending.concept_states[0].evidence_verification
+        assert pending.recommendation is not None
+        assert pending.recommendation.activity_id == 'easy'
+        assert pending.recommendation.difficulty is ActivityDifficulty.EASY
+
+        _, recovered = _evaluate(
+            (
+                *observations,
+                inconclusive,
+                _observation(
+                    'a', ActivityDifficulty.EASY, Decimal('80'), 8, first_day=3
+                ),
+            ),
+            activities=activities,
+        )
+        assert not recovered.concept_states[0].evidence_verification
+        assert recovered.recommendation is not None
+        assert recovered.recommendation.activity_id == 'medium'
+
     def test_should_require_complete_coverage_diversity_and_hard_evidence_for_mastery(
         self,
     ) -> None:
@@ -389,6 +442,64 @@ class TestAdaptiveLearningPolicy:
         assert result.recommendation.activity_id is None
         assert result.recommendation.gap == 'curriculum_or_assessment_unavailable'
 
+    def test_should_choose_largest_positive_gain_during_consolidation(self) -> None:
+        observations = (
+            _observation(
+                'd-easy', ActivityDifficulty.EASY, Decimal('0'), 0, diagnostic=True
+            ),
+            _observation(
+                'd-medium', ActivityDifficulty.MEDIUM, Decimal('50'), 1, diagnostic=True
+            ),
+            _observation(
+                'd-hard', ActivityDifficulty.HARD, Decimal('100'), 2, diagnostic=True
+            ),
+            _observation('e-old', ActivityDifficulty.EASY, Decimal('0'), 3),
+            _observation('m-old', ActivityDifficulty.MEDIUM, Decimal('100'), 4),
+        )
+        progress, result = _evaluate(
+            observations,
+            activities=(
+                _activity('e-old', position=1),
+                _activity('e-new', position=2),
+                _activity('m-old', ActivityDifficulty.MEDIUM, position=3),
+            ),
+        )
+
+        assert progress == Decimal('54.5')
+        assert result.recommendation is not None
+        assert result.recommendation.activity_id == 'e-old'
+        assert result.recommendation.difficulty is ActivityDifficulty.EASY
+
+    def test_should_report_gap_when_all_consolidation_retakes_have_no_gain(
+        self,
+    ) -> None:
+        observations = (
+            _observation(
+                'd-easy', ActivityDifficulty.EASY, Decimal('0'), 0, diagnostic=True
+            ),
+            _observation(
+                'd-medium', ActivityDifficulty.MEDIUM, Decimal('50'), 1, diagnostic=True
+            ),
+            _observation(
+                'd-hard', ActivityDifficulty.HARD, Decimal('100'), 2, diagnostic=True
+            ),
+            _observation('e-old', ActivityDifficulty.EASY, Decimal('100'), 3),
+            _observation('m-old', ActivityDifficulty.MEDIUM, Decimal('100'), 4),
+        )
+        progress, result = _evaluate(
+            observations,
+            activities=(
+                _activity('e-old', position=1),
+                _activity('m-old', ActivityDifficulty.MEDIUM, position=2),
+            ),
+        )
+
+        assert progress == Decimal('75.5')
+        assert result.recommendation is not None
+        assert result.recommendation.reason == 'consolidation'
+        assert result.recommendation.activity_id is None
+        assert result.recommendation.gap == 'curriculum_or_assessment_unavailable'
+
     def test_should_not_retain_previous_equal_priority_target_without_viable_action(
         self,
     ) -> None:
@@ -500,3 +611,51 @@ class TestAdaptiveLearningPolicy:
             is not CompetencyProgressStatus.MASTERED
         )
         assert confirmed.competency_states[0].mastered_at is None
+
+    def test_should_choose_viable_concept_for_mean_regression(self) -> None:
+        concepts = (
+            AdaptiveConcept(id='a', competency_id='competency', position=1),
+            AdaptiveConcept(id='b', competency_id='competency', position=2),
+        )
+        diagnostic = tuple(
+            _observation(
+                f'{concept_id}-{difficulty.value}',
+                difficulty,
+                Decimal('100'),
+                3 * concept_position + difficulty_position,
+                concept_id=concept_id,
+                diagnostic=True,
+            )
+            for concept_position, concept_id in enumerate(('a', 'b'))
+            for difficulty_position, difficulty in enumerate(ActivityDifficulty)
+        )
+        memory = (
+            AdaptiveCompetencyMemory(
+                competency_id='competency',
+                mastered_at=_START + timedelta(days=6),
+                content_released=True,
+            ),
+        )
+        _, result = _evaluate(
+            (
+                *diagnostic,
+                _observation(
+                    'a-low', ActivityDifficulty.EASY, Decimal('0'), 7, concept_id='a'
+                ),
+                _observation(
+                    'b-low', ActivityDifficulty.EASY, Decimal('0'), 8, concept_id='b'
+                ),
+            ),
+            concepts=concepts,
+            activities=(
+                _activity('a-low', concept_ids=('a',), available=False),
+                _activity('b-low', concept_ids=('b',)),
+            ),
+            memories=memory,
+        )
+        assert result.competency_states[0].verification_cause == 'mean'
+        assert result.recommendation is not None
+        assert result.recommendation.reason == 'regression'
+        assert result.recommendation.target_concept_id == 'b'
+        assert result.recommendation.activity_id == 'b-low'
+        assert result.recommendation.gap is None

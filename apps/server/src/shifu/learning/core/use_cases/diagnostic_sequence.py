@@ -15,7 +15,7 @@ class DiagnosticSequence:
         skill: CurriculumSkillSnapshot,
     ) -> tuple[tuple[str, CurriculumActivitySnapshot], ...]:
         levels = {'easy': 0, 'medium': 1, 'hard': 2}
-        return tuple(
+        available = tuple(
             (competency.id, activity)
             for competency in sorted(
                 skill.competencies, key=lambda item: (item.position, item.id)
@@ -28,6 +28,15 @@ class DiagnosticSequence:
                     item.id,
                 ),
             )
+        )
+        if not skill.initial_diagnostic_activity_ids:
+            return available
+        by_id = {
+            activity.id: (competency_id, activity)
+            for competency_id, activity in available
+        }
+        return tuple(
+            by_id[activity_id] for activity_id in skill.initial_diagnostic_activity_ids
         )
 
     @staticmethod

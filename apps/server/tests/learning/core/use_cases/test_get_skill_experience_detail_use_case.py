@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import create_autospec
@@ -21,6 +22,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.learning.core.domain.errors import SkillExperienceDetailNotFoundError
 from shifu.learning.core.domain.structures import (
+    AdaptiveConceptState,
     ActivityRecommendation,
     AvailableCompetencyDetail,
     CompetencyDetail,
@@ -39,6 +41,7 @@ from shifu.learning.core.use_cases import (
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
+    CurriculumConceptSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
@@ -259,6 +262,57 @@ class TestGetSkillExperienceDetailUseCase:
 
     def execute(self, account_id: str = ACCOUNT_ID) -> SkillExperienceDetail:
         return self.subject.execute(account_id, GOAL_ID, SKILL_ID)
+
+    def test_should_start_displayed_progress_from_diagnostic_evidence_and_update_after_practice(
+        self,
+    ) -> None:
+        concepts = tuple(
+            CurriculumConceptSnapshot(
+                id=f'concept-{index}',
+                competency_id=FIRST_COMPETENCY_ID,
+                name=f'Conceito {index}',
+                position=index,
+                prerequisite_ids=(),
+                observation_criteria='Critério',
+            )
+            for index in (1, 2)
+        )
+        first_competency = competency(FIRST_COMPETENCY_ID, 1)
+        self.curriculum_content_provider.get_skill_content.return_value = skill_content(
+            (replace(first_competency, concepts=concepts),)
+        )
+        self.repositories.competency_progresses.find_many_by_skill_experience_id.return_value = [
+            progress(FIRST_COMPETENCY_ID, current=Decimal('100'))
+        ]
+
+        def state(concept_id: str, value: Decimal | None) -> AdaptiveConceptState:
+            return AdaptiveConceptState(
+                concept_id=concept_id,
+                initial_progress=Decimal('100') if concept_id == 'concept-1' else None,
+                progress=value,
+                observed_difficulties=frozenset(),
+                distinct_activity_ids=frozenset(),
+                hard_confirmation=False,
+                evidence_verification=False,
+                inconclusive_activity_ids=(),
+                current_contributions=(),
+            )
+
+        self.repositories.concept_states.find_many_by_skill_experience_id.return_value = [
+            state('concept-1', Decimal('100')),
+            state('concept-2', None),
+        ]
+        baseline = self.execute()
+        assert baseline.overall_result == Decimal('50')
+        assert baseline.competencies[0].progress == Decimal('50')
+
+        self.repositories.concept_states.find_many_by_skill_experience_id.return_value = [
+            state('concept-1', Decimal('100')),
+            state('concept-2', Decimal('50')),
+        ]
+        after_practice = self.execute()
+        assert after_practice.overall_result == Decimal('75')
+        assert after_practice.competencies[0].progress == Decimal('75')
 
     def test_should_reject_a_goal_of_another_account_before_reading_curriculum(
         self,

@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 import os
@@ -6,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 from typing import TYPE_CHECKING, cast
+from unittest.mock import create_autospec
 
 import pytest
 from fastapi import FastAPI
@@ -21,10 +23,15 @@ from shifu.curriculum.providers.curriculum_content_provider import (
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.errors import AuthorizationError
-from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.core.domain.structures import (
+    AuthenticatedUser,
+    CurriculumConceptSnapshot,
+)
+from shifu.shared.core.interfaces import CurriculumContentProvider
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_COMPETENCY_REPETITION_ID,
@@ -84,6 +91,102 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetCompetencyDetailController:
+    def test_released_detail_exposes_official_concepts_on_available_items(
+        self,
+        application: FastAPI,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with postgres_database.engine.begin() as connection:
+            connection.execute(
+                text(
+                    'UPDATE learning_skill_experiences SET status = :status '
+                    'WHERE id = :experience_id'
+                ),
+                {
+                    'status': 'learning',
+                    'experience_id': SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+                },
+            )
+            connection.execute(
+                text(
+                    'UPDATE learning_competency_progresses '
+                    'SET content_released = true WHERE skill_experience_id = :experience_id '
+                    'AND competency_id = :competency_id'
+                ),
+                {
+                    'experience_id': SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+                    'competency_id': SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+                },
+            )
+
+        original_provider = cast(
+            'CurriculumContentProvider',
+            application.state.curriculum_content_provider,
+        )
+        skill = original_provider.get_skill_content(SEED_ADAPTIVE_LAB_SKILL_ID)
+        assert skill is not None
+        competency = next(
+            item
+            for item in skill.competencies
+            if item.id == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
+        )
+        mapped_item = competency.items[0]
+        concept = CurriculumConceptSnapshot(
+            id='01SHF000000000000000000099',
+            competency_id=competency.id,
+            name='Condições e limites',
+            position=len(competency.concepts) + 1,
+            prerequisite_ids=(),
+            observation_criteria='Aplicar condições e limites.',
+        )
+        mapped_competency = replace(
+            competency,
+            concepts=(*competency.concepts, concept),
+            items=(
+                replace(mapped_item, concept_ids=(concept.id,)),
+                *competency.items[1:],
+            ),
+        )
+        mapped_skill = replace(
+            skill,
+            competencies=tuple(
+                mapped_competency if item.id == competency.id else item
+                for item in skill.competencies
+            ),
+        )
+        provider = create_autospec(CurriculumContentProvider, instance=True)
+        provider.get_skill_content.return_value = mapped_skill
+        application.dependency_overrides[
+            LearningPipe.get_curriculum_content_provider
+        ] = lambda: provider
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path(
+                    SEED_ADAPTIVE_LAB_GOAL_ID,
+                    SEED_ADAPTIVE_LAB_SKILL_ID,
+                    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body['availability'] == 'available'
+        assert body['items']
+        assert all('concepts' in item for item in body['items'])
+        assert body['items'][0]['concepts'] == [
+            {'id': concept.id, 'name': concept.name}
+        ]
+        assert all(
+            set(concept) == {'id', 'name'}
+            for item in body['items']
+            for concept in item['concepts']
+        )
+
     def test_migrations_support_upgrade_downgrade_and_reupgrade_cycle(
         self,
         postgres_database: PostgresDatabase,
@@ -127,6 +230,7 @@ class TestGetCompetencyDetailController:
         assert 'goal_id' not in body
         assert 'progress' not in body
         assert 'items' not in body
+        assert 'concepts' not in body
         assert 'recommendation' not in body
         assert _event_count(postgres_database) == before_events
 

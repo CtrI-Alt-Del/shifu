@@ -8,6 +8,7 @@ import type {
 } from '@/core/learning/code-practice-runner'
 
 export type CodeQuestionProps = {
+  isDiagnostic?: boolean
   activityTitle?: string
   difficulty?: ActivityDifficulty
   questionNumber?: number

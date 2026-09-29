@@ -9,6 +9,7 @@ class CurriculumSkillSnapshot:
     id: str
     name: str
     competencies: tuple[CurriculumCompetencySnapshot, ...]
+    initial_diagnostic_activity_ids: tuple[str, ...] = ()
     v2_coverage_gaps: tuple[str, ...] = ()
 
     @property
@@ -32,3 +33,7 @@ class CurriculumSkillSnapshot:
             raise ValueError('Curriculum competency identifiers must be unique.')
         if any(competency.skill_id != self.id for competency in self.competencies):
             raise ValueError('Curriculum competency does not belong to the Skill.')
+        if len(self.initial_diagnostic_activity_ids) != len(
+            set(self.initial_diagnostic_activity_ids)
+        ):
+            raise ValueError('Initial diagnostic activities must be unique.')

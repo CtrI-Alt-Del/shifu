@@ -274,7 +274,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
               className='text-xs font-medium text-muted-foreground'
               id='choice-result-progress-title'
             >
-              Progresso da Competência
+              Progresso demonstrado da Habilidade
             </h2>
             <div className='mt-1 flex flex-wrap items-center gap-2'>
               <p className='text-sm font-medium text-foreground'>
@@ -293,7 +293,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
           </div>
           <div className='min-w-0 flex-1'>
             <div
-              aria-label='Domínio estimado da Competência após a avaliação'
+              aria-label='Progresso demonstrado da Habilidade após a avaliação'
               aria-valuemax={100}
               aria-valuemin={0}
               aria-valuenow={attempt.progressAfter}
@@ -307,8 +307,8 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
               />
             </div>
             <p className='mt-1.5 text-xs leading-relaxed text-muted-foreground'>
-              A estimativa considera suas respostas nesta Atividade e, quando houver,
-              evidências anteriores. Não é a nota acima.
+              O progresso considera suas respostas nesta Atividade e as evidências
+              anteriores. Não é a nota acima.
             </p>
           </div>
         </section>

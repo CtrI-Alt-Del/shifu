@@ -1,6 +1,7 @@
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
 import { getDiagnosticRun } from '@/ui/learning/diagnostic-run-session'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
@@ -49,6 +50,12 @@ export const ActivityPage = (props: ActivityPageProps) => {
     handleCodeFilesChange,
     runnerFactory,
   } = useActivityPage(props)
+  const isDiagnosticLoading =
+    isDiagnosticProcessing &&
+    diagnosticStatus !== 'failed' &&
+    !diagnosticCompletionError &&
+    !hasDiagnosticStatusError
+  const isQuestionReadOnly = isSubmissionLocked || isDiagnosticProcessing
 
   if (isLoading) {
     return (
@@ -119,7 +126,15 @@ export const ActivityPage = (props: ActivityPageProps) => {
     return (
       <main className='mx-auto w-full max-w-7xl px-5 py-8 sm:px-10 lg:px-20'>
         <h1 className='font-serif text-4xl font-semibold'>Diagnóstico</h1>
-        <output aria-live='polite' className='mt-6 block text-sm'>
+        <output aria-live='polite' className='mt-6 flex items-center gap-2 text-sm'>
+          {isDiagnosticLoading ? (
+            <Icon
+              aria-hidden='true'
+              className='shrink-0 motion-safe:animate-spin'
+              name='loader-circle'
+              size={16}
+            />
+          ) : null}
           {diagnosticStatus === 'failed'
             ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
             : diagnosticCompletionError
@@ -191,12 +206,13 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const choiceQuestion =
     currentQuestion.kind !== 'javascript_stdin' ? (
       <ChoiceQuestion
+        isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
         difficulty={isDiagnosticChoice ? undefined : activity.difficulty}
         disabled={
           !activity.canSubmit ||
           isSubmitting ||
-          isSubmissionLocked ||
+          isQuestionReadOnly ||
           Boolean(feedback) ||
           isAssessing
         }
@@ -240,13 +256,14 @@ export const ActivityPage = (props: ActivityPageProps) => {
 
       {isCodeQuestion ? (
         <CodeQuestion
+          isDiagnostic={activity.isDiagnostic}
           activityTitle={activity.title}
           difficulty={activity.difficulty}
           key={currentQuestion.key}
           question={currentQuestion}
           questionNumber={currentQuestionNumber}
           totalQuestions={totalQuestions}
-          disabled={Boolean(feedback || frozenAnswer || isSubmissionLocked)}
+          disabled={Boolean(isQuestionReadOnly || isSubmitting)}
           onFilesChange={handleCodeFilesChange}
           onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
           runnerFactory={runnerFactory}
@@ -293,7 +310,15 @@ export const ActivityPage = (props: ActivityPageProps) => {
           ) : null}
           {isDiagnosticProcessing ? (
             <div aria-live='polite' className='mt-6 space-y-3 text-sm'>
-              <p>
+              <p className='flex items-center gap-2'>
+                {isDiagnosticLoading ? (
+                  <Icon
+                    aria-hidden='true'
+                    className='shrink-0 motion-safe:animate-spin'
+                    name='loader-circle'
+                    size={16}
+                  />
+                ) : null}
                 {diagnosticStatus === 'failed'
                   ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
                   : diagnosticCompletionError

@@ -23,6 +23,7 @@ from shifu.learning.core.domain.structures import (
     ActivityRecommendation,
     AvailableCompetencyDetail,
     CompetencyActivityDetail,
+    CompetencyContentConcept,
     CompetencyDetail,
     CompetencyMaterialDetail,
     OfficialActivityResult,
@@ -33,6 +34,7 @@ from shifu.learning.core.interfaces import (
     LearningDatabaseRepositories,
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
+from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
@@ -143,6 +145,7 @@ class GetCompetencyDetailUseCase:
             )
         )
         policy = AdaptiveLearningPolicy().evaluate(
+            limited_diagnostic=bool(skill.initial_diagnostic_activity_ids),
             concepts=context.concepts,
             competency_ids=context.competency_ids,
             activities=context.activities,
@@ -154,6 +157,9 @@ class GetCompetencyDetailUseCase:
             now=experience.updated_at,
         )
         state_by_id = {item.competency_id: item for item in policy.competency_states}
+        concept_progress_by_id = {
+            item.concept_id: item.progress for item in policy.concept_states
+        }
         focus_id = policy.focus_competency_id
         focus_competency = next(
             (item for item in skill.competencies if item.id == focus_id), None
@@ -196,7 +202,9 @@ class GetCompetencyDetailUseCase:
         latest_results = GetCompetencyDetailUseCase._latest_official_results(
             learning_attempts, evaluations
         )
-        items = GetCompetencyDetailUseCase._build_items(competency, latest_results)
+        items = GetCompetencyDetailUseCase._build_items(
+            skill, competency, latest_results
+        )
         recommended = policy.recommendation if focus_id == competency.id else None
         concept_names = {
             concept.id: concept.name
@@ -231,7 +239,12 @@ class GetCompetencyDetailUseCase:
             competency_id=competency.id,
             competency_name=competency.name,
             availability=CompetencyAvailability.AVAILABLE,
-            progress=state.progress,
+            progress=demonstrated_progress(
+                tuple(
+                    concept_progress_by_id.get(concept.id)
+                    for concept in competency.concepts
+                )
+            ),
             status=state.status,
             is_focus=is_focus,
             focus_returned=is_focus
@@ -304,11 +317,36 @@ class GetCompetencyDetailUseCase:
 
     @staticmethod
     def _build_items(
+        skill: CurriculumSkillSnapshot,
         competency: CurriculumCompetencySnapshot,
         latest_results: dict[str, OfficialActivityResult],
     ) -> tuple[CompetencyMaterialDetail | CompetencyActivityDetail, ...]:
         items: list[CompetencyMaterialDetail | CompetencyActivityDetail] = []
+        ordered_concepts = (
+            concept
+            for skill_competency in sorted(
+                skill.competencies, key=lambda candidate: candidate.position
+            )
+            for concept in sorted(
+                skill_competency.concepts, key=lambda candidate: candidate.position
+            )
+        )
+        concepts_by_id = {concept.id: concept for concept in ordered_concepts}
+        concept_order = {
+            concept_id: position for position, concept_id in enumerate(concepts_by_id)
+        }
         for item in sorted(competency.items, key=lambda content: content.position):
+            concepts = tuple(
+                CompetencyContentConcept(id=concept.id, name=concept.name)
+                for concept in sorted(
+                    (
+                        concepts_by_id[concept_id]
+                        for concept_id in set(item.concept_ids)
+                        if concept_id in concepts_by_id
+                    ),
+                    key=lambda concept: concept_order[concept.id],
+                )
+            )
             if isinstance(item, CurriculumActivitySnapshot):
                 items.append(
                     CompetencyActivityDetail(
@@ -322,6 +360,7 @@ class GetCompetencyDetailUseCase:
                             if item.id in latest_results
                             else None
                         ),
+                        concepts=concepts,
                     )
                 )
                 continue
@@ -330,6 +369,7 @@ class GetCompetencyDetailUseCase:
                     id=item.id,
                     title=item.title,
                     position=item.position,
+                    concepts=concepts,
                 )
             )
         return tuple(items)

@@ -1,9 +1,13 @@
 from decimal import Decimal
 from unittest.mock import create_autospec
 
+import httpx
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
+    JevCodeRubricAssessorProvider,
+)
 from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.structures import CodeAnswer, CodeSubmittedFile
 from shifu.learning.core.interfaces import (
@@ -14,7 +18,11 @@ from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case i
     PreliminaryQuestionResult,
     PreviewActivityQuestionFeedbackUseCase,
 )
-from shifu.shared.core.domain.errors import ConflictError, ValidationError
+from shifu.shared.core.domain.errors import (
+    ConflictError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 from shifu.shared.core.domain.structures import (
     CodeCriterionDecision,
     CodeRubricDecisions,
@@ -174,6 +182,102 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
         self.repositories.competency_progresses.update.assert_not_called()
+
+    def test_retries_transient_jev_failure_before_scoring(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if len(requests) == 1:
+                return httpx.Response(503)
+            return httpx.Response(
+                200,
+                json={
+                    'answers': {
+                        'rubric:correctness': {
+                            'type': 'choice',
+                            'choice': 'level-75',
+                        }
+                    }
+                },
+            )
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            assessor = JevCodeRubricAssessorProvider(
+                api_key='test-key',
+                client=client,
+                decisions_url='https://openrouter.test/api/alpha/decisions',
+                model='typesafe/jev-1.13',
+            )
+            self.subject = PreviewActivityQuestionFeedbackUseCase(
+                self.database, self.provider, assessor
+            )
+            result = self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                )
+            )
+
+        assert result.status == 'conclusive'
+        assert result.score == Decimal(75)
+        assert len(requests) == 2
+        assert requests[0].content == requests[1].content
+
+    def test_does_not_retry_nontransient_jev_failure(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(400)
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            assessor = JevCodeRubricAssessorProvider(
+                api_key='test-key',
+                client=client,
+                decisions_url='https://openrouter.test/api/alpha/decisions',
+                model='typesafe/jev-1.13',
+            )
+            self.subject = PreviewActivityQuestionFeedbackUseCase(
+                self.database, self.provider, assessor
+            )
+            with pytest.raises(ServiceUnavailableError):
+                self._execute(
+                    CodeAnswer(
+                        question_key='q3',
+                        files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                    )
+                )
+
+        assert len(requests) == 1
+
+    def test_exhausted_jev_retries_do_not_produce_a_score(self) -> None:
+        requests: list[httpx.Request] = []
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(503)
+
+        with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+            assessor = JevCodeRubricAssessorProvider(
+                api_key='test-key',
+                client=client,
+                decisions_url='https://openrouter.test/api/alpha/decisions',
+                model='typesafe/jev-1.13',
+            )
+            self.subject = PreviewActivityQuestionFeedbackUseCase(
+                self.database, self.provider, assessor
+            )
+            with pytest.raises(ServiceUnavailableError):
+                self._execute(
+                    CodeAnswer(
+                        question_key='q3',
+                        files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                    )
+                )
+
+        assert len(requests) == 2
+        self.repositories.activity_evaluations.add.assert_not_called()
 
     def test_rejects_revision_and_missing_or_extra_paths_before_assessor(self) -> None:
         answer = CodeAnswer(

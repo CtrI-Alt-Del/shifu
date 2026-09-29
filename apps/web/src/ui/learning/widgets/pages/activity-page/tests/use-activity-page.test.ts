@@ -229,6 +229,43 @@ describe('useActivityPage', () => {
     expect(result.current.feedback?.status).toBe('conclusive')
   })
 
+  it('lets code change after feedback and assesses the updated answer', async () => {
+    const onPreview = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 'conclusive', score: 25 })
+      .mockResolvedValueOnce({ status: 'conclusive', score: 100 })
+    const codeActivity = { ...activity, questions: [activity.questions[1]] }
+    const { result } = renderHook(
+      () => useActivityPage({ activity: codeActivity, onPreview, onSubmit: vi.fn() }),
+      { wrapper: wrapper() },
+    )
+
+    await act(async () =>
+      result.current.handleAssessCode([{ path: 'index.js', content: 'return ""' }]),
+    )
+    expect(result.current.feedback?.score).toBe(25)
+    act(() =>
+      result.current.handleCodeFilesChange([
+        { path: 'index.js', content: 'return "positivo"' },
+      ]),
+    )
+    expect(result.current.feedback).toBeNull()
+    expect(result.current.frozenAnswer).toBeNull()
+
+    await act(async () =>
+      result.current.handleAssessCode([
+        { path: 'index.js', content: 'return "positivo"' },
+      ]),
+    )
+    expect(onPreview).toHaveBeenCalledTimes(2)
+    expect(onPreview).toHaveBeenLastCalledWith('code-1', 'revision-1', {
+      kind: 'javascript_stdin',
+      questionKey: 'code-1',
+      files: [{ path: 'index.js', content: 'return "positivo"' }],
+    })
+    expect(result.current.feedback?.score).toBe(100)
+  })
+
   it('keeps the frozen source after a preliminary transport failure and retries it', async () => {
     const onPreview = vi
       .fn()

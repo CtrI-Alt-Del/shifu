@@ -147,6 +147,7 @@ class CompleteDiagnosticUseCase:
             )
         )
         policy = AdaptiveLearningPolicy().evaluate(
+            limited_diagnostic=bool(catalog.initial_diagnostic_activity_ids),
             concepts=context.concepts,
             competency_ids=context.competency_ids,
             activities=context.activities,

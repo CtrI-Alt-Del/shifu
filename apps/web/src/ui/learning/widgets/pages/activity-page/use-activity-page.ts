@@ -634,7 +634,8 @@ export function useActivityPage(props: ActivityPageProps) {
     !didSubmitRef.current &&
     (unsentAnswers ||
       Boolean(goalId && skillId && getDiagnosticRun(goalId, skillId)?.answers.size))
-  const isSubmissionLocked = submissionKeyRef.current !== null
+  const isSubmissionLocked =
+    submissionKeyRef.current !== null || isDiagnosticSubmitted || isDiagnosticProcessing
 
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
@@ -689,8 +690,8 @@ export function useActivityPage(props: ActivityPageProps) {
     if (
       !currentQuestion ||
       currentQuestion.kind !== 'javascript_stdin' ||
-      feedback ||
-      frozenAnswer ||
+      isSubmitting ||
+      isSubmissionLocked ||
       isAssessing
     )
       return
@@ -704,6 +705,8 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
+    setFeedback(null)
+    setFrozenAnswer(null)
     setHasFeedbackError(false)
   }
 
@@ -722,7 +725,7 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       !currentQuestion ||
       isAssessing ||
-      (feedback && !reevaluate) ||
+      (feedback && !reevaluate && currentQuestion.kind !== 'javascript_stdin') ||
       !activity.activityRevision
     )
       return
@@ -1150,6 +1153,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export type ChoiceQuestionProps = {
   question: ChoiceQuestion
+  isDiagnostic?: boolean
   activityTitle?: string
   questionNumber: number
   totalQuestions: number

@@ -9,6 +9,7 @@ type ActivityQuestionHeaderProps = {
   questionNumber: number
   totalQuestions: number
   questionContext?: string
+  showQuestionProgress?: boolean
 }
 
 export const ActivityQuestionHeader = ({
@@ -17,6 +18,7 @@ export const ActivityQuestionHeader = ({
   questionNumber,
   totalQuestions,
   questionContext,
+  showQuestionProgress = true,
 }: ActivityQuestionHeaderProps) => {
   const completedPercent = Math.round(
     ((questionNumber - 1) / Math.max(totalQuestions, 1)) * 100,
@@ -41,31 +43,35 @@ export const ActivityQuestionHeader = ({
           {difficulty ? <DifficultyBadge difficulty={difficulty} /> : null}
         </div>
         <p className='text-sm text-muted-foreground'>
-          <span>
-            Questão {questionNumber} de {totalQuestions}
-          </span>
+          {showQuestionProgress ? (
+            <span>
+              Questão {questionNumber} de {totalQuestions}
+            </span>
+          ) : null}
           {questionContext ? (
             <>
-              <span aria-hidden='true'> · </span>
+              {showQuestionProgress ? <span aria-hidden='true'> · </span> : null}
               <span>{questionContext}</span>
             </>
           ) : null}
         </p>
       </div>
-      <div
-        aria-label='Progresso da Atividade'
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={completedPercent}
-        aria-valuetext={`${questionNumber - 1} de ${totalQuestions} questões concluídas`}
-        className='mx-4 h-1 overflow-hidden bg-muted'
-        role='progressbar'
-      >
+      {showQuestionProgress ? (
         <div
-          className='h-full bg-success transition-[width] duration-700 ease-out motion-reduce:transition-none'
-          style={{ width: `${animatedPercent}%` }}
-        />
-      </div>
+          aria-label='Progresso da Atividade'
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={completedPercent}
+          aria-valuetext={`${questionNumber - 1} de ${totalQuestions} questões concluídas`}
+          className='mx-4 h-1 overflow-hidden bg-muted'
+          role='progressbar'
+        >
+          <div
+            className='h-full bg-success transition-[width] duration-700 ease-out motion-reduce:transition-none'
+            style={{ width: `${animatedPercent}%` }}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

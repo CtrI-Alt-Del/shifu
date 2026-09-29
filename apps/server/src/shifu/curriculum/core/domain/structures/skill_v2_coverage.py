@@ -18,6 +18,15 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
     if not concepts:
         return ('skill:no_concepts',)
 
+    diagnostic_ids = {
+        activity.id
+        for competency in skill.competencies
+        for activity in competency.diagnostic_activities
+    }
+    for activity_id in skill.initial_diagnostic_activity_ids:
+        if activity_id not in diagnostic_ids:
+            gaps.append(f'skill:unknown_initial_diagnostic:{activity_id}')
+
     edges: dict[str, set[str]] = {concept_id: set() for concept_id in concepts}
     for concept_id, (competency_position, concept) in concepts.items():
         for prerequisite_id in concept.prerequisite_ids:

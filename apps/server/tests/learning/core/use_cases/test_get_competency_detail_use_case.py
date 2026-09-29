@@ -32,6 +32,7 @@ from shifu.learning.core.use_cases import GetCompetencyDetailUseCase
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
+    CurriculumConceptSnapshot,
     CurriculumMaterialSnapshot,
     CurriculumSkillSnapshot,
 )
@@ -157,6 +158,84 @@ def evaluation(
 
 
 class TestGetCompetencyDetailUseCase:
+    def test_should_project_only_official_item_concepts_in_curriculum_order(
+        self,
+    ) -> None:
+        concepts = (
+            CurriculumConceptSnapshot(
+                id=concept_id,
+                competency_id=COMPETENCY_ID,
+                name=name,
+                position=position,
+                prerequisite_ids=(),
+                observation_criteria='Critério',
+            )
+            for concept_id, name, position in (
+                ('concept-2', 'Condições', 2),
+                ('concept-1', 'Comparações', 1),
+            )
+        )
+        content = CurriculumCompetencySnapshot(
+            id=COMPETENCY_ID,
+            skill_id=SKILL_ID,
+            name='Competência',
+            position=1,
+            concepts=tuple(concepts),
+            items=(
+                CurriculumMaterialSnapshot(
+                    id='material-1',
+                    title='Apoio',
+                    material_type='theory',
+                    position=1,
+                    concept_ids=('concept-2', 'concept-1', 'concept-2'),
+                ),
+                CurriculumActivitySnapshot(
+                    id='activity-1',
+                    title='Prática',
+                    activity_type='learning',
+                    difficulty='easy',
+                    position=2,
+                    concept_ids=('concept-2', 'other-concept', 'unknown'),
+                ),
+                CurriculumMaterialSnapshot(
+                    id='legacy',
+                    title='Legado',
+                    material_type='theory',
+                    position=3,
+                ),
+            ),
+        )
+        other_competency = CurriculumCompetencySnapshot(
+            id=SECOND_COMPETENCY_ID,
+            skill_id=SKILL_ID,
+            name='Outra competência',
+            position=2,
+            items=(),
+            concepts=(
+                CurriculumConceptSnapshot(
+                    id='other-concept',
+                    competency_id=SECOND_COMPETENCY_ID,
+                    name='Outro conceito',
+                    position=1,
+                    prerequisite_ids=(),
+                    observation_criteria='Critério',
+                ),
+            ),
+        )
+        skill = CurriculumSkillSnapshot(
+            id=SKILL_ID, name='Habilidade', competencies=(other_competency, content)
+        )
+
+        result = GetCompetencyDetailUseCase._build_items(  # noqa: SLF001 -- focused projection boundary  # pyright: ignore[reportPrivateUsage]
+            skill, content, {}
+        )
+
+        assert [[concept.name for concept in item.concepts] for item in result] == [
+            ['Comparações', 'Condições'],
+            ['Condições', 'Outro conceito'],
+            [],
+        ]
+
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.learning_database = create_autospec(LearningDatabase, instance=True)

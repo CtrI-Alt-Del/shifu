@@ -63,6 +63,24 @@ describe('CodeQuestion', () => {
     expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
   })
 
+  it('renders inline and fenced Markdown in a code question prompt', () => {
+    render(
+      <CodeQuestion
+        question={{
+          ...question,
+          prompt:
+            'Complete `classificarNumero`:\n\n```javascript\nconst numero = 0;\nconsole.log(numero);\n```',
+        }}
+      />,
+    )
+
+    const prompt = screen.getByRole('heading', { name: /Complete classificarNumero:/ })
+    expect(prompt.querySelector('p code')).toHaveTextContent('classificarNumero')
+    expect(prompt.querySelector('pre code')).toHaveTextContent('const numero = 0;')
+    expect(prompt.querySelector('pre .token.keyword')).toHaveTextContent('const')
+    expect(prompt).not.toHaveTextContent('`classificarNumero`')
+  })
+
   it('passes the injected runner factory through the widget boundary', () => {
     const runnerFactory = vi.fn<() => CodePracticeRunner>()
     render(<CodeQuestion question={question} runnerFactory={runnerFactory} />)
@@ -72,8 +90,12 @@ describe('CodeQuestion', () => {
   })
 
   it('keeps code practice available without exposing preliminary evaluation in diagnosis', () => {
-    render(<CodeQuestion question={question} onFilesChange={vi.fn()} />)
+    render(<CodeQuestion question={question} isDiagnostic onFilesChange={vi.fn()} />)
 
+    expect(screen.queryByText('Questão 1 de 1')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('progressbar', { name: 'Progresso da Atividade' }),
+    ).not.toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Editor de código' })).toBeVisible()
     expect(screen.getByRole('group', { name: 'Terminal de prática' })).toBeVisible()
     expect(screen.getByText(/não mostram o resultado do diagnóstico/i)).toBeVisible()

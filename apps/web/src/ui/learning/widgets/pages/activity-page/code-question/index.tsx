@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import { CodeEditor } from '@/ui/learning/widgets/components/code-editor'
 import { CodeFileTree } from '@/ui/learning/widgets/components/code-file-tree'
+import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 import { Button } from '@/ui/shadcn/button'
 import { ActivityQuestionHeader } from '../components/activity-question-header'
 import { CodeTerminal } from './code-terminal'
@@ -46,6 +47,7 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
         difficulty={props.difficulty}
         questionNumber={questionNumber}
         totalQuestions={totalQuestions}
+        showQuestionProgress={!props.isDiagnostic}
       />
       <div
         ref={workspaceRef}
@@ -101,9 +103,11 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
           >
             {selectedPanel === 'prompt' ? (
               <>
-                <p className='whitespace-pre-wrap text-[13px] leading-5 text-foreground/80'>
-                  {props.question.prompt}
-                </p>
+                <QuestionPrompt
+                  id={`activity-code-question-prompt-${props.question.key}`}
+                  prompt={props.question.prompt}
+                  size='result'
+                />
                 {props.onAssess ? (
                   <div className='space-y-2 rounded-md bg-jade-tint p-3'>
                     <h2 className='text-sm font-semibold text-success'>

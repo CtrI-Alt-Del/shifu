@@ -37,6 +37,7 @@ export const CompetencyContentList = ({
             (item.kind === 'material' && item.id === recommendationMaterialId),
           item,
           skillId,
+          targetConceptId: detail.adaptive?.targetConceptId ?? null,
         }
 
         return <CompetencyContentRow key={`${item.kind}-${item.id}`} {...rowProps} />

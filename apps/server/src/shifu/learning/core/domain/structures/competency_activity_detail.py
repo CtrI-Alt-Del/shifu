@@ -4,6 +4,9 @@ from shifu.learning.core.domain.enums import ActivityDifficulty
 from shifu.learning.core.domain.errors import InvalidAttemptError
 from shifu.shared.core.domain.structures import structure
 from shifu.shared.core.domain.validation import require_percentage
+from shifu.learning.core.domain.structures.competency_content_concept import (
+    CompetencyContentConcept,
+)
 
 
 @structure
@@ -14,6 +17,7 @@ class CompetencyActivityDetail:
     activity_type: str
     difficulty: ActivityDifficulty
     latest_score: Decimal | None
+    concepts: tuple[CompetencyContentConcept, ...] = ()
 
     def __post_init__(self) -> None:
         if self.position < 1:

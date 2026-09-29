@@ -15,7 +15,6 @@ export type SkillOverviewProps = {
 
 export const SkillOverview = ({
   overallResult,
-  overallCoverageComplete,
   skillName,
   skillStatus,
   onRemove,
@@ -33,12 +32,10 @@ export const SkillOverview = ({
           </span>
           <span className='inline-flex items-center gap-2 rounded-md bg-surface-alt px-2 py-1'>
             <span className='text-sm font-medium text-secondary-foreground'>
-              Resultado geral
+              Progresso demonstrado
             </span>
             <strong className='text-lg font-bold tabular-nums text-jade-text'>
-              {overallResult === null
-                ? 'Sem evidência'
-                : `${Math.round(overallResult)}%${overallCoverageComplete ? '' : ' · parcial'}`}
+              {overallResult === null ? 'Sem evidência' : `${Math.round(overallResult)}%`}
             </strong>
           </span>
         </div>

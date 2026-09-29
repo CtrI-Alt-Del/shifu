@@ -322,11 +322,13 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 id=skill.id,
                 name=skill.name,
                 competencies=tuple(snapshot_competencies),
+                initial_diagnostic_activity_ids=skill.initial_diagnostic_activity_ids,
             )
             return CurriculumSkillSnapshot(
                 id=snapshot.id,
                 name=snapshot.name,
                 competencies=snapshot.competencies,
+                initial_diagnostic_activity_ids=snapshot.initial_diagnostic_activity_ids,
                 v2_coverage_gaps=diagnostic_coverage_gaps(snapshot),
             )
 

@@ -50,6 +50,10 @@ from shifu.curriculum.core.domain.enums import (
     ActivityType,
     MaterialType,
 )
+from shifu.curriculum.database.logic_programming_seed import (
+    LOGIC_SKILL_ID,
+    build_logic_programming_seed,
+)
 from shifu.identity.core.domain.entities import Account, AccountActionToken
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
@@ -79,7 +83,7 @@ from shifu.shared.core.domain.structures import structure
 
 
 SEED_ACCOUNT_ID = '01SHF000000000000000000001'
-SEED_SKILL_LOGIC_ID = '01SHF000000000000000000002'
+SEED_SKILL_LOGIC_ID = LOGIC_SKILL_ID
 SEED_SKILL_PYTHON_ID = '01SHF000000000000000000003'
 SEED_COMPETENCY_VARIABLES_ID = '01SHF000000000000000000004'
 SEED_COMPETENCY_CONDITIONS_ID = '01SHF000000000000000000005'
@@ -146,20 +150,18 @@ SEED_GRAPH_DATA_MODELING_SKILL_ID = '01SHF000000000000000000203'
 SEED_GRAPH_APIS_SKILL_ID = '01SHF000000000000000000204'
 SEED_GRAPH_TESTING_SKILL_ID = '01SHF000000000000000000205'
 SEED_GRAPH_PROJECT_SKILL_ID = '01SHF000000000000000000206'
+SEED_GRAPH_JAVASCRIPT_SKILL_ID = '01SHF000000000000000000207'
+SEED_GRAPH_HTML_CSS_SKILL_ID = '01SHF000000000000000000208'
+SEED_GRAPH_REACT_SKILL_ID = '01SHF000000000000000000209'
 SEED_GRAPH_SKILL_IDS = (
-    SEED_SKILL_LOGIC_ID,
-    SEED_SKILL_PYTHON_ID,
-    SEED_ADAPTIVE_SKILL_ID,
-    SEED_ADAPTIVE_LAB_SKILL_ID,
-    SEED_GRAPH_DATA_STRUCTURES_SKILL_ID,
-    SEED_GRAPH_SEARCH_SKILL_ID,
-    SEED_GRAPH_DATA_MODELING_SKILL_ID,
+    SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+    SEED_GRAPH_HTML_CSS_SKILL_ID,
+    SEED_GRAPH_REACT_SKILL_ID,
     SEED_GRAPH_APIS_SKILL_ID,
-    SEED_GRAPH_TESTING_SKILL_ID,
-    SEED_GRAPH_PROJECT_SKILL_ID,
 )
-SEED_GRAPH_EXPERIENCE_IDS = tuple(
-    f'01SHF000000000000000000{number:03d}' for number in range(210, 220)
+SEED_GRAPH_EXPERIENCE_IDS = (
+    *(f'01SHF000000000000000000{number:03d}' for number in range(240, 243)),
+    '01SHF000000000000000000233',
 )
 SEED_INITIAL_DIAGNOSTIC_GOAL_ID = '01SHF000000000000000000220'
 SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID = '01SHF000000000000000000221'
@@ -1109,6 +1111,7 @@ def _adaptive_lab_activities() -> tuple[Activity, ...]:
 
 
 def build_development_seed() -> DevelopmentSeed:
+    logic_curriculum = build_logic_programming_seed()
     account = AccountFaker.fake(
         id=SEED_ACCOUNT_ID,
         display_name='Pessoa Estudante',
@@ -1122,11 +1125,7 @@ def build_development_seed() -> DevelopmentSeed:
     )
 
     skills = (
-        SkillFaker.fake(
-            id=SEED_SKILL_LOGIC_ID,
-            name='Lógica de programação',
-            description='Fundamentos para resolver problemas com algoritmos.',
-        ),
+        logic_curriculum.skill,
         SkillFaker.fake(
             id=SEED_SKILL_PYTHON_ID,
             name='Python essencial',
@@ -1172,6 +1171,21 @@ def build_development_seed() -> DevelopmentSeed:
             name='Projeto integrador',
             description='Combine fundamentos, dados, APIs e testes em uma aplicação.',
         ),
+        Skill(
+            id=SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+            name='JavaScript essencial',
+            description='Use JavaScript para construir comportamento em aplicações web.',
+        ),
+        Skill(
+            id=SEED_GRAPH_HTML_CSS_SKILL_ID,
+            name='HTML e CSS',
+            description='Estruture páginas e defina sua apresentação visual.',
+        ),
+        Skill(
+            id=SEED_GRAPH_REACT_SKILL_ID,
+            name='React',
+            description='Construa interfaces com componentes e estado.',
+        ),
     )
     skill_foundations = (
         SkillFoundation(
@@ -1207,16 +1221,28 @@ def build_development_seed() -> DevelopmentSeed:
             foundation_skill_id=SEED_GRAPH_DATA_MODELING_SKILL_ID,
         ),
         SkillFoundation(
+            skill_id=SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+            foundation_skill_id=SEED_SKILL_LOGIC_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_REACT_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_REACT_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_HTML_CSS_SKILL_ID,
+        ),
+        SkillFoundation(
+            skill_id=SEED_GRAPH_APIS_SKILL_ID,
+            foundation_skill_id=SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+        ),
+        SkillFoundation(
             skill_id=SEED_GRAPH_TESTING_SKILL_ID,
             foundation_skill_id=SEED_SKILL_PYTHON_ID,
         ),
         SkillFoundation(
             skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
             foundation_skill_id=SEED_GRAPH_SEARCH_SKILL_ID,
-        ),
-        SkillFoundation(
-            skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
-            foundation_skill_id=SEED_ADAPTIVE_LAB_SKILL_ID,
         ),
         SkillFoundation(
             skill_id=SEED_GRAPH_PROJECT_SKILL_ID,
@@ -1712,7 +1738,7 @@ def build_development_seed() -> DevelopmentSeed:
             goal_id=SEED_GOAL_ID,
             skill_id=SEED_SKILL_LOGIC_ID,
             inclusion_reason='Fundamento para todo o restante do percurso.',
-            status=SkillExperienceStatus.LEARNING,
+            status=SkillExperienceStatus.NOT_STARTED,
             created_at=SEED_CREATED_AT,
             updated_at=SEED_CREATED_AT,
         ),
@@ -1746,9 +1772,9 @@ def build_development_seed() -> DevelopmentSeed:
         *(
             SkillExperience(
                 id=experience_id,
-                goal_id=SEED_GRAPH_GOAL_ID,
+                goal_id=SEED_GOAL_ID,
                 skill_id=skill_id,
-                inclusion_reason=None,
+                inclusion_reason='Etapa ilustrativa da trilha de programação.',
                 status=SkillExperienceStatus.NOT_STARTED,
                 created_at=SEED_CREATED_AT,
                 updated_at=SEED_CREATED_AT,
@@ -1911,58 +1937,83 @@ def build_development_seed() -> DevelopmentSeed:
 
     # Keep this development fixture usable with the existing diagnostic-readiness
     # gate. Building the fixture does not execute the destructive db:seed command.
-    ready_skill_ids = {SEED_ADAPTIVE_SKILL_ID, SEED_ADAPTIVE_LAB_SKILL_ID}
-    retained_goal_ids = {SEED_ADAPTIVE_LAB_GOAL_ID, SEED_INITIAL_DIAGNOSTIC_GOAL_ID}
+    ready_skill_ids = {
+        SEED_SKILL_LOGIC_ID,
+        SEED_ADAPTIVE_SKILL_ID,
+        SEED_ADAPTIVE_LAB_SKILL_ID,
+    }
+    graph_only_skill_ids = set(SEED_GRAPH_SKILL_IDS)
+    retained_skill_ids = ready_skill_ids | graph_only_skill_ids
+    retained_goal_ids = {
+        SEED_GOAL_ID,
+        SEED_ADAPTIVE_LAB_GOAL_ID,
+        SEED_INITIAL_DIAGNOSTIC_GOAL_ID,
+    }
+    legacy_logic_competency_ids = {
+        SEED_COMPETENCY_VARIABLES_ID,
+        SEED_COMPETENCY_CONDITIONS_ID,
+        SEED_COMPETENCY_REPETITION_ID,
+    }
     ready_competency_ids = {
         competency.id
         for competency in competencies
         if competency.skill_id in ready_skill_ids
+        and competency.id not in legacy_logic_competency_ids
     }
     retained_experience_ids = {
         experience.id
         for experience in skill_experiences
         if experience.goal_id in retained_goal_ids
-        and experience.skill_id in ready_skill_ids
+        and experience.skill_id in retained_skill_ids
     }
     retained_attempt_ids = {
         attempt.id
         for attempt in activity_attempts
         if attempt.skill_experience_id in retained_experience_ids
+        and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
     return DevelopmentSeed(
         accounts=(account,),
         account_action_tokens=(),
-        skills=tuple(skill for skill in skills if skill.id in ready_skill_ids),
+        skills=tuple(skill for skill in skills if skill.id in retained_skill_ids),
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
-            if foundation.skill_id in ready_skill_ids
-            and foundation.foundation_skill_id in ready_skill_ids
+            if foundation.skill_id in retained_skill_ids
+            and foundation.foundation_skill_id in retained_skill_ids
         ),
         competencies=tuple(
             competency
             for competency in competencies
             if competency.id in ready_competency_ids
-        ),
+        )
+        + logic_curriculum.competencies,
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
-        ),
+        )
+        + logic_curriculum.concepts,
         materials=tuple(
-            material for material in materials if material.skill_id in ready_skill_ids
-        ),
+            material
+            for material in materials
+            if material.skill_id in ready_skill_ids
+            and material.skill_id != SEED_SKILL_LOGIC_ID
+        )
+        + logic_curriculum.materials,
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
-        ),
+        )
+        + logic_curriculum.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
-        ),
+        )
+        + logic_curriculum.curriculum_sequences,
         goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
         skill_experiences=tuple(
             experience
@@ -1973,6 +2024,19 @@ def build_development_seed() -> DevelopmentSeed:
             progress
             for progress in competency_progresses
             if progress.skill_experience_id in retained_experience_ids
+            and progress.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
+        )
+        + tuple(
+            CompetencyProgress(
+                id=f'01SHF000000000000000000{500 + index:03d}',
+                skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+                competency_id=competency.id,
+                content_released=False,
+                created_at=SEED_CREATED_AT,
+                updated_at=SEED_CREATED_AT,
+                status=CompetencyProgressStatus.LEARNING,
+            )
+            for index, competency in enumerate(logic_curriculum.competencies)
         ),
         activity_attempts=tuple(
             attempt

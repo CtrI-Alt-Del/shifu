@@ -274,7 +274,7 @@ describe('ChoiceResultPage', () => {
     ).not.toBeInTheDocument()
     expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
     const progressHeading = screen.getByRole('heading', {
-      name: 'Progresso da Competência',
+      name: 'Progresso demonstrado da Habilidade',
     })
     expect(progressHeading).toBeVisible()
     expect(progressHeading.closest('section')).toHaveTextContent(
@@ -282,12 +282,12 @@ describe('ChoiceResultPage', () => {
     )
     expect(
       screen.getByRole('progressbar', {
-        name: 'Domínio estimado da Competência após a avaliação',
+        name: 'Progresso demonstrado da Habilidade após a avaliação',
       }),
     ).toHaveAttribute('aria-valuetext', '67%')
     expect(
       screen.getByText(
-        'A estimativa considera suas respostas nesta Atividade e, quando houver, evidências anteriores. Não é a nota acima.',
+        'O progresso considera suas respostas nesta Atividade e as evidências anteriores. Não é a nota acima.',
       ),
     ).toBeVisible()
     fireEvent.click(screen.getByText(/Questão 1 · escolha única/))
@@ -311,7 +311,7 @@ describe('ChoiceResultPage', () => {
 
     expect(screen.getByLabelText('Nota da Atividade 0 de 100')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Laços' })).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Ler Material opcional' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ler material didático' })).toBeVisible()
     expect(
       screen.getByRole('link', { name: /Abrir Atividade recomendada/ }),
     ).toBeVisible()

@@ -1,0 +1,20 @@
+.material-content-code .code-line {
+  display: block;
+}
+
+.material-content-code .token {
+  color: var(--foreground);
+}
+
+.material-content-code :is(.keyword, .boolean, .builtin, .operator) {
+  color: var(--selo-text);
+}
+
+.material-content-code :is(.number, .string, .function) {
+  color: var(--success);
+}
+
+.material-content-code :is(.comment, .punctuation) {
+  color: var(--muted-foreground);
+  font-style: italic;
+}

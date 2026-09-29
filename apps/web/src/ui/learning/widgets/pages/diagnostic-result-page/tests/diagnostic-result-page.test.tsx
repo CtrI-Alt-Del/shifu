@@ -32,6 +32,7 @@ const IDS = {
   focusCompetencyId: '01SHF000000000000000000003',
   blockedCompetencyId: '01SHF000000000000000000004',
   activityId: '01SHF000000000000000000005',
+  materialId: '01SHF000000000000000000006',
 }
 
 const diagnostic: DiagnosticOverview = {
@@ -152,7 +153,7 @@ describe('DiagnosticResultPage', () => {
     render(<DiagnosticResultPage {...props} />)
 
     expect(screen.getByRole('heading', { name: 'Seu ponto de partida' })).toBeVisible()
-    expect(screen.getByText('58% · estimativa parcial')).toBeVisible()
+    expect(screen.getAllByText('58%')).toHaveLength(2)
     expect(screen.getByText('Sem evidência')).toBeVisible()
     expect(
       screen.getByRole('heading', { name: 'Ponto de partida por Competência (0–100)' }),
@@ -177,6 +178,14 @@ describe('DiagnosticResultPage', () => {
       'data-params',
       expect.stringContaining(IDS.activityId),
     )
+    const skillLink = screen.getByRole('link', { name: 'Ver Habilidade' })
+    expect(skillLink).toHaveAttribute('href', '/learning/goals/$goalId/skills/$skillId')
+    expect(JSON.parse(skillLink.dataset.params ?? '{}')).toEqual({
+      goalId: IDS.goalId,
+      skillId: IDS.skillId,
+    })
+    expect(screen.queryByRole('link', { name: 'Escolher outra' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Ver Habilidade' })).toHaveLength(1)
     expect(
       screen.queryByText(/resposta correta|gabarito|sua nota foi/i),
     ).not.toBeInTheDocument()
@@ -194,6 +203,36 @@ describe('DiagnosticResultPage', () => {
 
     expect(screen.getByText(/concluiu a Habilidade sem indicar evolução/i)).toBeVisible()
     expect(screen.getByRole('link', { name: 'Ver Habilidade' })).toBeVisible()
+  })
+
+  it('offers the recommended material beside the activity when available', () => {
+    const initialRecommendation = diagnostic.initialRecommendation
+    if (!initialRecommendation)
+      throw new Error('Expected a diagnostic recommendation fixture')
+    useDiagnosticResultPageMock.mockReturnValue(
+      controller({
+        diagnostic: {
+          ...diagnostic,
+          initialRecommendation: {
+            ...initialRecommendation,
+            materialId: IDS.materialId,
+          },
+        },
+      }),
+    )
+
+    render(<DiagnosticResultPage {...props} />)
+
+    const material = screen.getByRole('link', { name: 'Ler material de apoio' })
+    expect(material).toHaveAttribute(
+      'href',
+      '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId',
+    )
+    expect(material).toHaveAttribute(
+      'data-params',
+      expect.stringContaining(IDS.materialId),
+    )
+    expect(screen.getByRole('link', { name: 'Continuar praticando' })).toBeVisible()
   })
 
   it('explains the immutable content gap when no initial recommendation exists', () => {

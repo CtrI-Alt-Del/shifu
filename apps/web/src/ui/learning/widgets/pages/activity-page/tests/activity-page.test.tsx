@@ -97,6 +97,7 @@ function createControllerMock(
 
 describe('ActivityPage', () => {
   beforeEach(() => {
+    vi.mocked(CodeQuestion).mockClear()
     useActivityPageMock.mockReturnValue(createControllerMock())
     vi.stubGlobal('matchMedia', () => ({ matches: false }))
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -144,6 +145,10 @@ describe('ActivityPage', () => {
     render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
 
     expect(screen.getByRole('heading', { level: 1, name: 'Diagnóstico' })).toBeVisible()
+    expect(screen.queryByText('Questão 1 de 1')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('progressbar', { name: 'Progresso da Atividade' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('heading', { level: 2, name: 'Estruturas de repetição' }),
     ).toBeVisible()
@@ -234,6 +239,47 @@ describe('ActivityPage', () => {
     expect(handleRetryDiagnostic).toHaveBeenCalledOnce()
   })
 
+  it('keeps diagnostic choices visible but disabled during evaluation', () => {
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, isDiagnostic: true },
+        feedback: null,
+        isDiagnosticProcessing: true,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByText('Avaliando o diagnóstico…')).toBeVisible()
+    expect(
+      screen.getByRole('checkbox', { name: 'O laço executa três vezes.' }),
+    ).toBeChecked()
+    expect(
+      screen.getByRole('checkbox', { name: 'O laço executa três vezes.' }),
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('checkbox', { name: 'A condição é reavaliada.' }),
+    ).toBeDisabled()
+  })
+
+  it('disables the code question during diagnostic evaluation', () => {
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: { ...ACTIVITY, isDiagnostic: true },
+        currentQuestion: CODE_QUESTION,
+        feedback: null,
+        isDiagnosticProcessing: true,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(screen.getByText('Avaliando o diagnóstico…')).toBeVisible()
+    expect(vi.mocked(CodeQuestion).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ disabled: true }),
+    )
+  })
+
   it('passes the route runner factory through to the code-question boundary', () => {
     const runnerFactory = vi.fn(() => ({}) as CodePracticeRunner)
     useActivityPageMock.mockReturnValue(
@@ -250,6 +296,26 @@ describe('ActivityPage', () => {
 
     expect(vi.mocked(CodeQuestion).mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({ runnerFactory }),
+    )
+  })
+
+  it('keeps the code editor available after preliminary feedback', () => {
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        currentQuestion: CODE_QUESTION,
+        isMixedActivity: true,
+        frozenAnswer: {
+          kind: 'javascript_stdin',
+          questionKey: CODE_QUESTION.key,
+          files: [{ path: 'index.js', content: 'console.log(1)' }],
+        },
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(vi.mocked(CodeQuestion).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ disabled: false }),
     )
   })
 

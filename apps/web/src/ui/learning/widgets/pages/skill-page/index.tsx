@@ -247,7 +247,7 @@ export const SkillPage = (props: SkillPageProps) => {
                     <p className='font-mono text-xl font-semibold'>
                       {competency.progress === null
                         ? 'Sem evidência'
-                        : `${Math.round(competency.progress)}%${competency.coverageComplete ? '' : ' · estimativa parcial'}`}
+                        : `${Math.round(competency.progress)}%`}
                     </p>
                   </div>
                   <p className='mt-2 text-sm text-muted-foreground'>

@@ -5,17 +5,20 @@ import {
   RECOMMENDATION_TYPE_LABELS,
   type SkillRecommendation,
 } from '@/core/learning/skill-experience'
+import { DIFFICULTY_STYLES } from '@/ui/learning/widgets/components/difficulty-badge/difficulty-badge-styles'
 
 export type SkillRecommendationCardProps = {
   goalId: string
   recommendation: SkillRecommendation
   skillId: string
+  viewSkillAction?: boolean
 }
 
 export const SkillRecommendationCard = ({
   goalId,
   recommendation,
   skillId,
+  viewSkillAction = false,
 }: SkillRecommendationCardProps) => {
   return (
     <section
@@ -24,7 +27,9 @@ export const SkillRecommendationCard = ({
     >
       <div className='flex min-w-0 flex-col gap-2'>
         <p className='flex flex-wrap items-center gap-2'>
-          <span className='rounded-md bg-accent px-2 py-1 text-[13px] leading-5 font-medium text-selo-text'>
+          <span
+            className={`rounded-md px-2 py-1 text-[13px] leading-5 font-medium ${DIFFICULTY_STYLES[recommendation.difficulty].badge}`}
+          >
             {DIFFICULTY_LABELS[recommendation.difficulty]}
           </span>
           <span className='rounded-md bg-muted px-2 py-1 text-[13px] leading-5 font-medium text-secondary-foreground'>
@@ -52,17 +57,41 @@ export const SkillRecommendationCard = ({
         >
           Continuar praticando
         </Link>
-        <Link
-          className='inline-flex min-h-11 items-center justify-center rounded-md border border-control-border px-[18px] text-base font-semibold text-foreground transition-colors hover:bg-muted'
-          params={{
-            competencyId: recommendation.competencyId,
-            goalId,
-            skillId,
-          }}
-          to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-        >
-          Escolher outra
-        </Link>
+        {recommendation.materialId ? (
+          <Link
+            className='inline-flex min-h-11 items-center justify-center rounded-md border border-control-border px-[18px] text-base font-semibold text-foreground transition-colors hover:bg-muted'
+            params={{
+              competencyId: recommendation.competencyId,
+              goalId,
+              materialId: recommendation.materialId,
+              skillId,
+            }}
+            to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
+          >
+            Ler material de apoio
+          </Link>
+        ) : null}
+        {viewSkillAction ? (
+          <Link
+            className='inline-flex min-h-11 items-center justify-center rounded-md border border-control-border px-[18px] text-base font-semibold text-foreground transition-colors hover:bg-muted'
+            params={{ goalId, skillId }}
+            to='/learning/goals/$goalId/skills/$skillId'
+          >
+            Ver Habilidade
+          </Link>
+        ) : (
+          <Link
+            className='inline-flex min-h-11 items-center justify-center rounded-md border border-control-border px-[18px] text-base font-semibold text-foreground transition-colors hover:bg-muted'
+            params={{
+              competencyId: recommendation.competencyId,
+              goalId,
+              skillId,
+            }}
+            to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+          >
+            Escolher outra
+          </Link>
+        )}
       </div>
     </section>
   )

@@ -7,6 +7,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.learning.core.domain.errors import SkillExperienceDetailNotFoundError
 from shifu.learning.core.domain.structures import (
+    AdaptiveConceptState,
     AvailableCompetencyDetail,
     SkillCompetencySummary,
     SkillEvaluationState,
@@ -20,6 +21,7 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases.get_competency_detail_use_case import (
     GetCompetencyDetailUseCase,
 )
+from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumCompetencySnapshot,
@@ -81,11 +83,19 @@ class GetSkillExperienceDetailUseCase:
                 for progress in progress_rows
                 if progress.skill_experience_id == skill_experience.id
             }
+            concept_states = {
+                state.concept_id: state
+                for state in repositories.concept_states.find_many_by_skill_experience_id(
+                    skill_experience.id
+                )
+            }
             focus = GetCompetencyDetailUseCase.find_focus(
                 competencies,
                 progress_by_competency,
             )
-            summaries = self._summarize(competencies, progress_by_competency, focus)
+            summaries = self._summarize(
+                competencies, progress_by_competency, concept_states, focus
+            )
             evaluation = self._held_evaluation(repositories, skill_experience.id)
             activity_titles = self._activity_titles(competencies)
             skill_name = skill_content.name
@@ -108,7 +118,19 @@ class GetSkillExperienceDetailUseCase:
             skill_id=skill_id,
             skill_name=skill_name,
             skill_status=skill_status,
-            overall_result=self._overall_result(summaries),
+            overall_result=(
+                demonstrated_progress(
+                    tuple(
+                        concept_states[item.id].progress
+                        if item.id in concept_states
+                        else None
+                        for competency in competencies
+                        for item in competency.concepts
+                    )
+                )
+                if concept_states
+                else self._overall_result(summaries)
+            ),
             focus_competency_id=focus.id if focus is not None else None,
             focus_competency_name=focus.name if focus is not None else None,
             competencies=summaries,
@@ -183,6 +205,7 @@ class GetSkillExperienceDetailUseCase:
     def _summarize(
         competencies: tuple[CurriculumCompetencySnapshot, ...],
         progress_by_competency: dict[str, CompetencyProgress],
+        concept_states: dict[str, AdaptiveConceptState],
         focus: CurriculumCompetencySnapshot | None,
     ) -> tuple[SkillCompetencySummary, ...]:
         summaries: list[SkillCompetencySummary] = []
@@ -195,7 +218,18 @@ class GetSkillExperienceDetailUseCase:
                     competency_name=competency.name,
                     position=competency.position,
                     progress=(
-                        progress.current_progress
+                        demonstrated_progress(
+                            tuple(
+                                concept_states[item.id].progress
+                                if item.id in concept_states
+                                else None
+                                for item in competency.concepts
+                            )
+                        )
+                        if any(
+                            item.id in concept_states for item in competency.concepts
+                        )
+                        else progress.current_progress
                         if progress is not None
                         and progress.current_progress is not None
                         else progress.initial_progress

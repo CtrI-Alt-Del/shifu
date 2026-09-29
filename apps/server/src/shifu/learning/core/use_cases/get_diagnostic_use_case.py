@@ -27,6 +27,7 @@ from shifu.learning.core.domain.structures import SkillRecommendation
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
+from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.shared.core.domain.errors import ConflictError, NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
@@ -159,6 +160,7 @@ class GetDiagnosticUseCase:
             )
             context = AdaptivePolicyContext.from_skill(catalog)
             policy_result = AdaptiveLearningPolicy().evaluate(
+                limited_diagnostic=bool(catalog.initial_diagnostic_activity_ids),
                 concepts=context.concepts,
                 competency_ids=context.competency_ids,
                 activities=context.activities,
@@ -184,37 +186,27 @@ class GetDiagnosticUseCase:
                 concept_states = tuple(
                     policy_concepts[item.id] for item in competency.concepts
                 )
-                known = tuple(
-                    item.initial_progress
-                    for item in concept_states
-                    if item.initial_progress is not None
-                )
-                reconstructed_progress = (
-                    sum(known, Decimal('0')) / Decimal(len(known)) if known else None
-                )
                 snapshot = completed_competencies.get(competency.id)
+                demonstrated = demonstrated_progress(
+                    tuple(item.initial_progress for item in concept_states)
+                )
                 initial_values_by_competency[competency.id] = (
-                    snapshot.initial_progress
+                    demonstrated
+                    if demonstrated is not None
+                    else snapshot.initial_progress
                     if snapshot is not None
-                    else reconstructed_progress
+                    else None
                 )
                 initial_coverage_by_competency[competency.id] = (
                     snapshot.initial_coverage_complete
                     if snapshot is not None
                     else all(item.coverage_complete for item in concept_states)
                 )
-            known_initial = tuple(
-                item
-                for item in initial_values_by_competency.values()
-                if item is not None
+            overall_result = demonstrated_progress(
+                tuple(item.initial_progress for item in policy_result.concept_states)
             )
-            overall_result = (
-                completion_summary.initial_progress
-                if completion_summary is not None
-                else sum(known_initial, Decimal('0')) / Decimal(len(known_initial))
-                if known_initial
-                else None
-            )
+            if overall_result is None and completion_summary is not None:
+                overall_result = completion_summary.initial_progress
             overall_coverage_complete = (
                 completion_summary.initial_coverage_complete
                 if completion_summary is not None

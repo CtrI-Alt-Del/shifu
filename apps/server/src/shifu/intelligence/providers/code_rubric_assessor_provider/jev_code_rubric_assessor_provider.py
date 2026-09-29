@@ -1,3 +1,4 @@
+from time import sleep
 from typing import ClassVar, Literal
 
 import httpx
@@ -78,6 +79,10 @@ def _validated_level(level: int) -> CodeRubricLevel:
 
 class JevCodeRubricAssessorProvider:
     _TIMEOUT_SECONDS: ClassVar[float] = 30.0
+    _RETRY_DELAY_SECONDS: ClassVar[float] = 0.5
+    _RETRYABLE_STATUS_CODES: ClassVar[frozenset[int]] = frozenset(
+        {429, 500, 502, 503, 504}
+    )
     _UNAVAILABLE: ClassVar[str] = _UNAVAILABLE_MESSAGE
 
     def __init__(
@@ -157,17 +162,7 @@ class JevCodeRubricAssessorProvider:
                 submitted_paths=request.submitted_paths,
             ),
         )
-        try:
-            response = self._client.post(
-                self._decisions_url,
-                headers={'Authorization': f'Bearer {self._api_key}'},
-                json=payload.model_dump(),
-                timeout=self._TIMEOUT_SECONDS,
-            )
-            response.raise_for_status()
-            result = _DecisionsResponse.model_validate(response.json())
-        except (httpx.HTTPError, ValueError, TransportValidationError):
-            raise ServiceUnavailableError(self._UNAVAILABLE) from None
+        result = self._request_decisions(payload)
 
         if set(result.answers) != set(options):
             raise ServiceUnavailableError(self._UNAVAILABLE)
@@ -197,3 +192,29 @@ class JevCodeRubricAssessorProvider:
                 for concept in request.concept_criteria
             ),
         )
+
+    def _request_decisions(self, payload: _DecisionsRequest) -> _DecisionsResponse:
+        for attempt in range(2):
+            try:
+                response = self._client.post(
+                    self._decisions_url,
+                    headers={'Authorization': f'Bearer {self._api_key}'},
+                    json=payload.model_dump(),
+                    timeout=self._TIMEOUT_SECONDS,
+                )
+                if (
+                    attempt == 0
+                    and response.status_code in self._RETRYABLE_STATUS_CODES
+                ):
+                    sleep(self._RETRY_DELAY_SECONDS)
+                    continue
+                response.raise_for_status()
+                return _DecisionsResponse.model_validate(response.json())
+            except httpx.TransportError:
+                if attempt == 0:
+                    sleep(self._RETRY_DELAY_SECONDS)
+                    continue
+            except (httpx.HTTPError, ValueError, TransportValidationError):
+                pass
+            raise ServiceUnavailableError(self._UNAVAILABLE) from None
+        raise ServiceUnavailableError(self._UNAVAILABLE)

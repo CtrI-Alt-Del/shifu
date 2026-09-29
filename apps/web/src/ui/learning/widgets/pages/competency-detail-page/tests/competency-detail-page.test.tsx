@@ -209,7 +209,7 @@ describe('CompetencyDetailPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Laços de repetição' })).toBeVisible()
     expect(screen.getByText(/cobertura de evidências.*incompleta/i)).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Ler Material opcional' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ler material didático' })).toBeVisible()
     expect(
       screen.getByRole('link', { name: /Somar os números pares.*Fácil/ }),
     ).toBeVisible()

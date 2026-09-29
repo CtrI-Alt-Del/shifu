@@ -38,6 +38,20 @@ describe('MaterialContent', () => {
     expect(block.textContent).toContain('    print(n)')
   })
 
+  it('highlights JavaScript syntax in a fenced code block', () => {
+    render(
+      <MaterialContent
+        content={'```javascript\nlet total = 2;\nconsole.log(total); // 2\n```'}
+      />,
+    )
+
+    const block = screen.getByRole('region', { name: 'Bloco de código em javascript' })
+
+    expect(block.querySelector('.token.keyword')).toHaveTextContent('let')
+    expect(block.querySelector('.token.number')).toHaveTextContent('2')
+    expect(block.querySelector('.token.comment')).toHaveTextContent('// 2')
+  })
+
   it('labels an unfenced-language code block generically', () => {
     render(<MaterialContent content={'```\nvalor = 1\n```'} />)
 
