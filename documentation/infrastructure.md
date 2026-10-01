@@ -15,13 +15,14 @@ Para a arquitetura das aplicações e os limites dos módulos de produto, consul
 | Provedor de nuvem | AWS |
 | Execução das aplicações | Dois serviços ECS com Fargate: Web/BFF e API |
 | Banco relacional | Amazon RDS for PostgreSQL |
+| Arquivos de anexos do Mentor | Amazon S3; integração planejada, com objetos privados |
 | Cache e limitação de requisições | Redis gerenciado, em rede privada; produto e capacidade a definir |
 | Processamento assíncrono | Inngest Cloud |
 | E-mail transacional | Resend |
 | Avaliação e recursos de IA | OpenRouter, acessado pela API |
 | Segredos de aplicação | AWS Secrets Manager |
 | Logs, métricas e alarmes AWS | Amazon CloudWatch |
-| Provisionamento | Pulumi, com stacks separados por ambiente |
+| Provisionamento | Pulumi em Python, com uv, no pacote `packages/iac`; stacks separados por ambiente |
 
 Essas escolhas não transferem regras de negócio para a infraestrutura. Identity,
 Communication, Curriculum, Learning, Gamification e Intelligence continuam com
@@ -35,6 +36,7 @@ Navegador → HTTPS/ALB → Web/BFF (TanStack Start, TypeScript)
                             └─ chamadas autenticadas → API (Python, FastAPI)
                                                         ├─ RDS PostgreSQL
                                                         ├─ Redis
+                                                        ├─ S3 (anexos privados do Mentor; planejado)
                                                         ├─ Inngest Cloud
                                                         └─ OpenRouter
 
@@ -98,6 +100,79 @@ abrir a sub-rede de dados.
 
 ## Dados, autenticação e segredos
 
+### S3 — anexos do Mentor
+
+O uso definido de S3 no Shifu é **somente para anexos do Mentor**, como imagens,
+PDFs e outros arquivos enviados nas conversas. Materiais didáticos não fazem
+parte desse uso. A integração com o Mentor é planejada; esta decisão de
+infraestrutura não afirma que upload, leitura de anexos ou processamento pela
+IA já estejam implementados ou aprovados no PRD de Intelligence.
+
+O S3 guarda o conteúdo dos arquivos. O PostgreSQL guarda seus metadados e
+vínculos: identificador do anexo, usuário, conversa, nome original, tipo,
+tamanho e chave do objeto. O caminho segue o domínio proprietário:
+
+```text
+intelligence/mentor/users/{userId}/conversations/{conversationId}/attachments/{attachmentId}/{filename}
+```
+
+Exemplo com identificadores fictícios:
+
+```text
+intelligence/mentor/users/u123/conversations/c456/attachments/a789/exercicio.pdf
+```
+
+A API deve construir a chave, validar o arquivo e verificar a autorização
+para a conversa. O prefixo organiza os objetos, mas não concede acesso. Os
+anexos reais permanecem privados, com bloqueio de acesso público no bucket.
+A identidade IAM da API deve ter somente as permissões necessárias. Não são
+fornecidas credenciais AWS ao navegador.
+
+O fluxo planejado usa URLs pré-assinadas de duração limitada para upload e
+download, emitidas após autorização. Antes de disponibilizar o anexo à
+conversa, a API deve confirmar o upload e seus metadados. A URL temporária não
+é o identificador persistente do arquivo; persiste-se a chave do objeto.
+Tipos aceitos, limites de tamanho, retenção, exclusão e integração com a IA
+precisam de definição no contrato da funcionalidade antes da implementação.
+
+### Laboratório acadêmico de S3 — primeira entrega
+
+A primeira entrega da atividade de armazenamento é um laboratório separado
+da aplicação, operado pela console e/ou CLI, com infraestrutura reproduzível
+em Pulumi. Não exige implementar o upload no site. A stack `lab` terá bucket
+e estado próprios, sem compartilhar anexos reais com staging ou produção.
+
+O laboratório deve demonstrar:
+
+- criação do bucket, nome e região escolhida;
+- pelo menos cinco arquivos de tipos diferentes: imagem, PDF, JSON, CSV e TXT;
+- pelo menos um objeto público e um privado;
+- versionamento habilitado e duas versões de um objeto na mesma chave;
+- link público funcionando no navegador, conforme o template da atividade;
+- relatório técnico e link do repositório, com configuração, prints, comandos
+  utilizados e identificação dos integrantes.
+
+Os arquivos privados usam o prefixo de domínio acima com identificadores e
+conteúdos fictícios. O objeto público existe somente para a demonstração:
+
+```text
+academic/storage-activity/public/exemplo.txt
+```
+
+A política do laboratório deve permitir leitura pública apenas desse objeto,
+sem liberar listagem, escrita ou leitura dos anexos privados. As configurações
+de bloqueio de acesso público da conta e do bucket precisam ser verificadas
+para permitir essa exceção. A configuração pública do laboratório não deve
+ser aplicada aos buckets de anexos reais.
+
+Para demonstrar versionamento, enviar duas versões de um PDF usando a mesma
+chave e registrar os identificadores das versões. Lifecycle e hospedagem de
+site estático são complementos sugeridos, não parte obrigatória desta primeira
+entrega. RDS e DynamoDB pertencem às entregas seguintes do laboratório; isso
+não determina a adoção de DynamoDB no produto.
+
+### PostgreSQL e segredos
+
 O PostgreSQL do RDS é compartilhado pelas aplicações conforme seus esquemas e
 contratos: Better Auth no Web/BFF persiste contas, sessões e chaves; a API
 persiste os dados dos módulos. Migrações de esquema devem ser executadas como
@@ -145,16 +220,79 @@ final do pipeline e a política de rollback ainda precisam ser definidos.
 | Ambiente | Execução e integrações |
 | --- | --- |
 | Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
+| Laboratório | Stack Pulumi `lab`, bucket S3 com dados fictícios, versionamento e um objeto público de demonstração. Independente do runtime do Shifu. |
 | Staging | Stack Pulumi e segredos próprios; ECS Fargate com capacidade reduzida, RDS Single-AZ, Redis privado, um NAT Gateway, Inngest Cloud e Resend. |
 | Produção | Stack Pulumi e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
 
 Pulumi deve criar e atualizar os recursos AWS de cada ambiente, inclusive
-rede, grupos de segurança, IAM, ECR, ECS, ALB, banco, cache, segredos e
+rede, grupos de segurança, IAM, ECR, ECS, ALB, banco, cache, S3, segredos e
 observabilidade. Os stacks precisam de configuração e estado isolados. A
 revisão de mudanças de infraestrutura deve preceder a aplicação em produção.
 Inngest Cloud, Resend e OpenRouter são serviços externos configurados por
 ambiente; o Pulumi provisiona a infraestrutura AWS, não esses serviços por
 inferência.
+
+### Organização do pacote Pulumi
+
+O pacote será criado em `packages/iac`, seguindo a organização de
+[animus-iac](https://github.com/CtrI-Alt-Del/animus-iac): Pulumi em Python,
+dependências gerenciadas por uv, configuração centralizada e módulos por
+provider. A referência orienta a estrutura; seus recursos GCP, segredos e
+configurações de ambiente não são copiados para o Shifu.
+
+```text
+packages/iac/
+├── Pulumi.yaml
+├── Pulumi.lab.yaml
+├── pyproject.toml
+├── uv.lock
+├── README.md
+└── src/
+    ├── __main__.py
+    └── shifu/
+        ├── __init__.py
+        ├── config/
+        │   ├── __init__.py
+        │   ├── settings.py
+        │   └── naming.py
+        └── aws/
+            ├── __init__.py
+            └── s3.py
+```
+
+- `Pulumi.yaml`: projeto Python, entrypoint `src` e toolchain uv.
+- `Pulumi.lab.yaml`: configurações não sensíveis do laboratório.
+- `config/settings.py`: leitura e validação das configurações da stack.
+- `config/naming.py`: convenções de nomes por projeto e ambiente.
+- `aws/s3.py`: bucket, versionamento, controles de acesso e política da
+  demonstração pública, restrita à stack de laboratório.
+- `aws/__init__.py`: composição dos recursos AWS definidos para a stack.
+- `src/__main__.py`: carrega configurações, compõe recursos e exporta outputs,
+  como nome do bucket e URL do objeto público do laboratório.
+- `pyproject.toml` e `uv.lock`: dependências e instalação reproduzível,
+  independentes de `apps/server`.
+
+Staging e produção terão configurações e stacks próprios quando forem
+implementados. O envio dos arquivos fictícios e das duas versões deve ser
+reproduzível e documentado no README do pacote. O laboratório é o primeiro
+escopo; a estrutura não implica provisionar toda a arquitetura AWS de uma vez.
+
+### Conta Pulumi e execução
+
+O backend de estado definido é o Pulumi Cloud. O login é feito com
+`pulumi login`; `pulumi whoami` confirma a conta ativa antes de selecionar
+ou criar uma stack. A conta Pulumi guarda o estado e não substitui a
+autenticação AWS usada pelo provider. Credenciais e tokens não entram no Git.
+
+O fluxo operacional deve instalar as dependências com uv, selecionar a stack
+e executar `pulumi preview` antes de `pulumi up`. A criação de recursos deve
+ocorrer somente após revisão do preview e autorização para a implantação.
+Os comandos completos serão registrados no README quando o pacote existir.
+Estado local, ambientes virtuais, caches e evidências geradas não devem ser
+versionados; os manifests e lockfiles devem ser.
+
+O pacote e os recursos S3 descritos aqui ainda não foram implementados ou
+provisionados. O documento registra as decisões e o escopo da primeira entrega.
 
 ## Parâmetros de implementação antes do primeiro deploy
 
