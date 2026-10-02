@@ -1,0 +1,9 @@
+aws_region               = "us-east-1"
+project_name             = "shifu-storage-lab"
+allowed_client_ipv4_cidr = "203.0.113.10/32" # Troque pelo IP público atual do grupo.
+vpc_cidr                 = "10.73.0.0/16"
+availability_zone_count = 2
+rds_instance_class       = "db.t3.micro"
+rds_database_name        = "storage_lab"
+rds_master_username      = "labadmin"
+efs_test_instance_type   = "t3.micro"

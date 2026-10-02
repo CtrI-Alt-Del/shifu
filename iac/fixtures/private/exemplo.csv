@@ -1,0 +1,4 @@
+learner_id,event_type,score
+learner-001,activity_submitted,88
+learner-002,activity_submitted,74.5
+learner-003,diagnostic_completed,92
