@@ -12,4 +12,3 @@ output "s3_public_demo_url" {
   description = "URL do único objeto público de demonstração."
   value       = "https://${aws_s3_bucket.storage_lab.bucket_regional_domain_name}/academic/storage-activity/public/exemplo.txt"
 }
-

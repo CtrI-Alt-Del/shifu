@@ -14,4 +14,3 @@ variable "project_name" {
     error_message = "Use de 3 a 40 caracteres: letras minúsculas, números e hífens; comece com letra ou número."
   }
 }
-
