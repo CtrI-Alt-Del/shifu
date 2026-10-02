@@ -24,7 +24,7 @@
 > Preencher os campos entre colchetes após a execução. A configuração presente
 > no repositório não comprova criação do bucket, upload ou acesso aos arquivos.
 
-A configuração Terraform em `packages/iac`, limitada ao laboratório S3,
+A configuração Terraform em `iac`, limitada ao laboratório S3,
 está versionada no commit `221965ac5a4e404096e84cc603637280b213af2d`.
 Esse registro identifica o código e não comprova implantação na AWS.
 
@@ -39,7 +39,7 @@ diferenciar acesso público e privado e demonstrar duas versões de um mesmo
 objeto. A configuração também inclui uma regra de lifecycle, descrita no
 template sugerido da atividade.
 
-O pacote [packages/iac](../../packages/iac/README.md) declara a infraestrutura
+O laboratório [iac](../../iac/README.md) declara a infraestrutura
 em Terraform/HCL. Os arquivos fictícios são enviados manualmente pela AWS CLI.
 Esta entrega cobre somente o Cenário A; RDS, DynamoDB e a análise comparativa
 consolidada pertencem às etapas seguintes.
@@ -55,7 +55,7 @@ destinada aos anexos do produto.
 
 A configuração define um bucket com nome formado pelo prefixo do projeto e
 um sufixo aleatório. A região é parametrizável; o exemplo usa `us-east-1`.
-As definições estão em [s3.tf](../../packages/iac/s3.tf).
+As definições estão em [s3.tf](../../iac/s3.tf).
 
 | Configuração | Definição no código / resultado a registrar |
 | --- | --- |
@@ -71,7 +71,7 @@ As definições estão em [s3.tf](../../packages/iac/s3.tf).
 **Procedimento previsto — terminal Linux/WSL:**
 
 ```bash
-cd packages/iac
+cd iac
 export AWS_PROFILE=shifu
 cp terraform.tfvars.example terraform.tfvars
 # Ajustar a região e o prefixo em terraform.tfvars.
@@ -107,7 +107,7 @@ sem credenciais ou conteúdo do arquivo de estado.]
 
 ### 2.2 Arquivos enviados e permissões
 
-Os arquivos disponíveis em `packages/iac/fixtures` têm conteúdo fictício.
+Os arquivos disponíveis em `iac/fixtures` têm conteúdo fictício.
 O grupo deve preencher a coluna de confirmação depois de realizar os uploads.
 
 | Arquivo local | Tipo | Chave no bucket | Acesso previsto | Upload confirmado |
@@ -127,7 +127,7 @@ bloqueadas. A exceção de política depende também das configurações de bloq
 de acesso público da conta AWS.
 
 Os comandos individuais de upload estão no
-[README do pacote](../../packages/iac/README.md#s3).
+[README do laboratório](../../iac/README.md#cenário-a--amazon-s3).
 
 **Evidência E03:** [Print da listagem com os cinco tipos de arquivo.]\
 **Evidência E04:** [URL pública e print do arquivo carregado no navegador.]\
@@ -218,5 +218,5 @@ experiências reais do grupo; identificar a contribuição dos integrantes.]
 - Enunciado e template: **Atividade 3 — Relato Armazenamento**, disponibilizado
   pela disciplina Computação em Nuvem II.
 - [Documentação do Amazon S3](https://docs.aws.amazon.com/pt_br/s3/).
-- [Configuração e procedimentos do laboratório Shifu](../../packages/iac/README.md).
+- [Configuração e procedimentos do laboratório Shifu](../../iac/README.md).
 - [Infraestrutura definida para o Shifu](../infrastructure.md).

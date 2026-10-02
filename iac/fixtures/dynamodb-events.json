@@ -1,0 +1,146 @@
+[
+  {
+    "user_id": { "S": "learner-001" },
+    "event_key": { "S": "2026-09-15T10:00:00Z#event-001" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-15T10:00:00Z" },
+    "resource_id": { "S": "activity-logic-01" },
+    "session_id": { "S": "session-a1" },
+    "score": { "N": "88" },
+    "device": { "S": "desktop" }
+  },
+  {
+    "user_id": { "S": "learner-001" },
+    "event_key": { "S": "2026-09-15T10:15:00Z#event-002" },
+    "event_type": { "S": "material_viewed" },
+    "occurred_at": { "S": "2026-09-15T10:15:00Z" },
+    "resource_id": { "S": "material-loops-01" },
+    "session_id": { "S": "session-a1" },
+    "duration_seconds": { "N": "240" }
+  },
+  {
+    "user_id": { "S": "learner-002" },
+    "event_key": { "S": "2026-09-15T10:30:00Z#event-003" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-15T10:30:00Z" },
+    "resource_id": { "S": "activity-logic-01" },
+    "session_id": { "S": "session-b1" },
+    "score": { "N": "74.5" },
+    "device": { "S": "mobile" }
+  },
+  {
+    "user_id": { "S": "learner-002" },
+    "event_key": { "S": "2026-09-15T10:45:00Z#event-004" },
+    "event_type": { "S": "diagnostic_completed" },
+    "occurred_at": { "S": "2026-09-15T10:45:00Z" },
+    "resource_id": { "S": "diagnostic-logic-01" },
+    "session_id": { "S": "session-b1" },
+    "question_count": { "N": "10" }
+  },
+  {
+    "user_id": { "S": "learner-003" },
+    "event_key": { "S": "2026-09-16T09:00:00Z#event-005" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-16T09:00:00Z" },
+    "resource_id": { "S": "activity-logic-02" },
+    "session_id": { "S": "session-c1" },
+    "score": { "N": "92" },
+    "language": { "S": "javascript" }
+  },
+  {
+    "user_id": { "S": "learner-003" },
+    "event_key": { "S": "2026-09-16T09:10:00Z#event-006" },
+    "event_type": { "S": "material_viewed" },
+    "occurred_at": { "S": "2026-09-16T09:10:00Z" },
+    "resource_id": { "S": "material-arrays-01" },
+    "session_id": { "S": "session-c1" },
+    "duration_seconds": { "N": "315" }
+  },
+  {
+    "user_id": { "S": "learner-004" },
+    "event_key": { "S": "2026-09-16T09:30:00Z#event-007" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-16T09:30:00Z" },
+    "resource_id": { "S": "activity-logic-01" },
+    "session_id": { "S": "session-d1" },
+    "score": { "N": "61" },
+    "attempt": { "N": "2" }
+  },
+  {
+    "user_id": { "S": "learner-004" },
+    "event_key": { "S": "2026-09-16T09:45:00Z#event-008" },
+    "event_type": { "S": "mentor_opened" },
+    "occurred_at": { "S": "2026-09-16T09:45:00Z" },
+    "resource_id": { "S": "conversation-004" },
+    "session_id": { "S": "session-d1" },
+    "channel": { "S": "web" }
+  },
+  {
+    "user_id": { "S": "learner-005" },
+    "event_key": { "S": "2026-09-17T11:00:00Z#event-009" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-17T11:00:00Z" },
+    "resource_id": { "S": "activity-logic-03" },
+    "session_id": { "S": "session-e1" },
+    "score": { "N": "95" },
+    "language": { "S": "javascript" }
+  },
+  {
+    "user_id": { "S": "learner-006" },
+    "event_key": { "S": "2026-09-17T11:15:00Z#event-010" },
+    "event_type": { "S": "diagnostic_completed" },
+    "occurred_at": { "S": "2026-09-17T11:15:00Z" },
+    "resource_id": { "S": "diagnostic-logic-01" },
+    "session_id": { "S": "session-f1" },
+    "question_count": { "N": "10" }
+  },
+  {
+    "user_id": { "S": "learner-006" },
+    "event_key": { "S": "2026-09-17T11:30:00Z#event-011" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-17T11:30:00Z" },
+    "resource_id": { "S": "activity-logic-02" },
+    "session_id": { "S": "session-f1" },
+    "score": { "N": "82" },
+    "language": { "S": "python" }
+  },
+  {
+    "user_id": { "S": "learner-007" },
+    "event_key": { "S": "2026-09-18T08:00:00Z#event-012" },
+    "event_type": { "S": "material_viewed" },
+    "occurred_at": { "S": "2026-09-18T08:00:00Z" },
+    "resource_id": { "S": "material-conditionals-01" },
+    "session_id": { "S": "session-g1" },
+    "duration_seconds": { "N": "180" }
+  },
+  {
+    "user_id": { "S": "learner-008" },
+    "event_key": { "S": "2026-09-18T08:30:00Z#event-013" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-18T08:30:00Z" },
+    "resource_id": { "S": "activity-logic-01" },
+    "session_id": { "S": "session-h1" },
+    "score": { "N": "77" },
+    "language": { "S": "python" }
+  },
+  {
+    "user_id": { "S": "learner-009" },
+    "event_key": { "S": "2026-09-18T09:00:00Z#event-014" },
+    "event_type": { "S": "activity_submitted" },
+    "occurred_at": { "S": "2026-09-18T09:00:00Z" },
+    "resource_id": { "S": "activity-logic-02" },
+    "session_id": { "S": "session-i1" },
+    "score": { "N": "89" },
+    "attempt": { "N": "2" }
+  },
+  {
+    "user_id": { "S": "learner-010" },
+    "event_key": { "S": "2026-09-18T09:30:00Z#event-015" },
+    "event_type": { "S": "diagnostic_completed" },
+    "occurred_at": { "S": "2026-09-18T09:30:00Z" },
+    "resource_id": { "S": "diagnostic-logic-01" },
+    "session_id": { "S": "session-j1" },
+    "question_count": { "N": "10" },
+    "device": { "S": "tablet" }
+  }
+]

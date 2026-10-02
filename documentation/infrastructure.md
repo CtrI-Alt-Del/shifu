@@ -3,7 +3,7 @@
 Este documento registra a **arquitetura de infraestrutura definida** para o
 Shifu. A pilha de desenvolvimento local já existe no repositório; a implantação
 da arquitetura completa na AWS é uma etapa de execução. O laboratório de
-armazenamento tem configuração Terraform em `packages/iac`; código existente
+armazenamento tem configuração Terraform em `iac`; código existente
 não confirma provisionamento na conta AWS.
 Para a arquitetura das aplicações e os limites dos módulos de produto, consulte
 [`architecture.md`](architecture.md) e [`modules.md`](modules.md).
@@ -24,7 +24,7 @@ Para a arquitetura das aplicações e os limites dos módulos de produto, consul
 | Avaliação e recursos de IA | OpenRouter, acessado pela API |
 | Segredos de aplicação | AWS Secrets Manager |
 | Logs, métricas e alarmes AWS | Amazon CloudWatch |
-| Provisionamento | Terraform em HCL no pacote `packages/iac`; configuração e estado separados por ambiente |
+| Provisionamento | Terraform em HCL no diretório `iac`; configuração e estado separados por ambiente |
 
 Essas escolhas não transferem regras de negócio para a infraestrutura. Identity,
 Communication, Curriculum, Learning, Gamification e Intelligence continuam com
@@ -137,44 +137,52 @@ conversa, a API deve confirmar o upload e seus metadados. A URL temporária não
 Tipos aceitos, limites de tamanho, retenção, exclusão e integração com a IA
 precisam de definição no contrato da funcionalidade antes da implementação.
 
-### Laboratório acadêmico de S3 — primeira entrega
+### Laboratório acadêmico de armazenamento — V1
 
-A primeira entrega da atividade de armazenamento é um laboratório separado
-da aplicação, operado pela console e/ou CLI, com infraestrutura reproduzível
-em Terraform. Não exige implementar o upload no site. O laboratório tem bucket
-e estado próprios, sem compartilhar anexos reais com staging ou produção.
+A V1 da atividade de armazenamento é um laboratório independente da aplicação,
+operado pela console/CLI e reproduzível com Terraform. Não exige implementar
+upload no site. Seus recursos, dados fictícios e estado local não são
+compartilhados com staging ou produção.
 
-O laboratório deve demonstrar:
+A entrega contempla três cenários:
 
-- criação do bucket, nome e região escolhida;
-- pelo menos cinco arquivos de tipos diferentes: imagem, PDF, JSON, CSV e TXT;
-- pelo menos um objeto público e um privado;
-- versionamento habilitado e duas versões de um objeto na mesma chave;
-- link público funcionando no navegador, conforme o template da atividade;
-- relatório técnico e link do repositório, com configuração, prints, comandos
-  utilizados e identificação dos integrantes.
+- **Amazon S3:** bucket e região identificados; cinco chaves de arquivo com
+  tipos distintos (imagem, PDF, JSON, CSV e TXT); ao menos um objeto público e
+  um privado; duas versões de um objeto na mesma chave; URL pública de
+  demonstração e regra de lifecycle configurada;
+- **Amazon RDS for PostgreSQL:** instância Single-AZ, esquema e consultas SQL,
+  conectividade limitada ao IPv4 `/32` do grupo, dados sintéticos e snapshot
+  manual;
+- **Amazon DynamoDB:** eventos sintéticos com Partition Key, Sort Key e GSI,
+  pelo menos 15 itens, consultas por chave/índice e uma simulação mensurável de
+  escrita.
 
-Os arquivos privados do laboratório usam `academic/storage-activity/private/`
-e conteúdos fictícios, conforme o README do pacote. O prefixo de domínio
-`intelligence/mentor/` permanece definido para a futura integração do produto.
-O objeto público existe somente para a demonstração:
+Os objetos S3 do laboratório usam conteúdo fictício e prefixos
+`academic/storage-activity/`. O prefixo de domínio `intelligence/mentor/`
+continua reservado à futura integração do produto. O único objeto público
+existe somente para a demonstração:
 
 ```text
 academic/storage-activity/public/exemplo.txt
 ```
 
-A política do laboratório deve permitir leitura pública apenas desse objeto,
-sem liberar listagem, escrita ou leitura dos anexos privados. As configurações
-de bloqueio de acesso público da conta e do bucket precisam ser verificadas
-para permitir essa exceção. A configuração pública do laboratório não deve
-ser aplicada aos buckets de anexos reais.
+A política permite apenas `s3:GetObject` nessa chave e não libera listagem,
+escrita ou leitura dos objetos privados. O bloqueio de ACLs permanece ligado;
+o bloqueio de políticas públicas no bucket e na conta deve ser verificado para
+permitir a exceção do laboratório. Essa configuração pública não deve ser
+aplicada aos buckets de anexos reais.
 
-Para demonstrar versionamento, enviar duas versões de um PDF usando a mesma
-chave e registrar os identificadores das versões. Lifecycle e hospedagem de
-site estático são complementos sugeridos, não parte obrigatória desta primeira
-entrega de S3. O pacote atual contém somente S3 para esta
-primeira entrega. Os procedimentos completos estão no
-[`README do pacote`](../packages/iac/README.md).
+O RDS do laboratório usa VPC própria e um endpoint público cujo Security Group
+admite somente a origem IPv4 `/32` do grupo. Essa exposição restrita serve à
+validação acadêmica e não altera a decisão de manter bancos de staging e
+produção em sub-redes privadas e sem acesso direto da internet. Para o PDF S3,
+registram-se os dois identificadores de versão; a regra de lifecycle deve ser
+documentada como configuração, sem afirmar que uma transição de 30 dias já foi
+observada durante a curta execução da atividade.
+
+Os detalhes, comandos, evidências e fluxo de encerramento estão no
+[`README do laboratório`](../iac/README.md) e no
+[`relatório V1`](reports/armazenamento-v1.md).
 
 ### PostgreSQL e segredos
 
@@ -225,7 +233,7 @@ final do pipeline e a política de rollback ainda precisam ser definidos.
 | Ambiente | Execução e integrações |
 | --- | --- |
 | Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
-| Laboratório | Configuração Terraform em `packages/iac`, somente com S3 e arquivos fictícios para a primeira entrega. Independente do runtime do Shifu. |
+| Laboratório | Configuração Terraform em `iac`: S3, RDS PostgreSQL, DynamoDB e rede mínima para o RDS; dados fictícios e sem serviços de aplicação. |
 | Staging | Configuração Terraform, estado e segredos próprios; ECS Fargate com capacidade reduzida, RDS Single-AZ, Redis privado, um NAT Gateway, Inngest Cloud e Resend. |
 | Produção | Configuração Terraform, estado e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
 
@@ -239,40 +247,50 @@ inferência.
 
 ### Organização do pacote Terraform
 
-O pacote fica em `packages/iac`, com recursos declarados em HCL e somente
-Amazon S3 para a primeira entrega da atividade. Os arquivos fictícios são
-enviados manualmente pela AWS CLI, conforme o README; não há script de fixtures.
+O laboratório da atividade fica em `iac`, com recursos declarados em
+HCL para S3, PostgreSQL no RDS, DynamoDB e a rede mínima do banco. Os dados
+fictícios são enviados e consultados pela AWS CLI e `psql`, conforme o README.
 
 ```text
-packages/iac/
+iac/
 ├── README.md
 ├── .gitignore
 ├── .terraform.lock.hcl
-├── versions.tf
-├── variables.tf
-├── locals.tf
-├── outputs.tf
+├── versions.tf              # Terraform e providers AWS/Random
+├── variables.tf             # Região, rede, RDS e acesso de origem
+├── locals.tf                # AZs e tags comuns
+├── outputs.tf               # Identificadores não secretos
 ├── terraform.tfvars.example
-├── s3.tf
-└── fixtures/
+├── s3.tf                    # Bucket, segurança, versionamento e lifecycle
+├── network.tf               # VPC, sub-redes públicas mínimas e rotas
+├── security-groups.tf       # PostgreSQL restrito ao CIDR /32 do grupo
+├── rds.tf                   # Instância PostgreSQL e senha no Secrets Manager
+├── dynamodb.tf              # Eventos e GSI
+├── sql/                     # Schema, dados e três consultas RDS
+├── scripts/                 # Carga inicial e simulação DynamoDB
+└── fixtures/                # Objetos e eventos fictícios
     ├── public/
     ├── private/
-    └── archive/
+    ├── archive/
+    └── dynamodb-events.json
 ```
 
 - `versions.tf`: versões aceitas do Terraform e providers AWS e Random.
 - `.terraform.lock.hcl`: versões e hashes dos providers; deve ser versionado.
-- `variables.tf` e `terraform.tfvars.example`: região AWS e prefixo do bucket.
-- `locals.tf`: tags compartilhadas do laboratório.
+- `variables.tf` e `terraform.tfvars.example`: região AWS, rede, instância RDS
+  e IPv4 `/32` do grupo.
+- `locals.tf`: AZs disponíveis e tags compartilhadas do laboratório.
 - `s3.tf`: bucket, versionamento, criptografia, lifecycle e política pública
   restrita ao objeto de demonstração.
-- `outputs.tf`: região, nome do bucket e URL pública de demonstração.
-- `fixtures/`: arquivos fictícios para upload manual, incluindo duas versões
-  do PDF.
+- `network.tf`, `security-groups.tf` e `rds.tf`: rede necessária, conectividade
+  PostgreSQL limitada ao grupo e instância single-AZ de laboratório.
+- `dynamodb.tf`: tabela sob demanda com chaves de consulta e GSI.
+- `outputs.tf`: identificadores/endpoint sem expor a senha do RDS.
+- `sql/`, `scripts/` e `fixtures/`: dados sintéticos e comandos de validação.
 
-O pacote é um laboratório acadêmico de S3. Não provisiona rede, RDS, DynamoDB,
-EFS ou serviços da aplicação e não implementa anexos do Mentor. A arquitetura
-de staging e produção continua planejada, com configuração e estado próprios.
+O pacote é um laboratório acadêmico e não provisiona EFS, EC2 ou serviços da
+aplicação, nem implementa anexos do Mentor. A arquitetura de staging e produção
+continua planejada, com configuração e estado próprios.
 
 ### Estado e execução
 
@@ -281,7 +299,7 @@ backend remoto configurado. A identidade AWS é fornecida pelas credenciais ou
 pelo perfil do operador. Credenciais, arquivos de estado e planos gerados não
 entram no Git; o estado deve ser preservado enquanto houver recursos ativos.
 
-A partir de `packages/iac`, o fluxo documentado no README é:
+A partir de `iac`, o fluxo documentado no README é:
 
 ```sh
 terraform init
