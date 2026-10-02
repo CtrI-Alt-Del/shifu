@@ -2,7 +2,9 @@
 
 Este documento registra a **arquitetura de infraestrutura definida** para o
 Shifu. A pilha de desenvolvimento local já existe no repositório; a implantação
-dos recursos AWS e dos stacks Pulumi é uma etapa de execução dessa arquitetura.
+da arquitetura completa na AWS é uma etapa de execução. O laboratório de
+armazenamento tem configuração Terraform em `packages/iac`; código existente
+não confirma provisionamento na conta AWS.
 Para a arquitetura das aplicações e os limites dos módulos de produto, consulte
 [`architecture.md`](architecture.md) e [`modules.md`](modules.md).
 
@@ -22,7 +24,7 @@ Para a arquitetura das aplicações e os limites dos módulos de produto, consul
 | Avaliação e recursos de IA | OpenRouter, acessado pela API |
 | Segredos de aplicação | AWS Secrets Manager |
 | Logs, métricas e alarmes AWS | Amazon CloudWatch |
-| Provisionamento | Pulumi em Python, com uv, no pacote `packages/iac`; stacks separados por ambiente |
+| Provisionamento | Terraform em HCL no pacote `packages/iac`; configuração e estado separados por ambiente |
 
 Essas escolhas não transferem regras de negócio para a infraestrutura. Identity,
 Communication, Curriculum, Learning, Gamification e Intelligence continuam com
@@ -139,7 +141,7 @@ precisam de definição no contrato da funcionalidade antes da implementação.
 
 A primeira entrega da atividade de armazenamento é um laboratório separado
 da aplicação, operado pela console e/ou CLI, com infraestrutura reproduzível
-em Pulumi. Não exige implementar o upload no site. A stack `lab` terá bucket
+em Terraform. Não exige implementar o upload no site. O laboratório tem bucket
 e estado próprios, sem compartilhar anexos reais com staging ou produção.
 
 O laboratório deve demonstrar:
@@ -152,8 +154,10 @@ O laboratório deve demonstrar:
 - relatório técnico e link do repositório, com configuração, prints, comandos
   utilizados e identificação dos integrantes.
 
-Os arquivos privados usam o prefixo de domínio acima com identificadores e
-conteúdos fictícios. O objeto público existe somente para a demonstração:
+Os arquivos privados do laboratório usam `academic/storage-activity/private/`
+e conteúdos fictícios, conforme o README do pacote. O prefixo de domínio
+`intelligence/mentor/` permanece definido para a futura integração do produto.
+O objeto público existe somente para a demonstração:
 
 ```text
 academic/storage-activity/public/exemplo.txt
@@ -168,8 +172,9 @@ ser aplicada aos buckets de anexos reais.
 Para demonstrar versionamento, enviar duas versões de um PDF usando a mesma
 chave e registrar os identificadores das versões. Lifecycle e hospedagem de
 site estático são complementos sugeridos, não parte obrigatória desta primeira
-entrega. RDS e DynamoDB pertencem às entregas seguintes do laboratório; isso
-não determina a adoção de DynamoDB no produto.
+entrega de S3. O pacote atual contém somente S3 para esta
+primeira entrega. Os procedimentos completos estão no
+[`README do pacote`](../packages/iac/README.md).
 
 ### PostgreSQL e segredos
 
@@ -186,8 +191,8 @@ grupos são credenciais do banco, `BETTER_AUTH_SECRET`,
 OpenRouter. As tarefas ECS recebem somente os segredos necessários à sua
 função, por IAM de menor privilégio. O Web/BFF precisa dos segredos do Better
 Auth e da integração autenticada com a API; a API precisa dos segredos dos
-provedores que utiliza. Nenhum segredo deve ser gravado em imagens, no Pulumi
-em texto puro ou no repositório.
+provedores que utiliza. Nenhum segredo deve ser gravado em imagens, na
+configuração Terraform em texto puro ou no repositório.
 
 TLS deve proteger o tráfego público. A comunicação entre serviços e com o
 banco deve seguir as configurações de criptografia exigidas por cada serviço.
@@ -220,79 +225,79 @@ final do pipeline e a política de rollback ainda precisam ser definidos.
 | Ambiente | Execução e integrações |
 | --- | --- |
 | Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
-| Laboratório | Stack Pulumi `lab`, bucket S3 com dados fictícios, versionamento e um objeto público de demonstração. Independente do runtime do Shifu. |
-| Staging | Stack Pulumi e segredos próprios; ECS Fargate com capacidade reduzida, RDS Single-AZ, Redis privado, um NAT Gateway, Inngest Cloud e Resend. |
-| Produção | Stack Pulumi e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
+| Laboratório | Configuração Terraform em `packages/iac`, somente com S3 e arquivos fictícios para a primeira entrega. Independente do runtime do Shifu. |
+| Staging | Configuração Terraform, estado e segredos próprios; ECS Fargate com capacidade reduzida, RDS Single-AZ, Redis privado, um NAT Gateway, Inngest Cloud e Resend. |
+| Produção | Configuração Terraform, estado e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
 
-Pulumi deve criar e atualizar os recursos AWS de cada ambiente, inclusive
+Terraform deve criar e atualizar os recursos AWS de cada ambiente, inclusive
 rede, grupos de segurança, IAM, ECR, ECS, ALB, banco, cache, S3, segredos e
-observabilidade. Os stacks precisam de configuração e estado isolados. A
+observabilidade. Os ambientes precisam de configuração e estado isolados. A
 revisão de mudanças de infraestrutura deve preceder a aplicação em produção.
 Inngest Cloud, Resend e OpenRouter são serviços externos configurados por
-ambiente; o Pulumi provisiona a infraestrutura AWS, não esses serviços por
+ambiente; o Terraform provisiona a infraestrutura AWS, não esses serviços por
 inferência.
 
-### Organização do pacote Pulumi
+### Organização do pacote Terraform
 
-O pacote será criado em `packages/iac`, seguindo a organização de
-[animus-iac](https://github.com/CtrI-Alt-Del/animus-iac): Pulumi em Python,
-dependências gerenciadas por uv, configuração centralizada e módulos por
-provider. A referência orienta a estrutura; seus recursos GCP, segredos e
-configurações de ambiente não são copiados para o Shifu.
+O pacote fica em `packages/iac`, com recursos declarados em HCL e somente
+Amazon S3 para a primeira entrega da atividade. Os arquivos fictícios são
+enviados manualmente pela AWS CLI, conforme o README; não há script de fixtures.
 
 ```text
 packages/iac/
-├── Pulumi.yaml
-├── Pulumi.lab.yaml
-├── pyproject.toml
-├── uv.lock
 ├── README.md
-└── src/
-    ├── __main__.py
-    └── shifu/
-        ├── __init__.py
-        ├── config/
-        │   ├── __init__.py
-        │   ├── settings.py
-        │   └── naming.py
-        └── aws/
-            ├── __init__.py
-            └── s3.py
+├── .gitignore
+├── .terraform.lock.hcl
+├── versions.tf
+├── variables.tf
+├── locals.tf
+├── outputs.tf
+├── terraform.tfvars.example
+├── s3.tf
+└── fixtures/
+    ├── public/
+    ├── private/
+    └── archive/
 ```
 
-- `Pulumi.yaml`: projeto Python, entrypoint `src` e toolchain uv.
-- `Pulumi.lab.yaml`: configurações não sensíveis do laboratório.
-- `config/settings.py`: leitura e validação das configurações da stack.
-- `config/naming.py`: convenções de nomes por projeto e ambiente.
-- `aws/s3.py`: bucket, versionamento, controles de acesso e política da
-  demonstração pública, restrita à stack de laboratório.
-- `aws/__init__.py`: composição dos recursos AWS definidos para a stack.
-- `src/__main__.py`: carrega configurações, compõe recursos e exporta outputs,
-  como nome do bucket e URL do objeto público do laboratório.
-- `pyproject.toml` e `uv.lock`: dependências e instalação reproduzível,
-  independentes de `apps/server`.
+- `versions.tf`: versões aceitas do Terraform e providers AWS e Random.
+- `.terraform.lock.hcl`: versões e hashes dos providers; deve ser versionado.
+- `variables.tf` e `terraform.tfvars.example`: região AWS e prefixo do bucket.
+- `locals.tf`: tags compartilhadas do laboratório.
+- `s3.tf`: bucket, versionamento, criptografia, lifecycle e política pública
+  restrita ao objeto de demonstração.
+- `outputs.tf`: região, nome do bucket e URL pública de demonstração.
+- `fixtures/`: arquivos fictícios para upload manual, incluindo duas versões
+  do PDF.
 
-Staging e produção terão configurações e stacks próprios quando forem
-implementados. O envio dos arquivos fictícios e das duas versões deve ser
-reproduzível e documentado no README do pacote. O laboratório é o primeiro
-escopo; a estrutura não implica provisionar toda a arquitetura AWS de uma vez.
+O pacote é um laboratório acadêmico de S3. Não provisiona rede, RDS, DynamoDB,
+EFS ou serviços da aplicação e não implementa anexos do Mentor. A arquitetura
+de staging e produção continua planejada, com configuração e estado próprios.
 
-### Conta Pulumi e execução
+### Estado e execução
 
-O backend de estado definido é o Pulumi Cloud. O login é feito com
-`pulumi login`; `pulumi whoami` confirma a conta ativa antes de selecionar
-ou criar uma stack. A conta Pulumi guarda o estado e não substitui a
-autenticação AWS usada pelo provider. Credenciais e tokens não entram no Git.
+A configuração atual usa estado local, ignorado pelo `.gitignore`. Não há
+backend remoto configurado. A identidade AWS é fornecida pelas credenciais ou
+pelo perfil do operador. Credenciais, arquivos de estado e planos gerados não
+entram no Git; o estado deve ser preservado enquanto houver recursos ativos.
 
-O fluxo operacional deve instalar as dependências com uv, selecionar a stack
-e executar `pulumi preview` antes de `pulumi up`. A criação de recursos deve
-ocorrer somente após revisão do preview e autorização para a implantação.
-Os comandos completos serão registrados no README quando o pacote existir.
-Estado local, ambientes virtuais, caches e evidências geradas não devem ser
-versionados; os manifests e lockfiles devem ser.
+A partir de `packages/iac`, o fluxo documentado no README é:
 
-O pacote e os recursos S3 descritos aqui ainda não foram implementados ou
-provisionados. O documento registra as decisões e o escopo da primeira entrega.
+```sh
+terraform init
+terraform fmt -check -recursive
+terraform validate
+terraform plan
+```
+
+A criação de recursos ocorre com `terraform apply`, após revisão do plano e
+autorização para a implantação. Para uso compartilhado e futuros ambientes,
+o backend remoto e seu controle de acesso e bloqueio precisam ser definidos
+antes do deploy. A decisão anterior de usar Pulumi Cloud foi substituída;
+não se presume um backend remoto já implantado.
+
+O código do laboratório existe no pacote. O documento não confirma execução
+de `apply` nem provisionamento de recursos na conta AWS.
 
 ## Parâmetros de implementação antes do primeiro deploy
 
@@ -301,11 +306,11 @@ provisionados. O documento registra as decisões e o escopo da primeira entrega.
 - Produto Redis gerenciado, dimensionamento inicial e política de persistência.
 - Capacidade mínima ECS por ambiente, autoscaling e limites de custo.
 - Retenção de backups e logs, testes de restauração, RPO e RTO.
-- Pipeline de deploy, migrações, rollback e armazenamento do estado Pulumi.
+- Pipeline de deploy, migrações, rollback e armazenamento remoto e bloqueio do estado Terraform.
 - Uso de VPC endpoints frente ao custo de NAT e volume de saída.
 
 Esta arquitetura complementa a arquitetura da aplicação. Os parâmetros
 operacionais acima não alteram as escolhas de plataforma definidas neste
 documento. Nomes exatos de recursos, preços e capacidades serão verificados
-durante a implementação do Pulumi; o documento não afirma que os recursos já
+durante a implementação do Terraform; o documento não afirma que os recursos já
 estão provisionados.
