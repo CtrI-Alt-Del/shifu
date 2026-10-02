@@ -4557,8 +4557,8 @@
     {
       "type": "frame",
       "id": "Eu1jl",
-      "x": 3777,
-      "y": -6842,
+      "x": 7006,
+      "y": -6727,
       "name": "06 Objetivo · Lista",
       "clip": true,
       "width": 1440,
@@ -4947,8 +4947,8 @@
     {
       "type": "frame",
       "id": "q8TK6d",
-      "x": 372,
-      "y": -7754,
+      "x": -282,
+      "y": -9578,
       "name": "04 Planejador · perguntas",
       "clip": true,
       "width": 1440,
@@ -5294,8 +5294,8 @@
     {
       "type": "frame",
       "id": "zX9Ow",
-      "x": 2003,
-      "y": -7919,
+      "x": 1393,
+      "y": -9676,
       "name": "05 Planejador · proposta · Lista",
       "clip": true,
       "width": 1440,
@@ -5749,11 +5749,11 @@
                     {
                       "type": "text",
                       "id": "m2cNQi",
-                      "name": "Orientação para ajustar",
+                      "name": "Orientação para reiniciar",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Quer incluir, remover ou trocar uma habilidade? Use Ajustar e conte o que deseja mudar.",
+                      "content": "Quer mudar as habilidades ou o foco? Reinicie o planejamento com uma nova intenção.",
                       "lineHeight": 1.45,
                       "fontFamily": "$font-ui",
                       "fontSize": 13,
@@ -5788,9 +5788,10 @@
                               "id": "zdR6W",
                               "type": "ref",
                               "ref": "RaoIi",
+                              "name": "Reiniciar planejamento",
                               "descendants": {
                                 "vC77H": {
-                                  "content": "Ajustar"
+                                  "content": "Reiniciar planejamento"
                                 }
                               }
                             },
@@ -6510,8 +6511,8 @@
     {
       "type": "frame",
       "id": "B6LwtJ",
-      "x": 1877,
-      "y": -4573,
+      "x": 1393,
+      "y": -6322,
       "name": "05.1 Planejador · não suportado",
       "clip": true,
       "width": 1440,
@@ -12571,8 +12572,8 @@
     {
       "type": "frame",
       "id": "yR0iN",
-      "x": 3777,
-      "y": -5652,
+      "x": 7006,
+      "y": -5537,
       "name": "06.1 Adicionar Habilidade",
       "clip": true,
       "width": 1440,
@@ -13395,8 +13396,8 @@
     {
       "type": "frame",
       "id": "HZQyi",
-      "x": 3777,
-      "y": -7972,
+      "x": 7006,
+      "y": -7857,
       "name": "06 Objetivo",
       "clip": true,
       "width": 1440,
@@ -15179,8 +15180,8 @@
     {
       "type": "frame",
       "id": "SVHqP",
-      "x": 3777,
-      "y": -4459,
+      "x": 7006,
+      "y": -4344,
       "name": "06.1.1 Adicionar Habilidade · bases abertas",
       "clip": true,
       "width": 1440,
@@ -16033,8 +16034,8 @@
     {
       "type": "frame",
       "id": "uNYG9",
-      "x": 5665,
-      "y": -7919,
+      "x": 8894,
+      "y": -7804,
       "name": "06 Objetivo · Carregando",
       "clip": true,
       "width": 1440,
@@ -16868,8 +16869,8 @@
     {
       "type": "frame",
       "id": "TmJTW",
-      "x": 5665,
-      "y": -6693,
+      "x": 8894,
+      "y": -6578,
       "name": "06 Objetivo · Foco por teclado",
       "clip": true,
       "width": 1440,
@@ -18258,8 +18259,8 @@
     {
       "type": "frame",
       "id": "o663ai",
-      "x": 7390,
-      "y": -5225,
+      "x": 10619,
+      "y": -5110,
       "name": "06.1.2 Adicionar Habilidade · confirmar bases",
       "width": 520,
       "height": 620,
@@ -19854,8 +19855,8 @@
     {
       "type": "frame",
       "id": "xzwuv",
-      "x": 7990,
-      "y": -5225,
+      "x": 11219,
+      "y": -5110,
       "name": "06.1.2 Adicionar Habilidade · sem bases sugeridas",
       "width": 520,
       "height": 332,
@@ -20045,8 +20046,8 @@
     {
       "type": "frame",
       "id": "w3glK",
-      "x": 8590,
-      "y": -5225,
+      "x": 11819,
+      "y": -5110,
       "name": "06.1.2 Adicionar Habilidade · bases já presentes",
       "width": 520,
       "height": 466,
@@ -20367,8 +20368,8 @@
     {
       "type": "frame",
       "id": "UXNLJ",
-      "x": 7390,
-      "y": -4524.813232664415,
+      "x": 10619,
+      "y": -4409.813232664415,
       "name": "06.1.2 Adicionar Habilidade · nenhuma base selecionada",
       "width": 520,
       "height": 603,
@@ -21301,8 +21302,8 @@
     {
       "type": "frame",
       "id": "iQP0U",
-      "x": 7990,
-      "y": -4831.020266242797,
+      "x": 11219,
+      "y": -4716.020266242797,
       "name": "06.1.2 Adicionar Habilidade · erro ao adicionar",
       "width": 520,
       "height": 722,
@@ -82679,9 +82680,10 @@
     {
       "type": "frame",
       "id": "eSaNL",
-      "x": 11332,
-      "y": -6729,
-      "name": "05.1 Planejador · ajustar proposta",
+      "x": 1393,
+      "y": -5262,
+      "name": "05.1 Planejador · reiniciar planejamento",
+      "context": "PRD Intelligence v2 RP-10/JN-09. X ou Esc fecha sem alterar o plano; somente Iniciar planejamento descarta as respostas e a proposta anteriores.",
       "clip": true,
       "width": 1440,
       "height": 1077,
@@ -83064,11 +83066,11 @@
                     {
                       "type": "text",
                       "id": "j6g2qB",
-                      "name": "Orientação para ajustar",
+                      "name": "Orientação para reiniciar",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Quer incluir, remover ou trocar uma habilidade? Use Ajustar e conte o que deseja mudar.",
+                      "content": "Quer mudar as habilidades ou o foco? Reinicie o planejamento com uma nova intenção.",
                       "lineHeight": 1.45,
                       "fontFamily": "$font-ui",
                       "fontSize": 13,
@@ -83103,9 +83105,10 @@
                               "id": "JqF6B",
                               "type": "ref",
                               "ref": "RaoIi",
+                              "name": "Reiniciar planejamento",
                               "descendants": {
                                 "vC77H": {
-                                  "content": "Ajustar"
+                                  "content": "Reiniciar planejamento"
                                 }
                               }
                             },
@@ -83135,9 +83138,9 @@
           "layoutPosition": "absolute",
           "x": 0,
           "y": 0,
-          "name": "Fundo do diálogo de ajuste",
+          "name": "Fundo do modal de reinício",
           "width": 1440,
-          "height": 1080,
+          "height": 1077,
           "layout": "none",
           "children": [
             {
@@ -83150,16 +83153,16 @@
               "opacity": 0.8,
               "fill": "$page",
               "width": 1440,
-              "height": 1080
+              "height": 1077
             },
             {
               "type": "frame",
-              "id": "E1hRj",
+              "id": "O4NXj",
               "layoutPosition": "absolute",
-              "x": 440,
-              "y": 300,
-              "name": "Ajustar proposta",
-              "width": 560,
+              "x": 420,
+              "y": 310,
+              "name": "Modal · Reiniciar planejamento",
+              "width": 600,
               "fill": "$surface-alt",
               "cornerRadius": "$radius-modal",
               "stroke": "$divider",
@@ -83169,98 +83172,121 @@
               "padding": "$space-6",
               "children": [
                 {
-                  "type": "text",
-                  "id": "jcKJ3",
-                  "name": "Título do diálogo",
-                  "fill": "$text-primary",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "O que você quer mudar?",
-                  "lineHeight": 1.45,
-                  "fontFamily": "$font-display",
-                  "fontSize": 30,
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "text",
-                  "id": "Vxk0c",
-                  "name": "Explicação do ajuste",
-                  "fill": "$text-secondary",
-                  "textGrowth": "fixed-width",
-                  "width": "fill_container",
-                  "content": "Peça para incluir, remover ou trocar habilidades, ou mudar o foco do objetivo.",
-                  "lineHeight": 1.45,
-                  "fontFamily": "$font-ui",
-                  "fontSize": 14,
-                  "fontWeight": "normal"
-                },
-                {
                   "type": "frame",
-                  "id": "efczS",
-                  "name": "Mudanças solicitadas",
+                  "id": "h9ooqX",
+                  "name": "Cabeçalho do modal",
                   "width": "fill_container",
-                  "height": 132,
-                  "fill": "$raised",
-                  "cornerRadius": "$radius-control",
-                  "stroke": "$control-border",
-                  "strokeWidth": 1,
-                  "padding": "$space-4",
+                  "gap": "$space-4",
+                  "alignItems": "center",
                   "children": [
                     {
                       "type": "text",
-                      "id": "SyDMy",
-                      "name": "Pedido de ajuste",
+                      "id": "BMMEi",
+                      "name": "Título do modal",
                       "fill": "$text-primary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Quero focar em planilhas. Mantenha Lógica de programação e Python essencial, mas procure uma habilidade mais específica para planilhas.",
-                      "lineHeight": 1.45,
+                      "content": "Reiniciar planejamento",
+                      "fontFamily": "$font-display",
+                      "fontSize": 30,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "ay1Dy",
+                      "type": "ref",
+                      "ref": "CZw0W",
+                      "name": "Fechar modal · X / Esc",
+                      "padding": "$space-2",
+                      "descendants": {
+                        "o4tNAc": {
+                          "type": "icon",
+                          "id": "xgqJ9",
+                          "name": "Fechar",
+                          "width": 20,
+                          "height": 20,
+                          "icon": "x",
+                          "library": "lucide",
+                          "fill": "$text-secondary"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TWPCg",
+                  "name": "Campo da nova intenção",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": "$space-2",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "KGogo",
+                      "name": "Rótulo do campo",
+                      "fill": "$text-primary",
+                      "content": "O que você quer aprender?",
                       "fontFamily": "$font-ui",
                       "fontSize": 14,
-                      "fontWeight": "normal"
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "biuAa",
+                      "name": "Intenção original editável",
+                      "width": "fill_container",
+                      "height": 144,
+                      "fill": "$raised",
+                      "cornerRadius": "$radius-control",
+                      "stroke": "$control-border",
+                      "strokeWidth": 1,
+                      "padding": "$space-4",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Jfu40",
+                          "name": "Intenção preenchida",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Quero automatizar tarefas do dia a dia e parar de fazer planilhas na mão com Python.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
                     }
                   ]
                 },
                 {
                   "type": "text",
-                  "id": "BEPhp",
-                  "name": "Preservação da proposta",
-                  "fill": "$text-muted",
+                  "id": "AGVXN",
+                  "name": "Aviso de substituição",
+                  "fill": "$text-secondary",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "Sua proposta atual fica disponível enquanto o Planejador prepara o ajuste.",
-                  "lineHeight": 1.45,
+                  "content": "Ao continuar, a proposta e as respostas anteriores serão substituídas por um novo planejamento.",
+                  "lineHeight": 1.5,
                   "fontFamily": "$font-ui",
                   "fontSize": 13,
                   "fontWeight": "normal"
                 },
                 {
                   "type": "frame",
-                  "id": "Y4VrsW",
-                  "name": "Ações do ajuste",
+                  "id": "Y4bcKL",
+                  "name": "Ação única do modal",
                   "width": "fill_container",
-                  "gap": "$space-3",
                   "justifyContent": "end",
                   "children": [
                     {
-                      "id": "tQiDG",
-                      "type": "ref",
-                      "ref": "CZw0W",
-                      "name": "Voltar à proposta",
-                      "descendants": {
-                        "o4tNAc": {
-                          "content": "Voltar à proposta"
-                        }
-                      }
-                    },
-                    {
-                      "id": "XfcxK",
+                      "id": "stlZL",
                       "type": "ref",
                       "ref": "ygtpy",
-                      "name": "Pedir ajuste",
+                      "name": "Iniciar planejamento",
                       "descendants": {
                         "G5Acqe": {
-                          "content": "Pedir ajuste"
+                          "content": "Iniciar planejamento"
                         }
                       }
                     }
@@ -85422,8 +85448,8 @@
     {
       "type": "frame",
       "id": "bzItW",
-      "x": 1910,
-      "y": -6548,
+      "x": 1426,
+      "y": -8297,
       "name": "05.2 Planejador · proposta · Grafo",
       "clip": true,
       "width": 1440,
@@ -86043,11 +86069,11 @@
                     {
                       "type": "text",
                       "id": "iQYnj",
-                      "name": "Orientação para ajustar",
+                      "name": "Orientação para reiniciar",
                       "fill": "$text-secondary",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Quer incluir, remover ou trocar uma habilidade? Use Ajustar e conte o que deseja mudar.",
+                      "content": "Quer mudar as habilidades ou o foco? Reinicie o planejamento com uma nova intenção.",
                       "lineHeight": 1.45,
                       "fontFamily": "$font-ui",
                       "fontSize": 13,
@@ -86082,9 +86108,10 @@
                               "id": "GCeWc",
                               "type": "ref",
                               "ref": "RaoIi",
+                              "name": "Reiniciar planejamento",
                               "descendants": {
                                 "vC77H": {
-                                  "content": "Ajustar"
+                                  "content": "Reiniciar planejamento"
                                 }
                               }
                             },
@@ -86702,6 +86729,1287 @@
           "fontFamily": "$font-mono",
           "fontSize": 17,
           "fontWeight": "600"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "PTW9i",
+      "x": 1393,
+      "y": -9946,
+      "name": "Planner/LoadingStatus",
+      "reusable": true,
+      "width": 760,
+      "fill": "$surface-alt",
+      "cornerRadius": "$radius-card",
+      "stroke": "$divider",
+      "strokeWidth": 1,
+      "gap": "$space-3",
+      "padding": "$space-4",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon",
+          "id": "inEIX",
+          "name": "Spinner · rotação durante o processamento",
+          "width": 20,
+          "height": 20,
+          "icon": "loader-circle",
+          "library": "lucide",
+          "fill": "$jade-text"
+        },
+        {
+          "type": "frame",
+          "id": "E5Jdm",
+          "name": "Mensagem de processamento",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": "$space-1",
+          "children": [
+            {
+              "type": "text",
+              "id": "rrrWZ",
+              "name": "Estado atual",
+              "fill": "$text-primary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Montando sua proposta…",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-ui",
+              "fontSize": 15,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "ECUFY",
+              "name": "Informação de apoio",
+              "fill": "$text-secondary",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Estamos relacionando sua intenção às habilidades disponíveis.",
+              "lineHeight": 1.45,
+              "fontFamily": "$font-ui",
+              "fontSize": 13,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "CM4DZ",
+      "x": 2993,
+      "y": -9676,
+      "name": "05.2 Planner · analisando intenção",
+      "clip": true,
+      "width": 1440,
+      "height": 1077,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "HTxaY",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "FPLJN",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "oiE2F",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "XSnb0",
+                  "name": "Conteúdo do loading",
+                  "width": 760,
+                  "layout": "vertical",
+                  "gap": "$space-6",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lfAwm",
+                      "name": "Título da página",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Planeje seu objetivo",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-display",
+                      "fontSize": 36,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "tyTKE",
+                      "type": "ref",
+                      "ref": "o1vNm",
+                      "name": "Intenção preservada",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "BtkIk",
+                      "type": "ref",
+                      "ref": "PTW9i",
+                      "name": "Analisando seu objetivo…",
+                      "width": "fill_container",
+                      "descendants": {
+                        "rrrWZ": {
+                          "content": "Analisando seu objetivo…"
+                        },
+                        "ECUFY": {
+                          "content": "Estamos entendendo o que você quer alcançar."
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "o4cZto",
+                      "name": "Ação em processamento",
+                      "width": "fill_container",
+                      "justifyContent": "end",
+                      "children": [
+                        {
+                          "id": "D5mb9",
+                          "type": "ref",
+                          "ref": "ygtpy",
+                          "name": "Botão ocupado · impede envio duplicado",
+                          "opacity": 0.65,
+                          "descendants": {
+                            "G5Acqe": {
+                              "type": "frame",
+                              "id": "r1lPOh",
+                              "name": "Conteúdo do botão ocupado",
+                              "gap": "$space-2",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "RIg6y",
+                                  "name": "Spinner do botão",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "loader-circle",
+                                  "library": "lucide",
+                                  "fill": "$on-selo"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "w2M6n",
+                                  "name": "Rótulo ocupado",
+                                  "fill": "$on-selo",
+                                  "content": "Analisando…",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "NmsmF",
+      "x": 4593,
+      "y": -9676,
+      "name": "05.3 Planner · preparando próximo passo",
+      "clip": true,
+      "width": 1440,
+      "height": 1077,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "t03Jx",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "s6ypdK",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "Rpd3K",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "bhGnU",
+                  "name": "Conteúdo do loading",
+                  "width": 760,
+                  "layout": "vertical",
+                  "gap": "$space-6",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kJCan",
+                      "name": "Título da página",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Planeje seu objetivo",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-display",
+                      "fontSize": 36,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "CQ55w",
+                      "type": "ref",
+                      "ref": "o1vNm",
+                      "name": "Intenção preservada",
+                      "width": "fill_container"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XMymX",
+                      "name": "Respostas enviadas",
+                      "width": "fill_container",
+                      "fill": "$raised",
+                      "cornerRadius": "$radius-card",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": "$space-4",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "i7XA4",
+                          "name": "Resumo das respostas",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Suas respostas",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "WUZdd",
+                          "name": "Experiência declarada",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Já copiei e adaptei alguns scripts.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "V8oDz",
+                          "name": "Uso desejado",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Quero automatizar planilhas e tarefas repetitivas.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "AZQOe",
+                      "type": "ref",
+                      "ref": "PTW9i",
+                      "name": "Preparando o próximo passo…",
+                      "width": "fill_container",
+                      "descendants": {
+                        "rrrWZ": {
+                          "content": "Preparando o próximo passo…"
+                        },
+                        "ECUFY": {
+                          "content": "Suas respostas foram enviadas. Estamos verificando o que falta esclarecer."
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qWKDr",
+                      "name": "Ação em processamento",
+                      "width": "fill_container",
+                      "justifyContent": "end",
+                      "children": [
+                        {
+                          "id": "aRz5c",
+                          "type": "ref",
+                          "ref": "ygtpy",
+                          "name": "Botão ocupado · impede envio duplicado",
+                          "opacity": 0.65,
+                          "descendants": {
+                            "G5Acqe": {
+                              "type": "frame",
+                              "id": "TC9ia",
+                              "name": "Conteúdo do botão ocupado",
+                              "gap": "$space-2",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "yVEqw",
+                                  "name": "Spinner do botão",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "loader-circle",
+                                  "library": "lucide",
+                                  "fill": "$on-selo"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "kpAfW",
+                                  "name": "Rótulo ocupado",
+                                  "fill": "$on-selo",
+                                  "content": "Processando…",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "nKwq9",
+      "x": 6193,
+      "y": -9676,
+      "name": "05.4 Planner · montando proposta",
+      "clip": true,
+      "width": 1440,
+      "height": 1077,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "Z0LxXj",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "Hyqyl",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "biqkx",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "i89OT",
+                  "name": "Conteúdo do loading",
+                  "width": 760,
+                  "layout": "vertical",
+                  "gap": "$space-6",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "rTUuW",
+                      "name": "Título da página",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Planeje seu objetivo",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-display",
+                      "fontSize": 36,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "xEfM9",
+                      "type": "ref",
+                      "ref": "o1vNm",
+                      "name": "Intenção preservada",
+                      "width": "fill_container"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "aYDX1",
+                      "name": "Respostas enviadas",
+                      "width": "fill_container",
+                      "fill": "$raised",
+                      "cornerRadius": "$radius-card",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "padding": "$space-4",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "c8qbX",
+                          "name": "Resumo das respostas",
+                          "fill": "$text-muted",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Suas respostas",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "moQiw",
+                          "name": "Experiência declarada",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Já copiei e adaptei alguns scripts.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "V34trC",
+                          "name": "Uso desejado",
+                          "fill": "$text-primary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Quero automatizar planilhas e tarefas repetitivas.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 15,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "AqqGO",
+                      "type": "ref",
+                      "ref": "PTW9i",
+                      "name": "Montando sua proposta…",
+                      "width": "fill_container",
+                      "descendants": {
+                        "rrrWZ": {
+                          "content": "Montando sua proposta…"
+                        },
+                        "ECUFY": {
+                          "content": "Estamos selecionando habilidades para o seu objetivo."
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "WdITm",
+                      "name": "Ação em processamento",
+                      "width": "fill_container",
+                      "justifyContent": "end",
+                      "children": [
+                        {
+                          "id": "QzbCJ",
+                          "type": "ref",
+                          "ref": "ygtpy",
+                          "name": "Botão ocupado · impede envio duplicado",
+                          "opacity": 0.65,
+                          "descendants": {
+                            "G5Acqe": {
+                              "type": "frame",
+                              "id": "qGbL4",
+                              "name": "Conteúdo do botão ocupado",
+                              "gap": "$space-2",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "t4oJZf",
+                                  "name": "Spinner do botão",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "loader-circle",
+                                  "library": "lucide",
+                                  "fill": "$on-selo"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "YTvhu",
+                                  "name": "Rótulo ocupado",
+                                  "fill": "$on-selo",
+                                  "content": "Montando proposta…",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "SU4H8",
+      "x": 7793,
+      "y": -9676,
+      "name": "05.5 Planner · reinício · analisando nova intenção",
+      "context": "Depois de enviar o modal, o novo fluxo considera somente a nova intenção; respostas e proposta anteriores descartadas.",
+      "clip": true,
+      "width": 1440,
+      "height": 1180,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "u7R7NC",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "r5nLMi",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "uZbT6",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "justifyContent": "center",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Tbksq",
+                  "name": "Novo planejamento em processamento",
+                  "width": 760,
+                  "layout": "vertical",
+                  "gap": "$space-6",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "s5pUR",
+                      "name": "Título da página",
+                      "fill": "$text-primary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Planeje seu objetivo",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-display",
+                      "fontSize": 36,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "YEf0T",
+                      "type": "ref",
+                      "ref": "o1vNm",
+                      "name": "Intenção preservada",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "J4J6Qc",
+                      "type": "ref",
+                      "ref": "PTW9i",
+                      "name": "Analisando seu objetivo…",
+                      "width": "fill_container",
+                      "descendants": {
+                        "rrrWZ": {
+                          "content": "Analisando seu objetivo…"
+                        },
+                        "ECUFY": {
+                          "content": "Estamos entendendo o que você quer alcançar."
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Gx68J",
+                      "name": "Ação em processamento",
+                      "width": "fill_container",
+                      "justifyContent": "end",
+                      "children": [
+                        {
+                          "id": "ZIYdB",
+                          "type": "ref",
+                          "ref": "ygtpy",
+                          "name": "Botão ocupado · impede envio duplicado",
+                          "opacity": 0.65,
+                          "descendants": {
+                            "G5Acqe": {
+                              "type": "frame",
+                              "id": "Z6MJT",
+                              "name": "Conteúdo do botão ocupado",
+                              "gap": "$space-2",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "tspyR",
+                                  "name": "Spinner do botão",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "loader-circle",
+                                  "library": "lucide",
+                                  "fill": "$on-selo"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "vo0dv",
+                                  "name": "Rótulo ocupado",
+                                  "fill": "$on-selo",
+                                  "content": "Analisando…",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 14,
+                                  "fontWeight": "600"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "BswO3",
+      "x": 9393,
+      "y": -9676,
+      "name": "05.6 Planner · criando objetivo",
+      "clip": true,
+      "width": 1440,
+      "height": 1180,
+      "fill": "$page",
+      "children": [
+        {
+          "type": "frame",
+          "id": "fKJBF",
+          "name": "main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "IOhEH",
+              "type": "ref",
+              "ref": "h7fGzC",
+              "width": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "xpZ0q",
+              "name": "content",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "padding": 40,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "o6Be3",
+                  "name": "col",
+                  "width": 1152,
+                  "layout": "vertical",
+                  "gap": 20,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jLFe1",
+                      "fill": "$text-primary",
+                      "content": "Revise seu objetivo",
+                      "fontFamily": "$font-display",
+                      "fontSize": 36,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "mfm6k",
+                      "type": "ref",
+                      "ref": "PTW9i",
+                      "name": "Criando seu objetivo…",
+                      "width": "fill_container",
+                      "descendants": {
+                        "rrrWZ": {
+                          "content": "Criando seu objetivo…"
+                        },
+                        "ECUFY": {
+                          "content": "Estamos salvando o objetivo e as habilidades que você confirmou."
+                        }
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "id": "QXqD9",
+                      "name": "Orientação da proposta",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Esta proposta considera o que você quer alcançar e as respostas deste planejamento.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "u6i4Vx",
+                      "type": "ref",
+                      "ref": "i5Xxa3",
+                      "opacity": 0.6,
+                      "width": "fill_container",
+                      "descendants": {
+                        "wXoV3": {
+                          "content": "Título"
+                        },
+                        "i3RUyA": {
+                          "content": "Automatizar tarefas do dia a dia com Python",
+                          "fill": "$text-primary"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "VjFWR",
+                      "name": "description",
+                      "opacity": 0.6,
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Jjin1",
+                          "fill": "$text-secondary",
+                          "content": "Descrição",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ddKOm",
+                          "width": "fill_container",
+                          "height": 88,
+                          "fill": "$raised",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$control-border",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "padding": [
+                            14,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "aUUAh",
+                              "fill": "$text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Quero parar de fazer planilha na mão e escrever scripts que resolvam isso por mim.",
+                              "lineHeight": 1.45,
+                              "fontFamily": "$font-ui",
+                              "fontSize": 15,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "J9ST20",
+                      "name": "Cabeçalho das habilidades sugeridas",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": "$space-2",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "lbI4E",
+                          "name": "Habilidades sugeridas e modos de visualização",
+                          "width": "fill_container",
+                          "gap": "$space-6",
+                          "justifyContent": "space_between",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "GdodB",
+                              "name": "Título das habilidades",
+                              "fill": "$text-primary",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Habilidades sugeridas",
+                              "lineHeight": 1.45,
+                              "fontFamily": "$font-ui",
+                              "fontSize": 18,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "FICyP",
+                              "name": "Visualização da proposta · Lista selecionada",
+                              "fill": "$raised",
+                              "cornerRadius": "$radius-control",
+                              "gap": 4,
+                              "padding": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "bYOZn",
+                                  "name": "t2",
+                                  "height": 44,
+                                  "cornerRadius": "$radius-control",
+                                  "padding": [
+                                    6,
+                                    12
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "kVCpo",
+                                      "fill": "$text-muted",
+                                      "content": "Grafo",
+                                      "fontFamily": "$font-ui",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Ihtgt",
+                                  "name": "t1",
+                                  "height": 44,
+                                  "fill": "$surface",
+                                  "cornerRadius": "$radius-control",
+                                  "padding": [
+                                    6,
+                                    12
+                                  ],
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "y3kU1G",
+                                      "fill": "$text-primary",
+                                      "content": "Lista",
+                                      "fontFamily": "$font-ui",
+                                      "fontSize": 13,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "I6b6cE",
+                          "name": "Relação entre as habilidades",
+                          "fill": "$text-secondary",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "As três habilidades se complementam. Você escolhe por onde começar.",
+                          "lineHeight": 1.45,
+                          "fontFamily": "$font-ui",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "yWhvZ",
+                      "name": "skills-proposed",
+                      "width": "fill_container",
+                      "fill": "$surface-alt",
+                      "cornerRadius": "$radius-card",
+                      "stroke": "$divider",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "padding": 6,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "VckzA",
+                          "width": "fill_container",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$divider",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "strokeAlignment": "inner",
+                          "strokeLinejoin": "round",
+                          "gap": 14,
+                          "padding": [
+                            14,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "FJKyH",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$jade-tint",
+                              "cornerRadius": "$radius-control",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "v08ziy",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "code",
+                                  "library": "lucide",
+                                  "fill": "$jade-text"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dctok",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "rBGn1",
+                                  "fill": "$text-primary",
+                                  "content": "Lógica de programação",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 15,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "qMWWU",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Você já adaptou scripts. Esta habilidade ajuda a entender a sequência de passos e as decisões por trás deles.",
+                                  "lineHeight": 1.45,
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Pm8xL",
+                          "width": "fill_container",
+                          "cornerRadius": "$radius-control",
+                          "stroke": "$divider",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "strokeAlignment": "inner",
+                          "strokeLinejoin": "round",
+                          "gap": 14,
+                          "padding": [
+                            14,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "B0GcIg",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$jade-tint",
+                              "cornerRadius": "$radius-control",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "O6OQcr",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "terminal",
+                                  "library": "lucide",
+                                  "fill": "$jade-text"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dRA9g",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "zGl77",
+                                  "fill": "$text-primary",
+                                  "content": "Python essencial",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 15,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "WjN6c",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Para escrever seus próprios scripts em Python: variáveis, funções e manipulação de dados.",
+                                  "lineHeight": 1.45,
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o6YgH",
+                          "width": "fill_container",
+                          "cornerRadius": "$radius-control",
+                          "gap": 14,
+                          "padding": [
+                            14,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "sf9q0",
+                              "width": 34,
+                              "height": 34,
+                              "fill": "$jade-tint",
+                              "cornerRadius": "$radius-control",
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "DWjRk",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "table",
+                                  "library": "lucide",
+                                  "fill": "$jade-text"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "wRW5z",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "rXVhv",
+                                  "fill": "$text-primary",
+                                  "content": "Automação de arquivos e planilhas",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 15,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "gy1Ua",
+                                  "fill": "$text-secondary",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas.",
+                                  "lineHeight": 1.45,
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "WN0Jl",
+                      "name": "Orientação para reiniciar",
+                      "fill": "$text-secondary",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Quer mudar as habilidades ou o foco? Reinicie o planejamento com uma nova intenção.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-ui",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "L3MND",
+                      "name": "nav",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "rZEXu",
+                          "type": "ref",
+                          "ref": "CZw0W",
+                          "opacity": 0.4,
+                          "descendants": {
+                            "o4tNAc": {
+                              "content": "Cancelar"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zR8Xj",
+                          "name": "navR",
+                          "gap": 10,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "dOQmg",
+                              "type": "ref",
+                              "ref": "RaoIi",
+                              "opacity": 0.4,
+                              "name": "Reiniciar planejamento",
+                              "descendants": {
+                                "vC77H": {
+                                  "content": "Reiniciar planejamento"
+                                }
+                              }
+                            },
+                            {
+                              "id": "OhcZT",
+                              "type": "ref",
+                              "ref": "ygtpy",
+                              "opacity": 0.65,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "M8t8Tg",
+                                  "name": "Botão ocupado com spinner",
+                                  "gap": "$space-2",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "d8QRb",
+                                      "name": "Spinner do botão",
+                                      "width": 16,
+                                      "height": 16,
+                                      "icon": "loader-circle",
+                                      "library": "lucide",
+                                      "fill": "$on-selo"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "vBRBy",
+                                      "name": "Rótulo do botão ocupado",
+                                      "fill": "$on-selo",
+                                      "content": "Criando objetivo…",
+                                      "fontFamily": "$font-ui",
+                                      "fontSize": 14,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     }
