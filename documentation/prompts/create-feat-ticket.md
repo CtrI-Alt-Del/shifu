@@ -30,6 +30,16 @@ refactor-only, management, PRD-authoring, or business-rules ticket.
    its implementation dependency.
 6. Do not create a Logical Task, Bug, Refactor ticket, Management Task, Epic,
    or child task as an implicit side effect.
+7. Resolve and read the candidate Epics in Jira. Every feature ticket must have
+   the most appropriate existing Epic as its parent, based on the owning module,
+   feature outcome, and delivery scope. Present the recommended Epic for approval;
+   do not use a Story or Task as the parent. If no suitable Epic exists, surface
+   the missing parent instead of silently creating an Epic or a parentless ticket.
+8. A ticket may block only User Stories. Verify each proposed blocked issue's
+   actual Jira type, including the project's localized Story type. Never create
+   a `blocks` relationship targeting an Epic, Dev Task, or another non-Story type.
+   Parent hierarchy and blocking dependencies are separate: the Epic is the
+   parent; affected User Stories are the blocked issues.
 
 ## Grilling protocol
 
@@ -64,7 +74,8 @@ confirmation. Do not draft or publish before that confirmation.
 Then show the complete draft—summary, project, issue type, sprint, assignee or
 explicitly unassigned status, description, fields, PRD URL/IDs, and every
 planned Jira issue link with its exact direction—and ask for explicit approval
-of that exact draft. Only after approval create the issue, add the approved
+of that exact draft. Include the parent Epic's key and title in the shared
+understanding and the complete draft. Only after approval create the issue, add the approved
 Jira issue links, read the issue back, and report any difference.
 
 ## Ticket contract
@@ -95,6 +106,7 @@ ao plano e à avaliação da entrega.
 ## 🔗 Rastreabilidade
 
 - PRD: <URL canônica, content ID/version, and RP/JN IDs>
+- Epic parent: <key e título do épico mais apropriado>
 - Jira: <issue relacionada, tipo do vínculo e direção, ou "N/A">
 
 ## 🚫 Fora de Escopo
@@ -109,7 +121,9 @@ Liste as exclusões e trabalhos posteriores.
 - [ ] Escopo e exclusões definidos
 - [ ] Critérios de aceitação verificáveis definidos
 - [ ] Validação e evidências esperadas definidas
+- [ ] Epic parent verificado como o mais apropriado para a entrega
 - [ ] Dependências Jira e direção dos vínculos definidas
+- [ ] Todos os destinos de vínculos `blocks` verificados como User Stories
 - [ ] Sprint selecionada
 - [ ] Responsável atribuído ou decisão explícita de deixar sem atribuição
 ```
@@ -118,6 +132,10 @@ Set `project=SHIFU`, the explicitly selected valid `Story` or `Task`, the
 explicitly selected sprint, and, when requested, the explicitly selected
 assignable account. Omit `assignee` when the user explicitly chooses to leave
 the ticket unassigned.
+Set `parent` to the approved Epic's key after verifying its Jira type is Epic.
+Before adding each approved `blocks` link, verify the target is a User Story
+and the new ticket is the blocker. Do not substitute a different parent or
+blocked issue when Jira rejects an approved value; report the mismatch.
 Keep Jira validation outcome-oriented: name the relevant test boundaries and
 manual evidence, but do not expand them into repository command lists.
 Set `Requisito` (`customfield_10452`) as a required field containing the exact
@@ -126,7 +144,8 @@ do not substitute a Spec, technical design, operational reference, or another
 URL. Do not create the feature ticket without it.
 
 After creation, verify issue type, description, sprint, assignee or unassigned
-status, PRD URL/IDs, every approved Jira issue link and its direction, and that
+status, the parent Epic's key and type, PRD URL/IDs, every approved Jira issue
+link and its direction, that every blocked issue is a User Story, and that
 `Requisito` contains the exact canonical Confluence PRD URL. Report the
 `SHIFU-*` key and URL. Creating the ticket must not change product requirements
 or local SDD state.

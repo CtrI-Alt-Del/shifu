@@ -381,16 +381,21 @@ not need to boot a real TanStack Router.
 Actual URL transitions, route loading, history behavior, and rendered destination
 pages belong to integration tests with the router configured.
 
-Route integration tests live under `apps/web/tests`, use the configured Playwright
-fixture with mocked transport, and must assert more than a successful HTTP stub.
-For each critical route flow, assert the final URL, visible destination state,
-protected redirect, and the outgoing request method/path/query/body that proves
-the UI-to-API contract. This mocked route coverage must not be confused with the
-explicit HTTP-handler integration suites outside `apps/web/tests/routes/`, which may
-use the local FastAPI service and real database state to verify a registered handler's
-HTTP, cookie, and persistence boundary. Neither suite replaces the widget tests'
-real composition coverage. Do not count a test as end-to-end if it never exercises
-the route's actual loader, middleware, or rendered destination.
+Page and Layout route integration suites live under the owning module directory,
+`apps/web/tests/<module>/`, in the single browser integration file named after
+the Page or Layout widget. They use the configured Playwright fixture with mocked
+transport and must assert more than a successful HTTP stub. For each critical
+route flow, assert the final URL, visible destination state, protected redirect,
+and outgoing request method/path/query/body that proves the UI-to-API contract.
+
+HTTP API integration suites are a separate boundary and may use the local
+FastAPI service and real database state to verify a registered handler's HTTP,
+cookie, and persistence contract. Keep them in their owning module directory as
+well, but name them with `-api-` (for example,
+`tests/identity/sign-in-auth-api.test.ts`), not as Page or Layout route coverage.
+Neither suite replaces the widget tests' real composition coverage.
+Do not count a test as route integration if it never exercises the actual route
+loader, middleware, or rendered destination.
 
 ## Completion criteria for a widget test suite
 

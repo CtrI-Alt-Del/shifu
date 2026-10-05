@@ -235,6 +235,10 @@ The first directory is the domain module that owns the Page or Layout, not a
 translation of the URL segment. Shared application layouts belong to `shared`.
 This keeps browser tests aligned with `documentation/modules.md` and prevents a
 URL rename or localization from moving tests between unrelated technical areas.
+The module directory may also contain HTTP-handler integration suites, but
+those are named and counted by their handler boundary; they do not replace or
+count as the Page or Layout's browser integration file. See
+`widget-testing-rules.md` for the distinction between these suites.
 
 These are browser integration tests with mocked transport, not backend end-to-end
 tests. Page and Layout suites under `apps/web/tests/<module>/` must never start,
