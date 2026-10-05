@@ -1,56 +1,53 @@
+import {
+  ChoiceActivityDetailFaker,
+  ChoiceAttemptDetailFaker,
+  ChoiceQuestionFaker,
+  ChoiceResultQuestionFaker,
+  LearningRouteIdsFaker,
+} from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const ids = {
-  goalId: '01SHF000000000000000000003',
-  skillId: '01SHF000000000000000000004',
-  competencyId: '01SHF000000000000000000001',
-  activityId: '01SHF000000000000000000005',
-  attemptId: '01SHF000000000000000000009',
-  nextCompetencyId: '01SHF000000000000000000002',
-  nextActivityId: '01SHF000000000000000000010',
-}
+const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
 const competencyPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}`
 const attemptPath = `${activityPath}/attempts/${ids.attemptId}`
-const activity = {
+const activity = ChoiceActivityDetailFaker.fake({
   activityId: ids.activityId,
   title: 'Somar os números pares',
-  difficulty: 'medium',
-  canSubmit: true,
   latestAttemptId: ids.attemptId,
-  unresolvedAttemptId: null,
   questions: [
-    {
+    ChoiceQuestionFaker.fake({
       key: 'q1',
-      kind: 'single_choice',
       prompt: 'Qual é o resultado?',
       options: [
         { key: 'a', text: '4' },
         { key: 'b', text: '6' },
         { key: 'c', text: '8' },
       ],
-    },
+    }),
   ],
-}
-const completedAttempt = {
+})
+const completedAttempt = ChoiceAttemptDetailFaker.fake({
   attemptId: ids.attemptId,
   activityId: ids.activityId,
   status: 'completed',
   submittedAt: '2026-09-23T12:00:00Z',
-  retryAllowed: false,
   score: 0,
   progressBefore: 9,
   progressAfter: 3,
   statusAfter: 'learning',
   questions: [
-    {
-      key: 'q1',
-      prompt: 'Qual é o resultado?',
-      submittedOptionKeys: ['b'],
-      score: 0,
-      isCorrect: false,
-      explanation: 'A soma correta não foi selecionada.',
-    },
+    ChoiceResultQuestionFaker.fake(
+      {
+        key: 'q1',
+        prompt: 'Qual é o resultado?',
+        submittedOptionKeys: ['b'],
+        score: 0,
+        isCorrect: false,
+        explanation: 'A soma correta não foi selecionada.',
+      },
+      { revealCorrectOptionKeys: false },
+    ),
   ],
   nextAction: {
     competencyId: ids.nextCompetencyId,
@@ -58,7 +55,7 @@ const completedAttempt = {
     difficulty: 'easy',
     type: 'reinforcement',
   },
-}
+})
 
 function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
@@ -88,9 +85,9 @@ const adaptiveDetail = {
   coverageComplete: false,
   verificationCause: null,
   adaptive: {
-    targetConceptId: '01SHF000000000000000000011',
+    targetConceptId: ids.targetConceptId,
     targetConceptName: 'Laços',
-    originalTargetConceptId: '01SHF000000000000000000011',
+    originalTargetConceptId: ids.targetConceptId,
     originalTargetConceptName: 'Laços',
     recommendedCompetencyId: ids.nextCompetencyId,
     materialCompetencyId: ids.nextCompetencyId,
@@ -105,9 +102,10 @@ const adaptiveDetail = {
 
 test('renders actual result route from safe Activity and Attempt contracts, protects hidden labels, and opens the recommendation', async ({
   authenticatedPage,
+  bff,
 }) => {
   const calls: Array<{ url: string; body: string }> = []
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const url = route.request().url()
     const body = route.request().postData() ?? ''
     const payload = decodeURIComponent(`${url} ${body}`)
@@ -197,6 +195,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
 
 test('renders mixed official details as independent keyboard-accessible disclosures', async ({
   authenticatedPage,
+  bff,
 }) => {
   await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
   const mixedActivity = {
@@ -220,7 +219,15 @@ test('renders mixed official details as independent keyboard-accessible disclosu
     ...completedAttempt,
     score: 37.5,
     questions: [
-      completedAttempt.questions[0],
+      completedAttempt.questions?.[0] ??
+        ChoiceResultQuestionFaker.fake({
+          key: 'q1',
+          prompt: 'Qual é o resultado?',
+          submittedOptionKeys: ['b'],
+          score: 0,
+          isCorrect: false,
+          explanation: 'A soma correta não foi selecionada.',
+        }),
       {
         key: 'code-1',
         kind: 'javascript_stdin',
@@ -243,7 +250,7 @@ test('renders mixed official details as independent keyboard-accessible disclosu
     ],
   }
 
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const body = route.request().postData() ?? ''
     const payload = decodeURIComponent(`${route.request().url()} ${body}`)
     if (payload.includes(ids.attemptId)) {
@@ -342,4 +349,214 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   await authenticatedPage
     .locator('main > main')
     .screenshot({ path: '/tmp/shifu-choice-result-expanded-mobile-current.png' })
+})
+
+test.describe('ChoiceResultPage route coverage', () => {
+  const ids = LearningRouteIdsFaker.fake()
+  const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
+  const attemptPath = `${activityPath}/attempts/${ids.attemptId}`
+  const activity = ChoiceActivityDetailFaker.fake({
+    activityId: ids.activityId,
+    title: 'Somar os números pares',
+    latestAttemptId: ids.attemptId,
+    unresolvedAttemptId: ids.attemptId,
+    questions: [
+      ChoiceQuestionFaker.fake({
+        key: 'q1',
+        prompt: 'Qual é o resultado?',
+        options: [
+          { key: 'a', text: '4' },
+          { key: 'b', text: '6' },
+        ],
+      }),
+    ],
+  })
+  const pending = ChoiceAttemptDetailFaker.fake({
+    attemptId: ids.attemptId,
+    activityId: ids.activityId,
+  })
+  const completed = ChoiceAttemptDetailFaker.fake({
+    attemptId: ids.attemptId,
+    activityId: ids.activityId,
+    status: 'completed',
+    score: 100,
+    progressBefore: 50,
+    progressAfter: 55,
+    questions: [
+      ChoiceResultQuestionFaker.fake({
+        key: 'q1',
+        prompt: 'Qual é o resultado?',
+        submittedOptionKeys: ['a'],
+        score: 100,
+        isCorrect: true,
+        explanation: 'A soma é 4.',
+      }),
+    ],
+  })
+
+  test.describe('Attempt index route', () => {
+    test('loads Activity and Attempt, announces pending, and refreshes immediately when visible', async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      let attemptReads = 0
+      const requestUrls: string[] = []
+      await bff.route(async (route) => {
+        const body = route.request().postData() ?? ''
+        const payload = decodeURIComponent(`${route.request().url()} ${body}`)
+        requestUrls.push(route.request().url())
+        if (payload.includes(ids.attemptId)) {
+          attemptReads += 1
+          await route.fulfill({
+            body: JSON.stringify({ result: pending }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        if (payload.includes(ids.activityId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: activity }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        await route.fallback()
+      })
+
+      await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+      await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
+      ).toBeVisible()
+      const pendingStatus = authenticatedPage
+        .getByRole('status')
+        .filter({ hasText: 'Estamos avaliando suas respostas.' })
+      await expect(pendingStatus).toHaveAttribute('aria-busy', 'true')
+      const indicator = pendingStatus.locator('[aria-hidden="true"] span')
+      await expect(indicator).toHaveCount(1)
+      await expect(indicator).toHaveCSS('animation-name', 'choice-result-pending-sweep')
+
+      await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+      await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
+      ).toBeVisible()
+      await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+      await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
+      ).toBeVisible()
+      await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+      await expect(indicator).toHaveCSS('animation-name', 'none')
+
+      await authenticatedPage.evaluate(() =>
+        document.dispatchEvent(new Event('visibilitychange')),
+      )
+      await expect.poll(() => attemptReads).toBeGreaterThan(1)
+      expect(requestUrls.length).toBeGreaterThanOrEqual(2)
+    })
+
+    test('retries a failed evaluation on the same attempt and renders the completed result', async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      let attemptUrl = ''
+      let retryUrl = ''
+      let attemptReads = 0
+      await bff.route(async (route) => {
+        const requestUrl = route.request().url()
+        const body = route.request().postData() ?? ''
+        const payload = decodeURIComponent(`${requestUrl} ${body}`)
+        if (payload.includes(ids.attemptId)) {
+          if (!attemptUrl) attemptUrl = requestUrl
+          if (requestUrl !== attemptUrl) {
+            retryUrl = requestUrl
+            await route.fulfill({
+              body: JSON.stringify({ result: { ok: true } }),
+              contentType: 'application/json',
+            })
+            return
+          }
+          attemptReads += 1
+          await route.fulfill({
+            body: JSON.stringify({
+              result:
+                attemptReads === 1
+                  ? {
+                      ...pending,
+                      status: 'failed',
+                      retryAllowed: true,
+                      failureMessage: 'A avaliação foi interrompida.',
+                    }
+                  : completed,
+            }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        if (payload.includes(ids.activityId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: activity }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        await route.fallback()
+      })
+
+      await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+      await expect(
+        authenticatedPage.getByRole('heading', {
+          name: 'A avaliação não pôde ser concluída',
+        }),
+      ).toBeVisible()
+      await authenticatedPage.getByRole('button', { name: 'Tentar novamente' }).click()
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+      ).toBeVisible()
+      await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+      await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
+      expect(retryUrl).not.toBe('')
+      expect(attemptReads).toBeGreaterThanOrEqual(2)
+    })
+
+    test('renders all completed details without a repeat shortcut', async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      await bff.route(async (route) => {
+        const body = route.request().postData() ?? ''
+        const payload = decodeURIComponent(`${route.request().url()} ${body}`)
+        if (payload.includes(ids.attemptId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: completed }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        if (payload.includes(ids.activityId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: activity }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        await route.fallback()
+      })
+
+      await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+      ).toBeVisible()
+      await expect(
+        authenticatedPage.getByLabel('Nota da Atividade 100 de 100'),
+      ).toBeVisible()
+      await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+      await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
+      await expect(
+        authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),
+      ).toHaveCount(0)
+      await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+    })
+  })
 })

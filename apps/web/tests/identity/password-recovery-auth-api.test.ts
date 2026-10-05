@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { Pool } from 'pg'
 
 import { expect, signInPassword, test } from '../playwright'
+import { IdentityEmailFaker } from '../../src/core/identity/fakers'
 
 const DATABASE_URL =
   process.env.BETTER_AUTH_DATABASE_URL ??
@@ -12,7 +13,10 @@ test.describe('same-origin password recovery auth handlers', () => {
   test('returns a generic result with an opaque context for an unknown address', async ({
     request,
   }, testInfo) => {
-    const email = `unknown-recovery-${testInfo.testId}@shifu.local`
+    const email = IdentityEmailFaker.fake({
+      domain: 'shifu.local',
+      suffix: testInfo.testId,
+    })
     const response = await request.post('/api/auth/password-recovery', {
       data: { email },
     })
@@ -35,6 +39,10 @@ test.describe('same-origin password recovery auth handlers', () => {
     const pool = new Pool({ connectionString: DATABASE_URL })
     const realContext = await browser.newContext()
     const decoyContext = await browser.newContext()
+    const decoyEmail = IdentityEmailFaker.fake({
+      domain: 'shifu.local',
+      suffix: testInfo.testId,
+    })
     const decoyIpAddress = '198.51.100.253'
     const startedAt = new Date()
 
@@ -45,7 +53,7 @@ test.describe('same-origin password recovery auth handlers', () => {
           headers: { 'x-forwarded-for': activeAccount.ipAddress },
         }),
         decoyContext.request.post('/api/auth/password-recovery', {
-          data: { email: `unknown-recovery-${testInfo.testId}@shifu.local` },
+          data: { email: decoyEmail },
           headers: { 'x-forwarded-for': decoyIpAddress },
         }),
       ])

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { Pool } from 'pg'
 
 import { expect, signInPassword, test } from '../playwright'
+import { IdentityEmailFaker } from '../../src/core/identity/fakers'
 
 const DATABASE_URL =
   process.env.BETTER_AUTH_DATABASE_URL ??
@@ -119,7 +120,10 @@ test.describe('same-origin sign-in auth handler', () => {
     request,
   }) => {
     const response = await request.post('/api/auth/sign-in/identity', {
-      data: { email: 'unknown@shifu.local', password: 'not-a-real-password' },
+      data: {
+        email: IdentityEmailFaker.fake({ domain: 'shifu.local' }),
+        password: 'not-a-real-password',
+      },
       headers: { 'x-forwarded-for': '10.0.0.254' },
     })
 

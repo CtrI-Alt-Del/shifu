@@ -1,13 +1,11 @@
+import {
+  AvailableMaterialDetailFaker,
+  LearningRouteIdsFaker,
+  UnavailableMaterialDetailFaker,
+} from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const IDS = {
-  activityId: '01SHF000000000000000000005',
-  competencyId: '01SHF000000000000000000001',
-  goalId: '01SHF000000000000000000003',
-  materialId: '01SHF000000000000000000006',
-  otherCompetencyId: '01SHF000000000000000000009',
-  skillId: '01SHF000000000000000000004',
-}
+const IDS = LearningRouteIdsFaker.fake()
 
 const competencyPath = `/learning/goals/${IDS.goalId}/skills/${IDS.skillId}/competencies/${IDS.competencyId}`
 const materialPath = `${competencyPath}/materials/${IDS.materialId}`
@@ -25,8 +23,7 @@ const MARKDOWN = [
   'Use `print` para inspecionar cada passo.',
 ].join('\n')
 
-const availableResponse = {
-  availability: 'available',
+const availableResponse = AvailableMaterialDetailFaker.fake({
   competencyId: IDS.competencyId,
   competencyName: 'Estruturas de repetição',
   content: MARKDOWN,
@@ -41,10 +38,9 @@ const availableResponse = {
   },
   skillId: IDS.skillId,
   skillName: 'Lógica de programação',
-}
+})
 
-const unavailableResponse = {
-  availability: 'unavailable',
+const unavailableResponse = UnavailableMaterialDetailFaker.fake({
   competencyId: IDS.competencyId,
   competencyName: 'Funções',
   focusCompetencyId: IDS.otherCompetencyId,
@@ -53,14 +49,15 @@ const unavailableResponse = {
   materialId: IDS.materialId,
   skillId: IDS.skillId,
   skillName: 'Lógica de programação',
-}
+})
 
 test('renders the official markdown and sends one typed RPC request', async ({
   authenticatedPage,
+  bff,
 }) => {
   let materialRequests = 0
   let requestUrl = ''
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.materialId)) {
       await route.fallback()
@@ -95,8 +92,9 @@ test('renders the official markdown and sends one typed RPC request', async ({
 
 test('does not interpret HTML embedded in the markdown', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -127,8 +125,9 @@ test('does not interpret HTML embedded in the markdown', async ({
 
 test('returns to the Competency of origin from the material', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const url = route.request().url()
     if (!url.includes(IDS.materialId) && !url.includes(IDS.competencyId)) {
       await route.fallback()
@@ -151,8 +150,9 @@ test('returns to the Competency of origin from the material', async ({
 
 test('opens the recommended Activity of the source Competency', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -177,8 +177,9 @@ test('opens the recommended Activity of the source Competency', async ({
 
 test('omits the recommendation block when the Competency has none', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -203,8 +204,9 @@ test('omits the recommendation block when the Competency has none', async ({
 
 test('restricts the content when the Competency is not released', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -228,8 +230,8 @@ test('restricts the content when the Competency is not released', async ({
   await expect(authenticatedPage.getByText('O laço percorre')).toHaveCount(0)
 })
 
-test('keeps a private absence generic', async ({ authenticatedPage }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+test('keeps a private absence generic', async ({ authenticatedPage, bff }) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -251,9 +253,10 @@ test('keeps a private absence generic', async ({ authenticatedPage }) => {
 
 test('replaces a recoverable error after one explicit retry', async ({
   authenticatedPage,
+  bff,
 }) => {
   let materialRequests = 0
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -304,8 +307,9 @@ test('redirects anonymous visitors before requesting the material', async ({ pag
 
 test('reaches the code block and the recommendation by keyboard', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return
@@ -334,9 +338,10 @@ test('reaches the code block and the recommendation by keyboard', async ({
 
 test('keeps a comfortable reading column on a narrow viewport', async ({
   authenticatedPage,
+  bff,
 }) => {
   await authenticatedPage.setViewportSize({ height: 812, width: 375 })
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
       return

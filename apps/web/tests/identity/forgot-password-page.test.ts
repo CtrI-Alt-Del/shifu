@@ -1,6 +1,7 @@
-import { expect, test } from '../../playwright'
+import { expect, test } from '../playwright'
 
-import { ROUTES } from '../../../src/constants/routes'
+import { ROUTES } from '../../src/constants/routes'
+import { IdentityEmailFaker } from '../../src/core/identity/fakers'
 
 test.describe('ForgotPasswordPage route with mocked transport', () => {
   test('renders the public request form without horizontal overflow on mobile', async ({
@@ -43,6 +44,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
   test('posts only the e-mail to the same-origin BFF and renders generic status', async ({
     page,
   }) => {
+    const email = IdentityEmailFaker.fake()
     let requestBody: unknown
     await page.route('**/api/auth/password-recovery', async (route) => {
       requestBody = route.request().postDataJSON()
@@ -62,17 +64,18 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
 
     await page.goto(`${ROUTES.forgotPassword}/`)
     await page.waitForLoadState('networkidle')
-    await page.getByRole('textbox', { name: 'E-mail' }).fill('ana@example.com')
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
 
     await expect(
       page.getByRole('heading', { name: 'Verifique seu e-mail' }),
     ).toBeVisible()
     await expect(page).toHaveURL(/\/forgot-password\/?$/)
-    expect(requestBody).toEqual({ email: 'ana@example.com' })
+    expect(requestBody).toEqual({ email })
   })
 
   test('offers a generic retry after a terminal delivery issue', async ({ page }) => {
+    const email = IdentityEmailFaker.fake()
     let statusCalls = 0
     await page.route('**/api/auth/password-recovery', async (route) => {
       await route.fulfill({
@@ -103,7 +106,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
 
     await page.goto(`${ROUTES.forgotPassword}/`)
     await page.waitForLoadState('networkidle')
-    await page.getByRole('textbox', { name: 'E-mail' }).fill('ana@example.com')
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
     await page.getByRole('button', { name: 'Tentar novamente' }).click()
 

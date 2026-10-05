@@ -1,5 +1,7 @@
 import { expect, test } from '../playwright'
 
+import { IdentityEmailFaker } from '../../src/core/identity/fakers'
+
 test.describe('SignInPage', () => {
   test('renders a public responsive form with canonical sibling links', async ({
     page,
@@ -39,6 +41,7 @@ test.describe('SignInPage', () => {
   test('maps a rejected auth-handler response to the generic alert and clears the password', async ({
     page,
   }) => {
+    const email = IdentityEmailFaker.fake()
     await page.route('**/api/auth/sign-in/identity', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'invalid credentials' }),
@@ -48,20 +51,19 @@ test.describe('SignInPage', () => {
     })
     await page.goto('/login/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('textbox', { name: 'E-mail' }).fill('learner@example.com')
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('textbox', { name: 'Senha' }).fill('wrong-password')
     await page.getByRole('button', { name: 'Entrar' }).click()
 
     await expect(page.getByRole('alert')).toHaveText('E-mail ou senha inválidos.')
-    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(
-      'learner@example.com',
-    )
+    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email)
     await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue('')
   })
 
   test('keeps both fields available after a recoverable auth-handler failure', async ({
     page,
   }) => {
+    const email = IdentityEmailFaker.fake()
     await page.route('**/api/auth/sign-in/identity', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'service unavailable' }),
@@ -71,16 +73,14 @@ test.describe('SignInPage', () => {
     })
     await page.goto('/login/')
     await page.waitForLoadState('networkidle')
-    await page.getByRole('textbox', { name: 'E-mail' }).fill('learner@example.com')
+    await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('textbox', { name: 'Senha' }).fill('correct-password')
     await page.getByRole('button', { name: 'Entrar' }).click()
 
     await expect(page.getByRole('alert')).toHaveText(
       'Não foi possível entrar agora. Tente novamente.',
     )
-    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(
-      'learner@example.com',
-    )
+    await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email)
     await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue(
       'correct-password',
     )

@@ -47,6 +47,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@faker-js/faker": "9.9.0",
     "@playwright/test": "1.63.0",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",

@@ -1,20 +1,27 @@
+import {
+  DiagnosticOverviewFaker,
+  DiagnosticRunIdFaker,
+  LearningRouteIdsFaker,
+  SkillExperienceDetailFaker,
+} from '@/core/learning/fakers'
+import type { BffFixtureContract } from '../fixtures/bff-fixture'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
+const routeIds = LearningRouteIdsFaker.fake()
 const IDS = {
-  goalId: '01SHF000000000000000000003',
-  skillId: '01SHF000000000000000000004',
-  masteredCompetencyId: '01SHF000000000000000000001',
-  focusCompetencyId: '01SHF000000000000000000002',
-  blockedCompetencyId: '01SHF000000000000000000009',
-  activityId: '01SHF000000000000000000005',
-  attemptId: '01SHF000000000000000000007',
-  evaluationId: '01SHF000000000000000000008',
+  goalId: routeIds.goalId,
+  skillId: routeIds.skillId,
+  masteredCompetencyId: routeIds.nextCompetencyId,
+  focusCompetencyId: routeIds.competencyId,
+  blockedCompetencyId: routeIds.otherCompetencyId,
+  activityId: routeIds.activityId,
+  attemptId: routeIds.attemptId,
+  evaluationId: routeIds.evaluationId,
 }
 
 const skillPath = `/learning/goals/${IDS.goalId}/skills/${IDS.skillId}`
 
-const diagnosticResponse = {
-  status: 'learning',
+const diagnosticResponse = DiagnosticOverviewFaker.fake({
   runState: 'settled',
   readyToComplete: false,
   nextCompetencyId: null,
@@ -23,8 +30,8 @@ const diagnosticResponse = {
   pendingAttemptStatus: null,
   activitySequence: [
     {
-      competencyId: '01SHF000000000000000000002',
-      activityId: '01SHF000000000000000000005',
+      competencyId: IDS.focusCompetencyId,
+      activityId: IDS.activityId,
     },
   ],
   focusCompetencyId: IDS.focusCompetencyId,
@@ -32,9 +39,9 @@ const diagnosticResponse = {
   overallCoverageComplete: true,
   directCompletion: false,
   competencies: [],
-}
+})
 
-const experienceResponse = {
+const experienceResponse = SkillExperienceDetailFaker.fake({
   goalId: IDS.goalId,
   skillId: IDS.skillId,
   skillName: 'Lógica de programação',
@@ -89,7 +96,7 @@ const experienceResponse = {
   },
   recommendationGap: null,
   evaluation: null,
-}
+})
 
 type Overrides = { experience?: Record<string, unknown> }
 
@@ -104,11 +111,8 @@ function serverFnExport(url: string) {
   }
 }
 
-async function mockTransport(
-  page: Parameters<typeof navigateAuthenticatedPage>[0],
-  overrides: Overrides = {},
-) {
-  await page.route('**/_serverFn/**', async (route) => {
+async function mockTransport(bff: BffFixtureContract, overrides: Overrides = {}) {
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
 
     if (exported.startsWith('getSkillExperienceAction')) {
@@ -158,8 +162,9 @@ async function mockTransport(
 
 test('renders the Skill experience with its result, focus and recommendation', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
@@ -179,13 +184,14 @@ test('renders the Skill experience with its result, focus and recommendation', a
 
 test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', async ({
   authenticatedPage,
+  bff,
 }) => {
-  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
+  const diagnosticRunId = DiagnosticRunIdFaker.fake()
   let diagnosticRequests = 0
   let startRequests = 0
   let startBody = ''
-  await mockTransport(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await mockTransport(bff)
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getDiagnosticAction')) {
       diagnosticRequests += 1
@@ -281,9 +287,10 @@ test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', 
 
 test('submits the diagnostic once as a complete batch and opens its consolidated result', async ({
   authenticatedPage,
+  bff,
 }) => {
-  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
-  const submissionAttemptId = '01SHF000000000000000000007'
+  const diagnosticRunId = DiagnosticRunIdFaker.fake()
+  const submissionAttemptId = IDS.attemptId
   let diagnosticRequests = 0
   let startBody = ''
   let activityGetPayload = ''
@@ -294,8 +301,8 @@ test('submits the diagnostic once as a complete batch and opens its consolidated
   let previewRequests = 0
   let evaluationReady = false
   let completionRequested = false
-  await mockTransport(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await mockTransport(bff)
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('startSkillAction')) {
       startBody = route.request().postData() ?? ''
@@ -492,8 +499,9 @@ test('submits the diagnostic once as a complete batch and opens its consolidated
 
 test('opens a released Competency and keeps the identifiers of the route', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
@@ -504,8 +512,9 @@ test('opens a released Competency and keeps the identifiers of the route', async
 
 test('keeps a blocked Competency on the page and explains the requirement', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
@@ -520,8 +529,9 @@ test('keeps a blocked Competency on the page and explains the requirement', asyn
 
 test('continues the recommended Activity with all four identifiers', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
@@ -538,8 +548,9 @@ test('continues the recommended Activity with all four identifiers', async ({
 
 test('omits the recommendation block when the focus has none', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage, { experience: { recommendation: null } })
+  await mockTransport(bff, { experience: { recommendation: null } })
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
@@ -551,8 +562,9 @@ test('omits the recommendation block when the focus has none', async ({
 
 test('pauses new attempts while an evaluation is running', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage, {
+  await mockTransport(bff, {
     experience: {
       recommendation: null,
       evaluation: {
@@ -578,8 +590,9 @@ test('pauses new attempts while an evaluation is running', async ({
 
 test('recovers a failed evaluation without hiding the released content', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage, {
+  await mockTransport(bff, {
     experience: {
       recommendation: null,
       evaluation: {
@@ -607,8 +620,9 @@ test('recovers a failed evaluation without hiding the released content', async (
 
 test('is operable by keyboard and has no horizontal scroll on a narrow viewport', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
   await authenticatedPage.setViewportSize({ height: 812, width: 375 })
 
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
@@ -626,11 +640,12 @@ test('is operable by keyboard and has no horizontal scroll on a narrow viewport'
 
 test('removes the Skill once and returns to the same Objective graph', async ({
   authenticatedPage,
+  bff,
 }) => {
   let removalRequests = 0
   let removed = false
-  await mockTransport(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await mockTransport(bff)
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getGoalDetail') && removed) {
       await route.fulfill({
@@ -685,12 +700,13 @@ test('removes the Skill once and returns to the same Objective graph', async ({
 
 test('cancels with Escape, restores focus and retries a failed removal on mobile', async ({
   authenticatedPage,
+  bff,
 }) => {
   let removalRequests = 0
   let removed = false
-  await mockTransport(authenticatedPage)
+  await mockTransport(bff)
   await authenticatedPage.setViewportSize({ width: 390, height: 844 })
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getGoalDetail') && removed) {
       await route.fulfill({

@@ -1,8 +1,7 @@
-import { expect, test } from '../../playwright'
+import { expect, test } from '../playwright'
 
-import { ROUTES } from '../../../src/constants/routes'
-
-const validToken = 'a'.repeat(43)
+import { ROUTES } from '../../src/constants/routes'
+import { IdentityActionTokenFaker } from '../../src/core/identity/fakers'
 
 test.describe('ResetPasswordPage route with mocked transport', () => {
   test('removes a malformed token from the URL and shows a generic invalid outcome', async ({
@@ -23,6 +22,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   test('resolves a valid link through the BFF after removing it from the URL', async ({
     page,
   }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     let statusRequestBody: unknown
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       statusRequestBody = route.request().postDataJSON()
@@ -41,6 +41,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   })
 
   test('shows an expired outcome before rendering the reset form', async ({ page }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'expired' }),
@@ -58,6 +59,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   test('automatically navigates to the BFF-provided sign-in destination after reset', async ({
     page,
   }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'valid' }),
@@ -86,6 +88,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   })
 
   test('offers a new request for an already-used link', async ({ page }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'used' }),
@@ -103,6 +106,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   test('keeps the reset flow recoverable when the BFF is unavailable', async ({
     page,
   }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'unavailable' }),

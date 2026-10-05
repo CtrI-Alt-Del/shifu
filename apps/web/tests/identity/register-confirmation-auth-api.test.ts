@@ -1,6 +1,11 @@
 import { Pool } from 'pg'
 
 import { expect, signInPassword, test } from '../playwright'
+import {
+  IdentityActionTokenFaker,
+  IdentityEmailFaker,
+  IdentityRegistrationDataFaker,
+} from '../../src/core/identity/fakers'
 
 const DATABASE_URL =
   process.env.BETTER_AUTH_DATABASE_URL ??
@@ -10,18 +15,22 @@ test.describe('same-origin registration confirmation auth handlers', () => {
   test('creates a pending handoff and preserves its cooldown through the BFF', async ({
     request,
   }, testInfo) => {
-    const email = `registration-handler-${testInfo.parallelIndex}-${testInfo.retry}@shifu.local`
-    const registration = await request.post('/api/auth/register/identity', {
+    const registration = IdentityRegistrationDataFaker.fake({
+      email: IdentityEmailFaker.fake({
+        domain: 'shifu.local',
+        suffix: `${testInfo.parallelIndex}-${testInfo.retry}`,
+      }),
+    })
+    const response = await request.post('/api/auth/register/identity', {
       data: {
-        displayName: 'Registration Handler Learner',
-        email,
         password: 'shifu-test-password',
+        ...registration,
       },
     })
 
-    expect(registration.status()).toBe(200)
-    expect(await registration.json()).toEqual({ redirectTo: '/pending-confirmation' })
-    expect(registration.headers()['set-cookie']).toContain('shifu-pending-flow=')
+    expect(response.status()).toBe(200)
+    expect(await response.json()).toEqual({ redirectTo: '/pending-confirmation' })
+    expect(response.headers()['set-cookie']).toContain('shifu-pending-flow=')
 
     const status = await request.get('/api/auth/pending-confirmation')
     expect(status.status()).toBe(200)
@@ -35,7 +44,7 @@ test.describe('same-origin registration confirmation auth handlers', () => {
     request,
   }) => {
     const response = await request.post('/api/auth/confirm-email', {
-      data: { token: 'A'.repeat(43) },
+      data: { token: IdentityActionTokenFaker.fake() },
     })
 
     expect(response.status()).toBe(200)

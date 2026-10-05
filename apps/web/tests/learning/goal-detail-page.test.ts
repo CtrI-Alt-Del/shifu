@@ -1,10 +1,8 @@
+import { GoalDetailFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
+import type { BffFixtureContract } from '../fixtures/bff-fixture'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const ids = {
-  goalId: '01SHF000000000000000000003',
-  skillExperienceId: '01SHF000000000000000000004',
-  skillId: '01SHF000000000000000000005',
-}
+const ids = LearningRouteIdsFaker.fake()
 
 const detailPath = `/learning/goals/${ids.goalId}/`
 
@@ -19,7 +17,7 @@ function serverFnExport(url: string) {
   }
 }
 
-const detailResponse = {
+const detailResponse = GoalDetailFaker.fake({
   goalId: ids.goalId,
   title: 'Fundamentos de programação',
   description: 'Construa uma base sólida para resolver problemas.',
@@ -34,13 +32,14 @@ const detailResponse = {
     },
   ],
   relations: [],
-}
+})
 
 test('renders the real goal detail and preserves the skill destination through mocked BFF transport', async ({
   authenticatedPage,
+  bff,
 }) => {
   let goalDetailRequests = 0
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
       return
@@ -72,8 +71,9 @@ test('renders the real goal detail and preserves the skill destination through m
 
 test('pans the canvas and restores its initial view from the graph button', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
       return
@@ -166,11 +166,12 @@ test('pans the canvas and restores its initial view from the graph button', asyn
 
 test('highlights only the prerequisite path of a hovered or focused skill', async ({
   authenticatedPage,
+  bff,
 }) => {
-  const pathSkills = ['A', 'B', 'C', 'D', 'E'].map((name, index) => ({
-    skillExperienceId: `01SHF00000000000000000001${index}`,
-    skillId: `01SHF00000000000000000002${index}`,
-    name,
+  const pathSkills = LearningRouteIdsFaker.fakeMany(5).map((ids, index) => ({
+    skillExperienceId: ids.skillExperienceId,
+    skillId: ids.skillId,
+    name: String.fromCharCode(65 + index),
     status: 'not-started' as const,
     progress: null,
     inclusionReason: null,
@@ -185,7 +186,7 @@ test('highlights only the prerequisite path of a hovered or focused skill', asyn
       { foundationSkillId: e.skillId, skillId: c.skillId },
     ],
   }
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
       return
@@ -239,8 +240,9 @@ test('highlights only the prerequisite path of a hovered or focused skill', asyn
 
 test('shows private absence without objective data through mocked BFF transport', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
       return
@@ -271,8 +273,8 @@ test('redirects anonymous visitors before a goal detail request', async ({ page 
   ).not.toBeVisible()
 })
 
-async function mockGoalDetail(page: import('@playwright/test').Page) {
-  await page.route('**/_serverFn/**', async (route) => {
+async function mockGoalDetail(bff: BffFixtureContract) {
+  await bff.route(async (route) => {
     if (
       route.request().method() !== 'GET' ||
       !route.request().url().includes(ids.goalId)
@@ -290,8 +292,9 @@ async function mockGoalDetail(page: import('@playwright/test').Page) {
 
 test('opens the removal confirmation dialog from the header trigger', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockGoalDetail(authenticatedPage)
+  await mockGoalDetail(bff)
   await navigateAuthenticatedPage(authenticatedPage, detailPath)
 
   await authenticatedPage.getByRole('button', { name: 'Remover objetivo' }).click()
@@ -305,10 +308,11 @@ test('opens the removal confirmation dialog from the header trigger', async ({
 
 test('closes the dialog and sends no removal request when cancelled', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockGoalDetail(authenticatedPage)
+  await mockGoalDetail(bff)
   let deleteRequestFired = false
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (route.request().method() === 'POST') deleteRequestFired = true
     await route.fallback()
   })
@@ -323,9 +327,9 @@ test('closes the dialog and sends no removal request when cancelled', async ({
   expect(deleteRequestFired).toBe(false)
 })
 
-test('redirects home after a successful removal', async ({ authenticatedPage }) => {
-  await mockGoalDetail(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+test('redirects home after a successful removal', async ({ authenticatedPage, bff }) => {
+  await mockGoalDetail(bff)
+  await bff.route(async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
       return
@@ -348,9 +352,10 @@ test('redirects home after a successful removal', async ({ authenticatedPage }) 
 
 test('keeps the dialog open with an error when removal fails', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await mockGoalDetail(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await mockGoalDetail(bff)
+  await bff.route(async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
       return
@@ -375,10 +380,11 @@ test('keeps the dialog open with an error when removal fails', async ({
 
 test('removes a Skill from Lista and preserves the selected view', async ({
   authenticatedPage,
+  bff,
 }) => {
   let removalRequests = 0
   let removed = false
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (route.request().method() === 'POST') {
       removalRequests += 1
       expect(route.request().postData() ?? '').toContain(ids.goalId)
@@ -429,10 +435,11 @@ test('removes a Skill from Lista and preserves the selected view', async ({
 
 test('keeps Grafo selected and exposes a recoverable removal error', async ({
   authenticatedPage,
+  bff,
 }) => {
   let removalRequests = 0
-  await mockGoalDetail(authenticatedPage)
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await mockGoalDetail(bff)
+  await bff.route(async (route) => {
     if (!serverFnExport(route.request().url()).startsWith('removeSkill')) {
       await route.fallback()
       return
@@ -468,10 +475,11 @@ test('keeps Grafo selected and exposes a recoverable removal error', async ({
 
 test('removes a Skill from Grafo and preserves the selected view', async ({
   authenticatedPage,
+  bff,
 }) => {
   let removalRequests = 0
   let removed = false
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (route.request().method() === 'POST') {
       removalRequests += 1
       removed = true

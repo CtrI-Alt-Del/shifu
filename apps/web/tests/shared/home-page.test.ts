@@ -1,9 +1,11 @@
-import type { Page } from '@playwright/test'
+import { GoalSummaryFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
+import type { BffFixtureContract } from '../fixtures/bff-fixture'
 
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const GOAL_ID = '01SHF000000000000000000003'
-const SKILL_ID = '01SHF000000000000000000004'
+const learningIds = LearningRouteIdsFaker.fake()
+const GOAL_ID = learningIds.goalId
+const SKILL_ID = learningIds.skillId
 
 // Home's data (the objectives list) and its start-planning mutation are
 // fetched through server functions that call FastAPI from the Node process,
@@ -39,18 +41,21 @@ function serverFnResponse(result: unknown) {
   }
 }
 
-async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] } = {}) {
+async function mockHomeServerFunctions(
+  bff: BffFixtureContract,
+  options: { goals?: unknown[] } = {},
+) {
   const goals = options.goals ?? [
-    {
+    GoalSummaryFaker.fake({
       description: 'Construir uma base sólida para resolver problemas com clareza.',
       id: GOAL_ID,
       skillCount: 3,
       title: 'Lógica de programação',
       updatedAt: '2026-01-05T00:00:00.000Z',
-    },
+    }),
   ]
 
-  await page.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const descriptor = decodeServerFnDescriptor(route.request().url())
 
     if (descriptor?.file.includes('use-home-goals-query')) {
@@ -78,7 +83,7 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
             relations: [],
             skills: [
               {
-                skillExperienceId: '01SHF000000000000000000005',
+                skillExperienceId: learningIds.skillExperienceId,
                 skillId: SKILL_ID,
                 name: 'Lógica',
                 skillName: 'Lógica',
@@ -117,8 +122,9 @@ async function mockHomeServerFunctions(page: Page, options: { goals?: unknown[] 
 test.describe('Home page', () => {
   test('renders the intent field, then Criar manualmente, then the objectives list, in that order', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await expect(
@@ -155,8 +161,9 @@ test.describe('Home page', () => {
 
   test('selecting an objective card navigates to its real detail route (CA-04)', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await authenticatedPage.getByRole('link', { name: /Lógica de programação/ }).click()
@@ -169,8 +176,9 @@ test.describe('Home page', () => {
 
   test('selecting Criar manualmente navigates to the Goal form (CA-05)', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await authenticatedPage.getByRole('link', { name: 'Criar manualmente' }).click()
@@ -181,8 +189,9 @@ test.describe('Home page', () => {
 
   test('submitting a non-empty intent starts a planning session and navigates to the planner (CA-06)', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     const postRequest = authenticatedPage.waitForRequest(
@@ -204,8 +213,9 @@ test.describe('Home page', () => {
 
   test('rejects an empty intent without ever sending a request (CA-07)', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     let planningRequestFired = false
@@ -226,8 +236,9 @@ test.describe('Home page', () => {
 
   test('renders the empty state while keeping the intent field and Criar manualmente usable (CA-11)', async ({
     authenticatedPage,
+    bff,
   }) => {
-    await mockHomeServerFunctions(authenticatedPage, { goals: [] })
+    await mockHomeServerFunctions(bff, { goals: [] })
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await expect(
@@ -241,9 +252,10 @@ test.describe('Home page', () => {
 
   test('is keyboard-operable at a 375px viewport (CA-12)', async ({
     authenticatedPage,
+    bff,
   }) => {
     await authenticatedPage.setViewportSize({ height: 812, width: 375 })
-    await mockHomeServerFunctions(authenticatedPage)
+    await mockHomeServerFunctions(bff)
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await authenticatedPage.getByLabel('O que você quer aprender?').focus()

@@ -1,11 +1,7 @@
+import { LearningRouteIdsFaker } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const ids = {
-  goalId: '01SHF000000000000000000003',
-  skillId: '01SHF000000000000000000004',
-  competencyId: '01SHF000000000000000000001',
-  activityId: '01SHF000000000000000000005',
-}
+const ids = LearningRouteIdsFaker.fake()
 
 function serverFnExport(url: string) {
   const id = new URL(url).pathname.split('/_serverFn/')[1] ?? ''
@@ -20,8 +16,9 @@ function serverFnExport(url: string) {
 
 test('shows the authenticated consolidated diagnostic result without answer details', async ({
   authenticatedPage,
+  bff,
 }, testInfo) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
 
     if (exported.startsWith('getDiagnosticAction')) {

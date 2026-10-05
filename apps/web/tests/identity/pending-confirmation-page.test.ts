@@ -1,6 +1,6 @@
-import { ROUTES } from '../../../src/constants/routes'
+import { ROUTES } from '../../src/constants/routes'
 
-import { expect, test } from '../../playwright'
+import { expect, test } from '../playwright'
 
 test.describe('PendingConfirmationPage route with mocked transport', () => {
   test('renders the restricted public state and cooldown from the BFF', async ({

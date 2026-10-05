@@ -1,11 +1,8 @@
+import { DiagnosticRunIdFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const skillPath =
-  '/learning/goals/01SHF000000000000000000003/skills/01SHF000000000000000000004'
-const GOAL_ID = '01SHF000000000000000000003'
-const SKILL_ID = '01SHF000000000000000000004'
-const COMPETENCY_ID = '01SHF000000000000000000001'
-const ACTIVITY_ID = '01SHF000000000000000000005'
+const ids = LearningRouteIdsFaker.fake()
+const skillPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}`
 
 function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
@@ -36,12 +33,13 @@ test('redirects authenticated learning visitors to Home and protects anonymous v
 
 test('starts an interrupted diagnostic and opens its next Activity', async ({
   authenticatedPage,
+  bff,
 }) => {
-  const diagnosticRunId = 'b2a3f497-7f4b-4d5e-8bc0-a984e6c04c98'
+  const diagnosticRunId = DiagnosticRunIdFaker.fake()
   let diagnosticRequests = 0
   let startRequests = 0
   let activityRequestPayload = ''
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const fn = serverFnExport(route.request().url())
     if (fn?.startsWith('getGoalDetail_')) {
       await route.fulfill({
@@ -49,14 +47,14 @@ test('starts an interrupted diagnostic and opens its next Activity', async ({
           result: {
             kind: 'success',
             detail: {
-              goalId: GOAL_ID,
+              goalId: ids.goalId,
               title: 'Aprender lógica',
               description: 'Praticar os fundamentos.',
               relations: [],
               skills: [
                 {
-                  skillExperienceId: '01SHF000000000000000000006',
-                  skillId: SKILL_ID,
+                  skillExperienceId: ids.skillExperienceId,
+                  skillId: ids.skillId,
                   name: 'Lógica',
                   skillName: 'Lógica',
                   status: 'diagnosing',
@@ -80,12 +78,14 @@ test('starts an interrupted diagnostic and opens its next Activity', async ({
             status: 'diagnosing',
             runState: diagnosticRequests === 1 ? 'requires_entry' : 'active',
             readyToComplete: false,
-            nextCompetencyId: COMPETENCY_ID,
-            nextActivityId: ACTIVITY_ID,
+            nextCompetencyId: ids.competencyId,
+            nextActivityId: ids.activityId,
             pendingAttemptId: null,
             pendingAttemptStatus: null,
             focusCompetencyId: null,
-            activitySequence: [{ competencyId: COMPETENCY_ID, activityId: ACTIVITY_ID }],
+            activitySequence: [
+              { competencyId: ids.competencyId, activityId: ids.activityId },
+            ],
             competencies: [],
             initialOverallResult: null,
             overallCoverageComplete: false,
@@ -111,7 +111,7 @@ test('starts an interrupted diagnostic and opens its next Activity', async ({
       await route.fulfill({
         body: JSON.stringify({
           result: {
-            activityId: ACTIVITY_ID,
+            activityId: ids.activityId,
             title: 'Somar os números pares',
             difficulty: 'medium',
             activityRevision: 'revision-1',
@@ -141,7 +141,7 @@ test('starts an interrupted diagnostic and opens its next Activity', async ({
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
   await expect(authenticatedPage).toHaveURL(
-    `${skillPath}/competencies/${COMPETENCY_ID}/activities/${ACTIVITY_ID}`,
+    `${skillPath}/competencies/${ids.competencyId}/activities/${ids.activityId}`,
   )
   await expect(authenticatedPage.getByText('Qual é o resultado?')).toBeVisible()
   await expect(

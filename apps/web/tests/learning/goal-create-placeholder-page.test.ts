@@ -1,6 +1,7 @@
+import { LearningRouteIdsFaker } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const SKILL_ID = '01SHF000000000000000000004'
+const SKILL_ID = LearningRouteIdsFaker.fake().skillId
 
 function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
@@ -14,8 +15,9 @@ function serverFnExport(url: string): string | null {
 
 test('renders the manual Goal form with selectable Curriculum Skills', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (serverFnExport(route.request().url())?.startsWith('getAvailableSkillsAction_')) {
       await route.fulfill({
         body: JSON.stringify({

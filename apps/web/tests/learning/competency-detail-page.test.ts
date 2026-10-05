@@ -1,24 +1,26 @@
+import {
+  AvailableCompetencyDetailFaker,
+  LearningRouteIdsFaker,
+  UnavailableCompetencyDetailFaker,
+} from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
-const IDS = {
-  activityId: '01SHF000000000000000000005',
-  competencyId: '01SHF000000000000000000001',
-  goalId: '01SHF000000000000000000003',
-  materialId: '01SHF000000000000000000006',
-  skillId: '01SHF000000000000000000004',
-}
+const IDS = LearningRouteIdsFaker.fake()
 
 const detailPath = `/learning/goals/${IDS.goalId}/skills/${IDS.skillId}/competencies/${IDS.competencyId}`
 
-const availableResponse = {
-  availability: 'available',
+const availableResponse = AvailableCompetencyDetailFaker.fake({
   competencyId: IDS.competencyId,
   competencyName: 'Estruturas de repetição',
+  goalId: IDS.goalId,
+  skillId: IDS.skillId,
+  skillName: 'Lógica de programação',
+  progress: 72,
+  status: 'proficient',
+  isFocus: true,
+  focusReturned: false,
   focusCompetencyId: IDS.competencyId,
   focusCompetencyName: 'Estruturas de repetição',
-  focusReturned: false,
-  goalId: IDS.goalId,
-  isFocus: true,
   items: [
     {
       id: IDS.materialId,
@@ -36,23 +38,20 @@ const availableResponse = {
       title: 'Somar os números pares de uma lista',
     },
   ],
-  progress: 72,
   recommendation: {
     activityId: IDS.activityId,
     competencyId: IDS.competencyId,
     difficulty: 'hard',
     type: 'new-activity',
   },
-  skillId: IDS.skillId,
-  skillName: 'Lógica de programação',
-  status: 'proficient',
-}
+})
 
 test('renders the available focus state and sends one typed RPC request', async ({
   authenticatedPage,
+  bff,
 }) => {
   let detailRequests = 0
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
       await route.fallback()
@@ -88,9 +87,10 @@ test('renders the available focus state and sends one typed RPC request', async 
 
 test('protects the Competency route and preserves its dynamic IDs', async ({
   authenticatedPage,
+  bff,
 }) => {
   let requestUrl = ''
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
       await route.fallback()
@@ -99,8 +99,7 @@ test('protects the Competency route and preserves its dynamic IDs', async ({
 
     await route.fulfill({
       body: JSON.stringify({
-        result: {
-          availability: 'unavailable',
+        result: UnavailableCompetencyDetailFaker.fake({
           competencyId: IDS.competencyId,
           competencyName: 'Estruturas de repetição',
           focusCompetencyId: null,
@@ -108,7 +107,7 @@ test('protects the Competency route and preserves its dynamic IDs', async ({
           goalId: IDS.goalId,
           skillId: IDS.skillId,
           skillName: 'Lógica de programação',
-        },
+        }),
       }),
       contentType: 'application/json',
     })
@@ -138,8 +137,9 @@ test('redirects anonymous visitors before the Competency detail request', async 
 
 test('navigates from the Competency detail to the protected Activity route', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const body = route.request().postData() ?? ''
     const payload = decodeURIComponent(`${route.request().url()} ${body}`)
     if (payload.includes(IDS.activityId)) {
@@ -205,8 +205,9 @@ test('redirects anonymous visitors before the Activity contract loader', async (
 
 test('links a Material row to its own route with the Competency of origin', async ({
   authenticatedPage,
+  bff,
 }) => {
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.competencyId)) {
       await route.fallback()
       return
@@ -229,9 +230,10 @@ test('links a Material row to its own route with the Competency of origin', asyn
 
 test('renders the official Material with a path back to its Competency', async ({
   authenticatedPage,
+  bff,
 }) => {
   const materialPath = `${detailPath}/materials/${IDS.materialId}`
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const descriptor = new URL(route.request().url()).pathname.split('/_serverFn/')[1]
     if (descriptor) {
       const fn = JSON.parse(Buffer.from(descriptor, 'base64').toString('utf-8')).export
@@ -291,9 +293,10 @@ test('redirects anonymous visitors before the Material contract loader', async (
 
 test('replaces a recoverable error after one explicit retry without changing IDs', async ({
   authenticatedPage,
+  bff,
 }) => {
   let detailRequests = 0
-  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+  await bff.route(async (route) => {
     const requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
       await route.fallback()

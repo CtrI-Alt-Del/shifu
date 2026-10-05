@@ -1,6 +1,6 @@
-import { expect, test } from '../../playwright'
+import { expect, test } from '../playwright'
 
-const validToken = 'a'.repeat(43)
+import { IdentityActionTokenFaker } from '../../src/core/identity/fakers'
 
 test.describe('ConfirmEmailPage route with mocked transport', () => {
   test('settles malformed input locally without calling the BFF', async ({ page }) => {
@@ -19,6 +19,7 @@ test.describe('ConfirmEmailPage route with mocked transport', () => {
   test('removes a valid token from the URL before rendering an expired recovery', async ({
     page,
   }) => {
+    const validToken = IdentityActionTokenFaker.fake()
     await page.route('**/api/auth/confirm-email*', async (route) => {
       expect(route.request().postDataJSON()).toEqual({ token: validToken })
       await route.fulfill({
