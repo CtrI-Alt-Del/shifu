@@ -108,7 +108,7 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
                   prompt={props.question.prompt}
                   size='result'
                 />
-                {props.onAssess ? (
+                {props.onAssess && !props.isDiagnostic ? (
                   <div className='space-y-2 rounded-md bg-jade-tint p-3'>
                     <h2 className='text-sm font-semibold text-success'>
                       Como será avaliado
@@ -117,6 +117,21 @@ export const CodeQuestion = (props: CodeQuestionProps) => {
                       Sua avaliação usa a rubrica desta questão. A prática no Terminal
                       ajuda a testar sua solução.
                     </p>
+                    {props.question.criteria?.length ? (
+                      <ul aria-label='Critérios de avaliação' className='space-y-2'>
+                        {props.question.criteria.map((criterion) => (
+                          <li
+                            key={criterion.key}
+                            className='flex items-start justify-between gap-3 text-xs leading-5'
+                          >
+                            <span className='min-w-0 break-words'>{criterion.name}</span>
+                            <span className='shrink-0 font-mono text-foreground/80'>
+                              Peso {criterion.weightPercentage}%
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </div>
                 ) : (
                   <div aria-live='polite' className='space-y-2 rounded-md bg-muted p-3'>

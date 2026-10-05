@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import { CodeQuestion } from '..'
@@ -20,6 +20,10 @@ const question: CodeQuestionProps['question'] = {
   editablePaths: ['main.js'],
   fixedDependencies: [],
   permittedCommands: [],
+  criteria: [
+    { key: 'reading', name: 'Leitura da entrada padrão', weightPercentage: 30 },
+    { key: 'counting', name: 'Contagem de vogais', weightPercentage: 70 },
+  ],
 }
 
 describe('CodeQuestion', () => {
@@ -63,6 +67,39 @@ describe('CodeQuestion', () => {
     expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
   })
 
+  it('shows rubric names and weights before practice input or assessment', () => {
+    const handleAssess = vi.fn()
+    render(<CodeQuestion question={question} onAssess={handleAssess} />)
+
+    const criteria = screen.getByRole('list', { name: 'Critérios de avaliação' })
+    const rows = within(criteria).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('Leitura da entrada padrão')
+    expect(rows[0]).toHaveTextContent('Peso 30%')
+    expect(rows[1]).toHaveTextContent('Contagem de vogais')
+    expect(rows[1]).toHaveTextContent('Peso 70%')
+    expect(handleAssess).not.toHaveBeenCalled()
+  })
+
+  it('keeps assessment guidance without an empty criteria list', () => {
+    render(<CodeQuestion question={{ ...question, criteria: [] }} onAssess={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: 'Como será avaliado' })).toBeVisible()
+    expect(
+      screen.queryByRole('list', { name: 'Critérios de avaliação' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('keeps diagnostic criteria hidden even when an assessment callback is supplied', () => {
+    render(<CodeQuestion question={question} isDiagnostic onAssess={vi.fn()} />)
+
+    expect(
+      screen.queryByRole('list', { name: 'Critérios de avaliação' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Leitura da entrada padrão')).not.toBeInTheDocument()
+    expect(screen.queryByText('Contagem de vogais')).not.toBeInTheDocument()
+  })
+
   it('renders inline and fenced Markdown in a code question prompt', () => {
     render(
       <CodeQuestion
@@ -103,6 +140,8 @@ describe('CodeQuestion', () => {
       screen.queryByRole('button', { name: 'Avaliar questão' }),
     ).not.toBeInTheDocument()
     expect(screen.queryByText('Como será avaliado')).not.toBeInTheDocument()
+    expect(screen.queryByText('Leitura da entrada padrão')).not.toBeInTheDocument()
+    expect(screen.queryByText('Contagem de vogais')).not.toBeInTheDocument()
   })
 
   it('renders named desktop separators with values and keyboard controls', () => {
