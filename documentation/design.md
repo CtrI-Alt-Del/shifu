@@ -16,7 +16,7 @@ A direção de marca está fechada na seção 3: **Dojo editorial**, com a sobri
 |---|---|
 | Identity | Cadastro, confirmação de e-mail, entrada, recuperação e alteração de senha, perfil, sessões, exclusão de conta |
 | Learning | Objetivos, Habilidades, diagnóstico, materiais, Atividades, avaliações, progresso, histórico, resumo final |
-| Intelligence | Mentor (chat contextual) e Planejador de Objetivos (entrevista + proposta), cota mensal de IA |
+| Intelligence | Mentor contextual, memórias, resumo da conversa, anexos privados e ações confirmáveis; Planejador de Objetivos (entrevista + proposta); cota mensal de IA |
 | Gamification | XP, nível, sequência, conquistas, calendário de atividade, histórico de recompensas |
 | Curriculum | Nenhuma tela própria. O Currículo é conteúdo consumido por Learning e Intelligence |
 
@@ -47,8 +47,8 @@ Cinco princípios que resolvem quase toda dúvida de layout. Eles saem direto do
 **P1. Aprendizagem e gamificação nunca se misturam visualmente.**
 Progresso, domínio e nota medem aprendizagem. XP, nível, sequência e conquistas medem engajamento. Os dois nunca compartilham o mesmo card, a mesma barra ou a mesma cor. O retorno de recompensa aparece separado do resultado pedagógico. Nível de Gamification jamais é apresentado como nível de conhecimento.
 
-**P2. A IA orienta, não resolve e não decide.**
-O Mentor sugere, explica e dá dicas progressivas. Ele nunca tem botão que altera estado: não cria Objetivo, não envia tentativa, não concede XP. Toda ação que muda dados fica na interface de Learning, acionada pelo usuário.
+**P2. A IA orienta e propõe; o usuário confirma.**
+O Mentor sugere, explica e dá dicas progressivas dentro dos limites pedagógicos. Pode apresentar adições e remoções de Habilidades em um card reutilizável, com destino e consequências explícitos. Somente o botão desse card confirma a ação; mensagens de concordância não executam alterações. Learning revalida e executa. O Mentor não cria, edita ou exclui Objetivos, não inicia Atividades, não envia tentativas, não altera resultados pedagógicos e não concede XP. Memórias explícitas podem ser criadas e atualizadas automaticamente, com indicação na interface; uma dificuldade recorrente inferida exige confirmação antes da criação (Intelligence RP-14 e RP-17).
 
 **P3. Nada essencial é comunicado só por cor.**
 Exigido por Identity RP-10, Learning RP-25, Intelligence RP-12 e Gamification RP-06. Toda situação de Competência, dia do calendário, estado de avaliação e nível de cota carrega **ícone + rótulo textual**, não apenas cor. A cor é reforço.
@@ -230,6 +230,11 @@ Alerta em linha (info, sucesso, aviso, erro) · Aviso de topo de página · Noti
 - **Bolha de mensagem** — usuário / mentor, com bloco de código formatado
 - **Marcador de consulta** — mostra que o Shifu foi consultado, **sem expor o que foi consultado**
 - **Barra de resposta em andamento** — texto aparecendo progressivamente + botão Cancelar
+- **Anexo da conversa** — arquivo identificado, processamento e falha individual com remoção ou substituição; formatos e limites visíveis antes do envio
+- **Indicação de memória** — criação ou atualização discreta na conversa, com acesso aos detalhes e à informação que mudou
+- **Lista e Mapa de memórias** — busca e filtros por categoria; seleção abre conteúdo, origem, relações, datas e ações de editar ou excluir; a Lista oferece acesso equivalente ao Mapa
+- **Marcador de resumo** — **Resumindo contexto…** durante o processamento; **Contexto resumido** abre a síntese e o acesso às mensagens originais
+- **Card de ação confirmável** — apresentação reutilizável com operação, destino, justificativa quando cabível, consequências e botão de confirmação; proposta, processamento, sucesso, recusa, falha e resultado incerto distinguíveis
 - **Medidor de cota** — percentual utilizado + data de renovação. Estados: normal, aviso em 80%, bloqueio em 100%
 - **Cartão de pergunta do Planejador** — enunciado, alternativas (escolha única ou múltipla), opção "Não sei" quando fizer sentido. **Nunca campo livre e nunca opção "Outro"**
 - **Trilha de etapas do lote** — qual etapa está atual e quais já foram respondidas, de forma acessível
@@ -276,6 +281,12 @@ Autenticado
   Mentor  (painel, abre de qualquer tela)
     Lista de conversas
     Conversa
+      Anexos privados
+      Resumo consultavel e mensagens originais
+      Acoes confirmaveis
+    Memorias
+      Lista / Mapa
+      Detalhes, edicao e exclusao
   Conta
     Perfil
     Seguranca
@@ -355,7 +366,7 @@ Um Objetivo pode ser criado vazio e permanecer vazio.
 Cabeçalho: título e descrição, editáveis a qualquer momento. **Sem barra de progresso e sem selo de conclusão** — o Objetivo não tem progresso próprio.
 Corpo: as Habilidades do Objetivo, cada uma com sua própria situação.
 Duas visões alternáveis: **lista** (padrão) e **grafo**. Só aparecem no grafo as Habilidades incluídas naquele Objetivo, e uma aresta só existe quando as duas pontas estão no Objetivo. Nada de nós intermediários ou ocultos.
-Habilidades vindas do Planejador exibem a **justificativa de inclusão**, somente leitura.
+Habilidades vindas do Planejador ou de proposta confirmada do Mentor exibem a **justificativa de inclusão**, somente leitura.
 Estado vazio: ação para adicionar Habilidade.
 Menu: editar, remover Objetivo.
 
@@ -366,7 +377,7 @@ Adicionar **não inicia** o diagnóstico.
 Relações do Currículo não bloqueiam nada e não podem aparecer como pré-requisito.
 
 #### T14 — Remover Habilidade / Remover Objetivo
-Dois modais destrutivos distintos.
+No fluxo de Learning, dois modais destrutivos distintos. A remoção solicitada ao Mentor usa o card de T42, com consequências visíveis antes do botão **Remover habilidade**, sem modal adicional.
 Remover Habilidade: lista o que será perdido — diagnóstico, progresso, domínio, conteúdo liberado, tentativas, avaliações, justificativa e resumo final. Permitida em qualquer etapa, inclusive com avaliação pendente.
 Remover Objetivo: deixa claro que **todas** as experiências de Habilidade dele serão removidas.
 Remover a última Habilidade **não** remove o Objetivo. São ações diferentes.
@@ -578,17 +589,23 @@ Separado visualmente do resultado de Learning.
 
 ### 6.6 Mentor
 
+Referências desta revisão: [Intelligence v6](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83099649), RP-03 a RP-06 e RP-14 a RP-17; [Learning v26](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83066881), RP-03, RP-21 e RP-23; [Política de Privacidade v3](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/100106241).
+
 #### T36 — Painel do Mentor
 Abre de qualquer área. Painel lateral no desktop, folha em tela cheia no mobile.
-Topo: conversa atual, acesso à lista, nova conversa, medidor de cota.
+Topo: conversa atual, acesso à lista, nova conversa, acesso a **Memórias**, medidor de cota.
 
 #### T37 — Lista de conversas
 Ordenada pela atividade mais recente. Busca por título. Renomear e excluir.
 Abrir "Nova conversa" **não cria** conversa vazia no histórico — ela só existe após a primeira mensagem.
 Exclusão exige confirmação e deixa claro que **não há restauração** no MVP.
+O aviso explica que histórico, anexos e resumos da conversa deixam de ser acessíveis; memórias já registradas permanecem independentes, com a origem excluída sem navegação ativa. Essa preservação não mantém cópias do conteúdo da conversa excluída.
 
 #### T38 — Conversa
-Somente texto. Resposta formatada, com blocos de código. Sem anexos.
+Mensagens de texto e anexos privados: **PNG, JPG/JPEG, WebP, PDF, JSON, CSV e TXT**, até **cinco arquivos por mensagem** e **10 MB por arquivo**. Mostrar formatos e limites antes do envio. Resposta formatada, com blocos de código.
+Anexos permanecem identificados e acessíveis ao retomar a conversa. PDFs com texto ou escaneados são aceitos. Falha identifica o arquivo e o motivo, preserva o texto e os demais arquivos e permite remover ou substituir o problemático antes de continuar.
+Uma resposta baseada em anexo identifica o arquivo e, quando disponível, página ou trecho. Leitura parcial ou página ilegível recebe indicação clara do alcance da análise, permitindo informar páginas, trechos ou partes específicas. O Mentor nunca apresenta um arquivo não processado como analisado.
+Anexos seguem os mesmos limites pedagógicos do Mentor. Seu conteúdo só pode gerar memória pessoal quando o usuário indicar que a informação se refere a si.
 A resposta aparece **progressivamente**, com botão **Cancelar**.
 Ao cancelar: a mensagem do usuário permanece **pendente**, o texto parcial é descartado. Nada de texto pela metade com aparência de resposta pronta.
 Falha da IA: mesma mensagem pendente + **Tentar novamente**, reutilizando a mensagem sem criar duplicata visual.
@@ -596,14 +613,34 @@ Uma resposta em andamento por conversa. Enquanto ela existe, novas mensagens fic
 **Marcador de consulta** quando o Mentor consultar o Shifu — mostra que consultou, **não mostra o quê**.
 Quando a resposta citar um Objetivo, Habilidade, material, Atividade ou resultado acessível, oferecer atalho. Se o item tiver sido removido, o texto permanece **sem navegação ativa**.
 O Mentor precisa **diferenciar visualmente** quando fala com base no contexto consultado e quando dá explicação geral.
+Criação e atualização de memória aparecem discretamente na conversa com **Ver memória** ou acesso equivalente aos detalhes. Atualizações mostram o que mudou; não exigem confirmação adicional. A criação de dificuldade recorrente inferida utiliza T42.
+Conversas longas podem receber resumo automático conforme T41, mantendo o histórico completo. Mensagens e resumos de outras conversas não são misturados; memórias relevantes do mesmo aprendiz podem personalizar a interação.
 
-Cinco estados a desenhar: em andamento, concluída, cancelada, falha recuperável, bloqueio por cota.
+Estados de resposta: em andamento, concluída, cancelada, falha recuperável, bloqueio por cota. Anexos, memórias, resumos e ações possuem seus próprios estados, sem confundi-los com uma resposta concluída.
 
 #### T39 — Cota de IA
 Mostra **apenas** percentual utilizado e data de renovação. Nunca tokens, chamadas ou custo.
 80%: aviso de proximidade.
 100%: Mentor e planejamento assistido bloqueados até a renovação. O histórico continua acessível.
 A mensagem de bloqueio **não pode sugerir que a aprendizagem normal parou** — Learning segue inteiro.
+
+#### T40 — Memórias do aprendiz
+Acesso pelo Mentor, com busca e filtros pelas quatro categorias: **preferência de explicação**, **conhecimento declarado**, **interesse ou intenção** e **dificuldades recorrentes**.
+Alternância **Lista / Mapa** disponível em desktop e mobile. A Lista oferece acesso equivalente ao conteúdo do Mapa; relações entre conceitos não representam domínio ou diagnóstico oficial.
+Selecionar uma memória abre conteúdo, categoria, origem, relações, datas de criação ou atualização e ações de **Editar** e **Excluir**. Origem cuja conversa foi excluída permanece identificada sem acesso ativo.
+O usuário pode editar ou excluir uma memória. A exclusão impede uso e recriação automática por mensagens, anexos ou resumos antigos, inclusive processamentos pendentes. Uma nova declaração explícita pode criar novo registro com indicação na conversa.
+
+#### T41 — Resumo da conversa
+Mostrar **Resumindo contexto…** enquanto a síntese é produzida e **Contexto resumido** quando estiver disponível. O marcador abre a síntese usada pelo Mentor e o acesso às mensagens originais da mesma conversa.
+Resumir não apaga o histórico, não incorpora históricos ou resumos de outras conversas e não substitui consultas ao estado atual de Learning. Falha preserva mensagens e contexto disponível para recuperação, sem apresentar síntese inexistente como concluída.
+
+#### T42 — Confirmar uma ação do Mentor
+Usar a mesma apresentação para adicionar Habilidade, remover Habilidade e criar memória de dificuldade recorrente inferida. Reutilizar o componente não autoriza outras ações.
+O card informa ação, destino, justificativa quando cabível e consequências antes da confirmação. Na adição ou remoção, identifica **Habilidade e Objetivo**. Se o destino não estiver claro, o usuário escolhe um dos seus Objetivos existentes; mudanças de contexto não alteram silenciosamente o destino apresentado.
+Confirmar somente pelo botão específico: **Adicionar habilidade** ou **Remover habilidade**, conforme a operação. Mensagens como “sim” não confirmam. Recusar não executa alterações.
+Adição inclui somente a Habilidade do card, sem bases automáticas, herança de progresso ou início do diagnóstico. Uma Habilidade já presente leva à experiência existente sem duplicação. A justificativa fica preservada em somente leitura no Objetivo.
+Remoção só é proposta quando o usuário pede, para **uma experiência por confirmação**. O próprio card explica a perda de diagnóstico, progresso, domínio, conteúdo liberado, tentativas, avaliações, justificativa e resumo final; a ação final não abre outro modal. O Objetivo permanece mesmo vazio, outras experiências e o Currículo permanecem intactos, não há restauração e adicionar novamente começa do zero.
+Distinguir proposta, processamento, sucesso, recusa, falha recuperável e resultado incerto. Learning revalida e executa; o card mostra o resultado confirmado e oferece acesso ao Objetivo atualizado. Durante processamento, impedir novo envio da ação. Falha preserva a proposta para **Tentar novamente**; resultado incerto não afirma que a ação falhou. Recuperar reutiliza a mesma confirmação, sem regenerar a proposta, duplicar adição ou remover uma experiência criada posteriormente.
 
 ---
 
@@ -614,10 +651,12 @@ Tabela de referência para não inventar componente novo a cada tela.
 | Estado | Onde aparece | Regra de design |
 |---|---|---|
 | Carregando | qualquer | Esqueleto com a forma do conteúdo, não spinner solto |
-| Vazio | Objetivos, Habilidades, conversas, conquistas | Ícone + frase curta + ação primária |
-| Erro recuperável | avaliação, IA, exclusão de conta, criação de Objetivo | Frase que atribui o problema ao Shifu + **Tentar novamente** que preserva o trabalho |
+| Vazio | Objetivos, Habilidades, conversas, memórias, conquistas | Ícone + frase curta + ação pertinente; não inventar memórias para preencher a área |
+| Erro recuperável | avaliação, IA, exclusão de conta, criação de Objetivo, ação do Mentor | Frase que atribui o problema ao Shifu + **Tentar novamente** que preserva o trabalho e reutiliza a mesma operação |
+| Falha em anexo | arquivo individual do Mentor | Identifica arquivo e motivo, preserva texto e demais anexos e permite remoção ou substituição |
+| Resultado incerto | confirmação de ação do Mentor | Não afirma falha; permite recuperar a mesma confirmação antes de informar o resultado |
 | Bloqueio por cota | Mentor, planejamento assistido | Explica o limite, mostra a renovação, mantém visíveis os caminhos sem IA |
-| Pendente | avaliação, mensagem do Mentor | Visual próprio, **nunca** confundível com resultado zero ou resposta pronta |
+| Pendente | avaliação, mensagem, resumo ou ação do Mentor | Visual próprio, **nunca** confundível com resultado zero ou operação concluída |
 | Bloqueado | Competência não liberada, Atividade de Competência bloqueada | Cadeado + qual Competência precisa avançar |
 | Somente leitura | justificativa de Habilidade, resumo final, tentativa enviada | Sem afordância de edição |
 
@@ -628,11 +667,12 @@ Tabela de referência para não inventar componente novo a cada tela.
 Requisito explícito nos PRDs de Identity, Learning, Intelligence e Gamification.
 
 - **Nada essencial só por cor.** Situação de Competência, dias do calendário, estados de avaliação, dificuldade e cota carregam ícone e rótulo
-- **Teclado em tudo que é essencial**: cadastro, entrada, recuperação, diagnóstico, envio de Atividade, navegação entre meses do calendário, etapas do lote de perguntas
+- **Teclado em tudo que é essencial**: cadastro, entrada, recuperação, diagnóstico, envio de Atividade, navegação entre meses do calendário, etapas do lote de perguntas, anexos, consulta de resumo, memórias e confirmações do Mentor
 - **Rótulos claros** em todo campo e ação
 - Carregamento, erro, sucesso e recuperação **compreensíveis por tecnologia assistiva**
 - As etapas do lote precisam anunciar de forma acessível qual é a atual e quais já foram respondidas
 - O grafo de Habilidades **não pode ser a única forma** de descobrir nomes, situações ou caminhos — a visão em lista é obrigatória
+- O Mapa de memórias possui alternativa em Lista; conteúdo, origem, relações e ações essenciais permanecem acessíveis por teclado. Criação, atualização, resumo e resultado de confirmação usam texto além da cor
 - **Contraste AA verificado, não presumido.** Todos os pares de texto da seção 3.2 foram medidos. O menor par de texto ativo é `--on-selo` sobre `--selo-fill` em 4,68:1; `--jade-solid` sobre `--surface` mede 6,30:1. Ambos passam em AA para texto normal
 - `--divider`, `--glass-border` e `--grid-line` ficam abaixo de 3:1 de propósito e por isso **nunca** delimitam um controle. Borda de campo, caixa de seleção e alvo clicável usam `--control-border`, medido em 3,01:1 contra `--raised`, acima do mínimo de 1.4.11
 - `--text-disabled` fica em 3,20:1 e por isso é **exclusivo de estado desabilitado**. Nenhum texto informativo pode usá-lo
@@ -643,7 +683,7 @@ Requisito explícito nos PRDs de Identity, Learning, Intelligence e Gamification
 ## 9. Responsividade
 
 Todos os fluxos abaixo funcionam em desktop e mobile, por requisito:
-cadastro, entrada, confirmação, reenvio, recuperação, alteração de senha, perfil, saída, exclusão de conta, criação de Objetivos, navegação entre Habilidades, diagnóstico, materiais, Atividades, avaliações, histórico, resumo final, Mentor, cota e planejamento assistido.
+cadastro, entrada, confirmação, reenvio, recuperação, alteração de senha, perfil, saída, exclusão de conta, criação de Objetivos, navegação entre Habilidades, diagnóstico, materiais, Atividades, avaliações, histórico, resumo final, Mentor, memórias em Lista e Mapa, resumo da conversa, anexos, ações confirmáveis, cota e planejamento assistido.
 
 Adaptações principais no mobile:
 - Barra lateral vira barra inferior de 4 itens
@@ -673,7 +713,7 @@ Adaptações principais no mobile:
 5. Fluxo de Atividade: T24, T25, T26, T27
 6. Diagnóstico: T18, T19, T20
 7. Planejador: T15, T16, T17
-8. Mentor: T36, T37, T38, T39
+8. Mentor: T36, T37, T38, T39, T40, T41, T42
 9. Gamification: T30 a T35
 10. Identity: T01 a T09
 11. Conclusão e histórico: T28, T29

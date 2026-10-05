@@ -145,18 +145,46 @@ Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/
 Intelligence owns Shifu's AI-assisted experiences. The MVP contains two
 distinct capabilities:
 
-- Mentor: private, independent, resumable conversations that provide
-  contextual guidance during learning; and
+- Mentor: private, independent, resumable conversations with contextual
+  guidance, structured learner memories, conversation summaries, private
+  attachments, and proposals for user-confirmed actions; and
 - Goal Planner: an assisted flow that turns a free-form intention into a
   proposal composed only of existing Curriculum Habilidades.
 
 The Mentor may consult authorized Learning, Curriculum, and Gamification
-context, but it must not modify Objectives, Habilidades, attempts, evaluations,
-XP, streaks, achievements, or other product state. During an in-progress
-diagnostic it cannot provide help for the diagnostic activity; while a
-Habilidade is being learned it gives increasingly specific guidance without
-revealing the complete solution. A complete reference solution is allowed
-after the Habilidade is concluded.
+context and propose adding an existing Habilidade to an existing Objective.
+It may propose removing one Habilidade experience only when the learner asks.
+The learner must confirm through the action card's button; agreement in a chat
+message is not confirmation. Intelligence forwards the confirmed action, and
+Learning revalidates the active account, ownership, and exact destination before
+executing it. Recovery reuses the same confirmation without duplicating an
+addition or removing a later replacement experience.
+
+The Mentor does not create, edit, or delete Objectives, start activities, submit
+attempts, assign or edit official pedagogical results or recommendations, or
+modify Gamification. During an in-progress diagnostic it cannot provide help
+for the diagnostic activity; while a Habilidade is being learned it gives
+increasingly specific guidance without revealing the complete solution. A
+complete reference solution is allowed after the Habilidade is concluded.
+
+Intelligence owns structured learner memories in four categories: explanation
+preference, declared knowledge, interest or intention, and recurring difficulty.
+Relevant memories may personalize the same learner's conversations; their raw
+histories and summaries remain independent. Explicit declarations may create
+memories automatically; creating an inferred recurring-difficulty memory
+requires confirmation. Updates follow the most recent explicit declaration
+without requiring new confirmation. Memory creation and updates are visible,
+and learners can inspect, edit, and delete these records. Memories are not
+evidence of official mastery or a Learning diagnosis.
+
+Conversation summaries preserve continuity without deleting the complete
+history. Private attachments remain linked to their conversation. Deleting
+a source conversation removes access to its history, attachments, and summaries
+while retaining already registered memories independently with an inaccessible
+source reference. Deleting a memory prevents old messages, attachments,
+summaries, or pending processing from recreating it; a new explicit declaration
+may create a new record. Account deletion covers all these personal data under
+the canonical privacy lifecycle.
 
 The Goal Planner may ask structured questions in batches, propose a title,
 description, Habilidades, and inclusion rationales, and allow the learner to
@@ -189,8 +217,10 @@ The product dependencies are:
   completion facts.
 - Gamification → Intelligence: current XP, level, streak, and achievements
   for motivational context.
-- Intelligence → Learning: confirmed Goal Planner proposals and optional AI
-  evaluation support.
+- Intelligence → Learning: confirmed Goal Planner proposals, user-confirmed
+  Mentor additions and removals of Habilidades, and optional AI evaluation
+  support. Learning validates and executes the operations and returns their
+  results for recovery of the same confirmation.
 
 These dependencies do not transfer ownership. In particular, Learning remains
 the authority for individual learning state, Curriculum remains the authority
