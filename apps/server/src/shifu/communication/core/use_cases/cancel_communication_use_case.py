@@ -4,17 +4,17 @@ from shifu.communication.core.domain.enums import (
     CommunicationDeliveryState,
     CommunicationStatus,
 )
+from shifu.communication.core.domain.errors import InvalidCommunicationError
 from shifu.communication.core.domain.events import (
     CommunicationDeliveryStateChangedEvent,
     CommunicationDeliveryStateChangedPayload,
 )
-from shifu.communication.core.domain.errors import InvalidCommunicationError
 from shifu.communication.core.interfaces import (
     CommunicationDatabase,
     CommunicationDatabaseRepositories,
 )
+from shifu.shared.core.domain.structures import NonEmptyText
 from shifu.shared.core.interfaces import ClockProvider
-from shifu.shared.core.domain.validation import require_non_empty
 
 
 class CancelCommunicationUseCase:
@@ -34,14 +34,14 @@ class CancelCommunicationUseCase:
         identity_action_token_id: str,
         reason: CommunicationCancellationReason | str,
     ) -> bool:
-        communication_id = require_non_empty(
+        communication_id = NonEmptyText.create(
             communication_id,
-            InvalidCommunicationError,
-        )
-        identity_action_token_id = require_non_empty(
+            error_type=InvalidCommunicationError,
+        ).value
+        identity_action_token_id = NonEmptyText.create(
             identity_action_token_id,
-            InvalidCommunicationError,
-        )
+            error_type=InvalidCommunicationError,
+        ).value
         try:
             cancellation_reason = CommunicationCancellationReason(reason)
         except ValueError:

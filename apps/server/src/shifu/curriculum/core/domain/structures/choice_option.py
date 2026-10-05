@@ -1,6 +1,5 @@
 from shifu.curriculum.core.domain.errors import InvalidActivityError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -11,8 +10,12 @@ class ChoiceOption:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, 'key', require_non_empty(self.key, InvalidActivityError)
+            self,
+            'key',
+            NonEmptyText.create(self.key, error_type=InvalidActivityError).value,
         )
         object.__setattr__(
-            self, 'text', require_non_empty(self.text, InvalidActivityError)
+            self,
+            'text',
+            NonEmptyText.create(self.text, error_type=InvalidActivityError).value,
         )

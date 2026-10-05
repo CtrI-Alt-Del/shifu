@@ -1,7 +1,7 @@
 from shifu.curriculum.core.domain.enums import MaterialType
 from shifu.curriculum.core.domain.errors import InvalidMaterialError
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText
 
 
 @entity
@@ -14,8 +14,12 @@ class Material:
     concept_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        self.title = require_non_empty(self.title, InvalidMaterialError)
-        self.content = require_non_empty(self.content, InvalidMaterialError)
+        self.title = NonEmptyText.create(
+            self.title, error_type=InvalidMaterialError
+        ).value
+        self.content = NonEmptyText.create(
+            self.content, error_type=InvalidMaterialError
+        ).value
         if len(self.concept_ids) != len(set(self.concept_ids)):
             raise InvalidMaterialError
 

@@ -7,7 +7,7 @@ from shifu.curriculum.core.domain.structures import (
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText
 
 
 @entity
@@ -23,8 +23,12 @@ class Activity:
     required_concept_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        self.title = require_non_empty(self.title, InvalidActivityError)
-        self.objective = require_non_empty(self.objective, InvalidActivityError)
+        self.title = NonEmptyText.create(
+            self.title, error_type=InvalidActivityError
+        ).value
+        self.objective = NonEmptyText.create(
+            self.objective, error_type=InvalidActivityError
+        ).value
         if not self.questions:
             raise InvalidActivityError
         question_keys = {question.key for question in self.questions}

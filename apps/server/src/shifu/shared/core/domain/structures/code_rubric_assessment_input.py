@@ -1,6 +1,6 @@
 from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 from shifu.shared.core.domain.structures.structure import structure
-from shifu.shared.core.domain.validation import require_non_empty
 
 from .curriculum_code_concept_criterion_snapshot import (
     CurriculumCodeConceptCriterionSnapshot,
@@ -20,8 +20,8 @@ class CodeRubricAssessmentInput:
     concept_criteria: tuple[CurriculumCodeConceptCriterionSnapshot, ...]
 
     def __post_init__(self) -> None:
-        require_non_empty(self.question_kind, ValidationError)
-        require_non_empty(self.prompt, ValidationError)
+        NonEmptyText.create(self.question_kind, error_type=ValidationError)
+        NonEmptyText.create(self.prompt, error_type=ValidationError)
         paths = tuple(path for path, _ in self.project_files)
         if (
             not paths

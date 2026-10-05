@@ -3,8 +3,7 @@ from decimal import Decimal
 
 from shifu.learning.core.domain.enums import ActivityDifficulty
 from shifu.learning.core.domain.errors import InvalidAttemptError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -28,7 +27,7 @@ class ConceptObservation:
             raise InvalidAttemptError
         for score in self.question_scores:
             if score is not None:
-                require_percentage(score, InvalidAttemptError)
+                Percentage.create(score, error_type=InvalidAttemptError)
 
     @property
     def value(self) -> Decimal | None:

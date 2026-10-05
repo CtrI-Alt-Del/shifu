@@ -4,8 +4,7 @@ from shifu.learning.core.domain.structures.choice_option_detail import (
     ChoiceOptionDetail,
 )
 from shifu.shared.core.domain.errors import ValidationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -18,5 +17,9 @@ class ChoiceQuestionDetail:
     def __post_init__(self) -> None:
         for name in ('key', 'prompt'):
             object.__setattr__(
-                self, name, require_non_empty(getattr(self, name), ValidationError)
+                self,
+                name,
+                NonEmptyText.create(
+                    getattr(self, name), error_type=ValidationError
+                ).value,
             )

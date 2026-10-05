@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 from shifu.shared.core.domain.structures.structure import structure
-from shifu.shared.core.domain.validation import require_non_empty
 
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
@@ -37,9 +37,9 @@ class CurriculumLearningActivitySnapshot:
             self.title,
             self.revision,
         ):
-            require_non_empty(value, ValidationError)
+            NonEmptyText.create(value, error_type=ValidationError)
         if self.diagnostic_revision is not None:
-            require_non_empty(self.diagnostic_revision, ValidationError)
+            NonEmptyText.create(self.diagnostic_revision, error_type=ValidationError)
         question_keys = tuple(question.key for question in self.questions)
         part_keys = tuple(part.question_key for part in self.parts)
         if (

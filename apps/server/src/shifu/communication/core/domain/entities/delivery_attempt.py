@@ -6,7 +6,7 @@ from shifu.communication.core.domain.errors import (
     InvalidCommunicationError,
 )
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText
 
 
 @entity
@@ -21,11 +21,8 @@ class DeliveryAttempt:
     failure_code: str | None = None
 
     def __post_init__(self) -> None:
-        require_non_empty(self.id, InvalidCommunicationError)
-        require_non_empty(
-            self.communication_id,
-            InvalidCommunicationError,
-        )
+        NonEmptyText.create(self.id, error_type=InvalidCommunicationError)
+        NonEmptyText.create(self.communication_id, error_type=InvalidCommunicationError)
         if self.attempt_number < 1:
             raise InvalidCommunicationError
         try:
@@ -71,7 +68,6 @@ class DeliveryAttempt:
             raise CommunicationTransitionError
         self.status = DeliveryAttemptStatus.FAILED
         self.completed_at = completed_at
-        self.failure_code = require_non_empty(
-            failure_code,
-            InvalidCommunicationError,
-        )
+        self.failure_code = NonEmptyText.create(
+            failure_code, error_type=InvalidCommunicationError
+        ).value

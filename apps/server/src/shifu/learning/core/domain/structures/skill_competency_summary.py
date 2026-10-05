@@ -4,8 +4,7 @@ from shifu.learning.core.domain.enums import (
     CompetencyAvailability,
     CompetencyProgressStatus,
 )
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -21,6 +20,6 @@ class SkillCompetencySummary:
 
     def __post_init__(self) -> None:
         if self.progress is not None:
-            require_percentage(self.progress)
+            Percentage.create(self.progress)
         if self.position < 1:
             raise ValueError('Curricular position starts at one.')

@@ -1,8 +1,7 @@
 from datetime import datetime
 
 from shifu.communication.core.domain.errors import InvalidCommunicationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -18,12 +17,16 @@ class MessageTemplateValues:
             object.__setattr__(
                 self,
                 'display_name',
-                require_non_empty(self.display_name, InvalidCommunicationError),
+                NonEmptyText.create(
+                    self.display_name, error_type=InvalidCommunicationError
+                ).value,
             )
         object.__setattr__(
             self,
             'action_url',
-            require_non_empty(self.action_url, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.action_url, error_type=InvalidCommunicationError
+            ).value,
         )
 
 

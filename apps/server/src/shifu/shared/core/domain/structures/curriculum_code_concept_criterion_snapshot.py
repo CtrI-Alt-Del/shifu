@@ -1,6 +1,6 @@
 from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 from shifu.shared.core.domain.structures.structure import structure
-from shifu.shared.core.domain.validation import require_non_empty
 
 
 @structure
@@ -26,7 +26,7 @@ class CurriculumCodeConceptCriterionSnapshot:
 
     def __post_init__(self) -> None:
         for value in (self.concept_id, self.description):
-            require_non_empty(value, ValidationError)
+            NonEmptyText.create(value, error_type=ValidationError)
         if (
             tuple(sorted(item.level for item in self.level_observations))
             != (0, 25, 50, 75, 100)

@@ -3,8 +3,7 @@ from dataclasses import field
 from shifu.communication.core.domain.enums import CommunicationDeliveryState
 from shifu.communication.core.domain.errors import InvalidCommunicationError
 from shifu.shared.core.domain.events import Event
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -17,15 +16,16 @@ class CommunicationDeliveryStateChangedPayload:
         object.__setattr__(
             self,
             'communication_id',
-            require_non_empty(self.communication_id, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.communication_id, error_type=InvalidCommunicationError
+            ).value,
         )
         object.__setattr__(
             self,
             'identity_action_token_id',
-            require_non_empty(
-                self.identity_action_token_id,
-                InvalidCommunicationError,
-            ),
+            NonEmptyText.create(
+                self.identity_action_token_id, error_type=InvalidCommunicationError
+            ).value,
         )
         try:
             state = CommunicationDeliveryState(self.state)

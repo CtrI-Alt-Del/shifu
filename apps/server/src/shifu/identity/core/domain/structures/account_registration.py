@@ -5,8 +5,7 @@ from shifu.identity.core.domain.errors import (
     InvalidEmailError,
     InvalidPasswordError,
 )
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText, structure
 
 
 @structure
@@ -19,12 +18,14 @@ class AccountRegistration:
         object.__setattr__(
             self,
             'display_name',
-            require_non_empty(self.display_name, InvalidDisplayNameError),
+            NonEmptyText.create(
+                self.display_name, error_type=InvalidDisplayNameError
+            ).value,
         )
         object.__setattr__(
             self,
             'email',
-            normalize_email(self.email, InvalidEmailError),
+            EmailAddress.create(self.email, error_type=InvalidEmailError).value,
         )
         if len(self.password) < 8:
             raise InvalidPasswordError

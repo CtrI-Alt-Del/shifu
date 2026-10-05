@@ -2,7 +2,8 @@ from decimal import Decimal
 
 from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty, require_percentage
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
+from shifu.shared.core.domain.structures.percentage import Percentage
 
 
 @structure
@@ -12,6 +13,8 @@ class CurriculumChoicePartSnapshot:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, 'question_key', require_non_empty(self.question_key, ValidationError)
+            self,
+            'question_key',
+            NonEmptyText.create(self.question_key, error_type=ValidationError).value,
         )
-        require_percentage(self.weight_percentage, ValidationError)
+        Percentage.create(self.weight_percentage, error_type=ValidationError)

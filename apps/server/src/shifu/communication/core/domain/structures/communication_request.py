@@ -9,8 +9,7 @@ from shifu.communication.core.domain.structures.message_content import MessageCo
 from shifu.communication.core.domain.structures.message_template_values import (
     MessageTemplateValues,
 )
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText, structure
 
 
 @structure
@@ -31,15 +30,16 @@ class CommunicationRequest:
         object.__setattr__(
             self,
             'communication_id',
-            require_non_empty(self.communication_id, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.communication_id, error_type=InvalidCommunicationError
+            ).value,
         )
         object.__setattr__(
             self,
             'identity_action_token_id',
-            require_non_empty(
-                self.identity_action_token_id,
-                InvalidCommunicationError,
-            ),
+            NonEmptyText.create(
+                self.identity_action_token_id, error_type=InvalidCommunicationError
+            ).value,
         )
         try:
             message_type = CommunicationType(self.type)
@@ -53,7 +53,9 @@ class CommunicationRequest:
         object.__setattr__(
             self,
             'recipient_email',
-            normalize_email(self.recipient_email, InvalidCommunicationError),
+            EmailAddress.create(
+                self.recipient_email, error_type=InvalidCommunicationError
+            ).value,
         )
         if self.content is None and self.message_values is None:
             raise InvalidCommunicationError
@@ -69,8 +71,8 @@ class CommunicationRequest:
         object.__setattr__(
             self,
             'idempotency_key',
-            require_non_empty(
+            NonEmptyText.create(
                 self.idempotency_key or self.communication_id,
-                InvalidCommunicationError,
-            ),
+                error_type=InvalidCommunicationError,
+            ).value,
         )

@@ -1,6 +1,5 @@
 from shifu.communication.core.domain.errors import InvalidCommunicationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -26,7 +25,9 @@ class DeliveryOutcome:
                 object.__setattr__(
                     self,
                     'failure_code',
-                    require_non_empty(self.failure_code, InvalidCommunicationError),
+                    NonEmptyText.create(
+                        self.failure_code, error_type=InvalidCommunicationError
+                    ).value,
                 )
 
     @classmethod

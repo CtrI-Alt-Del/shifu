@@ -1,12 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
 
-from shifu.learning.core.domain.enums import ActivityDifficulty
-from shifu.learning.core.domain.enums import CompetencyProgressStatus
+from shifu.learning.core.domain.enums import (
+    ActivityDifficulty,
+    CompetencyProgressStatus,
+)
 from shifu.learning.core.domain.errors import InvalidAttemptError
 from shifu.learning.core.domain.structures import OfficialActivityResult
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage
 
 
 @entity
@@ -33,7 +35,7 @@ class CompetencyProgress:
             self.hard_activity_score,
         ):
             if progress is not None:
-                require_percentage(progress, InvalidAttemptError)
+                Percentage.create(progress, error_type=InvalidAttemptError)
         if (
             self.status is CompetencyProgressStatus.MASTERED
             and self.mastered_at is None
@@ -85,7 +87,7 @@ class CompetencyProgress:
         updated_at: datetime,
     ) -> None:
         """Preserve the legacy domain API; new evaluation flows use recompute."""
-        require_percentage(score, InvalidAttemptError)
+        Percentage.create(score, error_type=InvalidAttemptError)
         previous = self.current_progress or Decimal('0')
         self.current_progress = previous * Decimal('0.7') + score * Decimal('0.3')
         self.updated_at = updated_at

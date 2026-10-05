@@ -1,8 +1,8 @@
 from typing import Literal
 
 from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 from shifu.shared.core.domain.structures.structure import structure
-from shifu.shared.core.domain.validation import require_non_empty
 
 type CodeRubricLevel = Literal[0, 25, 50, 75, 100, 'inconclusive']
 
@@ -13,7 +13,7 @@ class CodeCriterionDecision:
     level: CodeRubricLevel
 
     def __post_init__(self) -> None:
-        require_non_empty(self.key, ValidationError)
+        NonEmptyText.create(self.key, error_type=ValidationError)
         if self.level not in (0, 25, 50, 75, 100, 'inconclusive'):
             raise ValidationError
 
@@ -24,7 +24,7 @@ class CodeConceptDecision:
     level: CodeRubricLevel
 
     def __post_init__(self) -> None:
-        require_non_empty(self.concept_id, ValidationError)
+        NonEmptyText.create(self.concept_id, error_type=ValidationError)
         if self.level not in (0, 25, 50, 75, 100, 'inconclusive'):
             raise ValidationError
 

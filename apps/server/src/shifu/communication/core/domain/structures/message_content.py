@@ -1,6 +1,5 @@
 from shifu.communication.core.domain.errors import InvalidCommunicationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -11,8 +10,14 @@ class MessageContent:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, 'subject', require_non_empty(self.subject, InvalidCommunicationError)
+            self,
+            'subject',
+            NonEmptyText.create(
+                self.subject, error_type=InvalidCommunicationError
+            ).value,
         )
         object.__setattr__(
-            self, 'html', require_non_empty(self.html, InvalidCommunicationError)
+            self,
+            'html',
+            NonEmptyText.create(self.html, error_type=InvalidCommunicationError).value,
         )

@@ -2,13 +2,13 @@ from typing import Literal
 
 from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.structures.curriculum_choice_option_snapshot import (
-    CurriculumChoiceOptionSnapshot,
-)
 from shifu.shared.core.domain.structures.curriculum_choice_concept_criterion_snapshot import (
     CurriculumChoiceConceptCriterionSnapshot,
 )
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures.curriculum_choice_option_snapshot import (
+    CurriculumChoiceOptionSnapshot,
+)
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 
 
 @structure
@@ -24,5 +24,9 @@ class CurriculumChoiceQuestionSnapshot:
     def __post_init__(self) -> None:
         for name in ('key', 'prompt', 'correct_explanation', 'incorrect_explanation'):
             object.__setattr__(
-                self, name, require_non_empty(getattr(self, name), ValidationError)
+                self,
+                name,
+                NonEmptyText.create(
+                    getattr(self, name), error_type=ValidationError
+                ).value,
             )

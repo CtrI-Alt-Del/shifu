@@ -1,6 +1,5 @@
 from shifu.curriculum.core.domain.errors import InvalidEvaluationRuleError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 RUBRIC_LEVELS = (0, 25, 50, 75, 100)
 
@@ -13,7 +12,7 @@ class CodeRubricComment:
 
     def __post_init__(self) -> None:
         for value in (self.id, self.text):
-            require_non_empty(value, InvalidEvaluationRuleError)
+            NonEmptyText.create(value, error_type=InvalidEvaluationRuleError)
         if self.level not in RUBRIC_LEVELS:
             raise InvalidEvaluationRuleError
 
@@ -25,7 +24,7 @@ class CodeInconclusiveComment:
 
     def __post_init__(self) -> None:
         for value in (self.id, self.text):
-            require_non_empty(value, InvalidEvaluationRuleError)
+            NonEmptyText.create(value, error_type=InvalidEvaluationRuleError)
 
 
 @structure
@@ -40,7 +39,7 @@ class CodeRubricCriterion:
 
     def __post_init__(self) -> None:
         for value in (self.key, self.name, self.description):
-            require_non_empty(value, InvalidEvaluationRuleError)
+            NonEmptyText.create(value, error_type=InvalidEvaluationRuleError)
         if (
             not 0 <= self.weight_percentage <= 100
             or tuple(sorted(item.level for item in self.fixed_comments))

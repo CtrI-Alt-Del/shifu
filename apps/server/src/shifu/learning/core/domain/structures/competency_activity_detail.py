@@ -2,11 +2,10 @@ from decimal import Decimal
 
 from shifu.learning.core.domain.enums import ActivityDifficulty
 from shifu.learning.core.domain.errors import InvalidAttemptError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
 from shifu.learning.core.domain.structures.competency_content_concept import (
     CompetencyContentConcept,
 )
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -23,4 +22,4 @@ class CompetencyActivityDetail:
         if self.position < 1:
             raise ValueError('Competency content positions must be positive.')
         if self.latest_score is not None:
-            require_percentage(self.latest_score, InvalidAttemptError)
+            Percentage.create(self.latest_score, error_type=InvalidAttemptError)

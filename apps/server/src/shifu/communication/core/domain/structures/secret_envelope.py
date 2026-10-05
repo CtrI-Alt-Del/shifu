@@ -1,6 +1,5 @@
 from shifu.communication.core.domain.errors import InvalidCommunicationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -14,13 +13,17 @@ class SecretEnvelope:
         object.__setattr__(
             self,
             'ciphertext',
-            require_non_empty(self.ciphertext, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.ciphertext, error_type=InvalidCommunicationError
+            ).value,
         )
         if self.key_id is not None:
             object.__setattr__(
                 self,
                 'key_id',
-                require_non_empty(self.key_id, InvalidCommunicationError),
+                NonEmptyText.create(
+                    self.key_id, error_type=InvalidCommunicationError
+                ).value,
             )
 
 

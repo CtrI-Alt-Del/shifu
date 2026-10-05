@@ -10,8 +10,7 @@ from shifu.learning.core.domain.structures.skill_evaluation_state import (
 from shifu.learning.core.domain.structures.skill_recommendation import (
     SkillRecommendation,
 )
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -31,7 +30,7 @@ class SkillExperienceDetail:
 
     def __post_init__(self) -> None:
         if self.overall_result is not None:
-            require_percentage(self.overall_result)
+            Percentage.create(self.overall_result)
         positions = [competency.position for competency in self.competencies]
         if positions != sorted(positions):
             raise ValueError('Competencies follow the curricular order.')

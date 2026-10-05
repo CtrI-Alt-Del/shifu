@@ -1,8 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
-from shifu.learning.core.domain.enums import CompetencyProgressStatus
+from shifu.learning.core.domain.enums import (
+    ActivityEvaluationStatus,
+    CompetencyProgressStatus,
+)
 from shifu.learning.core.domain.errors import (
     EvaluationAlreadyCompletedError,
     EvaluationPendingError,
@@ -10,7 +12,7 @@ from shifu.learning.core.domain.errors import (
 )
 from shifu.learning.core.domain.structures import EvaluationPartResult
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage
 
 
 @entity
@@ -32,7 +34,7 @@ class ActivityEvaluation:
 
     def __post_init__(self) -> None:
         if self.score is not None:
-            require_percentage(self.score, EvaluationUnavailableError)
+            Percentage.create(self.score, error_type=EvaluationUnavailableError)
         if self.status is ActivityEvaluationStatus.COMPLETED and (
             self.score is None or self.completed_at is None
         ):
@@ -86,7 +88,7 @@ class ActivityEvaluation:
             raise EvaluationAlreadyCompletedError
         if self.status is ActivityEvaluationStatus.FAILED:
             raise EvaluationUnavailableError
-        require_percentage(score, EvaluationUnavailableError)
+        Percentage.create(score, error_type=EvaluationUnavailableError)
         self.status = ActivityEvaluationStatus.COMPLETED
         self.score = score
         self.parts = parts

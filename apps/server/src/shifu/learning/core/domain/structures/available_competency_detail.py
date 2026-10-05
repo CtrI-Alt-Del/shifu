@@ -17,8 +17,7 @@ from shifu.learning.core.domain.structures.competency_activity_detail import (
 from shifu.learning.core.domain.structures.competency_material_detail import (
     CompetencyMaterialDetail,
 )
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -43,7 +42,7 @@ class AvailableCompetencyDetail:
 
     def __post_init__(self) -> None:
         if self.progress is not None:
-            require_percentage(self.progress)
+            Percentage.create(self.progress)
         if self.focus_returned and not self.is_focus:
             raise ValueError('Only the current focus can be returned.')
         if self.recommendation is not None:

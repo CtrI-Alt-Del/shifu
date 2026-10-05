@@ -2,8 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from shifu.learning.core.domain.errors import InvalidAttemptError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_percentage
+from shifu.shared.core.domain.structures import Percentage, structure
 
 
 @structure
@@ -15,6 +14,6 @@ class OfficialActivityResult:
     completed_at: datetime
 
     def __post_init__(self) -> None:
-        require_percentage(self.score, InvalidAttemptError)
+        Percentage.create(self.score, error_type=InvalidAttemptError)
         if self.completed_at < self.submitted_at:
             raise InvalidAttemptError

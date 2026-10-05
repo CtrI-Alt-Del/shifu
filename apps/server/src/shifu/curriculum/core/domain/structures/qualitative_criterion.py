@@ -1,6 +1,5 @@
 from shifu.curriculum.core.domain.errors import InvalidEvaluationRuleError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 
 @structure
@@ -11,10 +10,14 @@ class QualitativeCriterion:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, 'name', require_non_empty(self.name, InvalidEvaluationRuleError)
+            self,
+            'name',
+            NonEmptyText.create(self.name, error_type=InvalidEvaluationRuleError).value,
         )
         object.__setattr__(
             self,
             'description',
-            require_non_empty(self.description, InvalidEvaluationRuleError),
+            NonEmptyText.create(
+                self.description, error_type=InvalidEvaluationRuleError
+            ).value,
         )

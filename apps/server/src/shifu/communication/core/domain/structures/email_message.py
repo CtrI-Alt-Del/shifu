@@ -1,6 +1,5 @@
 from shifu.communication.core.domain.errors import InvalidCommunicationError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText, structure
 
 
 @structure
@@ -15,20 +14,24 @@ class EmailMessage:
         object.__setattr__(
             self,
             'idempotency_key',
-            require_non_empty(self.idempotency_key, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.idempotency_key, error_type=InvalidCommunicationError
+            ).value,
         )
         object.__setattr__(
             self,
             'to',
-            normalize_email(self.to, InvalidCommunicationError),
+            EmailAddress.create(self.to, error_type=InvalidCommunicationError).value,
         )
         object.__setattr__(
             self,
             'subject',
-            require_non_empty(self.subject, InvalidCommunicationError),
+            NonEmptyText.create(
+                self.subject, error_type=InvalidCommunicationError
+            ).value,
         )
         object.__setattr__(
             self,
             'html',
-            require_non_empty(self.html, InvalidCommunicationError),
+            NonEmptyText.create(self.html, error_type=InvalidCommunicationError).value,
         )

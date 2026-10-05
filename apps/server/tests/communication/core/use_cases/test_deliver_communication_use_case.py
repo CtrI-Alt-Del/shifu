@@ -47,6 +47,7 @@ class TestDeliverCommunicationUseCase:
             self.repositories
         )
         self.id_provider = create_autospec(IdentifierProvider, instance=True)
+        self.id_provider.generate.return_value = '01JATTEMPT00000000000000001'
         self.clock_provider = create_autospec(ClockProvider, instance=True)
         self.now = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
         self.clock_provider.now.return_value = self.now

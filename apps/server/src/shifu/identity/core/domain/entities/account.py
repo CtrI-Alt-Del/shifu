@@ -9,7 +9,7 @@ from shifu.identity.core.domain.errors import (
     InvalidPasswordError,
 )
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText
 
 
 @entity
@@ -28,11 +28,10 @@ class Account:
     deletion_reason: AccountDeletionReason | None = None
 
     def __post_init__(self) -> None:
-        self.display_name = require_non_empty(
-            self.display_name,
-            InvalidDisplayNameError,
-        )
-        self.email = normalize_email(self.email, InvalidEmailError)
+        self.display_name = NonEmptyText.create(
+            self.display_name, error_type=InvalidDisplayNameError
+        ).value
+        self.email = EmailAddress.create(self.email, error_type=InvalidEmailError).value
         if self.status is AccountStatus.PENDING_CONFIRMATION and self.confirmed_at:
             raise AccountConfirmationNotAllowedError
         if self.status is AccountStatus.ACTIVE and (
@@ -110,7 +109,9 @@ class Account:
     def change_display_name(self, display_name: str, updated_at: datetime) -> None:
         if self.status is not AccountStatus.ACTIVE:
             raise AccountConfirmationNotAllowedError
-        self.display_name = require_non_empty(display_name, InvalidDisplayNameError)
+        self.display_name = NonEmptyText.create(
+            display_name, error_type=InvalidDisplayNameError
+        ).value
         self.updated_at = updated_at
 
     def invalidate_other_accesses(self, updated_at: datetime) -> None:

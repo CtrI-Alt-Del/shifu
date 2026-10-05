@@ -1,9 +1,9 @@
-from typing import Literal
 from pathlib import PurePosixPath
+from typing import Literal
 
 from shifu.shared.core.domain.errors import ValidationError
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 from shifu.shared.core.domain.structures.structure import structure
-from shifu.shared.core.domain.validation import require_non_empty
 
 from .curriculum_code_concept_criterion_snapshot import (
     CurriculumCodeConceptCriterionSnapshot,
@@ -58,7 +58,7 @@ class CurriculumJavascriptStdinQuestionSnapshot:
 
     def __post_init__(self) -> None:
         for value in (self.key, self.prompt, self.entrypoint):
-            require_non_empty(value, ValidationError)
+            NonEmptyText.create(value, error_type=ValidationError)
         paths = tuple(item.path for item in self.initial_files)
         if (
             self.kind != 'javascript_stdin'

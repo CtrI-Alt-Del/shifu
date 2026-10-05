@@ -11,7 +11,7 @@ from shifu.communication.core.domain.errors import (
 )
 from shifu.communication.core.domain.structures import MessageContent, SecretEnvelope
 from shifu.shared.core.domain.entities import entity
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText
 
 
 @entity
@@ -39,7 +39,7 @@ class Communication:
     redacted_at: datetime | None = None
 
     def __post_init__(self) -> None:
-        require_non_empty(self.id, InvalidCommunicationError)
+        NonEmptyText.create(self.id, error_type=InvalidCommunicationError)
         try:
             self.type = CommunicationType(self.type)
             self.channel = CommunicationChannel(self.channel)
@@ -47,19 +47,16 @@ class Communication:
         except ValueError:
             raise InvalidCommunicationError from None
         if self.recipient_email is not None:
-            self.recipient_email = normalize_email(
-                self.recipient_email,
-                InvalidCommunicationError,
-            )
+            self.recipient_email = EmailAddress.create(
+                self.recipient_email, error_type=InvalidCommunicationError
+            ).value
         if self.identity_action_token_id is not None:
-            self.identity_action_token_id = require_non_empty(
-                self.identity_action_token_id,
-                InvalidCommunicationError,
-            )
-        self.idempotency_key = require_non_empty(
-            self.idempotency_key,
-            InvalidCommunicationError,
-        )
+            self.identity_action_token_id = NonEmptyText.create(
+                self.identity_action_token_id, error_type=InvalidCommunicationError
+            ).value
+        self.idempotency_key = NonEmptyText.create(
+            self.idempotency_key, error_type=InvalidCommunicationError
+        ).value
         if self.attempt_count < 0:
             raise InvalidCommunicationError
 
@@ -144,7 +141,9 @@ class Communication:
     ) -> None:
         if self.status is not CommunicationStatus.PROCESSING:
             raise CommunicationTransitionError
-        self.failure_code = require_non_empty(failure_code, InvalidCommunicationError)
+        self.failure_code = NonEmptyText.create(
+            failure_code, error_type=InvalidCommunicationError
+        ).value
         self.failed_at = failed_at
         self.updated_at = failed_at
         self.next_attempt_at = next_attempt_at
@@ -161,7 +160,9 @@ class Communication:
         }:
             raise CommunicationTransitionError
         self.status = CommunicationStatus.REJECTED
-        self.failure_code = require_non_empty(failure_code, InvalidCommunicationError)
+        self.failure_code = NonEmptyText.create(
+            failure_code, error_type=InvalidCommunicationError
+        ).value
         self.failed_at = rejected_at
         self.next_attempt_at = None
         self.updated_at = rejected_at

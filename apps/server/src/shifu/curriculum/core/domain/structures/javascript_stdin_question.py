@@ -2,8 +2,7 @@ from pathlib import PurePosixPath
 from typing import Literal
 
 from shifu.curriculum.core.domain.errors import InvalidActivityError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures import NonEmptyText, structure
 
 from .code_concept_criterion import CodeConceptCriterion
 
@@ -25,7 +24,7 @@ class JavascriptDependency:
 
     def __post_init__(self) -> None:
         for value in (self.name, self.version):
-            require_non_empty(value, InvalidActivityError)
+            NonEmptyText.create(value, error_type=InvalidActivityError)
 
 
 @structure
@@ -36,7 +35,7 @@ class JavascriptPermittedCommand:
 
     def __post_init__(self) -> None:
         for value in (self.id, self.executable):
-            require_non_empty(value, InvalidActivityError)
+            NonEmptyText.create(value, error_type=InvalidActivityError)
         if any(not argument or '\x00' in argument for argument in self.arguments):
             raise InvalidActivityError
 
@@ -78,7 +77,7 @@ class JavascriptStdinQuestion:
 
     def __post_init__(self) -> None:
         for value in (self.key, self.prompt):
-            require_non_empty(value, InvalidActivityError)
+            NonEmptyText.create(value, error_type=InvalidActivityError)
         paths = tuple(item.path for item in self.initial_files)
         if (
             not paths

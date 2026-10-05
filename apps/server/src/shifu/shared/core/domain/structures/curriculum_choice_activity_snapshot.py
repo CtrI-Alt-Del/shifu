@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.core.domain.structures import structure
 from shifu.shared.core.domain.structures.curriculum_choice_part_snapshot import (
@@ -6,9 +8,7 @@ from shifu.shared.core.domain.structures.curriculum_choice_part_snapshot import 
 from shifu.shared.core.domain.structures.curriculum_choice_question_snapshot import (
     CurriculumChoiceQuestionSnapshot,
 )
-from decimal import Decimal
-
-from shifu.shared.core.domain.validation import require_non_empty
+from shifu.shared.core.domain.structures.non_empty_text import NonEmptyText
 
 
 @structure
@@ -26,12 +26,16 @@ class CurriculumChoiceActivitySnapshot:
 
     def __post_init__(self) -> None:
         if self.revision is not None:
-            require_non_empty(self.revision, ValidationError)
+            NonEmptyText.create(self.revision, error_type=ValidationError)
         if self.diagnostic_revision is not None:
-            require_non_empty(self.diagnostic_revision, ValidationError)
+            NonEmptyText.create(self.diagnostic_revision, error_type=ValidationError)
         for name in ('id', 'competency_id', 'difficulty', 'title'):
             object.__setattr__(
-                self, name, require_non_empty(getattr(self, name), ValidationError)
+                self,
+                name,
+                NonEmptyText.create(
+                    getattr(self, name), error_type=ValidationError
+                ).value,
             )
         weights = tuple(part.weight_percentage for part in self.parts)
         if (

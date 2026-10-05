@@ -2,8 +2,7 @@ from datetime import datetime
 from typing import Literal
 
 from shifu.identity.core.domain.errors import InvalidEmailError, InvalidPasswordError
-from shifu.shared.core.domain.structures import structure
-from shifu.shared.core.domain.validation import normalize_email, require_non_empty
+from shifu.shared.core.domain.structures import EmailAddress, NonEmptyText, structure
 
 
 @structure
@@ -12,7 +11,9 @@ class PasswordRecoveryRequest:
 
     def __post_init__(self) -> None:
         object.__setattr__(
-            self, 'email', normalize_email(self.email, InvalidEmailError)
+            self,
+            'email',
+            EmailAddress.create(self.email, error_type=InvalidEmailError).value,
         )
 
 
@@ -25,7 +26,9 @@ class PasswordRecoveryRequestResult:
         object.__setattr__(
             self,
             'recovery_handle',
-            require_non_empty(self.recovery_handle, InvalidEmailError),
+            NonEmptyText.create(
+                self.recovery_handle, error_type=InvalidEmailError
+            ).value,
         )
 
 
