@@ -8,11 +8,14 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63
 last_updated_at: 2026-09-25
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
 | Item | State |
 | --- | --- |
-| Governing contract | [`spec.md`](./spec.md), revision `4`, status `ready` |
+| Governing contract | [`spec.md`](.././spec.md), revision `4`, status `ready` |
 | Plan status / phase | `completed` / revision-4 validation amendment reconciled and ready for publication |
 | Why a Plan | Cross-module Identity/Communication contract migration, PostgreSQL forward migration, generated e-mail artifacts, Better Auth BFF work, Inngest integration, and real browser/runtime validation require coordinated ownership. |
 | Next action | Complete the revision-4 Spec review, reconcile evidence without visual comparisons, and run the remaining applicable gates. |

@@ -3,12 +3,17 @@ title: SHIFU-64 Goal detail evaluation
 status: in_progress
 spec: ./spec.md
 spec_revision: 5
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64
 prd_content_id: 83066881
 prd_version: 17
 last_updated_at: 2026-09-24
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
+## Resume handoff
+
+Resume from Spec revision 5 and the current acceptance evidence below. EV-013 records passing integrated local Web gates, Goal detail Vitest/browser checks and Server controller checks on its candidate. Reconcile remaining criteria against that evidence before closure; no new validation is claimed here.
 
 # Evaluation status
 

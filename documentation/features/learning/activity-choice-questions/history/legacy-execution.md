@@ -8,9 +8,12 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74
 last_updated_at: 2026-09-26
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
-- **Spec:** [spec.md](./spec.md), revision 3, `completed` after implementation and
+- **Spec:** [spec.md](.././spec.md), revision 3, `completed` after implementation and
   independent Implementation Reviewer verification.
 - **Why Plan-backed:** this slice crosses Curriculum and Learning, server and web,
   a PostgreSQL migration, outbox/Inngest, four HTTP operations, responsive browser

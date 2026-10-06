@@ -3,12 +3,13 @@ title: SHIFU-68 skill removal evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 2
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-68
 prd_content_id: '83066881'
 prd_version: '21'
 last_updated_at: 2026-09-26
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation status
 
@@ -21,7 +22,7 @@ and user acceptance. The user tested the running feature and confirmed on
 | --- | --- |
 | Implementation | `completed` |
 | Governing Spec | revision 2, `completed` |
-| Plan | `completed`; F0–F4 complete |
+| Historical execution | `completed`; F0–F4 complete |
 | Baseline | `main == origin/main == fa893802f637b345a5456c5d94918249615f67d4` at kickoff |
 | Branch | `codex/SHIFU-68-skill-removal` |
 | User acceptance | Running feature tested; user confirmed removal behaves correctly |

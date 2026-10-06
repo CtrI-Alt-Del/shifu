@@ -3,12 +3,13 @@ title: Identity sign-in evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 20
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-62
 prd_content_id: 83001345
 prd_version: 1
 last_updated_at: 2026-09-17
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation status
 
@@ -20,7 +21,7 @@ correction history, and current evidence for the complete sign-in slice.
 - **Spec:** `ready`, revision `20`, after the independence, port-standardization,
   shared-provider, Inngest-boundary, provider-folder, fixture-naming, and
   Testcontainers amendments.
-- **Plan:** `completed`, F1–F8 implementation and validation are recorded;
+- **Historical execution:** `completed`, F1–F8 implementation and validation are recorded;
   final correction evidence is recorded in `EV-CONCLUDE-01`.
   SHIFU-61 and SHIFU-63 remain parallel authorities and are not prerequisites.
 - **Authority:** Identity PRD content `83001345`, version `1`, reread on

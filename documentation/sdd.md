@@ -1,47 +1,47 @@
 ---
-description: Canonical specification-driven development workflow for Shifu feature delivery.
+description: Lean specification-driven development for Shifu contracts, autonomous implementation and verified delivery.
 ---
 
 # Specification-driven development
 
-Shifu uses specification-driven development (SDD) for changes to product
-behavior. Product requirements remain canonical in Confluence. The repository
-stores the bounded implementation contract, execution decisions, evidence, and
-delivery disposition needed to implement a known version of those requirements.
+Shifu uses SDD for changes to product behavior. Confluence owns product intent;
+the repository Spec defines a bounded delivery contract against a known PRD
+version. The agent organizes implementation and proves that contract using its
+checkers. Evaluation records actual progress, evidence and delivery disposition.
 
-SDD does not copy an entire PRD into Git and does not make repository artifacts
-a second product backlog.
+```text
+Spec → autonomous implementation → integrated verification
+                                      ↑            ↓
+                                      └── fixes ───┘
+                                             ↓
+                                         conclusion
+```
 
-## When SDD applies
+## Applicability and authority
 
-Create or update a feature artifact set when work adds or changes observable
-product behavior, domain rules, public contracts, persistence semantics,
-cross-module events, or user journeys.
+Create or revise a Spec when changing observable product behavior, domain rules,
+public contracts, persistence semantics, cross-module events or user journeys.
+Formatting, tooling upkeep, behavior-preserving refactoring and repairs covered
+by an unchanged Spec may use direct maintenance. A discovered behavioral
+choice requires contract reconciliation before the dependent work proceeds.
 
-Direct maintenance is allowed for formatting, typo-only documentation changes,
-dependency/tooling upkeep, mechanical refactors with no behavior change, and
-repairs already covered by an unchanged Spec. If investigation reveals a
-behavioral decision, stop and create or revise the Spec.
+Before specifying a feature or implementing a contract in a fresh context:
 
-## Authority preflight
+1. read the nearest `AGENTS.md` files and this workflow;
+2. resolve module ownership through [`modules.md`](modules.md) and system
+   boundaries through [`architecture.md`](architecture.md);
+3. use [`rules.md`](rules.md) to select and read the applicable Rule Pack;
+4. inspect relevant manifests, tooling and infrastructure for actual commands;
+5. read the complete canonical Confluence PRD through Atlassian Shifu MCP;
+6. read applicable Jira, feature artifacts, designs and the user request.
 
-Before drafting a Spec or changing implementation, read in this order:
-
-1. the nearest `AGENTS.md` files;
-2. [`modules.md`](modules.md) for ownership and module boundaries;
-3. [`architecture.md`](architecture.md);
-4. [`rules.md`](rules.md) and every Rule Pack selected by its routing table;
-5. relevant package manifests, development documentation, and infrastructure
-   configuration for commands that actually exist;
-6. the complete canonical Confluence PRD page through the Atlassian Shifu MCP;
-7. relevant Jira issues, existing feature artifacts, designs, and the user request.
-
-Do not infer requirements from a Confluence search excerpt. Record the page
-content ID, page version, retrieval time, and cited requirement IDs in `spec.md`.
-If the version changes before conclusion, reconcile the new page and return the
-Spec to `draft` when the contract is affected.
-
-## Product authorities
+Record the PRD URL, content ID, version, retrieval time and selected requirement
+IDs in the Spec. Search excerpts cannot establish authority. Reuse complete
+reads and repository facts already current in the same context; refresh affected
+sources when scope expands, facts change or authority is uncertain. At conclusion,
+verify source identity/version and reread changed content when reconciliation is
+needed. A changed page version requires reconciliation; mark the Spec `stale`
+until reconciled, and return it to `draft` if its contract changes.
 
 | Module | Canonical PRD | Content ID |
 | --- | --- | --- |
@@ -51,133 +51,159 @@ Spec to `draft` when the contract is affected.
 | Gamification | [Confluence](https://joaogoliveiragarcia.atlassian.net/wiki/x/AgDxB) | `82903042` |
 | Intelligence | [Confluence](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQD0B) | `83099649` |
 
-Confluence owns product intent and requirement wording. A local Spec owns the
-selected delivery slice and its testable interpretation. An Evaluation owns the
-evidence and delivery disposition for that slice. Implementation and tests own
-runtime behavior. Conflicts must be reported; they must not be silently resolved
-by changing the PRD or acceptance contract.
+A Spec selects delivery scope and testable interpretations; it does not copy the
+PRD or create a second product backlog. Report conflicting sources. User-visible
+behavior, permissions and scope cannot be silently changed to fit existing code
+or make a test pass. Jira and Confluence writes require an explicit external
+action request and follow `AGENTS.md`.
 
-External product documents are not mutated as a side effect of implementation.
-Updating a PRD, adding delivery status to Confluence, or changing Jira requires
-an explicit request and follows the Atlassian safety rules in `AGENTS.md`.
+## Durable artifacts
 
-## Shifu artifact abbreviations
+```text
+documentation/features/<module>/<feature>/
+├── spec.md                 # contract and checkers
+├── evaluation.md           # evidence, findings and current handoff
+└── design/                 # saved references when material
+    ├── handoff.md           # or an existing Spec-approved manifest.md
+    └── references/
+```
 
-Keep the Portuguese identifiers already used by Shifu:
+Use lowercase kebab-case module/feature slugs and the
+[Spec](templates/sdd/spec.md) and [Evaluation](templates/sdd/evaluation.md)
+templates. A materially different delivery slice gets a feature directory;
+a bounded revision may live under `changes/<change-slug>/` when preserving an
+original concluded contract is useful.
 
-| Prefix | Meaning | Authority |
+There is no separate `plan.md` or `create-plan` step. The agent handles execution
+order, decomposition, dependencies and delegation in its working context.
+Existing execution ledgers are preserved under `history/legacy-execution.md`
+for audit only. Their phases, task trees and statuses are historical; they do
+not gate resumed delivery. Resume from the current Spec, Evaluation and diff.
+
+## Contract and checkers
+
+The Spec defines:
+
+- problem, selected product requirements, actors, scope and exclusions;
+- observable functional requirements and acceptance criteria;
+- module ownership, public interfaces, persistent invariants and consequential
+  or difficult-to-reverse technical decisions;
+- applicable design references and required happy-path states/viewports;
+- a proof for every acceptance criterion, with actual commands, test selectors,
+  expected values, environments and evidence limits;
+- applicable static, unit/component, integration and manual/visual checkers.
+
+Specify constraints that affect correctness. Ordinary internal file placement,
+helper names, widget decomposition, task lists and execution waves belong to the
+implementer following repository conventions. A contract may name an existing
+boundary or required artifact without prescribing every future internal file.
+A routine reversible implementation choice does not require a Spec amendment.
+
+Use stable Shifu identifiers:
+
+| Prefix | Meaning | Owner |
 | --- | --- | --- |
 | `RP-*` | Requisito de Produto | Confluence PRD |
 | `JN-*` | Jornada | Confluence PRD |
-| `RF-*` | Requisito Funcional | Local Spec |
-| `CA-*` | Critério de Aceitação | Local Spec |
+| `RF-*` | Requisito Funcional | Spec |
+| `CA-*` | Critério de Aceitação | Spec |
 | `VM-*` | Validação Manual | Spec/Evaluation |
 | `EV-*` | Evidência | Evaluation |
 | `ACH-*` | Achado de revisão | Evaluation |
 | `CI-*` | Quality gate automatizado | Spec/Evaluation |
 
-Identifiers are stable. Never renumber an existing identifier to make a table
-look contiguous. Every `RF-*` maps to at least one `RP-*`; relevant `JN-*` IDs
-provide journey context. Every `CA-*` maps to one or more `RF-*`, and every
-concluded criterion maps to `EV-*`, `VM-*`, or a documented automated check.
+Every RF maps to at least one RP; relevant JN IDs supply journey context.
+Every CA maps to RF and concrete proof. Enumerated states, statuses, bounds or
+transitions need explicit coverage; a sampled case proves only its sample.
+Never invent product IDs, renumber existing identifiers or weaken checks to
+make implementation pass. State an explicit non-applicable disposition when
+appropriate. A command's exit code must be accompanied by evidence that the
+intended tests actually ran; an empty selection or skipped suite is not a pass.
 
-## Durable artifact layout
+## Roles and lifecycle
 
-Use a lowercase kebab-case module and feature slug:
+The Orchestrator owns the Spec, Evaluation, shared decisions, integration and
+official evidence. It may implement directly or delegate genuinely independent
+scopes to bounded Builders. Builders change assigned code/tests and report
+results without changing acceptance obligations. Ordinary planning and
+coordination choices need no separate user approval or durable task ledger.
 
-```text
-documentation/features/<module>/<feature>/
-├── spec.md
-├── plan.md                 # optional execution ledger
-├── evaluation.md
-└── design/                 # only when visual references are material
-    ├── manifest.md
-    └── references/
-```
+A Spec Reviewer checks material architecture/module/Rule risks before `ready`;
+that role returns only for a material contract amendment. An independent
+Implementation Reviewer assesses the integrated diff and acceptance proofs.
+For design-backed UI, launch the Visual Reviewer in parallel on the same
+candidate using existing required captures; add no third mandatory serial
+review. Findings require concrete evidence and a mapped correction.
 
-Use the templates under [`templates/sdd`](templates/sdd). A materially different
-delivery slice gets its own feature directory. A bounded revision may be kept
-under `changes/<change-slug>/` inside the feature directory when preserving the
-original concluded contract is useful.
+| Artifact | States |
+| --- | --- |
+| Spec | `draft` → `ready` → `implemented` → `completed`; `stale` during source reconciliation |
+| Evaluation | `in_progress` → `ready` → `completed` |
 
-## Roles and edit ownership
+Implementation progress lives in Evaluation while the ready contract remains
+stable. `implemented` means the candidate has current accepted evidence and is
+ready for conclusion. A correction reopens Evaluation; a changed contract
+returns the Spec to `draft` and increments its revision after reconciliation.
+Only the Orchestrator changes artifact statuses. Completion requires every
+applicable criterion and checker to have an accepted disposition.
 
-- **Orchestrator** performs the preflight, owns all SDD artifacts, resolves
-  ambiguity, delegates implementation/review, records evidence, and concludes.
-- **Builder** changes code and tests only within the approved Spec. It reports
-  evidence and discrepancies but does not edit the acceptance contract.
-- **Spec Reviewer** checks the Spec against the cited Confluence version,
-  architecture, module boundaries, and rules before implementation.
-- **Implementation Reviewer** checks code and evidence against each `CA-*` and
-  records findings for the Orchestrator. It does not broaden scope.
+## Implementation and verification
 
-One person or agent may perform several roles sequentially, but review must
-remain a distinct pass. Only the Orchestrator changes artifact status.
+1. Establish the ready contract; ask only about unresolved consequential
+   product or technical choices. Resolve facts and routine choices directly.
+2. Create/reconcile Evaluation and its current handoff. Implement within the
+   contract, using focused unit/component and static checks for feedback.
+   Record material findings and meaningful checkpoints, not every edit.
+3. Integrate all implementation scopes and generated artifacts. Perform any
+   delivery-branch synchronization already authorized for conclusion before
+   final integration validation. Preserve unrelated work and Git safety.
+4. Run each applicable server, browser and job integration suite once against
+   the integrated candidate, using the Spec's real commands and explicit
+   CI-compatible fixtures. If a suite fails, fix the failures and rerun the
+   failed and affected integration checks until every applicable suite passes.
+   Required unavailable infrastructure remains a recorded blocker.
+5. Execute required concise happy-path manual scenarios, capturing required
+   visuals during those journeys. Automated tests cover negative, recovery,
+   concurrency and unusual outcomes. Mocks cannot prove real authenticated,
+   persisted or server-backed behavior. Stop task-started processes afterward.
+6. Review code and required visuals independently in parallel. Reviewers use
+   current checker results, inspect assertion coverage and identify missing
+   evidence; they do not automatically start another integration run.
+7. Fix in-contract findings autonomously. Rerun only invalidated checks and
+   visual comparisons. Preserve passed evidence for unaffected behavior.
+8. Conclude using accepted current evidence; do not repeat green suites merely
+   because a role changes, a ledger is updated or conclusion starts.
 
-## Artifact states
+A later implementation, fixture, configuration or source-contract change
+reopens the checks whose claims/dependencies it affects. Record the changed
+scope and retained evidence explicitly. A new commit hash alone does not
+invalidate proof of unchanged behavior. Additional broad reruns need a concrete
+integration risk, affected shared dependency or discovered coverage gap.
 
-- `spec.md`: `draft` → `ready` → `implemented` → `completed`; `stale` is used
-  when its source version changed and reconciliation is pending.
-- `plan.md`: `draft` → `in_progress` → `completed`.
-- `evaluation.md`: `in_progress` → `ready` → `completed`.
+## Evaluation and continuation
 
-`implemented` means implementation is available for final review, not that the
-feature is delivered. `completed` requires accepted evidence and successful
-applicable quality gates.
+Keep one acceptance/evidence matrix, findings and a small factual handoff in
+`evaluation.md`. Record checker commands/results, relevant candidate commit or
+worktree identity, environment/fixtures, evidence paths, covered CA IDs and
+limitations. Preserve failed attempts and historical evidence.
 
-`open` is not a Spec artifact status. After Spec creation, the Orchestrator keeps the
-artifact `draft` through authority, integrity, and independent Spec review, then changes
-it to `ready` when those gates pass. Explicit implementation dependencies may be recorded
-in a ready Spec; they block only the affected execution or integration step unless they
-leave the implementation contract materially ambiguous.
+The current handoff names the Spec revision, branch/candidate, completed and
+unfinished criteria, interrupted or uncommitted work, latest checker results,
+blockers and the next concrete action. A new agent reconciles it with Git and
+the diff before choosing how to continue. Evaluation describes actual state;
+it does not become a replacement phase/task plan.
 
-## Workflow
+At conclusion, reconcile every selected RP through RF/CA to evidence, close
+blocking findings, verify source metadata and record delivery disposition as
+`implemented`, `partially_implemented`, `not_implemented` or `not_applicable`.
+Preserve incomplete or waived evidence honestly; an explicit user waiver is
+never a pass. Link Jira/PR when available without changing canonical product
+requirements. Branches and commits retain the repository Jira-key convention.
 
-The reusable entry-point instructions are indexed in
-[`prompts/README.md`](prompts/README.md). Each prompt inherits this document and
-cannot override its authority, ownership, or external-write rules.
+## Entry points
 
-### 1. Create the Spec
-
-Create `spec.md` from the template. Select explicit `RP-*` and `JN-*` IDs, define
-scope and exclusions, translate the slice into `RF-*` and observable `CA-*`, and
-list real validation commands. A criterion must be decidable from evidence.
-Mark the Spec `ready` only after the authority and testability review passes.
-
-### 2. Plan only when useful
-
-Use `plan.md` for multi-layer, cross-module, migration-heavy, or coordination-
-heavy work. It is an execution ledger, not a place to invent requirements.
-Record dependencies, sequence, ownership, risks, and checks by `RF-*`/`CA-*`.
-
-### 3. Implement the approved contract
-
-The Builder follows the selected Rule Pack and changes only the approved scope.
-Tests should name or otherwise trace to their criteria where practical. New
-ambiguity, conflicting authority, or a required scope expansion returns to the
-Orchestrator; it is not silently solved in code.
-
-### 4. Evaluate independently
-
-Create `evaluation.md` at implementation start. Maintain an acceptance matrix
-covering every `CA-*`, with commands, results, manual checks, and evidence. Record
-review findings as `ACH-*` with severity, status, and resolution evidence.
-
-### 5. Conclude
-
-The Orchestrator:
-
-1. confirms the Confluence content ID and page version still match the Spec;
-2. confirms every `RF-*` and `CA-*` has an accepted disposition and evidence;
-3. runs all applicable `CI-*` gates using commands present in the repository;
-4. resolves or explicitly accepts all findings;
-5. records the final delivery disposition in `evaluation.md`;
-6. marks the artifacts `completed` and links the Jira issue/PR when available.
-
-Use `implemented`, `partially_implemented`, `not_implemented`, or `not_applicable`
-for each selected `RP-*`. This local disposition is evidence about delivery; it
-does not alter or reinterpret the canonical PRD.
-
-Branches and commits continue to follow the repository convention and include
-the relevant `SHI-*` Jira key. SDD artifact IDs complement Jira; they do not
-replace it.
+The [workflow prompt index](prompts/README.md) lists creation, implementation,
+conclusion and feedback workflows. Prompts and generated skills inherit this
+contract. Historical delivery records preserve their original facts; when
+resuming, apply the current execution and evidence-reuse policy without
+silently lowering product acceptance or required checker coverage.

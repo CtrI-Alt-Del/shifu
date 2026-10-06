@@ -582,7 +582,7 @@ The REST file is parity evidence; CI-11 and VM-01/03/06 prove actual behavior.
 | [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB), ID 83066881 v13 | RP-09/10/13–18/25/26, JN-07 | confirmed | Complete page read 2026-09-23 01:20 UTC; partial adjacent outcomes remain separate. No external edit. |
 | [Curriculum PRD](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQDzB), ID 83034113 v6 | RP-03/RP-04, authored content | confirmed | Complete page read; fixed outcome explanations extend the local content contract, with legacy fail-closed rollout. No external edit. |
 | [SHIFU-74](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74) | Delivery source, design links | confirmed | Ticket read; SHIFU-19/20 are dependent capability context, not build order. No external edit. |
-| [SDD](../../../sdd.md) | Artifact lifecycle/identifiers | confirmed | Spec, Plan and Evaluation are completed locally; saved design references remain linked. |
+| [SDD](../../../sdd.md) | Artifact lifecycle/identifiers | confirmed | Spec and Evaluation are completed locally; the former execution ledger is archived; saved design references remain linked. |
 | [Architecture](../../../architecture.md) and [Modules](../../../modules.md) | Runtime and business ownership | confirmed | Learning owns official result; Curriculum owns content; shared provider is neutral; Inngest composition follows existing app. |
 | [Design system](../../../design.md) and [handoff](./design/handoff.md) | UI tokens and nine visual states | changed | Approved Pencil frames saved; runtime uses existing tokens and fresh comparison screenshots. |
 | [Tooling](../../../tooling.md) | Real commands/services | confirmed | CI-01–CI-15 correspond to current manifests/tooling. |

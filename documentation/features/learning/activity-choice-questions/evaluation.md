@@ -3,13 +3,18 @@ title: Learning Activity choice questions evaluation
 status: in_progress
 spec: ./spec.md
 spec_revision: 3
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74
 prd:
   learning: { content_id: 83066881, version: 13 }
   curriculum: { content_id: 83034113, version: 6 }
 last_updated_at: 2026-09-26
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
+## Resume handoff
+
+Resume from Spec revision 3. The recorded remaining work is current server-backed behavioral evidence for VM-02 and VM-06; EV-37 captures remain mock-backed visual evidence. Preserve these evidence limits and collect only the missing evidence required by the Spec.
 
 # Evaluation status
 
@@ -20,7 +25,7 @@ last_updated_at: 2026-09-26
   Learning PRD 83066881 v13 and Curriculum
   PRD 83034113 v6 are current and match recorded traceability. Jira SHIFU-74 remains
   `A fazer`; no external Jira or Confluence state was changed.
-- **Plan:** `in_progress`; F2-T2 is complete again. F3-T1 remains open for VM-02/06
+- **Historical execution:** `in_progress`; F2-T2 is complete again. F3-T1 remains open for VM-02/06
   live behavior; ACH-11 is resolved in EV-35. ACH-06 Web mapping, ACH-07 Server result hydration, ACH-08
   compact display, and ACH-09 navigation wrapper corrections are verified; EV-24
   confirms three persisted result details render live.
@@ -45,10 +50,10 @@ last_updated_at: 2026-09-26
 
 ## Builder assignments
 
-| Builder identifier | Plan assignment | Exact ownership | Allowed paths | Prohibited paths | Status |
+| Builder identifier | Historical assignment | Exact ownership | Allowed paths | Prohibited paths | Status |
 | --- | --- | --- | --- | --- | --- |
-| `/root/learning_activity_server_builder` | F2-T1 — Builder Server | Learning controllers/router, pipe/app composition, Inngest job/registration, error mapping, REST examples/tests; fixed-contract answer normalization and replay outcome | Exact F2-T1 paths enumerated in `plan.md`, including named F1 correction paths | Web, other F1-owned paths, and all SDD/design/authority files | `complete; Spec rev3` |
-| `/root/learning_activity_web_builder` | F2-T2 — Builder Web | REST adapter/service, nested Activity/attempt routes, five route/Page suites; saved-attempt recovery, result polling and navigation-warning hook corrections | Exact F2-T2 paths enumerated in `plan.md`, including the two Page hooks and their hook suites | Server, generated route metadata, other F1-owned paths and all SDD/design/authority files | `complete; Spec rev3` |
+| `/root/learning_activity_server_builder` | F2-T1 — Builder Server | Learning controllers/router, pipe/app composition, Inngest job/registration, error mapping, REST examples/tests; fixed-contract answer normalization and replay outcome | Exact F2-T1 paths enumerated in `history/legacy-execution.md`, including named F1 correction paths | Web, other F1-owned paths, and all SDD/design/authority files | `complete; Spec rev3` |
+| `/root/learning_activity_web_builder` | F2-T2 — Builder Web | REST adapter/service, nested Activity/attempt routes, five route/Page suites; saved-attempt recovery, result polling and navigation-warning hook corrections | Exact F2-T2 paths enumerated in `history/legacy-execution.md`, including the two Page hooks and their hook suites | Server, generated route metadata, other F1-owned paths and all SDD/design/authority files | `complete; Spec rev3` |
 | `/root/learning_activity_web_builder` | F3 ACH-06 — Builder Web Fix | Map attempt result fields from the actual Server response | `apps/web/src/rest/services/learning-service.ts` only | Every other path, Server, generated routes, SDD/design/authority and external systems | `complete; typecheck passed; EV-18` |
 | `/root/learning_activity_server_builder` | F3 ACH-07 — Builder Server Fix | Verify completed GET attempt HTTP response and correct Server serialization/use-case/mapping if needed | `apps/server/tests/learning/server/controllers/test_get_choice_attempt_controller.py`; conditionally `apps/server/src/shifu/learning/rest/controllers/get_choice_attempt_controller.py`, `apps/server/src/shifu/learning/core/use_cases/get_choice_attempt_use_case.py`, `apps/server/src/shifu/learning/database/sqlalchemy/mappers/activity_attempt_mapper.py`, `apps/server/src/shifu/learning/database/sqlalchemy/mappers/activity_evaluation_mapper.py` | Every other path, all Web, generated routes, SDD/design/authority and external systems | `complete; Spec rev3; verified EV-21 and current Server gates` |
 | `/root/learning_activity_web_builder` | F3 ACH-08 — Builder Web Fix | Normalize display-only score formatting against saved result references while preserving exact API/domain values | `apps/web/src/ui/learning/widgets/pages/choice-result-page/index.tsx`, `apps/web/src/ui/learning/widgets/pages/choice-result-page/choice-result-detail/index.tsx`, and their colocated test files only | Server, REST/domain scoring, all other Web paths, generated routes, SDD/design/authority and external systems | `complete; Spec rev3; focused exits EV-22` |

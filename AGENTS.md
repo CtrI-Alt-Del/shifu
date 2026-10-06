@@ -26,8 +26,11 @@ exact owned and prohibited paths, applicable authorities, validation commands,
 and expected evidence. Avoid overlapping edits.
 
 Keep shared decisions, SDD artifact ownership, integration, and final validation
-in the main task. Review every returned diff and rerun applicable checks on the
-integrated candidate. Use descriptive names such as `identity-api-builder`,
+in the main task. Review every returned diff. Use focused unit/component and
+static feedback during building; run integration suites after all scopes are
+integrated, fix failures and rerun until all applicable suites pass. Review and
+conclusion reuse valid results; later corrections reopen only affected checks.
+Use descriptive names such as `identity-api-builder`,
 `learning-widget-reviewer`, or `gamification-schema-explorer`, never generic
 names such as `worker` or `subagent`.
 
@@ -47,8 +50,8 @@ context that is not available in the repository.
 
 1. Resolve the accessible Atlassian resource once per session and reuse its
    `cloudId`.
-2. Use `mcp__codex_apps__atlassian_shifu_mcp_search` for ordinary Jira and
-   Confluence discovery.
+2. Use the Atlassian Shifu MCP search tool for ordinary Jira and Confluence
+   discovery.
 3. Use the Confluence CQL or Jira JQL tools only when the task explicitly needs
    those query languages.
 4. Read complete Confluence content before using requirements, decisions, or
@@ -177,52 +180,32 @@ send deployed events without a clear request.
 
 ## Playwright CLI
 
-Use Playwright CLI for real browser behavior in `apps/web`, especially after UI,
-route, form, responsive, accessibility, authentication, or API integration
-changes. Use accessible role/name locators where possible. Inspect DOM, final
-URL, requests, console messages, viewport behavior, and keyboard paths.
+Use Playwright CLI from `apps/web` for required real-browser happy paths. Check
+`docker compose ps` and relevant health endpoints, start only the required
+services using documented commands, and wait for the web and API to be healthy.
+For example:
 
-Manual validation, including browser and visual checks, covers required happy
-paths only. Verify negative cases, failures, recovery, concurrency and unusual
-outcomes with automated tests. A targeted manual investigation may help diagnose
-a concrete defect but does not become a delivery gate. Keep each required manual
-scenario concise and conclusive: one representative journey, the fewest actions
-and artifacts needed, explicit pass/fail observations, and a stated evidence
-limit. Do not add repeated accounts, fixtures or viewports without a distinct
-acceptance claim. For rendered UI changes,
-capture and inspect fresh post-change screenshots of the happy-path states and
-viewports required by the current Spec against their design references. A screenshot supports behavioral
-assertions but does not replace them. Mocked transport tests are not evidence
-that a real authenticated, persisted, or server-backed flow works.
+```sh
+cd apps/web
+playwright-cli -s=shifu open http://127.0.0.1:7000/login
+```
 
-### Browser validation workflow
+For authenticated flows, load
+`.playwright-cli/states/shifu-auth-state.json`; if it is missing or expired,
+sign in through the visible form and save a fresh state. Keep storage state
+local, and never print, stage, or commit it. Use fresh snapshots and accessible
+locators; check the resulting URL, visible outcome, relevant requests, console
+errors, and keyboard path. For UI changes, capture and inspect fresh screenshots
+of the Spec-required states and viewports against their design references.
 
-1. Identify required services. Inspect `docker compose ps` and relevant health
-   endpoints before full-stack validation.
-2. Default local endpoints are PostgreSQL on `localhost:54344`, Inngest on
-   `localhost:18288`, Mailpit UI on `localhost:54326`, SonarQube on
-   `localhost:19000`, web on `http://localhost:7000`, and FastAPI on
-   `http://localhost:7777` as the fallback when started with the documented
-   command. Environment overrides take precedence.
-3. Start only required applications in persistent sessions. Run the API from
-   `apps/server` with `uv run uvicorn main:app --app-dir src --reload`; run the
-   web app from `apps/web` using its current `dev` script.
-4. Wait for startup and verify health before browser assertions.
-5. Exercise visible behavior using accessible locators and verify the resulting
-   URL, network request, and persisted state that matter to the criterion.
-6. Inspect console errors, failed requests, and HTTP 4xx/5xx responses; classify
-   each as fixed, pre-existing, or blocking.
-7. For relevant UI work, test the required happy path at a narrow viewport,
-   including keyboard navigation and focus. Cover loading, empty, error and
-   recovery states in automated tests.
-8. Capture fresh screenshots for required happy-path rendered states and record
-   paths/results as Evaluation evidence.
-9. Stop application processes started for validation. Leave shared Docker
-   services running unless teardown was explicitly requested.
-
-Use only Playwright commands and scripts that actually exist in the repository.
-The architecture may describe planned test infrastructure that is not installed
-yet; planned commands are not executable evidence.
+Keep browser artifacts under
+`apps/web/.playwright-cli/{logs,screenshots,snapshots,states}/`. Close only the
+session and app processes started for the task; leave shared Docker services
+running. Record concise pass/fail observations and artifact paths in Evaluation.
+Automated tests cover negative, failure, recovery, concurrency, and unusual
+cases; screenshots do not prove server persistence, and mocked requests do not
+prove real authenticated flows. Use only commands supported by the installed
+CLI and the artifact paths listed above.
 
 ## Specification-driven development
 
@@ -233,8 +216,13 @@ the canonical PRD authority. Record its content ID/version in the Spec and keep
 Shifu's `RP/JN/RF/CA/VM/EV/ACH/CI` artifact vocabulary.
 
 Keep feature artifacts under `documentation/features/<module>/<feature>/`.
-The Orchestrator owns `spec.md`, `plan.md`, and `evaluation.md`; Builders and
-reviewers report evidence and findings but do not silently change the contract.
+The Orchestrator owns `spec.md` and `evaluation.md`; Builders and reviewers
+report evidence and findings but do not silently change the contract. The Spec
+defines required behavior, consequential contracts and checkers. The agent
+handles planning, execution order and delegation without a separate `plan.md`.
+Evaluation holds acceptance evidence and a small factual handoff so another
+agent can resume from the Spec, recorded results and actual diff. Old execution
+ledgers under feature `history/` directories are read-only historical records.
 Direct maintenance without product-behavior changes is exempt from creating a
 new feature artifact set, but still follows repository rules.
 

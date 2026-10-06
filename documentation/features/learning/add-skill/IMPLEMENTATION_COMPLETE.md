@@ -6,9 +6,9 @@ date: 2026-09-22
 
 # Implementation Status: COMPLETE
 
-All 4 phases (F1-F4) of the plan are now implemented and ready for review.
+The recorded implementation is ready for review. Former phase assignments are preserved in [historical execution](history/legacy-execution.md); current readiness depends on Spec acceptance and Evaluation evidence.
 
-## Phase Summary
+## Historical phase summary
 
 | Phase | Status | Scope | Evidence |
 |-------|--------|-------|----------|

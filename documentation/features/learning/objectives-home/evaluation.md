@@ -3,16 +3,17 @@ title: Objectives Home and Planner entry evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 1
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60
 prd_content_id: 83099649
 prd_version: 1
 last_updated_at: 2026-09-22
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
 # Evaluation status
 
-Delivery concluded. F1–F8 complete under `plan.md` (Plan-backed execution).
+Delivery concluded. F1–F8 complete under `history/legacy-execution.md` (historical delegated execution).
 All `CA-*` have current passing evidence on the final commit, the single
 Implementation Reviewer ran with no blocking findings, and the full gate set
 (server + web, including the live 30/30 Playwright suite) passed on the exact
@@ -20,7 +21,7 @@ concluding commit.
 
 - **Spec:** `ready`, revision `1`. Traced to Intelligence PRD `83099649` v1 and
   Learning PRD `83066881` v1.
-- **Plan:** `draft` → moving to `in_progress` as F1 starts. No phase completed
+- **Historical execution:** `draft` → moving to `in_progress` as F1 starts. No phase completed
   yet.
 - **Baseline (pre-implementation, inspected 2026-09-20):** `/` renders the
   static `DashboardPage` placeholder. Learning has `Goal`/`SkillExperience`
@@ -561,7 +562,7 @@ Playwright (30/30) suites green. **Status:** resolved.
     `origin/main` unchanged since the earlier merge (already an ancestor of
     HEAD) — no resync needed. Added the final conformance record, PRD
     traceability table, and Lessons learned section above. `spec.md` and this
-    Evaluation set to `completed`; `plan.md` already `completed`.
+    Evaluation set to `completed`; `history/legacy-execution.md` already `completed`.
   - **Next action:** commit the documentation-only conclusion changes, then
     hand off to `create-pr`.
 - **2026-09-22 — publication and PR CI gate**

@@ -3,13 +3,14 @@ title: Learning Activity JavaScript stdin questions evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 15
-plan: ./plan.md
 source: "2026-09-26 user request: Pencil lZDH7, including mixed Activities"
 prd:
   curriculum: { content_id: 83034113, version: 12 }
   learning: { content_id: 83066881, version: 22 }
 last_updated_at: 2026-09-27
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation status
 
@@ -19,7 +20,7 @@ last_updated_at: 2026-09-27
   review of the user-directed deployment-scope amendment (EV-073); revision 13 was `ready` after independent
   pre-input amendment review; revision 12 resize evidence remains historical;
   revision 11 was `ready` after the scoped public
-  fixed-dependency field amendment and independent review; [plan.md](./plan.md) is `completed`.
+  fixed-dependency field amendment and independent review; [historical execution record](./history/legacy-execution.md) is `completed`.
   Revision 10 F1 evidence remains historical and unaffected. The canonical Curriculum PRD 83034113 v12 and Learning
   PRD 83066881 v22 were read in full. Learning RP-11/JN-07 v22 was amended
   with the user's approval, then read back in full. SHIFU-75 remains historical
@@ -56,7 +57,7 @@ last_updated_at: 2026-09-27
 
 ## Builder assignments
 
-| Identifier | Plan assignment | Outcome and RF/CA | Allowed paths | Prohibited paths | Dependencies and exits | Status |
+| Identifier | Historical assignment | Outcome and RF/CA | Allowed paths | Prohibited paths | Dependencies and exits | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | `/root/learning_stdin_delivery_fix` | Reopened F1-T2 scoped Builder Fix, Spec revision 14 | Correct the real WebContainer stdin path and prove a unique program-produced echo through a consuming browser route assertion; RF-03, CA-03, VM-02 | `apps/web/src/provision/learning/webcontainer-code-practice-runner.ts`; `apps/web/tests/routes/learning/activities.$activityId.index.test.tsx` (mocked transport only; real WebContainer allowed) | Other source/tests, all Server/Curriculum/Intelligence paths, SDD/design/authority, manifests/locks, generated routes and unrelated work | ACH-019/EV-076; follow TypeScript, Provision, Web Routing and Widget Testing Rules; focused route regression and Web lint/types; report root cause and exact before/after stdin output | `complete — EV-077; route, lint and types passed` |
 | `/root/learning_preinput_practice_builder` | Reopened F1-T2 scoped Builder | Empty-stdin automatic startup/edit run and exact-command guard; RF-03, CA-03 | `apps/web/src/provision/learning/webcontainer-code-practice-runner.ts` | All other source/tests, SDD/design/authority, server, manifests/locks and unrelated work | Spec revision 13 ready; Web checks and authenticated output before stdin, rerun, missing-command probe, reviewer correction | `complete — EV-050`; real-backend route test candidate retired per EV-073 |

@@ -84,4 +84,4 @@ The work follows separate Curriculum catalog, Learning policy/persistence, and d
 
 The canonical product decision for no-evidence Material was explicitly chosen by the user in this task and written to Learning PRD v17. Existing unrelated workspace changes in choice UI, tests, design and repository rules must be preserved and reviewed before integration. No Confluence or Jira status is changed as an implementation side effect.
 
-Revision 1 is implemented and locally validated. The [Evaluation](evaluation.md) records acceptance, runtime and visual evidence, resolved findings, and remaining validation limits; the [Plan](plan.md) records completed delivery phases.
+Revision 1 is implemented and locally validated. The [Evaluation](evaluation.md) records acceptance, runtime and visual evidence, resolved findings, and remaining validation limits; the [historical execution record](history/legacy-execution.md) preserves former delivery phases without governing readiness.

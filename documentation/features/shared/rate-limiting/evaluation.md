@@ -6,9 +6,11 @@ status: ready
 spec_version: 2
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
 # Evaluation: Redis-backed rate limiting for the Shifu Server
 
-Acceptance matrix and evidence for `spec.md` (v1) / `plan.md` (v1), executed and
+Acceptance matrix and evidence for `spec.md` (v1) / `history/legacy-execution.md` (v1), executed and
 validated in the same session. All commands ran from `apps/server`. Manual
 validation used a temporary, non-persistent Redis container
 (`docker run --rm -p 16379:6379 redis:7-alpine`) started and torn down for this

@@ -8,6 +8,9 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77
 last_updated_at: 2026-09-28
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # 1. Execution status
 
 - **Spec:** `documentation/features/learning/initial-diagnosis/spec.md`, revision

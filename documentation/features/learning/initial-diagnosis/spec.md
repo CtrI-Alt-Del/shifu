@@ -751,7 +751,7 @@ automação, sem validação manual adicional.
 | [PRD Learning v24](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB) | Produto | changed | Content ID `83066881`; RP-28 atualizado com confirmação explícita do usuário; política global sem versão por experiência |
 | PRD Curriculum | Conteúdo e avaliação | confirmed | Content ID `83034113`, versão 12; Currículo mantém autoridade sobre cobertura, atividades diagnósticas e avaliadores |
 | [SHIFU-77](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77) | Origem de entrega | confirmed | Diagnóstico, resultado e reinício |
-| `documentation/sdd.md` | SDD | confirmed | Lifecycle local preservado; Plan será reconciliado após aprovação da revisão 9; Evaluation retém evidência histórica e acompanha a nova revisão |
+| `documentation/sdd.md` | SDD | confirmed | Spec e Evaluation governam a entrega; o registro de execução arquivado é histórico; Evaluation retém evidência histórica e acompanha a nova revisão |
 | `documentation/modules.md` | Dono do produto | confirmed | Learning decide progresso; Curriculum fornece cobertura e avaliação; outros módulos só consomem fatos permitidos |
 | `documentation/architecture.md` | Camadas e integração | confirmed | Core/REST/DB/outbox/Inngest existentes preservados |
 | `documentation/design.md` | Experiência transversal | confirmed | Estados T19/T20/T21/T26 permanecem alinhados à experiência descrita na PRD |

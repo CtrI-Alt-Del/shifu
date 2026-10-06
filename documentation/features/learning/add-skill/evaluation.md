@@ -2,15 +2,16 @@
 title: SHIFU-65 Add Skill with Suggested Foundations — Evaluation
 status: ready_for_review
 spec_revision: 2
-plan_status: complete
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-65
 last_updated_at: 2026-09-22
 implementation_complete_at: 2026-09-22
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
 # Evaluation Record
 
-Acceptance validation evidence for Spec revision 2, Plan-backed execution.
+Acceptance validation evidence for Spec revision 2, historical delegated execution.
 
 | Evidence ID | Type | Scenario | Criteria | Reference | Status | Baseline | Current | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -43,8 +44,8 @@ Acceptance validation evidence for Spec revision 2, Plan-backed execution.
 ## Implementation tracking
 
 - **Spec revision**: 2 (ready)
-- **Plan status**: ✅ COMPLETE
-- **All phases complete**: F1 ✅ + F2 ✅ + F3 ✅ + F4 ✅
+- **Historical execution status**: ✅ COMPLETE
+- **Historical phase completion**: F1 ✅ + F2 ✅ + F3 ✅ + F4 ✅
 - **All code deliverables**: Server (F1-F2) + Web (F3) + Tests (F4)
 - **Status**: Ready for Implementation Reviewer checkpoint and manual validation
 

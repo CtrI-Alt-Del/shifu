@@ -369,7 +369,7 @@ Evidence futura em evaluation.md: matriz CA/VM, comandos/resultados, screenshots
 | design.md | Tokens e visual geral | confirmed com drift | Grafo padrão segue PRD; neutralizar diagnóstico; shell atual; diferenças no manifest |
 | tooling.md / manifests / CI | Comandos | confirmed com drift | Root pnpm-lock e pipelines existentes prevalecem sobre texto “sem CI” |
 | sdd.md / create-spec-prompt.md | Ciclo documental | confirmed com drift | Usar draft/ready nesta etapa; divergência implemented/in_progress só importa no kickoff |
-| SHIFU-64.md | Decisões do usuário/retomada | updated no handoff | Não duplicar o contrato; apontar a Spec e o Plan |
+| SHIFU-64.md | Decisões do usuário/retomada | updated no handoff | Não duplicar o contrato; apontar a Spec e a Evaluation |
 
 | Rule | Applies to | Evaluated revision |
 | --- | --- | --- |
@@ -396,4 +396,4 @@ Conflitos localizados: Widget Testing define tests/ e suites module-first; preva
 | 4 | 2026-09-24 | Destaque temporário do caminho de pré-requisitos no hover e foco de Habilidade | Pedido explícito do usuário, RP-04/RP-25; sem mudar relações oficiais |
 | 5 | 2026-09-24 | Animação do traço do caminho destacado e respeito a reduced-motion | Correção explícita do usuário ao tratamento visual da revisão 4 |
 
-Revisão independente concluída em 2026-09-23 por goal_details_spec_reviewer, somente leitura, sobre revisão 1 e base 05d36a2: nenhum achado blocking/high/medium. Architecture, ownership, direção das dependências, Rules e as 56 classificações de caminhos foram conferidas. O Orchestrator reconciliou o resultado com o contrato e declara a revisão 1 ready para planejamento e implementação condicionada aos gates do Plan. Essa revisão não prova fidelidade runtime, testes aprovados ou entrega da SHIFU-65.
+Revisão independente concluída em 2026-09-23 por goal_details_spec_reviewer, somente leitura, sobre revisão 1 e base 05d36a2: nenhum achado blocking/high/medium. Architecture, ownership, direção das dependências, Rules e as 56 classificações de caminhos foram conferidas. O Orchestrator reconciliou o resultado com o contrato e declara a revisão 1 ready para implementação condicionada aos gates da Spec. Essa revisão não prova fidelidade runtime, testes aprovados ou entrega da SHIFU-65.

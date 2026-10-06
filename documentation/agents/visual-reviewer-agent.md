@@ -23,6 +23,9 @@ Run in parallel with the integrated Implementation Reviewer after the same
 candidate has been integrated and its required captures are available. Receive
 the exact Spec revision, candidate state, design handoff, saved reference paths,
 fresh capture paths, exact routes/states/viewports and relevant Evaluation rows.
+After a correction, inspect only affected reference/capture pairs and preserve
+unaffected results. A ledger edit or new commit SHA alone does not require
+recapture when the rendered code, data, configuration and contract are unchanged.
 Use only the states the current Spec requires for visual acceptance. Do not
 request additional accounts, fixtures, viewports or manual scenarios.
 
@@ -49,7 +52,7 @@ the manual journey. If a reference or capture is missing or stale, report
 ## Restrictions
 
 - Do not edit files, create captures, run new manual scenarios, or create agents.
-- Do not change the Spec, Plan, Evaluation, design, code or external systems.
+- Do not change the Spec, Evaluation, design, code or external systems.
 - Do not decide official evidence or delivery status.
 
 ## Output

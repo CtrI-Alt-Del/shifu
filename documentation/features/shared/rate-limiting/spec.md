@@ -241,7 +241,7 @@ green for the changed code (run from `apps/server`):
 - v1 (2026-09-16): Marked `ready` — assumptions presented and unchallenged before the
   execution Plan was requested. Added the CI-4 precondition about Redis reachability
   for the test suite once RF-7 lands.
-- v1 (2026-09-16): Marked `implemented` after executing `plan.md`. All RF-*/CA-* hold;
+- v1 (2026-09-16): Marked `implemented` after executing `history/legacy-execution.md`. All RF-*/CA-* hold;
   see `evaluation.md` for the acceptance matrix, gate results, and one fixed finding
   (ACH-1: Uvicorn's default proxy-header trust was overriding RF-4 for local
   connections; fixed in `apps/server/src/main.py`).

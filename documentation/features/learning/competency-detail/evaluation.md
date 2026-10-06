@@ -3,12 +3,13 @@ title: Learning Competency detail evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 3
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-72
 prd_content_id: 83066881
 prd_version: 13
 last_updated_at: 2026-09-22
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation status
 
@@ -88,7 +89,7 @@ contract-only child routes throw `notFound()` before their generic boundary.
 | EV-F5-WEB-PAGE-ROUTES | `pnpm --filter web exec playwright test tests/learning --reporter=line` | passed; 8 protected/contract route assertions inside the owning page suites, including anonymous redirect and no-detail-request assertions |
 | EV-F5-WEB-INTEGRATION | `pnpm --filter web test:integration` | 25 passed / 3 pre-existing identity handler failures (`503`); no Learning failures |
 | EV-F5-ROUTES | `pnpm --filter web generate-routes` | passed; generated route tree reviewed |
-| EV-F6-STRUCTURAL | Orchestrator path-map review against `spec.md`, `plan.md`, `git status`, generated route metadata, and the final tree | passed; repository rules explicitly define no executable `check:spec-implementation` command, so none was invented |
+| EV-F6-STRUCTURAL | Orchestrator path-map review against `spec.md`, `history/legacy-execution.md`, `git status`, generated route metadata, and the final tree | passed; repository rules explicitly define no executable `check:spec-implementation` command, so none was invented |
 | EV-F5-SERVER-LINT | `cd apps/server && uv run poe check:lint` | passed; 480 files formatted |
 | EV-F5-SERVER-ARCH | `cd apps/server && uv run poe check:architecture` | passed |
 | EV-F5-SERVER-TYPES | `cd apps/server && uv run poe check:types` | passed; 0 errors/warnings/notes |
@@ -218,7 +219,7 @@ size warning. These are recorded, not silently treated as feature evidence.
 - **Contract:** `documentation/features/learning/competency-detail/spec.md`,
   revision `3`, status `completed`; canonical PRD content `83066881`, version
   `13`; Jira `SHIFU-72`; no external authority was mutated.
-- **Plan scope:** F1–F7 completed. Builder Core, Builder Web, and Builder Server
+- **Historical assignments:** F1–F7 completed. Builder Core, Builder Web, and Builder Server
   owned their non-overlapping paths; the Orchestrator owned package/lockfile,
   application composition, migration, generated route metadata, integration,
   and all SDD artifacts. The complete diff was reviewed with unrelated existing
@@ -247,11 +248,11 @@ size warning. These are recorded, not silently treated as feature evidence.
 
 | Builder | Owned paths | Prohibited paths | Exit |
 | --- | --- | --- | --- |
-| Builder Core | F2 paths in `plan.md`: Shared snapshots/interfaces and Learning Core structures/errors/use case plus focused unit test | Web, database, REST, app composition, generated artifacts, Spec/Plan/Evaluation | focused use-case test, server types, architecture |
-| Builder Web | F3 paths in `plan.md`: web contracts/context, widgets/primitives, route sources and web tests | Server, migration, `routeTree.gen.ts`, app/root shared composition, Spec/Plan/Evaluation | focused web tests, types, architecture |
+| Builder Core | F2 paths in `history/legacy-execution.md`: Shared snapshots/interfaces and Learning Core structures/errors/use case plus focused unit test | Web, database, REST, app composition, generated artifacts, Spec/Plan/Evaluation | focused use-case test, server types, architecture |
+| Builder Web | F3 paths in `history/legacy-execution.md`: web contracts/context, widgets/primitives, route sources and web tests | Server, migration, `routeTree.gen.ts`, app/root shared composition, Spec/Plan/Evaluation | focused web tests, types, architecture |
 | Builder Server | F4 paths after Core acceptance | Core contracts, web, app composition, migration unless explicitly handed off | controller integration through `FastAPIApp.register()`, route-complete REST artifact |
 | Orchestrator | package/lockfile, app/root composition, generated route metadata, migration, SDD artifacts, integration/final validation | unassigned Builder-owned paths while active | integrated gates and Evaluation |
 
-The Plan is the sequencing ledger; this Evaluation is the evidence ledger.
+The archived execution record preserves former sequencing; the Spec and this Evaluation govern resumed delivery.
 Builder reports are advisory until their diffs and command results are inspected
 and reproduced by the Orchestrator.

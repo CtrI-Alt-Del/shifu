@@ -8,9 +8,12 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-72
 last_updated_at: 2026-09-22
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
-- **Spec:** [`spec.md`](./spec.md), revision `3`, status `completed`.
+- **Spec:** [`spec.md`](.././spec.md), revision `3`, status `completed`.
 - **Why Plan-backed execution:** This slice crosses Shared, Learning, Curriculum,
   Identity, FastAPI composition, PostgreSQL/Alembic, the web BFF/RPC/REST layers,
   TanStack routing, responsive widgets, generated artifacts, and real browser
@@ -198,7 +201,7 @@ last_updated_at: 2026-09-22
 - **Paths:** Read-only review of the complete integrated diff, Spec, Plan, Evaluation, affected source/tests/generated artifacts, `apps/server/rest-client/learning/competencies.rest`, and all affected runtime surfaces.
 - **Traceability:** All `RF-*`, `CA-*`, `VM-*`, REST contract, design references, and cross-Builder boundaries.
 - **Outcome:** One advisory report identifies any conformance, contract, stale-evidence, REST-parity, UI, server, migration, or integration finding with the responsible Builder.
-- **Rules:** [`implementation-reviewer-agent.md`](../../../agents/implementation-reviewer-agent.md); all selected Rule Packs and the current Spec revision.
+- **Rules:** [`implementation-reviewer-agent.md`](../../../../agents/implementation-reviewer-agent.md); all selected Rule Packs and the current Spec revision.
 - **Risks/controls:** The Reviewer does not edit files, decide official evidence, mutate Atlassian, or replace the Orchestrator's sensors. If a contracted path changes, invalidate affected evidence and resume the same Reviewer after the responsible Builder's correction exit passes.
 - **Exit:** Complete the required read-only structural, REST-client, UI/Playwright, and server-backed audit; record `ACH-*` findings and conformance status in the Evaluation without claiming the advisory report itself is acceptance evidence.
 

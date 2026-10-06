@@ -42,8 +42,8 @@ authentication, messaging, or integrations are affected. Check current manifests
 and source for implemented commands and behavior; documentation may describe
 planned capabilities.
 
-For feature behavior, read `documentation/sdd.md`, the exact local `spec.md`,
-`plan.md` when present, and `evaluation.md`. Verify the Spec revision, status,
+For feature behavior, read `documentation/sdd.md`, the exact local `spec.md`
+and `evaluation.md`. Verify the Spec revision, status,
 allowed and prohibited paths, `RF-*`/`CA-*`, design references, and required
 `VM-*`/`CI-*` evidence. Locate the relevant Jira issue and read the complete
 canonical Confluence PRD when a requirement or product-intent claim depends on
@@ -80,11 +80,19 @@ When the two passes are genuinely independent and this is a standalone review,
 run them in parallel with specifically named, read-only reviewers and bounded
 sources. The main task verifies their findings against the integrated diff and
 authorities. If reviewing within `implement-spec`, follow its single
-Implementation Reviewer workflow instead; keep the Standards and Contract
+Implementation Reviewer workflow with parallel visual review when applicable;
+reuse their reports and do not introduce a third serial reviewer. Keep Standards and Contract
 questions separate within that review. Do not activate a Spec Reviewer to
 review implementation code.
 
 ## 4. Validate findings and review them with the user
+
+Consume current checker results and inspect assertions, coverage, fixtures and
+candidate freshness. Do not rerun passing integration suites or required manual
+journeys merely because review began. After a correction, recheck affected
+findings and evidence only; ledger changes alone require no new code review.
+Coordinate any necessary integration diagnostic with the designated verification
+runner.
 
 Inspect the complete relevant source around each changed hunk and trace its
 callers or consumers before claiming a defect. Run focused existing checks only

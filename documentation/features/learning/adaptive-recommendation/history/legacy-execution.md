@@ -7,6 +7,9 @@ evaluation: ./evaluation.md
 last_updated_at: 2026-09-24
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
 Spec revision 1 is implemented and validated. Curriculum catalog, Learning persistence/policy, activation, diagnostic, web routes and additive migrations integrate without changing legacy experiences. All phases are complete. Existing workspace changes outside this feature were preserved. The Orchestrator owns SDD artifacts, migration coordination, shared integration and final validation.

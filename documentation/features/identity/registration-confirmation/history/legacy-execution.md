@@ -8,9 +8,12 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61
 last_updated_at: 2026-09-23
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
-- **Spec:** [`spec.md`](./spec.md), revision `12`, status `draft` during PR #9
+- **Spec:** [`spec.md`](.././spec.md), revision `12`, status `draft` during PR #9
   correction reconciliation; source is
   `SHIFU-61`, Identity PRD `83001345` v1 and Communication PRD `86114306` v1.
 - **Why Plan-backed:** This delivery crosses Identity and Communication cores,

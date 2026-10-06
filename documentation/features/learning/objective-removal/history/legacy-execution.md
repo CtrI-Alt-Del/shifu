@@ -8,6 +8,9 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67
 last_updated_at: 2026-09-25
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 > **Superseded by `evaluation.md`'s "Revision 2" section.** This plan's body
 > below (Waves 1–4, task statuses, path references) documents execution as it
 > happened against `feat/shifu-65`, before that branch merged into `main` and
@@ -345,7 +348,7 @@ spec-implementation checker, and the web `check:code`/SonarQube gate is
 explicitly outside the current local contract per `documentation/tooling.md`.
 
 **Implementation Reviewer.** Schedule exactly one read-only
-[`Implementation Reviewer`](../../../agents/implementation-reviewer-agent.md)
+[`Implementation Reviewer`](../../../../agents/implementation-reviewer-agent.md)
 in `F5`, after every Builder diff is integrated and the automated gates plus
 the evidence baseline pass. It reviews the complete candidate: the
 server slice and its HTTP/persistence contract, the shared web primitives, the

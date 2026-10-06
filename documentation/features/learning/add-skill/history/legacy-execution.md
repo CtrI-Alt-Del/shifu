@@ -8,6 +8,9 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-65
 last_updated_at: 2026-09-22
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # 1. Execution status
 
 - **Spec**: `documentation/features/learning/add-skill/spec.md`, revision `2`, status `ready`.

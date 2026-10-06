@@ -3,7 +3,6 @@ title: Identity password recovery and reset evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 4
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63
 prd:
   - content_id: 83001345
@@ -12,6 +11,8 @@ prd:
     version: 1
 last_updated_at: 2026-09-27
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation Status
 
@@ -113,7 +114,7 @@ functional, responsive and accessibility evidence remains required.
 
 # Builder Assignments
 
-| Builder | Plan scope | Exact allowed paths | Prohibited paths | Exits |
+| Builder | Historical assignment | Exact allowed paths | Prohibited paths | Exits |
 | --- | --- | --- | --- | --- |
 | `identity-password-recovery-server-builder` | F1/F4, Builder Server; Identity/Communication server contracts, persistence, jobs, composition and tests | `apps/server/src/shifu/identity/**`; `apps/server/src/shifu/communication/core/domain/**`; `apps/server/src/shifu/communication/database/**`; `apps/server/src/shifu/communication/messaging/**`; `apps/server/src/shifu/communication/core/**`; `apps/server/src/shifu/composition/**`; `apps/server/src/shifu/communication/providers/email/template/generated_email_message_renderer.py`; `apps/server/src/shifu/app.py`; `apps/server/migrations/versions/<new>_generalize_identity_action_token_delivery.py`; `apps/server/rest-client/identity/identity.rest`; matching `apps/server/tests/identity/**`, `apps/server/tests/communication/**`, and `apps/server/tests/messaging/inngest/jobs/{identity,communication}/**` | Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, design artifacts, `packages/email/**`, `apps/web/**`, generated email artifacts | Focused server tests, lint, architecture, types; route parity; report Docker/config limitations |
 | `identity-password-recovery-web-builder` | F2/F5, Builder Web; BFF, public routes, widgets and web tests | `apps/web/src/constants/routes.ts`; `apps/web/src/rest/services/identity-service.ts`; `apps/web/src/provision/auth/better-auth/better-auth-provider.ts`; `apps/web/src/routes/forgot-password/**`; `apps/web/src/routes/reset-password/**`; `apps/web/src/ui/identity/hooks/**` limited to listed recovery hooks; `apps/web/src/ui/identity/widgets/pages/forgot-password-page/**`; `apps/web/src/ui/identity/widgets/pages/reset-password-page/**`; `apps/web/tests/routes/identity/**`; `apps/web/tests/identity/password-recovery-auth-handler.test.ts` | Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, design artifacts, `apps/web/src/routeTree.gen.ts`, `packages/email/**`, `apps/server/**` | Focused Vitest/route checks; no route generation; report pnpm/runtime limitations |

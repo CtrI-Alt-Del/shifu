@@ -8,11 +8,14 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-68
 last_updated_at: 2026-09-26
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 ## 1. Execution status
 
 | Field | Current value |
 | --- | --- |
-| Contract | [`spec.md`](spec.md), revision 2, `ready`; independent Reviewer recheck completed without findings |
+| Contract | [`spec.md`](../spec.md), revision 2, `ready`; independent Reviewer recheck completed without findings |
 | Why a Plan | Server + Web, a generated lockfile, shared primitives, a cross-transaction lock-order change, Inngest evidence and three design-backed surfaces require coordinated ownership and recovery state |
 | Plan state | `completed`; F0–F4 completed |
 | Current phase | Local delivery concluded |

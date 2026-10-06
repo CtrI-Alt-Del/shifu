@@ -17,8 +17,11 @@ Commits with suitable scopes such as `web`, `server`, or `core`. Start every
 subject with the relevant Jira key in the strict `SHIFU-<number>` format, for
 example `feat(core): SHIFU-71 model learning domain`. When extracting a key from
 a branch name, match `\bSHIFU-\d+\b` case-insensitively and normalize it to
-uppercase. Do not accept keys from another Jira project. Run applicable validation
-first.
+uppercase. Do not accept keys from another Jira project. Confirm current applicable
+validation evidence first. Reuse passing results when the contract, covered code
+and dependencies, fixtures and configuration are unchanged. Committing or updating
+operational ledgers alone does not trigger another integration run. Route missing
+or affected checks to the designated verification runner before claiming readiness.
 
 After each commit, verify status and report hash, message, files, validation, and
 excluded changes. Do not push; when this prompt is invoked independently,

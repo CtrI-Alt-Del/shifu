@@ -25,8 +25,8 @@ For each conflict:
 After editing:
 
 - Remove all conflict markers and review the resolved files.
-- Inspect repository documentation, manifests, and CI configuration to identify all checker gates defined by the project that apply to this merge. Run all of them, including required tests, lint, formatting, type, architecture, and build checks. Use repository-declared commands; don’t invent commands.
-- If any checker reports an error, proactively investigate and fix it, including errors outside the conflict hunks. Rerun the failing checker and any checks affected by the fix. Continue until all applicable checkers pass, or explain a specific blocker. Don’t suppress checks or weaken expectations just to get a pass.
+- Inspect repository documentation, manifests, and CI configuration to identify the checker gates affected by this merge. Use repository-declared commands; don’t invent commands. For an SDD delivery, follow `documentation/sdd.md`: run affected static/unit checks here, and let the designated verification runner execute integration suites after the resolved candidate is fully integrated. Record the exact changed dependencies and invalidated evidence in Evaluation; conclusion consumes that run instead of repeating it. For a standalone conflict-resolution request, perform its applicable integrated checks here as the designated runner.
+- If any checker reports an error, proactively investigate and fix delivery-related failures, including errors outside the conflict hunks when they are caused by the integration. Preserve unrelated user work and report pre-existing failures separately. Rerun failed and affected checkers until all applicable checks pass or a concrete blocker is recorded. Passing unaffected evidence stays valid. Don’t suppress checks or weaken expectations just to get a pass.
 - Stage files changed for this task, including checker fixes, so resolved conflicts are marked resolved. Preserve unrelated staged changes.
 - Don’t commit, abort the merge, switch branches, reset, stash, or alter unrelated work.
 

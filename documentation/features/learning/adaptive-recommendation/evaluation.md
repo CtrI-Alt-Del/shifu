@@ -3,18 +3,19 @@ title: Learning adaptive recommendation evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 1
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB
 prd_content_id: '83066881'
 prd_version: 17
 last_updated_at: 2026-09-24
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
 # Evaluation status
 
 Spec revision 1 is implemented and locally validated against Learning PRD content ID `83066881` version 17 and Curriculum PRD content ID `83034113` version 9, read in full and rechecked before conclusion. Independent Spec and implementation reviews are complete. Additive Concept catalog, evidence, versioned policy, activation/diagnostic and Web journeys are integrated. Existing v1 experiences remain pinned to v1. No Jira/Confluence delivery checkbox was changed during implementation. This conclusion records the published candidate in [PR #11](https://github.com/CtrI-Alt-Del/shifu/pull/11), currently at head `e161b9fb88dcd51a70493b8b8a6d5b4916b7a955`; no external product authority was mutated.
 
-Builder assignments and path restrictions are in `plan.md` F1–F4. Curriculum Builder delivered catalog and isolated seed, Learning Builder delivered policy and server flow, and Web Builder delivered routes/widgets. Orchestrator delivered migrations, app composition, REST examples, SDD artifacts and integrated validation. Existing legacy content remains v1 while the dedicated development Skill is v2 eligible. The complete worktree was inventoried; unrelated pre-existing edits in `design/shifu.pen`, shared UI, prior choice feature artifacts and UI rules are preserved and excluded from this delivery.
+Builder assignments and path restrictions are in `history/legacy-execution.md` F1–F4. Curriculum Builder delivered catalog and isolated seed, Learning Builder delivered policy and server flow, and Web Builder delivered routes/widgets. Orchestrator delivered migrations, app composition, REST examples, SDD artifacts and integrated validation. Existing legacy content remains v1 while the dedicated development Skill is v2 eligible. The complete worktree was inventoried; unrelated pre-existing edits in `design/shifu.pen`, shared UI, prior choice feature artifacts and UI rules are preserved and excluded from this delivery.
 
 # Acceptance coverage
 
@@ -104,7 +105,7 @@ Builder assignments and path restrictions are in `plan.md` F1–F4. Curriculum B
 
 # Final conformance record
 
-Exact Contract: [`spec.md`](spec.md) revision 1. F1 Curriculum, F2 policy, F3 Learning delivery, F4 Web and F5 integration in [`plan.md`](plan.md) are complete. The integrated source and test diff stays within the Spec boundaries, including required `app.py` provider wiring, shared seed composition, three additive migrations plus the merge-head reconciliation migration and the three Learning REST-client route groups. No generated route tree or runtime artifact was hand-edited or staged. The 19 pre-existing workspace changes explicitly requested for inclusion are present in the PR as the separate `83c7736` support commit; they remain outside the adaptive acceptance matrix and are not silently reclassified as adaptive behavior. Existing choice result/detail source was preserved, and the adaptive additions were integrated without resetting it.
+Exact Contract: [`spec.md`](spec.md) revision 1. F1 Curriculum, F2 policy, F3 Learning delivery, F4 Web and F5 integration in [`history/legacy-execution.md`](history/legacy-execution.md) are complete. The integrated source and test diff stays within the Spec boundaries, including required `app.py` provider wiring, shared seed composition, three additive migrations plus the merge-head reconciliation migration and the three Learning REST-client route groups. No generated route tree or runtime artifact was hand-edited or staged. The 19 pre-existing workspace changes explicitly requested for inclusion are present in the PR as the separate `83c7736` support commit; they remain outside the adaptive acceptance matrix and are not silently reclassified as adaptive behavior. Existing choice result/detail source was preserved, and the adaptive additions were integrated without resetting it.
 
 The supplemental local laboratory (EV-23) adds only development content and a ready-to-start v2 Goal. It does not change the policy or production journeys. Its three chained Concepts exercise within-Competency target switching, cross-Competency release, baseline retention and actual learner progress. The complete seed and reset were executed only on disposable PostgreSQL; the developer's shared local data was preserved.
 

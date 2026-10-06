@@ -3,12 +3,13 @@ title: Identity account menu and current-session logout evaluation
 status: completed
 spec: ./spec.md
 spec_revision: 3
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-69
 prd_content_id: 83001345
 prd_version: 1
 last_updated_at: 2026-09-24
 ---
+
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
 
 # Evaluation Status
 
@@ -85,7 +86,7 @@ pass against the final candidate.
 
 ## Execution Assignments
 
-| Builder | Spec/Plan scope | Allowed paths | Prohibited paths | Status |
+| Builder | Spec / historical assignment | Allowed paths | Prohibited paths | Status |
 | --- | --- | --- | --- | --- |
 | `identity-auth-bff-builder` | Spec rev 3; F1-T1/F1-T2 plus ACH-002 and ACH-006 corrections; RF-01, RF-04 to RF-07; CA-01, CA-04 to CA-07; RP-03, RP-10; JN-07 | Recorded Auth/BFF paths | Shell/UI widgets, routes, generated route tree, Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, package manifests and lockfiles | completed; EV-014 supersedes the environment-limited handler evidence |
 | `identity-shell-ui-builder` | Spec rev 3; F2-T1/F2-T2 plus ACH-003/ACH-004 corrections; RF-01 to RF-07; CA-01 to CA-07; RP-03, RP-10; JN-07 | Recorded Shell/UI paths | Auth/BFF provision, auth context, middleware, REST-client artifact, generated route tree, Spec, Plan, Evaluation, Rules, Architecture, Modules, Tooling, package manifests and lockfiles | completed; EV-014 and EV-015 supersede correction evidence |

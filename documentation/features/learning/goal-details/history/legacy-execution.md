@@ -8,15 +8,18 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64
 last_updated_at: 2026-09-23
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # 1. Execution status
 
 - 2026-09-24: Spec revision 5 animates the highlighted prerequisite path with reduced-motion fallback. The graph CSS and browser animation evidence join the revision 4 scope.
 - 2026-09-24: Spec revision 4 adds temporary prerequisite-path emphasis on skill hover/focus. The graph hook, ReactFlow composition, graph card and browser evidence are the affected scope.
 - 2026-09-24: Spec revision 3 adds canvas pan and an icon action that restores the initial fitted view. Web graph source, its route test and CA-06/VM-03 evidence are the affected scope; earlier baseline notes below are historical.
-- Contrato: [Spec](spec.md), revisão **1**, **ready**, após revisão independente de compatibilidade sem achados. Decisões aprovadas e justificativas em [SHIFU-64.md](../../../../SHIFU-64.md).
+- Contrato: [Spec](../spec.md), revisão **1**, **ready**, após revisão independente de compatibilidade sem achados. Decisões aprovadas e justificativas originalmente referenciadas em `SHIFU-64.md` (arquivo histórico não disponível nesta árvore).
 - Plan **draft**, fase inicial F1, todas as tarefas pending; nenhum Builder de implementação ativo. Não houve implementação, instalação ou validação runtime.
 - Coordenação justificada por contrato Shared/Curriculum/Learning, API/BFF/Web, dependência SHIFU-65 e validação visual em dois viewports.
-- Próxima ação: usar [implement-spec](../../../prompts/implement-spec-prompt.md), revalidar base/fontes, criar Evaluation no kickoff e executar F1. Este Plan não autoriza commit, push, mutações Atlassian ou mudanças fora da Spec.
+- Próxima ação: usar [implement-spec](../../../../prompts/implement-spec-prompt.md), revalidar base/fontes, criar Evaluation no kickoff e executar F1. Este Plan não autoriza commit, push, mutações Atlassian ou mudanças fora da Spec.
 - Dependência crítica: destino de adição da SHIFU-65 ausente na base inspecionada; bloqueia integração final/CA-08, não a preparação nem o servidor.
 - Orchestrator é dono de SDD, pacotes/lockfile, primitivas compartilhadas, fixtures compartilhadas, gerados, integração e validação final. Sem migrations previstas.
 - Dois Builders poderão trabalhar em paralelo após F1: Server e Web. Nenhum terceiro é necessário. O frontend pode avançar nos componentes/testes com contrato estável enquanto a API é implementada; não declarar navegação completa antes do gate SHIFU-65.
@@ -168,7 +171,7 @@ Também possui somente os artefatos SDD desta feature e o guia raiz. routeTree.g
 
 # 4. Validation and handoff
 
-Toda evidência será registrada em evaluation.md durante a implementação. EV abaixo são destinos planejados, não resultados já obtidos. Referências visuais e decisões de adaptação: [manifest](design/manifest.md). Comandos CI-W, CI-S, CI-F, CI-D e CWD exatos estão na seção 4 da Spec; executá-los separadamente, sem inventar scripts.
+Toda evidência será registrada em evaluation.md durante a implementação. EV abaixo são destinos planejados, não resultados já obtidos. Referências visuais e decisões de adaptação: [manifest](../design/manifest.md). Comandos CI-W, CI-S, CI-F, CI-D e CWD exatos estão na seção 4 da Spec; executá-los separadamente, sem inventar scripts.
 
 | Type | Scenario/surface | Criteria | Reference | Evidence target | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -206,6 +209,6 @@ Toda evidência será registrada em evaluation.md durante a implementação. EV 
 
 Os 16 suplementos foram aceitos como capturas runtime derivadas, sem inventar mockups adicionais; detalhes de composição permanecem no manifest. Capturas temporárias não devem ser commitadas automaticamente. Os sete PNGs versionáveis são referências de design, não resultado de testes.
 
-Handoff final exige todas as fases/tarefas completed, mesma revisão da Spec, diff e gerados/lockfile revisados, gates sem redução de exigências, evidência aceita para cada CA/VM/estado visual, paridade REST e Reviewer concluído com achados verificados resolvidos. Registrar serviços/contas/fixtures e limitações. Só então encaminhar para [conclude-spec](../../../prompts/conclude-spec-prompt.md); não declarar entrega completa enquanto SHIFU-65/CA-08 ou outro gate estiver pendente.
+Handoff final exige todas as fases/tarefas completed, mesma revisão da Spec, diff e gerados/lockfile revisados, gates sem redução de exigências, evidência aceita para cada CA/VM/estado visual, paridade REST e Reviewer concluído com achados verificados resolvidos. Registrar serviços/contas/fixtures e limitações. Só então encaminhar para [conclude-spec](../../../../prompts/conclude-spec-prompt.md); não declarar entrega completa enquanto SHIFU-65/CA-08 ou outro gate estiver pendente.
 
 Não criar branches ou commits automaticamente nesta etapa documental. Na implementação, seguir a orientação de branch/commit e rastreamento do guia raiz, preservando a chave SHIFU-64 e sem mutar Jira/Confluence como efeito colateral.

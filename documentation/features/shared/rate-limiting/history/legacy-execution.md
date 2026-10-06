@@ -6,6 +6,9 @@ status: completed
 spec_version: 2
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Plan: Redis-backed rate limiting for the Shifu Server
 
 Execution ledger for `spec.md` (v2, `ready`). This is a single-agent, sequential build

@@ -3,7 +3,6 @@ title: Identity registration and account confirmation evaluation
 status: in_progress
 spec: ./spec.md
 spec_revision: 12
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61
 prd_content_ids:
   identity: 83001345
@@ -12,6 +11,12 @@ prd_version: 1
 last_updated_at: 2026-09-24
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
+## Resume handoff
+
+Resume from Spec revision 12 and the correction/evidence findings in this Evaluation. The recorded correction contract remains draft. EV-ACH-02 records passing remote CI on its identified commit; earlier timed-out jobs and unavailable BFF checks remain historical failures, not proof for a newer candidate.
+
 # Evaluation Status
 
 Implementation is in progress under Spec revision `11`. This Evaluation records
@@ -19,7 +24,7 @@ the pre-implementation baseline, authority preflight, acceptance coverage, faile
 or unavailable validation attempts, and current evidence. It is not a conclusion.
 
 - **Spec:** `draft`, revision `12`, while PR #9 correction contracts are reconciled.
-- **Plan:** `in_progress`; F1-F8 are tracked in [`plan.md`](./plan.md).
+- **Historical execution:** `in_progress`; F1-F8 are tracked in [`history/legacy-execution.md`](./history/legacy-execution.md).
 - **Authority:** Identity PRD content `83001345`, version `1`, and Communication
   PRD content `86114306`, version `1`, reread on 2026-09-21. Jira `SHIFU-61` was
   reread with status `Fazendo` and updated `2026-09-18T12:21:15.369-0300`.
@@ -111,7 +116,7 @@ reported as passing evidence.
   engine. PostgreSQL, Inngest, Mailpit, and browser/runtime validation are not
   available in this baseline.
 - **Worktree:** Existing unrelated modifications were preserved and excluded from
-  feature claims. The SHIFU-61 feature directory contained `spec.md`, `plan.md`,
+  feature claims. The SHIFU-61 feature directory contained `spec.md`, `history/legacy-execution.md`,
   design references, and handoff material but no `evaluation.md` or implementation.
 
 Failed attempts and unavailable services remain part of the evidence history. They

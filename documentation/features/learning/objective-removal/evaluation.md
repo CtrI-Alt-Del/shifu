@@ -3,16 +3,21 @@ title: Objective removal implementation evaluation
 status: in_progress
 spec: ./spec.md
 spec_revision: 2
-plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67
 prd_content_id: '83066881'
 prd_version: '6'
 last_updated_at: 2026-09-23
 ---
 
+> Execution history: [legacy execution record](./history/legacy-execution.md) preserves the former Plan and phase assignments. Plan references and phase statuses below describe historical execution; they are not readiness or closure requirements. [Spec](./spec.md) and this Evaluation govern current or resumed delivery, including all recorded criteria, checker coverage and user waivers.
+
+## Resume handoff
+
+Resume from Spec revision 2 and the corrected GoalDetailHeader integration recorded at the end of this Evaluation. Historical placeholder-page assignments do not govern current paths. The existing open evidence gaps are CI-11/CI-12 production builds and VM-01/VM-02 replay; preserve their recorded dispositions and evaluate them under the current Spec.
+
 # Implementation Evaluation — SHIFU-67
 
-**Spec frozen at revision 1.** Implementation starts under **Plan-backed execution** with Wave 1 (`Builder Server` F1 ∥ `Builder Web` F2) active.
+**Spec frozen at revision 1.** Implementation starts under **historical delegated execution** with Wave 1 (`Builder Server` F1 ∥ `Builder Web` F2) active.
 
 ## Evaluation status
 
@@ -20,7 +25,7 @@ last_updated_at: 2026-09-23
 | --- | --- | --- |
 | Pre-implementation baseline | ✓ recorded | Repository state 2026-09-23; no existing Goal removal route/UI |
 | Spec readiness | ✓ confirmed | `ready` at revision 1; Spec Reviewer pass with 2 medium + 2 low findings resolved |
-| Plan readiness | ✓ confirmed | `in_progress`; Wave 1 dependency gate cleared (`@radix-ui/react-alert-dialog` added); Plan references exact Spec revision 1 |
+| Historical execution baseline | ✓ confirmed | `in_progress`; Wave 1 dependency gate cleared (`@radix-ui/react-alert-dialog` added); Plan references exact Spec revision 1 |
 | Evaluation initialization | ✓ this document | Created before first feature source edit |
 | Builder assignments | ✓ done | Wave 1 (F1 ∥ F2), Wave 2 (F3), Wave 3 (F4) all complete; one Implementation Reviewer pass complete with all findings resolved |
 | F1-T1 completion | ✓ done | `RemoveGoalUseCase` + unit tests: 3/3 green |
@@ -188,4 +193,4 @@ None yet. Findings and resolutions recorded here as they surface during Wave 1�
 | `pnpm --filter web test:unit` | ✓ 131/131 |
 | `pnpm --filter web test:integration tests/learning/goal-detail-page.test.ts` | ✓ 7/7 |
 
-**Known, explained gap:** `CI-11`/`CI-12` (server/web production builds) and `VM-01`/`VM-02` (manual click-through) were not re-run on this branch before opening the PR, given the scope of the rebase/pivot already completed. `documentation/features/learning/objective-removal/plan.md` and this file's Wave 1–4 ledger above still reference the superseded `goal-detail-placeholder-page` paths in their body prose; they were not rewritten line-by-line given the size of that change. Treat the committed code, this revision 2 section, and `spec.md` revision 2 as the source of truth for the actual, current integration point and file paths.
+**Known, explained gap:** `CI-11`/`CI-12` (server/web production builds) and `VM-01`/`VM-02` (manual click-through) were not re-run on this branch before opening the PR, given the scope of the rebase/pivot already completed. `documentation/features/learning/objective-removal/history/legacy-execution.md` and this file's Wave 1–4 ledger above still reference the superseded `goal-detail-placeholder-page` paths in their body prose; they were not rewritten line-by-line given the size of that change. Treat the committed code, this revision 2 section, and `spec.md` revision 2 as the source of truth for the actual, current integration point and file paths.

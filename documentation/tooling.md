@@ -267,10 +267,30 @@ Install the Playwright browser on a new machine when browser tests are required:
 pnpm --filter web exec playwright install chromium
 ```
 
-Use the repository's Playwright configuration for committed browser tests. For
-manual browser inspection, use the Playwright CLI workflow described by the local
-agent instructions. Browser output and screenshots are temporary validation artifacts
-and must not be committed.
+Use the repository's Playwright configuration for committed browser tests.
+Browser output and screenshots are temporary validation artifacts and must not
+be committed.
+
+### Manual browser checks with Playwright CLI
+
+Use Playwright CLI for concise, required happy paths. Check service health first,
+then start a named session from `apps/web`:
+
+```bash
+cd apps/web
+playwright-cli -s=shifu open http://127.0.0.1:7000/login
+```
+
+For protected routes, load `.playwright-cli/states/shifu-auth-state.json`. If it
+is missing, sign in with the local seeded account described above and save the
+state. Use fresh snapshots and accessible locators. Check the final URL, visible
+result, relevant requests, console errors, and keyboard path; inspect only
+required screenshots.
+
+Keep captures under `apps/web/.playwright-cli/{screenshots,snapshots,logs}/`.
+Storage state contains credentials: do not print, stage, or commit it. Close only
+the session and app processes started for the check; leave shared Docker services
+running.
 
 ## Server tooling
 
@@ -312,7 +332,8 @@ on a `Test<Subject>` class; top-level `test_*` functions are not used.
 
 ## Architecture and quality checks
 
-Run the affected application gates before handing off a change:
+During implementation, use focused checks from the Spec. After integration, run
+the applicable gates below. Reuse valid results at later handoffs:
 
 ```bash
 pnpm --filter web check:lint
@@ -327,16 +348,24 @@ uv run poe check:architecture
 uv run poe check:types
 uv run poe test:unit
 uv run poe test:integration
+uv run poe test:jobs
 uv run poe build
 ```
+
+Run applicable integration suites on the integrated candidate. Fix failures and
+rerun affected checks until they pass. Code, fixture, configuration, or contract
+changes reopen affected checks; role or commit changes alone do not. Use explicit
+CI-compatible fixture settings instead of relying on ignored local environment
+files.
 
 The web `check:code`/SonarQube gate is intentionally not part of the current local
 contract. SonarQube is present in Docker Compose, but CI integration and scanner
 configuration are deferred.
 
-There is currently no committed `.github/workflows` directory. When CI workflows are
-added, they must call these application-owned commands, use the repository runtime
-files, and preserve the web/server path separation.
+Inspect the current `.github/workflows` when selecting delivery gates. CI uses
+application-owned commands and repository runtime files with separate Web and
+Server coverage. A remote CI run is evidence for its candidate and environment;
+do not treat a pending or failed check as passed.
 
 ## Database and asynchronous tooling status
 
@@ -347,16 +376,11 @@ Compose database. Docker-backed job tests use disposable PostgreSQL and Inngest
 containers; they may skip locally when Docker or the configured callback port is
 unavailable, but CI must run them on a Docker-capable runner.
 
-## Recommended handoff checklist
+## Delivery handoff
 
-Before handing off a change:
-
-1. Inspect `git status` and preserve unrelated user changes.
-2. Run the gates for every changed application or package.
-3. Run focused tests first, then the broader application test command.
-4. Run a real browser check for changed web routes or interaction behavior when the
-   required application services are available.
-5. Confirm generated output, caches, credentials, test reports, and build artifacts
-   are ignored and not staged.
-6. Report unavailable infrastructure or pre-existing failures explicitly instead of
-   treating skipped checks as passing.
+- Preserve unrelated changes; confirm generated files, credentials, reports, and
+  build artifacts are not staged.
+- Record acceptance progress, required captures, and checker evidence in
+  Evaluation. Reuse unaffected passing results; report skipped or failed checks.
+- Include the Spec revision, candidate, unfinished criteria, blockers, and next
+  action so work can continue without repeating valid checks.

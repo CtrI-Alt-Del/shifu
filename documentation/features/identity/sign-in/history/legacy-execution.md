@@ -8,9 +8,12 @@ source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-62
 last_updated_at: 2026-09-17
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
-- **Spec:** [`spec.md`](./spec.md), revision `20`, status `completed` after the shared-provider, Inngest-boundary, provider-folder, fixture-naming, and Testcontainers amendments.
+- **Spec:** [`spec.md`](.././spec.md), revision `20`, status `completed` after the shared-provider, Inngest-boundary, provider-folder, fixture-naming, and Testcontainers amendments.
 - **Why Plan-backed:** This delivery crosses the web BFF, FastAPI Identity,
   PostgreSQL/Alembic, Better Auth, JWT/JWKS, shared outbox/listener/Inngest
   infrastructure, generated routes, responsive UI, and real browser/runtime

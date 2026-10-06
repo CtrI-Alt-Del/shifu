@@ -11,7 +11,7 @@ Publicar uma entrega coerente do Shifu no GitHub. Use `gh`, preserve a worktree
 do usuário e atualize um PR existente da mesma entrega em vez de criar uma
 duplicata.
 
-Esta tarefa não cria Spec, PRD, Plan, Evaluation ou ticket Jira. Apenas consome
+Esta tarefa não cria Spec, PRD, Evaluation ou ticket Jira. Apenas consome
 os documentos existentes e a demanda direta quando a entrega não tiver
 documentação SDD.
 
@@ -22,7 +22,6 @@ Leia, quando existirem e forem aplicáveis:
 - ticket Jira da entrega;
 - PRD canônico completo no Confluence;
 - Spec ou Bug Report implementado;
-- Plan;
 - `evaluation.md`;
 - diff real da entrega;
 - `documentation/sdd.md`;
@@ -90,20 +89,19 @@ Pencil que não pertençam à entrega atual.
 1. Confirme que a branch não é `main` nem `production`.
 2. Inspecione as alterações em stage e fora dele.
 3. Confirme que os commits autorizados da entrega estão concluídos.
-4. Exija worktree limpa antes de incorporar `main`. Alterações alheias devem ser
-   preservadas pelo usuário; não faça stash, reset, restore ou checkout delas.
-5. Busque a branch real de integração sem trocar a worktree:
-
-   ```bash
-   git fetch origin main --prune
-   ```
+4. Preserve alterações alheias. Se um merge necessário não puder preservá-las
+   com segurança, reporte o bloqueio; não faça stash, reset, restore ou checkout.
+   Uma sincronização já incorporada não exige worktree limpa.
+5. Verifique o remote configurado da entrega e sua branch real `main`; reutilize
+   a mesma autoridade remota de `conclude-spec`. Busque esse ref sem trocar a
+   worktree. Use `origin` apenas quando for o remote verificado.
 
 6. Consulte PRs abertos e fechados pela head branch e por termos do Jira ou da
    entrega.
 7. Verifique base, head, SHA e ancestralidade; o nome da branch não comprova
    incorporação.
-8. Use `main`/`origin/main` como base, salvo instrução explícita diferente.
-9. Incorpore obrigatoriamente o `origin/main` mais recente conforme a próxima
+8. Use `main` do remote verificado como base, salvo instrução explícita diferente.
+9. Incorpore o `main` mais recente desse remote conforme a próxima
    seção.
 10. Calcule e revise o diff completo contra a base após o merge.
 11. Atualize o PR existente da mesma entrega ou crie um único PR novo.
@@ -113,18 +111,24 @@ dependentes acidentalmente e não misture alterações sem relação.
 
 ## Sincronização obrigatória com `main`
 
-Antes de criar ou atualizar o PR, faça merge do `origin/main` mais recente na
+Antes de criar ou atualizar o PR, faça merge do `main` mais recente do remote verificado na
 branch da entrega. Não substitua por rebase.
 
-Com a worktree limpa:
+Substitua `<remote>` e `<remote-main-ref>` pelos valores verificados. Inspecione
+a worktree e só prossiga quando Git puder preservar todas as alterações:
 
 ```bash
-git fetch origin main --prune
-git merge --no-edit origin/main
+git fetch <remote> main --prune
+git merge --no-edit <remote-main-ref>
 ```
 
-Após um merge sem conflitos, revise o diff resultante e repita as validações
-afetadas pelo conteúdo incorporado.
+Faça essa sincronização antes da verificação integrada final sempre que possível.
+Quando chamado por `conclude-spec`, reutilize a sincronização já realizada se o
+ref remoto mais recente já estiver incorporado. Após o merge, inspecione o diff
+e invalide apenas evidências cujo contrato, código coberto, dependências, fixtures
+ou configuração foram afetados. Um novo SHA ou merge sem mudança nessas
+superfícies não exige repetir suítes. Encaminhe checks afetados ao runner de
+verificação designado pelo Orchestrator e aguarde resultados aprovados antes de publicar.
 
 Resolva automaticamente apenas conflitos mecânicos e inequívocos, como
 formatação, ordenação de imports, documentação independente ou artifact gerado
@@ -142,17 +146,21 @@ pedido explícito.
 Imediatamente antes da publicação:
 
 ```bash
-git fetch origin main --prune
-git merge-base --is-ancestor origin/main HEAD
+git fetch <remote> main --prune
+git merge-base --is-ancestor <remote-main-ref> HEAD
 ```
 
-Não publique enquanto `origin/main` não for ancestral do `HEAD`.
+Não publique enquanto o `main` do remote verificado não for ancestral do `HEAD`.
 
 ## Evidências de validação
 
-Use evidências atuais e execute somente checks adicionais aprovados pelo
-repositório e necessários ao estado de publicação. Use os comandos dos
-manifests, regras e documentação atuais; não substitua comandos exatos por
+Consuma os resultados atuais da verificação integrada. As suítes de integração
+server/browser/jobs pertencem ao runner designado pelo Orchestrator e rodam após
+a integração do candidato; falhas são corrigidas e os checks falhos ou afetados
+são repetidos até todos passarem. Este prompt não inicia outra rodada de suítes
+por causa da publicação. Reutilize evidências não afetadas e execute somente
+checks adicionais exigidos por uma mudança relevante ou lacuna concreta. Use os
+comandos dos manifests, regras e documentação atuais; não substitua comandos exatos por
 alternativas presumidas.
 
 Quando houver Spec, confirme:
@@ -181,7 +189,7 @@ como sucesso.
 
 Quando a entrega alterar persistência ou conteúdo gerado:
 
-- compare migrations, snapshots e metadados com `origin/main`;
+- compare migrations, snapshots e metadados com o `main` do remote verificado;
 - resolva colisões preservando entradas anteriores;
 - execute uma vez o comando oficial de geração ou verificação;
 - revise o resultado contra sua fonte;
@@ -254,8 +262,10 @@ motivo e evidência.
 ## Testes manuais
 ```
 
-Informe pré-requisitos, passos reproduzíveis, resultado esperado e fluxos de
-erro ou recuperação. Quando não aplicável, diga explicitamente.
+Informe pré-requisitos, passos reproduzíveis, resultado observado e limites dos
+caminhos felizes manuais exigidos pela Spec. Estados negativos, erro e recuperação
+são cobertos por testes automatizados; não adicione jornadas manuais para publicar.
+Quando não aplicável, diga explicitamente.
 
 ### Validações automatizadas
 

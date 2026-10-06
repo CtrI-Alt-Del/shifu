@@ -7,9 +7,12 @@ evaluation: ./evaluation.md
 last_updated_at: 2026-09-27
 ---
 
+> Historical execution record. This archived Plan is read-only history, not active delivery authority. Resume work from [Spec](../spec.md) and [Evaluation](../evaluation.md); its phase/status requirements do not gate implementation or closure.
+
+
 # Execution status
 
-- **Spec:** [spec.md](./spec.md), revision 15, completed after independent
+- **Spec:** [spec.md](.././spec.md), revision 15, completed after independent
   review. Product behavior and automated acceptance remain unchanged;
   production deployment checks remain outside this feature scope.
 - **Why Plan-backed:** this delivery crosses Curriculum, Shared, Learning,
