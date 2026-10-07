@@ -26,6 +26,7 @@ class GetMaterialUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
                 experience.id, competency_id
             )
@@ -34,11 +35,13 @@ class GetMaterialUseCase:
         catalog = self._curriculum.get_skill_content(skill_id)
         if catalog is None:
             raise NotFoundError
+
         competency = next(
             (item for item in catalog.competencies if item.id == competency_id), None
         )
         if competency is None:
             raise NotFoundError
+
         material = next(
             (
                 item
@@ -50,4 +53,5 @@ class GetMaterialUseCase:
         )
         if material is None:
             raise NotFoundError
+
         return material

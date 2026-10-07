@@ -96,6 +96,7 @@ class JwksJwtAuthenticationProvider:
 
         if signing_key is None:
             raise AuthorizationError
+
         return signing_key
 
     @staticmethod
@@ -119,6 +120,7 @@ class JwksJwtAuthenticationProvider:
 
         if not isinstance(document_value, Mapping):
             raise AuthorizationError
+
         document = cast('Mapping[str, object]', document_value)
         raw_keys = document.get('keys')
         if not isinstance(raw_keys, list):
@@ -128,20 +130,25 @@ class JwksJwtAuthenticationProvider:
         for raw_key in cast('list[object]', raw_keys):
             if not isinstance(raw_key, Mapping):
                 continue
+
             typed_raw_key = cast('Mapping[str, object]', raw_key)
             key_id = typed_raw_key.get('kid')
             if not isinstance(key_id, str) or not key_id:
                 continue
+
             try:
                 jwk = jwt.PyJWK.from_dict(dict(typed_raw_key))
             except (TypeError, ValueError, jwt.PyJWTError):
                 continue
+
             if jwk.algorithm_name != 'EdDSA':
                 continue
+
             keys[key_id] = jwk
 
         if not keys:
             raise AuthorizationError
+
         return keys
 
     @staticmethod

@@ -36,6 +36,7 @@ class TestGetPendingConfirmationStatusController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['state'] == 'cooldown'
         assert 1 <= body['retry_after_seconds'] <= 60
 

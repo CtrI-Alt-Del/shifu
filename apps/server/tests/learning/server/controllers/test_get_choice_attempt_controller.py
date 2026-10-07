@@ -129,6 +129,7 @@ class TestGetChoiceAttemptController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert created.status_code == 201, created.json()
         attempt_id = cast('str', created.json()['attempt_id'])
         database: SqlalchemyLearningDatabase = application.state.learning_database
@@ -155,8 +156,10 @@ class TestGetChoiceAttemptController:
 
         assert response.status_code == 200, response.json()
         payload = response.json()
+
         assert payload['status'] == 'completed'
         questions = cast('list[dict[str, object]]', payload['questions'])
+
         assert [question['question_key'] for question in questions] == [
             'q1',
             'q2',
@@ -188,6 +191,7 @@ class TestGetChoiceAttemptController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert created.status_code == 201, created.json()
         attempt_id = cast('str', created.json()['attempt_id'])
         database: SqlalchemyLearningDatabase = application.state.learning_database

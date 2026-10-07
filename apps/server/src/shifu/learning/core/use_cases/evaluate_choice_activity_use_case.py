@@ -94,6 +94,7 @@ class EvaluateChoiceActivityUseCase:
             preflight = repositories.activity_attempts.find_by_id(attempt_id)
             if preflight is None:
                 return
+
             if isinstance(
                 preflight.grading_snapshot, CurriculumLearningActivitySnapshot
             ):
@@ -118,17 +119,20 @@ class EvaluateChoiceActivityUseCase:
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
             if attempt is None or attempt.grading_snapshot is None:
                 return
+
             experience = repositories.skill_experiences.find_by_id_for_update(
                 attempt.skill_experience_id
             )
             if experience is None:
                 return
+
             if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
                 experience.status is not SkillExperienceStatus.DIAGNOSING
                 or attempt.diagnostic_run_id is None
                 or attempt.diagnostic_run_id != experience.diagnostic_run_id
             ):
                 return
+
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     attempt_id
@@ -140,9 +144,11 @@ class EvaluateChoiceActivityUseCase:
                 or evaluation.run_id != run_id
             ):
                 return
+
             goal = repositories.goals.find_by_id(experience.goal_id)
             if goal is None:
                 return
+
             progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
                 experience.id, attempt.competency_id
             )
@@ -153,11 +159,14 @@ class EvaluateChoiceActivityUseCase:
             if isinstance(snapshot, CurriculumLearningActivitySnapshot):
                 if mixed_results is None:
                     raise EvaluationUnavailableError
+
                 part_results = mixed_results
             else:
                 part_results = self._score(attempt.answers, snapshot)
+
             if any(result.score is None for result in part_results):
                 raise EvaluationUnavailableError
+
             score = sum(
                 (
                     (result.score if result.score is not None else Decimal(0))
@@ -198,12 +207,15 @@ class EvaluateChoiceActivityUseCase:
         provider = self._curriculum_content_provider
         if provider is None:
             raise InvalidAttemptError
+
         catalog = provider.get_skill_content(experience.skill_id)
         if catalog is None or catalog.id != experience.skill_id:
             raise InvalidAttemptError
+
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise InvalidAttemptError
+
         if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
             if (
                 experience.status is not SkillExperienceStatus.DIAGNOSING
@@ -221,6 +233,7 @@ class EvaluateChoiceActivityUseCase:
         elif attempt.kind is ActivityAttemptKind.REVIEW:
             if experience.status is not SkillExperienceStatus.COMPLETED:
                 raise InvalidAttemptError
+
             evaluation.apply_effect(now)
             repositories.activity_evaluations.update(evaluation)
             return
@@ -261,14 +274,17 @@ class EvaluateChoiceActivityUseCase:
                 code_result = code_results.get(question.key)
                 if code_result is None:
                     raise InvalidAttemptError
+
                 for item in code_result.concept_observations:
                     observation_scores.setdefault(item.concept_id, []).append(
                         Decimal(item.level) if isinstance(item.level, int) else None
                     )
                 continue
+
             result = result_by_question.get(question.key)
             if result is None:
                 raise InvalidAttemptError
+
             for criterion in question.concept_criteria:
                 observation_scores.setdefault(criterion.concept_id, []).append(
                     criterion.correct_score
@@ -282,6 +298,7 @@ class EvaluateChoiceActivityUseCase:
         }
         if not observation_scores.keys() <= catalog_concept_ids:
             raise InvalidAttemptError
+
         observations = tuple(
             ConceptObservation(
                 attempt_id=attempt.id,
@@ -299,6 +316,7 @@ class EvaluateChoiceActivityUseCase:
         existing = repositories.concept_observations.find_many_by_attempt_id(attempt.id)
         if existing:
             raise InvalidAttemptError
+
         if observations:
             repositories.concept_observations.add_many(
                 experience.id, attempt.competency_id, observations
@@ -325,6 +343,7 @@ class EvaluateChoiceActivityUseCase:
         progress_by_id = {item.competency_id: item for item in progress_rows}
         if set(progress_by_id) != set(context.competency_ids):
             raise InvalidAttemptError
+
         memories = tuple(
             AdaptiveCompetencyMemory(
                 competency_id=item.competency_id,
@@ -567,15 +586,18 @@ class EvaluateChoiceActivityUseCase:
             questions_by_key
         ):
             raise InvalidAttemptError
+
         results: list[EvaluationPartResult] = []
         for part in snapshot.parts:
             question = questions_by_key.get(part.question_key)
             answer = answers_by_key.get(part.question_key)
             if question is None or answer is None:
                 raise InvalidAttemptError
+
             if question.kind == 'single_choice':
                 if not isinstance(answer, SingleChoiceAnswer):
                     raise InvalidAttemptError
+
                 selected = {answer.selected_option_key}
             else:
                 if not isinstance(answer, MultipleSelectionAnswer):
@@ -603,12 +625,14 @@ class EvaluateChoiceActivityUseCase:
         snapshot = attempt.grading_snapshot
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
             raise InvalidAttemptError
+
         answers_by_key = {answer.question_key: answer for answer in attempt.answers}
         questions_by_key = {question.key: question for question in snapshot.questions}
         if len(answers_by_key) != len(attempt.answers) or set(answers_by_key) != set(
             questions_by_key
         ):
             raise InvalidAttemptError
+
         results: list[EvaluationPartResult] = []
         for part in snapshot.parts:
             question = questions_by_key[part.question_key]
@@ -620,6 +644,7 @@ class EvaluateChoiceActivityUseCase:
                     or self._code_rubric_assessor_provider is None
                 ):
                     raise EvaluationUnavailableError
+
                 try:
                     request = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
                         question, part, answer
@@ -633,6 +658,7 @@ class EvaluateChoiceActivityUseCase:
                     raise EvaluationUnavailableError from error
                 if result.score is None:
                     raise EvaluationUnavailableError
+
                 results.append(
                     CodeRubricResult(
                         question_key=question.key,
@@ -642,6 +668,7 @@ class EvaluateChoiceActivityUseCase:
                     )
                 )
                 continue
+
             if isinstance(answer, SingleChoiceAnswer):
                 selected = {answer.selected_option_key}
             elif isinstance(answer, MultipleSelectionAnswer):

@@ -72,6 +72,7 @@ class TestRegisterAccountController:
 
         assert response.status_code == 202
         body = response.json()
+
         assert body['result'] == 'pending'
         assert len(body['pending_handle']) == 43
 

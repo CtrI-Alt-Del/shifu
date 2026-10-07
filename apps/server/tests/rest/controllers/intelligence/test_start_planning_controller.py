@@ -108,6 +108,7 @@ class TestStartPlanningController:
 
         assert response.status_code == 201
         body = response.json()
+
         assert body['id']
         assert body['created_at']
 

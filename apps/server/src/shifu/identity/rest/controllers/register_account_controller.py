@@ -41,6 +41,7 @@ class Request(BaseModel):
         normalized = value.strip()
         if not normalized:
             raise ValueError('Informe seu nome.')
+
         return normalized
 
     @field_validator('email')
@@ -49,6 +50,7 @@ class Request(BaseModel):
         normalized = value.strip().casefold()
         if not _EMAIL_PATTERN.fullmatch(normalized):
             raise ValueError('Informe um e-mail válido.')
+
         return normalized
 
 
@@ -139,11 +141,13 @@ class RegisterAccountController:
     ) -> None:
         if identity_action_token_id is None:
             return
+
         with database.transaction() as repositories:
             token_repository = repositories.account_action_tokens
             token = token_repository.find_by_id(identity_action_token_id)
             if token is None:
                 return
+
             if token.record_delivery_status(
                 AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                 recorded_at,
@@ -165,6 +169,7 @@ class RegisterAccountController:
             or result.confirmation_expires_at is None
         ):
             return None
+
         return ConfirmationDeliveryRequest(
             communication_id=result.communication_id,
             identity_action_token_id=result.identity_action_token_id,

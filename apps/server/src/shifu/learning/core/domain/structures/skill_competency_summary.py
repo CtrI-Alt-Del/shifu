@@ -21,5 +21,6 @@ class SkillCompetencySummary:
     def __post_init__(self) -> None:
         if self.progress is not None:
             Percentage.create(self.progress)
+
         if self.position < 1:
             raise ValueError('Curricular position starts at one.')

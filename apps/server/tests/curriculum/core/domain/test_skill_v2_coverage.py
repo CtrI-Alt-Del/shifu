@@ -86,6 +86,7 @@ def _skill() -> CurriculumSkillSnapshot:
 
 
 def test_valid_choice_coverage_supports_all_difficulties_and_diagnostic() -> None:
+
     assert v2_coverage_gaps(_skill()) == ()
 
 
@@ -101,6 +102,7 @@ def test_unsupported_evaluator_cannot_be_counted_as_coverage() -> None:
     skill = replace(skill, competencies=(replace(competency, items=items),))
 
     gaps = v2_coverage_gaps(skill)
+
     assert 'concept:concept:hard:insufficient_learning' in gaps
 
 
@@ -114,6 +116,7 @@ def test_activity_cannot_require_its_evaluated_concept() -> None:
         for item in competency.items
     )
     skill = replace(skill, competencies=(replace(competency, items=items),))
+
     assert 'activity:easy-1:requires_evaluated_concept' in v2_coverage_gaps(skill)
 
 
@@ -158,6 +161,7 @@ def test_activity_prerequisite_edges_participate_in_cycle_check() -> None:
             ),
         ),
     )
+
     assert any(gap.endswith(':prerequisite_cycle') for gap in v2_coverage_gaps(skill))
 
 
@@ -183,6 +187,7 @@ def test_future_concept_prerequisite_blocks_v2_publication() -> None:
     )
     concept = replace(first.concepts[0], prerequisite_ids=('future',))
     skill = replace(skill, competencies=(replace(first, concepts=(concept,)), second))
+
     assert 'concept:concept:future_prerequisite:future' in v2_coverage_gaps(skill)
 
 
@@ -191,4 +196,5 @@ def test_foreign_prerequisite_blocks_v2_publication() -> None:
     competency = skill.competencies[0]
     concept = replace(competency.concepts[0], prerequisite_ids=('unknown',))
     skill = replace(skill, competencies=(replace(competency, concepts=(concept,)),))
+
     assert 'concept:concept:foreign_prerequisite:unknown' in v2_coverage_gaps(skill)

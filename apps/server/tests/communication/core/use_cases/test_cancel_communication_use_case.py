@@ -82,6 +82,7 @@ class TestCancelCommunicationUseCase:
         assert self.communication.account_id is not None
         assert self.communication.recipient_email == 'learner@example.com'
         event = self.repositories.events.add.call_args.args[0]
+
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.CANCELLED
         assert event.payload.identity_action_token_id == (self.IDENTITY_ACTION_TOKEN_ID)

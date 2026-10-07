@@ -65,24 +65,29 @@ class CompleteDiagnosticUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             experience = repositories.skill_experiences.find_by_id_for_update(
                 experience.id
             )
             if experience is None:
                 raise NotFoundError
+
             if experience.diagnostic_run_id != diagnostic_run_id:
                 raise ConflictError
+
             if experience.status in {
                 SkillExperienceStatus.LEARNING,
                 SkillExperienceStatus.COMPLETED,
             }:
                 return experience
+
             if experience.status is not SkillExperienceStatus.DIAGNOSING:
                 raise ConflictError
 
             catalog = self._curriculum.get_skill_content(skill_id)
             if catalog is None or catalog.id != skill_id or not catalog.v2_eligible:
                 raise NotFoundError
+
             attempts = tuple(
                 repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
                     experience.id, diagnostic_run_id
@@ -103,14 +108,17 @@ class CompleteDiagnosticUseCase:
                     or attempt.activity_id in attempt_by_activity
                 ):
                     raise ConflictError
+
                 attempt_by_activity[attempt.activity_id] = attempt
             if set(attempt_by_activity) != {activity.id for _, activity in ordered}:
                 raise ConflictError
+
             current_evaluations: list[ActivityEvaluation] = []
             for competency_id, activity in ordered:
                 attempt = attempt_by_activity[activity.id]
                 if attempt.competency_id != competency_id:
                     raise ConflictError
+
                 evaluation = evaluations_by_attempt.get(attempt.id)
                 if (
                     evaluation is None
@@ -118,6 +126,7 @@ class CompleteDiagnosticUseCase:
                     or evaluation.score is None
                 ):
                     raise ConflictError
+
                 current_evaluations.append(evaluation)
 
             now = self._clock.now()
@@ -176,6 +185,7 @@ class CompleteDiagnosticUseCase:
         concept_states_by_id = {item.concept_id: item for item in policy.concept_states}
         if set(progress_by_id) != set(context.competency_ids):
             raise InvalidAttemptError
+
         concept_to_competency = {
             item.id: item.competency_id for item in context.concepts
         }

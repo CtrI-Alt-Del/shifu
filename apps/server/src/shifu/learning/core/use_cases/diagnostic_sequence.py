@@ -31,6 +31,7 @@ class DiagnosticSequence:
         )
         if not skill.initial_diagnostic_activity_ids:
             return available
+
         by_id = {
             activity.id: (competency_id, activity)
             for competency_id, activity in available

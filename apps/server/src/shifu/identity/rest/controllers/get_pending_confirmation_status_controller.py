@@ -63,12 +63,14 @@ class GetPendingConfirmationStatusController:
                 )
                 if token is None:
                     return Response(state='delivery_issue')
+
                 account = repositories.accounts.find_by_id(token.account_id)
                 if (
                     account is None
                     or account.status is not AccountStatus.PENDING_CONFIRMATION
                 ):
                     return Response(state='delivery_issue')
+
                 latest_token = (
                     token_repository.find_latest_by_account_id_and_type(
                         account.id,
@@ -78,6 +80,7 @@ class GetPendingConfirmationStatusController:
                 )
                 if latest_token.status is not AccountActionTokenStatus.PENDING:
                     return Response(state='delivery_issue')
+
                 if latest_token.delivery_status in {
                     AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                     AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE,
@@ -85,6 +88,7 @@ class GetPendingConfirmationStatusController:
                     AccountActionTokenDeliveryStatus.EXHAUSTED,
                 }:
                     return Response(state='delivery_issue')
+
                 cooldown_ends_at = latest_token.issued_at + timedelta(seconds=60)
                 if now < cooldown_ends_at:
                     return Response(
@@ -94,4 +98,5 @@ class GetPendingConfirmationStatusController:
                             ceil((cooldown_ends_at - now).total_seconds()),
                         ),
                     )
+
                 return Response(state='ready')

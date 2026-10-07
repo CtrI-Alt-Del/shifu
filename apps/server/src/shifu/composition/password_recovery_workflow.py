@@ -71,6 +71,7 @@ class PasswordRecoveryWorkflow:
             return PasswordRecoveryDeliveryResult(
                 status=ActionTokenDeliveryQueueStatus.DELIVERY_UNAVAILABLE
             )
+
         return PasswordRecoveryDeliveryResult(
             status=ActionTokenDeliveryQueueStatus.QUEUED
         )

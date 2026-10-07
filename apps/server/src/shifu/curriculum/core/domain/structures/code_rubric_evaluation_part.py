@@ -22,5 +22,6 @@ class CodeRubricEvaluationPart:
         )
         if len(self.criteria) != len({criterion.key for criterion in self.criteria}):
             raise InvalidEvaluationRuleError
+
         if not any(criterion.required for criterion in self.criteria):
             raise InvalidEvaluationRuleError

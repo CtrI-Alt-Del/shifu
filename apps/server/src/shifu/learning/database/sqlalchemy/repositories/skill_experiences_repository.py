@@ -65,6 +65,7 @@ class SqlalchemySkillExperiencesRepository:
     def count_many_by_goal_ids(self, goal_ids: list[str]) -> dict[str, int]:
         if not goal_ids:
             return {}
+
         rows = self._session.execute(
             select(
                 SkillExperienceModel.goal_id,

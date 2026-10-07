@@ -31,6 +31,7 @@ class RecordCommunicationDeliveryStateUseCase:
             confirmation_token = token_repository.find_by_id(identity_action_token_id)
             if confirmation_token is None:
                 return False
+
             if confirmation_token.communication_id != communication_id:
                 return False
 
@@ -39,5 +40,6 @@ class RecordCommunicationDeliveryStateUseCase:
                 self._clock_provider.now(),
             ):
                 return False
+
             token_repository.update(confirmation_token)
             return True

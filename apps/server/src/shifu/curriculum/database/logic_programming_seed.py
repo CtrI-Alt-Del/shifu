@@ -1365,6 +1365,7 @@ def build_logic_programming_seed() -> LogicProgrammingSeed:
                         activity_id=activity.id,
                     )
                 )
+
     for activity_id, (concept_name, difficulty, title, case) in zip(
         LOGIC_INITIAL_DIAGNOSTIC_ACTIVITY_IDS, _INITIAL_DIAGNOSTIC_ITEMS, strict=True
     ):
@@ -1394,6 +1395,7 @@ def build_logic_programming_seed() -> LogicProgrammingSeed:
                 ),
             )
         )
+
     return LogicProgrammingSeed(
         skill=skill,
         competencies=competencies,

@@ -48,19 +48,23 @@ class GetPasswordRecoveryStatusUseCase:
                 or token.type is not AccountActionTokenType.PASSWORD_RECOVERY
             ):
                 return PasswordRecoveryStatusResult(state='delivery_issue')
+
             account = repositories.accounts.find_by_id(token.account_id)
             if account is None or account.status not in {
                 AccountStatus.ACTIVE,
                 AccountStatus.PENDING_CONFIRMATION,
             }:
                 return PasswordRecoveryStatusResult(state='delivery_issue')
+
             if token.status is not AccountActionTokenStatus.PENDING:
                 return PasswordRecoveryStatusResult(state='delivery_issue')
+
             if now >= token.expires_at:
                 token.expire(now)
                 token_repository.update(token)
                 self._add_expiry_cancellation_event(repositories, token)
                 return PasswordRecoveryStatusResult(state='delivery_issue')
+
             if token.delivery_status in {
                 AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                 AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE,
@@ -69,6 +73,7 @@ class GetPasswordRecoveryStatusUseCase:
                 AccountActionTokenDeliveryStatus.EXPIRED,
             }:
                 return PasswordRecoveryStatusResult(state='delivery_issue')
+
             cooldown_ends_at = token.issued_at + self.REQUEST_COOLDOWN
             if now < cooldown_ends_at:
                 return PasswordRecoveryStatusResult(
@@ -78,6 +83,7 @@ class GetPasswordRecoveryStatusUseCase:
                         ceil((cooldown_ends_at - now).total_seconds()),
                     ),
                 )
+
             return PasswordRecoveryStatusResult(state='ready')
 
     @staticmethod
@@ -93,6 +99,7 @@ class GetPasswordRecoveryStatusUseCase:
     ) -> None:
         if token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

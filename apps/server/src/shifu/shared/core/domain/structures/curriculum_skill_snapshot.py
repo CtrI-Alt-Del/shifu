@@ -27,12 +27,15 @@ class CurriculumSkillSnapshot:
     def __post_init__(self) -> None:
         positions = tuple(competency.position for competency in self.competencies)
         identifiers = tuple(competency.id for competency in self.competencies)
+
         if len(positions) != len(set(positions)):
             raise ValueError('Curriculum competency positions must be unique.')
         if len(identifiers) != len(set(identifiers)):
             raise ValueError('Curriculum competency identifiers must be unique.')
+
         if any(competency.skill_id != self.id for competency in self.competencies):
             raise ValueError('Curriculum competency does not belong to the Skill.')
+
         if len(self.initial_diagnostic_activity_ids) != len(
             set(self.initial_diagnostic_activity_ids)
         ):

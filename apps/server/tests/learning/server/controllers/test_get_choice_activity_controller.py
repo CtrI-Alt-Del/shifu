@@ -133,6 +133,7 @@ class TestGetChoiceActivityController:
             for item in seed.competency_progresses
             if item.skill_experience_id == SEED_LOGIC_EXPERIENCE_ID
         }
+
         assert progress_ids == logic_competency_ids
 
     def test_seeded_classification_code_question_exposes_zero_and_two_concepts(
@@ -153,6 +154,7 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 200, response.text
         body = response.json()
+
         assert body['activity_id'] == LOGIC_CLASSIFY_ACTIVITY_ID
         assert body['title'] == 'Classificar um número'
         assert body['difficulty'] == 'easy'
@@ -163,6 +165,7 @@ class TestGetChoiceActivityController:
             for question in body['questions']
             if question['kind'] == 'single_choice'
         ]
+
         assert len(choice_questions) == 3
         assert all(len(question['options']) == 4 for question in choice_questions)
         assert '```javascript\nconst numero = 5;' in choice_questions[1]['prompt']
@@ -172,8 +175,10 @@ class TestGetChoiceActivityController:
             for question in body['questions']
             if question['kind'] == 'javascript_stdin'
         ]
+
         assert len(code_questions) == 1
         code = code_questions[0]
+
         assert code['editable_paths']
         assert code['entrypoint'] in code['editable_paths']
         assert code['permitted_commands']
@@ -182,6 +187,7 @@ class TestGetChoiceActivityController:
         instruction = f'{code["prompt"]} {code["initial_files"]}'
         for expected in ('positivo', 'negativo', 'zero', '0'):
             assert expected in instruction
+
         assert code['criteria']
         assert [criterion['key'] for criterion in code['criteria']] == [
             'positive_comparison',
@@ -214,6 +220,7 @@ class TestGetChoiceActivityController:
             for criterion in code_rubric.criteria
             if criterion.key == 'negative_return'
         )
+
         assert 'numero >= 0' in negative_criterion.description
         assert 'incondicional' in negative_criterion.description
         code_question = next(
@@ -221,6 +228,7 @@ class TestGetChoiceActivityController:
             for question in activity.questions
             if isinstance(question, JavascriptStdinQuestion)
         )
+
         assert {
             criterion.concept_id for criterion in code_question.concept_criteria
         } == {
@@ -247,12 +255,15 @@ class TestGetChoiceActivityController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert detail_response.status_code == 200, detail_response.text
         detail = detail_response.json()
+
         assert detail['availability'] == 'available'
         classification = next(
             item for item in detail['items'] if item['id'] == LOGIC_CLASSIFY_ACTIVITY_ID
         )
+
         assert {concept['name'] for concept in classification['concepts']} == {
             'Comparações e limites',
             'Decisão condicional',
@@ -338,6 +349,7 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 200, response.json()
         body = response.json()
+
         assert body['activity_revision']
         assert [item['kind'] for item in body['questions']] == [
             'single_choice',
@@ -367,6 +379,7 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 200, response.json()
         body = response.json()
+
         assert body['activity_id'] == _LEARNING_ACTIVITY_ID
         assert body['difficulty'] == 'easy'
         assert [question['key'] for question in body['questions']] == [
@@ -434,6 +447,7 @@ class TestGetChoiceActivityController:
         )
 
         attempt_id = cast('str', submitted.json()['attempt_id'])
+
         assert submitted.status_code == 201
         assert detail.status_code == 200
         assert detail.json()['latest_attempt_id'] == attempt_id

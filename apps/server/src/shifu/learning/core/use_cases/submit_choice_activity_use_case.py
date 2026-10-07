@@ -74,6 +74,7 @@ class SubmitChoiceActivityUseCase:
     ) -> ChoiceSubmissionOutcome:
         if not submission_key.strip():
             raise ValidationError
+
         with self._learning_database.transaction() as repositories:
             goal = repositories.goals.find_by_id(goal_id)
             experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
@@ -81,8 +82,10 @@ class SubmitChoiceActivityUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             if experience.status is SkillExperienceStatus.DIAGNOSING:
                 raise ConflictError
+
             experience_id = experience.id
             existing = repositories.activity_attempts.find_by_skill_experience_id_and_submission_key(
                 experience_id, submission_key
@@ -90,6 +93,7 @@ class SubmitChoiceActivityUseCase:
             if existing is not None:
                 if existing.kind is ActivityAttemptKind.DIAGNOSTIC:
                     raise ConflictError
+
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
@@ -105,19 +109,23 @@ class SubmitChoiceActivityUseCase:
             snapshot = self._curriculum_content_provider.get_choice_activity(
                 activity_id
             )
+
         if (
             snapshot is None
             or snapshot.id != activity_id
             or snapshot.competency_id != competency_id
         ):
             raise NotFoundError
+
         if snapshot.activity_type == 'diagnostic':
             raise ConflictError
+
         if (
             isinstance(snapshot, CurriculumLearningActivitySnapshot)
             and snapshot.revision != activity_revision
         ):
             raise ConflictError
+
         normalized_answers = self.normalize_answers(snapshot, answers)
         v2_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
 
@@ -139,6 +147,7 @@ class SubmitChoiceActivityUseCase:
                 or progress is None
             ):
                 raise NotFoundError
+
             if experience.status is SkillExperienceStatus.DIAGNOSING:
                 raise ConflictError
 
@@ -152,9 +161,11 @@ class SubmitChoiceActivityUseCase:
                     or experience.diagnostic_run_id != diagnostic_run_id
                 ):
                     raise ConflictError
+
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
+
             if isinstance(
                 snapshot, CurriculumChoiceActivitySnapshot
             ) and not ChoiceEvidenceEligibility.is_valid(snapshot, v2_catalog):
@@ -162,11 +173,13 @@ class SubmitChoiceActivityUseCase:
 
             if snapshot.activity_type != 'learning' or not progress.content_released:
                 raise NotFoundError
+
             if experience.status not in {
                 SkillExperienceStatus.LEARNING,
                 SkillExperienceStatus.COMPLETED,
             }:
                 raise NotFoundError
+
             kind = (
                 ActivityAttemptKind.REVIEW
                 if experience.status is SkillExperienceStatus.COMPLETED
@@ -247,9 +260,11 @@ class SubmitChoiceActivityUseCase:
             != SubmitChoiceActivityUseCase.normalize_answers(snapshot, answers)
         ):
             raise ConflictError
+
         evaluation = repositories.activity_evaluations.find_by_attempt_id(existing.id)
         if evaluation is None:
             raise ConflictError
+
         return ChoiceSubmissionOutcome(
             attempt=ChoiceAttemptDetail(
                 attempt_id=existing.id,
@@ -273,6 +288,7 @@ class SubmitChoiceActivityUseCase:
         goal = repositories.goals.find_by_id(goal_id)
         if goal is None or goal.id != goal_id or goal.account_id != account_id:
             raise NotFoundError
+
         experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
             goal_id, skill_id
         )
@@ -282,6 +298,7 @@ class SubmitChoiceActivityUseCase:
             or experience.skill_id != skill_id
         ):
             raise NotFoundError
+
         progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
             experience.id, competency_id
         )
@@ -291,6 +308,7 @@ class SubmitChoiceActivityUseCase:
             or not progress.content_released
         ):
             raise NotFoundError
+
         return experience
 
     @staticmethod
@@ -300,13 +318,16 @@ class SubmitChoiceActivityUseCase:
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
             raise ValidationError
+
         normalized: list[ActivityAnswer] = []
         for question, answer in zip(snapshot.questions, answers, strict=True):
             if answer.question_key != question.key:
                 raise ValidationError
+
             if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
                 if not isinstance(answer, CodeAnswer):
                     raise ValidationError
+
                 editable_paths = {
                     item.path for item in question.initial_files if item.editable
                 }
@@ -316,6 +337,7 @@ class SubmitChoiceActivityUseCase:
                     or {item.path for item in answer.files} != editable_paths
                 ):
                     raise ValidationError
+
                 normalized.append(
                     CodeAnswer(
                         question_key=answer.question_key,
@@ -323,17 +345,22 @@ class SubmitChoiceActivityUseCase:
                     )
                 )
                 continue
+
             if not isinstance(answer, ChoiceAnswerSubmission):
                 raise ValidationError
+
             option_keys = {option.key for option in question.options}
             selected = answer.selected_option_keys
             if not selected or len(set(selected)) != len(selected):
                 raise ValidationError
+
             if not set(selected).issubset(option_keys):
                 raise ValidationError
+
             if question.kind == 'single_choice':
                 if len(selected) != 1:
                     raise ValidationError
+
                 normalized.append(
                     SingleChoiceAnswer(
                         question_key=answer.question_key,

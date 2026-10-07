@@ -34,17 +34,22 @@ class SkillExperienceDetail:
         positions = [competency.position for competency in self.competencies]
         if positions != sorted(positions):
             raise ValueError('Competencies follow the curricular order.')
+
         focused = [
             competency for competency in self.competencies if competency.is_focus
         ]
         if len(focused) > 1:
             raise ValueError('Only one Competency can be in focus.')
+
         if focused and focused[0].competency_id != self.focus_competency_id:
             raise ValueError('The focused Competency must be the declared focus.')
+
         if self.recommendation is not None:
             if self.focus_competency_id is None:
                 raise ValueError('A recommendation requires a focus.')
+
             if self.recommendation.competency_id != self.focus_competency_id:
                 raise ValueError('The recommendation belongs to the focus.')
+
             if self.evaluation is not None:
                 raise ValueError('A held evaluation suspends the recommendation.')

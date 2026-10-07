@@ -148,4 +148,5 @@ def test_should_keep_assessment_input_and_decisions_provider_neutral() -> None:
         criterion_levels=(CodeCriterionDecision(key='correctness', level=100),),
         concept_levels=(),
     )
+
     assert decisions.criterion_levels[0].level == 100

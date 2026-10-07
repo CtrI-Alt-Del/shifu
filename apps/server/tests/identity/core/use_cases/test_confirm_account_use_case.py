@@ -115,6 +115,7 @@ class TestConfirmAccountUseCase:
             for event in events
             if isinstance(event, AccountActionTokenCancelledEvent)
         ]
+
         assert {event.payload.communication_id for event in cancellation_events} == {
             current_token.communication_id,
             sibling_token.communication_id,
@@ -122,6 +123,7 @@ class TestConfirmAccountUseCase:
         activated_event = next(
             event for event in events if isinstance(event, AccountActivatedEvent)
         )
+
         assert activated_event.payload.account_id == account.id
         assert activated_event.payload.activated_at == self.now.isoformat()
         self.action_token_provider.hash.assert_called_once_with(

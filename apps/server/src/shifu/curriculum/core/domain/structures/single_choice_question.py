@@ -27,6 +27,7 @@ class SingleChoiceQuestion:
         )
         if sum(option.is_correct for option in self.options) != 1:
             raise InvalidActivityError
+
         for name in ('correct_explanation', 'incorrect_explanation'):
             explanation = getattr(self, name)
             if explanation is not None:

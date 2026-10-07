@@ -96,6 +96,7 @@ class TestGetSkillExperienceDetailController:
         client: TestClient,
     ) -> None:
         response = _get(client, goal_id=SEED_GOAL_ID, skill_id=LOGIC_SKILL_ID)
+
         assert response.status_code == 200, response.text
 
         bundle = build_logic_programming_seed()
@@ -111,6 +112,7 @@ class TestGetSkillExperienceDetailController:
                 item.position,
             ),
         )
+
         assert len(concepts) == 15
         assert len({concept.id for concept in concepts}) == 15
         assert [concept.name for concept in concepts] == [
@@ -221,6 +223,7 @@ class TestGetSkillExperienceDetailController:
         )
         assert response.status_code == 200, response.text
         body = response.json()
+
         assert body['goalId'] == SEED_GOAL_ID
         assert body['skillId'] == LOGIC_SKILL_ID
         assert body['skillName'] == 'Lógica de programação'
@@ -247,6 +250,7 @@ class TestGetSkillExperienceDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
         assert body['skillName'] == 'Laboratório de decisões adaptativas'
@@ -261,6 +265,7 @@ class TestGetSkillExperienceDetailController:
         body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
         competencies = body['competencies']
+
         assert [item['position'] for item in competencies] == sorted(
             item['position'] for item in competencies
         )
@@ -280,6 +285,7 @@ class TestGetSkillExperienceDetailController:
         body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
         focused = [item for item in body['competencies'] if item['isFocus']]
+
         assert len(focused) <= 1
         assert body['focusCompetencyId'] == (
             focused[0]['competencyId'] if focused else None
@@ -327,6 +333,7 @@ class TestGetSkillExperienceDetailController:
         ).json()
 
         recommendation = skill_body['recommendation']
+
         assert recommendation == competency_body.get('recommendation')
         if recommendation is None:
             return
@@ -338,6 +345,7 @@ class TestGetSkillExperienceDetailController:
         client: TestClient,
     ) -> None:
         response = _get(client, skill_id=SEED_SKILL_PYTHON_ID)
+
         assert response.status_code == 404
 
     def test_skill_outside_the_goal_is_a_private_absence(

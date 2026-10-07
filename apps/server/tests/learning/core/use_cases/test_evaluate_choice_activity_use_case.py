@@ -366,6 +366,7 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.skill_experiences.update.assert_not_called()
         self.repositories.concept_observations.add_many.assert_called_once()
         observations = self.repositories.concept_observations.add_many.call_args.args[2]
+
         assert observations[0].concept_id == 'concept'
         assert observations[0].diagnostic is True
         self.repositories.events.add.assert_not_called()

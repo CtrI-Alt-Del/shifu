@@ -44,6 +44,7 @@ class ConceptStateMapper:
 
         if not isinstance(updated_at, datetime):
             raise TypeError('Concept state update time must be a datetime.')
+
         return ConceptStateModel(
             skill_experience_id=skill_experience_id,
             concept_id=state.concept_id,

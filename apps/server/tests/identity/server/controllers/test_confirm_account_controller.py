@@ -85,6 +85,7 @@ class TestConfirmAccountController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['result'] == 'activated'
         assert body['profile']['email'] == 'katherine@example.com'
         assert body['profile']['display_name'] == 'Katherine Johnson'

@@ -21,5 +21,6 @@ class CompetencyActivityDetail:
     def __post_init__(self) -> None:
         if self.position < 1:
             raise ValueError('Competency content positions must be positive.')
+
         if self.latest_score is not None:
             Percentage.create(self.latest_score, error_type=InvalidAttemptError)

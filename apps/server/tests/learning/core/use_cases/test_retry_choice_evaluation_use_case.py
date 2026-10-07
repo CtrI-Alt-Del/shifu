@@ -120,6 +120,7 @@ class TestRetryChoiceEvaluationUseCase:
             self.evaluation
         )
         event = self.repositories.events.add.call_args.args[0]
+
         assert event.payload.attempt_id == self.attempt.id
         assert event.payload.run_id == 'run-2'
 
@@ -149,6 +150,7 @@ class TestRetryChoiceEvaluationUseCase:
         assert self.evaluation.status is ActivityEvaluationStatus.PENDING
         assert self.evaluation.run_id == 'run-2'
         event = self.repositories.events.add.call_args.args[0]
+
         assert event.payload.attempt_id == self.attempt.id
         assert event.payload.run_id == 'run-2'
 

@@ -37,6 +37,7 @@ class GeneratedEmailMessageRenderer:
         template_name = _TEMPLATE_NAMES.get(message_type)
         if template_name is None:
             raise InvalidCommunicationError
+
         if not isinstance(values, MessageTemplateValues):
             raise InvalidCommunicationError
 
@@ -61,6 +62,7 @@ class GeneratedEmailMessageRenderer:
             'action_url': escape(values.action_url, quote=True),
             'expires_at': escape(self._format_expiry(values.expires_at)),
         }
+
         if values.display_name is not None:
             replacement_values['display_name'] = escape(values.display_name)
         rendered_html = _PLACEHOLDER_PATTERN.sub(

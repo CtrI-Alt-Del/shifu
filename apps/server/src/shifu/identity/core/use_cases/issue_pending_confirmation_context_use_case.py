@@ -45,6 +45,7 @@ class IssuePendingConfirmationContextUseCase:
                 or confirmation_token.status is not AccountActionTokenStatus.PENDING
             ):
                 raise ServiceUnavailableError
+
             confirmation_token.replace_pending_handle_hash(pending_handle_hash, now)
             token_repository.update(confirmation_token)
 

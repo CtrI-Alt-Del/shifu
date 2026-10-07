@@ -31,6 +31,7 @@ class ResolvePasswordResetLinkUseCase:
     def execute(self, token: str) -> PasswordResetLinkStatusResult:
         if self._TOKEN_PATTERN.fullmatch(token) is None:
             return PasswordResetLinkStatusResult(result='invalid')
+
         token_hash = self._action_token_provider.hash(token)
         now = self._clock_provider.now()
         with self._identity_database.transaction() as repositories:
@@ -41,13 +42,16 @@ class ResolvePasswordResetLinkUseCase:
                 or action_token.status is AccountActionTokenStatus.INVALIDATED
             ):
                 return PasswordResetLinkStatusResult(result='invalid')
+
             if action_token.status is AccountActionTokenStatus.USED:
                 return PasswordResetLinkStatusResult(result='used')
+
             if (
                 action_token.status is AccountActionTokenStatus.EXPIRED
                 or now >= action_token.expires_at
             ):
                 return PasswordResetLinkStatusResult(result='expired')
+
             return PasswordResetLinkStatusResult(result='valid')
 
     @staticmethod

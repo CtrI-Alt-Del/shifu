@@ -106,6 +106,7 @@ class TestCompleteDiagnosticController:
         started = _post(
             client, f'{path}/start', _AUTHORIZATION, {'entry_key': str(run_id)}
         )
+
         assert started.status_code == 200, started.text
 
         missing = _post(client, f'{path}/diagnostic/complete', _AUTHORIZATION)

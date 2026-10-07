@@ -123,6 +123,7 @@ class TestDeliverCommunicationUseCase:
         self.email_delivery_provider.send.assert_not_called()
         self.renderer_provider.render.assert_not_called()
         event = self.repositories.events.add.call_args.args[0]
+
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.PERMANENT_FAILURE
 
@@ -148,5 +149,6 @@ class TestDeliverCommunicationUseCase:
         assert self.attempt.status is DeliveryAttemptStatus.FAILED
         self.email_delivery_provider.send.assert_not_called()
         event = self.repositories.events.add.call_args.args[0]
+
         assert isinstance(event, CommunicationDeliveryStateChangedEvent)
         assert event.payload.state is CommunicationDeliveryState.EXPIRED
