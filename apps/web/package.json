@@ -11,7 +11,8 @@
     "check:lint": "biome check src tests vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
     "check:architecture": "depcruise --config dependency-cruiser.config.cjs src",
     "test:unit": "vitest run --passWithNoTests",
-    "test:integration": "playwright test"
+    "test:integration": "playwright test",
+    "test:mutation": "node ../../scripts/test-mutation.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -49,6 +50,8 @@
   "devDependencies": {
     "@faker-js/faker": "9.9.0",
     "@playwright/test": "1.63.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",
     "@testing-library/dom": "10.4.1",

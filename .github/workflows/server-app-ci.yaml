@@ -100,6 +100,17 @@ jobs:
       - name: Run real Inngest job tests
         run: uv run poe test:jobs
 
+      - name: Run mutation tests
+        run: uv run poe test:mutation --all
+
+      - name: Upload mutation reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-mutation-report
+          path: apps/server/test-results/mutation
+          if-no-files-found: ignore
+
       - name: Build distributions
         run: uv build
 

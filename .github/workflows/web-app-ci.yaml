@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'apps/web/**'
+      - 'scripts/test-mutation.mjs'
+      - 'scripts/tests/test-mutation.test.mjs'
       - '.github/workflows/web-app-ci.yaml'
       - '.node-version'
       - '.npmrc'
@@ -116,6 +118,12 @@ jobs:
       - name: Run unit tests
         run: pnpm --filter web test:unit
 
+      - name: Check mutation scope selection
+        run: node --test scripts/tests/test-mutation.test.mjs
+
+      - name: Run full mutation suite
+        run: pnpm --filter web test:mutation --all
+
       - name: Build application
         run: pnpm --filter web build
 
@@ -128,4 +136,12 @@ jobs:
         with:
           name: playwright-report
           path: apps/web/playwright-report
+          if-no-files-found: ignore
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: web-mutation-report
+          path: apps/web/reports/mutation
           if-no-files-found: ignore

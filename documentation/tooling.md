@@ -247,6 +247,7 @@ Playwright.
 | `pnpm --filter web check:lint` | Run Biome checks |
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
+| `pnpm --filter web test:mutation` | Run Stryker against changed production files and related Vitest tests |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
@@ -302,6 +303,7 @@ Run commands from `apps/server` through uv:
 | Command | Purpose |
 | --- | --- |
 | `uv run poe check:types` | Run strict basedpyright checking |
+| `uv run poe test:mutation` | Run mutmut against changed Python source and related pytest files |
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
 | `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
@@ -331,6 +333,63 @@ do not call nested controller handlers directly. All server pytest cases are met
 on a `Test<Subject>` class; top-level `test_*` functions are not used.
 
 ## Architecture and quality checks
+
+### Mutation testing
+
+Mutation tooling is configured for applications only: Web uses Stryker 10 with
+its Vitest runner; Server uses mutmut 3.8 for Python. Packages such as Email do
+not have mutation scripts. Run from the repository root for Web and from
+`apps/server` for Server:
+
+```bash
+pnpm --filter web test:mutation
+pnpm --filter web test:mutation --base main
+pnpm --filter web test:mutation --files src/ui/shared/widgets/layouts/app-layout/mobile-header/use-mobile-header.ts
+
+uv run poe test:mutation
+uv run poe test:mutation --base main
+uv run poe test:mutation --files src/shifu/learning/core/use_cases/remove_goal_use_case.py
+```
+
+Default selection includes staged, unstaged and untracked changes. On a feature
+branch it also includes changes since the merge base with `origin/main` (or local
+`main`); on `main` it compares against HEAD. `--base` supplies an explicit Git
+reference. `--files` supplies exact application-relative production paths and
+overrides Git discovery. Empty scope prints that no mutation tests executed;
+it never falls back to a complete suite or proves a mutation check passed.
+
+Web mutates changed production files; colocated test edits select their owning
+source boundary. Vitest `related: true` limits discovery to tests importing those
+files, and per-test coverage selects tests for each mutant. Shared package/test configuration or workspace dependency changes require
+explicit `--files` to keep local checks scoped; the launcher does not silently
+expand to a full suite. Browser-only tests do not become mutation tests; explicitly identify the
+production files and corresponding Vitest coverage for that change. Server
+follows Python imports to select related pytest files; test edits select their
+production dependencies. Dynamic imports can require explicit Server `--tests`
+paths. Server fixture/configuration changes likewise require an explicit scope. Use `--dry-run` with either command to inspect selection without executing tests.
+
+Full source includes application runtime code; generated files, declarations,
+test/support fixtures and fakers are excluded. Server additionally excludes
+package `__init__.py` barrels. No application business module is excluded merely
+because its mutation score is low. Server runs in a temporary workspace with a
+disposable Redis container, protecting shared developer Redis from test cleanup;
+Docker is required. Its existing integration fixtures own disposable databases
+and Inngest instances. Reports are ignored local artifacts under
+`apps/web/reports/mutation/` and `apps/server/test-results/mutation/`.
+
+The Web and Server CI workflows explicitly run the full mutation universe with
+`pnpm --filter web test:mutation --all` and `uv run poe test:mutation --all`,
+respectively, and upload reports even on failure. CI does not use Git scope
+selection. Local checks remain scoped; use `--all` locally only when explicitly
+requested or demonstrated impact covers the complete application.
+
+Both runners report survivors without an added score threshold. A successful
+command means the runner completed, not that every mutant was killed. Review
+survivors, uncovered mutants and runner errors in the report. For
+correctness-critical changes the Spec identifies mutation scope, risk, pass
+conditions and survivor/equivalence disposition; any stricter criterion must be
+verified separately. Mutation is not a universal prerequisite for every edit,
+and ordinary coverage cannot replace a required mutation check.
 
 During implementation, use focused checks from the Spec. After integration, run
 the applicable gates below. Reuse valid results at later handoffs:
