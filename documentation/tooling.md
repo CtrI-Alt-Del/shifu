@@ -303,9 +303,9 @@ Run commands from `apps/server` through uv:
 | Command | Purpose |
 | --- | --- |
 | `uv run poe check:types` | Run strict basedpyright checking |
-| `uv run poe test:mutation` | Run mutmut against changed Python source and related pytest files |
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
+| `uv run poe test:mutation` | Run mutmut against changed Python source and related pytest files |
 | `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
 | `uv run poe test:integration` | Run module-first server integration tests under `tests/<module>/server` plus legacy `tests/rest` during migration, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
@@ -333,6 +333,85 @@ do not call nested controller handlers directly. All server pytest cases are met
 on a `Test<Subject>` class; top-level `test_*` functions are not used.
 
 ## Architecture and quality checks
+
+### Automated check execution
+
+Select local tests only for the scoped changes: the Verification Contract's
+behavior, changed production boundaries and directly affected consumers. Determine
+impact from the diff and actual dependencies, rather than similarly named files
+or the fact that an application was touched. A Web-only presentation change does
+not require Server tests; a Server change without observable browser impact does
+not require Web browser tests. Shared contracts add tests for the consumers whose
+behavior is actually affected, not every module automatically.
+
+| Check | During implementation | Integrated verification | After correction |
+| --- | --- | --- | --- |
+| Unit/component | Run exact affected test files as coherent behavior is implemented. | Confirm current results for scoped behavior and affected consumers. | Rerun failed and invalidated files/scenarios. |
+| Server REST/persistence | Implement boundary assertions; use unit/static feedback during building. | Batch affected controller/migration boundary tests after integration using disposable fixtures. | Rerun affected boundary selections sequentially. |
+| Inngest jobs | Implement job assertions; use focused unit/static feedback during building. | Run affected real-job tests with their required environment and disposable services. | Rerun affected jobs and directly impacted consumers. |
+| Web browser | Implement affected route/journey tests; use component/static feedback during building. | Run only affected Playwright scenario files after integration. | Rerun affected scenarios. |
+| Types | Check after public types, schemas, signatures or consumers change. | Run type checks for affected apps and affected consumer projects with their actual configuration. | Rerun impacted producer/consumer projects. |
+| Lint/format | Check exact changed source/test/configuration paths without writing. | Confirm current lint/format results for the scoped paths; apply broader configured gates only when required. | Recheck edited paths and affected lint configuration. |
+| Complexity | Inspect changed logic and execute available configured complexity checks for that scope. | Record complexity results and the checker limits; a required unavailable quantitative gate is Blocked. | Recheck changed logic; never relax rules or update a baseline merely to pass. |
+| Architecture/build | Check affected dependencies, exports, composition and build inputs. | Run required gates for affected apps and dependent consumers. | Rerun gates whose claims/inputs changed. |
+
+Integration remains an integrated checkpoint, not a per-edit ritual. Run related
+Server selections together to reuse fixture setup, and serialize container-backed
+commands so independent pytest processes do not compete for ports/services.
+Independent read-only checks may run concurrently when resources do not compete;
+generation, dependent builds and validation of their outputs remain sequential.
+
+Do not run full local workspace suites as a default or add them to a Spec merely
+because work reaches integration. Broaden a selection only for demonstrated
+shared behavior, affected consumers or a concrete gap in proof of the scoped
+changes; record that dependency and reason. A whole-suite run is appropriate only
+when the scoped impact actually spans that suite or the user explicitly requests
+such a measurement. Keep unrelated tests outside routine local validation.
+
+Record exact files/scenarios, boundaries, test counts, outcomes, command wall time,
+candidate/environment and artifacts in Evaluation. Keep Web Vitest, Web Playwright,
+Server use-case, REST/persistence and real-job results separate. A skipped or empty
+selection cannot pass because a command exits successfully. Review, continuation
+and conclusion reuse unchanged evidence; a new commit or ledger edit alone does
+not justify another run. Preserve original failed/full-run and coverage outcomes;
+focused corrections establish only the current scope they execute.
+
+### Selecting unit and integration tests
+
+Use these command forms with source-verified exact file paths substituted for the
+placeholders. List those paths in the Spec and actual executed commands in
+Evaluation. Test-name filters require names verified in source; avoid broad globs
+or keyword searches that silently include unrelated tests.
+
+| Boundary | Working directory | Focused command form |
+| --- | --- | --- |
+| Web unit/component | Repository root | `pnpm --filter web exec vitest run <test-files...>` |
+| Web browser integration | Repository root | `pnpm --filter web exec playwright test <scenario-files...>` |
+| Server use case | `apps/server` | `uv run pytest <use-case-test-files...>` |
+| Server controller/persistence | `apps/server` | `uv run pytest <controller-or-migration-test-files...>` |
+| Real Inngest job | `apps/server` | `SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest <job-test-files...>` |
+
+Paths passed to Web runners are relative to `apps/web`; paths passed to pytest
+are relative to `apps/server`. Choose test files within the owning Rules' allowed
+boundaries. Use-case tests mock ports; controller tests exercise the real app and
+persistence; job tests exercise registered durable execution. Mocked browser
+transport proves isolated browser behavior, not required real Auth/REST effects.
+Manual Playwright CLI checks cover the concise real-service journeys in the Spec.
+
+The unfiltered `test:unit`, `test:integration` and `test:jobs` scripts in the
+catalogues above select complete categories. Server Poe unit/integration tasks
+use shell discovery and do not define positional file selectors; use pytest
+directly for scoped files instead of assuming appended arguments narrow them.
+The real-job selection must retain `SHIFU_RUN_REAL_INNGEST_TESTS=1`; otherwise a
+skip does not prove execution. Inspect the applicable fixtures for additional
+readiness/configuration and verify actual test counts and results.
+
+Whole-suite impact must be demonstrated: for example, global Server composition,
+auth/error boundaries or shared transaction/fixture behavior may affect many
+controllers; shared routing/session/root-layout behavior may affect many browser
+journeys. Select their actual consumers and identify remaining coverage gaps
+before expanding further. CI independently runs its configured suites for
+applicable current PR heads; these local scope rules do not change CI discovery.
 
 ### Mutation testing
 
@@ -391,27 +470,66 @@ conditions and survivor/equivalence disposition; any stricter criterion must be
 verified separately. Mutation is not a universal prerequisite for every edit,
 and ordinary coverage cannot replace a required mutation check.
 
+### Scoped type, lint and complexity checks
+
+Include type, lint and complexity as explicit Automated check obligations in the
+Spec and separate result/disposition entries in Evaluation. They supplement the
+scoped behavioral tests; a test pass does not establish static conformance.
+Documentation-only deliveries may mark source checks Not applicable with a reason.
+
+| Check | Command / scope | Evidence and limits |
+| --- | --- | --- |
+| Web types | `pnpm --filter web check:types` from the repository root | Uses the existing TypeScript project configuration and catches affected consumer types. |
+| Server types | `uv run poe check:types` from `apps/server` | Uses the existing basedpyright configuration. Run for affected Server contracts/implementation. |
+| Web lint/format | `pnpm exec biome check <changed-paths...>` from the repository root | Non-writing checks of source/test/configuration paths supported by Biome and its repository configuration. |
+| Server lint | `uv run ruff check --no-fix <changed-paths...>` from `apps/server` | Non-writing lint for affected Python source/test paths. |
+| Server format | `uv run ruff format --check <changed-paths...>` from `apps/server` | Format compliance without rewriting files. |
+| Web complexity lint | The scoped Biome check above | Evaluates configured complexity rules in `biome.json`; record diagnostics and warning severity. This is not a quantitative complexity/baseline measurement. |
+| Server complexity lint | The scoped Ruff check above (`C90` is selected in root `pyproject.toml`) | Enforces configured McCabe complexity diagnostics; this does not establish an independent metrics baseline. |
+| Dedicated complexity metrics | No configured script/runner/baseline in current root/Web/Server manifests | Record unavailable tooling explicitly; do not invent `check:complexity`, thresholds or a passing metrics result. |
+
+Replace placeholders with exact affected paths verified in source. Type checks may
+need the affected app/project rather than a file list to preserve tsconfig/import
+context and consumer correctness; record that scope. Do not pass files to `tsc`
+in a way that bypasses the repository project configuration. Keep checks within
+affected apps/consumers and use scoped lint for routine feedback instead of root
+repository-wide lint or formatting commands. Required configured project gates
+still apply to the affected apps.
+
+For complexity, the Spec identifies affected logic, available checker and actual
+pass conditions. Web's configured complexity lint can share an executed command
+with lint, but must have an explicit result/disposition and evidence limits.
+Server Ruff includes the configured C90 complexity lint gate; there is no separate metrics/baseline script. Manual review may
+record maintainability findings, but cannot satisfy a required quantitative
+measurement. If such a measurement is required, missing tooling is Blocked until
+provided or the contract is explicitly reconciled; ordinary lint/type/test success
+cannot replace it. Introducing a metrics tool/configuration is separate from this
+workflow documentation change. Recheck manifests before naming future commands.
+
+### Applicable project gates
+
 During implementation, use focused checks from the Spec. After integration, run
-the applicable gates below. Reuse valid results at later handoffs:
+applicable static/build gates below plus the contracted affected test selections.
+The complete test-suite scripts in the command catalogues above are available
+commands, not a mandatory local execution checklist. Specify exact test files or
+scenarios with verified runner commands. Use full scripts only when scoped impact
+actually spans that suite or the user explicitly requests it. Reuse valid results
+at later handoffs:
 
 ```bash
 pnpm --filter web check:lint
 pnpm --filter web check:architecture
 pnpm --filter web check:types
-pnpm --filter web test:unit
 pnpm --filter web build
 
 cd apps/server
 uv run poe check:lint
 uv run poe check:architecture
 uv run poe check:types
-uv run poe test:unit
-uv run poe test:integration
-uv run poe test:jobs
 uv run poe build
 ```
 
-Run applicable integration suites on the integrated candidate. Fix failures and
+Run affected integration selections on the integrated candidate. Fix failures and
 rerun affected checks until they pass. Code, fixture, configuration, or contract
 changes reopen affected checks; role or commit changes alone do not. Use explicit
 CI-compatible fixture settings instead of relying on ignored local environment
@@ -422,8 +540,13 @@ contract. SonarQube is present in Docker Compose, but CI integration and scanner
 configuration are deferred.
 
 Inspect the current `.github/workflows` when selecting delivery gates. CI uses
-application-owned commands and repository runtime files with separate Web and
-Server coverage. A remote CI run is evidence for its candidate and environment;
+application-owned commands and repository runtime files. Current Web and Server
+workflows run tests without configured coverage collection; do not claim coverage
+percentages or a coverage gate from those results. Server CI also runs
+`uv run alembic check` after migrating its disposable database to detect schema
+migration drift. The Email workflow separately checks package code/types,
+generates templates and verifies the server distribution contract when its path
+filters match. A remote CI run is evidence for its exact candidate/environment;
 do not treat a pending or failed check as passed.
 
 ## Database and asynchronous tooling status

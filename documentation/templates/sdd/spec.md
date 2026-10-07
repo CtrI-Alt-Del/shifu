@@ -10,55 +10,163 @@ scope:
 last_updated_at: YYYY-MM-DD
 ---
 
-# Context and scope
+# Objective
 
-State the outcome, current behavior, owning module, compact/complete mode,
-included behavior and exclusions. Record canonical PRD URL/title/content ID,
-version/retrieval time and applicable RP/JN IDs. Identify selected outcomes as
-full, partial or deferred. Record material accepted decisions and assumptions.
+State the problem and intended outcome; baseline only when useful. Name compact
+or complete mode. Keep compact Specs concise across all seven sections; add only
+detail warranted by the changed contracts and risks.
 
-# Implementation Contract
+# Scope
 
-| ID | RP/JN coverage | Observable required behavior |
+| Area / actor | Included | Excluded or deferred |
 | --- | --- | --- |
-| RF-01 | <actual RP and relevant JN> | <actors, rules, bounds and transitions> |
+| <capability and actor> | <bounded delivery> | <adjacent behavior> |
 
-| ID | RF coverage | Given | When | Then | Proof |
+Classify selected RP outcomes as full, partial or deferred without weakening the
+PRD. Link the design handoff/manifest for affected UI states and viewports.
+
+# Behavior Contract
+
+| ID | RP/JN/source coverage | Observable required behavior |
+| --- | --- | --- |
+| RF-01 | <actual RP and relevant JN> | <actors, permissions, invariants, bounds and transitions> |
+
+| ID | RF coverage | Given | When | Then | Checks |
 | --- | --- | --- | --- | --- | --- |
-| CA-01 | RF-01 | <precondition> | <action> | <observable result> | CI-01 |
+| CA-01 | RF-01 | <precondition> | <action> | <observable result> | CI-01 / VM-01 |
 
-Cover the applicable permissions, isolation, persistence, failures, recovery,
-concurrency and accessibility guarantees. For design-backed UI, link the saved
-handoff/manifest with required happy-path states, viewports and accepted deviations.
+Cover applicable isolation, persistence, failures, recovery, concurrency and accessibility.
 
 # Technical Contract
 
-Define consequential owning boundaries, public payloads/interfaces/events,
-authentication propagation, transaction ownership, persistent invariants,
-migration compatibility and side-effect/failure ownership. Reference reusable
-patterns and prohibited boundaries. Describe generated artifacts and real
-generation commands when affected. Do not prescribe internal task or file trees.
+## Architecture Mapping
 
-# Validation Contract
+Owner: <module>. Rules: <applicable Rule Pack links>.
 
-| Checker | CA coverage | Boundary and observable proof | Command / procedure and working directory | Timing |
-| --- | --- | --- | --- | --- |
-| CI-01 | CA-01 | <unit/component assertions> | <installed command and selector> | During build |
-| CI-02 | <CA IDs> | <real application/persistence/job assertions> | <installed integration command and selector> | After all scopes are integrated |
-| VM-01 | <CA IDs> | <required happy path> | <Playwright CLI journey, services, fixture, observations and capture references> | Integrated candidate |
+| Action | Boundary | Element / Path | Required change |
+| --- | --- | --- | --- |
+| Create / Modify / Delete | <affected Shifu layer> | <symbol and consequential repository-relative path> | <resulting declaration, consumers, exports and registration> |
 
-Give every CA concrete proof and distinguish real integration from mocked
-transport. Specify expected values, intended test selection and evidence limits.
-Automate negative, recovery, concurrency and unusual cases. Keep manual journeys
-concise and include required UI keyboard/focus/narrow-viewport observations.
+Include expected Python/TypeScript declarations for changed public objects,
+ports, use-case signatures and schemas. Creates show complete public declarations;
+modifies show the result or explicitly scoped excerpts; deletes account for
+consumers and compatibility. Define affected REST contracts and `.rest` examples,
+SQLAlchemy/Alembic constraints and migration/data guarantees, widget props/state
+ownership, provider wiring, and event/job payloads, retries and idempotency.
 
-Run applicable integration suites once after all scopes are integrated. Fix
-failures and rerun failed/affected checks until all applicable suites pass.
-Review and conclusion reuse valid results. Later changes reopen affected proof.
+Reference existing unchanged declarations; specify only changed public contracts
+and consequential guarantees. Add a scoped expected file tree only when it
+clarifies ownership, registration, generated outputs or another consequential
+boundary; otherwise the mapping suffices. Use new `[N]` and modified `[M]` files;
+keep deletions in the mapping. Identify generated inputs/commands and planned
+paths honestly. Private helpers and ordinary decomposition remain implementation
+choices; changing them alone does not amend the contract.
 
-# Documentation alignment and revision history
+## Runtime Flow
 
-List selected Rule Pack paths and necessary authority/documentation alignment.
-Record material contract revisions with their reasons. Keep actual progress and
-checker results in Evaluation. Follow [SDD](../../sdd.md) and
-[Create Spec](../../prompts/create-spec-prompt.md); omit irrelevant template rows.
+Explain affected runtime interactions; use Mermaid when useful. Include trusted
+actor/context, validation, domain decisions, transactions, persistence, effects,
+cache/visible results and relevant rejection, concurrency and recovery guarantees.
+
+# Verification Contract
+
+## Shared setup
+
+Define source-backed environment/readiness, actors/authentication, data/initial
+state, isolation/reruns, recovery and cleanup once for checks sharing them.
+Reference actual fixture/account source paths and Tooling procedures. Resolve
+credentials privately. Distinguish real, mocked and disposable dependencies;
+never assume registration, account state or permission to reset shared data.
+
+## Automated
+
+### CI-01 — <trigger/input and observable outcome>
+
+**Criteria:** CA-01
+
+**Expected result:** <observable outcome, including absent effects for rejection>
+
+**Setup / inputs:** <shared setup; finite combinations or equivalence classes/bounds>
+
+**Proof:** <exact repository-relative test file and test boundary; planned if absent>
+
+```bash
+<actual focused command, working directory and verified selector>
+```
+
+**Passing condition:** <assertions, intended selection and evidence limits>
+
+### CI-02 — Applicable baseline checks
+
+**Scope:** <affected apps/packages and consumers>
+
+**Checks:** <required Tooling/Rule checks; feature-specific exceptions>
+
+Define separately identified CI checks for types, lint and complexity on affected
+paths/projects and their affected consumers. Link
+[Tooling](../../tooling.md#scoped-type-lint-and-complexity-checks); specify actual
+commands and pass conditions. Configured complexity lint may share its command
+with lint but needs an explicit disposition. Record a required unavailable metrics
+checker as Blocked; do not invent a command or infer a complexity score.
+
+**Passing condition:** <required gates pass, static dispositions have actual proof,
+and intended tests actually execute>
+
+For correctness-critical changes, assess targeted mutation testing against a
+concrete risk: required or not required, rationale, and the assertions addressing
+that risk. When required, specify scope, verified runner, pass condition and
+surviving-mutant disposition. Unavailable required execution is Blocked; ordinary
+coverage cannot substitute and runner availability alone does not settle necessity.
+
+## Manual
+
+### VM-01 — <concise agent-executable happy path>
+
+**Type:** Manual
+
+**Criteria:** CA-01
+
+**Tool / setup:** <Playwright CLI or terminal; shared setup and differences>
+
+**Procedure:** <narrow ordered actions against the intended runtime boundary>
+
+**Passing condition:** <URL, visible/persisted effects, requests, console,
+keyboard/focus, required narrow viewport and cleanup as applicable>
+
+## Visual
+
+### VM-02 — <surface, state and viewport>
+
+**Type:** Visual
+
+**Criteria:** <CA IDs>
+
+**Reference / setup:** <manifest entry, exact viewport, related Manual check>
+
+**Capture / comparison:** <reuse current Manual capture where possible; inspect it>
+
+**Passing condition:** <visual properties and accepted deviations>
+
+VM IDs are unique across Manual and Visual checks. State why categories are
+inapplicable; omit unused examples. Results belong in Evaluation. Integration
+runs after all scopes are integrated using affected files/scenarios. Select tests
+only for scoped changes and directly affected consumers. Broaden only for
+demonstrated dependency impact or a concrete gap in that scope's proof, recording
+why. Full local suites require scope spanning that suite or an explicit user request. Fix failures and rerun affected
+checks. Review and conclusion reuse unaffected current proof.
+
+# Documentation Alignment
+
+| Document / authority | Governs | Required update or confirmation | Disposition / dependency |
+| --- | --- | --- | --- |
+| <canonical PRD URL/title/content ID/version/retrieval time> | <selected RP/JN> | <alignment or unchanged intent> | <external-write dependency> |
+| <Rule or other authority> | <affected boundary> | <update or confirmation> | <recheck before conclusion> |
+
+# Revision History
+
+| Revision | Date | Contract change | Reason / source |
+| --- | --- | --- | --- |
+| 1 | YYYY-MM-DD | Initial contract | <delivery source and consequential decisions> |
+
+Increment only for meaningful behavior, technical, design or verification changes.
+Follow [SDD](../../sdd.md) and [Create Spec](../../prompts/create-spec-prompt.md).
