@@ -59,6 +59,7 @@ jobs:
       run:
         working-directory: apps/server
     env:
+      REDIS_URL: redis://localhost:6379/0
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
       SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
