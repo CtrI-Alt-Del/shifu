@@ -22,6 +22,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
+    "coverage[toml]>=7.16,<8",
     "faker>=40.39.0",
     "mutmut>=3.8.0",
     "poethepoet>=0.41.0",
@@ -72,6 +73,9 @@ shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'te
 [tool.poe.tasks."test:mutation"]
 cmd = "python scripts/test_mutation.py"
 
+[tool.poe.tasks."test:changed-coverage"]
+cmd = "python scripts/check_changed_coverage.py"
+
 [tool.poe.tasks."test:jobs"]
 cmd = "pytest tests/messaging/inngest/jobs"
 env = { SHIFU_RUN_REAL_INNGEST_TESTS = "1" }
@@ -118,6 +122,10 @@ testpaths = ["tests"]
 filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:inngest.*",
 ]
+
+[tool.coverage.run]
+patch = ["subprocess"]
+sigterm = true
 
 [build-system]
 requires = ["setuptools", "wheel"]

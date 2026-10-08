@@ -1798,6 +1798,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "basedpyright" },
+    { name = "coverage" },
     { name = "faker" },
     { name = "mutmut" },
     { name = "poethepoet" },
@@ -1829,6 +1830,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "basedpyright", specifier = ">=1.38.2" },
+    { name = "coverage", extras = ["toml"], specifier = ">=7.16,<8" },
     { name = "faker", specifier = ">=40.39.0" },
     { name = "mutmut", specifier = ">=3.8.0" },
     { name = "poethepoet", specifier = ">=0.41.0" },
