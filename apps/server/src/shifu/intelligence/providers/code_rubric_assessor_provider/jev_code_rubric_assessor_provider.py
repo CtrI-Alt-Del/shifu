@@ -66,14 +66,19 @@ class _DecisionsResponse(BaseModel):
 def _validated_level(level: int) -> CodeRubricLevel:
     if level == 0:
         return 0
+
     if level == 25:
         return 25
+
     if level == 50:
         return 50
+
     if level == 75:
         return 75
+
     if level == 100:
         return 100
+
     raise ServiceUnavailableError(_UNAVAILABLE_MESSAGE)
 
 
@@ -166,6 +171,7 @@ class JevCodeRubricAssessorProvider:
 
         if set(result.answers) != set(options):
             raise ServiceUnavailableError(self._UNAVAILABLE)
+
         if any(
             answer.choice not in options[question_id]
             for question_id, answer in result.answers.items()
@@ -208,6 +214,7 @@ class JevCodeRubricAssessorProvider:
                 ):
                     sleep(self._RETRY_DELAY_SECONDS)
                     continue
+
                 response.raise_for_status()
                 return _DecisionsResponse.model_validate(response.json())
             except httpx.TransportError:

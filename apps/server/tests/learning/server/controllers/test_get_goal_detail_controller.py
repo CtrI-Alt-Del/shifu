@@ -88,6 +88,7 @@ class TestGetGoalDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert {skill['skillId'] for skill in body['skills']} == {
             SEED_SKILL_LOGIC_ID,
             *SEED_GRAPH_SKILL_IDS,
@@ -153,6 +154,7 @@ class TestGetGoalDetailController:
         assert response.status_code == 200
         assert response.headers['cache-control'] == 'private, no-store'
         body = response.json()
+
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['title'] == 'Laboratório de progresso adaptativo'
         assert body['skills']

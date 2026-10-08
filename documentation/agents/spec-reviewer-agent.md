@@ -27,14 +27,12 @@ agent type or a separate user-facing workflow.
 
 - Activate exactly one Spec Reviewer during `create-spec`, after the Orchestrator has authored
   the draft and completed its Spec-definition integrity checks, before changing the Spec to
-  `ready`. A low-risk compact Spec may instead use a distinct Orchestrator compatibility pass.
+  `ready`. Keep every draft pending until independent compatibility review completes.
 - That single Reviewer owns the compatibility gate for the entire selected Rule Pack. Do not
   split the gate into one Reviewer per Rule, application, package, layer, screenshot, or
   research lane; each selected Rule must be evaluated in the same cross-boundary review.
-- Independent review is mandatory for a `complete` Spec; amendments repeat affected review at their risk level.
-- A `compact` Spec uses a Reviewer only when the Orchestrator identifies an architecture,
-  module-boundary, dependency-direction, generated-artifact or Rule-conformance risk that makes
-  independent review useful.
+- Independent review is mandatory for compact and complete Specs. Material amendments
+  repeat affected compatibility review with the same reviewer where possible.
 - Do not create Reviewers per application, package, layer, Rule, screenshot, or research lane.
 - After a correction, resume the same Reviewer to recheck the affected architecture or Rule
   compatibility instead of activating a replacement.
@@ -57,6 +55,13 @@ agent type or a separate user-facing workflow.
 - accepted technical assumptions, exclusions, prohibited paths and known architecture or Rule
   risks.
 
+Scoped expected file trees and public declarations describe the proposed change;
+check their consequential paths/actions against repository conventions without
+demanding exhaustive helper catalogues or task choreography. A file tree is
+optional when the mapping already establishes consequential ownership/consumer
+impact. For compact Specs, keep review proportional to changed contracts and
+identified risks; brevity is not a defect when the required guarantees are clear.
+
 Do not require an execution plan, implementation diff, Evaluation, test result, or runtime evidence. Those
 artifacts do not exist yet or belong to later workflows.
 
@@ -65,7 +70,10 @@ artifacts do not exist yet or belong to later workflows.
 1. Read the assigned authorities and confirm the Spec revision, source, scope, and mode.
 2. Verify that proposed module ownership and consequential boundary contracts are compatible with
    Architecture and Modules ownership.
-3. Check dependency direction, producer/consumer boundaries, composition wiring, exports,
+3. Audit dynamic Rule selection for the actual affected boundaries and explicitly
+   check proposed commitments against applicable Rule sections; a list of Rule
+   links alone is not proof of compliance. Check dependency direction, producer/consumer
+   boundaries, composition wiring, exports,
    registrations, generated artifacts, migrations and test placement against the selected Rules.
    Audit every test path and test-related acceptance criterion in the Spec against the complete
    test-integrity policy. A direct test for an `indirect` or `excluded` source, a forbidden test

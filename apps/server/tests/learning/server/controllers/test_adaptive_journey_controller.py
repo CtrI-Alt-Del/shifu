@@ -458,6 +458,7 @@ class TestAdaptiveLabSeed:
         activities = {activity.id: activity for activity in seed.activities}
         single_code = activities[SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[0]]
         multiple_code = activities[SEED_ADAPTIVE_LAB_BOOLEAN_ACTIVITY_IDS[3]]
+
         assert '```python' in single_code.questions[0].prompt
         assert '```python' in multiple_code.questions[0].prompt
         assert isinstance(multiple_code.questions[0], MultipleSelectionQuestion)

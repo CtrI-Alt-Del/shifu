@@ -25,6 +25,7 @@ class RewardFeedback:
     def __post_init__(self) -> None:
         for value in (self.id, self.account_id, self.fact_id):
             NonEmptyText.create(value, error_type=InvalidGamificationError)
+
         BoundedInteger.create(
             self.previous_level, minimum=1, error_type=InvalidGamificationError
         )
@@ -32,6 +33,7 @@ class RewardFeedback:
             self.new_level, minimum=1, error_type=InvalidGamificationError
         )
         AwareTimestamp.create(self.created_at, error_type=InvalidGamificationError)
+
         for references in (self.xp_grant_ids, self.earned_achievement_ids):
             if type(references) is not tuple:
                 raise InvalidGamificationError
@@ -39,8 +41,10 @@ class RewardFeedback:
                 NonEmptyText.create(reference, error_type=InvalidGamificationError)
             if len(references) != len(set(references)):
                 raise InvalidGamificationError
+
         if not self.xp_grant_ids or self.new_level < self.previous_level:
             raise InvalidGamificationError
+
         if self.seen_at is not None:
             ChronologicalPeriod.create(
                 self.created_at, self.seen_at, error_type=InvalidGamificationError

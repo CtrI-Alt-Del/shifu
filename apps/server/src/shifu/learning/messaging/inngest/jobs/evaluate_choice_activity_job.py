@@ -63,6 +63,7 @@ class _Payload(BaseModel):
             parsed_time
         ):
             raise ValueError('Job event time must be UTC')
+
         return value
 
 
@@ -85,9 +86,11 @@ class EvaluateChoiceActivityJob:
             original_event = failure_data.get('event')
             if not isinstance(original_event, Mapping):
                 return
+
             original_data = cast('Mapping[str, object]', original_event).get('data')
             if not isinstance(original_data, Mapping):
                 return
+
             try:
                 payload = await EvaluateChoiceActivityJob._normalize_payload(
                     cast('Mapping[str, object]', original_data)
@@ -132,6 +135,7 @@ class EvaluateChoiceActivityJob:
                     payload['run_id'],
                 )
                 return
+
             await context.step.run(
                 'evaluate_and_apply_official_effect',
                 EvaluateChoiceActivityJob._evaluate,
@@ -157,6 +161,7 @@ class EvaluateChoiceActivityJob:
         payload = _Payload.model_validate(dict(data))
         if payload.kind not in {'learning', 'diagnostic', 'review'}:
             raise ValueError('Only choice activity submissions can be evaluated')
+
         return EvaluationJobPayload(
             attempt_id=payload.attempt_id,
             run_id=payload.run_id,
@@ -190,6 +195,7 @@ class EvaluateChoiceActivityJob:
                 or attempt.activity_id != payload['activity_id']
             ):
                 return False
+
             if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
                 experience = repositories.skill_experiences.find_by_id(
                     attempt.skill_experience_id
@@ -254,6 +260,7 @@ class EvaluateChoiceActivityJob:
             attempt = repositories.activity_attempts.find_by_id(payload['attempt_id'])
             if attempt is None:
                 return
+
             if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
                 experience = repositories.skill_experiences.find_by_id_for_update(
                     attempt.skill_experience_id
@@ -276,5 +283,6 @@ class EvaluateChoiceActivityJob:
                 or evaluation.run_id != payload['run_id']
             ):
                 return
+
             evaluation.fail('evaluation_failed')
             repositories.activity_evaluations.update(evaluation)

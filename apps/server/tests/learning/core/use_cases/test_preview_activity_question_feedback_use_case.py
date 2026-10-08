@@ -169,10 +169,12 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 files=(CodeSubmittedFile(path='src/main.js', content='new'),),
             )
         )
+
         assert result.status == 'conclusive'
         assert result.score == Decimal(75)
         assert result.criteria[0].comment_id == 'level-75'
         request = self.assessor.assess.call_args.args[0]
+
         assert request.project_files == (
             ('src/lib.js', 'fixed'),
             ('src/main.js', 'new'),
@@ -310,6 +312,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 files=(CodeSubmittedFile(path='src/main.js', content='new'),),
             )
         )
+
         assert result.status == 'inconclusive'
         assert result.score is None
         assert result.submitted_files[1].content == 'new'

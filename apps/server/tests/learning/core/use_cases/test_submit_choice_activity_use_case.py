@@ -207,6 +207,7 @@ class TestSubmitChoiceActivityUseCase:
         assert detail.attempt.status is ActivityEvaluationStatus.PENDING
         assert detail.replayed is False
         attempt = self.repositories.activity_attempts.add.call_args.args[0]
+
         assert attempt.answers == (
             SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
             MultipleSelectionAnswer(question_key='q2', selected_option_keys=('c', 'a')),
@@ -215,8 +216,10 @@ class TestSubmitChoiceActivityUseCase:
         assert attempt.submission_key == 'submission-key'
         assert attempt.grading_snapshot.id == ACTIVITY_ID
         evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+
         assert evaluation.run_id == 'run-1'
         event = self.repositories.events.add.call_args.args[0]
+
         assert event.payload.attempt_id == attempt.id
         assert event.payload.run_id == evaluation.run_id
 
@@ -354,6 +357,7 @@ class TestSubmitChoiceActivityUseCase:
             'submission-key',
             answers(),
         )
+
         assert replay.attempt.attempt_id == attempt.id
         assert replay.replayed is True
         self.repositories.activity_attempts.add.assert_not_called()

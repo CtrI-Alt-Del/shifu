@@ -216,8 +216,10 @@ def test_goal_pins_v2_only_for_eligible_catalog(rig: Any) -> None:
     goal = CreateGoalUseCase(database, curriculum, clock, ids).execute(
         'account', 'Meta', 'Descrição', ('skill',)
     )
+
     assert goal.id == 'goal-new'
     created = repositories.skill_experiences.add_many.call_args.args[0][0]
+
     assert created.status is SkillExperienceStatus.NOT_STARTED
     assert (
         repositories.competency_progresses.add_many.call_args.args[0][
@@ -267,6 +269,7 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
     overview = GetDiagnosticUseCase(database, curriculum, clock).execute(
         'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
+
     assert (
         overview.next_activity_id,
         overview.pending_attempt_id,
@@ -286,6 +289,7 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
         first.id,
         diagnostic_run_id=DIAGNOSTIC_RUN_ID,
     )
+
     assert failed.run_id == 'new-run'
     assert (
         GetDiagnosticUseCase(database, curriculum, clock)
@@ -297,6 +301,7 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
     EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
         first.id, 'new-run'
     )
+
     assert failed.status is ActivityEvaluationStatus.COMPLETED
     assert failed.effect_applied_at is None
     assert repositories.competency_progresses.update.call_count == 0
@@ -324,6 +329,7 @@ def test_diagnostic_failure_retry_order_and_initial_summary(rig: Any) -> None:
     completed = GetDiagnosticUseCase(database, curriculum, clock).execute(
         'account', 'goal', 'skill'
     )
+
     assert completed.competencies[0].progress == Decimal('30')
     assert completed.focus_competency_id == 'competency'
     with pytest.raises(NotFoundError):
@@ -355,6 +361,7 @@ def test_stale_pending_diagnostic_becomes_retryable_without_result_leak(
     overview = GetDiagnosticUseCase(database, curriculum, clock).execute(
         'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
+
     assert overview.pending_attempt_status is ActivityEvaluationStatus.FAILED
     assert not hasattr(overview, 'score')
     assert pending.failure_code == 'evaluation_timeout'
@@ -369,6 +376,7 @@ def test_stale_pending_diagnostic_becomes_retryable_without_result_leak(
         first.id,
         diagnostic_run_id=DIAGNOSTIC_RUN_ID,
     )
+
     assert retry.status is ActivityEvaluationStatus.PENDING
     assert pending.run_id == 'new-run'
 
@@ -420,6 +428,7 @@ def test_competency_detail_keeps_unknown_progress_and_viable_previous_target(
     detail = GetCompetencyDetailUseCase(database, curriculum).execute(
         'account', 'goal', 'skill', 'competency'
     )
+
     assert isinstance(detail, AvailableCompetencyDetail)
     assert detail.progress is None
     assert detail.adaptive is not None
@@ -547,6 +556,7 @@ def test_diagnostic_resumes_in_second_competency_and_hides_scores_until_consolid
     consolidated = GetDiagnosticUseCase(database, curriculum, clock).execute(
         'account', 'goal', 'skill', DIAGNOSTIC_RUN_ID
     )
+
     assert consolidated.next_activity_id is None
     assert tuple(item.progress for item in consolidated.competencies) == (
         Decimal('80'),
@@ -590,6 +600,7 @@ def test_final_diagnostic_handles_missing_current_evaluation_and_emits_only_summ
     EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
         attempts[-1].id, 'run-hard'
     )
+
     assert current.status is ActivityEvaluationStatus.COMPLETED
     assert current.effect_applied_at is None
     assert experience.status is SkillExperienceStatus.DIAGNOSING
@@ -622,6 +633,7 @@ def test_frozen_diagnostic_rubric_survives_new_catalog_coverage_gap(rig: Any) ->
     EvaluateChoiceActivityUseCase(database, clock, curriculum).execute(
         current_attempt.id, 'run-easy'
     )
+
     assert current.status is ActivityEvaluationStatus.COMPLETED
     assert current.effect_applied_at is None
     assert experience.status is SkillExperienceStatus.DIAGNOSING

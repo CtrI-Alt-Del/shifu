@@ -125,6 +125,7 @@ class ResendEmailConfirmationUseCase:
     ) -> None:
         if confirmation_token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

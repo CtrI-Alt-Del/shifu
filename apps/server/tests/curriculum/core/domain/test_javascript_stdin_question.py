@@ -107,6 +107,7 @@ def test_should_require_complete_fixed_rubric_catalog() -> None:
     part = CodeRubricEvaluationPart(
         question_key='stdin-1', weight_percentage=100, criteria=(criterion,)
     )
+
     assert part.criteria[0].required
     with pytest.raises(InvalidEvaluationRuleError):
         CodeRubricCriterion(

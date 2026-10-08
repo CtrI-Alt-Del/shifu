@@ -70,6 +70,7 @@ export function useSignInPage() {
     event.preventDefault()
     event.stopPropagation()
     if (isSubmitting) return
+
     await form.handleSubmit()
   }
 

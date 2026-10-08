@@ -7,6 +7,7 @@ test.describe('SignInPage', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 })
+
     await page.goto('/login/')
 
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar' })).toBeVisible()
@@ -42,6 +43,7 @@ test.describe('SignInPage', () => {
     page,
   }) => {
     const email = IdentityEmailFaker.fake()
+
     await page.route('**/api/auth/sign-in/identity', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'invalid credentials' }),
@@ -49,6 +51,7 @@ test.describe('SignInPage', () => {
         status: 401,
       })
     })
+
     await page.goto('/login/')
     await page.waitForLoadState('networkidle')
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
@@ -64,6 +67,7 @@ test.describe('SignInPage', () => {
     page,
   }) => {
     const email = IdentityEmailFaker.fake()
+
     await page.route('**/api/auth/sign-in/identity', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'service unavailable' }),
@@ -71,6 +75,7 @@ test.describe('SignInPage', () => {
         status: 503,
       })
     })
+
     await page.goto('/login/')
     await page.waitForLoadState('networkidle')
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)

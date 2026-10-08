@@ -35,10 +35,12 @@ class ActivityEvaluation:
     def __post_init__(self) -> None:
         if self.score is not None:
             Percentage.create(self.score, error_type=EvaluationUnavailableError)
+
         if self.status is ActivityEvaluationStatus.COMPLETED and (
             self.score is None or self.completed_at is None
         ):
             raise EvaluationUnavailableError
+
         if self.status is ActivityEvaluationStatus.FAILED and not self.failure_code:
             raise EvaluationUnavailableError
 
@@ -86,8 +88,10 @@ class ActivityEvaluation:
     ) -> None:
         if self.status is ActivityEvaluationStatus.COMPLETED:
             raise EvaluationAlreadyCompletedError
+
         if self.status is ActivityEvaluationStatus.FAILED:
             raise EvaluationUnavailableError
+
         Percentage.create(score, error_type=EvaluationUnavailableError)
         self.status = ActivityEvaluationStatus.COMPLETED
         self.score = score
@@ -98,14 +102,17 @@ class ActivityEvaluation:
     def fail(self, failure_code: str) -> None:
         if self.status is ActivityEvaluationStatus.COMPLETED:
             raise EvaluationAlreadyCompletedError
+
         if self.status is ActivityEvaluationStatus.FAILED:
             raise EvaluationUnavailableError
+
         self.status = ActivityEvaluationStatus.FAILED
         self.failure_code = failure_code
 
     def retry(self, started_at: datetime, run_id: str | None = None) -> None:
         if self.status is not ActivityEvaluationStatus.FAILED:
             raise EvaluationPendingError
+
         self.status = ActivityEvaluationStatus.PENDING
         self.started_at = started_at
         self.failure_code = None
@@ -132,6 +139,7 @@ class ActivityEvaluation:
     ) -> None:
         if self.status is not ActivityEvaluationStatus.COMPLETED:
             raise EvaluationPendingError
+
         self.progress_before = progress_before
         self.progress_after = progress_after
         self.status_before = status_before
@@ -140,6 +148,8 @@ class ActivityEvaluation:
     def apply_effect(self, applied_at: datetime) -> None:
         if self.status is not ActivityEvaluationStatus.COMPLETED:
             raise EvaluationPendingError
+
         if self.effect_applied_at is not None:
             raise EvaluationAlreadyCompletedError
+
         self.effect_applied_at = applied_at

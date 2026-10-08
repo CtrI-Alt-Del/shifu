@@ -80,6 +80,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
@@ -98,6 +99,7 @@ class TestGetMaterialDetailController:
         material_response = _get(
             client, material_id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID
         ).json()
+
         assert material_response['availability'] == 'unavailable'
         assert 'recommendation' not in material_response
 
@@ -109,6 +111,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert body['competencyId'] == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
         assert 'materialTitle' not in body
@@ -122,6 +125,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert 'materialTitle' not in body
         assert 'content' not in body
@@ -143,6 +147,7 @@ class TestGetMaterialDetailController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert response.status_code == 404
 
     def test_removed_incompatible_skill_is_a_private_absence(

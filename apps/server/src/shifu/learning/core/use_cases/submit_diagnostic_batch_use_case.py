@@ -81,6 +81,7 @@ class SubmitDiagnosticBatchUseCase:
     ) -> DiagnosticBatchOutcome:
         if not items:
             raise ValidationError
+
         with self._database.transaction() as repositories:
             goal = repositories.goals.find_by_id(goal_id)
             experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
@@ -88,6 +89,7 @@ class SubmitDiagnosticBatchUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             locked = repositories.skill_experiences.find_by_id_for_update(experience.id)
             if (
                 locked is None
@@ -101,6 +103,7 @@ class SubmitDiagnosticBatchUseCase:
             keys = tuple(str(uuid5(submission_key, item.activity_id)) for item in items)
             if len(set(keys)) != len(keys):
                 raise ValidationError
+
             previous = tuple(
                 repositories.activity_attempts.find_by_skill_experience_id_and_submission_key(
                     locked.id, key
@@ -110,6 +113,7 @@ class SubmitDiagnosticBatchUseCase:
             if any(attempt is not None for attempt in previous):
                 if any(attempt is None for attempt in previous):
                     raise ConflictError
+
                 self._validate_replay(
                     repositories, locked.id, diagnostic_run_id, items, previous
                 )
@@ -119,6 +123,7 @@ class SubmitDiagnosticBatchUseCase:
                 locked.id, diagnostic_run_id
             ):
                 raise ConflictError
+
             if (
                 repositories.activity_evaluations.find_unresolved_by_skill_experience_id(
                     locked.id
@@ -130,6 +135,7 @@ class SubmitDiagnosticBatchUseCase:
             catalog = self._curriculum.get_skill_content(skill_id)
             if catalog is None or catalog.id != skill_id or not catalog.v2_eligible:
                 raise NotFoundError
+
             sequence = DiagnosticSequence.ordered(catalog)
             if len(items) != len(sequence) or any(
                 item.competency_id != competency_id or item.activity_id != activity.id
@@ -145,6 +151,7 @@ class SubmitDiagnosticBatchUseCase:
                 )
                 if progress is None or progress.skill_experience_id != locked.id:
                     raise ConflictError
+
                 snapshot = self._curriculum.get_diagnostic_activity(item.activity_id)
                 if (
                     snapshot is None
@@ -153,10 +160,13 @@ class SubmitDiagnosticBatchUseCase:
                     or snapshot.activity_type != 'diagnostic'
                 ):
                     raise NotFoundError
+
                 if snapshot.diagnostic_revision != item.activity_revision:
                     raise ConflictError
+
                 if not GetChoiceActivityUseCase.is_eligible(snapshot, diagnostic=True):
                     raise ValidationError
+
                 snapshots.append(snapshot)
                 normalized.append(
                     SubmitChoiceActivityUseCase.normalize_answers(
@@ -225,6 +235,7 @@ class SubmitDiagnosticBatchUseCase:
             attempt.id for attempt in run_attempts
         ) != tuple(attempt.id for attempt in previous if attempt is not None):
             raise ConflictError
+
         for item, attempt in zip(items, previous, strict=True):
             if (
                 attempt is None
@@ -237,6 +248,7 @@ class SubmitDiagnosticBatchUseCase:
                 != item.activity_revision
             ):
                 raise ConflictError
+
             try:
                 normalized = SubmitChoiceActivityUseCase.normalize_answers(
                     attempt.grading_snapshot, item.answers

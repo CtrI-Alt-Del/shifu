@@ -29,6 +29,7 @@ class Request(BaseModel):
         normalized = value.strip().casefold()
         if not _EMAIL_PATTERN.fullmatch(normalized):
             raise ValueError('Informe um e-mail válido.')
+
         return normalized
 
 

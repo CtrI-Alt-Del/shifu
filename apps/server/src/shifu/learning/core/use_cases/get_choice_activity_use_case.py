@@ -43,6 +43,7 @@ class GetChoiceActivityUseCase:
             goal = repositories.goals.find_by_id(goal_id)
             if goal is None or goal.id != goal_id or goal.account_id != account_id:
                 raise NotFoundError
+
             experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
                 goal_id, skill_id
             )
@@ -52,6 +53,7 @@ class GetChoiceActivityUseCase:
                 or experience.skill_id != skill_id
             ):
                 raise NotFoundError
+
             progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
                 experience.id, competency_id
             )
@@ -61,12 +63,14 @@ class GetChoiceActivityUseCase:
                 or progress.competency_id != competency_id
             ):
                 raise NotFoundError
+
             diagnostic = experience.status is SkillExperienceStatus.DIAGNOSING
             if diagnostic and (
                 diagnostic_run_id is None
                 or diagnostic_run_id != experience.diagnostic_run_id
             ):
                 raise ConflictError
+
             if not diagnostic and not progress.content_released:
                 raise NotFoundError
 
@@ -86,6 +90,7 @@ class GetChoiceActivityUseCase:
                 snapshot = self._curriculum_content_provider.get_choice_activity(
                     activity_id
                 )
+
         if (
             snapshot is None
             or snapshot.id != activity_id
@@ -94,6 +99,7 @@ class GetChoiceActivityUseCase:
             or not self.is_eligible(snapshot, diagnostic=diagnostic)
         ):
             raise NotFoundError
+
         if isinstance(snapshot, CurriculumChoiceActivitySnapshot):
             live_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
             if not ChoiceEvidenceEligibility.is_valid(snapshot, live_catalog):
@@ -110,10 +116,12 @@ class GetChoiceActivityUseCase:
                     or locked_experience.diagnostic_run_id != diagnostic_run_id
                 ):
                     raise ConflictError
+
                 experience = locked_experience
                 catalog = self._curriculum_content_provider.get_skill_content(skill_id)
                 if catalog is None or not catalog.v2_eligible:
                     raise NotFoundError
+
                 diagnostic_attempts = tuple(
                     repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
                         experience.id, diagnostic_run_id or ''

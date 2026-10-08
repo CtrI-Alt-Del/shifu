@@ -105,11 +105,13 @@ class ResendEmailConfirmationController:
     ) -> None:
         if identity_action_token_id is None:
             return
+
         with database.transaction() as repositories:
             token_repository = repositories.account_action_tokens
             token = token_repository.find_by_id(identity_action_token_id)
             if token is None:
                 return
+
             if token.record_delivery_status(
                 AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                 recorded_at,
@@ -130,17 +132,20 @@ class ResendEmailConfirmationController:
             or result.confirmation_expires_at is None
         ):
             return None
+
         with database.transaction() as repositories:
             token_repository = repositories.account_action_tokens
             token = token_repository.find_by_id(result.identity_action_token_id)
             if token is None or token.pending_handle_hash is None:
                 return None
+
             account = repositories.accounts.find_by_id(token.account_id)
             if (
                 account is None
                 or account.status is not AccountStatus.PENDING_CONFIRMATION
             ):
                 return None
+
             return ConfirmationDeliveryRequest(
                 communication_id=result.communication_id,
                 identity_action_token_id=result.identity_action_token_id,

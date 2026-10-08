@@ -63,6 +63,7 @@ class SkillExperienceFaker:
 
         if status is not SkillExperienceStatus.NOT_STARTED:
             started = started or created
+
         if status is SkillExperienceStatus.COMPLETED:
             completed = completed or updated_at or started or created
             summary = summary or cls._fake_completion_summary(

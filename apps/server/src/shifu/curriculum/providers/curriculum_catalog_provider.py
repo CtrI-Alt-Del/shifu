@@ -33,6 +33,7 @@ class DatabaseCurriculumCatalogProvider(CurriculumCatalogProvider):
             skill = repositories.skills.find_by_id(skill_id)
             if skill is None:
                 return None
+
             return SkillCatalogEntry(
                 id=skill.id,
                 name=skill.name,
@@ -69,4 +70,5 @@ class DatabaseCurriculumCatalogProvider(CurriculumCatalogProvider):
                     for foundation in foundations
                     if foundation.foundation_skill_id in foundation_skills_by_id
                 ]
+
             return result

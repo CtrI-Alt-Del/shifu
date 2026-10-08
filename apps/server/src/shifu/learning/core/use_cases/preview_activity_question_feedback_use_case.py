@@ -69,23 +69,28 @@ class PreviewActivityQuestionFeedbackUseCase:
         ).execute(account_id, goal_id, skill_id, competency_id, activity_id)
         if detail.activity_revision != activity_revision:
             raise ConflictError
+
         snapshot = self._curriculum_content_provider.get_learning_activity(activity_id)
         if snapshot is None or snapshot.revision != activity_revision:
             raise ConflictError
+
         question = next(
             (item for item in snapshot.questions if item.key == question_key), None
         )
         if question is None or answer.question_key != question_key:
             raise ValidationError
+
         if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
             if not isinstance(answer, CodeAnswer):
                 raise ValidationError
+
             part = next(
                 (item for item in snapshot.parts if item.question_key == question_key),
                 None,
             )
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
                 raise ValidationError
+
             request = self.build_code_assessment_input(question, part, answer)
             if (
                 sum(
@@ -95,10 +100,13 @@ class PreviewActivityQuestionFeedbackUseCase:
                 > self._max_code_assessment_input_bytes
             ):
                 raise ValidationError
+
             decisions = self._code_rubric_assessor_provider.assess(request)
             return self.code_result(question, part, answer, decisions)
+
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
+
         selected = answer.selected_option_keys
         option_keys = {item.key for item in question.options}
         if (
@@ -108,6 +116,7 @@ class PreviewActivityQuestionFeedbackUseCase:
             or (question.kind == 'single_choice' and len(selected) != 1)
         ):
             raise ValidationError
+
         correct = selected and set(selected) == {
             item.key for item in question.options if item.is_correct
         }
@@ -134,6 +143,7 @@ class PreviewActivityQuestionFeedbackUseCase:
             or set(provided) != editable
         ):
             raise ValidationError
+
         files = tuple(
             sorted(
                 (
@@ -167,6 +177,7 @@ class PreviewActivityQuestionFeedbackUseCase:
             concept_by_id
         ) != {item.concept_id for item in question.concept_criteria}:
             raise ServiceUnavailableError
+
         criteria: list[CodeCriterionResult] = []
         mandatory_inconclusive = False
         for item in part.criteria:
@@ -207,6 +218,7 @@ class PreviewActivityQuestionFeedbackUseCase:
             )
             if observation is None:
                 raise ServiceUnavailableError
+
             concepts.append(
                 CodeConceptObservationResult(
                     concept_id=item.concept_id,

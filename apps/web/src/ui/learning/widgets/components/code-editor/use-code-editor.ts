@@ -20,6 +20,7 @@ export function useCodeEditor(props: CodeEditorProps) {
 
   function handleChange(value: string | undefined) {
     if (!selectedFile || isReadOnly || value === undefined) return
+
     props.onFileChange?.(selectedFile.path, value)
   }
 

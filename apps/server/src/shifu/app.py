@@ -82,8 +82,10 @@ class ActivityPayloadLimitMiddleware:
             message = await receive()
             if message['type'] == 'http.disconnect':
                 return
+
             if message['type'] != 'http.request':
                 continue
+
             size += len(message.get('body', b''))
             if size > self._max_body_bytes:
                 response = JSONResponse(
@@ -92,6 +94,7 @@ class ActivityPayloadLimitMiddleware:
                 )
                 await response(scope, receive, send)
                 return
+
             buffered.append(message)
             if not message.get('more_body', False):
                 break
@@ -99,6 +102,7 @@ class ActivityPayloadLimitMiddleware:
         async def replay_receive() -> Message:
             if buffered:
                 return buffered.pop(0)
+
             return await receive()
 
         await self._app(scope, replay_receive, send)
@@ -180,6 +184,7 @@ class FastAPIApp:
                 raise ServiceUnavailableError(
                     message='A avaliação de código está indisponível.'
                 )
+
             return cast('CodeRubricAssessorProvider', assessor)
 
         @asynccontextmanager

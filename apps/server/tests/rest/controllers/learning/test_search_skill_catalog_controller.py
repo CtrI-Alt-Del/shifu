@@ -109,8 +109,10 @@ class TestSearchSkillCatalogController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert len(body['items']) == 1
         item = body['items'][0]
+
         assert item['id'] == catalog_skill.id
         assert item['name'] == 'React'
         assert item['alreadyInGoal'] is False

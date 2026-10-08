@@ -63,22 +63,27 @@ class GetDiagnosticUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             if experience.status is SkillExperienceStatus.NOT_STARTED:
                 return DiagnosticOverview(
                     status=experience.status,
                     run_state='requires_entry',
                 )
+
             if experience.status is SkillExperienceStatus.DIAGNOSING:
                 if diagnostic_run_id is None:
                     return DiagnosticOverview(
                         status=experience.status,
                         run_state='requires_entry',
                     )
+
                 if diagnostic_run_id != experience.diagnostic_run_id:
                     raise ConflictError
+
                 catalog = self._curriculum.get_skill_content(skill_id)
                 if catalog is None or catalog.id != skill_id or not catalog.v2_eligible:
                     raise NotFoundError
+
                 activity_sequence = tuple(
                     (competency_id, activity.id)
                     for competency_id, activity in DiagnosticSequence.ordered(catalog)
@@ -88,14 +93,17 @@ class GetDiagnosticUseCase:
                         experience.id, diagnostic_run_id
                     )
                 )
+
                 evaluations = tuple(
                     repositories.activity_evaluations.find_many_by_attempt_ids(
                         tuple(item.id for item in attempts)
                     )
                 )
+
                 next_item = DiagnosticSequence.next_item(
                     catalog, attempts, evaluations, diagnostic_run_id
                 )
+
                 if next_item is not None:
                     competency_id, activity, attempt = next_item
                     evaluation = (
@@ -110,6 +118,7 @@ class GetDiagnosticUseCase:
                         if attempt is not None
                         else None
                     )
+
                     pending_status = (
                         evaluation.status if evaluation is not None else None
                     )
@@ -129,6 +138,7 @@ class GetDiagnosticUseCase:
                             locked.time_out('evaluation_timeout')
                             repositories.activity_evaluations.update(locked)
                             pending_status = ActivityEvaluationStatus.FAILED
+
                     return DiagnosticOverview(
                         status=experience.status,
                         run_state='active',
@@ -148,9 +158,11 @@ class GetDiagnosticUseCase:
             catalog = self._curriculum.get_skill_content(skill_id)
             if catalog is None or catalog.id != skill_id:
                 raise NotFoundError
+
             ordered = sorted(
                 catalog.competencies, key=lambda item: (item.position, item.id)
             )
+
             observations = tuple(
                 item
                 for item in repositories.concept_observations.find_many_by_skill_experience_id(
@@ -158,6 +170,7 @@ class GetDiagnosticUseCase:
                 )
                 if item.diagnostic
             )
+
             context = AdaptivePolicyContext.from_skill(catalog)
             policy_result = AdaptiveLearningPolicy().evaluate(
                 limited_diagnostic=bool(catalog.initial_diagnostic_activity_ids),
@@ -168,18 +181,21 @@ class GetDiagnosticUseCase:
                 observations=observations,
                 now=self._clock.now(),
             )
+
             policy_competencies = {
                 item.competency_id: item for item in policy_result.competency_states
             }
             policy_concepts = {
                 item.concept_id: item for item in policy_result.concept_states
             }
+
             completion_summary = experience.completion_summary
             completed_competencies = (
                 {item.competency_id: item for item in completion_summary.competencies}
                 if completion_summary is not None
                 else {}
             )
+
             initial_values_by_competency: dict[str, Decimal | None] = {}
             initial_coverage_by_competency: dict[str, bool] = {}
             for competency in ordered:
@@ -187,6 +203,7 @@ class GetDiagnosticUseCase:
                     policy_concepts[item.id] for item in competency.concepts
                 )
                 snapshot = completed_competencies.get(competency.id)
+
                 demonstrated = demonstrated_progress(
                     tuple(item.initial_progress for item in concept_states)
                 )
@@ -202,16 +219,19 @@ class GetDiagnosticUseCase:
                     if snapshot is not None
                     else all(item.coverage_complete for item in concept_states)
                 )
+
             overall_result = demonstrated_progress(
                 tuple(item.initial_progress for item in policy_result.concept_states)
             )
             if overall_result is None and completion_summary is not None:
                 overall_result = completion_summary.initial_progress
+
             overall_coverage_complete = (
                 completion_summary.initial_coverage_complete
                 if completion_summary is not None
                 else bool(ordered) and all(initial_coverage_by_competency.values())
             )
+
             summaries = tuple(
                 DiagnosticCompetencySummary(
                     competency_id=competency.id,
@@ -227,24 +247,28 @@ class GetDiagnosticUseCase:
                 )
                 for competency in ordered
             )
+
             initial_recommendation = self._initial_recommendation(
                 catalog,
                 policy_result.recommendation,
                 policy_competencies,
                 policy_concepts,
             )
+
             initial_recommendation_gap = (
                 policy_result.recommendation.gap
                 if initial_recommendation is None
                 and policy_result.recommendation is not None
                 else None
             )
+
             direct_completion = (
                 experience.status is SkillExperienceStatus.COMPLETED
                 and completion_summary is not None
                 and completion_summary.initial_progress
                 == completion_summary.final_progress
             )
+
             return DiagnosticOverview(
                 status=experience.status,
                 run_state='settled',
@@ -292,8 +316,10 @@ class GetDiagnosticUseCase:
                 concepts,
             )
             fallback_selected = selected_activity is not None
+
         if selected_activity is None:
             return None
+
         catalog_competencies = catalog.competencies
         selected_competency_id = recommendation.competency_id
         if fallback_selected:
@@ -309,6 +335,7 @@ class GetDiagnosticUseCase:
                 ),
                 '',
             )
+
         competency = next(
             (
                 item
@@ -319,6 +346,7 @@ class GetDiagnosticUseCase:
         )
         if competency is None:
             return None
+
         target_concept_name = next(
             (
                 item.name
@@ -328,6 +356,7 @@ class GetDiagnosticUseCase:
             ),
             None,
         )
+
         return SkillRecommendation(
             competency_id=competency.id,
             competency_name=competency.name,
@@ -351,6 +380,7 @@ class GetDiagnosticUseCase:
         target_concept_id = recommendation.target_concept_id
         if recommendation.difficulty is None:
             return None
+
         focus = competencies.get(recommendation.competency_id)
         hard_required = focus is not None and focus.verification_cause == 'hard'
         difficulty_order = {
@@ -358,6 +388,7 @@ class GetDiagnosticUseCase:
             ActivityDifficulty.MEDIUM: 1,
             ActivityDifficulty.HARD: 2,
         }
+
         preferred = difficulty_order[recommendation.difficulty]
         candidates = tuple(
             item
@@ -381,6 +412,7 @@ class GetDiagnosticUseCase:
                 for required_id in item.required_concept_ids
             )
         )
+
         if not candidates:
             return None
         return min(

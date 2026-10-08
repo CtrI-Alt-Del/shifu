@@ -184,6 +184,7 @@ class TestCompleteDiagnosticUseCase:
         event_names = [
             call.args[0].name for call in self.repositories.events.add.call_args_list
         ]
+
         assert event_names == [
             'learning/skill-completed',
             'learning/diagnostic-completed',

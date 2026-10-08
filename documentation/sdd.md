@@ -9,12 +9,20 @@ the repository Spec defines a bounded delivery contract against a known PRD
 version. The agent organizes implementation and proves that contract using its
 checkers. Evaluation records actual progress, evidence and delivery disposition.
 
-```text
-Spec → autonomous implementation → integrated verification
-                                      ↑            ↓
-                                      └── fixes ───┘
-                                             ↓
-                                         conclusion
+```mermaid
+flowchart TD
+    A[Authority and research] --> B[Resolve material decisions]
+    B --> C[Draft Spec and compatibility review]
+    C --> D[Ready contract]
+    D --> E[Autonomous implementation]
+    E --> F[Integrated verification and independent review]
+    F --> G{Required proof accepted?}
+    G -->|No| H[Fix and rerun affected checks]
+    H --> F
+    G -->|Yes| I[Conclusion and authorized publication]
+    I --> J{Required current-head CI passes?}
+    J -->|No| H
+    J -->|Yes or local-only| K[Completed Spec and Evaluation]
 ```
 
 ## Applicability and authority
@@ -51,6 +59,26 @@ until reconciled, and return it to `draft` if its contract changes.
 | Gamification | [Confluence](https://joaogoliveiragarcia.atlassian.net/wiki/x/AgDxB) | `82903042` |
 | Intelligence | [Confluence](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQD0B) | `83099649` |
 
+| Authority | Governs |
+| --- | --- |
+| User request and decisions | Authorized outcome, scope and consequential choices. |
+| Confluence PRD | Product outcomes, actors, rules and journeys. |
+| Jira issue/report | Delivery scope and traceability. |
+| Agent guidance, Architecture, Modules and Rules | Responsibilities, boundaries and conventions. |
+| Design and saved references | Visual intent and permitted adaptations. |
+| Tooling and manifests | Available commands, fixtures and execution schedule. |
+| Spec | Selected behavior, technical commitments and required proof. |
+| Evaluation | Actual progress, results, findings and delivery state. |
+| Implementation | Evidence of current behavior, subject to governing authority. |
+
+Before drafting, explain the proposed behavior, boundaries, runtime flow, failure
+handling and verification. Compare viable approaches only for unresolved
+consequential choices; scale discussion to risk. Apply the conversational
+[grilling protocol](prompts/create-spec-prompt.md#grilling-protocol) in dependency
+order. Resolve inspectable facts directly and never treat silence as approval.
+Established decisions need no repeated confirmation. Record the selected approach
+in the existing contract; no separate design or planning document is required.
+
 A Spec selects delivery scope and testable interpretations; it does not copy the
 PRD or create a second product backlog. Report conflicting sources. User-visible
 behavior, permissions and scope cannot be silently changed to fit existing code
@@ -82,22 +110,55 @@ not gate resumed delivery. Resume from the current Spec, Evaluation and diff.
 
 ## Contract and checkers
 
-The Spec defines:
+Use exactly seven top-level sections in new Specs and structurally reconciled
+active Specs:
 
-- problem, selected product requirements, actors, scope and exclusions;
-- observable functional requirements and acceptance criteria;
-- module ownership, public interfaces, persistent invariants and consequential
-  or difficult-to-reverse technical decisions;
-- applicable design references and required happy-path states/viewports;
-- a proof for every acceptance criterion, with actual commands, test selectors,
-  expected values, environments and evidence limits;
-- applicable static, unit/component, integration and manual/visual checkers.
+| Section | Owns |
+| --- | --- |
+| Objective | Problem and intended outcome. |
+| Scope | Included capabilities/actors and exclusions; full/partial/deferred RP scope. |
+| Behavior Contract | Observable RF requirements, CA criteria and source traceability. |
+| Technical Contract | Architecture Mapping and Runtime Flow. |
+| Verification Contract | Automated, Manual and Visual checks and explicit pass conditions. |
+| Documentation Alignment | Source/version metadata, selected Rules and required updates. |
+| Revision History | Meaningful contract changes and reasons. |
 
-Specify constraints that affect correctness. Ordinary internal file placement,
-helper names, widget decomposition, task lists and execution waves belong to the
-implementer following repository conventions. A contract may name an existing
-boundary or required artifact without prescribing every future internal file.
-A routine reversible implementation choice does not require a Spec amendment.
+Architecture Mapping uses `Action | Boundary | Element / Path | Required change`
+with Create/Modify/Delete actions and actual affected Shifu layers. Describe
+consequential public declarations in Python or TypeScript as appropriate, use-case
+signatures, REST/schema compatibility, SQLAlchemy/Alembic invariants, widget/state
+responsibilities, provider/composition wiring and event/job reliability where
+affected. Reference existing declarations instead of copying unchanged contracts.
+Include a scoped expected file tree only when paths clarify ownership, generated
+outputs, registration or a consequential boundary; the mapping is sufficient
+otherwise. Identify generated inputs and commands. Ordinary helper names and
+internal decomposition remain implementation choices. Changes to those details
+alone do not require a contract amendment or revision increment.
+
+Runtime Flow explains interactions across those boundaries and relevant trusted
+context, authorization, transactions, cache invalidation, side effects, failure,
+recovery and concurrency guarantees. Use diagrams when they clarify the contract.
+
+Verification defines one named check per distinct observable outcome, with exact
+test paths/tools, commands, setup, input selection, CA mapping and pass condition.
+Keep long commands/procedures outside tables. Mark absent tests as planned; never
+invent executable selectors. Reference applicable baseline checks from Tooling and
+Rules, including gates not directly mapped to a CA. Include explicit type, lint,
+complexity and changed-code coverage obligations for affected production paths
+and consumer projects under [Tooling](tooling.md). Keep configured complexity
+lint distinct from quantitative metrics; missing required
+tooling is blocked, not implicitly passed by other checks. Share source-backed setup for
+readiness, actors/authentication, data relationships/initial state, isolated reruns
+and cleanup. A service being up does not prove route/function registration or
+an authenticated account's eligibility. No setup authorizes shared-data resets.
+
+For design-backed UI, link a feature-local handoff/manifest identifying required
+happy-path surfaces, states, viewports, references, criteria and accepted deviations.
+Verify saved images exist and inspect them visually. Map affected widgets to
+source-verified semantic tokens and actual primitive variants; keep preserved UI
+outside the redesign scope. Use Pencil MCP only for encrypted `.pen` sources.
+Implementation captures/traces belong in ignored browser/test output or CI
+artifacts, linked from Evaluation rather than new feature-local evidence folders.
 
 Use stable Shifu identifiers:
 
@@ -107,7 +168,7 @@ Use stable Shifu identifiers:
 | `JN-*` | Jornada | Confluence PRD |
 | `RF-*` | Requisito Funcional | Spec |
 | `CA-*` | Critério de Aceitação | Spec |
-| `VM-*` | Validação Manual | Spec/Evaluation |
+| `VM-*` | Validação Manual or Visual, with explicit type | Spec/Evaluation |
 | `EV-*` | Evidência | Evaluation |
 | `ACH-*` | Achado de revisão | Evaluation |
 | `CI-*` | Quality gate automatizado | Spec/Evaluation |
@@ -120,6 +181,60 @@ make implementation pass. State an explicit non-applicable disposition when
 appropriate. A command's exit code must be accompanied by evidence that the
 intended tests actually ran; an empty selection or skipped suite is not a pass.
 
+Changed-code coverage is a local check for executable production code added or
+modified by the delivery; it does not run in CI. Each affected file must reach
+at least 85% changed statements, functions and lines, and 80% changed branches,
+using the repository's Web or
+Server checker. Record the related test selection and actual coverage result in
+Evaluation. Coverage supports acceptance evidence but cannot replace behavioral,
+integration, visual or required mutation checks. Do not infer a new percentage
+from a focused correction that did not remeasure coverage. Future CI coverage
+reporting and quality gates are planned for SonarCloud under
+[SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87); they are
+not current CI evidence. Reconcile this local policy when SonarCloud is adopted.
+
+### Scale detail to delivery risk
+
+A compact Spec covers one cohesive outcome with stable boundaries and low risk.
+Keep all seven sections, but use brief scope, affected contracts and focused
+checks; omit empty optional detail. A complete Spec adds the declarations,
+consistency, migration, security and failure guarantees warranted by actual risk.
+File count and section length do not determine completeness. Both modes retain
+source traceability, observable acceptance and sufficient executable proof.
+
+Mutation testing applies only to Server and is a risk-based verification decision,
+not a blanket prerequisite for every business-rule edit. Web has no mutation
+runner; record Web mutation checks as Not applicable and verify its correctness
+through applicable unit/component, browser and static checks. Require targeted
+execution when it addresses a concrete risk that warrants the additional proof;
+otherwise record the rationale
+and the assertions that cover that risk. Runner availability alone must not
+determine whether proof is necessary. Once a check is required, missing tooling
+remains a blocker until the contract is explicitly reconciled; implementation
+cannot downgrade it merely to reach readiness.
+
+During Spec implementation, limit mutation targets to production Server
+`core/use_cases/**` files created or modified by that Spec, using explicit
+application-relative `--files` paths under
+[Tooling's mutation policy](tooling.md#mutation-testing). Use only related
+use-case tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`. Core mutation runs require no Docker or containers.
+Do not select unrelated changes, other layers or `--all` without a separate
+explicit user request. With no eligible Server use-case changes, record Not
+applicable with its rationale and reconcile any existing required check.
+Evaluation records the exact targets, command, elapsed time and mutant outcomes.
+Server CI runs all eligible `core/use_cases/**` files across 12 balanced shards
+with `--all --core --shard N/12`, independently of the Spec diff, using only
+use-case tests without containers.
+The required Server aggregate waits for both the mutation shards and their
+score-summary gate. Summary generation runs with read permissions and uploads a
+Markdown artifact. The separate
+`.github/workflows/server-mutation-comment.yaml` workflow publishes that artifact
+after Server CI completes. It runs from the default branch, has pull-request
+comment permission only for publication, and does not check out or execute PR
+code. GitHub requires this `workflow_run` workflow to exist on the default branch,
+so a PR adding the publisher enables it for later runs after merge.
+
 ## Roles and lifecycle
 
 The Orchestrator owns the Spec, Evaluation, shared decisions, integration and
@@ -128,9 +243,12 @@ scopes to bounded Builders. Builders change assigned code/tests and report
 results without changing acceptance obligations. Ordinary planning and
 coordination choices need no separate user approval or durable task ledger.
 
-A Spec Reviewer checks material architecture/module/Rule risks before `ready`;
-that role returns only for a material contract amendment. An independent
-Implementation Reviewer assesses the integrated diff and acceptance proofs.
+An independent Spec Reviewer checks architecture/module/Rule compatibility before
+`ready`; keep the draft until blocking findings are resolved. That role returns
+only for a material contract amendment, rechecking affected scope. For compact
+Specs, keep that review bounded to the changed contracts and applicable Rules;
+no extra report artifact, exhaustive file inventory or pre-implementation runtime
+proof is required. An independent Implementation Reviewer assesses the integrated diff and acceptance proofs.
 For design-backed UI, launch the Visual Reviewer in parallel on the same
 candidate using existing required captures; add no third mandatory serial
 review. Findings require concrete evidence and a mapped correction.
@@ -144,24 +262,55 @@ Implementation progress lives in Evaluation while the ready contract remains
 stable. `implemented` means the candidate has current accepted evidence and is
 ready for conclusion. A correction reopens Evaluation; a changed contract
 returns the Spec to `draft` and increments its revision after reconciliation.
-Only the Orchestrator changes artifact statuses. Completion requires every
-applicable criterion and checker to have an accepted disposition.
+Only the Orchestrator changes artifact statuses. Evaluation `ready` requires all
+required proof to pass or have justified non-applicability, with no blocking
+finding. Waived, failed, unavailable or stale required proof cannot yield readiness.
+For authorized publication, completion additionally waits for applicable CI on
+each current delivery PR head and resolution of blocking review conversations.
+Local closure may complete without publication when it is not requested; record
+that disposition explicitly rather than implying CI or publication occurred.
 
 ## Implementation and verification
+
+Own the complete authorized implementation and verification loop. After every
+correction, inspect all remaining check and finding obligations and continue with
+the next actionable item. A follow-up about one check steers that work unless the
+user explicitly narrows or cancels the objective. Handoff records an interruption
+or genuine blocker; it does not replace executable remaining work.
+
+Investigate local setup failures: service health/configuration, expired browser
+state and source-defined fixtures/seed mismatches. Correct stale fixture source
+within the contract and use disposable environments or isolated task-owned data.
+Distinguish correcting seed source from applying a reset/reseed command; shared
+data changes still require explicit authorization. Stop unfinished work only for
+an explicit stop, unresolved material decision/authorization or an external
+blocker after relevant diagnosis/recovery; finish independent work first.
 
 1. Establish the ready contract; ask only about unresolved consequential
    product or technical choices. Resolve facts and routine choices directly.
 2. Create/reconcile Evaluation and its current handoff. Implement within the
    contract, using focused unit/component and static checks for feedback.
-   Record material findings and meaningful checkpoints, not every edit.
+   Record material findings and meaningful checkpoints, not every edit. Automated
+   checks cover defined finite combinations; unbounded inputs use equivalence
+   classes and boundaries. For changed Server business rules/correctness-critical logic,
+   explicitly assess targeted mutation testing and document its disposition.
+   Web mutation testing is Not applicable; Web has no mutation runner.
+   If the contract requires it, specify scope, verified runner, pass conditions
+   and treatment of surviving mutants. Unavailable execution remains blocked;
+   ordinary tests/coverage cannot substitute. Do not install a runner incidentally.
 3. Integrate all implementation scopes and generated artifacts. Perform any
    delivery-branch synchronization already authorized for conclusion before
    final integration validation. Preserve unrelated work and Git safety.
-4. Run each applicable server, browser and job integration suite once against
-   the integrated candidate, using the Spec's real commands and explicit
-   CI-compatible fixtures. If a suite fails, fix the failures and rerun the
-   failed and affected integration checks until every applicable suite passes.
+4. Run the Spec's affected server, browser and job integration selections against
+   the integrated candidate, using exact files/scenarios and explicit CI-compatible
+   fixtures. Select local tests only for scoped changes and directly affected
+   consumers. Broaden only for demonstrated dependency impact or a concrete gap
+   in that scope's proof; record the affected relationship and rationale. A full
+   local suite requires scope spanning that suite or an explicit user request.
+   Fix failures and rerun failed/affected selections until required checks pass.
    Required unavailable infrastructure remains a recorded blocker.
+   Measure changed-code coverage with the related tests after focused behavior
+   checks pass; reuse a current measurement unless covered code or its tests change.
 5. Execute required concise happy-path manual scenarios, capturing required
    visuals during those journeys. Automated tests cover negative, recovery,
    concurrency and unusual outcomes. Mocks cannot prove real authenticated,
@@ -177,21 +326,29 @@ applicable criterion and checker to have an accepted disposition.
 A later implementation, fixture, configuration or source-contract change
 reopens the checks whose claims/dependencies it affects. Record the changed
 scope and retained evidence explicitly. A new commit hash alone does not
-invalidate proof of unchanged behavior. Additional broad reruns need a concrete
+invalidate proof of unchanged behavior. A focused corrective pass does not turn
+a historical failed full run into a passing full run or update its coverage
+measurement. When an actual coverage command runs tests, avoid a duplicate
+unchanged full test run. Additional broad reruns need a concrete
 integration risk, affected shared dependency or discovered coverage gap.
 
 ## Evaluation and continuation
 
-Keep one acceptance/evidence matrix, findings and a small factual handoff in
-`evaluation.md`. Record checker commands/results, relevant candidate commit or
-worktree identity, environment/fixtures, evidence paths, covered CA IDs and
-limitations. Preserve failed attempts and historical evidence.
+Use the [Evaluation template](templates/sdd/evaluation.md) with seven sections:
+Current State, Progress, Check Results, Findings, Lessons Learned, Handoff and
+Delivery. Progress records implementation separately from verification for every
+CA, with its checks/evidence and remaining work. Check Results retains exact
+commands/procedures, working directory, actual test selection, candidate/date,
+environment/fixtures, observed results, artifact paths and limitations. Keep EV
+IDs and failed/interrupted attempts; statuses are Pending, Passed, Failed, Blocked,
+Stale and Not applicable. Baseline checks belong in the same record.
 
-The current handoff names the Spec revision, branch/candidate, completed and
-unfinished criteria, interrupted or uncommitted work, latest checker results,
-blockers and the next concrete action. A new agent reconciles it with Git and
-the diff before choosing how to continue. Evaluation describes actual state;
-it does not become a replacement phase/task plan.
+The Spec owns its revision; new Evaluation metadata does not duplicate it as
+`spec_revision`. Result details identify the evaluated contract revision when
+needed. Handoff records branch/candidate, completed/unfinished criteria, dirty
+paths and ownership, task-started process sessions/ports, blockers and next action.
+A continuing agent reconciles these facts with Git and the actual diff, then
+chooses how to proceed without reconstructing a phase/task plan.
 
 At conclusion, reconcile every selected RP through RF/CA to evidence, close
 blocking findings, verify source metadata and record delivery disposition as
@@ -200,9 +357,31 @@ Preserve incomplete or waived evidence honestly; an explicit user waiver is
 never a pass. Link Jira/PR when available without changing canonical product
 requirements. Branches and commits retain the repository Jira-key convention.
 
+## Legacy records and workflow sources
+
+Concluded feature artifacts retain their historical contracts/results. On active
+legacy continuation, reconcile sections and actual claims with the current
+structure without blindly renumbering IDs or migrating old group passes into
+individual passing checks. Preserve unique obligations and unresolved findings
+from historical ledgers. Remove duplicated `spec_revision` metadata only after
+reconciling its evidence with the Spec; retain historical revision scope in results.
+Structural cleanup, status changes, reruns and conclusion do not increment the
+Spec revision; behavior, consequential technical/design and verification changes do.
+
+Canonical prompts live under `documentation/prompts/`; standalone templates live
+under `documentation/templates/sdd/`. Change these authorities first, then run
+`pnpm sync:commands` and, for role changes, `pnpm sync:agents`; inspect generated
+outputs. Retired workflows must not remain in active generated registries.
+
+Calibrate further workflow changes against an actual bounded delivery: can another
+agent resume from Spec/Evaluation and the diff, reproduce required checks and
+identify unmet acceptance without repeated clarification or broad reruns? Use
+observed findings to justify revisions; no additional process ledger or gate is
+required just to measure the workflow.
+
 ## Entry points
 
-The [workflow prompt index](prompts/README.md) lists creation, implementation,
+The [workflow prompts](prompts/) cover creation, implementation,
 conclusion and feedback workflows. Prompts and generated skills inherit this
 contract. Historical delivery records preserve their original facts; when
 resuming, apply the current execution and evidence-reuse policy without

@@ -103,6 +103,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
 
   useEffect(() => {
     if (props.readOnly || typeof ResizeObserver === 'undefined') return
+
     const observer = new ResizeObserver(() => {
       setWorkspaceWidth(workspaceRef.current?.clientWidth ?? 0)
       setEditorGridWidth(editorGridRef.current?.clientWidth ?? 0)
@@ -166,6 +167,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
     event: PointerEvent<HTMLDivElement>,
   ) {
     if (event.button !== 0) return
+
     event.currentTarget.focus()
     event.currentTarget.setPointerCapture(event.pointerId)
     resizeRef.current = {
@@ -182,11 +184,13 @@ export function useCodeQuestion(props: CodeQuestionProps) {
   ) {
     const resize = resizeRef.current
     if (!resize || resize.panel !== panel) return
+
     setPanelWidth(panel, resize.startWidth + event.clientX - resize.startX)
   }
 
   function handleResizePointerEnd(event: PointerEvent<HTMLDivElement>) {
     if (!resizeRef.current) return
+
     resizeRef.current = null
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
@@ -207,6 +211,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
               ? getPanelWidth(panel) + step
               : null
     if (nextWidth === null) return
+
     event.preventDefault()
     setPanelWidth(panel, nextWidth)
   }
@@ -214,6 +219,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
   useEffect(() => {
     if (initialProjectRef.current.key !== question.key) return
     if (props.readOnly) return
+
     const runnerFactory = runnerFactoryRef.current
     if (!runnerFactory) {
       setPracticeStatus('unavailable')
@@ -232,6 +238,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
 
   function handleFileChange(path: string, content: string) {
     if (isFrozen || !editablePaths.has(path)) return
+
     const nextFiles = files.map((file) => (file.path === path ? { path, content } : file))
     setFiles(nextFiles)
     const submitted = nextFiles.filter((file) => editablePaths.has(file.path))
@@ -241,6 +248,7 @@ export function useCodeQuestion(props: CodeQuestionProps) {
 
   async function handleAssess() {
     if (isFrozen || assessingRef.current || !props.onAssess) return
+
     assessingRef.current = true
     setIsAssessing(true)
     setHasAssessError(false)

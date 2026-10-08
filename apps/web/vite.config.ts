@@ -24,6 +24,7 @@ const webContainerIsolationPlugin: Plugin = {
       next()
     })
   },
+
   configurePreviewServer(server) {
     server.middlewares.use((_request, response, next) => {
       for (const [name, value] of Object.entries(webContainerIsolationHeaders)) {
@@ -44,6 +45,7 @@ const config = defineConfig(({ mode }) => {
       headers: webContainerIsolationHeaders,
     },
     preview: { headers: webContainerIsolationHeaders },
+
     plugins: [
       webContainerIsolationPlugin,
       ...(process.env.CI ? [] : [devtools()]),

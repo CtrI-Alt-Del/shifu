@@ -130,6 +130,7 @@ class TestSubmitChoiceActivityController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert first.status_code == 201, first.json()
         attempt_id = cast('str', first.json()['attempt_id'])
         learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
@@ -237,6 +238,7 @@ class TestSubmitChoiceActivityController:
                 headers=headers,
             ),
         )
+
         assert detail.status_code == 200, detail.json()
         revision = cast('str', detail.json()['activity_revision'])
         body: dict[str, object] = {
@@ -278,10 +280,12 @@ class TestSubmitChoiceActivityController:
             evaluation = repositories.activity_evaluations.find_by_attempt_id(
                 attempt_id
             )
+
         assert attempt is not None
         assert attempt.grading_snapshot is not None
         assert attempt.grading_snapshot.id == activity.id
         code_answer = attempt.answers[2]
+
         assert isinstance(code_answer, CodeAnswer)
         assert code_answer.files[0].content == 'console.log(7)'
         assert evaluation is not None
@@ -296,6 +300,7 @@ class TestSubmitChoiceActivityController:
                 headers=headers,
             ),
         )
+
         assert replay.status_code == 200
         assert replay.json()['attempt_id'] == attempt_id
 

@@ -31,6 +31,7 @@ class SqlalchemySkillFoundationsRepository:
             domain = SkillFoundationMapper.to_domain(model)
             if domain.skill_id in result:
                 result[domain.skill_id].append(domain)
+
         return result
 
     def find_many_by_foundation_skill_id(

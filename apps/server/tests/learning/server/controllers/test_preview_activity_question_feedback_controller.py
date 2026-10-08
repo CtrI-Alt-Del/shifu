@@ -161,6 +161,7 @@ class TestPreviewActivityQuestionFeedbackController:
                 headers=headers,
             ),
         )
+
         assert activity.status_code == 200, activity.json()
         body = cast('dict[str, object]', activity.json())
         revision = cast('str', body['activity_revision'])
@@ -189,6 +190,7 @@ class TestPreviewActivityQuestionFeedbackController:
 
         assert response.status_code == 200, response.json()
         result = response.json()
+
         assert result['status'] == 'conclusive'
         assert result['score'] == '75'
         assert result['criteria'] == [

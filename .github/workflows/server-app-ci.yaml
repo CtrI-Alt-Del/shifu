@@ -18,8 +18,169 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify server application
+  type-check:
+    name: Server type check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check types
+        run: uv run poe check:types
+
+  lint:
+    name: Server lint check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check lint
+        run: uv run poe check:lint
+
+  architecture:
+    name: Server architecture check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check architecture
+        run: uv run poe check:architecture
+
+  unit-tests:
+    name: Server unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run unit tests
+        run: uv run poe test:unit
+
+  mutation-tooling:
+    name: Server mutation tooling checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check mutation tooling
+        run: >-
+          uv run pytest --confcutdir=tests/tooling
+          tests/tooling/test_mutation_launcher.py
+          tests/tooling/test_mutation_report.py
+
+  integration:
+    name: Server integration checks
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -82,23 +243,94 @@ jobs:
       - name: Check Alembic migration drift
         run: uv run alembic check
 
-      - name: Check types
-        run: uv run poe check:types
-
-      - name: Check lint
-        run: uv run poe check:lint
-
-      - name: Check architecture
-        run: uv run poe check:architecture
-
-      - name: Run unit tests
-        run: uv run poe test:unit
-
       - name: Run integration tests
         run: uv run poe test:integration
 
+  inngest-jobs:
+    name: Server real Inngest job tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: shifu
+          POSTGRES_PASSWORD: shifu-local
+          POSTGRES_USER: shifu
+        ports:
+          - 54344:5432
+        options: >-
+          --health-cmd "pg_isready -U shifu -d shifu"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
       - name: Run real Inngest job tests
         run: uv run poe test:jobs
+
+  distributions:
+    name: Build and verify server distributions
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Build distributions
         run: uv build
@@ -107,3 +339,172 @@ jobs:
         run: |
           test -f dist/*.tar.gz
           test -f dist/*.whl
+
+  verify:
+    name: Verify server application
+    if: always()
+    needs:
+      - type-check
+      - lint
+      - architecture
+      - unit-tests
+      - mutation-tooling
+      - integration
+      - inngest-jobs
+      - distributions
+      - mutation
+      - mutation-summary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all server checks to pass
+        env:
+          TYPE_CHECK_RESULT: ${{ needs.type-check.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          MUTATION_TOOLING_RESULT: ${{ needs.mutation-tooling.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          INNGEST_JOBS_RESULT: ${{ needs.inngest-jobs.result }}
+          DISTRIBUTIONS_RESULT: ${{ needs.distributions.result }}
+          MUTATION_RESULT: ${{ needs.mutation.result }}
+          MUTATION_SUMMARY_RESULT: ${{ needs.mutation-summary.result }}
+        run: |
+          results=(
+            "$TYPE_CHECK_RESULT"
+            "$LINT_RESULT"
+            "$ARCHITECTURE_RESULT"
+            "$UNIT_TESTS_RESULT"
+            "$MUTATION_TOOLING_RESULT"
+            "$INTEGRATION_RESULT"
+            "$INNGEST_JOBS_RESULT"
+            "$DISTRIBUTIONS_RESULT"
+            "$MUTATION_RESULT"
+            "$MUTATION_SUMMARY_RESULT"
+          )
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" ]]; then
+              echo "A required server check finished with result: $result"
+              exit 1
+            fi
+          done
+
+  mutation:
+    name: Use-case mutation shard ${{ matrix.shard }}/12
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run use-case mutation tests
+        run: uv run poe test:mutation --all --core --shard ${{ matrix.shard }}/12
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-mutation-shard-${{ matrix.shard }}-of-12
+          path: apps/server/test-results/mutation/shard-${{ matrix.shard }}-of-12
+          if-no-files-found: error
+
+  mutation-summary:
+    name: Check mutation scores and summarize
+    if: always()
+    needs: mutation
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Identify changed core use-case sources
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
+        run: |
+          git diff --name-only --diff-filter=ACMRT \
+            "$BASE_SHA...$HEAD_SHA" -- apps/server/src/shifu \
+            > "$CHANGED_FILES"
+
+      - name: Download mutation shard reports
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: server-mutation-shard-*-of-12
+          path: ${{ runner.temp }}/mutation-reports
+          merge-multiple: false
+
+      - name: Build mutation summary
+        id: report
+        if: always()
+        env:
+          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
+          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
+          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
+          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
+        run: >-
+          python apps/server/scripts/summarize_mutation_reports.py
+          --reports-dir "$REPORTS_DIR"
+          --expected-shards 12
+          --mutation-result "$MUTATION_JOB_RESULT"
+          --thresholds apps/server/scripts/mutation_score_thresholds.json
+          --changed-files "$CHANGED_FILES"
+          --output "$REPORT_PATH"
+
+      - name: Upload mutation summary
+        if: always() && steps.report.outcome == 'success'
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-mutation-summary
+          path: ${{ runner.temp }}/mutation-summary.md
+          if-no-files-found: error
+
+      - name: Enforce per-module mutation score thresholds
+        if: always() && steps.report.outcome == 'success'
+        env:
+          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
+          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
+          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
+          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
+        run: >-
+          python apps/server/scripts/summarize_mutation_reports.py
+          --reports-dir "$REPORTS_DIR"
+          --expected-shards 12
+          --mutation-result "$MUTATION_JOB_RESULT"
+          --thresholds apps/server/scripts/mutation_score_thresholds.json
+          --changed-files "$CHANGED_FILES"
+          --output "$REPORT_PATH"
+          --enforce

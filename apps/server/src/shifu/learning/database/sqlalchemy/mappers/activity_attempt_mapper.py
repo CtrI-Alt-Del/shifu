@@ -49,6 +49,7 @@ class ActivityAttemptMapper:
     ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if value is None:
             return None
+
         data = cast('dict[str, object]', value)
         normalized = {**data}
         normalized.setdefault('required_concept_ids', [])
@@ -104,6 +105,7 @@ class ActivityAttemptMapper:
                     'str | None', normalized['diagnostic_revision']
                 ),
             )
+
         return cast(
             'CurriculumChoiceActivitySnapshot',
             Serialization.deserialize_value(
@@ -142,6 +144,7 @@ class ActivityAttemptMapper:
                     )
                 )
                 continue
+
             if question is not None and question.kind == 'single_choice':
                 answers.append(
                     SingleChoiceAnswer(

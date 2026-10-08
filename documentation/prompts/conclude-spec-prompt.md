@@ -21,8 +21,14 @@ otherwise conclude locally and report publication as not requested.
 
 ## Preconditions and continuity
 
-Read `documentation/sdd.md`, the exact Spec revision and Validation Contract,
-Evaluation, relevant Rules and tooling, and the integrated diff. Verify canonical
+Read the complete canonical templates in `documentation/templates/sdd/`:
+[`spec.md`](../templates/sdd/spec.md) and
+[`evaluation.md`](../templates/sdd/evaluation.md). Use them to confirm section
+ownership and closure records; preserve the delivery's contract and historical
+evidence rather than replacing populated artifacts with blank templates.
+
+Read `documentation/sdd.md`, the exact Spec revision and Verification Contract
+(legacy Validation Contract), Evaluation, relevant Rules and tooling, and the integrated diff. Verify canonical
 PRD content ID/version; reuse a complete current read in the same context, and
 reread the complete page if its version changed or authority is uncertain. Report authority conflicts;
 return an affected Spec to `draft` or `stale` for reconciliation through
@@ -32,13 +38,17 @@ module ownership, Architecture, Rules or the acceptance contract.
 Require:
 
 - the current Spec is `implemented` and Evaluation is `ready` for that revision;
-- every applicable `RF-*`, `CA-*`, checker and required `VM-*` has accepted current
-  evidence or an explicit, justified non-applicable disposition;
+- every applicable `RF-*`, `CA-*`, checker and required `VM-*` has current passing
+  evidence or an explicit, justified non-applicable disposition; Progress
+  distinguishes Complete implementation from Passed verification;
 - required independent implementation and visual reviews cover the candidate;
 - no blocking finding remains; and
 - Jira/source traceability, scope and exclusions are accurate.
 
-A failed, missing, unavailable, skipped or stale required check is not a pass.
+A failed, missing, unavailable, skipped, waived or stale required check is not a
+pass and cannot yield readiness or completion. Reconcile Check Results, Progress,
+Findings and the actual candidate; a passing status without observed proof is
+insufficient.
 Keep Evaluation `in_progress` while required evidence or corrections are pending.
 Retain a factual handoff: criterion progress, current candidate, reusable and stale
 results, unfinished code, blockers and the next concrete action.
@@ -64,7 +74,7 @@ suggested next step for a fix that is already authorized.
    diff. Coordinate integration execution with the designated runner instead of
    duplicating it in the conflict workflow.
 5. Inspect changes introduced by synchronization. Run outstanding required
-   integration suites only after the synchronized candidate is integrated. If
+   integration selections only after the synchronized candidate is integrated. If
    checks already passed and synchronization changes covered behavior, fixtures,
    dependencies or configuration, reopen only affected checks and review scope.
    An ancestry-only merge or unaffected change does not mandate a blanket rerun.
@@ -98,9 +108,14 @@ and its concrete checker. Passing tests alone do not establish complete contract
 coverage. Record boundaries, exclusions, checker evidence and known limitations.
 Use stable identifiers and preserve failures and their resolutions.
 
-| Acceptance | RF coverage | Automated evidence | Runtime/manual evidence | Visual evidence | Status |
-| --- | --- | --- | --- | --- | --- |
-| CA-01 | RF-01 | EV-01 | VM-01 / EV-02 | EV-03 or — | passed |
+Use Evaluation Progress and Check Results, rather than adding another acceptance
+matrix. Progress separates implementation from verification and maps CA/RF to
+CI/VM and EV IDs. Manual and Visual VM checks have explicit types and pass
+conditions; baseline checks remain in the same results record. Confirm separate
+current type, lint, complexity and local changed-code coverage dispositions for the
+scoped changes and affected consumer projects. Reuse applicable results;
+configured complexity lint is not
+proof of a quantitative metrics gate, and missing required tooling blocks closure.
 
 Evidence includes exact command and working directory, result, code revision or
 worktree identity, relevant fixture/configuration and covered criteria. Results
@@ -131,14 +146,20 @@ in parallel on the same candidate; no third serial reviewer is required.
 
 ## Verification ownership and failure loop
 
-The designated Orchestrator verification runner owns the applicable server,
-browser and job integration suites. Run them once after implementation is fully
-integrated. If they fail, fix failures and rerun failed or affected checks until
-all required integration checks pass. Retain unaffected passing results.
+The designated Orchestrator verification runner owns affected server, browser and
+job integration selections after implementation is fully integrated. Select local
+tests only for scoped changes and directly affected consumers; conclusion does not
+add unrelated suites. Broader selections require demonstrated dependency impact
+or a concrete gap in that scope's proof. Full local suites require scope spanning
+that suite or an explicit user request. Fix failures and rerun failed
+or affected selections until required checks pass. Retain unaffected passing proof.
+Applicable PR-head CI still executes its actual configured commands independently.
 
-Consume current unit/component, lint, type, architecture, build, integration and
-manual evidence defined by the Spec and repository Rules. Use only commands that
-exist in manifests and tooling; never invent a generic checker or coverage gate.
+Consume current unit/component, lint, type, architecture, build, integration,
+local changed-code coverage and manual evidence defined by the Spec and repository
+Rules. Use only commands that
+exist in manifests and tooling; never invent a generic checker or claim a
+coverage percentage from a run that did not measure it.
 Closure, reviewers, commit and PR workflows reuse that evidence. Additional runs
 require a missing result, changed covered behavior/dependency/fixture/configuration,
 or a concrete unresolved finding. Record skipped or environment-blocked checks
@@ -158,20 +179,40 @@ with evidence. Partial delivery never counts as full implementation. Keep produc
 requirements canonical in Confluence; do not change checkboxes or Jira status
 without an explicit request and the applicable authority workflow.
 
-Record material findings as `ACH-*` with observed evidence, severity, status and
-resolution. For reusable lessons, identify the appropriate authority document and
-make an already-authorized factual correction or record a concrete No change
-reason. Do not promote transient failures or feature-specific details into global
-policy. Normative product, architecture or Rule changes require reconciliation.
+Record material findings as `ACH-*` with evidence, severity, affected checks,
+status and resolution in Findings. Read Lessons Learned and identify lasting
+guidance for Architecture, Modules, Design, Infrastructure, Tooling, Rules or
+workflow guidance; keep feature-specific details local. State a concrete No change
+reason when existing guidance is sufficient, rather than inventing a lesson.
+
+For documentation updates beyond routine Spec/Evaluation closure, reuse explicit
+scope/authorization already granted. Otherwise prepare the exact target, proposed
+change, supporting ACH/EV lesson and reason, and obtain approval before applying
+it. Permission to conclude alone does not authorize new global policy. Partial
+approval covers only approved changes; external Jira/Confluence writes still need
+explicit external-write authorization. Record proposed/applied/rejected/deferred
+updates in Lessons Learned and Delivery. Optional deferred improvements do not
+block closure; unresolved required alignment or material authority conflicts do.
+Do not promote transient failures into global policy or silently weaken Rules.
 
 ## Complete artifacts and publish
 
-When local required evidence and findings are resolved, set Spec and Evaluation
-to `completed` before the authorized commit handoff. Keep detailed proof and
-handoff state in Evaluation and a concise outcome/link in Spec. No `plan.md` is
-created, read or completed. Do not create a closure-only commit solely for
-operational ledger updates; include required factual delivery documentation in
-normal delivery commits.
+Reconcile all seven Evaluation sections: Current State, Progress, Check Results,
+Findings, Lessons Learned, Handoff and Delivery. Keep Spec Documentation Alignment
+and Revision History accurate, with detailed observed proof and delivery state in
+Evaluation. Preserve failed attempts, previous PR heads, evidence scope and current
+process/dirty-path facts. Routine closure/status updates do not increment revision.
+No `plan.md` is created, read or completed.
+
+For local closure when publication is not requested or explicitly local-only,
+set both artifacts `completed` after all local requirements pass; record
+publication/current-head CI as not requested or not applicable, with the reason.
+For authorized publication, retain Spec `implemented` and Evaluation `ready`
+through commit/PR handoff until publication, required current-head CI and blocking
+review conversations are resolved. A publication failure records a blocker and
+must not be reported as completed delivery. Do not create a closure-only commit
+solely for operational ledger updates; include required factual delivery
+documentation in normal delivery commits.
 
 For an explicitly authorized publication:
 
@@ -184,11 +225,11 @@ For an explicitly authorized publication:
    to the task using the available app artifact tool.
 
 Do not create duplicate PRs or use ad hoc publication to bypass the workflow.
-If publication is unavailable, report the blocker; local completion may remain
-valid when every local requirement passed, but do not claim publication.
+If publication is unavailable, report the blocker and retain the publication-ready
+states; do not claim publication or completed authorized delivery.
 
-When applicable checked-in CI workflows exist, inspect their actual path filters
-and current PR head checks with authenticated `gh`; wait for terminal results and
+For each current delivery PR head, inspect applicable checked-in CI workflow path
+filters and current checks with authenticated `gh`; wait for terminal results and
 record name, run URL, head SHA and result. Inspect repository state rather than
 assuming workflows exist. Missing, pending, cancelled or earlier-head CI is not
 passing current-head CI. If no applicable workflow exists, record not applicable.
@@ -199,8 +240,11 @@ For actionable CI failures, reopen Evaluation and route the correction through
 PR when authorized. Rerun the same SHA only for a documented transient failure.
 Do not change product disposition unless the failure establishes a product defect.
 
-Later PR feedback follows `resolve-pr-feedback`; after merge, use the bug/change
-workflow. Do not merge the delivery into `main` or deploy without separate authority.
+Complete published Spec/Evaluation only after all required current-head CI passes
+and blocking review conversations have verified resolutions. Do not wait
+indefinitely for hypothetical future feedback. Later PR feedback follows
+`resolve-pr-feedback`; after merge, use the bug/change workflow. Do not merge the
+delivery into `main` or deploy without separate authority.
 
 ## Output
 

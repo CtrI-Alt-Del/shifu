@@ -76,16 +76,21 @@ class EnvironmentSettings(BaseModel):
     def validate_email_configuration(self) -> 'EnvironmentSettings':
         if not self.bff_shared_secret.strip():
             raise ValueError('BFF shared secret is required')
+
         if not self.communication_encryption_keys:
             raise ValueError('Communication encryption keys are required')
+
         if not self.confirmation_action_origin.startswith(('http://', 'https://')):
             raise ValueError('Confirmation action origin must be an HTTP URL')
+
         if self.email_provider == 'resend' and (
             not self.resend_api_key or not self.resend_from
         ):
             raise ValueError('Resend requires an API key and sender address')
+
         if self.server_app_mode == 'production' and self.email_provider != 'resend':
             raise ValueError('Production e-mail delivery must use Resend')
+
         if self.server_app_mode == 'production' and not self.resend_api_key:
             raise ValueError('Production Resend configuration is incomplete')
         return self
@@ -99,12 +104,14 @@ class EnvironmentSettings(BaseModel):
         server_app_mode = values.get('SHIFU_SERVER_APP_MODE', DEFAULT_SERVER_APP_MODE)
         email_provider = values.get('SHIFU_EMAIL_PROVIDER', DEFAULT_EMAIL_PROVIDER)
         raw_encryption_keys = values.get('SHIFU_COMMUNICATION_ENCRYPTION_KEYS')
+
         if raw_encryption_keys is None or not raw_encryption_keys.strip():
             encryption_keys = ()
         else:
             encryption_keys = tuple(
                 key.strip() for key in raw_encryption_keys.split(',') if key.strip()
             )
+
         return cls.model_validate(
             {
                 'server_app_port': values.get(

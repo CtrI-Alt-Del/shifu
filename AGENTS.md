@@ -27,8 +27,11 @@ and expected evidence. Avoid overlapping edits.
 
 Keep shared decisions, SDD artifact ownership, integration, and final validation
 in the main task. Review every returned diff. Use focused unit/component and
-static feedback during building; run integration suites after all scopes are
-integrated, fix failures and rerun until all applicable suites pass. Review and
+static feedback during building; run affected integration selections after all
+scopes are integrated, fix failures and rerun until all required checks pass.
+Select local tests only for scoped changes and directly affected consumers.
+Broaden only for demonstrated dependency impact or gaps in that scope's proof;
+do not run unrelated full suites merely because an app was touched. Review and
 conclusion reuse valid results; later corrections reopen only affected checks.
 Use descriptive names such as `identity-api-builder`,
 `learning-widget-reviewer`, or `gamification-schema-explorer`, never generic
@@ -211,7 +214,7 @@ CLI and the artifact paths listed above.
 
 For feature behavior, follow [`documentation/sdd.md`](documentation/sdd.md) and
 the applicable workflow prompt under
-[`documentation/prompts`](documentation/prompts/README.md). Confluence remains
+[`documentation/prompts`](documentation/prompts/). Confluence remains
 the canonical PRD authority. Record its content ID/version in the Spec and keep
 Shifu's `RP/JN/RF/CA/VM/EV/ACH/CI` artifact vocabulary.
 
@@ -220,9 +223,14 @@ The Orchestrator owns `spec.md` and `evaluation.md`; Builders and reviewers
 report evidence and findings but do not silently change the contract. The Spec
 defines required behavior, consequential contracts and checkers. The agent
 handles planning, execution order and delegation without a separate `plan.md`.
-Evaluation holds acceptance evidence and a small factual handoff so another
-agent can resume from the Spec, recorded results and actual diff. Old execution
-ledgers under feature `history/` directories are read-only historical records.
+Evaluation separates per-criterion implementation from verification in Progress,
+records typed Automated/Manual/Visual check results, findings, reusable lessons,
+Delivery and a factual Handoff with dirty paths and task-started sessions/ports.
+Continue authorized actionable checks/corrections until ready or a diagnosed
+external blocker. Another agent resumes from the Spec, results and actual diff.
+Published completion waits for required current-head CI and resolved blocking
+review conversations; local-only completion records publication as not applicable.
+Old execution ledgers under feature `history/` directories are read-only historical records.
 Direct maintenance without product-behavior changes is exempt from creating a
 new feature artifact set, but still follows repository rules.
 

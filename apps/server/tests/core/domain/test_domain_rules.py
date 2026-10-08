@@ -67,6 +67,7 @@ def test_account_normalizes_email_and_pending_account_can_be_confirmed() -> None
 
     assert account.email == 'learner@example.com'
     account.confirm(NOW)
+
     assert account.status is AccountStatus.ACTIVE
     assert account.confirmed_at == NOW
 

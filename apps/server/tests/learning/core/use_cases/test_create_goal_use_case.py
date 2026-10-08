@@ -84,6 +84,7 @@ class TestCreateGoalUseCase:
 
         assert goal.id == 'goal-new'
         experience = repositories.skill_experiences.add_many.call_args.args[0][0]
+
         assert experience.status is SkillExperienceStatus.NOT_STARTED
         assert (
             repositories.competency_progresses.add_many.call_args.args[0][

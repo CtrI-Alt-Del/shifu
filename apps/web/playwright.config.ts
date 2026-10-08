@@ -17,6 +17,7 @@ export default defineConfig({
   expect: {
     timeout: 10_000,
   },
+
   reporter: process.env.CI
     ? [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
     : 'list',
@@ -25,6 +26,7 @@ export default defineConfig({
     actionTimeout: 10_000,
     navigationTimeout: 30_000,
   },
+
   webServer: [
     {
       command: `exec .venv/bin/uvicorn main:app --app-dir src --host 127.0.0.1 --port ${identityPort}`,

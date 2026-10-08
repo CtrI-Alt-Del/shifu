@@ -1,0 +1,23 @@
+{
+  "minimum_new_code_score_percent": 70,
+  "regression_tolerance_percentage_points": 5,
+  "baseline_run_id": 37787846018,
+  "module_baselines": {
+    "communication": {
+      "killed": 194,
+      "scored": 301
+    },
+    "identity": {
+      "killed": 754,
+      "scored": 950
+    },
+    "intelligence": {
+      "killed": 13,
+      "scored": 13
+    },
+    "learning": {
+      "killed": 2301,
+      "scored": 3589
+    }
+  }
+}

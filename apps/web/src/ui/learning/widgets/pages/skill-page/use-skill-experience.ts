@@ -60,6 +60,7 @@ export const retrySkillEvaluationAction = createServerFn({ method: 'POST' })
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       await learningService().retryChoiceEvaluation(access.accessToken, data)
       return { ok: true }
     } catch (error) {
@@ -94,6 +95,7 @@ export function useSkillExperience(props: SkillExperienceInput) {
   async function handleRetryEvaluation() {
     const evaluation = experienceQuery.data?.evaluation
     if (isRetrying || evaluation?.status !== 'failed') return
+
     setIsRetrying(true)
     setRetryFailed(false)
     const result = await retrySkillEvaluationAction({

@@ -20,6 +20,7 @@ export const IntelligenceService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
   }

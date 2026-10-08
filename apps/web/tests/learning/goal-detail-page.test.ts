@@ -39,6 +39,7 @@ test('renders the real goal detail and preserves the skill destination through m
   bff,
 }) => {
   let goalDetailRequests = 0
+
   await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
@@ -58,6 +59,7 @@ test('renders the real goal detail and preserves the skill destination through m
     authenticatedPage.getByRole('heading', { level: 1, name: detailResponse.title }),
   ).toBeVisible()
   await authenticatedPage.getByRole('tab', { name: 'Lista' }).click()
+
   await expect(
     authenticatedPage.getByRole('link', { name: 'Lógica de programação' }),
   ).toHaveAttribute('href', `/learning/goals/${ids.goalId}/skills/${ids.skillId}`)
@@ -114,6 +116,7 @@ test('pans the canvas and restores its initial view from the graph button', asyn
 
   await reset.hover()
   await expect(graph.getByRole('tooltip')).toBeVisible()
+
   await reset.click()
   await expect
     .poll(() => viewport.evaluate((element) => element.style.transform))
@@ -157,7 +160,9 @@ test('pans the canvas and restores its initial view from the graph button', asyn
     .poll(() => viewport.evaluate((element) => element.style.transform))
     .not.toBe(mobileInitialTransform)
   await reset.focus()
+
   await expect(graph.getByRole('tooltip')).toBeVisible()
+
   await reset.press('Enter')
   await expect
     .poll(() => viewport.evaluate((element) => element.style.transform))
@@ -186,6 +191,7 @@ test('highlights only the prerequisite path of a hovered or focused skill', asyn
       { foundationSkillId: e.skillId, skillId: c.skillId },
     ],
   }
+
   await bff.route(async (route) => {
     if (!route.request().url().includes(ids.goalId)) {
       await route.fallback()
@@ -312,6 +318,7 @@ test('closes the dialog and sends no removal request when cancelled', async ({
 }) => {
   await mockGoalDetail(bff)
   let deleteRequestFired = false
+
   await bff.route(async (route) => {
     if (route.request().method() === 'POST') deleteRequestFired = true
     await route.fallback()
@@ -329,6 +336,7 @@ test('closes the dialog and sends no removal request when cancelled', async ({
 
 test('redirects home after a successful removal', async ({ authenticatedPage, bff }) => {
   await mockGoalDetail(bff)
+
   await bff.route(async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
@@ -355,6 +363,7 @@ test('keeps the dialog open with an error when removal fails', async ({
   bff,
 }) => {
   await mockGoalDetail(bff)
+
   await bff.route(async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
@@ -384,6 +393,7 @@ test('removes a Skill from Lista and preserves the selected view', async ({
 }) => {
   let removalRequests = 0
   let removed = false
+
   await bff.route(async (route) => {
     if (route.request().method() === 'POST') {
       removalRequests += 1
@@ -439,6 +449,7 @@ test('keeps Grafo selected and exposes a recoverable removal error', async ({
 }) => {
   let removalRequests = 0
   await mockGoalDetail(bff)
+
   await bff.route(async (route) => {
     if (!serverFnExport(route.request().url()).startsWith('removeSkill')) {
       await route.fallback()
@@ -479,6 +490,7 @@ test('removes a Skill from Grafo and preserves the selected view', async ({
 }) => {
   let removalRequests = 0
   let removed = false
+
   await bff.route(async (route) => {
     if (route.request().method() === 'POST') {
       removalRequests += 1

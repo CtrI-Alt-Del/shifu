@@ -109,6 +109,7 @@ class TestExpireUnconfirmedAccountsUseCase:
             for event in events
             if isinstance(event, AccountActionTokenCancelledEvent)
         ]
+
         assert {event.payload.communication_id for event in cancellation_events} == {
             pending_token.communication_id,
             invalidated_token.communication_id,
@@ -120,6 +121,7 @@ class TestExpireUnconfirmedAccountsUseCase:
         expired_event = next(
             event for event in events if isinstance(event, AccountExpiredEvent)
         )
+
         assert expired_event.payload.account_id == account.id
         assert expired_event.payload.expired_at == self.now.isoformat()
 
@@ -156,6 +158,7 @@ class TestExpireUnconfirmedAccountsUseCase:
         self.repositories.accounts.update.assert_not_called()
         self.repositories.account_action_tokens.update.assert_not_called()
         events = [call.args[0] for call in self.repositories.events.add.call_args_list]
+
         assert all(isinstance(event, AccountExpiryRequestedEvent) for event in events)
         assert [event.payload.account_id for event in events] == [
             account.id for account in accounts

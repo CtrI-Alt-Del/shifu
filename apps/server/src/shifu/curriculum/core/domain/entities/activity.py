@@ -31,12 +31,14 @@ class Activity:
         ).value
         if not self.questions:
             raise InvalidActivityError
+
         question_keys = {question.key for question in self.questions}
         part_keys = {part.question_key for part in self.evaluation_rule.parts}
         if len(question_keys) != len(self.questions) or not part_keys.issubset(
             question_keys
         ):
             raise InvalidActivityError
+
         if any(
             isinstance(question, JavascriptStdinQuestion) for question in self.questions
         ):
@@ -45,6 +47,7 @@ class Activity:
                 or part_keys != question_keys
             ):
                 raise InvalidActivityError
+
             parts = {part.question_key: part for part in self.evaluation_rule.parts}
             for question in self.questions:
                 part = parts[question.key]
@@ -52,8 +55,10 @@ class Activity:
                     part, CodeRubricEvaluationPart
                 ):
                     raise InvalidActivityError
+
         if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
             raise InvalidActivityError
+
         assessed = {
             criterion.concept_id
             for question in self.questions

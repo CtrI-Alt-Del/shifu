@@ -60,6 +60,7 @@ class ActivityMapper:
                 'JavascriptStdinQuestion',
                 Serialization.deserialize_value(data, JavascriptStdinQuestion),
             )
+
         if 'options' not in data:
             return cast(
                 'CodeQuestion',
@@ -89,6 +90,7 @@ class ActivityMapper:
                 incorrect_explanation=incorrect_explanation,
                 concept_criteria=concept_criteria,
             )
+
         return MultipleSelectionQuestion(
             key=key,
             prompt=prompt,

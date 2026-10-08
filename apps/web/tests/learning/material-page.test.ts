@@ -57,6 +57,7 @@ test('renders the official markdown and sends one typed RPC request', async ({
 }) => {
   let materialRequests = 0
   let requestUrl = ''
+
   await bff.route(async (route) => {
     requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.materialId)) {
@@ -165,6 +166,7 @@ test('opens the recommended Activity of the source Competency', async ({
   })
 
   await navigateAuthenticatedPage(authenticatedPage, materialPath)
+
   await expect(
     authenticatedPage.getByRole('heading', {
       name: 'Continuar em Estruturas de repetição',
@@ -256,6 +258,7 @@ test('replaces a recoverable error after one explicit retry', async ({
   bff,
 }) => {
   let materialRequests = 0
+
   await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()
@@ -278,6 +281,7 @@ test('replaces a recoverable error after one explicit retry', async ({
   })
 
   await navigateAuthenticatedPage(authenticatedPage, materialPath)
+
   await expect(
     authenticatedPage.getByRole('heading', {
       name: 'Não foi possível carregar este Material',
@@ -293,6 +297,7 @@ test('replaces a recoverable error after one explicit retry', async ({
 
 test('redirects anonymous visitors before requesting the material', async ({ page }) => {
   let materialRequested = false
+
   await page.route('**/_serverFn/**', async (route) => {
     if (route.request().url().includes(IDS.materialId)) materialRequested = true
     await route.fallback()
@@ -322,6 +327,7 @@ test('reaches the code block and the recommendation by keyboard', async ({
   })
 
   await navigateAuthenticatedPage(authenticatedPage, materialPath)
+
   await expect(
     authenticatedPage.getByRole('heading', { level: 1, name: 'Repetição com for' }),
   ).toBeVisible()
@@ -330,9 +336,11 @@ test('reaches the code block and the recommendation by keyboard', async ({
     name: 'Bloco de código em python',
   })
   await codeBlock.focus()
+
   await expect(codeBlock).toBeFocused()
 
   await authenticatedPage.getByRole('button', { name: 'Praticar' }).focus()
+
   await expect(authenticatedPage.getByRole('button', { name: 'Praticar' })).toBeFocused()
 })
 
@@ -341,6 +349,7 @@ test('keeps a comfortable reading column on a narrow viewport', async ({
   bff,
 }) => {
   await authenticatedPage.setViewportSize({ height: 812, width: 375 })
+
   await bff.route(async (route) => {
     if (!route.request().url().includes(IDS.materialId)) {
       await route.fallback()

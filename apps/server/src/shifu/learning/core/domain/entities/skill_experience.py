@@ -56,6 +56,7 @@ class SkillExperience:
     def start_diagnosis(self, started_at: datetime) -> None:
         if self.status is not SkillExperienceStatus.NOT_STARTED:
             raise SkillExperienceTransitionError
+
         self.status = SkillExperienceStatus.DIAGNOSING
         self.started_at = self.started_at or started_at
         self.updated_at = started_at
@@ -63,6 +64,7 @@ class SkillExperience:
     def start_learning(self, updated_at: datetime) -> None:
         if self.status is not SkillExperienceStatus.DIAGNOSING:
             raise SkillExperienceTransitionError
+
         self.status = SkillExperienceStatus.LEARNING
         self.updated_at = updated_at
 
@@ -76,6 +78,7 @@ class SkillExperience:
             SkillExperienceStatus.LEARNING,
         }:
             raise SkillExperienceTransitionError
+
         self.status = SkillExperienceStatus.COMPLETED
         self.completed_at = self.completed_at or completed_at
         self.completion_summary = self.completion_summary or summary

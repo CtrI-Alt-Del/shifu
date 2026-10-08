@@ -51,6 +51,7 @@ class TestStartPlanningUseCase:
             'PlanningSession',
             self.planning_sessions_repository.add.call_args.args[0],
         )
+
         assert persisted.id == '01JPLANNING00000000000001'
         assert persisted.account_id == '01JACCOUNT000000000000000001'
         assert persisted.initial_intent == 'Quero aprender inglês em três meses'

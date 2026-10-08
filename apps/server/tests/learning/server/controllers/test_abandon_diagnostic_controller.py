@@ -108,6 +108,7 @@ class TestAbandonDiagnosticController:
         started = _post(
             client, f'{path}/start', _AUTHORIZATION, {'entry_key': str(first_key)}
         )
+
         assert started.status_code == 200, started.text
 
         replacement_key = uuid4()
@@ -117,12 +118,14 @@ class TestAbandonDiagnosticController:
             _AUTHORIZATION,
             {'entry_key': str(replacement_key)},
         )
+
         assert replacement.status_code == 200, replacement.text
         stale = _post(
             client,
             f'{path}/diagnostic/abandon',
             headers={**_AUTHORIZATION, 'X-Diagnostic-Run-Id': str(first_key)},
         )
+
         assert stale.status_code == 409, stale.text
 
         abandoned = _post(
@@ -130,6 +133,7 @@ class TestAbandonDiagnosticController:
             f'{path}/diagnostic/abandon',
             headers={**_AUTHORIZATION, 'X-Diagnostic-Run-Id': str(replacement_key)},
         )
+
         assert abandoned.status_code == 204, abandoned.text
         with postgres_database.engine.connect() as connection:
             experience = connection.execute(
@@ -141,5 +145,6 @@ class TestAbandonDiagnosticController:
                     SkillExperienceModel.skill_id == SEED_ADAPTIVE_SKILL_ID,
                 )
             ).one()
+
         assert experience.status == 'not-started'
         assert experience.diagnostic_run_id is None
