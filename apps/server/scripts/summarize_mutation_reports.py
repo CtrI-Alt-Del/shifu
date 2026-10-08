@@ -223,11 +223,6 @@ def build_module_rows(
         mutants = sum(counts.values())
         score = module_score(counts)
         baseline = baselines.get(module)
-        regression_threshold = (
-            max(Fraction(0), baseline - regression_tolerance)
-            if baseline is not None
-            else None
-        )
         regression_passed = baseline is None or (
             score is not None
             and score >= max(Fraction(0), baseline - regression_tolerance)
@@ -255,27 +250,12 @@ def build_module_rows(
             new_code_failures.append(module)
         passed = complete and regression_passed and new_code_passed
         score_display = f'{float(score * 100):.1f}%' if score is not None else 'N/A'
-        regression_display = (
-            f'{float(regression_threshold * 100):.1f}%'
-            if regression_threshold is not None
-            else 'N/A'
-        )
-        new_code_display = (
-            'N/A'
-            if not module_sources
-            else 'PASS'
-            if new_code_passed
-            else 'FAIL'
-            if complete
-            else 'PENDING'
-        )
         result = 'PASS' if passed else 'FAIL' if complete else 'PENDING'
         rows.append(
             f'| {escape_table_cell(display_module(module))} | {mutants:,} | '
             f'{counts["killed"]:,} | {counts["survived"]:,} | '
             f'{counts["uncovered"]:,} | {counts["timeouts"]:,} | '
-            f'{counts["errors"]:,} | {score_display} | {regression_display} | '
-            f'{new_code_display} | {result} |'
+            f'{counts["errors"]:,} | {score_display} | {result} |'
         )
     return rows, regression_failures, new_code_failures
 

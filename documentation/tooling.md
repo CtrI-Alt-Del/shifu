@@ -483,8 +483,8 @@ mutation outcomes by module so failures remain attributable without assigning
 unequal modules to separate jobs.
 A summary job downloads the shard artifacts and creates or updates one bot
 comment on same-repository pull requests. The table groups killed, survived,
-uncovered, timed-out and error mutants by module and shows a separate score and
-existing-score regression and new-code gates for each module. The module score is
+uncovered, timed-out and error mutants by module and shows one overall score and
+a combined gate result for each module. The module score is
 `killed / (killed + survived)`; uncovered, timeout and error outcomes are
 excluded. Fork pull requests run the same score gates but do not receive the
 comment.
@@ -515,8 +515,8 @@ Intelligence and 59.1% for Learning. When a module has no changed use-case file,
 only its existing-score regression gate applies; a new module has no historical
 regression floor until its first complete run. A changed file with no scored
 mutants fails the new-code gate. Update baselines only after reviewing a complete
-run; do not lower them. The summary displays one overall score per module and
-separate pass/fail results for the new-code and regression gates. Review
+run; do not lower them. CI enforces the new-code and regression gates separately,
+while the report displays their combined result. Review
 survivors, uncovered mutants and runner errors in the report. For
 correctness-critical Server changes the Spec identifies mutation scope, risk, pass
 conditions and survivor/equivalence disposition; any stricter criterion must be
