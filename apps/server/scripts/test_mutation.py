@@ -297,7 +297,7 @@ def source_outcomes(results: str) -> dict[str, dict[str, int]]:
         module_path, separator, _ = identifier.partition('.xǁ')
         if not separator or not module_path.startswith('shifu.'):
             continue
-        source = Path('src', *module_path.split('.')[1:]).with_suffix('.py')
+        source = Path('src', 'shifu', *module_path.split('.')[1:]).with_suffix('.py')
         source_name = source.as_posix()
         counts = sources.setdefault(source_name, {'total': 0})
         counts['total'] += 1
