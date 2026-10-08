@@ -409,8 +409,8 @@ def summarize_report(
             f'({completed_shards}/{expected_shards} shard reports; mutation job: {mutation_result}).'
         ),
         '',
-        '| Module | Mutants | Killed | Survived | Uncovered | Timeouts | Errors | Score | Existing floor | New-code gate | Result |',
-        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | :---: |',
+        '| Module | Mutants | Killed | Survived | Uncovered | Timeouts | Errors | Score | Result |',
+        '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: |',
     ]
 
     rows.extend(module_rows)
