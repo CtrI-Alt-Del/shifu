@@ -247,6 +247,7 @@ jobs:
                 issue_number,
                 body,
               })
+            }
 
       - name: Enforce per-module mutation score thresholds
         if: always() && steps.report.outcome == 'success'
@@ -264,4 +265,3 @@ jobs:
           --changed-files "$CHANGED_FILES"
           --output "$REPORT_PATH"
           --enforce
-            }
