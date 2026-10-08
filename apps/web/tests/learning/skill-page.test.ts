@@ -191,6 +191,7 @@ test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', 
   let startRequests = 0
   let startBody = ''
   await mockTransport(bff)
+
   await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getDiagnosticAction')) {
@@ -263,8 +264,10 @@ test('starts a fresh diagnostic entry when reopening an interrupted diagnosis', 
   )
   await expect(authenticatedPage.getByText('Qual é o resultado?')).toBeVisible()
   expect(await authenticatedPage.evaluate(() => window.scrollY)).toBe(0)
+
   await authenticatedPage.getByRole('radio', { name: '4' }).focus()
   await authenticatedPage.keyboard.press('Space')
+
   await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
   const secondChoice = authenticatedPage.getByRole('radio', { name: '6' })
   await expect(secondChoice).toBeVisible()
@@ -302,6 +305,7 @@ test('submits the diagnostic once as a complete batch and opens its consolidated
   let evaluationReady = false
   let completionRequested = false
   await mockTransport(bff)
+
   await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('startSkillAction')) {
@@ -454,6 +458,7 @@ test('submits the diagnostic once as a complete batch and opens its consolidated
   expect(startBody).toContain(IDS.skillId)
 
   await authenticatedPage.getByText('4', { exact: true }).click()
+
   await expect(authenticatedPage.getByRole('radio', { name: '4' })).toBeChecked()
   await expect(
     authenticatedPage.getByRole('button', { name: 'Enviar diagnóstico' }),
@@ -519,6 +524,7 @@ test('keeps a blocked Competency on the page and explains the requirement', asyn
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
   await expect(authenticatedPage.getByRole('link', { name: /Funções/ })).toHaveCount(0)
+
   await authenticatedPage.getByRole('button', { name: /Funções/ }).click()
 
   await expect(authenticatedPage.getByRole('alert')).toContainText(
@@ -628,6 +634,7 @@ test('is operable by keyboard and has no horizontal scroll on a narrow viewport'
   await navigateAuthenticatedPage(authenticatedPage, skillPath)
 
   await authenticatedPage.getByRole('link', { name: 'Continuar praticando' }).focus()
+
   await expect(
     authenticatedPage.getByRole('link', { name: 'Continuar praticando' }),
   ).toBeFocused()
@@ -645,6 +652,7 @@ test('removes the Skill once and returns to the same Objective graph', async ({
   let removalRequests = 0
   let removed = false
   await mockTransport(bff)
+
   await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getGoalDetail') && removed) {
@@ -689,6 +697,7 @@ test('removes the Skill once and returns to the same Objective graph', async ({
   const dialog = authenticatedPage.getByRole('alertdialog')
   await expect(dialog.getByText('Lógica de programação', { exact: true })).toBeVisible()
   await expect(dialog.getByText(/Somente esta experiência será removida/)).toBeVisible()
+
   await dialog.getByRole('button', { name: 'Remover habilidade' }).click()
 
   await expect(authenticatedPage).toHaveURL(`/learning/goals/${IDS.goalId}`)
@@ -706,6 +715,7 @@ test('cancels with Escape, restores focus and retries a failed removal on mobile
   let removed = false
   await mockTransport(bff)
   await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+
   await bff.route(async (route) => {
     const exported = serverFnExport(route.request().url())
     if (exported.startsWith('getGoalDetail') && removed) {
@@ -752,6 +762,7 @@ test('cancels with Escape, restores focus and retries a failed removal on mobile
   await trigger.click()
   await authenticatedPage.getByRole('menuitem', { name: 'Remover habilidade' }).click()
   await authenticatedPage.keyboard.press('Escape')
+
   await expect(authenticatedPage.getByRole('alertdialog')).not.toBeVisible()
   await expect(trigger).toBeFocused()
   expect(removalRequests).toBe(0)
@@ -770,7 +781,9 @@ test('cancels with Escape, restores focus and retries a failed removal on mobile
     'Não foi possível remover a Habilidade. Tente novamente.',
   )
   expect(removalRequests).toBe(1)
+
   await confirmButton.click()
+
   await expect(authenticatedPage).toHaveURL(`/learning/goals/${IDS.goalId}`)
   await expect(
     authenticatedPage.getByText('Lógica de programação', { exact: true }),

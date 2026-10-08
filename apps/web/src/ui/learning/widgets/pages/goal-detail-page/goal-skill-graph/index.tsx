@@ -49,6 +49,7 @@ export const GoalSkillGraph = ({
 
   useEffect(() => {
     if (!instance || nodes.length === 0 || !graphRef.current) return
+
     const observer = new ResizeObserver(() => {
       void instance.fitView({ maxZoom: 1, padding: 0.08 })
     })

@@ -28,6 +28,7 @@ export const getGoalDetail = createServerFn({ method: 'GET' })
 
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+
       if (!access) return { kind: 'unauthorized' }
 
       const detail = await GoalDetailProvider().getGoalDetail(

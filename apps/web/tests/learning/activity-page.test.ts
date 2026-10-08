@@ -28,6 +28,7 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   bff,
 }) => {
   const calls: Array<{ url: string; body: string }> = []
+
   await bff.route(async (route) => {
     const url = route.request().url()
     const body = route.request().postData() ?? ''
@@ -48,6 +49,7 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   await firstOption.focus()
   await authenticatedPage.keyboard.press('Shift+Tab')
   await authenticatedPage.keyboard.press('Tab')
+
   await expect(firstOption).toBeFocused()
   expect(await firstOption.evaluate((input) => input.matches(':focus-visible'))).toBe(
     true,
@@ -61,6 +63,7 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
     }),
   ).toEqual({ outlineStyle: 'solid', outlineWidth: '2px' })
   await authenticatedPage.keyboard.press('Space')
+
   await expect(firstOption).toBeChecked()
 
   const dialogMessage = new Promise<string>((resolve) => {
@@ -111,6 +114,7 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
       },
     ],
   }
+
   await bff.route(async (route) => {
     const payload = decodeURIComponent(route.request().url())
     if (payload.includes(ids.activityId)) {
@@ -124,6 +128,7 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   })
 
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
+
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
@@ -133,6 +138,7 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   )
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
+
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
   ).toBeChecked()
@@ -198,6 +204,7 @@ test.describe('ActivityPage route coverage', () => {
       page,
     }) => {
       await page.goto(`${activityPath}/attempts/${ids.attemptId}`)
+
       await expect(page).toHaveURL(/\/login\/?$/)
       await expect(
         page.getByRole('heading', { name: 'Somar os números pares' }),
@@ -222,6 +229,7 @@ test.describe('ActivityPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, activityPath)
+
       await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.activityId}/?$`))
       await expect(
         authenticatedPage.getByRole('heading', { name: activityResponse.title }),
@@ -270,6 +278,7 @@ test.describe('ActivityPage route coverage', () => {
     }) => {
       let activityCalls = 0
       const requests: string[] = []
+
       await bff.route(async (route) => {
         const body = route.request().postData() ?? ''
         const payload = decodeURIComponent(`${route.request().url()} ${body}`)
@@ -290,12 +299,14 @@ test.describe('ActivityPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, activityPath)
+
       await expect(
         authenticatedPage.getByRole('heading', {
           name: 'Não foi possível carregar esta Atividade',
         }),
       ).toBeVisible()
       await authenticatedPage.getByRole('button', { name: 'Tentar novamente' }).click()
+
       await expect(
         authenticatedPage.getByRole('heading', { name: activityResponse.title }),
       ).toBeVisible()
@@ -316,6 +327,7 @@ test.describe('ActivityPage route coverage', () => {
       bff,
     }) => {
       const requests: string[] = []
+
       await bff.route(async (route) => {
         const body = route.request().postData() ?? ''
         const payload = decodeURIComponent(`${route.request().url()} ${body}`)
@@ -355,6 +367,7 @@ test.describe('ActivityPage route coverage', () => {
       await authenticatedPage.getByText('2', { exact: true }).click()
       await authenticatedPage.getByText('3', { exact: true }).click()
       await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+
       await expect(authenticatedPage).toHaveURL(
         new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
       )
@@ -375,6 +388,7 @@ test.describe('ActivityPage route coverage', () => {
       bff,
     }) => {
       const savedActivity = { ...activityResponse, unresolvedAttemptId: ids.attemptId }
+
       await bff.route(async (route) => {
         const payload = decodeURIComponent(
           `${route.request().url()} ${route.request().postData() ?? ''}`,
@@ -405,6 +419,7 @@ test.describe('ActivityPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, activityPath)
+
       await expect(authenticatedPage).toHaveURL(
         new RegExp(`${ids.activityId}/attempts/${ids.attemptId}/?$`),
       )
@@ -458,6 +473,7 @@ test.describe('ActivityPage route coverage', () => {
         ],
       }
       const requests: string[] = []
+
       await bff.route(async (route) => {
         const payload = decodeURIComponent(
           `${route.request().url()} ${route.request().postData() ?? ''}`,
@@ -513,6 +529,7 @@ test.describe('ActivityPage route coverage', () => {
       await navigateAuthenticatedPage(authenticatedPage, activityPath)
       await authenticatedPage.getByText('4', { exact: true }).click()
       await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Resultado', exact: true }),
       ).toBeVisible()
@@ -520,10 +537,12 @@ test.describe('ActivityPage route coverage', () => {
       await authenticatedPage.getByText('2', { exact: true }).click()
       await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
       await authenticatedPage.getByRole('button', { name: 'Próxima questão' }).click()
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Somar os números pares' }),
       ).toBeVisible()
       await authenticatedPage.getByRole('tab', { name: 'Arquivos' }).click()
+
       await expect(
         authenticatedPage.getByRole('tree', { name: 'Arquivos do projeto' }),
       ).toBeVisible()
@@ -545,6 +564,7 @@ test.describe('ActivityPage route coverage', () => {
         sourceCode,
       )
       await codeEditor.focus()
+
       await expect(authenticatedPage.locator('.monaco-editor')).toBeVisible()
       await expect(
         authenticatedPage.locator('.monaco-editor .monaco-editor-background'),
@@ -572,6 +592,7 @@ test.describe('ActivityPage route coverage', () => {
       await terminalInput.focus()
       await authenticatedPage.keyboard.type('21')
       await authenticatedPage.keyboard.press('Enter')
+
       await expect(
         authenticatedPage.getByRole('log', { name: 'Transcrição do Terminal' }),
       ).toContainText('ECHO:21', { timeout: 30_000 })
@@ -604,6 +625,7 @@ test.describe('ActivityPage route coverage', () => {
         path: testInfo.outputPath('code-question-terminal-output-390x844.png'),
       })
       await authenticatedPage.getByRole('tab', { name: 'Arquivos' }).click()
+
       await expect(
         authenticatedPage.getByRole('tree', { name: 'Arquivos do projeto' }),
       ).toBeVisible()
@@ -616,6 +638,7 @@ test.describe('ActivityPage route coverage', () => {
       })
       await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
       await authenticatedPage.getByRole('button', { name: 'Avaliar questão' }).click()
+
       await expect(authenticatedPage.getByText('Solução correta.')).toBeVisible()
       await expect(authenticatedPage.getByText('Correção', { exact: true })).toBeVisible()
       await expect(authenticatedPage.getByText('correct', { exact: true })).toHaveCount(0)
@@ -649,6 +672,7 @@ test.describe('ActivityPage route coverage', () => {
       })
       await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
       await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+
       await expect(authenticatedPage).toHaveURL(
         new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
       )

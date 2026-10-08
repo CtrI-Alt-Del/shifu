@@ -105,6 +105,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   bff,
 }) => {
   const calls: Array<{ url: string; body: string }> = []
+
   await bff.route(async (route) => {
     const url = route.request().url()
     const body = route.request().postData() ?? ''
@@ -138,6 +139,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   })
 
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
   await expect(
     authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
   ).toBeVisible()
@@ -304,8 +306,11 @@ test('renders mixed official details as independent keyboard-accessible disclosu
 
   await codeSummary.focus()
   await authenticatedPage.keyboard.press('Space')
+
   await expect(codeDisclosure).toHaveAttribute('open', '')
+
   await choiceSummary.click()
+
   await expect(choiceDisclosure).toHaveAttribute('open', '')
   await expect(codeDisclosure).toHaveAttribute('open', '')
   await expect(
@@ -323,6 +328,7 @@ test('renders mixed official details as independent keyboard-accessible disclosu
 
   await codeSummary.focus()
   await authenticatedPage.keyboard.press('Enter')
+
   await expect(codeDisclosure).not.toHaveAttribute('open', '')
   await expect(choiceDisclosure).toHaveAttribute('open', '')
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
@@ -401,6 +407,7 @@ test.describe('ChoiceResultPage route coverage', () => {
     }) => {
       let attemptReads = 0
       const requestUrls: string[] = []
+
       await bff.route(async (route) => {
         const body = route.request().postData() ?? ''
         const payload = decodeURIComponent(`${route.request().url()} ${body}`)
@@ -424,6 +431,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
@@ -463,6 +471,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       let attemptUrl = ''
       let retryUrl = ''
       let attemptReads = 0
+
       await bff.route(async (route) => {
         const requestUrl = route.request().url()
         const body = route.request().postData() ?? ''
@@ -505,16 +514,19 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(
         authenticatedPage.getByRole('heading', {
           name: 'A avaliação não pôde ser concluída',
         }),
       ).toBeVisible()
       await authenticatedPage.getByRole('button', { name: 'Tentar novamente' }).click()
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
       ).toBeVisible()
       await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+
       await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
       expect(retryUrl).not.toBe('')
       expect(attemptReads).toBeGreaterThanOrEqual(2)
@@ -545,6 +557,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
       ).toBeVisible()
@@ -552,6 +565,7 @@ test.describe('ChoiceResultPage route coverage', () => {
         authenticatedPage.getByLabel('Nota da Atividade 100 de 100'),
       ).toBeVisible()
       await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+
       await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
       await expect(
         authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),

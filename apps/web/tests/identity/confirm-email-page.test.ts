@@ -5,10 +5,12 @@ import { IdentityActionTokenFaker } from '../../src/core/identity/fakers'
 test.describe('ConfirmEmailPage route with mocked transport', () => {
   test('settles malformed input locally without calling the BFF', async ({ page }) => {
     let didCallConfirmation = false
+
     await page.route('**/api/auth/confirm-email*', async (route) => {
       didCallConfirmation = true
       await route.abort()
     })
+
     await page.goto('/confirm-email/?token=invalid')
 
     await expect(page.getByRole('heading', { name: 'Link inválido' })).toBeFocused()
@@ -20,6 +22,7 @@ test.describe('ConfirmEmailPage route with mocked transport', () => {
     page,
   }) => {
     const validToken = IdentityActionTokenFaker.fake()
+
     await page.route('**/api/auth/confirm-email*', async (route) => {
       expect(route.request().postDataJSON()).toEqual({ token: validToken })
       await route.fulfill({
@@ -28,6 +31,7 @@ test.describe('ConfirmEmailPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.goto(`/confirm-email/?token=${validToken}`)
 
     await expect(page.getByRole('heading', { name: 'Link expirado' })).toBeFocused()

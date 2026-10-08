@@ -10,6 +10,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 })
+
     await page.goto('/register/')
 
     await expect(
@@ -30,6 +31,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     page,
   }) => {
     const displayName = IdentityDisplayNameFaker.fake()
+
     await page.goto('/register/')
     await page.waitForLoadState('networkidle')
     await page.getByRole('textbox', { name: 'Nome de exibição' }).fill(displayName)
@@ -52,6 +54,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     const registration = IdentityRegistrationDataFaker.fake()
     const password = 'password-123'
     let requestBody: unknown
+
     await page.route('**/api/auth/register/identity', async (route) => {
       requestBody = route.request().postDataJSON()
       await route.fulfill({
@@ -60,6 +63,7 @@ test.describe('RegisterPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.goto('/register/')
     await page.waitForLoadState('networkidle')
     await page

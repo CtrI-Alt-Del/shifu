@@ -8,10 +8,12 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     page,
   }) => {
     let didCallBff = false
+
     await page.route('**/api/auth/password-reset', async (route) => {
       didCallBff = true
       await route.abort()
     })
+
     await page.goto(`${ROUTES.resetPassword}/?token=invalid`)
 
     await expect(page.getByRole('heading', { name: 'Link inválido' })).toBeFocused()
@@ -24,6 +26,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
   }) => {
     const validToken = IdentityActionTokenFaker.fake()
     let statusRequestBody: unknown
+
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       statusRequestBody = route.request().postDataJSON()
       await route.fulfill({
@@ -42,6 +45,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
 
   test('shows an expired outcome before rendering the reset form', async ({ page }) => {
     const validToken = IdentityActionTokenFaker.fake()
+
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'expired' }),
@@ -60,6 +64,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     page,
   }) => {
     const validToken = IdentityActionTokenFaker.fake()
+
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'valid' }),
@@ -67,6 +72,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/password-reset', async (route) => {
       await route.fulfill({
         body: JSON.stringify({
@@ -89,6 +95,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
 
   test('offers a new request for an already-used link', async ({ page }) => {
     const validToken = IdentityActionTokenFaker.fake()
+
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ result: 'used' }),
@@ -98,8 +105,11 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.resetPassword}/?token=${validToken}`)
+
     await expect(page.getByRole('heading', { name: 'Link já utilizado' })).toBeFocused()
+
     await page.getByRole('button', { name: 'Solicitar novo link' }).click()
+
     await expect(page).toHaveURL(/\/forgot-password\/?$/)
   })
 
@@ -107,6 +117,7 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     page,
   }) => {
     const validToken = IdentityActionTokenFaker.fake()
+
     await page.route('**/api/auth/password-reset-link/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ message: 'unavailable' }),
@@ -116,10 +127,12 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.resetPassword}/?token=${validToken}`)
+
     await expect(
       page.getByRole('heading', { name: 'Não foi possível redefinir agora' }),
     ).toBeFocused()
     await page.getByRole('button', { name: 'Tentar novamente' }).click()
+
     await expect(
       page.getByRole('heading', { name: 'Não foi possível redefinir agora' }),
     ).toBeVisible()

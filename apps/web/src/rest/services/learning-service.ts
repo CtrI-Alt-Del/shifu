@@ -65,6 +65,7 @@ function mapActivityQuestion(
   question: ActivityWire['questions'][number],
 ): ActivityQuestion {
   if (question.kind !== 'javascript_stdin') return question
+
   return {
     key: question.key,
     kind: question.kind,
@@ -212,6 +213,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body.skills
     },
 
@@ -230,6 +232,7 @@ export const LearningService = (restClient: RestClient) => {
         throw new CurriculumGapError()
       }
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -239,6 +242,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -261,6 +265,7 @@ export const LearningService = (restClient: RestClient) => {
         throw new CurriculumGapError()
       }
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -302,6 +307,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -321,6 +327,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return {
         ...response.body,
         activitySequence: response.body.activitySequence ?? [],
@@ -358,6 +365,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -385,6 +393,7 @@ export const LearningService = (restClient: RestClient) => {
       })
 
       if (response.isFailure) response.throwError()
+
       return response.body.goals
     },
 
@@ -398,6 +407,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -427,6 +437,7 @@ export const LearningService = (restClient: RestClient) => {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -442,6 +453,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       })
       if (response.isFailure) response.throwError()
+
       const body = response.body
 
       return {
@@ -483,6 +495,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       const body = response.body
       return {
         status: body.status,
@@ -536,6 +549,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return {
         attemptId: response.body.attempt_id,
         status: response.body.status,
@@ -553,6 +567,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return mapAttempt(response.body)
     },
 
@@ -581,6 +596,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -596,6 +612,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body.created
     },
 
