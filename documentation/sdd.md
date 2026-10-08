@@ -214,6 +214,14 @@ Evaluation records the exact targets, command, elapsed time and mutant outcomes.
 Server CI runs all eligible `core/use_cases/**` files across 12 balanced shards
 with `--all --core --shard N/12`, independently of the Spec diff, using only
 use-case tests without containers.
+The required Server aggregate waits for both the mutation shards and their
+score-summary gate. Summary generation runs with read permissions and uploads a
+Markdown artifact. The separate
+`.github/workflows/server-mutation-comment.yaml` workflow publishes that artifact
+after Server CI completes. It runs from the default branch, has pull-request
+comment permission only for publication, and does not check out or execute PR
+code. GitHub requires this `workflow_run` workflow to exist on the default branch,
+so a PR adding the publisher enables it for later runs after merge.
 
 ## Roles and lifecycle
 

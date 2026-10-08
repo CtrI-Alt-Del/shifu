@@ -481,20 +481,32 @@ upload separate reports even on failure under
 `apps/server/test-results/mutation/shard-N-of-12/`. Reports label targets and
 mutation outcomes by module so failures remain attributable without assigning
 unequal modules to separate jobs.
-A summary job downloads the shard artifacts and creates or updates one bot
-comment on same-repository pull requests. The table groups killed, survived,
+A summary job downloads the shard artifacts, applies the module score gates and
+uploads the Markdown report artifact. The table groups killed, survived,
 uncovered, timed-out and error mutants by module and shows one overall score and
 a combined gate result for each module. The module score is
 `killed / (killed + survived)`; uncovered, timeout and error outcomes are
-excluded. Fork pull requests run the same score gates but do not receive the
-comment.
+excluded. The required Server aggregate waits for both mutation execution and
+the summary gate.
+
+The separate `.github/workflows/server-mutation-comment.yaml` workflow uses the
+`workflow_run` event to publish the report artifact after Server CI completes.
+It runs from the default branch and grants pull-request comment permission only
+to the publisher job. That job downloads the report and does not check out the
+pull request or run its code. GitHub starts a `workflow_run` workflow only after
+its file exists on the default branch, so a PR adding this publisher enables
+comment publication for later runs after merge. The publisher targets
+same-repository pull requests; fork pull requests still run the score gates but
+do not receive the comment.
 
 The first 12-shard GitHub Actions measurement completed all shards in **3m38s**
 (2026-10-08, [run 37787846018](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37787846018)).
 This is wall time from the first shard start at 13:52:38 UTC to the last shard
 completion at 13:56:16 UTC, including runner setup and dependency installation.
 Individual shard job durations ranged from 1m08s to 3m38s; shard 11 was the
-longest. The full workflow run, including the summary-comment job, took 4m08s.
+longest. At that time, summary-comment publication was part of Server CI and the
+full run took 4m08s. With the separated publisher, comment publication runs in a
+second workflow after Server CI and is excluded from the Server CI duration.
 
 `--shard N/TOTAL` requires `--all --core`; it cannot narrow tests with `--tests`.
 Use the same command locally to reproduce an individual CI shard. Source
