@@ -5,7 +5,7 @@ spec: ./spec.md
 spec_revision: 1
 evaluation: ./evaluation.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-79
-last_updated_at: 2026-10-07
+last_updated_at: 2026-10-08
 ---
 
 # 1. Execution status
@@ -311,3 +311,19 @@ Ready for `conclude-spec`.
     a web historical-rendering test).
   - **Next action:** none — all gates reconfirmed green; routing to
     `conclude-spec`.
+- **2026-10-07/08 — Post-completion domain-model reconciliation**
+  - **Finding/result:** `main` advanced 28 commits while this branch was
+    being prepared for PR, landing a teammate's (JohnPetros's) independently
+    merged Gamification domain model (`37f2395`, `SHIFU-999`) covering the
+    same ground as this Spec. Per explicit direction, that merged model is
+    authoritative; the domain layer built here was replaced by his, and
+    `core/interfaces`/`core/use_cases`/`database/sqlalchemy`/
+    `messaging/inngest`/`rest/controllers`/the migration were all re-derived
+    against his entities, enums, and structures, preserving this Plan's
+    validated business logic (cascade-until-stable, idempotency, RF-08/CA-11
+    backdating, criterion labels). See `evaluation.md`'s "Post-completion
+    domain-model reconciliation" section for the full account and rerun gate
+    results.
+  - **Next action:** none — all gates (lint/types/architecture, full server
+    suite, Gamification jobs against real Inngest, web lint/types/unit
+    tests) reconfirmed green against the reconciled code.

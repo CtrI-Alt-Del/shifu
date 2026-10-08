@@ -7,7 +7,7 @@ plan: ./plan.md
 source: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-79
 prd_content_id: "82903042"
 prd_version_note: Retrieved 2026-10-05; re-verify before conclude-spec.
-last_updated_at: 2026-10-07
+last_updated_at: 2026-10-08
 ---
 
 # Evaluation status
@@ -206,7 +206,9 @@ feature-local details.
   completion of that requirement, not a new surface.
 - **Generated-file treatment:** migration `50cab7ec9bb5` reviewed, applies and
   reverses cleanly (EV-5); `app.py` diff reviewed for composition correctness
-  (EV-1, EV-6); no other generated artifacts affected.
+  (EV-1, EV-6); no other generated artifacts affected. Superseded by
+  migration `a2f91c6d8e47` — see "Post-completion domain-model
+  reconciliation" below.
 - **Contract obligations/exclusions:** all 19 `CA-*` have current `passed`
   evidence (Acceptance coverage table above); RP-02/RP-05/RP-06/RP-09/RP-10
   remain explicitly out of scope per `spec.md`, unchanged by this conclusion.
@@ -223,3 +225,47 @@ feature-local details.
   `spec.md` and above).
 - **Unresolved findings:** none. All five (`ACH-1`–`ACH-5`) resolved with
   current, re-verified evidence.
+
+# Post-completion domain-model reconciliation (2026-10-07/08)
+
+After this Evaluation was marked `completed` against the baseline recorded
+above (empty Gamification skeletons, no competing domain model on `main`),
+`main` advanced 28 commits while this branch was being prepared for PR,
+including `37f2395 feat(core): SHIFU-999 add gamification domain model` — a
+teammate's (JohnPetros's) independently-authored, already-merged
+Gamification domain model covering the same ground as this Spec (entities,
+enums, structures, achievement catalog). Per explicit direction, that merged
+model is authoritative wherever it conflicts with or supersedes anything
+built here.
+
+The implementation was rebuilt on top of JohnPetros's domain layer
+end-to-end: `core/interfaces`, `core/use_cases`, `database/sqlalchemy`
+(models/mappers/repositories), `messaging/inngest`, `rest/controllers`, and
+the migration (new revision `a2f91c6d8e47`, `down_revision='ba1d8c9e2f34'`,
+replacing the superseded `50cab7ec9bb5`) were all re-derived against his
+entities, enums, and structures. The business logic this Spec and the
+Implementation Reviewer already validated — the XP→level→achievement
+cascade-until-stable algorithm, idempotent milestone recognition, RF-08/
+CA-11 backdating semantics, and the criterion-label formatting — was
+preserved and re-expressed through his types, not re-derived from scratch.
+Two non-conflicting structures (`AchievementOverviewEntry`,
+`AchievementsOverview`) were added for the REST response shape, since his
+model does not define a read-side DTO.
+
+The full automated gate set was rerun clean against the reconciled code:
+`uv run poe check:lint`/`check:types`/`check:architecture` (0
+errors/warnings), 31 Gamification unit/controller tests (including the real
+Postgres-Testcontainer controller test against the new migration), all 6
+Gamification jobs against the real Inngest dev-server runtime, the full
+404-test server suite (no regressions outside Gamification), `pnpm
+check:lint`/`check:types`, and the Gamification web unit-test suite (12
+tests, including a new case proving a historical achievement's now-always-
+resolved family is excluded from its family group — a behavior change
+required because JohnPetros's `EarnedAchievement` snapshots criterion data
+that resolves a family even for retired catalog entries, unlike this
+Spec's original design where a historical entry's family was `null`).
+
+This reconciliation is a substitution of the domain layer underneath an
+otherwise-unchanged Contract, not a scope or acceptance-criteria change, so
+`spec.md` revision remains 1 and no `CA-*` was added, removed, or
+reinterpreted.
