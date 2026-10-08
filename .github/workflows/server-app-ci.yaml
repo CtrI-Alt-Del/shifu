@@ -94,22 +94,17 @@ jobs:
       - name: Run unit tests
         run: uv run poe test:unit
 
+      - name: Check mutation tooling
+        run: >-
+          uv run pytest --confcutdir=tests/tooling
+          tests/tooling/test_mutation_launcher.py
+          tests/tooling/test_mutation_report.py
+
       - name: Run integration tests
         run: uv run poe test:integration
 
       - name: Run real Inngest job tests
         run: uv run poe test:jobs
-
-      - name: Run mutation tests
-        run: uv run poe test:mutation --all
-
-      - name: Upload mutation reports
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: server-mutation-report
-          path: apps/server/test-results/mutation
-          if-no-files-found: ignore
 
       - name: Build distributions
         run: uv build
@@ -118,3 +113,122 @@ jobs:
         run: |
           test -f dist/*.tar.gz
           test -f dist/*.whl
+
+  mutation:
+    name: Use-case mutation shard ${{ matrix.shard }}/12
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run use-case mutation tests
+        run: uv run poe test:mutation --all --core --shard ${{ matrix.shard }}/12
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-mutation-shard-${{ matrix.shard }}-of-12
+          path: apps/server/test-results/mutation/shard-${{ matrix.shard }}-of-12
+          if-no-files-found: error
+
+  mutation-summary:
+    name: Comment mutation summary
+    if: >-
+      always() &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: mutation
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Download mutation shard reports
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          pattern: server-mutation-shard-*-of-12
+          path: ${{ runner.temp }}/mutation-reports
+          merge-multiple: false
+
+      - name: Build mutation summary
+        id: report
+        if: always()
+        env:
+          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
+          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
+          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
+        run: >-
+          python apps/server/scripts/summarize_mutation_reports.py
+          --reports-dir "$REPORTS_DIR"
+          --expected-shards 12
+          --mutation-result "$MUTATION_JOB_RESULT"
+          --output "$REPORT_PATH"
+
+      - name: Create or update pull request comment
+        if: always() && steps.report.outcome == 'success'
+        uses: actions/github-script@v9
+        env:
+          SUMMARY_PATH: ${{ runner.temp }}/mutation-summary.md
+        with:
+          script: |
+            const fs = require('fs')
+            const issue_number = context.issue.number
+            const marker = '<!-- shifu-mutation-summary -->'
+            const body = fs.readFileSync(process.env.SUMMARY_PATH, 'utf8')
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number,
+              per_page: 100,
+            })
+            const previous = comments.find(
+              (comment) =>
+                comment.user?.login === 'github-actions[bot]' &&
+                comment.body?.includes(marker),
+            )
+            if (previous) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: previous.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number,
+                body,
+              })
+            }
