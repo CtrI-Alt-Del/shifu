@@ -602,6 +602,14 @@ generates templates and verifies the server distribution contract when its path
 filters match. A remote CI run is evidence for its exact candidate/environment;
 do not treat a pending or failed check as passed.
 
+Web CI runs static checks, unit tests and browser integration in separate jobs;
+the browser job keeps its database/server setup and build before Playwright. Server
+CI separates static checks, unit/tooling checks, integration tests, real Inngest
+job tests and distribution builds; mutation shards also run independently and the
+summary depends only on those shards. Email package code/type checks run alongside
+the generated-template and Server distribution contract job. Each workflow keeps
+its existing required check name as an aggregate that fails if any child job fails.
+
 ## Database and asynchronous tooling status
 
 The server provides an explicit Alembic migration workflow and registers its

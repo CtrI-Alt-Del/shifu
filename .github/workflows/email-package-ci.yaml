@@ -26,8 +26,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify email package and server contract
+  email-package:
+    name: Check email package code and types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check email package code
+        run: pnpm --dir packages/email check:code
+
+      - name: Check email package types
+        run: pnpm --dir packages/email check:types
+
+  server-contract:
+    name: Build email templates and verify server contract
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
@@ -68,12 +96,6 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check email package code
-        run: pnpm --dir packages/email check:code
-
-      - name: Check email package types
-        run: pnpm --dir packages/email check:types
-
       - name: Build generated email templates
         run: pnpm --dir packages/email build
 
@@ -106,3 +128,22 @@ jobs:
         run: |
           test -f dist/*.tar.gz
           test -f dist/*.whl
+
+  verify:
+    name: Verify email package and server contract
+    if: ${{ always() }}
+    needs:
+      - email-package
+      - server-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require package checks and server contract
+        env:
+          EMAIL_PACKAGE_RESULT: ${{ needs.email-package.result }}
+          SERVER_CONTRACT_RESULT: ${{ needs.server-contract.result }}
+        run: |
+          if [[ "$EMAIL_PACKAGE_RESULT" != "success" || "$SERVER_CONTRACT_RESULT" != "success" ]]; then
+            echo "Email package result: $EMAIL_PACKAGE_RESULT"
+            echo "Server contract result: $SERVER_CONTRACT_RESULT"
+            exit 1
+          fi
