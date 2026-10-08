@@ -488,6 +488,13 @@ uncovered, timed-out and error mutants by module. Its final mutation score is
 excluded. Fork pull requests retain their shard artifacts but do not receive the
 comment.
 
+The first 12-shard GitHub Actions measurement completed all shards in **3m38s**
+(2026-10-08, [run 37787846018](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37787846018)).
+This is wall time from the first shard start at 13:52:38 UTC to the last shard
+completion at 13:56:16 UTC, including runner setup and dependency installation.
+Individual shard job durations ranged from 1m08s to 3m38s; shard 11 was the
+longest. The full workflow run, including the summary-comment job, took 4m08s.
+
 `--shard N/TOTAL` requires `--all --core`; it cannot narrow tests with `--tests`.
 Use the same command locally to reproduce an individual CI shard. Source
 complexity estimates work rather than guaranteeing equal runtime; test startup
