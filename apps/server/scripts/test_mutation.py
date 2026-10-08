@@ -15,7 +15,7 @@ import tempfile
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 SERVER = Path(__file__).resolve().parents[1]
 
@@ -235,7 +235,7 @@ def checked_paths(values: list[str], root: Path, folder: str) -> set[Path]:
 
 
 @contextmanager
-def mutation_runtime(core: bool, env: dict[str, str]) -> Iterator[None]:
+def mutation_runtime(core: bool, env: dict[str, str]) -> Generator[None]:
     if core:
         env.pop('SHIFU_RUN_REAL_INNGEST_TESTS', None)
         env.pop('PYTEST_PLUGINS', None)
@@ -285,6 +285,24 @@ def module_outcomes(results: str) -> dict[str, dict[str, int]]:
         counts['total'] += 1
         counts[status] = counts.get(status, 0) + 1
     return dict(sorted(modules.items()))
+
+
+def source_outcomes(results: str) -> dict[str, dict[str, int]]:
+    """Count mutation results by their Python source path."""
+    sources: dict[str, dict[str, int]] = {}
+    for line in results.splitlines():
+        identifier, separator, status = line.strip().rpartition(': ')
+        if not separator or '__mutmut_' not in identifier:
+            continue
+        module_path, separator, _ = identifier.partition('.xǁ')
+        if not separator or not module_path.startswith('shifu.'):
+            continue
+        source = Path('src', *module_path.split('.')[1:]).with_suffix('.py')
+        source_name = source.as_posix()
+        counts = sources.setdefault(source_name, {'total': 0})
+        counts['total'] += 1
+        counts[status] = counts.get(status, 0) + 1
+    return dict(sorted(sources.items()))
 
 
 def run(
@@ -350,11 +368,14 @@ def run(
             )
             report_exit_codes[name] = output.returncode
             (report / name).write_text(output.stdout + output.stderr)
-        outcomes = module_outcomes((report / 'results.txt').read_text())
+        result_text = (report / 'results.txt').read_text()
+        outcomes = module_outcomes(result_text)
+        source_results = source_outcomes(result_text)
         (report / 'module-results.json').write_text(
             json.dumps(
                 {
                     'modules': outcomes,
+                    'files': source_results,
                     'source': 'mutmut results --all true',
                     'status': 'complete'
                     if report_exit_codes['results.txt'] == 0

@@ -483,9 +483,10 @@ mutation outcomes by module so failures remain attributable without assigning
 unequal modules to separate jobs.
 A summary job downloads the shard artifacts and creates or updates one bot
 comment on same-repository pull requests. The table groups killed, survived,
-uncovered, timed-out and error mutants by module. Its final mutation score is
+uncovered, timed-out and error mutants by module and shows a separate score and
+existing-score regression and new-code gates for each module. The module score is
 `killed / (killed + survived)`; uncovered, timeout and error outcomes are
-excluded. Fork pull requests retain their shard artifacts but do not receive the
+excluded. Fork pull requests run the same score gates but do not receive the
 comment.
 
 The first 12-shard GitHub Actions measurement completed all shards in **3m38s**
@@ -504,8 +505,18 @@ covered by their applicable unit, integration and static checks. `--all` without
 run. Spec implementation follows the changed-core-only policy above. Web CI does
 not run mutation testing.
 
-The Server runner reports survivors without an added score threshold. A successful
-command means the runner completed, not that every mutant was killed. Review
+The hybrid gate applies a fixed **70%** minimum to mutants in changed
+`core/use_cases/**` files. It also protects each module's full score from a
+regression greater than **5 percentage points** from the baseline in
+`apps/server/scripts/mutation_score_thresholds.json`. The baseline is the first
+full CI run, recorded per module as exact killed/scored counts. Current full-score
+regression floors are 59.5% for Communication, 74.4% for Identity, 95% for
+Intelligence and 59.1% for Learning. When a module has no changed use-case file,
+only its existing-score regression gate applies; a new module has no historical
+regression floor until its first complete run. A changed file with no scored
+mutants fails the new-code gate. Update baselines only after reviewing a complete
+run; do not lower them. The summary displays one overall score per module and
+separate pass/fail results for the new-code and regression gates. Review
 survivors, uncovered mutants and runner errors in the report. For
 correctness-critical Server changes the Spec identifies mutation scope, risk, pass
 conditions and survivor/equivalence disposition; any stricter criterion must be
