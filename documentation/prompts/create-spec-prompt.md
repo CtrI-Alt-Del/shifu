@@ -273,16 +273,29 @@ isolated/disposable setup. Missing executable setup is a contract gap.
 Automated checks cover authorization, isolation, persistence, finite contracted
 combinations, bounds, failure/recovery and concurrency at permitted boundaries.
 For unbounded domains specify equivalence classes and boundary values. Assess
-targeted mutation testing for changed business rules/correctness-critical logic:
+targeted mutation testing for changed Server business rules/correctness-critical logic:
 record whether it is required and why, the concrete risk, target scope, verified
 runner, mutation classes, pass condition and survivor/equivalence disposition.
 It is not a universal gate for every business-rule edit. When not required,
 identify the assertions that address the risk and why mutation adds insufficient
 value for this slice. Tool availability alone is not a reason to omit necessary
 proof; never downgrade an already-required check just to obtain readiness.
-Use the application mutation scripts and scoped selection documented in
-[Tooling](../tooling.md#mutation-testing): Stryker for Web and mutmut for Server.
-CI explicitly uses `--all`; local verification selects affected files and tests.
+Use the Server mutmut script and scoped selection documented in
+[Tooling](../tooling.md#mutation-testing). Web has no mutation runner; record Web
+mutation checks as Not applicable and verify correctness through applicable
+unit/component, browser and static checks. Server CI explicitly uses 12 balanced
+`--all --core --shard N/12` jobs to mutate every eligible Server
+`core/use_cases/**` file using only use-case tests without containers.
+For Spec implementation, limit mutation targets to production Server `core/use_cases/**` files
+created or modified by this Spec and
+specify exact application-relative `--files` paths. Select only related use-case
+tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`; core mutation runs
+require no Docker or containers. Do not select an entire core package, unrelated
+changes, other layers or `--all` without a separate explicit user request. With no eligible
+Server use-case changes, record Not applicable and its rationale; reconcile an existing
+required check before changing its disposition. Require Evaluation to record
+the exact targets, command, elapsed execution time and mutant outcomes.
 Runner success does not prove all mutants were killed; define survivor handling.
 A required unavailable mutation check remains Blocked and ordinary coverage cannot
 satisfy it; record any deferral explicitly.

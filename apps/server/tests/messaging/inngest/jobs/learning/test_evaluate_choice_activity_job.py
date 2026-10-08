@@ -539,7 +539,18 @@ class TestEvaluateChoiceActivityJob:
             assert failed.effect_applied_at is None
             assert _evaluated_event_count(engine) == 1
             assert _progress_current(engine) == progress_after_completion
-            assert len(_DecisionsHandler.requests) == 2
+            assert len(_DecisionsHandler.requests) == 3
+            failed_requests = _DecisionsHandler.requests[1:]
+            assert failed_requests[0] == failed_requests[1]
+            failed_request_state = cast(
+                'dict[str, object]', failed_requests[0]['state']
+            )
+            failed_request_files = cast(
+                'list[dict[str, object]]', failed_request_state['project_files']
+            )
+            assert failed_request_files == [
+                {'path': 'src/main.js', 'content': '// request-failure'}
+            ]
             request_state = cast(
                 'dict[str, object]', _DecisionsHandler.requests[0]['state']
             )

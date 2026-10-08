@@ -247,7 +247,6 @@ Playwright.
 | `pnpm --filter web check:lint` | Run Biome checks |
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
-| `pnpm --filter web test:mutation` | Run Stryker against changed production files and related Vitest tests |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
@@ -415,19 +414,17 @@ applicable current PR heads; these local scope rules do not change CI discovery.
 
 ### Mutation testing
 
-Mutation tooling is configured for applications only: Web uses Stryker 10 with
-its Vitest runner; Server uses mutmut 3.8 for Python. Packages such as Email do
-not have mutation scripts. Run from the repository root for Web and from
-`apps/server` for Server:
+Mutation tooling is configured only for Server, using mutmut 3.8 for Python.
+Web and packages such as Email have no mutation runner; record mutation checks
+as Not applicable for those scopes. Verify Web correctness through applicable
+unit/component, browser and static checks. Run Server commands from `apps/server`:
 
 ```bash
-pnpm --filter web test:mutation
-pnpm --filter web test:mutation --base main
-pnpm --filter web test:mutation --files src/ui/shared/widgets/layouts/app-layout/mobile-header/use-mobile-header.ts
-
 uv run poe test:mutation
 uv run poe test:mutation --base main
-uv run poe test:mutation --files src/shifu/learning/core/use_cases/remove_goal_use_case.py
+uv run poe test:mutation --all --core
+uv run poe test:mutation --all --core --shard 1/12
+uv run poe test:mutation --core --files src/shifu/learning/core/use_cases/remove_goal_use_case.py
 ```
 
 Default selection includes staged, unstaged and untracked changes. On a feature
@@ -436,36 +433,92 @@ branch it also includes changes since the merge base with `origin/main` (or loca
 reference. `--files` supplies exact application-relative production paths and
 overrides Git discovery. Empty scope prints that no mutation tests executed;
 it never falls back to a complete suite or proves a mutation check passed.
+`--core` restricts eligible mutation targets to Server
+`core/use_cases/**` paths; it combines with `--all`, `--base` or `--files`. Explicit `--files` paths
+outside core are rejected when `--core` is present.
 
-Web mutates changed production files; colocated test edits select their owning
-source boundary. Vitest `related: true` limits discovery to tests importing those
-files, and per-test coverage selects tests for each mutant. Shared package/test configuration or workspace dependency changes require
-explicit `--files` to keep local checks scoped; the launcher does not silently
-expand to a full suite. Browser-only tests do not become mutation tests; explicitly identify the
-production files and corresponding Vitest coverage for that change. Server
-follows Python imports to select related pytest files; test edits select their
-production dependencies. Dynamic imports can require explicit Server `--tests`
-paths. Server fixture/configuration changes likewise require an explicit scope. Use `--dry-run` with either command to inspect selection without executing tests.
+During Spec implementation, mutation targets are limited to production Server
+`core/use_cases/**` files created or modified by the current Spec:
+`apps/server/src/shifu/<module>/core/use_cases/**`, including shared core only
+when changed by that Spec. Use `--core` with explicit application-relative `--files` paths
+from the Spec's actual diff; do not select the entire use-case directory,
+unrelated branch changes or other application layers. Select only related use-case
+tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`; exclude
+controller, job, tooling and other tests, including explicit `--tests` paths
+outside those use-case boundaries.
+When no eligible Server use-case files changed, record mutation testing as Not
+applicable with that reason; reconcile any existing required check before changing
+its disposition. Do not broaden targets or use `--all` during Spec implementation
+without a separate explicit user request. Record the exact targets, command,
+elapsed execution time and mutant outcomes in Evaluation.
+
+Server follows Python imports to select related pytest files; test edits select
+their production dependencies. Dynamic imports can require explicit `--tests`
+paths. Fixture/configuration changes likewise require an explicit scope. Use
+`--dry-run` to inspect selection without executing tests.
 
 Full source includes application runtime code; generated files, declarations,
 test/support fixtures and fakers are excluded. Server additionally excludes
 package `__init__.py` barrels. No application business module is excluded merely
-because its mutation score is low. Server runs in a temporary workspace with a
-disposable Redis container, protecting shared developer Redis from test cleanup;
-Docker is required. Its existing integration fixtures own disposable databases
-and Inngest instances. Reports are ignored local artifacts under
-`apps/web/reports/mutation/` and `apps/server/test-results/mutation/`.
+because its mutation score is low. Server runs in a temporary workspace. With
+`--core`, it mutates only `core/use_cases/**` sources and runs only use-case
+tests. It excludes the global `tests/conftest.py` from that workspace while
+preserving module-local fixtures, and skips Redis and
+Testcontainers setup. Core mutation runs require no Docker or containers; core
+tests mock infrastructure ports. Separately requested runs without `--core` may
+use a disposable Redis container and integration fixtures with disposable
+databases and Inngest instances; those runs require Docker. Reports are ignored
+local artifacts under `apps/server/test-results/mutation/`.
 
-The Web and Server CI workflows explicitly run the full mutation universe with
-`pnpm --filter web test:mutation --all` and `uv run poe test:mutation --all`,
-respectively, and upload reports even on failure. CI does not use Git scope
-selection. Local checks remain scoped; use `--all` locally only when explicitly
-requested or demonstrated impact covers the complete application.
+The Server CI workflow runs all eligible `core/use_cases/**` files across 12
+parallel jobs using `uv run poe test:mutation --all --core --shard N/12`, for
+`N` from 1 to 12. Deterministic AST weighting balances source complexity; each
+eligible file belongs to exactly one shard. Each shard retains the complete
+use-case unit test selection and requires no containers. Shared core use cases
+are included independently of the Git diff. Jobs use `fail-fast: false` and
+upload separate reports even on failure under
+`apps/server/test-results/mutation/shard-N-of-12/`. Reports label targets and
+mutation outcomes by module so failures remain attributable without assigning
+unequal modules to separate jobs.
+A summary job downloads the shard artifacts and creates or updates one bot
+comment on same-repository pull requests. The table groups killed, survived,
+uncovered, timed-out and error mutants by module and shows one overall score and
+a combined gate result for each module. The module score is
+`killed / (killed + survived)`; uncovered, timeout and error outcomes are
+excluded. Fork pull requests run the same score gates but do not receive the
+comment.
 
-Both runners report survivors without an added score threshold. A successful
-command means the runner completed, not that every mutant was killed. Review
+The first 12-shard GitHub Actions measurement completed all shards in **3m38s**
+(2026-10-08, [run 37787846018](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37787846018)).
+This is wall time from the first shard start at 13:52:38 UTC to the last shard
+completion at 13:56:16 UTC, including runner setup and dependency installation.
+Individual shard job durations ranged from 1m08s to 3m38s; shard 11 was the
+longest. The full workflow run, including the summary-comment job, took 4m08s.
+
+`--shard N/TOTAL` requires `--all --core`; it cannot narrow tests with `--tests`.
+Use the same command locally to reproduce an individual CI shard. Source
+complexity estimates work rather than guaranteeing equal runtime; test startup
+and runner availability also affect elapsed time. Other Server layers remain
+covered by their applicable unit, integration and static checks. `--all` without
+`--core` still selects the full Server application for a separately requested
+run. Spec implementation follows the changed-core-only policy above. Web CI does
+not run mutation testing.
+
+The hybrid gate applies a fixed **70%** minimum to mutants in changed
+`core/use_cases/**` files. It also protects each module's full score from a
+regression greater than **5 percentage points** from the baseline in
+`apps/server/scripts/mutation_score_thresholds.json`. The baseline is the first
+full CI run, recorded per module as exact killed/scored counts. Current full-score
+regression floors are 59.5% for Communication, 74.4% for Identity, 95% for
+Intelligence and 59.1% for Learning. When a module has no changed use-case file,
+only its existing-score regression gate applies; a new module has no historical
+regression floor until its first complete run. A changed file with no scored
+mutants fails the new-code gate. Update baselines only after reviewing a complete
+run; do not lower them. CI enforces the new-code and regression gates separately,
+while the report displays their combined result. Review
 survivors, uncovered mutants and runner errors in the report. For
-correctness-critical changes the Spec identifies mutation scope, risk, pass
+correctness-critical Server changes the Spec identifies mutation scope, risk, pass
 conditions and survivor/equivalence disposition; any stricter criterion must be
 verified separately. Mutation is not a universal prerequisite for every edit,
 and ordinary coverage cannot replace a required mutation check.
@@ -548,6 +601,16 @@ migration drift. The Email workflow separately checks package code/types,
 generates templates and verifies the server distribution contract when its path
 filters match. A remote CI run is evidence for its exact candidate/environment;
 do not treat a pending or failed check as passed.
+
+Web CI runs type, lint, architecture, unit, browser integration and build checks as
+independent jobs. Playwright uses the development server and keeps its own
+database/server setup. Server CI runs type, lint, architecture, unit, mutation
+tooling, integration, real Inngest job and distribution checks independently;
+mutation shards also run independently and the summary depends only on those
+shards. Email CI runs package code, type, template build, Server type and Server
+distribution checks independently; the package does not define unit or integration
+test scripts. Each workflow keeps its required check name as an aggregate that
+fails if any child job fails.
 
 ## Database and asynchronous tooling status
 

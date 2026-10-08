@@ -4,6 +4,7 @@ test('protects gamification and renders it for an active session', async ({
   authenticatedPage,
 }) => {
   await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
+
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
@@ -13,5 +14,6 @@ test('protects gamification and renders it for an active session', async ({
 
   await authenticatedPage.context().clearCookies()
   await authenticatedPage.goto('/gamification/')
+
   await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
 })

@@ -151,8 +151,19 @@ rendered state are unchanged; explain retained evidence in Evaluation.
 Execute the Verification Contract's Automated, Manual and Visual checks and all
 applicable Rule/Tooling baseline gates. For finite contracted input sets verify
 defined combinations; for unbounded inputs use the contracted equivalence classes
-and boundaries. Execute targeted mutation checks when required by the Spec and
-record detected/surviving mutants and justified exclusions directly in Evaluation.
+and boundaries. Execute targeted Server mutation checks when required by the Spec.
+Web has no mutation runner; record Web mutation checks as Not applicable and
+verify correctness through applicable unit/component, browser and static checks.
+Limit mutation targets to production Server `core/use_cases/**` files created or modified by the
+current Spec, using explicit application-relative `--files` paths under
+[Tooling's mutation policy](../tooling.md#mutation-testing). Select only related
+use-case tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`; core mutation runs require no Docker or containers. Do not
+mutate the whole core package, unrelated changes or other layers, or use `--all`,
+without a separate explicit user request. If no eligible Server `core/use_cases/**` files changed,
+record Not applicable with the reason and reconcile any existing required check.
+Record exact targets, command, elapsed execution time, detected/surviving mutants
+and justified exclusions directly in Evaluation.
 If required tooling is unavailable the check is Blocked; coverage is no substitute.
 Do not install a runner as an incidental implementation or documentation action.
 

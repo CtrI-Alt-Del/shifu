@@ -27,6 +27,7 @@ export const abandonDiagnosticAction = createServerFn({ method: 'POST' })
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unavailable' }
+
       await LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       ).abandonDiagnostic(

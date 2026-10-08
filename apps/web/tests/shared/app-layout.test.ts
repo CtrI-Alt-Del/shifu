@@ -17,6 +17,7 @@ test.describe('AppLayout', () => {
     )
 
     await navigation.getByRole('link', { name: 'Mentor' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/intelligence\/?$/)
     await expect(
       authenticatedPage.getByRole('heading', {
@@ -26,6 +27,7 @@ test.describe('AppLayout', () => {
     ).toBeVisible()
 
     await navigation.getByRole('link', { name: 'Objetivos' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/$/)
     await expect(
       authenticatedPage.getByRole('heading', {
@@ -56,10 +58,12 @@ test.describe('AppLayout', () => {
     )
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(navigation).not.toBeVisible()
 
     await menuButton.click()
     await authenticatedPage.mouse.click(20, 200)
+
     await expect(navigation).not.toBeVisible()
   })
 
@@ -80,6 +84,7 @@ test.describe('AppLayout', () => {
     await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeEnabled()
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(menu).not.toBeVisible()
     await expect(trigger).toBeFocused()
 
@@ -88,7 +93,9 @@ test.describe('AppLayout', () => {
       .getByRole('main')
       .filter({ hasText: 'Cada passo merece ser visto.' })
     await expect(gamificationMain).toBeVisible()
+
     await gamificationMain.click({ position: { x: 20, y: 20 } })
+
     await expect(menu).not.toBeVisible()
   })
 
@@ -178,6 +185,7 @@ test.describe('AppLayout', () => {
     await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 
     await authenticatedPage.getByRole('menuitem', { name: 'Sair' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
     expect(requestCount).toBe(2)
     expect(requests).toEqual([
@@ -196,6 +204,7 @@ test.describe('AppLayout', () => {
       name: 'Abrir menu da conta',
     })
     await accountTrigger.click()
+
     await expect(
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }),
     ).toBeVisible()
@@ -207,6 +216,7 @@ test.describe('AppLayout', () => {
     ).toBeVisible()
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }),
     ).not.toBeVisible()

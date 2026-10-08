@@ -123,9 +123,11 @@ export const getActivityAction = createServerFn({ method: 'GET' })
   })
   .handler(async ({ data }): Promise<ChoiceActivityDetail | GetActivityFailure> => {
     if ('kind' in data) return data
+
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       const learningService = LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       )
@@ -212,6 +214,7 @@ export const submitActivityAction = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<ChoiceSubmissionResult | ActionFailure> => {
     if ('kind' in data) return data
+
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
@@ -280,6 +283,7 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
       data,
     }): Promise<{ status: 'pending'; replayed: boolean } | ActionFailure> => {
       if ('kind' in data) return data
+
       try {
         const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
         if (!access) return { kind: 'unauthorized' }
@@ -335,6 +339,7 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<PreliminaryQuestionResult | ActionFailure> => {
     if ('kind' in data) return data
+
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
@@ -402,6 +407,7 @@ export function useActivityPage(props: ActivityPageProps) {
     enabled: routeIds !== null && !isDiagnosticSubmitted,
     queryFn: async () => {
       if (!routeIds) throw new Error('Missing Activity route IDs')
+
       const result = await getActivityAction({ data: routeIds })
       if (isActionFailure(result)) {
         if (result.kind === 'unavailable' && result.diagnosticProcessing)
@@ -567,11 +573,13 @@ export function useActivityPage(props: ActivityPageProps) {
 
   useEffect(() => {
     if (!isInvalidated || injected || !goalId || !skillId) return
+
     clearDiagnosticRun(goalId, skillId)
   }, [goalId, injected, isInvalidated, skillId])
 
   useEffect(() => {
     if (!isDiagnosticEntryRequired) return
+
     onNavigateToDiagnostic?.()
   }, [isDiagnosticEntryRequired, onNavigateToDiagnostic])
 
@@ -640,6 +648,7 @@ export function useActivityPage(props: ActivityPageProps) {
   useEffect(() => {
     function handleBeforeUnload(event: BeforeUnloadEvent) {
       if (!hasUnsentAnswers) return
+
       event.preventDefault()
       event.returnValue = ''
     }
@@ -712,6 +721,7 @@ export function useActivityPage(props: ActivityPageProps) {
 
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (!currentQuestion || currentQuestion.kind !== 'javascript_stdin') return
+
     const answer: CodeAnswer = {
       kind: 'javascript_stdin',
       questionKey: currentQuestion.key,
@@ -755,6 +765,7 @@ export function useActivityPage(props: ActivityPageProps) {
       if (!result || isActionFailure(result))
         throw result ? mapActionFailure(result) : new Error('Preview unavailable')
       if (request !== feedbackRequestRef.current) return
+
       setFeedback(result)
       setAnswers((current) => [
         ...current.filter((item) => item.questionKey !== snapshot.questionKey),
@@ -818,6 +829,7 @@ export function useActivityPage(props: ActivityPageProps) {
           data: { goalId, skillId, diagnosticRunId, submission },
         })
         if (isActionFailure(result)) throw mapActionFailure(result)
+
         didSubmitRef.current = true
         markDiagnosticSubmitted(goalId, skillId, diagnosticRunId)
         setUnsentAnswers(false)
@@ -847,6 +859,7 @@ export function useActivityPage(props: ActivityPageProps) {
         ? await props.onSubmit(submission)
         : await submitActivityAction({ data: { ...routeIds, submission } })
       if (isActionFailure(result)) throw mapActionFailure(result)
+
       didSubmitRef.current = true
       setUnsentAnswers(false)
       onUnsentAnswersChange?.(false)

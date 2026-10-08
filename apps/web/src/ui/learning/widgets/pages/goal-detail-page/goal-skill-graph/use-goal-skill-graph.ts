@@ -67,9 +67,11 @@ export function useGoalSkillGraph(
     while (pendingNodeIds.length > 0) {
       const nodeId = pendingNodeIds.pop()
       if (!nodeId || visitedNodeIds.has(nodeId)) continue
+
       visitedNodeIds.add(nodeId)
       for (const edge of layoutEdges) {
         if (edge.target !== nodeId) continue
+
         pathEdges.add(edge.id)
         pendingNodeIds.push(edge.source)
       }
@@ -123,6 +125,7 @@ export function useGoalSkillGraph(
       .layout(graph)
       .then((layout) => {
         if (!isCurrent) return
+
         const root = layout.children?.find((child) => child.id === ROOT_ID)
         setNodes([
           {
@@ -151,6 +154,7 @@ export function useGoalSkillGraph(
       })
       .catch(() => {
         if (!isCurrent) return
+
         setNodes([
           {
             id: ROOT_ID,

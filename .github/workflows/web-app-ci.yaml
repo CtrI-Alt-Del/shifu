@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - 'apps/web/**'
-      - 'scripts/test-mutation.mjs'
-      - 'scripts/tests/test-mutation.test.mjs'
       - '.github/workflows/web-app-ci.yaml'
       - '.node-version'
       - '.npmrc'
@@ -24,8 +22,122 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify web application
+  types:
+    name: Web type checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types
+        run: pnpm --filter web check:types
+
+  lint:
+    name: Web lint checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check lint
+        run: pnpm --filter web check:lint
+
+  architecture:
+    name: Web architecture checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check architecture
+        run: pnpm --filter web check:architecture
+
+  unit-tests:
+    name: Web unit tests
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm --filter web test:unit
+
+  browser-integration:
+    name: Web browser integration
     runs-on: ubuntu-latest
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
@@ -106,27 +218,6 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: Check types
-        run: pnpm --filter web check:types
-
-      - name: Check lint
-        run: pnpm --filter web check:lint
-
-      - name: Check architecture
-        run: pnpm --filter web check:architecture
-
-      - name: Run unit tests
-        run: pnpm --filter web test:unit
-
-      - name: Check mutation scope selection
-        run: node --test scripts/tests/test-mutation.test.mjs
-
-      - name: Run full mutation suite
-        run: pnpm --filter web test:mutation --all
-
-      - name: Build application
-        run: pnpm --filter web build
-
       - name: Run integration tests
         run: pnpm --filter web test:integration
 
@@ -138,10 +229,72 @@ jobs:
           path: apps/web/playwright-report
           if-no-files-found: ignore
 
-      - name: Upload mutation report
-        if: always()
-        uses: actions/upload-artifact@v6
+  build:
+    name: Build web application
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
         with:
-          name: web-mutation-report
-          path: apps/web/reports/mutation
-          if-no-files-found: ignore
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm --filter web build
+
+  verify:
+    name: Verify web application
+    if: always()
+    needs:
+      - types
+      - lint
+      - architecture
+      - unit-tests
+      - browser-integration
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all Web CI jobs to pass
+        env:
+          TYPES_RESULT: ${{ needs.types.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          BROWSER_INTEGRATION_RESULT: ${{ needs.browser-integration.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          if [[ "$TYPES_RESULT" != "success" || \
+            "$LINT_RESULT" != "success" || \
+            "$ARCHITECTURE_RESULT" != "success" || \
+            "$UNIT_TESTS_RESULT" != "success" || \
+            "$BROWSER_INTEGRATION_RESULT" != "success" || \
+            "$BUILD_RESULT" != "success" ]]; then
+            echo "One or more Web CI jobs did not pass."
+            exit 1
+          fi

@@ -190,13 +190,30 @@ consistency, migration, security and failure guarantees warranted by actual risk
 File count and section length do not determine completeness. Both modes retain
 source traceability, observable acceptance and sufficient executable proof.
 
-Mutation testing is a risk-based verification decision, not a blanket prerequisite
-for every business-rule edit. Require targeted execution when it addresses a
-concrete risk that warrants the additional proof; otherwise record the rationale
+Mutation testing applies only to Server and is a risk-based verification decision,
+not a blanket prerequisite for every business-rule edit. Web has no mutation
+runner; record Web mutation checks as Not applicable and verify its correctness
+through applicable unit/component, browser and static checks. Require targeted
+execution when it addresses a concrete risk that warrants the additional proof;
+otherwise record the rationale
 and the assertions that cover that risk. Runner availability alone must not
 determine whether proof is necessary. Once a check is required, missing tooling
 remains a blocker until the contract is explicitly reconciled; implementation
 cannot downgrade it merely to reach readiness.
+
+During Spec implementation, limit mutation targets to production Server
+`core/use_cases/**` files created or modified by that Spec, using explicit
+application-relative `--files` paths under
+[Tooling's mutation policy](tooling.md#mutation-testing). Use only related
+use-case tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`. Core mutation runs require no Docker or containers.
+Do not select unrelated changes, other layers or `--all` without a separate
+explicit user request. With no eligible Server use-case changes, record Not
+applicable with its rationale and reconcile any existing required check.
+Evaluation records the exact targets, command, elapsed time and mutant outcomes.
+Server CI runs all eligible `core/use_cases/**` files across 12 balanced shards
+with `--all --core --shard N/12`, independently of the Spec diff, using only
+use-case tests without containers.
 
 ## Roles and lifecycle
 
@@ -255,8 +272,9 @@ blocker after relevant diagnosis/recovery; finish independent work first.
    contract, using focused unit/component and static checks for feedback.
    Record material findings and meaningful checkpoints, not every edit. Automated
    checks cover defined finite combinations; unbounded inputs use equivalence
-   classes and boundaries. For changed business rules/correctness-critical logic,
+   classes and boundaries. For changed Server business rules/correctness-critical logic,
    explicitly assess targeted mutation testing and document its disposition.
+   Web mutation testing is Not applicable; Web has no mutation runner.
    If the contract requires it, specify scope, verified runner, pass conditions
    and treatment of surviving mutants. Unavailable execution remains blocked;
    ordinary tests/coverage cannot substitute. Do not install a runner incidentally.

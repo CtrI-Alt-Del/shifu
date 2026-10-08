@@ -14,6 +14,7 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.goto(`${ROUTES.pendingConfirmation}/`)
 
     await expect(page.getByRole('heading', { name: 'Confirme seu e-mail' })).toBeVisible()
@@ -24,6 +25,7 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
 
   test('exits the pending context and redirects to Entrar', async ({ page }) => {
     const requests: Array<{ method: string; pathname: string }> = []
+
     await page.route('**/api/auth/pending-confirmation', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ state: 'ready', retryAfterSeconds: null }),
@@ -31,6 +33,7 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/pending-confirmation/sign-out', async (route) => {
       requests.push({
         method: route.request().method(),
@@ -38,6 +41,7 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
       })
       await route.fulfill({ body: '{}', contentType: 'application/json', status: 200 })
     })
+
     await page.goto(`${ROUTES.pendingConfirmation}/`)
     await page.waitForFunction(() => '__TSR_ROUTER__' in window)
     await page.waitForLoadState('networkidle')
@@ -60,9 +64,11 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/pending-confirmation/resend', async (route) => {
       await route.fulfill({ body: '{}', contentType: 'application/json', status: 503 })
     })
+
     await page.goto(`${ROUTES.pendingConfirmation}/`)
     await page.getByRole('button', { name: 'Reenviar link' }).click()
 

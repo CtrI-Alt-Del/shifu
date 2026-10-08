@@ -51,6 +51,7 @@ test('renders the available focus state and sends one typed RPC request', async 
   bff,
 }) => {
   let detailRequests = 0
+
   await bff.route(async (route) => {
     const requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
@@ -90,6 +91,7 @@ test('protects the Competency route and preserves its dynamic IDs', async ({
   bff,
 }) => {
   let requestUrl = ''
+
   await bff.route(async (route) => {
     requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
@@ -233,6 +235,7 @@ test('renders the official Material with a path back to its Competency', async (
   bff,
 }) => {
   const materialPath = `${detailPath}/materials/${IDS.materialId}`
+
   await bff.route(async (route) => {
     const descriptor = new URL(route.request().url()).pathname.split('/_serverFn/')[1]
     if (descriptor) {
@@ -296,6 +299,7 @@ test('replaces a recoverable error after one explicit retry without changing IDs
   bff,
 }) => {
   let detailRequests = 0
+
   await bff.route(async (route) => {
     const requestUrl = route.request().url()
     if (!requestUrl.includes(IDS.competencyId)) {
@@ -316,12 +320,14 @@ test('replaces a recoverable error after one explicit retry without changing IDs
   })
 
   await navigateAuthenticatedPage(authenticatedPage, detailPath)
+
   await expect(
     authenticatedPage.getByRole('heading', {
       name: 'Não foi possível carregar esta Competência',
     }),
   ).toBeVisible()
   await authenticatedPage.getByRole('button', { name: 'Tentar novamente' }).click()
+
   await expect(
     authenticatedPage.getByRole('heading', {
       name: 'Estruturas de repetição',

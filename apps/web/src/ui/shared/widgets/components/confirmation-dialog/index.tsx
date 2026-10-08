@@ -48,6 +48,7 @@ export const ConfirmationDialog = ({
       <AlertDialogContent
         onCloseAutoFocus={(event) => {
           if (!restoreFocusRef?.current) return
+
           event.preventDefault()
           restoreFocusRef.current.focus()
         }}

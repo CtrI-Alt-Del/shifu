@@ -20,6 +20,7 @@ export function useRegisterPage() {
     } satisfies RegisterFormValues,
     onSubmit: async ({ value }: { value: RegisterFormValues }) => {
       if (isSubmitting) return
+
       const fields = validate(value)
       if (Object.keys(fields).length > 0) {
         for (const [name, error] of Object.entries(fields)) {

@@ -4,6 +4,7 @@ test('protects curriculum and renders it for an active session', async ({
   authenticatedPage,
 }) => {
   await navigateAuthenticatedPage(authenticatedPage, '/curriculum/')
+
   await expect(
     authenticatedPage.getByRole('heading', {
       level: 1,
@@ -13,5 +14,6 @@ test('protects curriculum and renders it for an active session', async ({
 
   await authenticatedPage.context().clearCookies()
   await authenticatedPage.goto('/curriculum/')
+
   await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
 })

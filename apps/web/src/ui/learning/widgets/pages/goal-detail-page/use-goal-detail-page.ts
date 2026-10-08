@@ -82,12 +82,14 @@ export function useGoalDetailPage({ goalId }: GoalDetailPageProps) {
 
   function handleCancelSkillRemoval() {
     if (isRemovingSkill) return
+
     setSelectedSkill(null)
     resetRemoveSkill()
   }
 
   async function handleConfirmSkillRemoval() {
     if (!selectedSkill || isRemovingSkill || isSkillRemovalSubmittingRef.current) return
+
     isSkillRemovalSubmittingRef.current = true
     try {
       await removeSkill()

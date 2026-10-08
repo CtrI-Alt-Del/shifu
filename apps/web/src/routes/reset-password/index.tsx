@@ -13,5 +13,6 @@ function ResetPasswordRoute() {
   const search = Route.useSearch()
   const token =
     'token' in search && typeof search.token === 'string' ? search.token : undefined
+
   return <ResetPasswordPage token={token} />
 }
