@@ -1,7 +1,41 @@
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
+function serverFnExport(url: string): string | null {
+  const segment = new URL(url).pathname.split('/_serverFn/')[1]
+  if (!segment) return null
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64').toString('utf-8')).export
+  } catch {
+    return null
+  }
+}
+
 test.describe('AppLayout', () => {
+  test.beforeEach(async ({ authenticatedPage }) => {
+    // The gamification page stands in here as a generic, already-authenticated
+    // destination for layout/navigation assertions unrelated to Gamification
+    // itself; its own achievements fetch is mocked so a real unauthorized
+    // response never fires the page's unrelated redirect-to-login effect.
+    await authenticatedPage.route('**/_serverFn/**', async (route) => {
+      const fn = serverFnExport(route.request().url())
+      if (fn?.startsWith('getAchievements_')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              kind: 'success',
+              overview: { level: 1, totalXp: 0, xpForNextLevel: 100, achievements: [] },
+            },
+          }),
+          contentType: 'application/json',
+          status: 200,
+        })
+        return
+      }
+      await route.fallback()
+    })
+  })
+
   test('navigates between the shared desktop destinations', async ({
     authenticatedPage,
   }) => {
