@@ -112,11 +112,22 @@ checker as Blocked; do not invent a command or infer a complexity score.
 **Passing condition:** <required gates pass, static dispositions have actual proof,
 and intended tests actually execute>
 
-For correctness-critical changes, assess targeted mutation testing against a
+For correctness-critical Server changes, assess targeted mutation testing against a
 concrete risk: required or not required, rationale, and the assertions addressing
 that risk. When required, specify scope, verified runner, pass condition and
 surviving-mutant disposition. Unavailable required execution is Blocked; ordinary
 coverage cannot substitute and runner availability alone does not settle necessity.
+Web has no mutation runner; record Web mutation checks as Not applicable and
+verify correctness through applicable unit/component, browser and static checks.
+During implementation, target only production Server `core/use_cases/**` files created or
+modified by this Spec, with explicit application-relative `--files` paths under
+[Tooling's mutation policy](../../tooling.md#mutation-testing). Select only related
+use-case tests under `tests/<module>/core/use_cases/**` or legacy
+`tests/core/**/use_cases/**`; core mutation runs require no Docker or containers. Whole-package, other-layer and
+`--all` execution require a separate explicit user request. With no eligible
+Server use-case changes, record Not applicable and its rationale; reconcile existing
+required checks before changing their disposition. Record targets, command, elapsed time
+and mutant outcomes in Evaluation.
 
 ## Manual
 
