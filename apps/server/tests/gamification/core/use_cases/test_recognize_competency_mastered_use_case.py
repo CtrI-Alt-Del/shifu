@@ -4,7 +4,8 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.gamification.entities import GamificationProfileFaker
-from shifu.gamification.core.domain.enums import MilestoneType, XpOrigin
+from shifu.gamification.core.domain.enums import MilestoneKind, XpSource
+from shifu.gamification.core.domain.structures import XpOrigin
 from shifu.gamification.core.interfaces import (
     GamificationDatabase,
     GamificationDatabaseRepositories,
@@ -17,8 +18,17 @@ from shifu.shared.core.interfaces import IdentifierProvider
 
 ACCOUNT_ID = 'account-1'
 COMPETENCY_ID = 'competency-1'
+SKILL_EXPERIENCE_ID = 'skill-experience-1'
+GRANT_ID = 'grant-1'
+MILESTONE_ID = 'milestone-1'
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 OCCURRED_AT = datetime(2025, 6, 15, tzinfo=UTC)
+
+_ORIGIN = XpOrigin(
+    source=XpSource.COMPETENCY_MASTERY,
+    reference_id=COMPETENCY_ID,
+    label='Competência dominada pela primeira vez',
+)
 
 
 class TestRecognizeCompetencyMasteredUseCase:
@@ -33,11 +43,11 @@ class TestRecognizeCompetencyMasteredUseCase:
             self.repositories
         )
         self.repositories.profiles.find_by_account_id.return_value = (
-            GamificationProfileFaker.fake(id=ACCOUNT_ID)
+            GamificationProfileFaker.fake(account_id=ACCOUNT_ID)
         )
         self.repositories.rewarded_milestones.try_add.return_value = True
         self.identifier_provider = create_autospec(IdentifierProvider, instance=True)
-        self.identifier_provider.generate.return_value = 'milestone-1'
+        self.identifier_provider.generate.side_effect = [GRANT_ID, MILESTONE_ID]
         self.grant_xp_use_case = create_autospec(GrantXpUseCase, instance=True)
         self.subject = RecognizeCompetencyMasteredUseCase(
             self.database,
@@ -46,19 +56,24 @@ class TestRecognizeCompetencyMasteredUseCase:
         )
 
     def test_should_grant_fifty_xp_on_first_mastery(self) -> None:
-        self.subject.execute(ACCOUNT_ID, COMPETENCY_ID, occurred_at=NOW, now=NOW)
+        self.subject.execute(
+            ACCOUNT_ID, COMPETENCY_ID, SKILL_EXPERIENCE_ID, occurred_at=NOW, now=NOW
+        )
 
         milestone = self.repositories.rewarded_milestones.try_add.call_args.args[0]
         assert milestone.account_id == ACCOUNT_ID
-        assert milestone.milestone_type is MilestoneType.COMPETENCY_MASTERED
-        assert milestone.reference_id == COMPETENCY_ID
+        assert milestone.fact_id == SKILL_EXPERIENCE_ID
+        assert milestone.kind is MilestoneKind.COMPETENCY_MASTERY
+        assert milestone.subject_id == COMPETENCY_ID
+        assert milestone.xp_grant_id == GRANT_ID
         assert milestone.rewarded_at == NOW
         self.grant_xp_use_case.apply_within_transaction.assert_called_once_with(
             self.repositories,
             ACCOUNT_ID,
+            GRANT_ID,
             50,
-            XpOrigin.COMPETENCY_MASTERY,
-            COMPETENCY_ID,
+            _ORIGIN,
+            SKILL_EXPERIENCE_ID,
             occurred_at=NOW,
             now=NOW,
         )
@@ -67,15 +82,20 @@ class TestRecognizeCompetencyMasteredUseCase:
         self,
     ) -> None:
         self.subject.execute(
-            ACCOUNT_ID, COMPETENCY_ID, occurred_at=OCCURRED_AT, now=NOW
+            ACCOUNT_ID,
+            COMPETENCY_ID,
+            SKILL_EXPERIENCE_ID,
+            occurred_at=OCCURRED_AT,
+            now=NOW,
         )
 
         self.grant_xp_use_case.apply_within_transaction.assert_called_once_with(
             self.repositories,
             ACCOUNT_ID,
+            GRANT_ID,
             50,
-            XpOrigin.COMPETENCY_MASTERY,
-            COMPETENCY_ID,
+            _ORIGIN,
+            SKILL_EXPERIENCE_ID,
             occurred_at=OCCURRED_AT,
             now=NOW,
         )
@@ -85,14 +105,18 @@ class TestRecognizeCompetencyMasteredUseCase:
     ) -> None:
         self.repositories.rewarded_milestones.try_add.return_value = False
 
-        self.subject.execute(ACCOUNT_ID, COMPETENCY_ID, occurred_at=NOW, now=NOW)
+        self.subject.execute(
+            ACCOUNT_ID, COMPETENCY_ID, SKILL_EXPERIENCE_ID, occurred_at=NOW, now=NOW
+        )
 
         self.grant_xp_use_case.apply_within_transaction.assert_not_called()
 
     def test_should_no_op_when_profile_is_missing(self) -> None:
         self.repositories.profiles.find_by_account_id.return_value = None
 
-        self.subject.execute(ACCOUNT_ID, COMPETENCY_ID, occurred_at=NOW, now=NOW)
+        self.subject.execute(
+            ACCOUNT_ID, COMPETENCY_ID, SKILL_EXPERIENCE_ID, occurred_at=NOW, now=NOW
+        )
 
         self.repositories.rewarded_milestones.try_add.assert_not_called()
         self.grant_xp_use_case.apply_within_transaction.assert_not_called()

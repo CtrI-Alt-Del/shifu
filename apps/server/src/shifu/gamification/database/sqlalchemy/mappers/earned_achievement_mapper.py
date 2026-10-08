@@ -16,9 +16,7 @@ class EarnedAchievementMapper:
             achievement_name=model.achievement_name,
             criterion=cast(
                 'AchievementCriterion',
-                Serialization.deserialize_value(
-                    model.criterion, AchievementCriterion
-                ),
+                Serialization.deserialize_value(model.criterion, AchievementCriterion),
             ),
             xp_reward=model.xp_reward,
             achieved_at=model.achieved_at,

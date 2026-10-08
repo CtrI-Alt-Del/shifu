@@ -9,7 +9,9 @@ from shifu.curriculum.core.domain.structures import CurriculumSequence
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.fakers.curriculum.entities import CompetencyFaker, SkillFaker
 from shifu.fakers.gamification.entities import GamificationProfileFaker
+from shifu.gamification.core.domain.enums import XpSource
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.gamification.database.sqlalchemy.mappers import XpGrantMapper
 from shifu.gamification.database.sqlalchemy.models import (
     GamificationProfileModel,
     RewardedMilestoneModel,
@@ -45,7 +47,7 @@ class TestRecognizeDiagnosticCompletedJob:
             with gamification_database.transaction() as repositories:
                 repositories.profiles.add(
                     GamificationProfileFaker.fake(
-                        id=account_id,
+                        account_id=account_id,
                         total_xp=0,
                         level=1,
                         created_at=NOW,
@@ -96,9 +98,9 @@ class TestRecognizeDiagnosticCompletedJob:
 
         inngest_fixture.publish(event.name, event_data, event_id=ids.generate())
         # 60 XP base (20 XP x 3 competencies, CA-03) plus the 25 XP
-        # "diagnostico-primeiro-passo" achievement bonus that the
+        # "primeiro-passo" achievement bonus that the
         # GrantXpUseCase cascade also unlocks the first time this account
-        # earns a DIAGNOSTIC_COMPLETED milestone; the achievement grant is
+        # earns a DIAGNOSIS milestone; the achievement grant is
         # its own XpGrant row alongside the base diagnostic grant.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 85
@@ -109,9 +111,9 @@ class TestRecognizeDiagnosticCompletedJob:
 
         inngest_fixture.publish(event.name, event_data, event_id=ids.generate())
         # 60 XP base (20 XP x 3 competencies, CA-03) plus the 25 XP
-        # "diagnostico-primeiro-passo" achievement bonus that the
+        # "primeiro-passo" achievement bonus that the
         # GrantXpUseCase cascade also unlocks the first time this account
-        # earns a DIAGNOSTIC_COMPLETED milestone; the achievement grant is
+        # earns a DIAGNOSIS milestone; the achievement grant is
         # its own XpGrant row alongside the base diagnostic grant.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 85
@@ -137,7 +139,7 @@ class TestRecognizeDiagnosticCompletedJob:
             with gamification_database.transaction() as repositories:
                 repositories.profiles.add(
                     GamificationProfileFaker.fake(
-                        id=account_id,
+                        account_id=account_id,
                         total_xp=0,
                         level=1,
                         created_at=NOW,
@@ -182,19 +184,24 @@ class TestRecognizeDiagnosticCompletedJob:
             lambda session: _total_xp(session, account_id) == 45
         )
         with inngest_fixture.inspection_session() as session:
-            base_grant = session.scalar(
-                select(XpGrantModel).where(
-                    XpGrantModel.account_id == account_id,
-                    XpGrantModel.origin == 'diagnostic',
-                )
+            grants = session.scalars(
+                select(XpGrantModel).where(XpGrantModel.account_id == account_id)
+            ).all()
+            base_grant = next(
+                grant
+                for grant in grants
+                if XpGrantMapper.to_domain(grant).origin.source is XpSource.DIAGNOSIS
             )
-            assert base_grant is not None
             assert base_grant.occurred_at == historical_completed_at
             assert base_grant.occurred_at != base_grant.granted_at
 
 
 def _total_xp(session: 'Session', account_id: str) -> int:
-    profile = session.get(GamificationProfileModel, account_id)
+    profile = session.scalar(
+        select(GamificationProfileModel).where(
+            GamificationProfileModel.account_id == account_id
+        )
+    )
     return profile.total_xp if profile is not None else -1
 
 

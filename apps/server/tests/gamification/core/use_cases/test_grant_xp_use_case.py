@@ -25,6 +25,7 @@ ACCOUNT_ID = 'account-1'
 GRANT_ID = 'grant-1'
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 OCCURRED_AT = datetime(2025, 12, 1, tzinfo=UTC)
+PROFILE_UPDATED_AT = datetime(2025, 1, 1, tzinfo=UTC)
 
 _DIAGNOSTIC_ORIGIN = XpOrigin(
     source=XpSource.DIAGNOSIS, reference_id='skill-1', label='Diagnóstico'
@@ -79,7 +80,7 @@ class TestGrantXpUseCase:
         self,
     ) -> None:
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=0, level=1
+            account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
 
@@ -109,7 +110,7 @@ class TestGrantXpUseCase:
 
     def test_should_raise_level_when_total_xp_crosses_a_threshold(self) -> None:
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=290, level=2
+            account_id=ACCOUNT_ID, total_xp=290, level=2, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
 
@@ -128,7 +129,7 @@ class TestGrantXpUseCase:
 
     def test_should_never_decrease_level_on_a_subsequent_grant(self) -> None:
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=310, level=3
+            account_id=ACCOUNT_ID, total_xp=310, level=3, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
 
@@ -152,7 +153,7 @@ class TestGrantXpUseCase:
         # a diagnostic count of 1 satisfies 'ascendente-i' (level 5) and
         # 'primeiro-passo' (1 diagnostic) in the very same pass.
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=990, level=4
+            account_id=ACCOUNT_ID, total_xp=990, level=4, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
         self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(
@@ -184,7 +185,7 @@ class TestGrantXpUseCase:
 
     def test_should_not_grant_an_already_unlocked_achievement_again(self) -> None:
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=0, level=1
+            account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
         existing = EarnedAchievementFaker.fake(
@@ -223,7 +224,7 @@ class TestGrantXpUseCase:
         # (50*5*4=1000), discovering 'ascendente-i' only as a cascade effect
         # of the achievement XP, not of the original fact.
         profile = GamificationProfileFaker.fake(
-            account_id=ACCOUNT_ID, total_xp=975, level=4
+            account_id=ACCOUNT_ID, total_xp=975, level=4, created_at=PROFILE_UPDATED_AT
         )
         self.repositories.profiles.find_by_account_id.return_value = profile
         self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(

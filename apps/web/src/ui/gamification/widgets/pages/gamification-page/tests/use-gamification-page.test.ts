@@ -19,8 +19,8 @@ const navigateToMock = vi.fn()
 const refetchOverviewMock = vi.fn()
 
 const diagnosticObtained: Achievement = {
-  code: 'FIRST_DIAGNOSTIC',
-  family: 'diagnostico',
+  code: 'primeiro-passo',
+  family: 'diagnosis',
   name: 'Primeiro Passo',
   description: '1 diagnóstico concluído.',
   criterionLabel: '1 diagnóstico concluído',
@@ -32,8 +32,8 @@ const diagnosticObtained: Achievement = {
 }
 
 const diagnosticLocked: Achievement = {
-  code: 'EXPLORER',
-  family: 'diagnostico',
+  code: 'explorador',
+  family: 'diagnosis',
   name: 'Explorador',
   description: '5 diagnósticos concluídos.',
   criterionLabel: '5 diagnósticos concluídos',
@@ -45,8 +45,8 @@ const diagnosticLocked: Achievement = {
 }
 
 const masteryLocked: Achievement = {
-  code: 'FIRST_MASTERY',
-  family: 'dominio',
+  code: 'primeiro-dominio',
+  family: 'mastery',
   name: 'Primeiro Domínio',
   description: '1 Competência dominada.',
   criterionLabel: '1 Competência dominada',
@@ -58,14 +58,27 @@ const masteryLocked: Achievement = {
 }
 
 const levelObtained: Achievement = {
-  code: 'ASCENDING_I',
-  family: 'nivel',
+  code: 'ascendente-i',
+  family: 'level',
   name: 'Ascendente I',
   description: 'nível 5.',
   criterionLabel: 'nível 5',
   xpReward: 100,
   state: 'obtained',
   unlockedAt: '2026-02-01T00:00:00Z',
+  progressCurrent: null,
+  progressTarget: null,
+}
+
+const retiredHistorical: Achievement = {
+  code: 'retired-achievement',
+  family: 'diagnosis',
+  name: 'Conquista Retirada',
+  description: '',
+  criterionLabel: '1 diagnóstico concluído',
+  xpReward: 25,
+  state: 'historical',
+  unlockedAt: '2025-10-01T00:00:00Z',
   progressCurrent: null,
   progressTarget: null,
 }
@@ -96,6 +109,7 @@ describe('useGamificationPage', () => {
     useNavigationMock.mockReturnValue({
       navigateTo: navigateToMock,
       navigateToGoalDetail: vi.fn(),
+      navigateToActivity: vi.fn(),
       navigateToPlanner: vi.fn(),
     })
     mockQuery()
@@ -127,9 +141,9 @@ describe('useGamificationPage', () => {
 
     expect(result.current.state).toBe('success')
     expect(result.current.familyGroups.map((group) => group.family)).toEqual([
-      'diagnostico',
-      'dominio',
-      'nivel',
+      'diagnosis',
+      'mastery',
+      'level',
     ])
     expect(result.current.familyGroups[0]?.achievements).toEqual([
       diagnosticObtained,
@@ -137,6 +151,22 @@ describe('useGamificationPage', () => {
     ])
     expect(result.current.familyGroups[1]?.achievements).toEqual([masteryLocked])
     expect(result.current.familyGroups[2]?.achievements).toEqual([levelObtained])
+  })
+
+  it('keeps a historical achievement out of its resolved family group', () => {
+    mockQuery({
+      overview: {
+        ...overview,
+        achievements: [...overview.achievements, retiredHistorical],
+      },
+    })
+    const { result } = renderHook(() => useGamificationPage())
+
+    const diagnosisGroup = result.current.familyGroups.find(
+      (group) => group.family === 'diagnosis',
+    )
+    expect(diagnosisGroup?.achievements).toEqual([diagnosticObtained, diagnosticLocked])
+    expect(result.current.historicalAchievements).toEqual([retiredHistorical])
   })
 
   it('passes the real profile overview (level, totalXp, xpForNextLevel) straight through', () => {

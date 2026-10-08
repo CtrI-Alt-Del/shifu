@@ -47,7 +47,11 @@ class TestCreateProfileOnAccountActivatedJob:
             lambda session: _profile_count(session, account_id) == 1
         )
         with inngest_fixture.inspection_session() as session:
-            profile = session.get(GamificationProfileModel, account_id)
+            profile = session.scalar(
+                select(GamificationProfileModel).where(
+                    GamificationProfileModel.account_id == account_id
+                )
+            )
             assert profile is not None
             assert profile.total_xp == 0
             assert profile.level == 1

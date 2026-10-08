@@ -96,9 +96,7 @@ class TestListAchievementsUseCase:
         }
         assert all(a.unlocked_at == NOW for a in obtained)
         assert all(a.progress_current is None for a in obtained)
-        explorador = next(
-            a for a in overview.achievements if a.code == 'explorador'
-        )
+        explorador = next(a for a in overview.achievements if a.code == 'explorador')
         assert explorador.state == 'locked'
         assert explorador.progress_current == 1
         assert explorador.progress_target == 5
@@ -156,15 +154,13 @@ class TestListAchievementsUseCase:
             earned,
         )
         self.repositories.profiles.find_by_account_id.return_value = (
-            GamificationProfileFaker.fake(account_id=ACCOUNT_ID, total_xp=150, level=1)
+            GamificationProfileFaker.fake(account_id=ACCOUNT_ID, total_xp=150)
         )
 
         overview = self.subject.execute(ACCOUNT_ID)
 
         assert overview.total_xp == 150
-        granted = next(
-            a for a in overview.achievements if a.code == 'primeira-jornada'
-        )
+        granted = next(a for a in overview.achievements if a.code == 'primeira-jornada')
         assert granted.state == 'obtained'
         assert granted.unlocked_at == NOW
 

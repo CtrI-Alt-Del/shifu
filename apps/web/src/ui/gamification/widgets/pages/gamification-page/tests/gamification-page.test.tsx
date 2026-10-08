@@ -15,8 +15,8 @@ vi.mock('../use-gamification-page', () => ({ useGamificationPage: vi.fn() }))
 const useGamificationPageMock = vi.mocked(useGamificationPage)
 
 const obtainedAchievement: Achievement = {
-  code: 'FIRST_DIAGNOSTIC',
-  family: 'diagnostico',
+  code: 'primeiro-passo',
+  family: 'diagnosis',
   name: 'Primeiro Passo',
   description: '1 diagnóstico concluído.',
   criterionLabel: '1 diagnóstico concluído',
@@ -28,8 +28,8 @@ const obtainedAchievement: Achievement = {
 }
 
 const lockedAchievement: Achievement = {
-  code: 'EXPLORER',
-  family: 'diagnostico',
+  code: 'explorador',
+  family: 'diagnosis',
   name: 'Explorador',
   description: '5 diagnósticos concluídos.',
   criterionLabel: '5 diagnósticos concluídos',
@@ -41,12 +41,12 @@ const lockedAchievement: Achievement = {
 }
 
 const historicalAchievement: Achievement = {
-  code: 'RETIRED_CODE',
-  family: null,
-  name: null,
-  description: null,
-  criterionLabel: null,
-  xpReward: null,
+  code: 'retired-achievement',
+  family: 'diagnosis',
+  name: 'RETIRED_CODE',
+  description: '',
+  criterionLabel: '1 diagnóstico concluído',
+  xpReward: 25,
   state: 'historical',
   unlockedAt: '2025-11-01T10:00:00Z',
   progressCurrent: null,
@@ -54,7 +54,7 @@ const historicalAchievement: Achievement = {
 }
 
 const familyGroups: AchievementFamilyGroup[] = [
-  { family: 'diagnostico', achievements: [obtainedAchievement, lockedAchievement] },
+  { family: 'diagnosis', achievements: [obtainedAchievement, lockedAchievement] },
 ]
 
 function makeController(

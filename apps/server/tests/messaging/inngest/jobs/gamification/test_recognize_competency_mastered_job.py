@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 
 from shifu.fakers.gamification.entities import GamificationProfileFaker
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
@@ -38,7 +38,7 @@ class TestRecognizeCompetencyMasteredJob:
             with gamification_database.transaction() as repositories:
                 repositories.profiles.add(
                     GamificationProfileFaker.fake(
-                        id=account_id,
+                        account_id=account_id,
                         total_xp=0,
                         level=1,
                         created_at=NOW,
@@ -73,14 +73,18 @@ class TestRecognizeCompetencyMasteredJob:
             event_id=ids.generate(),
         )
 
-        # 50 XP base (CA-05) plus the 25 XP "dominio-primeiro-dominio"
-        # achievement bonus that the GrantXpUseCase cascade also unlocks the
-        # first time this account earns a COMPETENCY_MASTERED milestone.
+        # 50 XP base (CA-05) plus the 25 XP "primeiro-dominio" achievement
+        # bonus that the GrantXpUseCase cascade also unlocks the first time
+        # this account earns a COMPETENCY_MASTERY milestone.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 75
         )
 
 
 def _total_xp(session: 'Session', account_id: str) -> int:
-    profile = session.get(GamificationProfileModel, account_id)
+    profile = session.scalar(
+        select(GamificationProfileModel).where(
+            GamificationProfileModel.account_id == account_id
+        )
+    )
     return profile.total_xp if profile is not None else -1

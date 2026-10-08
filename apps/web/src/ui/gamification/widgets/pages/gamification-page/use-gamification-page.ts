@@ -20,11 +20,11 @@ export type ProfileSummary = {
 }
 
 const FAMILY_ORDER: AchievementFamily[] = [
-  'diagnostico',
-  'dominio',
-  'conclusao',
-  'sequencia',
-  'nivel',
+  'diagnosis',
+  'mastery',
+  'completion',
+  'streak',
+  'level',
 ]
 
 export function useGamificationPage() {
@@ -79,8 +79,12 @@ export function useGamificationPage() {
 export type GamificationPageController = ReturnType<typeof useGamificationPage>
 
 function groupByFamily(achievements: Achievement[]): AchievementFamilyGroup[] {
+  // A historical achievement still carries a resolved family, but it belongs
+  // only in the dedicated historical section, not duplicated into a family
+  // group.
+  const current = achievements.filter((achievement) => achievement.state !== 'historical')
   return FAMILY_ORDER.map((family) => ({
     family,
-    achievements: achievements.filter((achievement) => achievement.family === family),
+    achievements: current.filter((achievement) => achievement.family === family),
   })).filter((group) => group.achievements.length > 0)
 }

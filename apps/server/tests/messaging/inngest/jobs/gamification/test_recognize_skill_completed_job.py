@@ -41,7 +41,7 @@ class TestRecognizeSkillCompletedJob:
             with gamification_database.transaction() as repositories:
                 repositories.profiles.add(
                     GamificationProfileFaker.fake(
-                        id=account_id,
+                        account_id=account_id,
                         total_xp=0,
                         level=1,
                         created_at=NOW,
@@ -72,10 +72,10 @@ class TestRecognizeSkillCompletedJob:
         }
 
         inngest_fixture.publish(event.name, event_data, event_id=ids.generate())
-        # 100 XP base (CA-07) plus the 50 XP "conclusao-primeira-jornada"
-        # achievement bonus that the GrantXpUseCase cascade also unlocks the
-        # first time this account earns a SKILL_COMPLETED milestone; the
-        # achievement grant is its own XpGrant row alongside the base one.
+        # 100 XP base (CA-07) plus the 50 XP "primeira-jornada" achievement
+        # bonus that the GrantXpUseCase cascade also unlocks the first time
+        # this account earns a SKILL_COMPLETION milestone; the achievement
+        # grant is its own XpGrant row alongside the base one.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 150
         )
@@ -83,10 +83,10 @@ class TestRecognizeSkillCompletedJob:
             assert _xp_grant_count(session, account_id) == 2
 
         inngest_fixture.publish(event.name, event_data, event_id=ids.generate())
-        # 100 XP base (CA-07) plus the 50 XP "conclusao-primeira-jornada"
-        # achievement bonus that the GrantXpUseCase cascade also unlocks the
-        # first time this account earns a SKILL_COMPLETED milestone; the
-        # achievement grant is its own XpGrant row alongside the base one.
+        # 100 XP base (CA-07) plus the 50 XP "primeira-jornada" achievement
+        # bonus that the GrantXpUseCase cascade also unlocks the first time
+        # this account earns a SKILL_COMPLETION milestone; the achievement
+        # grant is its own XpGrant row alongside the base one.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 150
         )
@@ -95,7 +95,11 @@ class TestRecognizeSkillCompletedJob:
 
 
 def _total_xp(session: 'Session', account_id: str) -> int:
-    profile = session.get(GamificationProfileModel, account_id)
+    profile = session.scalar(
+        select(GamificationProfileModel).where(
+            GamificationProfileModel.account_id == account_id
+        )
+    )
     return profile.total_xp if profile is not None else -1
 
 

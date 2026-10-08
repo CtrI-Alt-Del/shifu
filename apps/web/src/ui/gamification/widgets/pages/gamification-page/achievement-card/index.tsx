@@ -26,19 +26,13 @@ export const AchievementCard = ({ achievement }: AchievementCardProps) => {
       >
         <Icon name={isLocked ? 'lock-keyhole' : 'trophy'} size={20} />
       </span>
-      {/* A historical achievement's code was removed from the catalog, so
-          the server has no name/description/criterion left to serve for it
-          (ListAchievementsUseCase._historical_view) — the code is the only
-          stable label left. */}
-      <h3 className='mt-5 font-serif text-xl font-bold'>
-        {achievement.name ?? achievement.code}
-      </h3>
+      <h3 className='mt-5 font-serif text-xl font-bold'>{achievement.name}</h3>
       {achievement.description ? (
         <p className='mt-2 text-sm leading-6 text-muted-foreground'>
           {achievement.description}
         </p>
       ) : null}
-      {isLocked && achievement.criterionLabel ? (
+      {isLocked ? (
         <p className='mt-5 text-sm text-muted-foreground'>
           {achievement.criterionLabel}
           {hasProgress ? (

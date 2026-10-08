@@ -105,9 +105,10 @@ class ListAchievementsUseCase:
                 )
 
         for earned_row in earned:
-            if earned_row.achievement_id in by_id and by_id[
-                earned_row.achievement_id
-            ].is_active:
+            if (
+                earned_row.achievement_id in by_id
+                and by_id[earned_row.achievement_id].is_active
+            ):
                 continue
             entries.append(
                 cls._historical_entry(earned_row, by_id.get(earned_row.achievement_id))

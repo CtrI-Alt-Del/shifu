@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING
 from sqlalchemy import create_engine, func, select
 
 from shifu.fakers.gamification.entities import (
-    AchievementUnlockFaker,
+    EarnedAchievementFaker,
     GamificationProfileFaker,
     RewardedMilestoneFaker,
     XpGrantFaker,
 )
-from shifu.gamification.core.domain.enums import MilestoneType, XpOrigin
+from shifu.gamification.core.domain.enums import AchievementCriterionKind, MilestoneKind
+from shifu.gamification.core.domain.structures import AchievementCriterion
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.gamification.database.sqlalchemy.models import (
-    AchievementUnlockModel,
+    EarnedAchievementModel,
     GamificationProfileModel,
     RewardedMilestoneModel,
     XpGrantModel,
@@ -46,9 +47,8 @@ class TestPurgeProfileOnAccountDeletedJob:
             with database.transaction() as repositories:
                 repositories.profiles.add(
                     GamificationProfileFaker.fake(
-                        id=account_id,
+                        account_id=account_id,
                         total_xp=100,
-                        level=1,
                         created_at=NOW,
                         updated_at=NOW,
                     )
@@ -57,24 +57,30 @@ class TestPurgeProfileOnAccountDeletedJob:
                     XpGrantFaker.fake(
                         account_id=account_id,
                         amount=100,
-                        origin=XpOrigin.DIAGNOSTIC,
                         occurred_at=NOW,
                         granted_at=NOW,
                     )
                 )
-                repositories.achievement_unlocks.add(
-                    AchievementUnlockFaker.fake(
+                repositories.earned_achievements.try_add(
+                    EarnedAchievementFaker.fake(
                         account_id=account_id,
-                        achievement_code='diagnostico-primeiro-passo',
-                        unlocked_at=NOW,
+                        achievement_id='primeiro-passo',
+                        achievement_name='Primeiro Passo',
+                        criterion=AchievementCriterion.create(
+                            kind=AchievementCriterionKind.DIAGNOSTICS_COMPLETED,
+                            target=1,
+                        ),
+                        xp_reward=25,
+                        achieved_at=NOW,
                         granted_at=NOW,
                     )
                 )
                 repositories.rewarded_milestones.try_add(
                     RewardedMilestoneFaker.fake(
                         account_id=account_id,
-                        milestone_type=MilestoneType.DIAGNOSTIC_COMPLETED,
-                        reference_id=ids.generate(),
+                        kind=MilestoneKind.DIAGNOSIS,
+                        subject_id=ids.generate(),
+                        occurred_at=NOW,
                         rewarded_at=NOW,
                     )
                 )
@@ -104,9 +110,9 @@ class TestPurgeProfileOnAccountDeletedJob:
 
 def _all_purged(session: 'Session', account_id: str) -> bool:
     return (
-        session.get(GamificationProfileModel, account_id) is None
+        _count(session, GamificationProfileModel, account_id) == 0
         and _count(session, XpGrantModel, account_id) == 0
-        and _count(session, AchievementUnlockModel, account_id) == 0
+        and _count(session, EarnedAchievementModel, account_id) == 0
         and _count(session, RewardedMilestoneModel, account_id) == 0
     )
 
@@ -114,7 +120,10 @@ def _all_purged(session: 'Session', account_id: str) -> bool:
 def _count(
     session: 'Session',
     model: (
-        type[XpGrantModel] | type[AchievementUnlockModel] | type[RewardedMilestoneModel]
+        type[GamificationProfileModel]
+        | type[XpGrantModel]
+        | type[EarnedAchievementModel]
+        | type[RewardedMilestoneModel]
     ),
     account_id: str,
 ) -> int:

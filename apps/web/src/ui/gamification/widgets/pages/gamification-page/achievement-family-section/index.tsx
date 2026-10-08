@@ -8,11 +8,11 @@ export type AchievementFamilySectionProps = {
 }
 
 const FAMILY_LABELS: Record<AchievementFamily, string> = {
-  diagnostico: 'Diagnóstico',
-  dominio: 'Domínio',
-  conclusao: 'Conclusão',
-  sequencia: 'Sequência',
-  nivel: 'Nível',
+  diagnosis: 'Diagnóstico',
+  mastery: 'Domínio',
+  completion: 'Conclusão',
+  streak: 'Sequência',
+  level: 'Nível',
 }
 
 export const AchievementFamilySection = ({

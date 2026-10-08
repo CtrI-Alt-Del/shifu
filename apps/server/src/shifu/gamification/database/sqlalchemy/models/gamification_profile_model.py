@@ -9,9 +9,7 @@ from shifu.shared.database.sqlalchemy.model import Model
 class GamificationProfileModel(Model):
     __tablename__ = 'gamification_profiles'
     __table_args__ = (
-        Index(
-            'ix_gamification_profile_account_id', 'account_id', unique=True
-        ),
+        Index('ix_gamification_profile_account_id', 'account_id', unique=True),
     )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)

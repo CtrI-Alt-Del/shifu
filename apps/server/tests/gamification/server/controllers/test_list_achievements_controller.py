@@ -8,9 +8,11 @@ from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
 from shifu.fakers.gamification.entities import (
-    AchievementUnlockFaker,
+    EarnedAchievementFaker,
     GamificationProfileFaker,
 )
+from shifu.gamification.core.domain.enums import AchievementCriterionKind
+from shifu.gamification.core.domain.structures import AchievementCriterion
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -65,18 +67,23 @@ class TestListAchievementsController:
         with database.transaction() as repositories:
             repositories.profiles.add(
                 GamificationProfileFaker.fake(
-                    id=ACCOUNT_ID,
+                    account_id=ACCOUNT_ID,
                     total_xp=25,
                     level=1,
                     created_at=NOW,
                     updated_at=NOW,
                 )
             )
-            repositories.achievement_unlocks.add(
-                AchievementUnlockFaker.fake(
+            repositories.earned_achievements.try_add(
+                EarnedAchievementFaker.fake(
                     account_id=ACCOUNT_ID,
-                    achievement_code='diagnostico-primeiro-passo',
-                    unlocked_at=NOW,
+                    achievement_id='primeiro-passo',
+                    achievement_name='Primeiro Passo',
+                    criterion=AchievementCriterion.create(
+                        kind=AchievementCriterionKind.DIAGNOSTICS_COMPLETED, target=1
+                    ),
+                    xp_reward=25,
+                    achieved_at=NOW,
                     granted_at=NOW,
                 )
             )
@@ -106,12 +113,12 @@ class TestListAchievementsController:
         ]
         assert len(obtained) == 1
         assert len(locked) == 11
-        assert obtained[0]['code'] == 'diagnostico-primeiro-passo'
+        assert obtained[0]['code'] == 'primeiro-passo'
         assert obtained[0]['unlockedAt'] is not None
         explorador = next(
             achievement
             for achievement in body['achievements']
-            if achievement['code'] == 'diagnostico-explorador'
+            if achievement['code'] == 'explorador'
         )
         assert explorador['state'] == 'locked'
         assert explorador['criterionLabel'] == '5 diagnósticos concluídos'
