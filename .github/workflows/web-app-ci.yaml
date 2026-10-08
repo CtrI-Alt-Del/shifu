@@ -9,6 +9,7 @@ on:
       - 'scripts/test-mutation.mjs'
       - 'scripts/tests/test-mutation.test.mjs'
       - '.github/workflows/web-app-ci.yaml'
+      - '.github/workflows/web-mutation-ci.yaml'
       - '.node-version'
       - '.npmrc'
       - 'biome.json'
@@ -120,9 +121,6 @@ jobs:
 
       - name: Check mutation scope selection
         run: node --test scripts/tests/test-mutation.test.mjs
-
-      - name: Run full mutation suite
-        run: pnpm --filter web test:mutation --all
 
       - name: Build application
         run: pnpm --filter web build
