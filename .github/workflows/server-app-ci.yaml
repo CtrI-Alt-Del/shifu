@@ -352,6 +352,8 @@ jobs:
       - integration
       - inngest-jobs
       - distributions
+      - mutation
+      - mutation-summary
     runs-on: ubuntu-latest
     steps:
       - name: Require all server checks to pass
@@ -364,6 +366,8 @@ jobs:
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           INNGEST_JOBS_RESULT: ${{ needs.inngest-jobs.result }}
           DISTRIBUTIONS_RESULT: ${{ needs.distributions.result }}
+          MUTATION_RESULT: ${{ needs.mutation.result }}
+          MUTATION_SUMMARY_RESULT: ${{ needs.mutation-summary.result }}
         run: |
           results=(
             "$TYPE_CHECK_RESULT"
@@ -374,6 +378,8 @@ jobs:
             "$INTEGRATION_RESULT"
             "$INNGEST_JOBS_RESULT"
             "$DISTRIBUTIONS_RESULT"
+            "$MUTATION_RESULT"
+            "$MUTATION_SUMMARY_RESULT"
           )
           for result in "${results[@]}"; do
             if [[ "$result" != "success" ]]; then
@@ -431,7 +437,6 @@ jobs:
     permissions:
       actions: read
       contents: read
-      pull-requests: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -479,43 +484,13 @@ jobs:
           --changed-files "$CHANGED_FILES"
           --output "$REPORT_PATH"
 
-      - name: Create or update pull request comment
-        if: >-
-          always() &&
-          steps.report.outcome == 'success' &&
-          github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v9
-        env:
-          SUMMARY_PATH: ${{ runner.temp }}/mutation-summary.md
+      - name: Upload mutation summary
+        if: always() && steps.report.outcome == 'success'
+        uses: actions/upload-artifact@v6
         with:
-          script: |
-            const fs = require('fs')
-            const issue_number = context.issue.number
-            const marker = '<!-- shifu-mutation-summary -->'
-            const body = fs.readFileSync(process.env.SUMMARY_PATH, 'utf8')
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              ...context.repo,
-              issue_number,
-              per_page: 100,
-            })
-            const previous = comments.find(
-              (comment) =>
-                comment.user?.login === 'github-actions[bot]' &&
-                comment.body?.includes(marker),
-            )
-            if (previous) {
-              await github.rest.issues.updateComment({
-                ...context.repo,
-                comment_id: previous.id,
-                body,
-              })
-            } else {
-              await github.rest.issues.createComment({
-                ...context.repo,
-                issue_number,
-                body,
-              })
-            }
+          name: server-mutation-summary
+          path: ${{ runner.temp }}/mutation-summary.md
+          if-no-files-found: error
 
       - name: Enforce per-module mutation score thresholds
         if: always() && steps.report.outcome == 'success'

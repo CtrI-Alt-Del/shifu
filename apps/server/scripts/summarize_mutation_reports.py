@@ -271,13 +271,20 @@ def changed_mutation_sources(path: Path | None) -> set[str]:
     if path is None:
         return set()
     prefix = 'apps/server/'
-    return {
-        source.removeprefix(prefix)
-        for source in path.read_text().splitlines()
-        if source.startswith(prefix)
-        and '/core/use_cases/' in source
-        and source.endswith('.py')
-    }
+    excluded_parts = {'fakers', 'generated', '__pycache__'}
+    sources: set[str] = set()
+    for source in path.read_text().splitlines():
+        if not source.startswith(prefix) or '/core/use_cases/' not in source:
+            continue
+        relative = source.removeprefix(prefix)
+        parts = Path(relative).parts
+        if (
+            Path(relative).suffix == '.py'
+            and Path(relative).name != '__init__.py'
+            and not excluded_parts.intersection(parts)
+        ):
+            sources.add(relative)
+    return sources
 
 
 def collect_report_counts(

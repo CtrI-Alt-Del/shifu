@@ -3,13 +3,32 @@
 import json
 from pathlib import Path
 
-from scripts.summarize_mutation_reports import summarize
+from scripts.summarize_mutation_reports import changed_mutation_sources, summarize
 
 
 def write_shard(reports: Path, shard: int, payload: dict[str, object]) -> None:
     directory = reports / f'server-mutation-shard-{shard}-of-2'
     directory.mkdir(parents=True)
     (directory / 'module-results.json').write_text(json.dumps(payload))
+
+
+def test_changed_mutation_sources_ignores_ineligible_package_files(tmp_path: Path):
+    changed_files = tmp_path / 'changed-files.txt'
+    changed_files.write_text(
+        '\n'.join(
+            (
+                'apps/server/src/shifu/learning/core/use_cases/__init__.py',
+                'apps/server/src/shifu/learning/core/use_cases/fakers/goal.py',
+                'apps/server/src/shifu/learning/core/use_cases/generated/goal.py',
+                'apps/server/src/shifu/learning/core/use_cases/add_goal_use_case.py',
+                'apps/server/src/shifu/learning/rest/router.py',
+            )
+        )
+    )
+
+    assert changed_mutation_sources(changed_files) == {
+        'src/shifu/learning/core/use_cases/add_goal_use_case.py'
+    }
 
 
 def test_summarize_combines_outcomes_and_calculates_covered_score(tmp_path: Path):
