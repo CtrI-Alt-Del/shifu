@@ -18,8 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static-checks:
-    name: Server static checks
+  type-check:
+    name: Server type check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -46,14 +46,64 @@ jobs:
       - name: Check types
         run: uv run poe check:types
 
+  lint:
+    name: Server lint check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
       - name: Check lint
         run: uv run poe check:lint
+
+  architecture:
+    name: Server architecture check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Check architecture
         run: uv run poe check:architecture
 
-  unit-and-tooling:
-    name: Server unit and tooling checks
+  unit-tests:
+    name: Server unit tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -88,6 +138,40 @@ jobs:
 
       - name: Run unit tests
         run: uv run poe test:unit
+
+  mutation-tooling:
+    name: Server mutation tooling checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      REDIS_URL: redis://localhost:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
 
       - name: Check mutation tooling
         run: >-
@@ -260,8 +344,11 @@ jobs:
     name: Verify server application
     if: always()
     needs:
-      - static-checks
-      - unit-and-tooling
+      - type-check
+      - lint
+      - architecture
+      - unit-tests
+      - mutation-tooling
       - integration
       - inngest-jobs
       - distributions
@@ -269,15 +356,21 @@ jobs:
     steps:
       - name: Require all server checks to pass
         env:
-          STATIC_CHECKS_RESULT: ${{ needs.static-checks.result }}
-          UNIT_AND_TOOLING_RESULT: ${{ needs.unit-and-tooling.result }}
+          TYPE_CHECK_RESULT: ${{ needs.type-check.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
+          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
+          MUTATION_TOOLING_RESULT: ${{ needs.mutation-tooling.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
           INNGEST_JOBS_RESULT: ${{ needs.inngest-jobs.result }}
           DISTRIBUTIONS_RESULT: ${{ needs.distributions.result }}
         run: |
           results=(
-            "$STATIC_CHECKS_RESULT"
-            "$UNIT_AND_TOOLING_RESULT"
+            "$TYPE_CHECK_RESULT"
+            "$LINT_RESULT"
+            "$ARCHITECTURE_RESULT"
+            "$UNIT_TESTS_RESULT"
+            "$MUTATION_TOOLING_RESULT"
             "$INTEGRATION_RESULT"
             "$INNGEST_JOBS_RESULT"
             "$DISTRIBUTIONS_RESULT"

@@ -26,8 +26,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  email-package:
-    name: Check email package code and types
+  email_code:
+    name: Check email package code
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -51,11 +51,58 @@ jobs:
       - name: Check email package code
         run: pnpm --dir packages/email check:code
 
+  email_types:
+    name: Check email package types
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Check email package types
         run: pnpm --dir packages/email check:types
 
-  server-contract:
-    name: Build email templates and verify server contract
+  email_build:
+    name: Build generated email templates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build generated email templates
+        run: pnpm --dir packages/email build
+
+  server_types:
+    name: Check server types with generated email templates
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
@@ -119,6 +166,47 @@ jobs:
         working-directory: apps/server
         run: uv run poe check:types
 
+  server_build:
+    name: Build and verify server distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build generated email templates
+        run: pnpm --dir packages/email build
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install server dependencies
+        working-directory: apps/server
+        run: uv sync --frozen
+
       - name: Build server distributions
         working-directory: apps/server
         run: uv run poe build
@@ -133,17 +221,26 @@ jobs:
     name: Verify email package and server contract
     if: ${{ always() }}
     needs:
-      - email-package
-      - server-contract
+      - email_code
+      - email_types
+      - email_build
+      - server_types
+      - server_build
     runs-on: ubuntu-latest
     steps:
-      - name: Require package checks and server contract
+      - name: Require all email package and server checks
         env:
-          EMAIL_PACKAGE_RESULT: ${{ needs.email-package.result }}
-          SERVER_CONTRACT_RESULT: ${{ needs.server-contract.result }}
+          EMAIL_CODE_RESULT: ${{ needs.email_code.result }}
+          EMAIL_TYPES_RESULT: ${{ needs.email_types.result }}
+          EMAIL_BUILD_RESULT: ${{ needs.email_build.result }}
+          SERVER_TYPES_RESULT: ${{ needs.server_types.result }}
+          SERVER_BUILD_RESULT: ${{ needs.server_build.result }}
         run: |
-          if [[ "$EMAIL_PACKAGE_RESULT" != "success" || "$SERVER_CONTRACT_RESULT" != "success" ]]; then
-            echo "Email package result: $EMAIL_PACKAGE_RESULT"
-            echo "Server contract result: $SERVER_CONTRACT_RESULT"
+          if [[ "$EMAIL_CODE_RESULT" != "success" || "$EMAIL_TYPES_RESULT" != "success" || "$EMAIL_BUILD_RESULT" != "success" || "$SERVER_TYPES_RESULT" != "success" || "$SERVER_BUILD_RESULT" != "success" ]]; then
+            echo "Email code result: $EMAIL_CODE_RESULT"
+            echo "Email types result: $EMAIL_TYPES_RESULT"
+            echo "Email build result: $EMAIL_BUILD_RESULT"
+            echo "Server types result: $SERVER_TYPES_RESULT"
+            echo "Server build result: $SERVER_BUILD_RESULT"
             exit 1
           fi

@@ -602,13 +602,15 @@ generates templates and verifies the server distribution contract when its path
 filters match. A remote CI run is evidence for its exact candidate/environment;
 do not treat a pending or failed check as passed.
 
-Web CI runs static checks, unit tests and browser integration in separate jobs;
-the browser job keeps its database/server setup and build before Playwright. Server
-CI separates static checks, unit/tooling checks, integration tests, real Inngest
-job tests and distribution builds; mutation shards also run independently and the
-summary depends only on those shards. Email package code/type checks run alongside
-the generated-template and Server distribution contract job. Each workflow keeps
-its existing required check name as an aggregate that fails if any child job fails.
+Web CI runs type, lint, architecture, unit, browser integration and build checks as
+independent jobs. Playwright uses the development server and keeps its own
+database/server setup. Server CI runs type, lint, architecture, unit, mutation
+tooling, integration, real Inngest job and distribution checks independently;
+mutation shards also run independently and the summary depends only on those
+shards. Email CI runs package code, type, template build, Server type and Server
+distribution checks independently; the package does not define unit or integration
+test scripts. Each workflow keeps its required check name as an aggregate that
+fails if any child job fails.
 
 ## Database and asynchronous tooling status
 
