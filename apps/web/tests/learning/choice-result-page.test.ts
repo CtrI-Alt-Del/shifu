@@ -144,7 +144,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
     authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
   ).toBeVisible()
   const progressHeading = authenticatedPage.getByRole('heading', {
-    name: 'Progresso da Competência',
+    name: 'Progresso demonstrado da Habilidade',
   })
   await expect(progressHeading).toBeVisible()
   await expect(
@@ -289,7 +289,7 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   ).toBeVisible()
   await expect(
     authenticatedPage.getByRole('heading', {
-      name: 'Progresso da Competência',
+      name: 'Progresso demonstrado da Habilidade',
     }),
   ).toBeVisible()
   await expect(

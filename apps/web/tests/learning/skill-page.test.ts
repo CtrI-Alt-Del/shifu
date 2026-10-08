@@ -172,7 +172,9 @@ test('renders the Skill experience with its result, focus and recommendation', a
     authenticatedPage.getByRole('heading', { level: 1, name: 'Lógica de programação' }),
   ).toBeVisible()
   await expect(authenticatedPage.getByText('Em aprendizado')).toBeVisible()
-  await expect(authenticatedPage.getByText('Resultado geral')).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('Progresso demonstrado').locator('..'),
+  ).toContainText('72%')
   await expect(
     authenticatedPage.getByRole('link', { name: 'Ver diagnóstico consolidado' }),
   ).toHaveAttribute('href', `${skillPath}/diagnostic/result`)
