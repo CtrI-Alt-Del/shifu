@@ -27,6 +27,8 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.curriculum.rest.router import CurriculumRouter
+from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.gamification.messaging.inngest import GamificationInngestMessaging
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.messaging.inngest import IdentityInngestMessaging
@@ -150,6 +152,10 @@ class FastAPIApp:
             engine=database_engine,
             id_provider=id_provider,
         )
+        gamification_database = SqlalchemyGamificationDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
         curriculum_content_provider = DatabaseCurriculumContentProvider(
             curriculum_database,
             diagnostic_revision_hmac_key=(
@@ -238,6 +244,12 @@ class FastAPIApp:
                         settings.max_code_assessment_input_bytes
                     ),
                 ),
+                partial(
+                    GamificationInngestMessaging.register_jobs,
+                    gamification_database=gamification_database,
+                    curriculum_content_provider=curriculum_content_provider,
+                    clock_provider=clock_provider,
+                ),
             ],
         )
         app.state.inngest_broker = InngestBroker(
@@ -256,6 +268,7 @@ class FastAPIApp:
         app.state.authentication_provider = authentication_provider
         app.state.identifier_provider = id_provider
         app.state.learning_database = learning_database
+        app.state.gamification_database = gamification_database
         app.state.clock_provider = clock_provider
         app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider

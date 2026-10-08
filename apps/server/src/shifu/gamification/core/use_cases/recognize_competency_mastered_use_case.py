@@ -1,0 +1,72 @@
+from datetime import datetime
+
+from shifu.gamification.core.domain.entities import RewardedMilestone
+from shifu.gamification.core.domain.enums import MilestoneKind, XpSource
+from shifu.gamification.core.domain.structures import XpOrigin
+from shifu.gamification.core.interfaces import GamificationDatabase
+from shifu.gamification.core.use_cases.grant_xp_use_case import GrantXpUseCase
+from shifu.shared.core.interfaces import IdentifierProvider
+
+
+class RecognizeCompetencyMasteredUseCase:
+    """Grant XP the first time a Competência is mastered for this account.
+
+    No-op without a Gamification profile for the account, or for a
+    Competência (`competency_id`) already rewarded for this account under
+    any Objetivo. Idempotent via `RewardedMilestonesRepository.try_add`;
+    losing and regaining mastery does not grant it again because the
+    `RewardedMilestone` row is never removed on mastery loss.
+    """
+
+    def __init__(
+        self,
+        database: GamificationDatabase,
+        identifier_provider: IdentifierProvider,
+        grant_xp_use_case: GrantXpUseCase,
+    ) -> None:
+        self._database = database
+        self._identifier_provider = identifier_provider
+        self._grant_xp_use_case = grant_xp_use_case
+
+    def execute(
+        self,
+        account_id: str,
+        competency_id: str,
+        skill_experience_id: str,
+        *,
+        occurred_at: datetime,
+        now: datetime,
+    ) -> None:
+        with self._database.transaction() as repositories:
+            profile = repositories.profiles.find_by_account_id(account_id)
+            if profile is None:
+                return
+            grant_id = self._identifier_provider.generate()
+            milestone = RewardedMilestone.create(
+                id=self._identifier_provider.generate(),
+                account_id=account_id,
+                fact_id=skill_experience_id,
+                kind=MilestoneKind.COMPETENCY_MASTERY,
+                subject_id=competency_id,
+                xp_grant_id=grant_id,
+                occurred_at=occurred_at,
+                rewarded_at=now,
+            )
+            if not repositories.rewarded_milestones.try_add(milestone):
+                return
+            amount = RewardedMilestone.xp_for(MilestoneKind.COMPETENCY_MASTERY)
+            origin = XpOrigin(
+                source=XpSource.COMPETENCY_MASTERY,
+                reference_id=competency_id,
+                label='Competência dominada pela primeira vez',
+            )
+            self._grant_xp_use_case.apply_within_transaction(
+                repositories,
+                account_id,
+                grant_id,
+                amount,
+                origin,
+                skill_experience_id,
+                occurred_at=occurred_at,
+                now=now,
+            )

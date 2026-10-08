@@ -1,0 +1,6 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+
+### Achievements tab: level, XP and the merged achievement catalog
+GET {{baseUrl}}/gamification/achievements
+Authorization: Bearer {{accessToken}}

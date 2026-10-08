@@ -24,6 +24,11 @@
   --color-secondary-foreground: var(--text-secondary);
   --color-jade-text: var(--jade-text);
   --color-danger: var(--danger);
+  --color-latao-tint: var(--latao-tint);
+  --color-latao-fill: var(--latao-fill);
+  --color-latao-solid: var(--latao-solid);
+  --color-latao-text: var(--latao-text);
+  --color-on-latao: var(--on-latao);
   --shadow-card: 0 1px 3px rgb(15 23 42 / 6%);
   --shadow-brand: 0 12px 30px rgb(15 118 110 / 16%);
 }
@@ -50,6 +55,14 @@
   --on-jade: #0f0f12;
   --text-secondary: #c4bfb6;
   --jade-text: #7bd3b6;
+  /* Latão — gamification hue, per documentation/design.md §3.2. Selo never
+     touches Gamification content (P1); these were missing and Gamification
+     widgets were falling back to Selo/primary before this. */
+  --latao-tint: #3a2c10;
+  --latao-fill: #c08a22;
+  --latao-solid: #d9a441;
+  --latao-text: #f0c36a;
+  --on-latao: #0f0f12;
 }
 
 * {
