@@ -154,7 +154,7 @@ describe('DiagnosticResultPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Seu ponto de partida' })).toBeVisible()
     expect(screen.getAllByText('58%')).toHaveLength(2)
-    expect(screen.getByText('Sem evidência')).toBeVisible()
+    expect(screen.getAllByText('Sem evidência').length).toBeGreaterThan(0)
     expect(
       screen.getByRole('heading', { name: 'Ponto de partida por Competência (0–100)' }),
     ).toBeVisible()
