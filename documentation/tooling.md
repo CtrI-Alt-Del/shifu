@@ -247,6 +247,8 @@ Playwright.
 | `pnpm --filter web check:lint` | Run Biome checks |
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
+| `pnpm --filter web test:coverage` | Run Vitest unit tests with V8 coverage |
+| `pnpm --filter web test:coverage:changed --base <ref>` | Measure changed Web production code against related unit tests |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
@@ -308,6 +310,7 @@ Run commands from `apps/server` through uv:
 | `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
 | `uv run poe test:integration` | Run module-first server integration tests under `tests/<module>/server` plus legacy `tests/rest` during migration, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
+| `uv run poe test:changed-coverage --base <ref> --tests <test-file>` | Measure changed Server production code with selected pytest files; repeat `--tests` for additional files |
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |
 | `uv run --env-file .env.local python src/main.py` | Start the API locally |
@@ -349,6 +352,7 @@ behavior is actually affected, not every module automatically.
 | Server REST/persistence | Implement boundary assertions; use unit/static feedback during building. | Batch affected controller/migration boundary tests after integration using disposable fixtures. | Rerun affected boundary selections sequentially. |
 | Inngest jobs | Implement job assertions; use focused unit/static feedback during building. | Run affected real-job tests with their required environment and disposable services. | Rerun affected jobs and directly impacted consumers. |
 | Web browser | Implement affected route/journey tests; use component/static feedback during building. | Run only affected Playwright scenario files after integration. | Rerun affected scenarios. |
+| Changed-code coverage | Run related tests after behavior stabilizes; collect branch coverage for changed production code. | Require at least 85% changed statements/functions/lines and 80% changed branches per eligible file. | Remeasure affected files when their code or covering tests change. |
 | Types | Check after public types, schemas, signatures or consumers change. | Run type checks for affected apps and affected consumer projects with their actual configuration. | Rerun impacted producer/consumer projects. |
 | Lint/format | Check exact changed source/test/configuration paths without writing. | Confirm current lint/format results for the scoped paths; apply broader configured gates only when required. | Recheck edited paths and affected lint configuration. |
 | Complexity | Inspect changed logic and execute available configured complexity checks for that scope. | Record complexity results and the checker limits; a required unavailable quantitative gate is Blocked. | Recheck changed logic; never relax rules or update a baseline merely to pass. |
@@ -411,6 +415,60 @@ controllers; shared routing/session/root-layout behavior may affect many browser
 journeys. Select their actual consumers and identify remaining coverage gaps
 before expanding further. CI independently runs its configured suites for
 applicable current PR heads; these local scope rules do not change CI discovery.
+
+### Changed-code coverage
+
+The local Web and Server checkers measure changed executable production code
+against the Git base: at least **85% statements, functions and lines**, and
+**80% branches**, evaluated
+per eligible file. New files count all executable code; existing files count
+locations touched by changed lines. Test, generated and other script-defined
+excluded paths do not enter the denominator. A changed production file missing
+from the coverage data fails the gate. With no eligible changed production code,
+the checker reports Not applicable. These percentages are not whole-workspace
+coverage floors and do not replace acceptance, integration, manual, visual or
+mutation evidence. Python's coverage data is line-based, so Server statement
+and line percentages use the same executable-line measurement.
+
+Use a verified Git base and exact related tests locally. From the repository root,
+the Web command selects related Vitest tests automatically; pass explicit test
+files after `--` when dynamic imports or other relationships require them:
+
+```bash
+pnpm --filter web test:coverage:changed --base main
+pnpm --filter web test:coverage:changed --base main -- <related-web-test-file>
+```
+
+From `apps/server`, provide exact related pytest files. Repeat `--tests` for
+each file. The command runs them with branch coverage before checking the
+changed production files:
+
+```bash
+uv run poe test:changed-coverage --base main --tests <related-server-test-file>
+```
+
+The local checker does not broaden a focused selection into a full suite. Verify
+that the intended tests executed; an empty selection or skipped tests cannot
+substitute for coverage. If the selected tests cannot exercise a changed boundary,
+add its directly affected consumer test to the local selection. Record the Git
+base, candidate, test files/counts, each affected file's four percentages,
+command time and report path in Evaluation. A later
+source or test change makes the affected measurement historical; rerun only the
+invalidated scope. An unchanged full coverage run should not be repeated merely
+because a role or commit changes. Use report-only checks only with coverage data
+collected from the same candidate; a saved report from an earlier source revision
+does not establish current coverage.
+
+Changed-code coverage runs locally only. It is not part of the Web or Server CI
+workflows, and CI results do not imply a coverage measurement. Record local
+coverage evidence in Evaluation. A coverage percentage alone does not prove
+browser or real-service outcomes.
+
+Future CI coverage reporting and quality gates for Web and Server belong to
+SonarCloud, as tracked by [SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87).
+When that integration is implemented, revisit the local changed-code thresholds
+and evidence contract so they do not conflict with SonarCloud's configured gate.
+Until then, the local checks above are the coverage evidence for SDD delivery.
 
 ### Mutation testing
 
@@ -602,7 +660,8 @@ files.
 
 The web `check:code`/SonarQube gate is intentionally not part of the current local
 contract. SonarQube is present in Docker Compose, but CI integration and scanner
-configuration are deferred.
+configuration are deferred. The local SonarQube service is separate from the
+planned SonarCloud coverage and quality-gate integration.
 
 Inspect the current `.github/workflows` when selecting delivery gates. CI uses
 application-owned commands and repository runtime files. Current Web and Server
@@ -614,13 +673,13 @@ generates templates and verifies the server distribution contract when its path
 filters match. A remote CI run is evidence for its exact candidate/environment;
 do not treat a pending or failed check as passed.
 
-Web CI runs type, lint, architecture, unit, browser integration and build checks as
-independent jobs. Playwright uses the development server and keeps its own
-database/server setup. Server CI runs type, lint, architecture, unit, mutation
-tooling, integration, real Inngest job and distribution checks independently;
-mutation shards also run independently and the summary depends only on those
-shards. Email CI runs package code, type, template build, Server type and Server
-distribution checks independently; the package does not define unit or integration
+Web CI runs type, lint, architecture, unit, browser integration and build checks
+as independent jobs. Playwright uses the development server and
+keeps its own database/server setup. Server CI runs type, lint, architecture,
+unit, mutation tooling, integration, real Inngest job and distribution checks
+independently. Mutation shards run independently, and their summary depends only
+on those shards. Email CI runs package code, type, template build, Server type
+and Server distribution checks independently; the package does not define unit or integration
 test scripts. Each workflow keeps its required check name as an aggregate that
 fails if any child job fails.
 

@@ -11,7 +11,7 @@ last_updated_at: YYYY-MM-DD
 | --- | --- |
 | Implementation | <pending/partial/complete; affected criteria> |
 | Automated checks | <passed/required count; failed, blocked or stale checks> |
-| Type / lint / complexity | <separate statuses and CI/EV references; scope and unavailable-tooling limits> |
+| Type / lint / complexity / local changed-code coverage | <separate statuses and `CI-*`/EV references; scope and unavailable-tooling limits> |
 | Manual checks | <passed/required count; outstanding journeys> |
 | Visual checks | <passed/required count; outstanding comparisons or Not applicable> |
 | Independent review | <pending/current/affected recheck; report reference> |
@@ -39,8 +39,9 @@ acceptance. Reconcile against the current Spec and actual diff on resume.
 Record exact scoped files/scenarios, actual test counts and command wall time;
 keep unit, REST/persistence, real-job and browser results distinct.
 Statuses: Pending, Passed, Failed, Blocked, Stale, Not applicable. Include applicable
-baseline gates even without a CA. Give type, lint and complexity separate result
-entries; a shared lint/complexity command may reuse an EV reference with its
+baseline gates even without a CA. Give type, lint, complexity and changed-code
+coverage separate result entries; a shared lint/complexity command may reuse an
+EV reference with its
 actual scope/limits. Missing required metrics tooling is Blocked; configured
 complexity lint is not a quantitative score. Preserve failed/interrupted attempts and history;
 materially different results get new EV IDs. Explain retained proof; invalidate

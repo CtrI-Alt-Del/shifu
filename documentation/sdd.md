@@ -143,10 +143,10 @@ Verification defines one named check per distinct observable outcome, with exact
 test paths/tools, commands, setup, input selection, CA mapping and pass condition.
 Keep long commands/procedures outside tables. Mark absent tests as planned; never
 invent executable selectors. Reference applicable baseline checks from Tooling and
-Rules, including gates not directly mapped to a CA. Include explicit type, lint
-and complexity check obligations/dispositions for the affected paths and consumer
-projects under [Tooling](tooling.md#scoped-type-lint-and-complexity-checks). Keep
-configured complexity lint distinct from quantitative metrics; missing required
+Rules, including gates not directly mapped to a CA. Include explicit type, lint,
+complexity and changed-code coverage obligations for affected production paths
+and consumer projects under [Tooling](tooling.md). Keep configured complexity
+lint distinct from quantitative metrics; missing required
 tooling is blocked, not implicitly passed by other checks. Share source-backed setup for
 readiness, actors/authentication, data relationships/initial state, isolated reruns
 and cleanup. A service being up does not prove route/function registration or
@@ -180,6 +180,18 @@ Never invent product IDs, renumber existing identifiers or weaken checks to
 make implementation pass. State an explicit non-applicable disposition when
 appropriate. A command's exit code must be accompanied by evidence that the
 intended tests actually ran; an empty selection or skipped suite is not a pass.
+
+Changed-code coverage is a local check for executable production code added or
+modified by the delivery; it does not run in CI. Each affected file must reach
+at least 85% changed statements, functions and lines, and 80% changed branches,
+using the repository's Web or
+Server checker. Record the related test selection and actual coverage result in
+Evaluation. Coverage supports acceptance evidence but cannot replace behavioral,
+integration, visual or required mutation checks. Do not infer a new percentage
+from a focused correction that did not remeasure coverage. Future CI coverage
+reporting and quality gates are planned for SonarCloud under
+[SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87); they are
+not current CI evidence. Reconcile this local policy when SonarCloud is adopted.
 
 ### Scale detail to delivery risk
 
@@ -297,6 +309,8 @@ blocker after relevant diagnosis/recovery; finish independent work first.
    local suite requires scope spanning that suite or an explicit user request.
    Fix failures and rerun failed/affected selections until required checks pass.
    Required unavailable infrastructure remains a recorded blocker.
+   Measure changed-code coverage with the related tests after focused behavior
+   checks pass; reuse a current measurement unless covered code or its tests change.
 5. Execute required concise happy-path manual scenarios, capturing required
    visuals during those journeys. Automated tests cover negative, recovery,
    concurrency and unusual outcomes. Mocks cannot prove real authenticated,

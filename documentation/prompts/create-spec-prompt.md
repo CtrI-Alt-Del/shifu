@@ -252,8 +252,12 @@ proof may support the same outcome. Keep baseline gates separate and reference
 the applicable Tooling/Rule checks, including affected consumers. Define separate
 type, lint and complexity obligations/dispositions using
 [scoped static-check guidance](../tooling.md#scoped-type-lint-and-complexity-checks).
-Use exact paths for lint and affected configured projects for types. Complexity
-must identify its checker and actual limits; no dedicated metrics command is
+Use exact paths for lint and affected configured projects for types. Include
+local changed-code coverage for each affected production Web/Server file under
+[Tooling's coverage policy](../tooling.md#changed-code-coverage), with related
+test selectors and 85% statements/functions/lines and 80% branches pass
+conditions. State Not applicable when no eligible production source changes.
+Complexity must identify its checker and actual limits; no dedicated metrics command is
 currently configured. A required unavailable metrics gate stays Blocked.
 Mark absent
 files/scenarios planned; verify test names before prescribing filters.

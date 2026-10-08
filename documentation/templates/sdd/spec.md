@@ -102,9 +102,13 @@ never assume registration, account state or permission to reset shared data.
 
 **Checks:** <required Tooling/Rule checks; feature-specific exceptions>
 
-Define separately identified CI checks for types, lint and complexity on affected
-paths/projects and their affected consumers. Link
-[Tooling](../../tooling.md#scoped-type-lint-and-complexity-checks); specify actual
+Define separately identified `CI-*` quality checks for types, lint and complexity
+on affected paths/projects and their consumers. Add a separately identified local
+changed-code coverage check for affected production paths. Coverage requires
+85% changed statements/functions/lines and 80% changed branches per eligible
+Web/Server file under [Tooling](../../tooling.md#changed-code-coverage). Name
+related tests and record Not applicable when no eligible production file changes.
+Link [Tooling](../../tooling.md#scoped-type-lint-and-complexity-checks); specify actual
 commands and pass conditions. Configured complexity lint may share its command
 with lint but needs an explicit disposition. Record a required unavailable metrics
 checker as Blocked; do not invent a command or infer a complexity score.
