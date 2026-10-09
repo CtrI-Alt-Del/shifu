@@ -192,7 +192,7 @@ desktop  >= 1024
 **Desktop:** trilho lateral fixo de 52px, só ícones, com 師 no topo. Conteúdo com largura máxima de 1120px.
 **Mobile:** barra inferior com 4 itens — Objetivos, Progresso, Mentor, Conta.
 
-O Mentor é painel lateral de 400px no desktop e folha em tela cheia no mobile. Abre de qualquer área, conforme Intelligence RP-04.
+O Mentor é painel lateral de 566px no desktop e folha em tela cheia no mobile. Abre de qualquer área, conforme Intelligence RP-04. A largura acompanha o Pencil e o contrato aprovado em [gestão de conversas do Mentor](features/intelligence/mentor-sessions-management/spec.md).
 
 ## 4. Biblioteca de componentes
 

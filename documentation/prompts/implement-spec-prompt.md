@@ -146,6 +146,24 @@ the last affected UI edit, with route/state/viewport/fixture and artifact path.
 An earlier capture of unchanged UI may remain valid when its dependencies and
 rendered state are unchanged; explain retained evidence in Evaluation.
 
+### Required manual and visual evidence inventory
+
+Before executing or delegating verification, enumerate every Manual and Visual
+obligation from the Spec and design handoff in Evaluation. Use one row per
+required journey or rendered state/viewport, with its VM/CA IDs, surface/route,
+state, viewport, reference node/export, candidate, artifact path, observed result
+and review disposition. Keep this inventory within Evaluation; do not create a
+separate planning artifact or add scenarios beyond the contract.
+
+Page, FAB, dialog and mobile states are distinct obligations when required.
+Evidence for one surface cannot establish another surface's result, even when
+they share components. A captured state remains Pending until inspected against
+its specific reference. Record concrete observations about the required visual
+properties and any approved deviation; image existence alone is not proof.
+Manual behavior and visual appearance have separate results: a working journey
+does not establish a design match, and a matching image does not establish real
+authentication or persistence.
+
 ## Integrated verification and failure loop
 
 Execute the Verification Contract's Automated, Manual and Visual checks and all
@@ -233,6 +251,14 @@ merely to occupy a different role. Missing, stale or unsupported proof yields
 a concrete finding and the specific needed checker. The Orchestrator reconciles
 reports, verifies findings and records ACH IDs and their disposition.
 
+Give the Visual Reviewer the complete required-state inventory, including missing
+captures, and request a disposition for each row. Reconcile the returned review
+scope with that inventory yourself. A blanket PASS or a review of only some
+captures cannot close the remaining rows. Missing, uninspected, stale or mismatched
+required states remain Pending, Stale or Failed as appropriate and prevent the
+overall visual checker from passing. Complete the missing authorized work and
+request the affected review before claiming completion.
+
 Fix in-contract findings autonomously. Rerun only invalidated checkers and
 visual comparisons, and resume only the affected review scope. A correction
 that crosses both code and visuals reactivates both reviewers in parallel.
@@ -277,6 +303,15 @@ manual, review, waiver and limitation records must support every readiness claim
 A waiver cannot turn a required Failed/Blocked/Stale check into a pass or readiness.
 Continue local conclusion directly; publication still requires existing authority,
 and published completion waits for current-head CI and blocking review resolution.
+
+Before changing readiness status or reporting that all manual/visual validations
+passed, reconcile the Spec's complete required set with the inventory, actual
+artifacts, observed results and reviewer dispositions. Every required row must
+have supported current passing evidence or contract-authorized non-applicability.
+Do not silently exclude a page, viewport or state, infer full coverage from a
+reviewer's summary, or present partial verification as complete. If an earlier
+completion claim was unsupported, preserve and correct that claim in Evaluation,
+reopen the affected checker and report the correction explicitly.
 
 ## Report
 

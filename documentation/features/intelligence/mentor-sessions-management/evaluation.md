@@ -1,6 +1,6 @@
 ---
 title: Mentor sessions management evaluation
-status: ready
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-10-09
 ---
@@ -16,7 +16,7 @@ last_updated_at: 2026-10-09
 | Visual checks | VM-02 passes: current FAB and settled dialog desktop/mobile views EV-33; prior unchanged page and skeleton evidence EV-15/16/26 retained. |
 | Independent review | Parallel read-only implementation/visual reviews of integrated corrected UI pass; final header assertion independently reviewed (EV-33). |
 | Scope exclusions | Shared usage-quota enforcement/accounting and account deletion remain out of scope, as explicitly directed by the user. |
-| Candidate | Branch `shifu-99`, base `f5dc8f29fd39a7c6c08df494d077d35bfda66c4e` plus current working-tree changes; no commit or PR. |
+| Candidate | Branch `shifu-99`, published head `01660adb7e00bde180547026d584296de3042ddb`, PR #22 targeting main; current-head Web/Server/Email CI passed; published delivery completed. |
 
 # Progress
 
@@ -162,13 +162,13 @@ Evidence reuse: no new server feature behavior, transport, persistence schema, t
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `shifu-99`, base `f5dc8f29fd39a7c6c08df494d077d35bfda66c4e` plus uncommitted feature changes; Spec rev 8. |
+| Candidate | Branch `shifu-99`, head `01660adb7e00bde180547026d584296de3042ddb`; Spec rev8; PR #22. |
 | Completed | CA-01–CA-11 implementation; retained backend checks; real manual persistence/cleanup; full VM-02 and final parallel UI reviews; current scoped tests/static/build. |
-| Unfinished | None within this local slice. Seed maintenance runtime reset was not performed; separate static-only disposition EV-22 is explicit. Publication was not requested. |
-| Uncommitted work | Preserve pre-existing user paths `design/shifu.pen`, `documentation/agents/spec-reviewer-agent.md`, `documentation/design.md`, `documentation/prompts/create-spec-prompt.md`, and `documentation/templates/sdd/spec.md`. Feature implementation, local font assets/licenses and this Evaluation are uncommitted; also preserve unrelated pre-existing `apps/web/src/ui/identity/widgets/pages/sign-in-page/index.tsx` spinner spacing. Correction owns the authenticated-shell Mentor list fixture response. browser captures/storage and temporary persistence script are ignored local evidence. |
+| Unfinished | None within the selected delivery. Seed maintenance runtime reset was not performed; separate static-only disposition EV-22 is explicit. |
+| Uncommitted work | Closing Evaluation/Spec ledger updates remain local by the no closure-only commit rule. Preserve unrelated paths: both apps/.env.example, apps/web/src/ui/identity/widgets/pages/sign-in-page/index.tsx, design/shifu.pen, documentation/agents/spec-reviewer-agent.md, documentation/design.md, documentation/prompts/create-spec-prompt.md, documentation/prompts/implement-spec-prompt.md and documentation/templates/sdd/spec.md. Feature code and required reference artifacts are committed. Runtime screenshots/logs/storage remain ignored/local. |
 | Active processes | Correction sessions `mentor-session-debug` and `mentor-session-final` closed; all task-created conversations deleted. Conclusion CLI `mentor-conclude` closed; no task app process started. Task-owned `mentor-fidelity` Playwright CLI session is closed; final source-defined actor storage remains ignored/local. API/Vite and shared Docker services were already running and were left untouched. |
 | Blockers | No local delivery blocker. Authentication recovered; unrelated sign-in change remains preserved outside scope. Atlassian refresh remains unavailable because the connected site differs from the canonical site; the Spec records the complete PRD v7/privacy policy v4 reads and this limitation. |
-| Next action | Local delivery completed; publication was not requested. No commit or PR created. |
+| Next action | Published delivery completed; PR remains open. Merge/deploy requires separate authorization. |
 
 # Delivery
 
@@ -180,11 +180,11 @@ Evidence reuse: no new server feature behavior, transport, persistence schema, t
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| Not applicable | No commit or PR created | Local-only delivery completed; publication/current-head CI not requested | Current runtime captures/logs under ignored `apps/web/.playwright-cli/`; local evaluation above. |
+| [PR #22](https://github.com/CtrI-Alt-Del/shifu/pull/22) | `01660adb7e00bde180547026d584296de3042ddb` | All current-head workflows passed; independent reviews passed; no blocking PR threads | Web37967391881, Server37967391901, Email37967391954 |
 
 | Closure field | Result |
 | --- | --- |
-| Publication | Local-only completion authorized by user; no fetch/merge/commit/PR, deployed action or external mutation requested. Current-head CI not applicable to this uncommitted local delivery. |
+| Publication | Explicit conclude-spec authorized synchronization and publication. Latest origin/main `3f469e4987d7b923ce05645362c29c377aeb4348` incorporated. Commits `b3e9002` and `01660ad` published in PR #22; current-head Web/Server/Email CI passed. No merge/deploy or external Jira/Confluence mutation. |
 | Source verification | Canonical Intelligence content83099649 v7 and privacy policyv4 full reads retained from the original approved delivery. Connected Atlassian site did not match canonical site, so refresh unavailable; no source change or conflict established. This limitation remains explicit. |
 | Documentation Alignment | Spec rev8 records requested FAB design/control adaptation and directly affected existing Learning consumer checker. Evaluation Current State/Progress/Check Results/Handoff reconciled; duplicate EV-22 skeleton entry uniquely reidentified EV-26, preserving seed EV-22. No global policy/Confluence/Jira changes. |
 | Lessons | Existing scoped evidence-reuse and animation settled-capture guidance suffice; no new global policy amendment needed. Feature-specific observations retained locally. |
@@ -203,3 +203,15 @@ Current-head Web, Server and Email CI are pending (runs37966528550,37966528628,3
 ## CI correction — ACH-12 / EV-34
 
 Web browser integration on head `b3e900257c66b08e0e66d9006fae2d33cedf4e72` failed one of122 tests (run37966528550, job113942154713). The Learning Competency test captured every RPC URL before filtering; the mounted Mentor list request overwrote its owning route URL. ACH-12 resolved: test isolation defect corrected by assigning the captured URL only after the competency-ID filter. Product behavior and accepted visual/runtime evidence unchanged. CodeGraph query for the Competency test and requestUrl identified the owning file; source inspection established the callback overwrite. EV-34 Automated: `pnpm test:integration tests/learning/competency-detail-page.test.ts` from apps/web passes9/9 in16.1s on corrected candidate. Independent read-only review by mentor_sessions_code_review passes. Evaluation ready for updated publication; current-head CI pending.
+
+Updated published candidate `01660adb7e00bde180547026d584296de3042ddb`: corrected test plus factual publication ledger. Commit hooks passed; push/readback confirmed PR #22 head/base. Web run37967391881, Server37967391901 and Email37967391954 execute applicable checked-in workflows. Existing product, visual, static and coverage evidence remains valid because only owning browser-test capture changed. No task-owned process/session remains active.
+
+## Published conclusion — EV-35
+
+Spec revision8 and Evaluation completed on head `01660adb7e00bde180547026d584296de3042ddb`. Required workflows all terminal success:
+
+- [Web CI](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37967391881): success, including browser integration and final verification.
+- [Server CI](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37967391901): success, including integration, real Inngest jobs, all12 mutation shards, summary and final verification.
+- [Email CI](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37967391954): success.
+
+REST workflow readback confirms identical current head for all three runs. Review GraphQL readback: no reviews and no review threads; no blocking conversation pending. CA-01–CA-11 remain Complete/Passed with accepted scoped automated, manual and visual proof; partial RP/JN dispositions and exclusions unchanged. ACH-12 resolved with EV-34; failed previous-head CI retained above. PR #22 is open, base main; no merge/deploy/Jira/Confluence write. Closing Spec/Evaluation ledger changes remain local, without a closure-only commit. Nine unrelated dirty paths preserved. No task-started browser/runtime process remains active; shared services left running.

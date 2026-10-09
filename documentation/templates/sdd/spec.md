@@ -55,12 +55,23 @@ SQLAlchemy/Alembic constraints and migration/data guarantees, widget props/state
 ownership, provider wiring, and event/job payloads, retries and idempotency.
 
 Reference existing unchanged declarations; specify only changed public contracts
-and consequential guarantees. Add a scoped expected file tree only when it
-clarifies ownership, registration, generated outputs or another consequential
-boundary; otherwise the mapping suffices. Use new `[N]` and modified `[M]` files;
-keep deletions in the mapping. Identify generated inputs/commands and planned
-paths honestly. Private helpers and ordinary decomposition remain implementation
-choices; changing them alone does not amend the contract.
+and consequential guarantees. Include the scoped expected file tree here in
+both compact and complete mode, with repository-relative paths, new `[N]` and
+modified `[M]` files; keep deletions in the mapping. For UI, show the approved
+page/layout and reused component boundaries, nested child widgets, entrypoints,
+colocated behavior hooks and permitted `tests/` locations. Explain shared state
+and local interaction ownership. Match names and test paths to the declarations,
+design handoff and Verification Contract; a tree shown only in chat is insufficient.
+Show affected context/provider/value/consumer-hook paths and concrete domain
+query/action-hook filenames. Explain provider/operation/widget dependency direction,
+shared state, read/write/retry ownership and approved cache/refetch behavior;
+identify consumer coverage instead of dedicated query/action tests. For AI changes,
+show the included agent/output/workflow, Core port, provider and composition paths
+with permitted tests, keeping deferred capabilities out of the tree.
+Identify generated inputs/commands and planned paths honestly. Do not fabricate
+migration filenames, hooks or tests for structural children. Private helpers and
+ordinary decomposition remain implementation choices; changing them alone does
+not amend the contract.
 
 ## Runtime Flow
 

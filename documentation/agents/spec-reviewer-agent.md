@@ -57,10 +57,15 @@ agent type or a separate user-facing workflow.
 
 Scoped expected file trees and public declarations describe the proposed change;
 check their consequential paths/actions against repository conventions without
-demanding exhaustive helper catalogues or task choreography. A file tree is
-optional when the mapping already establishes consequential ownership/consumer
-impact. For compact Specs, keep review proportional to changed contracts and
-identified risks; brevity is not a defect when the required guarantees are clear.
+demanding exhaustive helper catalogues or task choreography. The Spec includes a
+scoped expected file tree; check its agreement with the mapping, approved widget
+ownership, declarations and permitted test paths. For affected contexts and
+query/action hooks, check provider/consumer direction, state ownership, concrete
+paths and consumer-owned verification; do not require forbidden hook test suites.
+For affected AI composition, check agent/output/workflow, Core port, provider and
+composition boundaries against the selected Rules. For compact Specs, keep review
+proportional to changed contracts and identified risks; brevity is not a defect
+when the required guarantees are clear.
 
 Do not require an execution plan, implementation diff, Evaluation, test result, or runtime evidence. Those
 artifacts do not exist yet or belong to later workflows.
