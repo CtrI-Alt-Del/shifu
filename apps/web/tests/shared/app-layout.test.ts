@@ -22,7 +22,7 @@ test.describe('AppLayout', () => {
     await expect(
       authenticatedPage.getByRole('heading', {
         level: 1,
-        name: 'Mais clareza para continuar.',
+        name: 'Nova conversa',
       }),
     ).toBeVisible()
 

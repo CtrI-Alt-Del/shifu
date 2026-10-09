@@ -1,5 +1,7 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
+@mentorSessionId = 01J00000000000000000000000
+@submissionKey = 2a7e963f-d7dd-4cc9-9a46-8c650193f7a6
 
 ### Start planning session
 POST {{baseUrl}}/intelligence/planning-sessions
@@ -9,3 +11,34 @@ Content-Type: application/json
 {
   "initial_intent": "Quero aprender a programar em Python do zero."
 }
+
+### Create Mentor conversation
+POST {{baseUrl}}/intelligence/mentor-sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{submissionKey}}",
+  "first_message": "Quero entender como funcionam funções em Python."
+}
+
+### List Mentor conversations
+GET {{baseUrl}}/intelligence/mentor-sessions?search=python
+Authorization: Bearer {{accessToken}}
+
+### Open a Mentor conversation
+GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
+Authorization: Bearer {{accessToken}}
+
+### Rename a Mentor conversation
+PATCH {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Funções em Python"
+}
+
+### Delete a Mentor conversation
+DELETE {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
+Authorization: Bearer {{accessToken}}

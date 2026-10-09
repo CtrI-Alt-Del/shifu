@@ -35,8 +35,18 @@ from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider imp
 )
 from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
+from shifu.intelligence.ai.generative.agno.agents.mentor_title_agent import (
+    MentorTitleAgent,
+)
+from shifu.intelligence.ai.generative.agno.workflows.agno_generate_mentor_title_workflow import (
+    AgnoGenerateMentorTitleWorkflow,
+)
 from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
+)
+from shifu.intelligence.providers.openrouter import (
+    MentorTitleModelProvider,
+    UnavailableGenerateMentorTitleWorkflow,
 )
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
@@ -106,6 +116,32 @@ class ActivityPayloadLimitMiddleware:
         await self._app(scope, replay_receive, send)
 
 
+class PrivateMentorNoStoreMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = str(scope.get('path', ''))
+        if scope['type'] != 'http' or not path.startswith(
+            '/intelligence/mentor-sessions'
+        ):
+            await self._app(scope, receive, send)
+            return
+
+        async def send_private(message: Message) -> None:
+            if message['type'] == 'http.response.start':
+                headers = [
+                    (name, value)
+                    for name, value in message.get('headers', [])
+                    if name.lower() != b'cache-control'
+                ]
+                headers.append((b'cache-control', b'private, no-store'))
+                message['headers'] = headers
+            await send(message)
+
+        await self._app(scope, receive, send_private)
+
+
 class FastAPIApp:
     @staticmethod
     def _register_routers(app: FastAPI) -> None:
@@ -124,6 +160,7 @@ class FastAPIApp:
         id_provider = SystemIdentifierProvider()
         clock_provider = SystemClockProvider()
         settings = get_settings()
+        mentor_title_model = MentorTitleModelProvider.build(settings)
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
             id_provider=id_provider,
@@ -212,6 +249,11 @@ class FastAPIApp:
             finally:
                 broker.stop()
                 await asyncio.to_thread(code_assessor_client.close)
+                if mentor_title_model is not None:
+                    model_client = getattr(mentor_title_model, 'client', None)
+                    close_model_client = getattr(model_client, 'close', None)
+                    if callable(close_model_client):
+                        await asyncio.to_thread(close_model_client)
                 await cache_provider.close()
                 database_engine.dispose()
 
@@ -269,6 +311,11 @@ class FastAPIApp:
             engine=database_engine,
             id_provider=id_provider,
         )
+        app.state.generate_mentor_title_workflow = (
+            UnavailableGenerateMentorTitleWorkflow()
+            if mentor_title_model is None
+            else AgnoGenerateMentorTitleWorkflow(MentorTitleAgent(mentor_title_model))
+        )
         FastAPIApp._register_routers(app)
         app.add_middleware(
             RateLimitMiddleware,
@@ -279,6 +326,7 @@ class FastAPIApp:
             ActivityPayloadLimitMiddleware,
             max_body_bytes=settings.max_activity_payload_bytes,
         )
+        app.add_middleware(PrivateMentorNoStoreMiddleware)
         return app
 
 

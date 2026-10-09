@@ -1,5 +1,10 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 
+import { ROUTES } from '@/constants/routes'
+
+import { MentorContextProvider } from '@/ui/intelligence/contexts/mentor-context'
+import { MentorFab } from '@/ui/intelligence/widgets/components/mentor-fab'
+
 import { AccountMenu, type LayoutAccount } from './account-menu'
 import { DesktopHeader } from './desktop-header'
 import { MobileBottomNavigation } from './mobile-bottom-navigation'
@@ -16,7 +21,7 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
   const renderedAccountMenu =
     accountMenu ?? (account ? <AccountMenu account={account} /> : undefined)
 
-  return (
+  const layout = (
     <div className='relative isolate min-h-screen bg-transparent text-foreground'>
       <header className='relative z-20 border-b border-border bg-background/80'>
         <DesktopHeader
@@ -36,5 +41,14 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
       </main>
       <MobileBottomNavigation items={navigationItems} pathname={pathname} />
     </div>
+  )
+
+  if (!account?.email) return layout
+
+  return (
+    <MentorContextProvider accountEmail={account.email}>
+      {layout}
+      <MentorFab isMentorPage={pathname.replace(/\/+$/, '') === ROUTES.intelligence} />
+    </MentorContextProvider>
   )
 }
