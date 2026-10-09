@@ -13,9 +13,9 @@ const AlertDialogContent = ({
   ...props
 }: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>) => (
   <AlertDialogPortal>
-    <AlertDialogOverlay className='fixed inset-0 z-50 bg-black/50' />
+    <AlertDialogOverlay className='dialog-overlay fixed inset-0 z-50 bg-black/50' />
     <AlertDialogPrimitive.Content
-      className={`fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border border-control-border bg-card p-6 rounded-lg shadow-lg ${className}`}
+      className={`dialog-content fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border border-control-border bg-card p-6 rounded-lg shadow-lg ${className}`}
       {...props}
     />
   </AlertDialogPortal>
@@ -26,7 +26,7 @@ const AlertDialogHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={`flex flex-col space-y-2 text-center sm:text-left ${className}`}
+    className={`mb-6 flex flex-col space-y-2 text-center sm:text-left ${className}`}
     {...props}
   />
 )
@@ -36,7 +36,7 @@ const AlertDialogFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${className}`}
+    className={`mt-8! border-t border-border pt-6 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${className}`}
     {...props}
   />
 )

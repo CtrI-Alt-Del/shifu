@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyMentorMessagesRepository,
+    SqlalchemyMentorSessionsRepository,
     SqlalchemyPlanningSessionsRepository,
 )
 from shifu.shared.core.interfaces import IdentifierProvider
@@ -39,6 +41,8 @@ class SqlalchemyIntelligenceDatabase:
                     self._engine,
                     id_provider=self._id_provider,
                 ),
+                mentor_sessions=SqlalchemyMentorSessionsRepository(session),
+                mentor_messages=SqlalchemyMentorMessagesRepository(session),
             )
             try:
                 yield repositories

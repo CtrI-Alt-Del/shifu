@@ -11,9 +11,10 @@ checkers. Evaluation records actual progress, evidence and delivery disposition.
 
 ```mermaid
 flowchart TD
-    A[Authority and research] --> B[Resolve material decisions]
+    A[Authority and research] --> B[Inquire and review proposed design]
     B --> C[Draft Spec and compatibility review]
-    C --> D[Ready contract]
+    C --> R[User reviews written Spec]
+    R --> D[Ready contract]
     D --> E[Autonomous implementation]
     E --> F[Integrated verification and independent review]
     F --> G{Required proof accepted?}
@@ -76,8 +77,11 @@ handling and verification. Compare viable approaches only for unresolved
 consequential choices; scale discussion to risk. Apply the conversational
 [grilling protocol](prompts/create-spec-prompt.md#grilling-protocol) in dependency
 order. Resolve inspectable facts directly and never treat silence as approval.
-Established decisions need no repeated confirmation. Record the selected approach
-in the existing contract; no separate design or planning document is required.
+Established decisions need no repeated confirmation. Review the in-chat design
+before drafting and the written Spec before marking it `ready`, as detailed in
+`create-spec`; these reviews do not reopen settled decisions. Record the selected
+approach in the existing contract; no separate design or planning document is
+required.
 
 A Spec selects delivery scope and testable interpretations; it does not copy the
 PRD or create a second product backlog. Report conflicting sources. User-visible

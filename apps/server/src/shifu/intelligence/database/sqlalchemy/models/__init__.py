@@ -1,1 +1,3 @@
 from .planning_session_model import PlanningSessionModel as PlanningSessionModel
+from .mentor_message_model import MentorMessageModel as MentorMessageModel
+from .mentor_session_model import MentorSessionModel as MentorSessionModel

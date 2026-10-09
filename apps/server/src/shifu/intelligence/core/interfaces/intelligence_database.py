@@ -1,6 +1,12 @@
 from contextlib import AbstractContextManager
 from typing import Protocol
 
+from shifu.intelligence.core.interfaces.mentor_messages_repository import (
+    MentorMessagesRepository,
+)
+from shifu.intelligence.core.interfaces.mentor_sessions_repository import (
+    MentorSessionsRepository,
+)
 from shifu.intelligence.core.interfaces.planning_sessions_repository import (
     PlanningSessionsRepository,
 )
@@ -12,6 +18,8 @@ from shifu.shared.core.interfaces import EventsRepository
 class IntelligenceDatabaseRepositories:
     planning_sessions: PlanningSessionsRepository
     events: EventsRepository
+    mentor_sessions: MentorSessionsRepository
+    mentor_messages: MentorMessagesRepository
 
 
 class IntelligenceDatabase(Protocol):

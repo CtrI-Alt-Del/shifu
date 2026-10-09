@@ -35,6 +35,15 @@ export const test = base.extend<IdentityModuleFixtures>({
         'base64url',
       ).toString()
 
+      if (serverFunction.includes('listMentorSessionsServer')) {
+        await route.fulfill({
+          body: JSON.stringify({ result: { items: [], nextCursor: null } }),
+          contentType: 'application/json',
+          status: 200,
+        })
+        return
+      }
+
       if (
         !serverFunction.includes('middlewares/require-auth-middleware.ts') &&
         !serverFunction.includes('middlewares/enter-main-page-middleware.ts')

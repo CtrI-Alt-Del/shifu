@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     redis_url: str
     diagnostic_revision_hmac_key: SecretStr | None = None
     openrouter_api_key: str | None = None
+    mentor_title_prompt_logging_disabled: bool = False
     openrouter_decisions_url: HttpUrl = HttpUrl(
         'https://openrouter.ai/api/alpha/decisions'
     )

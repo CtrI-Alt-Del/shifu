@@ -56,27 +56,35 @@ consequential contracts and sufficient focused proof. Omit empty optional detail
 no minimum length, declaration count or file inventory is required. Complete mode
 adds detail only for identified risks and guarantees.
 
-## 2. Explain approaches and resolve material ambiguity
+## 2. Inquire and validate the design before drafting
 
-Before drafting, explain the settled design progressively: outcome/scope,
-responsibilities and public interfaces, runtime flow/failures, and verification.
-Scale detail to risk. For unresolved consequential architectural choices, compare
-2–3 viable approaches grounded in Shifu; recommend one and explain compatibility,
-ownership, consistency and recovery tradeoffs. Do not invent alternatives when
-existing authority settles the choice or add speculative capabilities/refactoring.
-Record the selected approach and rationale in the existing Technical Contract.
+Use the architectural path of Superpowers brainstorming for a feature Spec: explore
+context, resolve material questions, compare viable approaches, present the design
+in chat for review, then write the approved Spec. Announce this path and its
+expected artifact before the first question. `compact` and `complete` control the
+Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact;
+do not create a second design document or a `plan.md`.
 
 ### Grilling protocol
 
-Research inspectable facts directly. Ask only about unresolved product decisions
-or consequential technical tradeoffs: actors, permissions, scope, destructive
-behavior, ownership, public compatibility, irreversible persistence and required
-verification. Ordinary reversible implementation choices belong to the agent.
+State your understanding of the user's intended outcome, relevant constraints and
+success criteria in a short note. Distinguish established facts from assumptions
+and invite correction. If intent is missing, ask one focused question about
+purpose or intended use before exploring feature details. Do not ask the user to
+repeat facts already supplied.
 
-Build a dependency-ordered set of material decisions. Ask independent currently
-answerable questions together; ask dependent questions after their prerequisites
-are resolved. Number questions monotonically across rounds. Ask directly in the
-conversation, without a question tool:
+Research inspectable repository, PRD, Jira and design facts directly. Ask only
+about unresolved product decisions or consequential technical tradeoffs: actors,
+permissions, scope, destructive behavior, ownership, public compatibility,
+irreversible persistence and required verification. Ordinary reversible
+implementation choices belong to the agent.
+
+Ask **one question per message**, choosing a material question whose prerequisites
+are settled. Prefer concise multiple-choice options when useful, while allowing
+an open answer. Explain relevant evidence and how materially different answers
+affect the contract; give a recommendation with its reason. Number questions
+monotonically across the conversation. Ask directly in the conversation, without
+a question tool:
 
 ```text
 ❓ Q1 — <title>: <question, evidence and consequences of materially different choices>
@@ -84,22 +92,39 @@ conversation, without a question tool:
 ➡️ Recommended: <answer and its consequence>
 ```
 
-Wait for the affected answers; partial answers settle only answered questions and
-silence never approves a recommendation. Continue independent research while
-waiting. Challenge contradictions respectfully and resolve consequential ambiguity
-before authoring a new contract/design manifest. An existing amendment remains
-`draft` while decisions are pending. Summarize accepted decisions in the contract,
-without an interview transcript or separate decision-tree artifact.
+Wait for the answer before asking the next question. A request for more context is
+not an answer; explain the current choice and keep it open. Silence never approves
+a recommendation. Continue independent research while waiting. Challenge
+contradictions respectfully and resolve consequential ambiguity before presenting
+the proposed design. An existing amendment remains `draft` while decisions are
+pending. Summarize accepted decisions in the contract, without an interview
+transcript or separate decision-tree artifact.
 
-If authority and authorization already settle material choices, proceed without
-inventing questions or asking for generic confirmation. Honor an explicit user
-request to approve every technical decision when present.
+If authority and authorization already settle material choices, skip invented
+questions and proceed to design review. Do not use that absence of questions to
+skip the design and written-Spec review gates. Honor an explicit user request to
+approve every technical decision when present.
 
 Screenshots establish visual intent, not new permissions/actions/workflows.
 Resolve design-derived behavioral ambiguity against the canonical PRD. Visual
 choices consistent with the PRD and UI Rules may proceed directly. A product
 amendment requires an explicitly authorized Confluence update and a complete
 reread before Spec reconciliation; preparing a Spec never authorizes that write.
+
+### Compare approaches and review the design
+
+For consequential architectural choices, present 2–3 viable approaches grounded
+in Shifu, leading with a recommendation and explaining compatibility, ownership,
+consistency and recovery tradeoffs. Do not invent alternatives when existing
+authority settles the choice or add speculative capabilities/refactoring.
+
+Present the proposed design in short chat sections scaled to its risk: outcome and
+scope; ownership, components and public contracts; runtime flow, persistence and
+failure handling; and verification. Ask whether each section looks right before
+continuing. Revise a section when the user identifies a gap. Explicit approval of
+the complete in-chat design permits writing the Spec; it does not approve the
+written Spec or authorize implementation. Record the selected approach and
+rationale in the existing Technical Contract.
 
 ## 3. Author the contract
 
@@ -361,6 +386,14 @@ public contracts, test-integrity policy, accepted assumptions and known risks.
 The reviewer is read-only and checks architecture and Rules; it does not choose
 product behavior or require runtime proof before implementation. Verify findings,
 correct accepted defects and recheck affected findings with the same reviewer.
+
+Self-review the written Spec for placeholders, internal contradictions, ambiguous
+requirements and scope that needs decomposition; correct those issues before
+presenting it. After the independent review has no blocking findings, give the
+user the Spec path and revision and ask them to review the written contract.
+Wait for explicit approval before marking it `ready` or handing it to
+`implement-spec`. If the user requests changes, amend the Spec, repeat affected
+self-review and independent review, then present the revised contract again.
 
 Before `ready`, confirm authority/version metadata; scope and traceability;
 observable criteria; resulting declarations, consumer/wiring impact and runtime

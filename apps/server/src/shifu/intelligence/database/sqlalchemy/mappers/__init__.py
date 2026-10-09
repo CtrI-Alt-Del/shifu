@@ -1,1 +1,3 @@
 from .planning_session_mapper import PlanningSessionMapper as PlanningSessionMapper
+from .mentor_message_mapper import MentorMessageMapper as MentorMessageMapper
+from .mentor_session_mapper import MentorSessionMapper as MentorSessionMapper

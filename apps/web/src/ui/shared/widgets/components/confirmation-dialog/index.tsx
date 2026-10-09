@@ -94,7 +94,6 @@ export const ConfirmationDialog = ({
             </div>
           )}
         </AlertDialogHeader>
-        <div className='border-t border-border' />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isSubmitting}>{cancelLabel}</AlertDialogCancel>
           <Button variant='danger' onClick={onConfirm} disabled={isSubmitting}>
