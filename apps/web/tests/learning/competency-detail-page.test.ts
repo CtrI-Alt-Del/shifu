@@ -93,11 +93,12 @@ test('protects the Competency route and preserves its dynamic IDs', async ({
   let requestUrl = ''
 
   await bff.route(async (route) => {
-    requestUrl = route.request().url()
-    if (!requestUrl.includes(IDS.competencyId)) {
+    const candidateUrl = route.request().url()
+    if (!candidateUrl.includes(IDS.competencyId)) {
       await route.fallback()
       return
     }
+    requestUrl = candidateUrl
 
     await route.fulfill({
       body: JSON.stringify({

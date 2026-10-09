@@ -193,3 +193,13 @@ Evidence reuse: no new server feature behavior, transport, persistence schema, t
 ## Publication handoff — 2026-10-09
 
 Explicit conclude-spec invocation authorizes synchronization, scoped commits and PR publication. Verified origin `https://github.com/CtrI-Alt-Del/shifu.git`, delivery branch `shifu-99`. Fetched main `3f469e4987d7b923ce05645362c29c377aeb4348`; merge returned already up to date at HEAD `f5dc8f29fd39a7c6c08df494d077d35bfda66c4e`. No covered code changed; EV-27–33 and unchanged Server proof reused. Publication/current-head CI now pending; artifacts remain implemented/ready until required remote checks pass. Preserve unrelated `.env.example` cleanup in both apps, sign-in spacing, Pencil source and global workflow documentation edits. No reset/stash or shared service mutation.
+
+## Published candidate — PR #22
+
+Commit `b3e900257c66b08e0e66d9006fae2d33cedf4e72` published to origin/shifu-99. PR https://github.com/CtrI-Alt-Del/shifu/pull/22 targets main. Hooks: Biome429files passes; first commitlint attempt rejected an overlong body line, wrapped body then passes. Only OFL trailing whitespace normalized after accepted code proof. Nine unrelated dirty paths preserved, including both environment examples; no source data or storage committed.
+
+Current-head Web, Server and Email CI are pending (runs37966528550,37966528628,37966528582). No review threads or reviews exist; zero threads resolved. Published completion remains pending; Spec implemented/Evaluation ready. Local completed dispositions above describe the prior local-only conclusion and are superseded for publication by this handoff. No merge/deploy performed.
+
+## CI correction — ACH-12 / EV-34
+
+Web browser integration on head `b3e900257c66b08e0e66d9006fae2d33cedf4e72` failed one of122 tests (run37966528550, job113942154713). The Learning Competency test captured every RPC URL before filtering; the mounted Mentor list request overwrote its owning route URL. ACH-12 resolved: test isolation defect corrected by assigning the captured URL only after the competency-ID filter. Product behavior and accepted visual/runtime evidence unchanged. CodeGraph query for the Competency test and requestUrl identified the owning file; source inspection established the callback overwrite. EV-34 Automated: `pnpm test:integration tests/learning/competency-detail-page.test.ts` from apps/web passes9/9 in16.1s on corrected candidate. Independent read-only review by mentor_sessions_code_review passes. Evaluation ready for updated publication; current-head CI pending.
