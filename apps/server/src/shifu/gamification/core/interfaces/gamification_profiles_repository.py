@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from shifu.gamification.core.domain.entities import GamificationProfile
+
+
+class GamificationProfilesRepository(Protocol):
+    def find_by_account_id(self, account_id: str) -> GamificationProfile | None: ...
+
+    def add(self, profile: GamificationProfile) -> None: ...
+
+    def update(self, profile: GamificationProfile) -> None: ...
+
+    def remove(self, profile: GamificationProfile) -> None: ...

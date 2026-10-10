@@ -1,24 +1,22 @@
+import { Button } from '@/ui/shadcn/button'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ModulePageHeader } from '@/ui/shared/widgets/components/module-page-header'
 
-const achievements = [
-  {
-    description: 'Você deu o primeiro passo no seu caminho.',
-    state: 'Conquistada',
-    title: 'Primeiro passo',
-  },
-  {
-    description: 'Pratique em cinco dias diferentes.',
-    state: '2 de 5 dias',
-    title: 'Ritmo constante',
-  },
-  {
-    description: 'Explore uma nova habilidade do currículo.',
-    state: 'Bloqueada',
-    title: 'Mente curiosa',
-  },
-] as const
+import { AchievementFamilySection } from './achievement-family-section'
+import { HistoricalAchievementsSection } from './historical-achievements-section'
+import { ProfileSummaryCard } from './profile-summary-card'
+import { useGamificationPage } from './use-gamification-page'
 
 export const GamificationPage = () => {
+  const {
+    familyGroups,
+    historicalAchievements,
+    profileSummary,
+    state,
+    isRetrying,
+    handleRetry,
+  } = useGamificationPage()
+
   return (
     <div className='mx-auto w-full max-w-7xl space-y-10'>
       <ModulePageHeader
@@ -27,85 +25,79 @@ export const GamificationPage = () => {
         title='Cada passo merece ser visto.'
       />
 
-      <section className='grid gap-4 lg:grid-cols-[1.25fr_1fr]'>
-        <article className='rounded-3xl bg-primary p-7 text-primary-foreground shadow-brand sm:p-9'>
-          <p className='text-sm font-bold uppercase tracking-[0.14em] text-primary-foreground/70'>
-            Seu nível
+      {state === 'loading' ? (
+        <output
+          aria-busy='true'
+          aria-label='Carregando conquistas'
+          className='block space-y-5 rounded-lg border border-border bg-card p-6'
+        >
+          <div
+            aria-hidden='true'
+            className='h-32 w-full animate-pulse rounded bg-muted'
+          />
+          <div aria-hidden='true' className='h-64 animate-pulse rounded bg-muted' />
+          <span className='sr-only'>Carregando conquistas</span>
+        </output>
+      ) : state === 'error' ? (
+        <section
+          aria-labelledby='gamification-error-title'
+          className='rounded-lg border border-border bg-card p-8 text-center'
+          role='alert'
+        >
+          <Icon className='mx-auto text-selo-text' name='circle-alert' size={32} />
+          <h2
+            autoFocus
+            className='mt-4 font-serif text-2xl'
+            id='gamification-error-title'
+            tabIndex={-1}
+          >
+            Não foi possível carregar suas conquistas
+          </h2>
+          <p className='mt-3 text-muted-foreground'>
+            Tente novamente em alguns instantes.
           </p>
-          <div className='mt-5 flex items-end gap-4'>
-            <p className='font-serif text-6xl font-bold'>03</p>
-            <p className='pb-2 font-semibold text-primary-foreground/80'>
-              Aprendiz atento
-            </p>
-          </div>
-          <div className='mt-7 h-2.5 overflow-hidden rounded-full bg-primary-foreground/20'>
-            <div className='h-full w-[64%] rounded-full bg-card' />
-          </div>
-          <div className='mt-3 flex justify-between text-sm text-primary-foreground/70'>
-            <span>640 XP</span>
-            <span>1.000 XP para o próximo nível</span>
-          </div>
-        </article>
-        <article className='rounded-3xl border border-border bg-card p-7 shadow-card sm:p-9'>
-          <p className='text-sm font-bold uppercase tracking-[0.14em] text-primary'>
-            Sequência atual
+          <Button
+            className='mt-6'
+            disabled={isRetrying}
+            onClick={handleRetry}
+            type='button'
+          >
+            Tentar novamente
+          </Button>
+        </section>
+      ) : state === 'empty' ? (
+        <section className='flex min-h-[320px] flex-col items-center justify-center rounded-[10px] border border-border bg-surface-alt p-8 text-center'>
+          <span className='flex size-12 items-center justify-center rounded-full bg-muted'>
+            <Icon className='text-foreground/80' name='trophy' size={22} />
+          </span>
+          <h2 className='mt-4 text-xl font-semibold'>
+            Nenhuma conquista disponível ainda
+          </h2>
+          <p className='mt-4 max-w-[560px] text-foreground/80'>
+            Continue aprendendo para desbloquear suas primeiras conquistas.
           </p>
-          <p className='mt-4 font-serif text-5xl font-bold'>4 dias</p>
-          <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-            Seu hábito está ganhando forma. Uma prática curta hoje já mantém o ritmo.
-          </p>
-          <ul className='mt-6 flex gap-2' aria-label='Dias praticados nesta semana'>
-            {[
-              ['segunda', 'S'],
-              ['terça', 'T'],
-              ['quarta', 'Q'],
-              ['quinta', 'Q'],
-              ['sexta', 'S'],
-              ['sábado', 'S'],
-              ['domingo', 'D'],
-            ].map(([weekday, abbreviation], index) => (
-              <li
-                className={`grid size-8 place-items-center rounded-full text-xs font-bold ${index < 4 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
-                key={weekday}
-              >
-                {abbreviation}
-              </li>
-            ))}
-          </ul>
-        </article>
-      </section>
-
-      <section>
-        <p className='text-sm font-bold uppercase tracking-[0.14em] text-primary'>
-          Conquistas
-        </p>
-        <h2 className='mt-2 font-serif text-2xl font-bold'>Marcos da sua jornada</h2>
-        <div className='mt-5 grid gap-4 md:grid-cols-3'>
-          {achievements.map((achievement) => {
-            const locked = achievement.state === 'Bloqueada'
-
-            return (
-              <article
-                className={`rounded-2xl border border-border bg-card p-6 shadow-card ${locked ? 'opacity-65' : ''}`}
-                key={achievement.title}
-              >
-                <span
-                  className={`grid size-12 place-items-center rounded-2xl text-xl ${locked ? 'bg-muted text-muted-foreground' : 'bg-accent text-primary'}`}
-                >
-                  {locked ? '·' : '✦'}
-                </span>
-                <h3 className='mt-5 font-serif text-xl font-bold'>{achievement.title}</h3>
-                <p className='mt-2 text-sm leading-6 text-muted-foreground'>
-                  {achievement.description}
-                </p>
-                <p className='mt-5 text-xs font-bold uppercase tracking-[0.12em] text-primary'>
-                  {achievement.state}
-                </p>
-              </article>
-            )
-          })}
+        </section>
+      ) : (
+        <div className='space-y-10'>
+          {profileSummary ? (
+            <ProfileSummaryCard
+              level={profileSummary.level}
+              totalXp={profileSummary.totalXp}
+              xpForNextLevel={profileSummary.xpForNextLevel}
+            />
+          ) : null}
+          {familyGroups.map((group) => (
+            <AchievementFamilySection
+              achievements={group.achievements}
+              family={group.family}
+              key={group.family}
+            />
+          ))}
+          {historicalAchievements.length > 0 ? (
+            <HistoricalAchievementsSection achievements={historicalAchievements} />
+          ) : null}
         </div>
-      </section>
+      )}
     </div>
   )
 }
