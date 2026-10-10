@@ -1,6 +1,6 @@
 ---
 title: Mentor sessions management
-status: implemented
+status: completed
 revision: 8
 source:
   type: issue

@@ -102,7 +102,7 @@ export const SignInPage = () => {
 
           <Button aria-busy={isSubmitting} disabled={isSubmitting} type='submit'>
             {isSubmitting && (
-              <Icon className='animate-spin' name='loader-circle' size={16} />
+              <Icon className='animate-spin mr-2' name='loader-circle' size={16} />
             )}
             {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>

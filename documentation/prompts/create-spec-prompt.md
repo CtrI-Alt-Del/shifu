@@ -53,8 +53,9 @@ select `complete` for material security, concurrency, migration, persistence,
 cross-module or integration risk. Scale detail to that risk, not file count.
 A compact Spec retains all seven sections with concise scope, only affected
 consequential contracts and sufficient focused proof. Omit empty optional detail;
-no minimum length, declaration count or file inventory is required. Complete mode
-adds detail only for identified risks and guarantees.
+no minimum length or declaration count is required. The expected file tree remains
+scoped to the affected boundaries. Complete mode adds detail only for identified
+risks and guarantees.
 
 ## 2. Inquire and validate the design before drafting
 
@@ -222,14 +223,47 @@ Architecture Mapping identifies the owning module and applicable Rules with:
 | --- | --- | --- | --- |
 | Create / Modify / Delete | <actual affected Shifu layer> | <symbol and consequential path> | <resulting contract, consumers, exports and registration> |
 
-Inspect consequential paths and classify actions honestly. The mapping is
-sufficient when it establishes ownership and consumer impact. Add a scoped
-expected file tree only when it clarifies a consequential boundary, registration
-or generated output; show new `[N]` and modified `[M]` files and necessary parents.
-Keep deletions/unchanged consumers in the mapping. Mark planned/conditional paths
-and identify generated inputs and actual commands; never invent migration names.
-Routine helper names and internal organization may evolve under the Rules without
-a Spec amendment when contracted behavior and guarantees remain unchanged.
+Inspect consequential paths and classify actions honestly. Include the expected
+file tree in the Spec's Architecture Mapping, in both compact and complete mode;
+a chat-only tree or a flat mapping table does not replace it. Scope the tree to
+created/modified files and their owning directories, using repository-relative
+paths with new `[N]` and modified `[M]` markers. Keep deletions/unchanged consumers
+in the mapping. Mark planned/conditional paths and generated outputs honestly;
+identify generated inputs and actual commands, never invented migration names.
+
+For UI changes, show the actual proposed widget ownership hierarchy: page/layout,
+reused components, internal child widgets, owning `index.tsx` entrypoints,
+colocated behavior hooks and permitted `tests/` locations. Do not stop at a page
+or top-level component when the approved composition has children. Nest internal
+children beneath their owner; place components reused by multiple owners at the
+appropriate module boundary. Explain shared state ownership and local interaction
+responsibilities without duplicating state across the tree. Keep pure renderers
+and behavior-owning widgets distinct; do not fabricate hooks or tests for purely
+structural children. Test paths must agree with the Verification Contract and
+applicable test-boundary rules.
+
+Include affected contexts and domain query/action hooks in the tree with concrete
+planned filenames rather than a generic hooks directory. For each context, show
+its provider entrypoint, value type, provider hook, consumer hook and permitted
+provider-hook test. Explain where it is mounted, which branches share its state,
+and the direction between provider, operation hooks and widget hooks. Avoid
+provider/consumer cycles and duplicate state ownership. Identify each query's
+read/pagination responsibility and each action's write/retry responsibility, using
+domain-named operations and statuses. State the approved cache/refetch behavior;
+a query-hook name does not itself authorize caching. Query/action hooks have no
+dedicated test files: identify their permitted consuming widget/context and route
+coverage in the Verification Contract.
+
+For affected AI composition, also show the agent, structured output, workflow,
+Core port, model/provider adapter and composition paths that actually belong to
+the slice, plus permitted owning tests. Distinguish included agents from deferred
+capabilities; do not introduce agents or integrations just to fill out the tree.
+
+Reconcile the tree with accepted naming/composition changes, declarations,
+Architecture Mapping, design handoff and checker selections before presenting the
+written Spec. Ordinary private helpers need no exhaustive inventory and may evolve
+under the Rules without a Spec amendment when ownership, public contracts and
+guarantees remain unchanged.
 
 Describe named affected elements beneath the mapping without empty mandatory
 subsections. Include expected Python declarations for backend domain objects,
@@ -397,7 +431,8 @@ self-review and independent review, then present the revised contract again.
 
 Before `ready`, confirm authority/version metadata; scope and traceability;
 observable criteria; resulting declarations, consumer/wiring impact and runtime
-guarantees; available required design references; permitted test boundaries; real
+guarantees; the expected file tree and its agreement with approved widget
+composition and checker paths; available required design references; permitted test boundaries; real
 checker commands; documentation links; reproducible setup/fixture feasibility and
 safe cleanup;
 and resolution of verified compatibility findings. Explicit implementation
