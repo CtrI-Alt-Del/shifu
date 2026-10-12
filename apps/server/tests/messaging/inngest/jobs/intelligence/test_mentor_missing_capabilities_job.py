@@ -118,8 +118,7 @@ class TestMentorInvalidIdentityAccessJob:
             assert attempt is not None
             assert attempt.status == 'failed'
             assert all(
-                receipt['used_tokens'] == 0
-                for receipt in attempt.usage_calls or []
+                receipt['used_tokens'] == 0 for receipt in attempt.usage_calls or []
             )
             assert (
                 session.scalars(
@@ -195,8 +194,7 @@ class TestMentorIdentityAccessJob:
             assert attempt is not None and attempt.status == 'completed'
             assert attempt.generation_keys == []
             assert all(
-                receipt['used_tokens'] == 0
-                for receipt in attempt.usage_calls or []
+                receipt['used_tokens'] == 0 for receipt in attempt.usage_calls or []
             )
             messages = session.scalars(
                 select(MentorMessageModel).where(
@@ -204,7 +202,10 @@ class TestMentorIdentityAccessJob:
                 )
             ).all()
             assert len(messages) == 1 and messages[0].content.strip()
-            assert 'Ainda não encontrei uma resposta local confiável' in messages[0].content
+            assert (
+                'Ainda não encontrei uma resposta local confiável'
+                in messages[0].content
+            )
             events = session.scalars(
                 select(MentorResponseEventModel).where(
                     MentorResponseEventModel.attempt_id == attempt_id

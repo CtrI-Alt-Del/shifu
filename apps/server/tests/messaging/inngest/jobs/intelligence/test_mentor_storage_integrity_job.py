@@ -47,8 +47,7 @@ class TestMentorStorageIntegrityJob:
             assert attempt is not None and attempt.status == 'completed'
             assert attempt.generation_keys == []
             assert all(
-                receipt['used_tokens'] == 0
-                for receipt in attempt.usage_calls or []
+                receipt['used_tokens'] == 0 for receipt in attempt.usage_calls or []
             )
             replies = session.scalars(
                 select(MentorMessageModel).where(

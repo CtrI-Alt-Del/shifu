@@ -116,9 +116,10 @@ class TestMentorPersistenceAdapters:
                 str(uuid4()),
                 sha256(b'session body').hexdigest(),
             )
-            assert repositories.mentor_sessions.find_by_id(
-                other_account_id, session_id
-            ) is None
+            assert (
+                repositories.mentor_sessions.find_by_id(other_account_id, session_id)
+                is None
+            )
             page = repositories.mentor_sessions.find_many(
                 account_id, 'conversacao', None
             )
@@ -131,12 +132,18 @@ class TestMentorPersistenceAdapters:
             renamed = repositories.mentor_sessions.find_by_id(account_id, session_id)
             assert renamed is not None
             assert renamed.title == 'Revisão de listas'
-            assert repositories.mentor_sessions.find_many(
-                account_id, 'conversacao', None
-            ).items == []
+            assert (
+                repositories.mentor_sessions.find_many(
+                    account_id, 'conversacao', None
+                ).items
+                == []
+            )
 
             repositories.mentor_sessions.remove(session, datetime.now(UTC))
-            assert repositories.mentor_sessions.find_by_id(account_id, session_id) is None
-            assert repositories.mentor_sessions.find_many(
-                account_id, None, None
-            ).items == []
+            assert (
+                repositories.mentor_sessions.find_by_id(account_id, session_id) is None
+            )
+            assert (
+                repositories.mentor_sessions.find_many(account_id, None, None).items
+                == []
+            )
