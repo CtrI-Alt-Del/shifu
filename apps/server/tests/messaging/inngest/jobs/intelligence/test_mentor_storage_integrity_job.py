@@ -10,9 +10,9 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorResponseAttemptModel,
     MentorResponseEventModel,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
+from tests.fixtures.mentor_job_fixture import (
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -20,7 +20,7 @@ from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job im
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
     )
 
@@ -34,11 +34,11 @@ class TestMentorStorageIntegrityJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        _, learner_id, attempt_id = _seed_request(
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture, 'O que é uma lista em Python?'
         )
 
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
 
         assert state.requests == []
         assert all(row['used_tokens'] == 0 for row in state.accounting_requests)

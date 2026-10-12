@@ -20,10 +20,10 @@ from shifu.intelligence.database.sqlalchemy.repositories.mentor_embeddings_repos
     SqlalchemyMentorEmbeddingsRepository,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _index_snapshot,  # pyright: ignore[reportPrivateUsage] - Existing native reader harness.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Existing native reader harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Existing native reader harness.
+from tests.fixtures.mentor_job_fixture import (
+    index_snapshot,
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
     from shifu.intelligence.core.domain.structures import MentorIndexedEmbedding
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Existing native reader harness.
     )
 
@@ -118,7 +118,7 @@ class TestMentorIndexAtomicityJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        before = _index_snapshot(inngest_fixture)
+        before = index_snapshot(inngest_fixture)
         skill = Skill.create(
             id=SystemIdentifierProvider().generate(),
             name='Habilidade pública de preparação interrompida',
@@ -148,7 +148,7 @@ class TestMentorIndexAtomicityJob:
             if line.startswith('prepared-candidate:')
         )
         assert candidate != before[0]
-        after = _index_snapshot(inngest_fixture)
+        after = index_snapshot(inngest_fixture)
         assert after[0] == before[0]
         assert set(before[1]).issubset(after[1])
         with inngest_fixture.inspection_session() as session:
@@ -176,12 +176,10 @@ class TestMentorIndexAtomicityJob:
             # retained active index compatible for a genuine native FAQ reader.
             session.execute(delete(SkillModel).where(SkillModel.id == skill.id))
             session.commit()
-        _, _, attempt_id = _seed_request(
-            inngest_fixture, 'O que é uma lista em Python?'
-        )
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        _, _, attempt_id = seed_request(inngest_fixture, 'O que é uma lista em Python?')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
-        assert _index_snapshot(inngest_fixture) == after
+        assert index_snapshot(inngest_fixture) == after
 
 
 if __name__ == '__main__':

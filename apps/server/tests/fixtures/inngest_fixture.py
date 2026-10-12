@@ -362,7 +362,7 @@ def inngest_app_target() -> tuple[str, bool]:
     return 'main:app', False
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='module')
 def _inngest_runtime(inngest_app_target: tuple[str, bool]) -> Iterator[InngestFixture]:
     if os.environ.get('SHIFU_RUN_REAL_INNGEST_TESTS') != '1':
         pytest.skip('set SHIFU_RUN_REAL_INNGEST_TESTS=1 to run Docker-backed job tests')

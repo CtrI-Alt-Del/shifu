@@ -11,12 +11,12 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorResponseAttemptModel,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _assert_prepared_vectors,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _index_snapshot,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _run_preparation_cli,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
+from tests.fixtures.mentor_job_fixture import (
+    assert_prepared_vectors,
+    index_snapshot,
+    publish_and_wait,
+    run_preparation_cli,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -24,7 +24,7 @@ from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job im
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
     )
 
@@ -38,7 +38,7 @@ class TestMentorCatalogAbstentionJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        active_version, _ = _index_snapshot(inngest_fixture)
+        active_version, _ = index_snapshot(inngest_fixture)
         with inngest_fixture.inspection_session() as session:
             removed = session.execute(
                 delete(MentorIndexedEmbeddingModel).where(
@@ -48,14 +48,14 @@ class TestMentorCatalogAbstentionJob:
             )
             assert removed.rowcount > 0  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
             session.commit()
-        damaged = _index_snapshot(inngest_fixture)
-        _, learner_id, attempt_id = _seed_request(
+        damaged = index_snapshot(inngest_fixture)
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture, 'O que é uma lista em Python?'
         )
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
         assert all(row['used_tokens'] == 0 for row in state.accounting_requests)
-        assert _index_snapshot(inngest_fixture) == damaged
+        assert index_snapshot(inngest_fixture) == damaged
         with inngest_fixture.inspection_session() as session:
             attempt = session.get(MentorResponseAttemptModel, attempt_id)
             assert attempt is not None and attempt.status == 'completed'
@@ -79,7 +79,7 @@ class TestMentorCatalogAbstentionJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        previous_version, _ = _index_snapshot(inngest_fixture)
+        previous_version, _ = index_snapshot(inngest_fixture)
         ids = SystemIdentifierProvider()
         skills = tuple(
             Skill.create(id=ids.generate(), name=text, description=text)
@@ -98,16 +98,16 @@ class TestMentorCatalogAbstentionJob:
                 ]
             )
             session.commit()
-        prepared = _run_preparation_cli(inngest_fixture)
+        prepared = run_preparation_cli(inngest_fixture)
         assert prepared.returncode == 0, 'Public catalog preparation failed.'
-        current = _index_snapshot(inngest_fixture)
+        current = index_snapshot(inngest_fixture)
         assert current[0] != previous_version
-        _assert_prepared_vectors(inngest_fixture)
-        _, learner_id, attempt_id = _seed_request(
+        assert_prepared_vectors(inngest_fixture)
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture,
             'Encontre uma Habilidade sobre decisões condicionais; como organizar meus estudos?',
         )
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
         assert all(row['used_tokens'] == 0 for row in state.accounting_requests)
         with inngest_fixture.inspection_session() as session:
@@ -123,4 +123,4 @@ class TestMentorCatalogAbstentionJob:
                 )
             )
             assert reply is not None and reply.content.strip()
-        assert _index_snapshot(inngest_fixture) == current
+        assert index_snapshot(inngest_fixture) == current

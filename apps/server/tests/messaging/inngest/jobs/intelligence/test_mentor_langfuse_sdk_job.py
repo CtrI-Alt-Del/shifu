@@ -26,12 +26,12 @@ from shifu.intelligence.database.sqlalchemy.models import (
 from shifu.shared.providers.system_identifier_provider.system_identifier_provider import (
     SystemIdentifierProvider,
 )
-from tests.messaging.inngest.jobs.intelligence import (
-    test_answer_mentor_message_job as harness,
+from tests.fixtures import (
+    mentor_job_fixture as harness,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Reuse the actual owning consumer setup.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Exercise the canonical registered event.
+from tests.fixtures.mentor_job_fixture import (
+    seed_request,
+    publish_and_wait,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     prepared_mentor_index as prepared_mentor_index,
 )
@@ -168,12 +168,12 @@ def test_registered_native_job_exports_anonymous_operational_spans_with_actual_s
     langfuse_ingestion.clear()
     identifiers = SystemIdentifierProvider()
     account_ids = (identifiers.generate(), identifiers.generate())
-    first_session_id, first_learner_id, first_attempt_id = _seed_request(
+    first_session_id, first_learner_id, first_attempt_id = seed_request(
         inngest_fixture,
         'O que é uma lista em Python?',
         account_id=account_ids[0],
     )
-    _publish_and_wait(inngest_fixture, first_attempt_id, 'completed')
+    publish_and_wait(inngest_fixture, first_attempt_id, 'completed')
     assert state.requests == []
     assert all(row['used_tokens'] == 0 for row in state.accounting_requests)
     with inngest_fixture.inspection_session() as session:

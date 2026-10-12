@@ -22,9 +22,9 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorResponseEventModel,
 )
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
+from tests.fixtures.mentor_job_fixture import (
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     create_mentor_test_app,
     prepared_mentor_index as prepared_mentor_index,
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
         MentorTelemetryProvider,
     )
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
     )
 
@@ -108,7 +108,7 @@ class TestMentorInvalidIdentityAccessJob:
         state, _ = controlled_mentor_endpoint
         state.reset(mode)
         learner_id, attempt_id = _seed_identity_request(inngest_fixture, mode)
-        _publish_and_wait(inngest_fixture, attempt_id, 'failed')
+        publish_and_wait(inngest_fixture, attempt_id, 'failed')
 
         assert state.requests == []
         assert state.accounting_requests == []
@@ -164,7 +164,7 @@ def _seed_identity_request(fixture: 'InngestFixture', mode: str) -> tuple[str, s
                 )
         finally:
             engine.dispose()
-    _, learner_id, attempt_id = _seed_request(
+    _, learner_id, attempt_id = seed_request(
         fixture, 'Como organizar meus estudos?', account_id=account_id
     )
     with fixture.inspection_session() as session:
@@ -185,7 +185,7 @@ class TestMentorIdentityAccessJob:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
         learner_id, attempt_id = _seed_identity_request(inngest_fixture, 'approve')
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
         assert state.accounting_requests == []
         assert state.effective_usage == {}

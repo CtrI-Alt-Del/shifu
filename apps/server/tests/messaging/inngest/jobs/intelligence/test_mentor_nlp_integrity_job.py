@@ -21,11 +21,11 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorMessageModel,
     MentorResponseAttemptModel,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+from tests.fixtures.mentor_job_fixture import (
     _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Reuse the real registered inference harness.
-    _index_snapshot,  # pyright: ignore[reportPrivateUsage] - Compare the actual persisted active corpus.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Exercise the canonical registered event.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Preserve the owning real-job setup.
+    index_snapshot,
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -114,7 +114,7 @@ def test_corrupt_pinned_model_copy_cannot_replace_active_index_or_break_register
     copied = cache / _MODEL_DIRECTORY / 'snapshots' / _REVISION
     shutil.copytree(original, copied, symlinks=False)
     _corrupt_isolated_artifact(copied, fault)
-    before = _index_snapshot(inngest_fixture)
+    before = index_snapshot(inngest_fixture)
     completed = _run_isolated_cli(inngest_fixture, cache)
     assert completed.returncode != 0, 'Corrupted model unexpectedly activated an index'
     expected = 'A seleção local de respostas do Mentor está indisponível.'
@@ -124,13 +124,13 @@ def test_corrupt_pinned_model_copy_cannot_replace_active_index_or_break_register
         f'stdout={completed.stdout!r}; stderr={completed.stderr!r}'
     )
     assert 'Mentor index activated:' not in completed.stdout
-    assert _index_snapshot(inngest_fixture) == before
+    assert index_snapshot(inngest_fixture) == before
     assert _digest(original / 'model.safetensors') == weights_hash
     assert _digest(original / '1_Pooling' / 'config.json') == pooling_hash
-    _, learner_id, attempt_id = _seed_request(
+    _, learner_id, attempt_id = seed_request(
         inngest_fixture, 'O que é uma lista em Python?'
     )
-    _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+    publish_and_wait(inngest_fixture, attempt_id, 'completed')
     assert state.requests == []
     with inngest_fixture.inspection_session() as session:
         attempt = session.get(MentorResponseAttemptModel, attempt_id)

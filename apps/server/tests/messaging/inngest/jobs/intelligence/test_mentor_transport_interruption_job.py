@@ -10,10 +10,10 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorResponseAttemptModel,
     MentorResponseEventModel,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+from tests.fixtures.mentor_job_fixture import (
     _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Reuse the registered-job harness.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Exercise the same registered event boundary.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Seed a valid job request.
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -32,11 +32,11 @@ class TestMentorTransportInterruptionJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        _, learner_id, attempt_id = _seed_request(
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture, 'Como organizar meus estudos?'
         )
 
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
 
         assert state.requests == []
         assert all(row['used_tokens'] == 0 for row in state.accounting_requests)

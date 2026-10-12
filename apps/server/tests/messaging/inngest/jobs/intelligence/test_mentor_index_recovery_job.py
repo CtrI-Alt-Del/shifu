@@ -8,12 +8,12 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorMessageModel,
     MentorResponseAttemptModel,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _assert_prepared_vectors,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
-    _index_snapshot,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
-    _run_preparation_cli,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
+from tests.fixtures.mentor_job_fixture import (
+    assert_prepared_vectors,
+    index_snapshot,
+    publish_and_wait,
+    run_preparation_cli,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -21,7 +21,7 @@ from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job im
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Reuse the existing native job test harness.
     )
 
@@ -35,7 +35,7 @@ class TestMentorIndexRecoveryJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        before = _index_snapshot(inngest_fixture)
+        before = index_snapshot(inngest_fixture)
         with inngest_fixture.inspection_session() as session:
             versions_before = tuple(
                 session.execute(
@@ -45,11 +45,11 @@ class TestMentorIndexRecoveryJob:
                     ).order_by(MentorEmbeddingVersionModel.version)
                 ).all()
             )
-        repeated = _run_preparation_cli(inngest_fixture)
+        repeated = run_preparation_cli(inngest_fixture)
         assert repeated.returncode != 0
         assert 'Active immutable index cannot be replaced' in repeated.stderr
         assert 'Mentor index activated:' not in repeated.stdout
-        assert _index_snapshot(inngest_fixture) == before
+        assert index_snapshot(inngest_fixture) == before
         with inngest_fixture.inspection_session() as session:
             versions_after = tuple(
                 session.execute(
@@ -60,11 +60,11 @@ class TestMentorIndexRecoveryJob:
                 ).all()
             )
         assert versions_after == versions_before
-        _assert_prepared_vectors(inngest_fixture)
-        _, learner_id, attempt_id = _seed_request(
+        assert_prepared_vectors(inngest_fixture)
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture, 'O que é uma lista em Python?'
         )
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
         with inngest_fixture.inspection_session() as session:
             attempt = session.get(MentorResponseAttemptModel, attempt_id)
@@ -84,7 +84,7 @@ class TestMentorIndexRecoveryJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        before = _index_snapshot(inngest_fixture)
+        before = index_snapshot(inngest_fixture)
         with inngest_fixture.inspection_session() as session:
             version = session.get(MentorEmbeddingVersionModel, before[0])
             assert version is not None and version.active
@@ -100,21 +100,21 @@ class TestMentorIndexRecoveryJob:
                 ).all()
                 == []
             )
-        recovered = _run_preparation_cli(inngest_fixture)
+        recovered = run_preparation_cli(inngest_fixture)
         assert recovered.returncode == 0, 'Inactive version recovery CLI failed.'
         assert f'Mentor index activated: {before[0]}' in recovered.stdout
-        after = _index_snapshot(inngest_fixture)
+        after = index_snapshot(inngest_fixture)
         assert after[0] == before[0]
         assert len(after[1]) == len(before[1])
-        _assert_prepared_vectors(inngest_fixture)
+        assert_prepared_vectors(inngest_fixture)
         with inngest_fixture.inspection_session() as session:
             versions = session.scalars(select(MentorEmbeddingVersionModel)).all()
             assert len(versions) == 1
             assert versions[0].version == before[0] and versions[0].active
-        _, learner_id, attempt_id = _seed_request(
+        _, learner_id, attempt_id = seed_request(
             inngest_fixture, 'O que é uma lista em Python?'
         )
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         assert state.requests == []
         with inngest_fixture.inspection_session() as session:
             attempt = session.get(MentorResponseAttemptModel, attempt_id)

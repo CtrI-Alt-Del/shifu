@@ -32,11 +32,11 @@ from shifu.shared.providers.system_identifier_provider import SystemIdentifierPr
 from shifu.intelligence.providers.mentor_review_provider.openrouter.openrouter_jev_mentor_review_provider import (
     OpenrouterJevMentorReviewProvider,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+from tests.fixtures.mentor_job_fixture import (
     _Access,  # pyright: ignore[reportPrivateUsage] - Disposable synthetic access/accounting only.
     _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Reuse the actual fixture-owned accounting endpoint.
-    _official_snapshot,  # pyright: ignore[reportPrivateUsage] - Preserve official module state assertions.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Seed only synthetic own-session data.
+    official_snapshot,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     prepared_mentor_index as prepared_mentor_index,
 )
@@ -205,8 +205,8 @@ def test_live_production_openrouter_runtime_completes_synthetic_registered_reque
 ) -> None:
     state, _ = controlled_mentor_endpoint
     state.reset('approve')
-    official_before = _official_snapshot(inngest_fixture)
-    _, learner_id, attempt_id = _seed_request(
+    official_before = official_snapshot(inngest_fixture)
+    _, learner_id, attempt_id = seed_request(
         inngest_fixture, 'Como organizar meus estudos?'
     )
     event = MentorResponseRequestedEvent(
@@ -284,7 +284,7 @@ def test_live_production_openrouter_runtime_completes_synthetic_registered_reque
         assert sum(row['profile'] == 'jev' for row in rows) <= 6
         assert sum(row['profile'] != 'jev' for row in rows) <= 4
         assert sum(cast('int', row['used_tokens']) for row in rows) > 0
-    assert _official_snapshot(inngest_fixture) == official_before
+    assert official_snapshot(inngest_fixture) == official_before
     assert state.accounting_requests[-1]['used_tokens'] == sum(
         cast('int', row['used_tokens']) for row in rows
     )

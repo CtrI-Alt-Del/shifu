@@ -9,9 +9,9 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorMessageModel,
     MentorResponseAttemptModel,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
+from tests.fixtures.mentor_job_fixture import (
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     inngest_app_target as inngest_app_target,
     prepared_mentor_index as prepared_mentor_index,
@@ -19,7 +19,7 @@ from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job im
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Shared native job harness.
     )
 
@@ -36,10 +36,10 @@ class TestMentorDecisionUsageJob:
         replies: list[str] = []
 
         for _ in range(2):
-            _, learner_id, attempt_id = _seed_request(
+            _, learner_id, attempt_id = seed_request(
                 inngest_fixture, 'Como organizar meus estudos?'
             )
-            _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+            publish_and_wait(inngest_fixture, attempt_id, 'completed')
             with inngest_fixture.inspection_session() as session:
                 attempt = session.get(MentorResponseAttemptModel, attempt_id)
                 assert attempt is not None and attempt.status == 'completed'

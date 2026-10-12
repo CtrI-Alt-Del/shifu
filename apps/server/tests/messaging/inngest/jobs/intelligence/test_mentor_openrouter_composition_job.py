@@ -26,9 +26,9 @@ from shifu.intelligence.database.sqlalchemy.models import (
 from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
     OpenrouterMentorAnswerModelProvider,
 )
-from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
-    _publish_and_wait,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
-    _seed_request,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
+from tests.fixtures.mentor_job_fixture import (
+    publish_and_wait,
+    seed_request,
     controlled_mentor_endpoint as controlled_mentor_endpoint,
     create_mentor_test_app,
     prepared_mentor_index as prepared_mentor_index,
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from sqlalchemy import Engine
     from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
     from tests.fixtures.inngest_fixture import InngestFixture
-    from tests.messaging.inngest.jobs.intelligence.test_answer_mentor_message_job import (
+    from tests.fixtures.mentor_job_fixture import (
         _ControlledInference,  # pyright: ignore[reportPrivateUsage] - Existing native harness.
     )
 
@@ -193,8 +193,8 @@ class TestMentorLocalOnlyCompositionJob:
     ) -> None:
         state, _ = controlled_mentor_endpoint
         state.reset('approve')
-        _, learner_id, attempt_id = _seed_request(inngest_fixture, question)
-        _publish_and_wait(inngest_fixture, attempt_id, 'completed')
+        _, learner_id, attempt_id = seed_request(inngest_fixture, question)
+        publish_and_wait(inngest_fixture, attempt_id, 'completed')
         # Covers both writer chat completions and reviewer Decisions requests.
         assert state.requests == []
         assert not state.accounting_requests or all(
