@@ -654,7 +654,11 @@ test.describe('ActivityPage route coverage', () => {
             .evaluate((element) => element.getBoundingClientRect().height),
         )
         .toBeLessThanOrEqual(520)
-      const appShell = authenticatedPage.getByRole('main').nth(1).locator('..')
+      const appShell = authenticatedPage
+        .getByRole('main')
+        .filter({ has: submitAnswers })
+        .first()
+        .locator('..')
       await expect
         .poll(() =>
           Promise.all([
