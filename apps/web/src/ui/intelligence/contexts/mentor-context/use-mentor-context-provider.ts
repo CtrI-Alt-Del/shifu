@@ -360,23 +360,27 @@ export function useMentorContextProvider(
       )
         return current
       const previous = current.response
-      const blocks =
-        event.kind === 'cancelled'
-          ? []
-          : event.block &&
-              !previous.blocks.some((block) => block.blockKey === event.block?.blockKey)
-            ? [...previous.blocks, event.block].sort(
-                (left, right) => left.ordinal - right.ordinal,
-              )
-            : previous.blocks
-      if (event.block && isViewingConversation && document.visibilityState === 'visible')
+      const shouldDiscardPartial = event.kind === 'cancelled' || event.kind === 'failed'
+      const blocks = shouldDiscardPartial
+        ? []
+        : event.block &&
+            !previous.blocks.some((block) => block.blockKey === event.block?.blockKey)
+          ? [...previous.blocks, event.block].sort(
+              (left, right) => left.ordinal - right.ordinal,
+            )
+          : previous.blocks
+      if (shouldDiscardPartial) newBlocks.current.clear()
+      else if (
+        event.block &&
+        isViewingConversation &&
+        document.visibilityState === 'visible'
+      )
         newBlocks.current.add(`${event.attemptId}:${event.block.blockKey}`)
-      const consultations =
-        event.kind === 'cancelled'
-          ? []
-          : event.consultation && !previous.consultations.includes(event.consultation)
-            ? [...previous.consultations, event.consultation]
-            : previous.consultations
+      const consultations = shouldDiscardPartial
+        ? []
+        : event.consultation && !previous.consultations.includes(event.consultation)
+          ? [...previous.consultations, event.consultation]
+          : previous.consultations
       return {
         ...current,
         response: {

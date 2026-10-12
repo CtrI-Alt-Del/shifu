@@ -787,6 +787,75 @@ describe('useMentorContextProvider response lifecycle', () => {
     cleanup()
     vi.unstubAllGlobals()
   })
+  it.each(['failed', 'cancelled'] as const)(
+    'discards streamed partial content and consultations on %s while preserving the learner for retry',
+    async (status) => {
+      const learnerMessage = {
+        id: 'learner-a',
+        sessionId: detail.session.id,
+        role: 'learner' as const,
+        content: '  Explique listas em Python.  ',
+        createdAt: '2026-10-10T00:00:00Z',
+        inReplyToMessageId: null,
+      }
+      const { result } = openResponseProvider()
+      mocks.detail.mockResolvedValue({
+        ...detail,
+        messages: { items: [learnerMessage], nextCursor: null },
+        pendingLearnerMessageId: learnerMessage.id,
+        response: initialResponse,
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      const source = getEventSource(0)
+      act(() =>
+        source.emit(
+          responseEvent({
+            kind: 'consultation',
+            block: null,
+            consultation: 'learning',
+            progress: 'write-answer',
+          }),
+        ),
+      )
+      act(() => source.emit(responseEvent({ sequence: 2 })))
+      expect(result.current.response?.blocks).toHaveLength(1)
+      expect(result.current.response?.consultations).toEqual(['learning'])
+      expect(result.current.shouldAnimateBlock('attempt-a', 'block-a')).toBe(true)
+      act(() =>
+        source.emit(
+          responseEvent({
+            sequence: 3,
+            kind: status,
+            status,
+            block: null,
+            failure_code: status === 'failed' ? 'technical-failure' : null,
+          }),
+        ),
+      )
+      expect(result.current.response?.status).toBe(status)
+      expect(result.current.response?.blocks).toEqual([])
+      expect(result.current.response?.consultations).toEqual([])
+      expect(result.current.response?.progress).toBeNull()
+      expect(result.current.shouldAnimateBlock('attempt-a', 'block-a')).toBe(false)
+      expect(result.current.sessionDetail?.pendingLearnerMessageId).toBe(
+        learnerMessage.id,
+      )
+      expect(result.current.sessionDetail?.messages.items).toEqual([learnerMessage])
+      expect(source.close).toHaveBeenCalledOnce()
+      mocks.retry.mockResolvedValue({
+        ...initialResponse,
+        attemptId: 'attempt-b',
+        status: 'queued',
+        lastSequence: 4,
+      })
+      await act(() => result.current.retryResponse())
+      expect(result.current.response?.learnerMessageId).toBe(learnerMessage.id)
+      expect(result.current.response?.attemptId).toBe('attempt-b')
+      expect(result.current.sessionDetail?.messages.items).toEqual([learnerMessage])
+      expect(mocks.create).not.toHaveBeenCalled()
+      expect(mocks.submit).not.toHaveBeenCalled()
+    },
+  )
   it('replaces real workflow progress, preserves it through blocks and clears it on cancellation', async () => {
     const { result } = openResponseProvider()
     await act(() => result.current.selectSession(detail.session.id))
