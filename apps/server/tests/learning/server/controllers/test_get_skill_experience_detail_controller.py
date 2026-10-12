@@ -203,7 +203,7 @@ class TestGetSkillExperienceDetailController:
                     >= 2
                 ), (concept.name, difficulty)
 
-    def test_seeded_logic_skill_starts_fresh_with_five_ordered_competencies(
+    def test_seeded_logic_skill_exposes_learning_progress_across_ordered_competencies(
         self,
         client: TestClient,
     ) -> None:
@@ -227,8 +227,8 @@ class TestGetSkillExperienceDetailController:
         assert body['goalId'] == SEED_GOAL_ID
         assert body['skillId'] == LOGIC_SKILL_ID
         assert body['skillName'] == 'Lógica de programação'
-        assert body['skillStatus'] == 'not-started'
-        assert body['overallResult'] is None
+        assert body['skillStatus'] == 'learning'
+        assert body['overallResult'] == pytest.approx(100.0)
         assert [item['competencyName'] for item in body['competencies']] == [
             'Sequência de instruções',
             'Variáveis e expressões',
@@ -237,7 +237,7 @@ class TestGetSkillExperienceDetailController:
             'Decomposição em funções',
         ]
         assert [item['position'] for item in body['competencies']] == [1, 2, 3, 4, 5]
-        assert all(item['progress'] is None for item in body['competencies'])
+        assert [item['progress'] for item in body['competencies']] == [100.0] * 5
 
     def test_owner_reads_the_experience_without_writing_events(
         self,

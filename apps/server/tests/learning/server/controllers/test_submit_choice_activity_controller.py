@@ -28,6 +28,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.core.domain.structures import CodeAnswer
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
@@ -79,6 +80,8 @@ def application(
     seed = build_development_seed()
     learning_started_at = datetime(2026, 1, 1, tzinfo=UTC)
     for experience in seed.skill_experiences:
+        if experience.status is not SkillExperienceStatus.NOT_STARTED:
+            continue
         experience.start_diagnosis(learning_started_at)
         experience.start_learning(learning_started_at)
     for progress in seed.competency_progresses:
