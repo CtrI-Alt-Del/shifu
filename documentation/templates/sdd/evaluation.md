@@ -11,7 +11,7 @@ last_updated_at: YYYY-MM-DD
 | --- | --- |
 | Implementation | <pending/partial/complete; affected criteria> |
 | Automated checks | <passed/required count; failed, blocked or stale checks> |
-| Type / lint / complexity / local changed-code coverage | <separate statuses and `CI-*`/EV references; scope and unavailable-tooling limits> |
+| Type / lint / complexity | <separate statuses and `CI-*`/EV references; scope and unavailable-tooling limits> |
 | Manual checks | <passed/required count; outstanding journeys> |
 | Visual checks | <passed/required count; outstanding comparisons or Not applicable> |
 | Independent review | <pending/current/affected recheck; report reference> |

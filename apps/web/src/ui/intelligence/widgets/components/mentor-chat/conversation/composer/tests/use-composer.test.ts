@@ -69,7 +69,7 @@ describe('useComposer', () => {
     vi.unstubAllGlobals()
   })
 
-  it('blocks subsequent sends while preserving the accepted conversation', () => {
+  it('permits subsequent sends after the response completes', () => {
     useMentorContextMock.mockReturnValue({
       selectedSessionId: 'session-1',
       draft: 'texto',
@@ -80,7 +80,7 @@ describe('useComposer', () => {
     } as unknown as MentorContextValue)
     const { result } = renderHook(() => useComposer())
     expect(result.current.hasAcceptedSession).toBe(true)
-    expect(result.current.canSend).toBe(false)
+    expect(result.current.canSend).toBe(true)
   })
 
   it('requires non-whitespace text and blocks sending while submission is pending', () => {

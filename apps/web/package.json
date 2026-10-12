@@ -12,7 +12,6 @@
     "check:architecture": "depcruise --config dependency-cruiser.config.cjs src",
     "test:unit": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage",
-    "test:coverage:changed": "node scripts/check-changed-coverage.mjs",
     "test:integration": "playwright test"
   },
   "dependencies": {

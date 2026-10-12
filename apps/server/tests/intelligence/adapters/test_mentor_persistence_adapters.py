@@ -91,3 +91,52 @@ class TestMentorPersistenceAdapters:
         assert response is not None
         assert response.id == response_id
         assert response.in_reply_to_message_id == learner_message_id
+
+    def test_should_search_rename_and_redact_a_session_without_crossing_accounts(
+        self, postgres_database: PostgresDatabase
+    ) -> None:
+        identifiers = SystemIdentifierProvider()
+        account_id = identifiers.generate()
+        other_account_id = identifiers.generate()
+        session_id = identifiers.generate()
+        timestamp = datetime.now(UTC)
+        database = SqlalchemyIntelligenceDatabase(engine=postgres_database.engine)
+        session = MentorSession(
+            id=session_id,
+            account_id=account_id,
+            title='Conversação em português',
+            created_at=timestamp,
+            updated_at=timestamp,
+            last_activity_at=timestamp,
+        )
+
+        with database.transaction() as repositories:
+            repositories.mentor_sessions.add(
+                session,
+                str(uuid4()),
+                sha256(b'session body').hexdigest(),
+            )
+            assert repositories.mentor_sessions.find_by_id(
+                other_account_id, session_id
+            ) is None
+            page = repositories.mentor_sessions.find_many(
+                account_id, 'conversacao', None
+            )
+            assert [item.id for item in page.items] == [session_id]
+            assert page.next_cursor is None
+
+            session.title = 'Revisão de listas'
+            session.updated_at = datetime.now(UTC)
+            repositories.mentor_sessions.rename(session)
+            renamed = repositories.mentor_sessions.find_by_id(account_id, session_id)
+            assert renamed is not None
+            assert renamed.title == 'Revisão de listas'
+            assert repositories.mentor_sessions.find_many(
+                account_id, 'conversacao', None
+            ).items == []
+
+            repositories.mentor_sessions.remove(session, datetime.now(UTC))
+            assert repositories.mentor_sessions.find_by_id(account_id, session_id) is None
+            assert repositories.mentor_sessions.find_many(
+                account_id, None, None
+            ).items == []

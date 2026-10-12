@@ -25,6 +25,7 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
+import { Route as ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport } from './routes/api/intelligence/mentor-sessions/$sessionId/events/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/index'
 import { Route as LearningGoalsGoalIdSkillsAddIndexRouteImport } from './routes/learning/goals/$goalId/skills/add/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
@@ -117,6 +118,12 @@ const LearningGoalsNewIndexRoute = LearningGoalsNewIndexRouteImport.update({
   path: '/learning/goals/new/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute =
+  ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport.update({
+    id: '/api/intelligence/mentor-sessions/$sessionId/events/',
+    path: '/api/intelligence/mentor-sessions/$sessionId/events/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LearningGoalsGoalIdSkillsSkillIdIndexRoute =
   LearningGoalsGoalIdSkillsSkillIdIndexRouteImport.update({
     id: '/learning/goals/$goalId/skills/$skillId/',
@@ -195,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
@@ -221,6 +229,7 @@ export interface FileRoutesByTo {
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-sessions/$sessionId/events': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
@@ -275,6 +285,7 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
     | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
@@ -301,6 +312,7 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
     | '/learning/goals/new'
+    | '/api/intelligence/mentor-sessions/$sessionId/events'
     | '/learning/goals/$goalId/skills/$skillId'
     | '/learning/goals/$goalId/skills/add'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
@@ -326,6 +338,7 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
     | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
@@ -353,6 +366,7 @@ export interface RootRouteChildren {
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
   LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
+  ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute: typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   LearningGoalsGoalIdSkillsSkillIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   LearningGoalsGoalIdSkillsAddIndexRoute: typeof LearningGoalsGoalIdSkillsAddIndexRoute
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
@@ -473,6 +487,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsNewIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/intelligence/mentor-sessions/$sessionId/events/': {
+      id: '/api/intelligence/mentor-sessions/$sessionId/events/'
+      path: '/api/intelligence/mentor-sessions/$sessionId/events'
+      fullPath: '/api/intelligence/mentor-sessions/$sessionId/events/'
+      preLoaderRoute: typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/learning/goals/$goalId/skills/$skillId/': {
       id: '/learning/goals/$goalId/skills/$skillId/'
       path: '/learning/goals/$goalId/skills/$skillId'
@@ -586,6 +607,8 @@ const rootRouteChildren: RootRouteChildren = {
     IntelligencePlannerPlanningIdIndexRoute,
   LearningGoalsGoalIdIndexRoute: LearningGoalsGoalIdIndexRoute,
   LearningGoalsNewIndexRoute: LearningGoalsNewIndexRoute,
+  ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute:
+    ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdIndexRoute:
     LearningGoalsGoalIdSkillsSkillIdIndexRoute,
   LearningGoalsGoalIdSkillsAddIndexRoute:

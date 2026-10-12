@@ -30,7 +30,7 @@ describe('RootLayout', () => {
   afterEach(cleanup)
 
   it('keeps public content outside the authenticated shell', () => {
-    useRootLayoutMock.mockReturnValue({ isPublic: true })
+    useRootLayoutMock.mockReturnValue({ mentorContextHint: null, isPublic: true })
 
     render(
       <RootLayout>
@@ -44,7 +44,7 @@ describe('RootLayout', () => {
   })
 
   it('wraps protected content with the application shell', () => {
-    useRootLayoutMock.mockReturnValue({ isPublic: false })
+    useRootLayoutMock.mockReturnValue({ mentorContextHint: null, isPublic: false })
 
     render(
       <RootLayout>
@@ -59,7 +59,7 @@ describe('RootLayout', () => {
   })
 
   it('keeps the decorative background out of the public and protected shells', () => {
-    useRootLayoutMock.mockReturnValue({ isPublic: true })
+    useRootLayoutMock.mockReturnValue({ mentorContextHint: null, isPublic: true })
 
     const { rerender } = render(
       <RootLayout>
@@ -68,7 +68,7 @@ describe('RootLayout', () => {
     )
     expect(screen.queryByTestId('square-background')).not.toBeInTheDocument()
 
-    useRootLayoutMock.mockReturnValue({ isPublic: false })
+    useRootLayoutMock.mockReturnValue({ mentorContextHint: null, isPublic: false })
     rerender(
       <RootLayout>
         <p>Page content</p>

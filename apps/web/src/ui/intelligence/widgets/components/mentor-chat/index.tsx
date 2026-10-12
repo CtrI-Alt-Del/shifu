@@ -15,7 +15,7 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
 
   return (
     <section
-      className={`flex min-h-0 flex-col ${surface === 'page' ? 'min-h-[calc(100vh-12rem)] lg:-mt-2 lg:mx-2 lg:min-h-[calc(100vh-7rem)]' : 'h-full bg-surface-alt'}`}
+      className={`flex min-h-0 flex-col ${surface === 'page' ? 'min-h-[calc(100vh-12rem)] lg:-mt-2 lg:mx-2 lg:h-[calc(100dvh-8rem)] lg:min-h-0' : 'h-full bg-surface-alt'}`}
     >
       {mentor.isValidatingScope ? (
         <LoadingSkeleton surface={surface} />
@@ -29,7 +29,7 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
       ) : surface === 'page' ? (
         <div className='flex min-h-0 flex-1 gap-5'>
           <aside
-            className={`${mentor.panelView === 'history' ? 'flex w-full' : 'hidden'} min-h-0 shrink-0 rounded-xl border border-border bg-surface-alt sm:flex sm:w-[300px]`}
+            className={`${mentor.panelView === 'history' ? 'flex w-full' : 'hidden'} h-full min-h-0 shrink-0 rounded-xl border border-border bg-surface-alt sm:flex sm:w-[300px]`}
           >
             <SessionHistory
               onShowConversation={mentor.showPanelConversation}
@@ -39,7 +39,7 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
             />
           </aside>
           <div
-            className={`${mentor.panelView === 'conversation' ? 'flex' : 'hidden'} min-w-0 flex-1 flex-col sm:flex`}
+            className={`${mentor.panelView === 'conversation' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col sm:flex`}
           >
             <MentorChatHeader
               isDraft={!selectedSessionId}

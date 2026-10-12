@@ -20,6 +20,7 @@ from shifu.shared.settings import Settings
 from tests.intelligence.server.controllers.conftest import (
     MENTOR_ACCOUNT,
     MentorTitleWorkflowStub,
+    configure_mentor_access,
 )
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ class TestCreateMentorSessionController:
             'shifu.app.MentorTitleModelProvider.build', provide_no_title_model
         )
         app = FastAPIApp.register(postgres_database.engine)
+        configure_mentor_access(app)
         app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
             MENTOR_ACCOUNT
         )
@@ -82,6 +84,7 @@ class TestCreateMentorSessionController:
         )
 
         app = FastAPIApp.register(postgres_database.engine)
+        configure_mentor_access(app)
 
         with TestClient(app, headers={'Authorization': 'Bearer test-token'}):
             assert isinstance(
@@ -210,6 +213,7 @@ class TestCreateMentorSessionController:
         postgres_database: PostgresDatabase,
     ) -> None:
         second_app = FastAPIApp.register(postgres_database.engine)
+        configure_mentor_access(second_app)
         second_app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
             MENTOR_ACCOUNT
         )
@@ -256,6 +260,7 @@ class TestCreateMentorSessionController:
         postgres_database: PostgresDatabase,
     ) -> None:
         second_app = FastAPIApp.register(postgres_database.engine)
+        configure_mentor_access(second_app)
         second_app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
             MENTOR_ACCOUNT
         )

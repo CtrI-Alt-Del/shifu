@@ -16,3 +16,9 @@ from .events_repository_listener import (
 )
 from .id_provider import IdentifierProvider as IdentifierProvider
 from .outbox_event import OutboxEvent as OutboxEvent
+
+from .mentor_access_provider import MentorAccessProvider as MentorAccessProvider
+
+from .mentor_context_provider import MentorContextProvider as MentorContextProvider
+
+from .mentor_catalog_provider import MentorCatalogProvider as MentorCatalogProvider

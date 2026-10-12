@@ -1,3 +1,5 @@
+import { MessageItem } from './message-list/message-item'
+import { ResponseStatus } from './response-status'
 import { Button } from '@/ui/shadcn/button'
 import { EmptyState } from './empty-state'
 import { Composer } from './composer'
@@ -9,6 +11,11 @@ export type ConversationProps = { surface?: 'page' | 'fab' }
 
 export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
   const {
+    response,
+    isCancellingResponse,
+    isRetryingResponse,
+    cancelResponse,
+    retryResponse,
     conversationError,
     handleScroll,
     isReadingMessages,
@@ -17,13 +24,15 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     scrollRef,
     selectedSessionId,
     sessionDetail,
+    visibleMessages,
   } = useConversation()
   const messages = sessionDetail?.messages.items ?? []
+  const renderedMessages = visibleMessages ?? messages
 
   return (
     <section aria-label='Conversa com o Mentor' className='flex min-h-0 flex-1 flex-col'>
       <div
-        className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-5 ${surface === 'fab' ? 'px-6' : 'px-4'}`}
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin] ${surface === 'fab' ? 'px-6' : 'px-4'}`}
         onScroll={handleScroll}
         ref={scrollRef}
       >
@@ -46,10 +55,34 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             </Button>
           </div>
         ) : null}
-        {messages.length ? (
-          <MessageList messages={messages} surface={surface} />
+        {renderedMessages.length ? (
+          <MessageList messages={renderedMessages} surface={surface} />
         ) : !isReadingMessages && !conversationError ? (
           <EmptyState surface={surface} />
+        ) : null}
+        {response && response.blocks.length > 0 ? (
+          <ol aria-label='Resposta do Mentor' className='mt-4'>
+            <MessageItem
+              surface={surface}
+              response={response}
+              message={{
+                id: response.attemptId,
+                sessionId: selectedSessionId ?? '',
+                role: 'mentor',
+                content: '',
+                createdAt: '',
+                inReplyToMessageId: response.learnerMessageId,
+              }}
+            />
+          </ol>
+        ) : null}
+        {response ? (
+          <ResponseStatus
+            response={response}
+            isPending={isCancellingResponse || isRetryingResponse}
+            onCancel={cancelResponse}
+            onRetry={retryResponse}
+          />
         ) : null}
         {isReadingMessages && messages.length > 0 ? (
           <p aria-live='polite' className='py-2 text-center text-sm'>

@@ -1,0 +1,42 @@
+{
+  "format_version": 1,
+  "model": "intfloat/multilingual-e5-small",
+  "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "dimension": 384,
+  "normalized": true,
+  "query_prefix": "query: ",
+  "passage_prefix": "passage: ",
+  "preprocessor": "pt_core_news_sm",
+  "preprocessor_version": "3.8.0",
+  "negation": ["não", "nao", "nunca", "nem", "sem", "jamais"],
+  "rrf_k": 60,
+  "intent_thresholds": {
+    "explain_concept": 0.87096,
+    "request_hint": 0.86767,
+    "consult_progress": 0.8875,
+    "find_materials_activities": 0.88358,
+    "explain_assessment": 0.88386,
+    "search_curriculum": 0.87768,
+    "consult_gamification": 0.87053,
+    "learning_conversation": 0.87996
+  },
+  "faq_cosine_threshold": 0.9,
+  "faq_margin": 0.025,
+  "faq_reranker_model": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
+  "faq_reranker_revision": "1427fd652930e4ba29e8149678df786c240d8825",
+  "faq_rerank_document_format": "question_variations_answer_v1",
+  "faq_query_policy_version": 2,
+  "faq_candidate_cosine_threshold": 0.85,
+  "faq_rerank_limit": 6,
+  "faq_rerank_score_threshold": 3.0,
+  "faq_rerank_margin": 2.0,
+  "calibration_status": "calibrated_synthetic_v1",
+  "review_thresholds": {
+    "request_adherence": 0.75,
+    "fact_fidelity": 0.75,
+    "cumulative_solution": 0.75,
+    "diagnostic_safety": 0.75,
+    "privacy_access": 0.75,
+    "official_action_claims": 0.75
+  }
+}

@@ -92,3 +92,11 @@ from .skill_catalog_entry import SkillCatalogEntry as SkillCatalogEntry
 from .skill_catalog_page import SkillCatalogPage as SkillCatalogPage
 from .skill_foundation_entry import SkillFoundationEntry as SkillFoundationEntry
 from .weight_distribution import WeightDistribution as WeightDistribution
+
+from .mentor_access_grant import MentorAccessGrant as MentorAccessGrant
+
+from .mentor_usage import MentorUsage as MentorUsage
+
+from .mentor_catalog_entry import MentorCatalogEntry as MentorCatalogEntry
+
+from .mentor_context_snapshot import MentorContextSnapshot as MentorContextSnapshot

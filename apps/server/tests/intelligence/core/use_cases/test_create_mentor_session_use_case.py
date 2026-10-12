@@ -1,11 +1,24 @@
+from shifu.shared.core.domain.structures import MentorAccessGrant
+from shifu.shared.core.interfaces import MentorAccessProvider
 from datetime import UTC, datetime
 from typing import cast
 from unittest.mock import call, create_autospec
 
 import pytest
+from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
+    mentor_submission_fingerprint,
+)
 
-from shifu.intelligence.core.domain.entities import MentorMessage, MentorSession
-from shifu.intelligence.core.domain.enums import MentorMessageRole
+from shifu.intelligence.core.domain.entities import (
+    MentorMessage,
+    MentorSession,
+    MentorResponseAttempt,
+)
+from shifu.intelligence.core.domain.enums import (
+    MentorMessageRole,
+    MentorResponseStatus,
+    MentorResponseEventKind,
+)
 from shifu.intelligence.core.domain.errors import (
     MentorInputInvalidError,
     MentorSessionNotFoundError,
@@ -14,6 +27,8 @@ from shifu.intelligence.core.domain.errors import (
 )
 from shifu.intelligence.core.domain.structures import (
     MentorMessagesPage,
+    MentorContextHint,
+    MentorResponseSnapshot,
     MentorSubmissionRecord,
 )
 from shifu.intelligence.core.interfaces import (
@@ -42,14 +57,33 @@ class TestCreateMentorSessionUseCase:
         self.identifiers.generate.side_effect = [
             '01JMENTORSESSION000000000001',
             '01JMENTORMESSAGE000000000001',
+            '01JMENTORATTEMPT000000000001',
         ]
         self.clock = create_autospec(ClockProvider, instance=True)
         self.now = datetime(2026, 1, 1, tzinfo=UTC)
         self.clock.now.return_value = self.now
         self.workflow = create_autospec(GenerateMentorTitleWorkflow, instance=True)
         self.workflow.generate.return_value = 'Título inferido'
+        self.access = create_autospec(MentorAccessProvider, instance=True)
+        self.access.authorize.return_value = MentorAccessGrant(
+            account_id='01JACCOUNT000000000000000001',
+            access_revision='revision',
+            operation_key='operation',
+        )
+        self.repositories.mentor_response_attempts.find_submission.return_value = None
+        self.repositories.mentor_response_events.snapshot.return_value = None
+        self.repositories.mentor_messages.find_all.return_value = (
+            MentorMessage(
+                id='legacy',
+                session_id='01JMENTORSESSION000000000001',
+                role=MentorMessageRole.LEARNER,
+                content='hello',
+                created_at=self.now,
+                in_reply_to_message_id=None,
+            ),
+        )
         self.subject = CreateMentorSessionUseCase(
-            self.database, self.identifiers, self.clock, self.workflow
+            self.database, self.identifiers, self.clock, self.workflow, self.access
         )
 
     def test_should_atomically_persist_exact_first_message_and_final_title(
@@ -96,7 +130,7 @@ class TestCreateMentorSessionUseCase:
         self.repositories.mentor_sessions.add.assert_called_once_with(
             persisted,
             '123e4567-e89b-42d3-a456-426614174000',
-            '6cc2e06c0a012fbab4006311f0e60598cf4f3e097c1f8411a878c9f5e45bc6c5',
+            'aedf549f2f109230b8161431937d26da20a920bbb99af14ccf72afbb210b16cd',
         )
         self.repositories.mentor_messages.add.assert_called_once()
         assert self.database.transaction.call_count == 2
@@ -182,6 +216,7 @@ class TestCreateMentorSessionUseCase:
             self.identifiers,
             self.clock,
             UnavailableGenerateMentorTitleWorkflow(),
+            self.access,
         )
 
         result = subject.execute(
@@ -225,6 +260,16 @@ class TestCreateMentorSessionUseCase:
             next_cursor=None,
         )
         self.repositories.mentor_messages.find_many.return_value = messages
+        snapshot = MentorResponseSnapshot(
+            attempt_id='approved-attempt',
+            learner_message_id='01JMENTORMESSAGE000000000001',
+            status=MentorResponseStatus.COMPLETED,
+            blocks=(),
+            consultations=(),
+            last_sequence=4,
+            failure_code=None,
+        )
+        self.repositories.mentor_response_events.snapshot.return_value = snapshot
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = '01JMENTORMESSAGE000000000001'
 
         result = self.subject.execute(
@@ -236,6 +281,10 @@ class TestCreateMentorSessionUseCase:
         assert result.created is False
         assert result.detail.session.title == 'Renomeado'
         assert result.detail.messages == messages
+        assert result.detail.response == snapshot
+        self.repositories.mentor_response_events.snapshot.assert_called_once_with(
+            '01JACCOUNT000000000000000001', record.session_id
+        )
         assert result.detail.pending_learner_message_id == (
             '01JMENTORMESSAGE000000000001'
         )
@@ -461,3 +510,163 @@ class TestCreateMentorSessionUseCase:
             )
 
         self.database.transaction.assert_not_called()
+
+    def test_should_capture_context_and_link_first_attempt_stream_and_outbox(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        self.repositories.mentor_response_events.next_sequence.return_value = 1
+        hint = MentorContextHint(goal_id='goal', skill_id='skill')
+        result = self.subject.execute(
+            '01JACCOUNT000000000000000001',
+            '123e4567-e89b-42d3-a456-426614174000',
+            'hello',
+            hint,
+        )
+        attempt = self.repositories.mentor_response_attempts.add.call_args.args[0]
+        message = result.detail.messages.items[0]
+        assert (
+            attempt.account_id,
+            attempt.session_id,
+            attempt.learner_message_id,
+            attempt.status,
+            attempt.context_hint,
+            attempt.operation_key,
+            attempt.access_revision,
+            attempt.created_at,
+            attempt.updated_at,
+        ) == (
+            '01JACCOUNT000000000000000001',
+            result.detail.session.id,
+            message.id,
+            MentorResponseStatus.QUEUED,
+            hint,
+            'operation',
+            'revision',
+            self.now,
+            self.now,
+        )
+        self.access.authorize.assert_called_once_with(
+            '01JACCOUNT000000000000000001', '123e4567-e89b-42d3-a456-426614174000'
+        )
+        assert self.access.assert_current.call_args_list == [
+            call(self.access.authorize.return_value),
+            call(self.access.authorize.return_value),
+        ]
+        fingerprint = self.repositories.mentor_sessions.add.call_args.args[2]
+        assert fingerprint == mentor_submission_fingerprint('hello', hint)
+        self.repositories.mentor_response_attempts.add_submission.assert_called_once_with(
+            '01JACCOUNT000000000000000001',
+            result.detail.session.id,
+            '123e4567-e89b-42d3-a456-426614174000',
+            attempt.id,
+            fingerprint,
+        )
+        event = self.repositories.mentor_response_events.append.call_args.args[0]
+        assert (
+            event.session_id,
+            event.attempt_id,
+            event.sequence,
+            event.kind,
+            event.status,
+            event.created_at,
+        ) == (
+            result.detail.session.id,
+            attempt.id,
+            1,
+            MentorResponseEventKind.STATUS,
+            MentorResponseStatus.QUEUED,
+            self.now,
+        )
+        assert (event.block, event.consultation, event.failure_code) == (
+            None,
+            None,
+            None,
+        )
+        self.repositories.mentor_response_events.next_sequence.assert_called_once_with(
+            result.detail.session.id
+        )
+        self.repositories.mentor_response_events.snapshot.assert_called_once_with(
+            '01JACCOUNT000000000000000001', result.detail.session.id
+        )
+        outbox = self.repositories.events.add.call_args.args[0]
+        assert outbox.name == 'intelligence/mentor.response.requested'
+        assert outbox.payload.attempt_id == attempt.id
+
+    def test_should_reject_replay_reassigned_to_another_session_during_lock(
+        self,
+    ) -> None:
+        original = MentorSubmissionRecord(
+            session_id='original', content_fingerprint='fingerprint', deleted_at=None
+        )
+        reassigned = MentorSubmissionRecord(
+            session_id='different', content_fingerprint='fingerprint', deleted_at=None
+        )
+        self.repositories.mentor_sessions.find_submission.side_effect = [
+            original,
+            reassigned,
+        ]
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute(
+                'account', '123e4567-e89b-42d3-a456-426614174000', 'hello'
+            )
+        self.repositories.mentor_sessions.lock_session.assert_called_once_with(
+            'account', 'original'
+        )
+        self.repositories.mentor_response_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        self.repositories.mentor_messages.find_many.assert_not_called()
+
+    def test_should_reject_legacy_hash_replay_when_modern_submission_exists(
+        self,
+    ) -> None:
+        account = '01JACCOUNT000000000000000001'
+        session = '01JMENTORSESSION000000000001'
+        key = '123e4567-e89b-42d3-a456-426614174000'
+        self.repositories.mentor_sessions.find_submission.return_value = MentorSubmissionRecord(
+            session_id=session,
+            content_fingerprint='2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+            deleted_at=None,
+        )
+        attempt = MentorResponseAttempt(
+            id='modern',
+            account_id=account,
+            session_id=session,
+            learner_message_id='legacy',
+            status=MentorResponseStatus.QUEUED,
+            context_hint=None,
+            access_revision='revision',
+            operation_key='operation',
+            created_at=self.now,
+            updated_at=self.now,
+        )
+        self.repositories.mentor_response_attempts.find_submission.return_value = (
+            attempt,
+            mentor_submission_fingerprint('hello', None),
+        )
+        with pytest.raises(MentorSubmissionConflictError):
+            self.subject.execute(account, key, 'hello')
+        self.repositories.mentor_response_attempts.find_submission.assert_called_once_with(
+            account, session, key
+        )
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_reject_legacy_replay_without_any_learner_message(self) -> None:
+        account = '01JACCOUNT000000000000000001'
+        session = '01JMENTORSESSION000000000001'
+        self.repositories.mentor_sessions.find_submission.return_value = MentorSubmissionRecord(
+            session_id=session,
+            content_fingerprint='2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824',
+            deleted_at=None,
+        )
+        self.repositories.mentor_messages.find_all.return_value = ()
+        with pytest.raises(MentorSubmissionConflictError):
+            self.subject.execute(
+                account, '123e4567-e89b-42d3-a456-426614174000', 'hello'
+            )
+        self.repositories.mentor_messages.find_all.assert_called_once_with(
+            account, session
+        )
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()

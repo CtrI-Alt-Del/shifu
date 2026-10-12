@@ -25,7 +25,7 @@ def postgres_runtime() -> Iterator[PostgresDatabase]:
     """Start one disposable PostgreSQL instance and apply all migrations."""
 
     container = PostgresContainer(
-        'postgres:17-alpine',
+        'pgvector/pgvector:0.8.1-pg17',
         username='shifu',
         password='change-me',  # noqa: S106 - disposable test credential
         dbname='shifu',

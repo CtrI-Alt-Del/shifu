@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     redis_url: str
     diagnostic_revision_hmac_key: SecretStr | None = None
     openrouter_api_key: str | None = None
+    openrouter_prompt_logging_disabled: bool = False
     mentor_title_prompt_logging_disabled: bool = False
+    mentor_telemetry_enabled: bool = False
+    mentor_telemetry_content_enabled: bool = False
+    langfuse_public_key: SecretStr | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_base_url: HttpUrl = HttpUrl('http://localhost:7003')
     openrouter_decisions_url: HttpUrl = HttpUrl(
         'https://openrouter.ai/api/alpha/decisions'
     )

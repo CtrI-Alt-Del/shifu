@@ -1,8 +1,41 @@
+from shifu.composition.mentor_telemetry import (
+    build_mentor_telemetry_client,
+    close_mentor_telemetry_client,
+)
+from shifu.composition.lazy_mentor_route_provider import LazyMentorRouteProvider
+from shifu.composition.mentor_answer_runtime import MentorAnswerRuntime
+from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
+    CurriculumMentorCatalogProvider,
+)
+from shifu.identity.providers.identity_mentor_access_provider import (
+    IdentityMentorAccessProvider,
+)
+from shifu.intelligence.core.interfaces import (
+    AnswerMentorMessageWorkflow,
+    MentorRouteProvider,
+    MentorTelemetryProvider,
+)
+from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
+    LangfuseMentorTelemetryProvider,
+)
+from shifu.intelligence.core.use_cases.process_mentor_response_use_case import (
+    ProcessMentorResponseUseCase,
+)
+from shifu.intelligence.messaging.inngest.intelligence_inngest_messaging import (
+    IntelligenceInngestMessaging,
+)
+from shifu.learning.core.use_cases.get_competency_detail_use_case import (
+    GetCompetencyDetailUseCase,
+)
+from shifu.learning.providers.learning_mentor_context_provider import (
+    LearningMentorContextProvider,
+)
+from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import partial
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import httpx
 from fastapi import APIRouter, FastAPI
@@ -66,6 +99,10 @@ from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
+
+
+if TYPE_CHECKING:
+    from inngest import Function
 
 
 class ActivityPayloadLimitMiddleware:
@@ -155,11 +192,24 @@ class FastAPIApp:
         app.include_router(router)
 
     @staticmethod
-    def register(database_engine: Engine | None = None) -> FastAPI:
+    def register(
+        database_engine: Engine | None = None,
+        *,
+        mentor_access_provider: MentorAccessProvider | None = None,
+        mentor_context_provider: MentorContextProvider | None = None,
+        mentor_route_provider: MentorRouteProvider | None = None,
+        answer_mentor_message_workflow: AnswerMentorMessageWorkflow | None = None,
+        mentor_telemetry_provider: MentorTelemetryProvider | None = None,
+    ) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
         id_provider = SystemIdentifierProvider()
         clock_provider = SystemClockProvider()
         settings = get_settings()
+        telemetry_client = build_mentor_telemetry_client(settings)
+        telemetry = mentor_telemetry_provider or LangfuseMentorTelemetryProvider(
+            telemetry_client,
+            capture_content=settings.mentor_telemetry_content_enabled,
+        )
         mentor_title_model = MentorTitleModelProvider.build(settings)
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
@@ -202,6 +252,49 @@ class FastAPIApp:
         curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
             curriculum_database
         )
+        intelligence_database = SqlalchemyIntelligenceDatabase(
+            engine=database_engine, id_provider=id_provider
+        )
+        mentor_catalog_provider = CurriculumMentorCatalogProvider(curriculum_database)
+        mentor_access_provider = mentor_access_provider or IdentityMentorAccessProvider(
+            identity_database
+        )
+        mentor_context_provider = (
+            mentor_context_provider
+            or LearningMentorContextProvider(
+                learning_database,
+                mentor_catalog_provider,
+                GetCompetencyDetailUseCase(
+                    learning_database, curriculum_content_provider
+                ),
+            )
+        )
+        mentor_route_provider = mentor_route_provider or LazyMentorRouteProvider(
+            intelligence_database,
+            mentor_catalog_provider,
+            LangfuseMentorTelemetryProvider(telemetry_client),
+        )
+        answer_runtime: MentorAnswerRuntime | None = None
+        if answer_mentor_message_workflow is None:
+            answer_runtime = MentorAnswerRuntime.build(
+                settings,
+                LangfuseMentorTelemetryProvider(
+                    telemetry_client,
+                    capture_content=settings.mentor_telemetry_content_enabled,
+                ),
+            )
+            answer_mentor_message_workflow = answer_runtime.workflow
+        mentor_process = ProcessMentorResponseUseCase(
+            intelligence_database,
+            id_provider,
+            clock_provider,
+            mentor_access_provider,
+            mentor_context_provider,
+            mentor_route_provider,
+            answer_mentor_message_workflow,
+            mentor_catalog_provider,
+            telemetry,
+        )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
             jwks_url=ENVIRONMENT.auth_jwks_url,
@@ -225,6 +318,8 @@ class FastAPIApp:
                 await cache_provider.ping()
             except Exception as error:
                 await cache_provider.close()
+                if answer_runtime is not None:
+                    await asyncio.to_thread(answer_runtime.close)
                 database_engine.dispose()
                 raise ServiceUnavailableError(
                     message='O Redis está indisponível; o servidor não pode iniciar.'
@@ -248,6 +343,9 @@ class FastAPIApp:
                 yield
             finally:
                 broker.stop()
+                if answer_runtime is not None:
+                    await asyncio.to_thread(answer_runtime.close)
+                await asyncio.to_thread(close_mentor_telemetry_client, telemetry_client)
                 await asyncio.to_thread(code_assessor_client.close)
                 if mentor_title_model is not None:
                     model_client = getattr(mentor_title_model, 'client', None)
@@ -261,6 +359,10 @@ class FastAPIApp:
         inngest_client = InngestMessaging.register(
             app,
             job_group_registrars=[
+                lambda inngest: cast(
+                    'list[Function[object]]',
+                    IntelligenceInngestMessaging.register(inngest, mentor_process),
+                ),
                 lambda inngest: IdentityInngestMessaging.register_jobs(
                     inngest,
                     identity_database=identity_database,
@@ -307,10 +409,13 @@ class FastAPIApp:
         app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider
         app.state.curriculum_catalog_provider = curriculum_catalog_provider
-        app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
-            engine=database_engine,
-            id_provider=id_provider,
-        )
+        app.state.intelligence_database = intelligence_database
+        app.state.mentor_access_provider = mentor_access_provider
+        app.state.mentor_context_provider = mentor_context_provider
+        app.state.mentor_route_provider = mentor_route_provider
+        app.state.answer_mentor_message_workflow = answer_mentor_message_workflow
+        app.state.mentor_catalog_provider = mentor_catalog_provider
+        app.state.mentor_answer_runtime = answer_runtime
         app.state.generate_mentor_title_workflow = (
             UnavailableGenerateMentorTitleWorkflow()
             if mentor_title_model is None

@@ -1,3 +1,5 @@
+from shifu.shared.core.interfaces import MentorAccessProvider
+from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 from typing import Annotated
 
 from fastapi import (
@@ -20,6 +22,7 @@ class Response(BaseModel):
     session: MentorSessionSchemas.Session
     messages: MentorSessionSchemas.MessagesPage
     pending_learner_message_id: str | None
+    response: MentorResponseSnapshot | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -40,6 +43,10 @@ class GetMentorSessionController:
             database: Annotated[
                 IntelligenceDatabase, Depends(IntelligencePipe.get_database)
             ],
+            access: Annotated[
+                MentorAccessProvider,
+                Depends(IntelligencePipe.get_mentor_access_provider),
+            ],
             cursor: str | None = None,
         ) -> Response:
             if not _is_ulid(session_id):
@@ -51,7 +58,7 @@ class GetMentorSessionController:
                     },
                 )
             try:
-                detail = GetMentorSessionUseCase(database).execute(
+                detail = GetMentorSessionUseCase(database, access).execute(
                     user.account_id, session_id, cursor
                 )
             except (TypeError, ValueError) as error:

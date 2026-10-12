@@ -1,3 +1,5 @@
+import { useMentorContextProvider } from '../use-mentor-context-provider'
+import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, useLayoutEffect } from 'react'
@@ -17,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   rename: vi.fn(),
   remove: vi.fn(),
   navigate: vi.fn(),
+  submit: vi.fn(),
+  cancel: vi.fn(),
+  retry: vi.fn(),
   location: { pathname: '/gamification', search: {} as Record<string, unknown> },
 }))
 
@@ -30,6 +35,53 @@ vi.mock('@/ui/intelligence/hooks/mentor-server-functions', () => ({
   listMentorSessionsServer: mocks.list,
   removeMentorSessionServer: mocks.remove,
   renameMentorSessionServer: mocks.rename,
+}))
+
+vi.mock('@/ui/intelligence/hooks/use-create-mentor-session-action', async () => {
+  const { useMutation } = await import('@tanstack/react-query')
+  return {
+    useCreateMentorSessionAction: (accountEmail: string) => {
+      const mutation = useMutation({
+        mutationFn: (input: unknown) =>
+          mocks.create({ data: { accountEmail, ...(input as object) } }),
+      })
+      return {
+        createMentorSession: mutation.mutateAsync,
+        isCreatingMentorSession: mutation.isPending,
+        resetCreateMentorSession: mutation.reset,
+      }
+    },
+  }
+})
+vi.mock('@/ui/intelligence/hooks/use-mentor-session-query', async () => {
+  const { useCallback } = await import('react')
+  return {
+    useMentorSessionQuery: (accountEmail: string) => ({
+      readMentorSession: useCallback(
+        (sessionId: string, cursor?: string) =>
+          mocks.detail({ data: { accountEmail, sessionId, cursor } }),
+        [accountEmail],
+      ),
+    }),
+  }
+})
+vi.mock('@/ui/intelligence/hooks/use-submit-mentor-message-action', () => ({
+  useSubmitMentorMessageAction: () => ({
+    submitMentorMessage: mocks.submit,
+    isPending: false,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-cancel-mentor-response-action', () => ({
+  useCancelMentorResponseAction: () => ({
+    cancelMentorResponse: mocks.cancel,
+    isPending: false,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-retry-mentor-response-action', () => ({
+  useRetryMentorResponseAction: () => ({
+    retryMentorResponse: mocks.retry,
+    isPending: false,
+  }),
 }))
 
 const sessionsPage: MentorSessionsPage = { items: [], nextCursor: null }
@@ -264,6 +316,7 @@ describe('useMentorContextProvider', () => {
     expect(mocks.create).toHaveBeenNthCalledWith(1, {
       data: {
         accountEmail: 'aluna@example.com',
+        contextHint: null,
         submissionKey: '4f8d5418-2f14-4a12-8d80-7a8c31b5bc50',
         firstMessage: '  dúvida\ncom detalhes  ',
       },
@@ -271,6 +324,7 @@ describe('useMentorContextProvider', () => {
     expect(mocks.create).toHaveBeenNthCalledWith(2, {
       data: {
         accountEmail: 'aluna@example.com',
+        contextHint: null,
         submissionKey: '4f8d5418-2f14-4a12-8d80-7a8c31b5bc50',
         firstMessage: '  dúvida\ncom detalhes  ',
       },
@@ -662,3 +716,396 @@ describe('useMentorContextProvider', () => {
     view.unmount()
   })
 })
+
+class ControlledEventSource extends EventTarget {
+  static instances: ControlledEventSource[] = []
+  close = vi.fn()
+  constructor(readonly url: string) {
+    super()
+    ControlledEventSource.instances.push(this)
+  }
+  emit(data: Record<string, unknown>) {
+    this.dispatchEvent(
+      new MessageEvent('mentor.response', { data: JSON.stringify(data) }),
+    )
+  }
+}
+const initialResponse: MentorResponseSnapshot = {
+  attemptId: 'attempt-a',
+  learnerMessageId: 'learner-a',
+  status: 'processing',
+  blocks: [],
+  consultations: [],
+  lastSequence: 0,
+  failureCode: null,
+}
+function responseWrapper({ children }: { children: React.ReactNode }) {
+  return createElement(
+    QueryClientProvider,
+    { client: new QueryClient({ defaultOptions: { mutations: { retry: false } } }) },
+    children,
+  )
+}
+function openResponseProvider(response: MentorResponseSnapshot = initialResponse) {
+  vi.stubGlobal('EventSource', ControlledEventSource)
+  ControlledEventSource.instances = []
+  mocks.detail.mockResolvedValue({
+    ...detail,
+    pendingLearnerMessageId: 'learner-a',
+    response,
+  })
+  return renderHook(() => useMentorContextProvider('aluna@example.com'), {
+    wrapper: responseWrapper,
+  })
+}
+function responseEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    session_id: detail.session.id,
+    attempt_id: 'attempt-a',
+    sequence: 1,
+    kind: 'block',
+    status: 'processing',
+    block: {
+      block_key: 'block-a',
+      ordinal: 0,
+      intent: null,
+      content: 'Texto aprovado completo',
+    },
+    consultation: null,
+    failure_code: null,
+    created_at: '2026-10-10T00:00:00Z',
+    ...overrides,
+  }
+}
+describe('useMentorContextProvider response lifecycle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.list.mockResolvedValue(sessionsPage)
+    mocks.location.pathname = '/intelligence'
+  })
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+  it('replaces real workflow progress, preserves it through blocks and clears it on cancellation', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    const source = getEventSource(0)
+    act(() =>
+      source.emit(
+        responseEvent({ kind: 'status', block: null, progress: 'write-answer' }),
+      ),
+    )
+    expect(result.current.response?.progress).toBe('write-answer')
+    act(() =>
+      source.emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'status',
+          block: null,
+          progress: 'review-answer',
+        }),
+      ),
+    )
+    expect(result.current.response?.progress).toBe('review-answer')
+    act(() =>
+      source.emit(
+        responseEvent({ kind: 'status', block: null, progress: 'write-answer' }),
+      ),
+    )
+    expect(result.current.response?.progress).toBe('review-answer')
+    act(() =>
+      source.emit(
+        responseEvent({
+          sequence: 3,
+          kind: 'status',
+          block: null,
+          progress: 'write-answer',
+        }),
+      ),
+    )
+    expect(result.current.response?.progress).toBe('write-answer')
+    act(() => source.emit(responseEvent({ sequence: 4 })))
+    expect(result.current.response?.progress).toBe('write-answer')
+    act(() =>
+      source.emit(
+        responseEvent({
+          sequence: 5,
+          kind: 'cancelled',
+          status: 'cancelled',
+          block: null,
+        }),
+      ),
+    )
+    expect(result.current.response?.progress).toBeNull()
+    expect(source.close).toHaveBeenCalledOnce()
+  })
+  it('orders independent approved blocks and preserves them through a newer partial detail snapshot', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    act(() => {
+      getEventSource(0).emit(
+        responseEvent({
+          block: { block_key: 'later', ordinal: 1, intent: null, content: 'Segundo' },
+        }),
+      )
+      getEventSource(0).emit(responseEvent({ sequence: 2 }))
+    })
+    expect(result.current.response?.blocks.map((block) => block.content)).toEqual([
+      'Texto aprovado completo',
+      'Segundo',
+    ])
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      pendingLearnerMessageId: 'learner-a',
+      response: {
+        ...initialResponse,
+        lastSequence: 3,
+        blocks: [{ blockKey: 'later', ordinal: 1, intent: null, content: 'Segundo' }],
+      },
+    })
+    await act(() => result.current.refresh())
+    expect(result.current.response?.blocks.map((block) => block.content)).toEqual([
+      'Texto aprovado completo',
+      'Segundo',
+    ])
+    expect(result.current.response?.lastSequence).toBe(3)
+  })
+  it('opens one stream, applies approved blocks once and fences old attempts and cleanup callbacks', async () => {
+    const { result, rerender, unmount } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    expect(ControlledEventSource.instances).toHaveLength(1)
+    const source = getEventSource(0)
+    act(() => source.emit(responseEvent()))
+    expect(result.current.response?.blocks.map((block) => block.content)).toEqual([
+      'Texto aprovado completo',
+    ])
+    expect(result.current.shouldAnimateBlock('attempt-a', 'block-a')).toBe(true)
+    act(() => {
+      source.emit(responseEvent())
+      source.emit(responseEvent({ sequence: 2, attempt_id: 'old-attempt' }))
+    })
+    expect(result.current.response?.lastSequence).toBe(1)
+    rerender()
+    expect(ControlledEventSource.instances).toHaveLength(1)
+    act(() => result.current.markBlockPresented('attempt-a', 'block-a'))
+    expect(result.current.shouldAnimateBlock('attempt-a', 'block-a')).toBe(false)
+    unmount()
+    expect(source.close).toHaveBeenCalledOnce()
+    source.emit(responseEvent({ sequence: 3 }))
+  })
+  it('closes malformed input before serialized snapshot recovery and resumes at authoritative cursor', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    const source = getEventSource(0)
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      response: { ...initialResponse, lastSequence: 7 },
+    })
+    await act(async () => {
+      source.dispatchEvent(new MessageEvent('mentor.response', { data: '<script>' }))
+      source.dispatchEvent(new Event('error'))
+    })
+    expect(source.close).toHaveBeenCalledOnce()
+    expect(ControlledEventSource.instances).toHaveLength(2)
+    expect(getEventSource(1).url).toContain('after_sequence=7')
+    act(() => source.emit(responseEvent({ sequence: 8 })))
+    expect(result.current.response?.blocks).toEqual([])
+  })
+  it('cancels partial content and retries the same learner under a new attempt without resending', async () => {
+    const { result } = openResponseProvider({
+      ...initialResponse,
+      blocks: [{ blockKey: 'block-a', ordinal: 0, intent: null, content: 'Parcial' }],
+    })
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.cancel.mockResolvedValue({
+      ...initialResponse,
+      status: 'cancelled',
+      lastSequence: 2,
+    })
+    await act(() => result.current.cancelResponse())
+    expect(result.current.response?.blocks).toEqual([])
+    expect(result.current.sessionDetail?.pendingLearnerMessageId).toBe('learner-a')
+    mocks.retry.mockResolvedValue({
+      ...initialResponse,
+      attemptId: 'attempt-b',
+      status: 'queued',
+      lastSequence: 3,
+    })
+    await act(() => result.current.retryResponse())
+    expect(result.current.response?.attemptId).toBe('attempt-b')
+    expect(result.current.response?.learnerMessageId).toBe('learner-a')
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(mocks.submit).not.toHaveBeenCalled()
+  })
+  it('keeps the current snapshot while an older message page returns a stale response', async () => {
+    const current = {
+      ...initialResponse,
+      lastSequence: 5,
+      blocks: [
+        {
+          blockKey: 'approved',
+          ordinal: 0,
+          intent: null,
+          content: 'Resposta já aprovada',
+        },
+      ],
+    }
+    const { result } = openResponseProvider(current)
+    mocks.detail.mockResolvedValueOnce({
+      ...detail,
+      response: current,
+      messages: { items: [], nextCursor: 'older-page' },
+      pendingLearnerMessageId: 'learner-a',
+    })
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockResolvedValueOnce({
+      ...detail,
+      response: initialResponse,
+      messages: {
+        items: [
+          {
+            id: 'older-message',
+            sessionId: detail.session.id,
+            role: 'learner',
+            content: 'Mensagem antiga',
+            createdAt: '2026-10-09T00:00:00Z',
+            inReplyToMessageId: null,
+          },
+        ],
+        nextCursor: null,
+      },
+      pendingLearnerMessageId: 'learner-a',
+    })
+    await act(() => result.current.loadOlderMessages())
+    expect(result.current.response?.lastSequence).toBe(5)
+    expect(result.current.response?.blocks[0]?.content).toBe('Resposta já aprovada')
+    expect(result.current.sessionDetail?.messages.items[0]?.content).toBe(
+      'Mensagem antiga',
+    )
+  })
+  it('does not regress a terminal event when refresh returns the same sequence with an active status', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      response: { ...initialResponse, lastSequence: 1 },
+      pendingLearnerMessageId: 'learner-a',
+    })
+    await act(async () =>
+      getEventSource(0).emit(
+        responseEvent({ kind: 'completed', status: 'completed', block: null }),
+      ),
+    )
+    expect(result.current.response?.status).toBe('completed')
+    expect(result.current.response?.lastSequence).toBe(1)
+    expect(result.current.sessionDetail?.pendingLearnerMessageId).toBeNull()
+    await act(() => result.current.refresh())
+    expect(result.current.response?.status).toBe('completed')
+    expect(ControlledEventSource.instances).toHaveLength(1)
+  })
+  it('ignores an older control snapshot after a newer approved event arrives', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    let resolveCancel: (snapshot: MentorResponseSnapshot) => void = () => undefined
+    mocks.cancel.mockImplementation(
+      () =>
+        new Promise<MentorResponseSnapshot>((resolve) => {
+          resolveCancel = resolve
+        }),
+    )
+    let cancellation: Promise<void> | undefined
+    act(() => {
+      cancellation = result.current.cancelResponse()
+    })
+    act(() => getEventSource(0).emit(responseEvent({ sequence: 2 })))
+    await act(async () => {
+      resolveCancel({ ...initialResponse, status: 'cancelled', lastSequence: 1 })
+      await cancellation
+    })
+    expect(result.current.response?.status).toBe('processing')
+    expect(result.current.response?.lastSequence).toBe(2)
+    expect(result.current.response?.blocks[0]?.content).toBe('Texto aprovado completo')
+  })
+  it('fences an in-flight reconciliation after cancel returns a terminal snapshot at the same sequence', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    let resolveDetail: (value: MentorSessionDetail) => void = () => undefined
+    mocks.detail.mockImplementation(
+      () =>
+        new Promise<MentorSessionDetail>((resolve) => {
+          resolveDetail = resolve
+        }),
+    )
+    act(() => getEventSource(0).dispatchEvent(new Event('error')))
+    mocks.cancel.mockResolvedValue({
+      ...initialResponse,
+      status: 'cancelled',
+      lastSequence: 2,
+    })
+    await act(() => result.current.cancelResponse())
+    await act(async () =>
+      resolveDetail({
+        ...detail,
+        response: { ...initialResponse, lastSequence: 2 },
+        pendingLearnerMessageId: 'learner-a',
+      }),
+    )
+    expect(result.current.response?.status).toBe('cancelled')
+    expect(result.current.response?.lastSequence).toBe(2)
+    expect(result.current.response?.blocks).toEqual([])
+    expect(ControlledEventSource.instances).toHaveLength(1)
+  })
+  it('captures a FAB hint on submit and keeps the idempotent retry hint after navigation', async () => {
+    vi.stubGlobal('EventSource', ControlledEventSource)
+    const hint = {
+      goalId: 'goal-a',
+      skillId: 'skill-a',
+      competencyId: null,
+      materialId: null,
+      activityId: null,
+    }
+    const { result, rerender } = renderHook(
+      ({ contextHint }) => useMentorContextProvider('aluna@example.com', contextHint),
+      { wrapper: responseWrapper, initialProps: { contextHint: hint } },
+    )
+    mocks.detail.mockResolvedValue(detail)
+    await act(() => result.current.selectSession(detail.session.id))
+    act(() => result.current.setDraft('  Próxima pergunta  '))
+    mocks.submit.mockRejectedValueOnce(new Error('Temporary network failure'))
+    await act(() => result.current.sendFirstMessage('fab'))
+    expect(result.current.draft).toBe('  Próxima pergunta  ')
+    rerender({ contextHint: { ...hint, goalId: 'goal-b' } })
+    mocks.submit.mockResolvedValue({
+      ...detail,
+      response: { ...initialResponse, status: 'queued' },
+      pendingLearnerMessageId: 'learner-a',
+    })
+    await act(() => result.current.sendFirstMessage('fab'))
+    expect(mocks.submit.mock.calls[0]?.[0]).toEqual(mocks.submit.mock.calls[1]?.[0])
+    expect(mocks.submit.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({
+        sessionId: detail.session.id,
+        content: '  Próxima pergunta  ',
+        contextHint: hint,
+      }),
+    )
+    expect(result.current.draft).toBe('')
+    expect(result.current.response?.status).toBe('queued')
+  })
+  it('clears private state when stream reconciliation loses account scope', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockRejectedValue(new Error('Sua sessão expirou'))
+    await act(async () => getEventSource(0).dispatchEvent(new Event('error')))
+    expect(result.current.sessionDetail).toBeNull()
+    expect(result.current.scopeError).toContain('Não foi possível confirmar')
+    expect(ControlledEventSource.instances).toHaveLength(1)
+  })
+})
+
+function getEventSource(index: number): ControlledEventSource {
+  const source = ControlledEventSource.instances[index]
+  if (!source) throw new Error('The expected consumer stream was not opened')
+  return source
+}

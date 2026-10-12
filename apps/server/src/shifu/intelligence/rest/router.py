@@ -1,3 +1,15 @@
+from shifu.intelligence.rest.controllers.stream_mentor_response_controller import (
+    StreamMentorResponseController,
+)
+from shifu.intelligence.rest.controllers.retry_mentor_response_controller import (
+    RetryMentorResponseController,
+)
+from shifu.intelligence.rest.controllers.cancel_mentor_response_controller import (
+    CancelMentorResponseController,
+)
+from shifu.intelligence.rest.controllers.submit_mentor_message_controller import (
+    SubmitMentorMessageController,
+)
 from fastapi import APIRouter
 
 from shifu.intelligence.rest.controllers.start_planning_controller import (
@@ -30,4 +42,8 @@ class IntelligenceRouter:
         GetMentorSessionController.handle(router)
         RenameMentorSessionController.handle(router)
         RemoveMentorSessionController.handle(router)
+        SubmitMentorMessageController.handle(router)
+        CancelMentorResponseController.handle(router)
+        RetryMentorResponseController.handle(router)
+        StreamMentorResponseController.handle(router)
         return router

@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import create_autospec
+from unittest.mock import Mock, call, create_autospec
 
 import pytest
 
@@ -128,5 +128,40 @@ class TestRemoveMentorSessionUseCase:
         )
         self.repositories.mentor_sessions.find_by_id_for_update.assert_not_called()
         self.repositories.mentor_sessions.lock_session.assert_not_called()
+        self.repositories.mentor_messages.remove_by_session_id.assert_not_called()
+        self.repositories.mentor_sessions.remove.assert_not_called()
+
+    def test_should_purge_stream_attempts_messages_before_tombstone(self) -> None:
+        effects = Mock()
+        effects.attach_mock(
+            self.repositories.mentor_response_events.remove_by_session_id, 'events'
+        )
+        effects.attach_mock(
+            self.repositories.mentor_response_attempts.remove_by_session_id, 'attempts'
+        )
+        effects.attach_mock(
+            self.repositories.mentor_messages.remove_by_session_id, 'messages'
+        )
+        effects.attach_mock(self.repositories.mentor_sessions.remove, 'session')
+        self.subject.execute('account', 'session')
+        assert effects.mock_calls == [
+            call.events('session'),
+            call.attempts('session'),
+            call.messages('session'),
+            call.session(self.session, self.now),
+        ]
+
+    def test_should_reject_submission_removed_while_waiting_for_lock(self) -> None:
+        active = (
+            self.repositories.mentor_sessions.find_submission_by_session_id.return_value
+        )
+        self.repositories.mentor_sessions.find_submission_by_session_id.side_effect = [
+            active,
+            None,
+        ]
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('account', 'session')
+        self.repositories.mentor_response_events.remove_by_session_id.assert_not_called()
+        self.repositories.mentor_response_attempts.remove_by_session_id.assert_not_called()
         self.repositories.mentor_messages.remove_by_session_id.assert_not_called()
         self.repositories.mentor_sessions.remove.assert_not_called()

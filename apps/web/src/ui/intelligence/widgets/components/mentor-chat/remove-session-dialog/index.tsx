@@ -16,6 +16,7 @@ export const RemoveSessionDialog = () => {
     <ConfirmationDialog
       cancelLabel='Manter conversa'
       confirmLabel='Excluir conversa'
+      actionClassName='min-h-9! px-3! text-sm'
       description='O título e as mensagens desta conversa serão removidos permanentemente. Esta ação não pode ser desfeita.'
       error={removalError}
       icon='trash-2'

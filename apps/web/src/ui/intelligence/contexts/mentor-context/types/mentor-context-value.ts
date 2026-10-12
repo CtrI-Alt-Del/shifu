@@ -1,9 +1,21 @@
 import type {
+  MentorResponseSnapshot,
+  SubmitMentorMessageInput,
+} from '@/core/intelligence/mentor-response'
+import type {
   MentorSessionDetail,
   MentorSessionsPage,
 } from '@/rest/services/intelligence-service'
 
 export type MentorContextValue = {
+  response: MentorResponseSnapshot | null
+  isCancellingResponse: boolean
+  isRetryingResponse: boolean
+  submitMessage(input: SubmitMentorMessageInput): Promise<void>
+  cancelResponse(): Promise<void>
+  retryResponse(): Promise<void>
+  shouldAnimateBlock(attemptId: string, blockKey: string): boolean
+  markBlockPresented(attemptId: string, blockKey: string): void
   selectedSessionId: string | null
   sessionDetail: MentorSessionDetail | null
   sessionsPage: MentorSessionsPage
@@ -34,7 +46,7 @@ export type MentorContextValue = {
   selectSession(sessionId: string): Promise<void>
   setDraft(value: string): void
   setSearch(value: string): void
-  sendFirstMessage(): Promise<void>
+  sendFirstMessage(surface?: 'page' | 'fab'): Promise<void>
   loadMoreSessions(): Promise<void>
   loadOlderMessages(): Promise<void>
   openRenameDialog(sessionId: string): void

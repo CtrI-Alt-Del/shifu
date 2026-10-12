@@ -8,7 +8,23 @@ const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ?? env.SHIFU_WEB_APP_URL ?? `http://127.0.0.1:${port}`
 const identityURL =
   process.env.SHIFU_IDENTITY_API_URL ?? `http://127.0.0.1:${identityPort}`
-const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --port ${port}`
+const mentorProxyPort = process.env.SHIFU_MENTOR_STREAM_TEST_PROXY_PORT
+const mentorProxyURL = mentorProxyPort ? `http://127.0.0.1:${mentorProxyPort}` : null
+const mentorProxyServers = mentorProxyURL
+  ? [
+      {
+        command: 'exec node tests/support/mentor-stream-upstream.mjs',
+        env: {
+          SHIFU_MENTOR_STREAM_TEST_PROXY_PORT: mentorProxyPort as string,
+          SHIFU_MENTOR_STREAM_IDENTITY_ORIGIN: identityURL,
+        },
+        url: `${mentorProxyURL}/__mentor-control/health`,
+        reuseExistingServer: false,
+        timeout: 30_000,
+      },
+    ]
+  : []
+const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --port ${port}${mentorProxyURL ? ' --strictPort' : ''}`
 
 export default defineConfig({
   testDir: './tests',
@@ -38,14 +54,15 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
+    ...mentorProxyServers,
     {
       command: webServerCommand,
       env: {
-        SHIFU_IDENTITY_API_URL: identityURL,
+        SHIFU_IDENTITY_API_URL: mentorProxyURL ?? identityURL,
         SHIFU_TRUSTED_PROXY_IPS: '127.0.0.1,::1',
       },
       url: `${baseURL}/login/`,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: mentorProxyURL ? false : !process.env.CI,
       timeout: 60_000,
     },
   ],

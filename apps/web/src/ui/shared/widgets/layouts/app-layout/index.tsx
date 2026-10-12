@@ -1,3 +1,4 @@
+import type { MentorContextHint } from '@/core/intelligence/mentor-response'
 import type { PropsWithChildren, ReactNode } from 'react'
 
 import { ROUTES } from '@/constants/routes'
@@ -12,17 +13,23 @@ import { MobileHeader } from './mobile-header'
 import { useAppLayout } from './use-app-layout'
 
 export type AppLayoutProps = PropsWithChildren<{
+  mentorContextHint?: MentorContextHint | null
   account?: LayoutAccount
   accountMenu?: ReactNode
 }>
 
-export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) => {
+export const AppLayout = ({
+  account,
+  accountMenu,
+  mentorContextHint,
+  children,
+}: AppLayoutProps) => {
   const { navigationItems, pathname } = useAppLayout()
   const renderedAccountMenu =
     accountMenu ?? (account ? <AccountMenu account={account} /> : undefined)
 
   const layout = (
-    <div className='relative isolate min-h-screen bg-transparent text-foreground'>
+    <div className='relative isolate min-h-dvh bg-transparent text-foreground'>
       <header className='relative z-20 border-b border-border bg-background/80'>
         <DesktopHeader
           accountMenu={renderedAccountMenu}
@@ -36,7 +43,7 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
         />
       </header>
 
-      <main className='relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[1600px] flex-1 flex-col px-5 py-8 pb-24 sm:px-8 lg:px-10 lg:pb-8'>
+      <main className='relative z-10 mx-auto flex min-h-[calc(100dvh-4rem-1px)] w-full max-w-[1600px] flex-1 flex-col px-5 py-8 pb-24 sm:px-8 lg:px-10 lg:pb-8'>
         {children}
       </main>
       <MobileBottomNavigation items={navigationItems} pathname={pathname} />
@@ -46,7 +53,7 @@ export const AppLayout = ({ account, accountMenu, children }: AppLayoutProps) =>
   if (!account?.email) return layout
 
   return (
-    <MentorContextProvider accountEmail={account.email}>
+    <MentorContextProvider accountEmail={account.email} contextHint={mentorContextHint}>
       {layout}
       <MentorFab isMentorPage={pathname.replace(/\/+$/, '') === ROUTES.intelligence} />
     </MentorContextProvider>

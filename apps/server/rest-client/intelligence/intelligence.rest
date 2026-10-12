@@ -1,6 +1,13 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
 @mentorSessionId = 01J00000000000000000000000
+@goalId = 01J00000000000000000000001
+@skillId = 01J00000000000000000000002
+@attemptId = 01J00000000000000000000003
+@lastSequence = 0
+@nextSubmissionKey = 236118d8-a7a0-445a-bbc6-927780aec501
+@cancelSubmissionKey = d4475f31-38a7-4e7c-870e-927780aec502
+@retrySubmissionKey = e4475f31-38a7-4e7c-870e-927780aec503
 @submissionKey = 2a7e963f-d7dd-4cc9-9a46-8c650193f7a6
 
 ### Start planning session
@@ -42,3 +49,59 @@ Content-Type: application/json
 ### Delete a Mentor conversation
 DELETE {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
 Authorization: Bearer {{accessToken}}
+
+### Create with page focus (hint does not authorize these resources)
+POST {{baseUrl}}/intelligence/mentor-sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "fd28e3e8-4500-4f84-92f0-98b5a876eac6",
+  "first_message": "Como está meu progresso nesta Habilidade?",
+  "context_hint": {
+    "goal_id": "{{goalId}}",
+    "skill_id": "{{skillId}}"
+  }
+}
+
+### Submit next text; repeat exact payload for 200 replay
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/messages
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{nextSubmissionKey}}",
+  "content": "Explique o conceito e mostre meu progresso.",
+  "context_hint": null
+}
+
+### Divergent same-key replay is 409
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/messages
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{nextSubmissionKey}}",
+  "content": "Texto diferente.",
+  "context_hint": null
+}
+
+### Cancel current queued/processing attempt
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/responses/{{attemptId}}/cancel
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "submission_key": "{{cancelSubmissionKey}}" }
+
+### Retry failed/cancelled; original learner message/hint retained
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/responses/{{attemptId}}/retry
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "submission_key": "{{retrySubmissionKey}}" }
+
+### Approved complete blocks only; replay begins after cursor
+GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/events
+Authorization: Bearer {{accessToken}}
+Accept: text/event-stream
+Last-Event-ID: {{lastSequence}}

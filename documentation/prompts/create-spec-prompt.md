@@ -276,6 +276,24 @@ them. Include snippets only where a changed public shape/signature or guarantee
 needs to be fixed for consumers; leave private helpers and implementation bodies
 out. Keep infrastructure/framework types out of Core.
 
+Explain new project concepts by default within the Technical Contract; a name in
+the file tree or a declaration alone is not sufficient. For each consequential
+new concept, state its purpose, owning module/layer, inputs and outputs,
+relationships to existing concepts, source of truth and state ownership, and
+applicable lifecycle, failure/recovery and authorization guarantees. Connect the
+explanation to its declarations, runtime flow and acceptance checkers without
+duplicating those contracts. Define unfamiliar terms and use a small concrete
+example when it makes their role clearer. Scale detail to the slice's risk;
+ordinary private helpers and unchanged concepts do not need an inventory.
+
+For new hooks and realtime components, document their input/return contracts,
+consumer and dependency direction, connection/subscription ownership, event
+validation and ordering, reconciliation/reconnection, and cleanup of stale
+callbacks where applicable. Distinguish transport state from domain state and
+identify their respective owners. Do not leave these guarantees implicit in a
+filename or a short responsibility list. These explanations clarify the approved
+design; they do not authorize new product behavior or integrations.
+
 Specify affected REST method/path/request/response/error contracts and matching
 non-secret `apps/server/rest-client/<module>/<route-group>.rest` examples;
 SQLAlchemy mapping, constraints/indexes and Alembic migration/backfill/compatibility
@@ -311,11 +329,7 @@ proof may support the same outcome. Keep baseline gates separate and reference
 the applicable Tooling/Rule checks, including affected consumers. Define separate
 type, lint and complexity obligations/dispositions using
 [scoped static-check guidance](../tooling.md#scoped-type-lint-and-complexity-checks).
-Use exact paths for lint and affected configured projects for types. Include
-local changed-code coverage for each affected production Web/Server file under
-[Tooling's coverage policy](../tooling.md#changed-code-coverage), with related
-test selectors and 85% statements/functions/lines and 80% branches pass
-conditions. State Not applicable when no eligible production source changes.
+Use exact paths for lint and affected configured projects for types.
 Complexity must identify its checker and actual limits; no dedicated metrics command is
 currently configured. A required unavailable metrics gate stays Blocked.
 Mark absent
@@ -423,7 +437,9 @@ correct accepted defects and recheck affected findings with the same reviewer.
 
 Self-review the written Spec for placeholders, internal contradictions, ambiguous
 requirements and scope that needs decomposition; correct those issues before
-presenting it. After the independent review has no blocking findings, give the
+presenting it. Verify that new project concepts and their consequential lifecycle
+contracts are explained, rather than only listed in the tree or declarations.
+After the independent review has no blocking findings, give the
 user the Spec path and revision and ask them to review the written contract.
 Wait for explicit approval before marking it `ready` or handing it to
 `implement-spec`. If the user requests changes, amend the Spec, repeat affected

@@ -13,27 +13,23 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
   const {
     canSend,
     draft,
+    handleKeyDown,
     handleSubmit,
-    hasAcceptedSession,
+    isResponsePending,
     isSubmittingFirstMessage,
     sendFirstMessage,
     setDraft,
     submissionError,
     textareaRef,
-  } = useComposer()
+  } = useComposer(surface)
 
   return (
     <form
-      aria-label='Enviar primeira mensagem'
+      aria-label='Enviar mensagem ao Mentor'
       aria-busy={isSubmittingFirstMessage}
-      className={`shrink-0 space-y-2 ${surface === 'page' ? '' : 'border-t border-border bg-surface-alt p-6'}`}
+      className={`shrink-0 space-y-2 ${surface === 'page' ? 'mx-4' : 'border-t border-border bg-surface-alt p-6'}`}
       onSubmit={handleSubmit}
     >
-      {hasAcceptedSession ? (
-        <p className='mb-3 rounded-lg bg-muted p-3 text-sm text-muted-foreground'>
-          Novas mensagens ainda não estão disponíveis nesta conversa.
-        </p>
-      ) : null}
       <label className='sr-only' htmlFor={messageId}>
         Escreva sua mensagem para o Mentor
       </label>
@@ -45,7 +41,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           <p>{submissionError}</p>
           <Button
             disabled={!draft.trim() || isSubmittingFirstMessage}
-            onClick={() => void sendFirstMessage()}
+            onClick={() => void sendFirstMessage(surface)}
             type='button'
             variant='ghost'
           >
@@ -68,9 +64,10 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
         <Textarea
           className='min-h-11 min-w-0 max-h-44 flex-1 resize-none overflow-y-auto border-0! bg-transparent! px-0! py-3! text-sm focus-visible:border-transparent! focus-visible:ring-0! focus-visible:shadow-none! focus-visible:outline-none!'
           data-focus-ring='delegated'
-          disabled={hasAcceptedSession || isSubmittingFirstMessage}
+          disabled={isResponsePending || isSubmittingFirstMessage}
           id={messageId}
           onChange={(event) => setDraft(event.currentTarget.value)}
+          onKeyDown={handleKeyDown}
           placeholder='Pergunte ao Mentor…'
           ref={textareaRef}
           rows={1}

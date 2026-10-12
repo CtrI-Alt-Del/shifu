@@ -17,6 +17,14 @@ const setDraftMock = vi.fn()
 const sendFirstMessageMock = vi.fn()
 
 const contextValue: MentorContextValue = {
+  response: null,
+  isCancellingResponse: false,
+  isRetryingResponse: false,
+  submitMessage: vi.fn(),
+  cancelResponse: vi.fn(),
+  retryResponse: vi.fn(),
+  shouldAnimateBlock: vi.fn(),
+  markBlockPresented: vi.fn(),
   selectedSessionId: null,
   sessionDetail: null,
   sessionsPage: { items: [], nextCursor: null },

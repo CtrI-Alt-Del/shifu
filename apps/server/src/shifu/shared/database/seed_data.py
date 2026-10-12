@@ -44,9 +44,9 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptPermittedCommand,
     JavascriptStdinQuestion,
     MaterialSequenceItem,
+    SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
-    SkillFoundation,
 )
 from shifu.curriculum.core.domain.enums import (
     ActivityDifficulty,
@@ -54,6 +54,7 @@ from shifu.curriculum.core.domain.enums import (
     MaterialType,
 )
 from shifu.curriculum.database.logic_programming_seed import (
+    LogicProgrammingSeed,
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
@@ -69,6 +70,12 @@ from shifu.learning.core.domain.entities import (
     Goal,
     SkillExperience,
 )
+from shifu.learning.core.domain.structures import (
+    ActivityAnswer,
+    ChoiceEvaluationResult,
+    MultipleSelectionAnswer,
+    SingleChoiceAnswer,
+)
 from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
     ActivityEvaluationFaker,
@@ -83,6 +90,13 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.shared.core.domain.structures import structure
+from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
+    CurriculumChoiceOptionSnapshot,
+    CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
+)
 
 
 SEED_ACCOUNT_ID = '01SHF000000000000000000001'
@@ -1175,8 +1189,163 @@ def _build_mentor_seed() -> tuple[tuple[MentorSession, ...], tuple[MentorMessage
     return tuple(sessions), tuple(messages)
 
 
+def _build_logic_learning_records(
+    curriculum: LogicProgrammingSeed,
+) -> tuple[tuple[ActivityAttempt, ...], tuple[ActivityEvaluation, ...]]:
+    """Create reproducible completed diagnostic and learning activity records."""
+    activities = curriculum.activities
+    diagnostic_ids = set(curriculum.skill.initial_diagnostic_activity_ids)
+    diagnostic_activities = tuple(
+        activity for activity in activities if activity.id in diagnostic_ids
+    )
+    learning_activities = tuple(
+        activity
+        for activity in activities
+        if activity.activity_type is ActivityType.LEARNING
+        and all(
+            isinstance(question, (SingleChoiceQuestion, MultipleSelectionQuestion))
+            for question in activity.questions
+        )
+    )[:2]
+    completed_activities = (*diagnostic_activities, *learning_activities)
+
+    attempts: list[ActivityAttempt] = []
+    evaluations: list[ActivityEvaluation] = []
+    for index, activity in enumerate(completed_activities):
+        submitted_at = SEED_CREATED_AT + timedelta(days=1, minutes=index * 5)
+        answers: list[ActivityAnswer] = []
+        snapshot_questions: list[CurriculumChoiceQuestionSnapshot] = []
+        result_parts: list[ChoiceEvaluationResult] = []
+        for question in activity.questions:
+            if isinstance(question, SingleChoiceQuestion):
+                correct_keys = tuple(
+                    option.key for option in question.options if option.is_correct
+                )
+                answers.append(
+                    SingleChoiceAnswer(
+                        question_key=question.key,
+                        selected_option_key=correct_keys[0],
+                    )
+                )
+                kind = 'single_choice'
+            elif isinstance(question, MultipleSelectionQuestion):
+                correct_keys = tuple(
+                    option.key for option in question.options if option.is_correct
+                )
+                answers.append(
+                    MultipleSelectionAnswer(
+                        question_key=question.key,
+                        selected_option_keys=correct_keys,
+                    )
+                )
+                kind = 'multiple_selection'
+            else:
+                raise TypeError('Seeded logic records require choice activities.')
+
+            result_parts.append(
+                ChoiceEvaluationResult(
+                    question_key=question.key,
+                    score=Decimal('100'),
+                    is_correct=True,
+                    explanation=question.correct_explanation or 'Resposta correta.',
+                )
+            )
+            snapshot_questions.append(
+                CurriculumChoiceQuestionSnapshot(
+                    key=question.key,
+                    kind=kind,
+                    prompt=question.prompt,
+                    options=tuple(
+                        CurriculumChoiceOptionSnapshot(
+                            key=option.key,
+                            text=option.text,
+                            is_correct=option.is_correct,
+                        )
+                        for option in question.options
+                    ),
+                    correct_explanation=question.correct_explanation
+                    or 'Resposta correta.',
+                    incorrect_explanation=question.incorrect_explanation
+                    or 'Revise o conceito e tente novamente.',
+                    concept_criteria=tuple(
+                        CurriculumChoiceConceptCriterionSnapshot(
+                            concept_id=criterion.concept_id,
+                            criterion=criterion.criterion,
+                            examples=criterion.examples,
+                            limits=criterion.limits,
+                            correct_score=(
+                                Decimal(criterion.correct_score)
+                                if criterion.correct_score is not None
+                                else None
+                            ),
+                            incorrect_score=(
+                                Decimal(criterion.incorrect_score)
+                                if criterion.incorrect_score is not None
+                                else None
+                            ),
+                        )
+                        for criterion in question.concept_criteria
+                    ),
+                )
+            )
+
+        attempt_id = f'01SHF000000000000000000{600 + index:03d}'
+        attempt_kind = (
+            ActivityAttemptKind.DIAGNOSTIC
+            if activity.id in diagnostic_ids
+            else ActivityAttemptKind.LEARNING
+        )
+        attempts.append(
+            ActivityAttempt(
+                id=attempt_id,
+                skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+                competency_id=activity.competency_id,
+                activity_id=activity.id,
+                kind=attempt_kind,
+                answers=tuple(answers),
+                submitted_at=submitted_at,
+                grading_snapshot=CurriculumChoiceActivitySnapshot(
+                    id=activity.id,
+                    competency_id=activity.competency_id,
+                    difficulty=activity.difficulty.value,
+                    title=activity.title,
+                    questions=tuple(snapshot_questions),
+                    parts=tuple(
+                        CurriculumChoicePartSnapshot(
+                            question_key=part.question_key,
+                            weight_percentage=Decimal(part.weight_percentage),
+                        )
+                        for part in activity.evaluation_rule.parts
+                    ),
+                    required_concept_ids=activity.required_concept_ids,
+                    activity_type=activity.activity_type.value,
+                ),
+                diagnostic_run_id=(
+                    'seed-logic-initial-diagnostic'
+                    if attempt_kind is ActivityAttemptKind.DIAGNOSTIC
+                    else None
+                ),
+            )
+        )
+        evaluations.append(
+            ActivityEvaluation(
+                id=f'01SHF000000000000000000{700 + index:03d}',
+                attempt_id=attempt_id,
+                status=ActivityEvaluationStatus.COMPLETED,
+                parts=tuple(result_parts),
+                started_at=submitted_at - timedelta(minutes=2),
+                score=Decimal('100'),
+                completed_at=submitted_at,
+                effect_applied_at=submitted_at,
+            )
+        )
+
+    return tuple(attempts), tuple(evaluations)
+
+
 def build_development_seed() -> DevelopmentSeed:
     logic_curriculum = build_logic_programming_seed()
+    logic_attempts, logic_evaluations = _build_logic_learning_records(logic_curriculum)
     account = AccountFaker.fake(
         id=SEED_ACCOUNT_ID,
         display_name='Pessoa Estudante',
@@ -1798,14 +1967,16 @@ def build_development_seed() -> DevelopmentSeed:
         ),
     )
     skill_experiences = (
-        SkillExperienceFaker.fake(
+        SkillExperience(
             id=SEED_LOGIC_EXPERIENCE_ID,
             goal_id=SEED_GOAL_ID,
             skill_id=SEED_SKILL_LOGIC_ID,
             inclusion_reason='Fundamento para todo o restante do percurso.',
-            status=SkillExperienceStatus.NOT_STARTED,
+            status=SkillExperienceStatus.LEARNING,
             created_at=SEED_CREATED_AT,
-            updated_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT + timedelta(days=1),
+            started_at=SEED_CREATED_AT,
+            diagnostic_run_id='seed-logic-initial-diagnostic',
         ),
         SkillExperienceFaker.fake(
             id=SEED_PYTHON_EXPERIENCE_ID,
@@ -2099,10 +2270,12 @@ def build_development_seed() -> DevelopmentSeed:
                 id=f'01SHF000000000000000000{500 + index:03d}',
                 skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
                 competency_id=competency.id,
-                content_released=False,
+                content_released=True,
                 created_at=SEED_CREATED_AT,
-                updated_at=SEED_CREATED_AT,
-                status=CompetencyProgressStatus.LEARNING,
+                updated_at=SEED_CREATED_AT + timedelta(days=1),
+                initial_progress=Decimal('100'),
+                current_progress=Decimal('100'),
+                status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
         ),
@@ -2110,12 +2283,14 @@ def build_development_seed() -> DevelopmentSeed:
             attempt
             for attempt in activity_attempts
             if attempt.id in retained_attempt_ids
-        ),
+        )
+        + logic_attempts,
         activity_evaluations=tuple(
             evaluation
             for evaluation in activity_evaluations
             if evaluation.attempt_id in retained_attempt_ids
-        ),
+        )
+        + logic_evaluations,
         communications=communications,
         delivery_attempts=delivery_attempts,
     )
