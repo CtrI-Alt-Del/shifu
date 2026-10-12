@@ -1,5 +1,6 @@
 import type { MentorContextHint } from '@/core/intelligence/mentor-response'
 import { useLocation, useMatches } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 
 import { ROUTES } from '@/constants/routes'
 import type { LayoutAccount } from '../app-layout/account-menu'
@@ -24,16 +25,23 @@ export function isPublicRoute(pathname: string): boolean {
 
 export function useRootLayout(): {
   account?: LayoutAccount
+  isHydrated: boolean
   isPublic: boolean
   mentorContextHint: MentorContextHint | null
 } {
   const location = useLocation()
   const matches = useMatches()
+  const [isHydrated, setIsHydrated] = useState(false)
   const isPublic = isPublicRoute(location.pathname)
   const account = isPublic ? undefined : findLayoutAccount(matches)
 
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
   return {
     account,
+    isHydrated,
     isPublic,
     mentorContextHint: location.pathname.startsWith('/learning/goals/')
       ? findMentorContextHint(matches)

@@ -185,6 +185,26 @@ test('keeps the selected route, editable draft, history, search, rename and dele
     const request = route.request()
     const exportName = serverFnExport(request.url())
     const data = serverFnInput(request)
+
+    if (exportName?.startsWith('getAchievements_')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            kind: 'success',
+            overview: {
+              level: 1,
+              totalXp: 0,
+              xpForNextLevel: 100,
+              achievements: [],
+            },
+          },
+        }),
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+
     const call: MentorServerFunctionCall = {
       exportName: exportName ?? '',
       method: request.method(),
