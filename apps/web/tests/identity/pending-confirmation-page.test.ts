@@ -44,7 +44,9 @@ test.describe('PendingConfirmationPage route with mocked transport', () => {
 
     await page.goto(`${ROUTES.pendingConfirmation}/`)
     await page.waitForFunction(() => '__TSR_ROUTER__' in window)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('button', { name: 'Sair' }).click()
 
     const expectedRequests = [

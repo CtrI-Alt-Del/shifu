@@ -33,7 +33,9 @@ test.describe('RegisterPage route with mocked transport', () => {
     const displayName = IdentityDisplayNameFaker.fake()
 
     await page.goto('/register/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'Nome de exibição' }).fill(displayName)
     await page.getByRole('textbox', { name: 'E-mail' }).fill('invalid-email')
     await page.getByRole('button', { name: 'Criar conta' }).click()
@@ -65,7 +67,9 @@ test.describe('RegisterPage route with mocked transport', () => {
     })
 
     await page.goto('/register/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page
       .getByRole('textbox', { name: 'Nome de exibição' })
       .fill(registration.displayName)
