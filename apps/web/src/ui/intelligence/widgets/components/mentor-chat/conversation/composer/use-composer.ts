@@ -1,9 +1,16 @@
-import { useLayoutEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react'
 
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
 export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   const mentor = useMentorContext()
+  const previousDictationStatus = useRef(mentor.dictationStatus)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   // The controlled draft changes scrollHeight after React updates the textarea.
@@ -28,10 +35,24 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
     observer.observe(textarea)
     return () => observer.disconnect()
   }, [mentor.draft])
+  const { releaseDictationSurface, dictationStatus, draft } = mentor
+  useEffect(
+    () => () => releaseDictationSurface?.(surface),
+    [releaseDictationSurface, surface],
+  )
+  // biome-ignore lint/correctness/useExhaustiveDependencies: focus follows the applied draft update.
+  useLayoutEffect(() => {
+    if (dictationStatus === 'review' && previousDictationStatus.current !== 'review')
+      textareaRef.current?.focus()
+    previousDictationStatus.current = dictationStatus
+  }, [dictationStatus, draft])
   const hasAcceptedSession = Boolean(mentor.selectedSessionId)
   const isResponsePending = Boolean(mentor.sessionDetail?.pendingLearnerMessageId)
   const canSend =
-    Boolean(mentor.draft.trim()) && !mentor.isSubmittingFirstMessage && !isResponsePending
+    Boolean(mentor.draft.trim()) &&
+    !mentor.isSubmittingFirstMessage &&
+    !isResponsePending &&
+    !mentor.isDictationBusy
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

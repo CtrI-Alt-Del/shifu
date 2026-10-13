@@ -1,0 +1,60 @@
+{
+  "status": "BLOCKED",
+  "reason": "Chrome151 Linux reports local pt-BR dictation unavailable. No native samples were recorded; controlled API events are not recognition evidence.",
+  "browser": "Chrome 151.0.0.0 Linux",
+  "observed_at": "2026-10-13",
+  "native": true,
+  "process_locally": true,
+  "language": "pt-BR",
+  "probe": "apps/web/.playwright-cli/logs/shifu-105-probe-native-capability.txt",
+  "samples": [
+    {
+      "category": "short question",
+      "reference": "Como estudar funções em Python?",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    },
+    {
+      "category": "negation",
+      "reference": "Não quero pular a revisão de listas.",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    },
+    {
+      "category": "number",
+      "reference": "Quero estudar vinte minutos por dia.",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    },
+    {
+      "category": "programming term",
+      "reference": "Como funciona um dicionário em Python?",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    },
+    {
+      "category": "pause",
+      "reference": "Quero revisar funções. Depois, praticar listas.",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    },
+    {
+      "category": "moderate noise",
+      "reference": "Qual é o próximo passo do meu estudo?",
+      "transcript": null,
+      "limitations": "pt-BR local unavailable",
+      "errors": null,
+      "outcome": "not-run"
+    }
+  ]
+}

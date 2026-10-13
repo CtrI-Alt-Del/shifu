@@ -12,6 +12,19 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
   const messageId = useId()
   const {
     canSend,
+    dictationStatus,
+    dictationError,
+    dictationElapsedSeconds,
+    dictationLanguageAvailability,
+    dictationInstallationStatus,
+    dictationInstallationError,
+    isDictationBusy,
+    canStartDictation,
+    canInstallDictationLanguage,
+    startDictation,
+    finishDictation,
+    cancelDictation,
+    installDictationLanguage,
     draft,
     handleKeyDown,
     handleSubmit,
@@ -33,6 +46,93 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
       <label className='sr-only' htmlFor={messageId}>
         Escreva sua mensagem para o Mentor
       </label>
+      {isDictationBusy || dictationStatus === 'review' ? (
+        <div className='space-y-3 rounded-lg border border-border bg-surface p-4'>
+          <div
+            className='flex items-center justify-between gap-3'
+            role='status'
+            aria-live='polite'
+          >
+            <p className='text-sm font-medium'>
+              {dictationStatus === 'preparing'
+                ? 'Preparando ditado…'
+                : dictationStatus === 'recording'
+                  ? 'Gravando ditado…'
+                  : dictationStatus === 'transcribing'
+                    ? 'Transcrevendo ditado…'
+                    : 'Revise seu ditado'}
+            </p>
+            {dictationStatus === 'recording' ? (
+              <span className='text-sm tabular-nums'>
+                {String(Math.floor(dictationElapsedSeconds / 60)).padStart(2, '0')}:
+                {String(dictationElapsedSeconds % 60).padStart(2, '0')}
+              </span>
+            ) : null}
+          </div>
+          {dictationStatus !== 'preparing' ? (
+            <p className='text-sm text-muted-foreground'>
+              {dictationStatus === 'recording'
+                ? 'Fale sua mensagem. Ao encerrar, você poderá revisar o texto.'
+                : dictationStatus === 'transcribing'
+                  ? 'O texto ficará disponível para você revisar antes de enviar.'
+                  : 'Edite o texto se precisar e toque em Enviar.'}
+            </p>
+          ) : null}
+          {isDictationBusy ? (
+            <div className='flex items-center justify-between gap-3'>
+              <Button
+                className='min-h-11'
+                type='button'
+                variant='ghost'
+                onClick={cancelDictation}
+              >
+                Cancelar
+              </Button>
+              {dictationStatus === 'recording' ? (
+                <Button className='min-h-11' type='button' onClick={finishDictation}>
+                  Encerrar ditado
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {dictationError || dictationInstallationError ? (
+        <p role='alert' className='text-sm'>
+          {dictationError || dictationInstallationError}
+        </p>
+      ) : null}
+      {dictationInstallationStatus === 'installing' ? (
+        <p role='status' aria-live='polite' className='text-sm'>
+          Instalando pacote de idioma…
+        </p>
+      ) : dictationInstallationStatus === 'installed' ? (
+        <p role='status' aria-live='polite' className='text-sm'>
+          Pacote de idioma instalado. Você pode gravar seu ditado.
+        </p>
+      ) : null}
+      {!isDictationBusy &&
+      dictationLanguageAvailability &&
+      dictationLanguageAvailability !== 'available' ? (
+        <div className='space-y-2'>
+          <p role='status' aria-live='polite' className='text-xs text-muted-foreground'>
+            {dictationLanguageAvailability === 'checking'
+              ? 'Verificando disponibilidade do ditado…'
+              : 'Ditado indisponível neste navegador. Continue digitando.'}
+          </p>
+          {canInstallDictationLanguage ? (
+            <Button
+              className='min-h-11'
+              type='button'
+              variant='ghost'
+              disabled={dictationInstallationStatus === 'installing'}
+              onClick={() => void installDictationLanguage()}
+            >
+              Instalar pacote de idioma
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {submissionError ? (
         <div
           className='mb-2 flex items-center justify-between gap-2 text-sm'
@@ -40,7 +140,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
         >
           <p>{submissionError}</p>
           <Button
-            disabled={!draft.trim() || isSubmittingFirstMessage}
+            disabled={!canSend}
             onClick={() => void sendFirstMessage(surface)}
             type='button'
             variant='ghost'
@@ -64,7 +164,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
         <Textarea
           className='min-h-11 min-w-0 max-h-44 flex-1 resize-none overflow-y-auto border-0! bg-transparent! px-0! py-3! text-sm focus-visible:border-transparent! focus-visible:ring-0! focus-visible:shadow-none! focus-visible:outline-none!'
           data-focus-ring='delegated'
-          disabled={isResponsePending || isSubmittingFirstMessage}
+          disabled={isResponsePending || isSubmittingFirstMessage || isDictationBusy}
           id={messageId}
           onChange={(event) => setDraft(event.currentTarget.value)}
           onKeyDown={handleKeyDown}
@@ -74,10 +174,13 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           value={draft}
         />
         <Button
-          aria-label='Gravar ditado. Indisponível no momento'
+          aria-label={
+            canStartDictation ? 'Gravar ditado' : 'Gravar ditado. Indisponível no momento'
+          }
           className='size-11 shrink-0 bg-white/5 px-0!'
-          disabled
-          title='Indisponível no momento'
+          disabled={!canStartDictation}
+          onClick={() => void startDictation(surface)}
+          title={canStartDictation ? 'Gravar ditado' : 'Indisponível no momento'}
           type='button'
           variant='ghost'
         >

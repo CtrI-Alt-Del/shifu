@@ -17,6 +17,20 @@ const setDraftMock = vi.fn()
 const sendFirstMessageMock = vi.fn()
 
 const contextValue: MentorContextValue = {
+  dictationStatus: 'idle',
+  dictationError: null,
+  dictationElapsedSeconds: 0,
+  dictationLanguageAvailability: 'unavailable',
+  dictationInstallationStatus: 'idle',
+  dictationInstallationError: null,
+  isDictationBusy: false,
+  canStartDictation: false,
+  canInstallDictationLanguage: false,
+  startDictation: vi.fn(),
+  finishDictation: vi.fn(),
+  cancelDictation: vi.fn(),
+  installDictationLanguage: vi.fn(),
+  releaseDictationSurface: vi.fn(),
   response: null,
   isCancellingResponse: false,
   isRetryingResponse: false,

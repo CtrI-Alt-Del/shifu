@@ -7,7 +7,27 @@ import type {
   MentorSessionsPage,
 } from '@/rest/services/intelligence-service'
 
+import type {
+  SpeechRecognitionStatus,
+  SpeechLanguageAvailability,
+  SpeechInstallationStatus,
+} from '@/ui/shared/hooks/use-speech-recognition'
+
 export type MentorContextValue = {
+  dictationStatus: SpeechRecognitionStatus
+  dictationError: string | null
+  dictationElapsedSeconds: number
+  dictationLanguageAvailability: SpeechLanguageAvailability
+  dictationInstallationStatus: SpeechInstallationStatus
+  dictationInstallationError: string | null
+  isDictationBusy: boolean
+  canStartDictation: boolean
+  canInstallDictationLanguage: boolean
+  startDictation(surface?: 'page' | 'fab'): Promise<void>
+  finishDictation(): void
+  cancelDictation(): void
+  installDictationLanguage(): Promise<void>
+  releaseDictationSurface(surface: 'page' | 'fab'): void
   response: MentorResponseSnapshot | null
   isCancellingResponse: boolean
   isRetryingResponse: boolean

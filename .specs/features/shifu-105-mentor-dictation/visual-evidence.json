@@ -1,0 +1,142 @@
+{
+  "status": "PASS",
+  "browser": "Chrome 151.0.0.0 Linux",
+  "observed_at": "2026-10-13",
+  "authentication": "real visible form at localhost:7000",
+  "recognition": "controlled native API events; no real recognition quality claim",
+  "design_source": "Six approved Pencil states inspected before build; values mapped to existing tokens. A later reopen failed because the active editor had returned to HMS; no design writes performed.",
+  "captures": [
+    {
+      "surface": "page",
+      "width": 1440,
+      "state": "recording",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-1440-recording.png",
+      "sha256": "2e94a372e8775894fe5cd62fa668c935cdd481f604b3ec9283298f60dd0ad36f",
+      "reference": "s8UGf",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do compositor: título à esquerda e duração à direita; instrução abaixo; Cancelar à esquerda e Encerrar ditado à direita. Campo/envio bloqueados e rascunho visível. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "page",
+      "width": 1440,
+      "state": "transcribing",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-1440-transcribing.png",
+      "sha256": "371fb7d18a613fddbc8838f4fe84ccac2a5850853956ff5fb1b45cd9ad1bb110",
+      "reference": "qsYWq",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Mesmo bloco acima do compositor: título e instrução de revisão; Cancelar permanece acessível; sem duração ou Encerrar ditado; campo/envio bloqueados. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "page",
+      "width": 1440,
+      "state": "review",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-1440-review.png",
+      "sha256": "96d6bab61c6cd7b60afa6d632f14af8886e326df9d93b0bdbaf81720c2dd57c3",
+      "reference": "QZB2M",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do campo editável com título e instrução; controles de gravação ausentes no bloco; foco do campo visível, rascunho original e ditado separados por newline, Enviar habilitado. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "page",
+      "width": 390,
+      "state": "recording",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-390-recording.png",
+      "sha256": "ebc9b0d752016ba8cd34c57c040e38fdb280f78d56f8b6f47317cf7286f4072b",
+      "reference": "nxL5i",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do compositor: título à esquerda e duração à direita; instrução abaixo; Cancelar à esquerda e Encerrar ditado à direita. Campo/envio bloqueados e rascunho visível. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "page",
+      "width": 390,
+      "state": "transcribing",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-390-transcribing.png",
+      "sha256": "8a1037d91d18d856531e7ffe11f6f5afa9b990243318f666e785f45d859e7b07",
+      "reference": "e9FXb",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Mesmo bloco acima do compositor: título e instrução de revisão; Cancelar permanece acessível; sem duração ou Encerrar ditado; campo/envio bloqueados. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "page",
+      "width": 390,
+      "state": "review",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-page-390-review.png",
+      "sha256": "eba4277165635b8cca83ff9fafea16d3496cb31b67987d1f66a4c0b63f78a128",
+      "reference": "VC7Ro",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do campo editável com título e instrução; controles de gravação ausentes no bloco; foco do campo visível, rascunho original e ditado separados por newline, Enviar habilitado. Página: bloco na coluna da conversa; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 1440,
+      "state": "recording",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-1440-recording.png",
+      "sha256": "a691b03f5f2ac2456648bf093f994e1acc03e4707f5ac85c563987184622cb63",
+      "reference": "s8UGf",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do compositor: título à esquerda e duração à direita; instrução abaixo; Cancelar à esquerda e Encerrar ditado à direita. Campo/envio bloqueados e rascunho visível. FAB: bloco dentro do rodapé do painel; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 1440,
+      "state": "transcribing",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-1440-transcribing.png",
+      "sha256": "e715a2ba8650b20c11fffaa6824d14a8b779bdf6ca909b8a43de391c72312a02",
+      "reference": "qsYWq",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Mesmo bloco acima do compositor: título e instrução de revisão; Cancelar permanece acessível; sem duração ou Encerrar ditado; campo/envio bloqueados. FAB: bloco dentro do rodapé do painel; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 1440,
+      "state": "review",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-1440-review.png",
+      "sha256": "f3b9191c9b8580648c585357b099aee35d3c6576da10d2b2cd6cf6476633e1d4",
+      "reference": "QZB2M",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do campo editável com título e instrução; controles de gravação ausentes no bloco; foco do campo visível, rascunho original e ditado separados por newline, Enviar habilitado. FAB: bloco dentro do rodapé do painel; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 390,
+      "state": "recording",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-390-recording.png",
+      "sha256": "77e8c1758cbdb97b4f968d1ac5ceab3c79b04df9b56c3d156b8b78f283248655",
+      "reference": "nxL5i",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do compositor: título à esquerda e duração à direita; instrução abaixo; Cancelar à esquerda e Encerrar ditado à direita. Campo/envio bloqueados e rascunho visível. FAB: bloco dentro do rodapé do painel; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 390,
+      "state": "transcribing",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-390-transcribing.png",
+      "sha256": "df9fa22d68d5cb20850c94aba1c776374d7a47a6e6325a4a5b47a3e5541478d3",
+      "reference": "e9FXb",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Mesmo bloco acima do compositor: título e instrução de revisão; Cancelar permanece acessível; sem duração ou Encerrar ditado; campo/envio bloqueados. FAB: bloco dentro do rodapé do painel; sem clipping."
+    },
+    {
+      "surface": "fab",
+      "width": 390,
+      "state": "review",
+      "path": "apps/web/.playwright-cli/screenshots/shifu-105-cli-fab-390-review.png",
+      "sha256": "b9c51a4d40bdfa3f51f7a82986e8f3c279b4f518807a6a734ca6d34cf21a7bd1",
+      "reference": "VC7Ro",
+      "copy": "PASS",
+      "arrangement": "PASS",
+      "observation": "Bloco acima do campo editável com título e instrução; controles de gravação ausentes no bloco; foco do campo visível, rascunho original e ditado separados por newline, Enviar habilitado. FAB: bloco dentro do rodapé do painel; sem clipping."
+    }
+  ]
+}

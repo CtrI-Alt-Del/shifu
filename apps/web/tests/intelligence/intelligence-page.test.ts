@@ -1,3 +1,4 @@
+import { exerciseDictationStates } from '../support/native-dictation'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
 
@@ -481,4 +482,11 @@ test('keeps the selected route, editable draft, history, search, rename and dele
   expect(
     calls.some((call) => call.exportName.includes('createMentorSessionServer')),
   ).toBe(false)
+})
+
+test('renders native dictation states on page at 1440', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'page', 1440)
+})
+test('renders native dictation states on page at 390', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'page', 390)
 })

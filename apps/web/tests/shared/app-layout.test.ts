@@ -1,3 +1,4 @@
+import { exerciseDictationStates } from '../support/native-dictation'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
@@ -256,4 +257,11 @@ test.describe('AppLayout', () => {
     ).not.toBeVisible()
     await expect(accountTrigger).toBeFocused()
   })
+})
+
+test('renders native dictation states on fab at 1440', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'fab', 1440)
+})
+test('renders native dictation states on fab at 390', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'fab', 390)
 })
