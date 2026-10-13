@@ -16,7 +16,7 @@ last_updated_at: 2026-10-13
 | Visual checks | Pass: 12 captures across page/FAB, 1440/390 widths and recording/transcribing/review states, checked against the six approved Pencil references. |
 | Independent review | Current independent verification report: `.specs/features/shifu-105-mentor-dictation/verification.md`; 39/39 checks pass. |
 | Blockers | None. Browser-provider ZDR eligibility is outside this feature's scope by explicit user decision and is not a PRD v9 condition for browser-managed recognition. |
-| Candidate | `feat/shifu-105`, verified implementation at `fca644557f5f829a340578074b46bfc63748a466`; documentation handoff at `e84221787c4386f2ac42d3ecbac965511e9a14ce`. Local unrelated changes are excluded. |
+| Candidate | [PR #24](https://github.com/CtrI-Alt-Del/shifu/pull/24), branch `feat/shifu-105`; use the live PR head as the current delivery SHA. The implementation and acceptance evidence remains anchored to `fca644557f5f829a340578074b46bfc63748a466`; the earlier documentation handoff was `e84221787c4386f2ac42d3ecbac965511e9a14ce`. Local unrelated changes are excluded. |
 
 # Progress
 
@@ -80,25 +80,25 @@ introduced.
 
 | ACH | Problem / evidence / affected AC | Severity | Affected checks | Status / correction / verification |
 | --- | --- | --- | --- | --- |
-| None | No unresolved implementation or authority finding. PRD v9 now matches the user's decision: disclosure is required; browser-provider ZDR eligibility is outside this feature's scope. | — | — | Resolved by PRD v9 and TLC plan revision10; no implementation change. |
+| ACH-01 | Review comment [#4264512675](https://github.com/CtrI-Alt-Del/shifu/pull/24#discussion_r4264512675) found that the Candidate field's historical commit SHAs could be mistaken for the current PR head. | P3 metadata | None; no product or implementation check is affected. | Resolved by anchoring the current candidate to the live PR #24 head and labeling the implementation/handoff SHAs as evidence provenance. Verified against the PR head and check run before this metadata-only update; no Spec or code change. |
 
 # Lessons Learned
 
 | Lesson | Supporting finding / evidence | Documentation action or disposition |
 | --- | --- | --- |
-| None | No reusable project-wide lesson was identified; browser-native provider scope is feature-specific. | No global rule change. |
+| Keep the delivery candidate linked to the live PR, and label older SHAs as evidence provenance. | ACH-01; review comment [#4264512675](https://github.com/CtrI-Alt-Del/shifu/pull/24#discussion_r4264512675). | Applied to this Evaluation; no global rule change because the correction is specific to its publication handoff. |
 
 # Handoff
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-105`, `e84221787c4386f2ac42d3ecbac965511e9a14ce`; latest `origin/main` is an ancestor. |
-| Completed | AC-01–AC-35 and 39 active checks; independent verification and visual evidence are recorded above. |
-| Unfinished | Push, PR creation/read-back, current-head CI and review state. |
+| Candidate | [PR #24](https://github.com/CtrI-Alt-Del/shifu/pull/24), branch `feat/shifu-105`; the live PR ref identifies the current head. Latest `origin/main` is an ancestor. |
+| Completed | AC-01–AC-35 and 39 active checks; independent verification and visual evidence are recorded above. PR #24 was read back; its checked head `e1a1e4693b52bc6b976d5e37b526ee0e9987e229` passed all CI checks, including the mutation summary and real Inngest tests. ACH-01 is corrected below. |
+| Unfinished | None for this review-feedback pass. |
 | Uncommitted work | The `.specs/STATE.md` deletion is included to honor the feature-scoped memory decision; preserve only the unrelated `design/shifu.pen` edit outside staging. |
 | Active processes | None started for this conclusion. |
 | Blockers | None for feature behavior. Provider ZDR eligibility is outside this feature's scope; Shifu-managed AI inference continues to follow RP-13. |
-| Next action | Commit only SHIFU-105 plan/state/evaluation paths, push `feat/shifu-105`, create one PR, inspect its checks/reviews and record the current-head result. |
+| Next action | Commit and push the Evaluation metadata correction, reply to and resolve ACH-01 after read-back, then confirm PR #24's current-head checks and review state. |
 
 # Delivery
 
@@ -109,12 +109,12 @@ introduced.
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| Pending | Pending | Not published | Not applicable yet |
+| [PR #24](https://github.com/CtrI-Alt-Del/shifu/pull/24) | Live head on PR #24; checked pre-feedback head `e1a1e4693b52bc6b976d5e37b526ee0e9987e229` | All checks passed at the checked head; ACH-01 metadata conversation is corrected by this update. Verify the post-update head through the live PR checks. | [Server CI](https://github.com/CtrI-Alt-Del/shifu/actions/runs/38430497476), [Web CI](https://github.com/CtrI-Alt-Del/shifu/actions/runs/38430497492) |
 
 | Field | Result |
 | --- | --- |
-| Publication | Authorized; pending push and PR creation. |
+| Publication | Published as PR #24; metadata-only review correction in progress. |
 | Source verification | Jira SHIFU-105; Intelligence PRD content ID 83099649, v9; Privacy Policy content ID 100106241, v4. PRD reread in full; disclosure rule verified on read-back. |
 | Documentation Alignment | PRD v9 requires prior disclosure and says Shifu receives/stores no browser-managed dictation audio. User's decision excludes browser-provider ZDR eligibility from this feature; RP-13 remains applicable to Shifu-managed AI inference. No Jira or Privacy Policy write was made. |
 | Revision History | TLC plan revision10 reconciles PRD v9; behavior/check criteria unchanged from revision9 except current source alignment. |
-| Limitations | No real speech-quality claim; browser API/service support varies. C34 quality check remains retired. Current-head CI and review are pending publication. |
+| Limitations | No real speech-quality claim; browser API/service support varies. C34 quality check remains retired. Post-update current-head CI is to be checked on PR #24; no blocking product or implementation review finding is open. |
