@@ -95,7 +95,7 @@ introduced.
 | Candidate | `feat/shifu-105`, `e84221787c4386f2ac42d3ecbac965511e9a14ce`; latest `origin/main` is an ancestor. |
 | Completed | AC-01–AC-35 and 39 active checks; independent verification and visual evidence are recorded above. |
 | Unfinished | Push, PR creation/read-back, current-head CI and review state. |
-| Uncommitted work | This evaluation and plan/state reconciliation are feature documentation. Preserve unrelated `.specs/STATE.md` deletion and `design/shifu.pen` edit outside staging. |
+| Uncommitted work | The `.specs/STATE.md` deletion is included to honor the feature-scoped memory decision; preserve only the unrelated `design/shifu.pen` edit outside staging. |
 | Active processes | None started for this conclusion. |
 | Blockers | None for feature behavior. Provider ZDR eligibility is outside this feature's scope; Shifu-managed AI inference continues to follow RP-13. |
 | Next action | Commit only SHIFU-105 plan/state/evaluation paths, push `feat/shifu-105`, create one PR, inspect its checks/reviews and record the current-head result. |

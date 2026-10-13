@@ -15,7 +15,7 @@ Rev9 removes the six-sample quality criterion at the user's explicit request. Cu
 **In progress**: nenhuma implementação pendente. Candidate feature code commit fece469; 39 checks ativos aprovados em fca6445 e relatório verificado em e842217.
 **Next step**: criar commit documental escopado, publicar/atualizar um único PR e registrar CI/review do head atual.
 **Blockers**: nenhum bloqueio de implementação. A elegibilidade ZDR do provedor de reconhecimento gerenciado pelo navegador está fora do escopo desta feature, conforme decisão do usuário e Intelligence PRD v9. RP-13 permanece aplicável à inferência de IA fornecida pelo Shifu.
-**Uncommitted**: alterações locais necessárias à revisão10 e avaliação em `documentation/features/intelligence/mentor-dictation/evaluation.md`. `design/shifu.pen` e a exclusão de `.specs/STATE.md` são alterações preexistentes e ficam fora do commit. Nenhuma operação Pencil de escrita.
+**Uncommitted**: exclusão do `.specs/STATE.md` compartilhado será incluída para manter o estado desta feature apenas em `.specs/features/shifu-105-mentor-dictation/`; `design/shifu.pen` permanece preexistente e fora do commit. Nenhuma operação Pencil de escrita.
 **Branch**: feat/shifu-105.
 **Feature base**: c2adb6ad85d35f7ddd5cb8eb35754791f10ef5df.
 **Sessions/ports**: API7777 (exec34832), web7000 (exec62328) e CLI shifu105 encerrados após verificação. Docker compartilhado preservado. Nenhum evento Inngest emitido; apenas registro automático do Dev Server durante execução da API. Auth state e capturas locais ignorados, nunca stageados. Log de relay da tarefa reduzido a início/fim após encerrar processo, com tamanho original registrado.
