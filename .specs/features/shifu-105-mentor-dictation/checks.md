@@ -91,22 +91,22 @@ Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-contex
 
 ### S4 — Suporte e privacidade
 
-**C26** - WHEN criar o reconhecedor em ambiente elegível THEN o sistema — configurar processamento local obrigatório antes de chamar start(). (AC 26)
-Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'requires real local processing support before starting'`
+**C26** - WHEN criar o reconhecedor em ambiente elegível THEN o sistema — configurar reconhecimento gerenciado pelo navegador (processLocally false quando suportado) antes de chamar start(), sem exigir pacote local. (AC 26)
+Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'starts browser-managed recognition without local processing support'`
 
-**C27** - IF o navegador não suportar a API, seu modo local ou pt-BR local disponível THEN o sistema — comunicar Ditado indisponível neste navegador. Continue digitando. mantendo o campo e o envio de texto utilizáveis. (AC 27)
-Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'preserves typing when local Portuguese is unavailable'`
+**C27** - IF o navegador não suportar a API ou o serviço de reconhecimento disponível THEN o sistema — comunicar Ditado indisponível neste navegador. Continue digitando. mantendo o campo e o envio de texto utilizáveis. (AC 27)
+Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'preserves typing when browser recognition is unavailable'`
 
-**C28** - WHEN o aprendiz acionar Instalar pacote de idioma, com pt-BR local instalável e método nativo disponível, THEN o sistema — solicitar a instalação pelo método nativo do navegador. (AC 28)
+**C28** - WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHEN o aprendiz acionar Instalar pacote de idioma, com pt-BR local instalável e método nativo disponível, THEN o sistema — solicitar a instalação pelo método nativo do navegador. (AC 28)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'installs Portuguese only on an explicit action'`
 
-**C29** - WHILE o pacote estiver sendo instalado o sistema — mostrar Instalando pacote de idioma… sem iniciar captura de microfone. (AC 29)
+**C29** - WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHILE o pacote estiver sendo instalado o sistema — mostrar Instalando pacote de idioma… sem iniciar captura de microfone. (AC 29)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx -t 'announces installation without acquiring the microphone'`
 
-**C30** - IF a instalação falhar THEN o sistema — comunicar Não foi possível instalar o pacote de idioma. Tente novamente ou continue digitando. preservando o rascunho. (AC 30)
+**C30** - WHERE o hook for consumido em modo local explícito (não ativo no Mentor) IF a instalação falhar THEN o sistema — comunicar Não foi possível instalar o pacote de idioma. Tente novamente ou continue digitando. preservando o rascunho. (AC 30)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'preserves the draft when installation fails'`
 
-**C31** - WHEN a instalação concluir THEN o sistema — informar Pacote de idioma instalado. Você pode gravar seu ditado. sem iniciar reconhecimento automaticamente. (AC 31)
+**C31** - WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHEN a instalação concluir THEN o sistema — informar Pacote de idioma instalado. Você pode gravar seu ditado. sem iniciar reconhecimento automaticamente. (AC 31)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'announces installation success without starting recognition'`
 
 **C32** - The controles de ditado — ter nomes acessíveis em pt-BR, foco identificável, estados anunciados por tecnologia assistiva e alvos de toque de pelo menos 44px no mobile. (AC 32)
@@ -118,10 +118,10 @@ Proof: `python3 .specs/features/shifu-105-mentor-dictation/verify-evidence.py --
 
 **C34** - WHEN executar a jornada real de reconhecimento THEN o registro de qualidade — apresentar seis amostras fictícias em pt-BR — dúvida curta, negação, número, termo de programação, pausa e ruído moderado — com referência, transcrição e limitações por amostra. (AC 34)
 Proof: `python3 .specs/features/shifu-105-mentor-dictation/verify-evidence.py --filter quality`
-Limite: exige seis resultados de reconhecimento nativo real com referência/resultado/limitações e navegador/versão identificados. Não gerar resultados por mock ou inventar qualidade. O probe atual registra pt-BR unavailable; enquanto não houver evidência real, este check permanece BLOCKED.
+Limite: exige seis resultados de reconhecimento nativo real com referência/resultado/limitações e navegador/versão identificados. Não gerar resultados por mock ou inventar qualidade. O probe histórico local registra unavailable. No modo aprovado atual, início nativo real foi observado (Gravando ditado…); seis amostras com resultado/limitações ainda faltam e C34 permanece BLOCKED.
 
 **C35** - The sistema — realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma. (AC 35)
-Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'never installs a language pack automatically'`
+Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'never installs a language pack automatically|never installs in browser-managed mode'`
 
 **C36** - Contratos TypeScript e consumidores afetados compilam sem erros.
 Proof: `cd apps/web && pnpm check:types`
@@ -135,6 +135,9 @@ Proof: `cd apps/web && pnpm check:architecture`
 **C39** - A aplicação web produz o build configurado.
 Proof: `cd apps/web && pnpm build`
 
+**C40** - Antes de iniciar ditado browser-managed, o Composer mostra “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” (AC36)
+Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx -t 'discloses browser-managed recognition before microphone use'`
+
 ## Coverage
 
 | Set (size) | Member -> proof | Unproven |
@@ -146,7 +149,7 @@ Proof: `cd apps/web && pnpm build`
 | Falhas nativas (6) | not-allowed C12 · service-not-allowed C12 · audio-capture C13 · no-speech C14 · nomatch C14 · empty end C14 | - |
 | Abandono do escopo (7) | close FAB C19 · select conversation C19 · new conversation C19 · delete selected C19 · navigation C19 · unmount C19 · account/access change C19 | - |
 | Callbacks tardios (3) | operation C20 · conversation C20 · account C20 | - |
-| Disponibilidade local (5) | missing constructor C27 · missing processLocally C26 · unavailable pt-BR C27 · available C26 · downloadable C28 | - |
+| Disponibilidade nativa (5) | missing constructor C27 · missing local API C26 · unavailable service C27 · browser-managed available C26 · optional local downloadable C28 | - |
 | Instalação (3) | installing C29 · failure C30 · success C31 | - |
 | Qualidade representativa (6) | short question C34 · negation C34 · number C34 · programming term C34 · pause C34 · moderate noise C34 | - |
 | Referências visuais (6) | s8UGf C33 · qsYWq C33 · QZB2M C33 · nxL5i C33 · e9FXb C33 · VC7Ro C33 | - |
@@ -202,3 +205,23 @@ Commit format conflict: check_commit.py rejects the repository-required uppercas
 Round1 independente em 08c5006: 35/39 PASS; C27/C31/C32 tiveram lacunas de assert, C34 BLOCKED. Finding adicional: instalação ainda observada após abandonar fluxo, contrariando Flow. Correção: invalidar observação no hook e vincular instalação à superfície no contexto, sem cancelar download nativo. Três regressões de close/navigation/surface falharam antes da correção e passaram após.
 
 Round2 candidato do autor: 150 testes afetados/16 arquivos PASS; seis cenários de composição PASS (quatro page/FAB×viewport mais dois de instalação mobile). C27/C31 ganharam asserts literais de copy no componente; C32 mede width/height≥44, tabindex0, foco e outline computado em microfone/Cancelar/Encerrar/Instalar. Uma versão do setup de foco atravessava o chrome do navegador com Tab/Shift+Tab e disparava revalidação de acesso/cancelamento existente; setup limitado ao controle com tecla de navegação, mantendo todos os asserts de tamanho/foco/outline. A callback ResizeObserver está igual à base; repetição CLI de quatro jornadas registrou errors=[] em shifu-105-observer-probe.txt. Nenhuma correção de Identity ou do resize preexistente.
+
+
+## Final disposition
+
+Independent round2 em HEAD99be56d: **38/39 PASS; C34 BLOCKED**. Sem findings restantes de implementação ou prova local. 76 testes/3 targets de proofs e seis browser cases passaram independentemente; types/lint/architecture/build exit0. Autor também executou150 testes afetados/16 targets. `validate_verification.py shifu-105-mentor-dictation` exit1,1erro,0warnings porque a evidência nativa real de qualidade não existe.
+
+Primeira execução independente de browser round2 teve3/6 timeouts. A repetição completa passou6/6 sem mudar timeout/assert/fonte; antiga aba CLI da tarefa gerava relay de erros e log Vite1.2GB. Isso é consistente com pressão transitória, sem provar causa exclusiva. Observação original ResizeObserver e falha inicial preservadas no report; sessão CLI e processos API/web da tarefa encerrados após validação. Logs runtime/capturas/state continuam locais e ignorados; relay log teve apenas o início/fim preservado para evitar deixar1.2GB de ruído.
+
+Commits locais:08c5006 (feature) e99be56d (correção/provas suplementares). Nenhum push, PR ou alteração Atlassian. Código validado; conclusão integral aguardando C34 num ambiente elegível. Report/STATE/lessons pós-commit permanecem arquivos locais, sem alterar o candidato auditado.
+
+
+Artifact placement amendment: per user instruction, STATE.md, lessons.json and LESSONS.md were moved into this feature directory. Root-level shared-memory files no longer exist. Acceptance criteria, implementation and verification evidence are unchanged.
+
+
+## Browser-managed amendment — approved 2026-10-13
+
+O usuário aprovou explicitamente a troca de modo. C26/27 passam a testar o modo browser-managed do Mentor: não depender de processLocally/available locais, usar available({processLocally:false}) quando existente e iniciar sem instalação local. C28–31 permanecem regressões do hook real em modo local explicitamente selecionado no harness; não representam a configuração ativa do Mentor. C35 continua proibindo instalação implícita. A qualidade C34 usa process_locally false; resultados anteriores de bloqueio local são históricos. Nova divulgação pt-BR: “O navegador pode usar um serviço na nuvem para reconhecer sua fala.”, comprovada por teste de Composer. Não declarar ZDR de Chrome nem conformidade com a política publicada.
+
+
+Revision8 author results:80 focused tests/3 targets PASS,6 browser cases PASS, types/lint/architecture/build exit0. New checks first failed:4 recognition cases under the old local-only implementation and1 privacy-copy case. Actual authenticated Chrome151 at localhost:7000 had microphoneEnabled=true and entered Gravando ditado… (00:03), with no controlled recognition API. Cancellation removed recording and preserved exact draft. This proves native start/cancel, not six speech-to-text outcomes. Logs:shifu-105-browser-managed-{native-click,native-cancel,cli-ui}.txt and{unit,integration,types,lint,architecture,build}.log in apps/web/.playwright-cli/logs. All12 new captures inspected; cloud notice legible, no clipping. Browser console had only React DevTools INFO. Optional local-mode regressions explicitly select real shared-hook local mode in the consumer harness; production Mentor explicitly selects false.

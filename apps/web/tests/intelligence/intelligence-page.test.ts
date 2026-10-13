@@ -1,6 +1,6 @@
 import {
   exerciseDictationStates,
-  exerciseLanguageInstallationControls,
+  exerciseBrowserManagedControls,
 } from '../support/native-dictation'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
@@ -494,8 +494,8 @@ test('renders native dictation states on page at 390', async ({ authenticatedPag
   await exerciseDictationStates(authenticatedPage, 'page', 390)
 })
 
-test('renders native dictation states with accessible language installation on page', async ({
+test('renders native dictation states without a local language pack on page', async ({
   authenticatedPage,
 }) => {
-  await exerciseLanguageInstallationControls(authenticatedPage, 'page')
+  await exerciseBrowserManagedControls(authenticatedPage, 'page')
 })

@@ -331,7 +331,7 @@
       "O Mentor do Shifu aceita anexos ou mensagens por voz atualmente?",
       "Como funcionam arquivos e ditado no Mentor do Shifu hoje?"
     ],
-    "answer": "Anexos ainda não estão disponíveis. O ditado pode ser usado quando o navegador oferece reconhecimento local em português. Grave, encerre e revise o texto antes de enviar. Se o ditado estiver indisponível, continue digitando.",
+    "answer": "Anexos ainda não estão disponíveis. O ditado pode ser usado quando o navegador oferece reconhecimento em português, que pode usar seu serviço na nuvem. Grave, encerre e revise o texto antes de enviar. Se o ditado estiver indisponível, continue digitando.",
     "topics": ["shifu", "mentor"]
   }
 ]

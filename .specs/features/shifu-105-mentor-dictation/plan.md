@@ -1,6 +1,6 @@
 # SHIFU-105 — Ditado nativo do navegador para o Mentor
 
-Status: approved — revisão humana final confirmada em 2026-10-13; checks podem ser derivados. Data: 2026-10-13. Revision: 7.
+Status: approved — revisão humana final confirmada em 2026-10-13; checks podem ser derivados. Data: 2026-10-13. Revision: 8.
 
 Profile: light. Budget: 150k. Mantido o padrão da skill; o usuário não solicitou mudança de perfil.
 
@@ -22,7 +22,7 @@ Reutiliza o Composer e o rascunho compartilhados da página/FAB, a proteção de
 4. `Intelligence web` (exists) aplica uma única vez o texto final à mesma revisão do rascunho, mostra Revise seu ditado e devolve o foco ao campo editável.
 5. out: apenas o envio explícito do rascunho chama o fluxo existente de `Intelligence` (exists), que aceita a mensagem e processa a resposta vigente.
 
-O reconhecedor nativo é responsável pela captura. A ação Instalar pacote de idioma também passa pelo hook compartilhado: instala somente pt-BR pelo mecanismo do navegador, sem iniciar reconhecimento após a instalação. Os watchdogs de início/finalização não limitam esse download. Ao abandonar o fluxo, o Shifu deixa de observar seu resultado; não promete cancelar ou remover um download já pertencente ao navegador. O pacote de idioma gerenciado pelo navegador não é arquivo de áudio do aprendiz. Suporte por capacidade foi escolhido pelo usuário (Q5, opção A): se pt-BR já estiver instalado, pode ditar; se estiver disponível para instalação, deve instalar explicitamente primeiro; só depois um novo gesto Gravar ditado inicia a captura. Nos demais ambientes, a digitação permanece disponível. Não há obrigação de suportar uma lista fixa de navegadores.
+O reconhecedor nativo é responsável pela captura. Em 2026-10-13, após diagnosticar Chrome151 com pt-BR local unavailable e browser-managed available, o usuário aprovou explicitamente reconhecimento gerenciado pelo navegador, que pode enviar áudio ao serviço de nuvem do próprio navegador. O Mentor usa processLocally false e não exige nem oferece instalação de pacote local. A digitação permanece disponível se a API ou o serviço não estiver disponível. O hook mantém modo local opcional explícito, inclusive instalação e suas regressões, sem ativá-lo no Mentor. Não há obrigação de suportar uma lista fixa de navegadores.
 
 O Shifu não usa MediaRecorder, não solicita um segundo stream com getUserMedia e não manipula chunks, Blob, base64 ou formatos de arquivo. O estado Transcrevendo representa a finalização do reconhecimento nativo, não uma requisição ao servidor.
 
@@ -59,9 +59,11 @@ None - não há esquema persistido, dependência de pacote, contrato externo nov
 
 Forma técnica confirmada pelo usuário: API nativa do navegador, sem backend/OpenRouter, envolvida por hook compartilhado em Shared UI. Forma proposta para implementação: SpeechRecognition, com compatibilidade webkitSpeechRecognition quando ela oferecer as capacidades requeridas; lang pt-BR, continuous true, interimResults false e maxAlternatives 1; start por gesto, stop para concluir e abort para cancelar. Um único reconhecedor ativo, possuído pelo hook compartilhado e consumido no contexto da conta.
 
-Decisão de privacidade confirmada pelo usuário: exigir processLocally true, verificando a presença real dessa capacidade e disponibilidade local para pt-BR antes de iniciar. Definir uma propriedade arbitrária num objeto que não a suporta não prova reconhecimento local. Sem capacidade local ou idioma disponível, oferecer digitação. Não cair no reconhecimento remoto do navegador. O usuário também confirmou watchdogs de 30s para início e 10s para finalização e a oferta de Instalar pacote de idioma por ação explícita quando houver suporte nativo.
+Decisão de privacidade atual, aprovada pelo usuário: browser-managed, com processLocally false quando essa propriedade existir. Sem available() estático, a existência de SpeechRecognition/webkitSpeechRecognition permite tentar iniciar por gesto; falhas nativas continuam visíveis e preservam o rascunho. available() quando existente consulta processLocally false. A disponibilidade local não é requisito. O Composer informa que o navegador pode usar serviço na nuvem.
 
-O usuário confirmou o modo local obrigatório, com digitação quando ele não estiver disponível, e a incorporação ao final do rascunho após uma quebra de linha. Esses pontos, os watchdogs e a instalação explícita estão confirmados; suporte por capacidade, instalação antes do primeiro ditado e avaliação das seis amostras sem limiar numérico de acurácia estão confirmados. A API nativa pode usar um serviço remoto do navegador em sua configuração padrão; o nome SpeechRecognition não prova ausência de transmissão ou ZDR. Se a intenção for aceitar esse modo remoto, a compatibilidade com o PRD/política precisa de decisão explícita antes dos checks, sem presumir uma alteração externa autorizada.
+A decisão anterior (revision7) exigia modo local e instalação explícita. Esta aprovação substitui somente esse requisito no Mentor. O modo local permanece opção explícita do hook compartilhado com verificações reais; seus testes de instalação são regressões condicionais, não evidência de um fluxo habilitado no Mentor. Append com quebra de linha, watchdogs30s/10s, envio explícito e seis amostras permanecem.
+
+Conflito de autoridade registrado: Intelligence83099649v7 e Política100106241v4 mantêm ZDR para processamento de IA. Reconhecimento browser-managed não comprova ZDR, retenção nem condições do operador. A alteração local implementa a escolha explícita do usuário; não declara conformidade nem altera Confluence. Nenhuma alteração externa foi autorizada.
 
 ## Criteria
 
@@ -123,18 +125,19 @@ O recurso respeita as capacidades reais do navegador; digitação permanece disp
 
 **Acceptance Criteria**
 
-26. WHEN criar o reconhecedor em ambiente elegível THEN o sistema SHALL configurar processamento local obrigatório antes de chamar start().
-27. IF o navegador não suportar a API, seu modo local ou pt-BR local disponível THEN o sistema SHALL comunicar Ditado indisponível neste navegador. Continue digitando. mantendo o campo e o envio de texto utilizáveis.
-28. WHEN o aprendiz acionar Instalar pacote de idioma, com pt-BR local instalável e método nativo disponível, THEN o sistema SHALL solicitar a instalação pelo método nativo do navegador.
-29. WHILE o pacote estiver sendo instalado o sistema SHALL mostrar Instalando pacote de idioma… sem iniciar captura de microfone.
-30. IF a instalação falhar THEN o sistema SHALL comunicar Não foi possível instalar o pacote de idioma. Tente novamente ou continue digitando. preservando o rascunho.
-31. WHEN a instalação concluir THEN o sistema SHALL informar Pacote de idioma instalado. Você pode gravar seu ditado. sem iniciar reconhecimento automaticamente.
+26. WHEN criar o reconhecedor em ambiente elegível THEN o sistema SHALL configurar reconhecimento gerenciado pelo navegador (processLocally false quando suportado) antes de chamar start(), sem exigir pacote local.
+27. IF o navegador não suportar a API ou o serviço de reconhecimento disponível THEN o sistema SHALL comunicar Ditado indisponível neste navegador. Continue digitando. mantendo o campo e o envio de texto utilizáveis.
+28. WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHEN o aprendiz acionar Instalar pacote de idioma, com pt-BR local instalável e método nativo disponível, THEN o sistema SHALL solicitar a instalação pelo método nativo do navegador.
+29. WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHILE o pacote estiver sendo instalado o sistema SHALL mostrar Instalando pacote de idioma… sem iniciar captura de microfone.
+30. WHERE o hook for consumido em modo local explícito (não ativo no Mentor) IF a instalação falhar THEN o sistema SHALL comunicar Não foi possível instalar o pacote de idioma. Tente novamente ou continue digitando. preservando o rascunho.
+31. WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHEN a instalação concluir THEN o sistema SHALL informar Pacote de idioma instalado. Você pode gravar seu ditado. sem iniciar reconhecimento automaticamente.
 32. The controles de ditado SHALL ter nomes acessíveis em pt-BR, foco identificável, estados anunciados por tecnologia assistiva e alvos de toque de pelo menos 44px no mobile.
 33. The bloco de ditado SHALL seguir copy e arranjo dos estados s8UGf/qsYWq/QZB2M em 1440×1058 e nxL5i/e9FXb/VC7Ro em 390×900, adaptado ao FAB e aos tokens existentes.
 34. WHEN executar a jornada real de reconhecimento THEN o registro de qualidade SHALL apresentar seis amostras fictícias em pt-BR — dúvida curta, negação, número, termo de programação, pausa e ruído moderado — com referência, transcrição e limitações por amostra.
 35. The sistema SHALL realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma.
+36. WHERE o Mentor oferecer reconhecimento browser-managed o sistema SHALL mostrar “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” antes de iniciar captura.
 
-**Independent test:** validar reconhecimento nativo em navegador/dispositivo identificado, revisar e enviar na página/FAB, inclusive por teclado. Usar Playwright CLI para jornada e capturas; um mock da API ou apenas viewport mobile não prova suporte de microfone/idioma num aparelho real. Se não houver ambiente local pt-BR disponível, registrar a limitação sem declarar o reconhecimento real comprovado.
+**Independent test:** validar reconhecimento nativo em navegador/dispositivo identificado, revisar e enviar na página/FAB, inclusive por teclado. Usar Playwright CLI para jornada e capturas; um mock da API ou apenas viewport mobile não prova suporte de microfone/idioma num aparelho real. Se não houver ambiente nativo pt-BR disponível, registrar a limitação sem declarar o reconhecimento real comprovado.
 
 ## Out of scope
 
@@ -142,7 +145,7 @@ O recurso respeita as capacidades reais do navegador; digitação permanece disp
 | --- | --- |
 | Backend de transcrição, OpenRouter ou fornecedor integrado pelo Shifu | Usuário confirmou reconhecimento nativo do navegador. |
 | Upload, armazenamento, reprodução ou anexo de áudio | O usuário precisa somente do texto do ditado. |
-| Bibliotecas de transcrição e modelos gerenciados pelo Shifu | O usuário aprovou somente a instalação explícita de pacote de idioma pelo navegador. |
+| Bibliotecas de transcrição e modelos gerenciados pelo Shifu | A captura e o reconhecimento pertencem ao navegador, sem biblioteca/modelo ou pacote gerenciado pelo Shifu. |
 | Síntese de voz e Ouvir resposta | Não compõem a entrada por ditado. |
 | Envio automático e comandos de voz que executem ações | O texto exige revisão e envio explícito. |
 | Implementar anexos, cota mensal ou encerramento coordenado da conta | Capacidades independentes; suas interfaces existentes não são ampliadas para realizar ditado. |
@@ -154,7 +157,7 @@ None - todas as decisões materiais perguntadas foram resolvidas. Escolhas rever
 
 **Open questions:** none - todas resolvidas.
 
-Decisões confirmadas nesta conversa: reconhecimento nativo local em pt-BR, hook compartilhado, texto acrescentado após quebra de linha, watchdogs de 30s/10s, instalação de idioma por gesto explícito, suporte por capacidade com digitação nos demais ambientes (Q5=A) e avaliação de seis exemplos pt-BR com erros/limitações documentados, sem limiar numérico de acurácia (Q6=A). Instalar não inicia gravação automaticamente.
+Decisões confirmadas nesta conversa: reconhecimento nativo browser-managed em pt-BR (substitui a decisão local anterior), hook compartilhado, texto acrescentado após quebra de linha, watchdogs de 30s/10s, instalação de idioma por gesto explícito, suporte por capacidade com digitação nos demais ambientes (Q5=A) e avaliação de seis exemplos pt-BR com erros/limitações documentados, sem limiar numérico de acurácia (Q6=A). Instalar não inicia gravação automaticamente.
 
 O usuário confirmou o mecanismo nativo, não o plano anterior de OpenRouter ou seus limites. Este plano não impõe limite adicional de duração do ditado; os watchdogs cobrem início e finalização. A evidência de qualidade não será apresentada como garantia de acurácia. Os testes automatizados verificam fluxo, preservação de rascunho e limpeza; reconhecimento real e suas limitações são registrados separadamente.
 
@@ -187,3 +190,11 @@ Os checkers, Coverage e Test policy serão derivados deste documento após a rev
 - Design vinculante: design/shifu.pen, nós s8UGf/qsYWq/QZB2M e nxL5i/e9FXb/VC7Ro; componentes ihZ8z/PXcJb/puC0u. Árvore e screenshots inspecionadas pelo Pencil em 2026-10-13; arranjo/copy de ditado vinculam a feature, sem ampliar o escopo pelas capacidades representadas ao redor.
 
 Referências técnicas: [SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition), [modo local](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/processLocally), [disponibilidade do idioma](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/available_static) , [instalação de idioma](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/install_static) e [Web Speech API](https://webaudio.github.io/web-speech-api/). São documentação da API, não prova de suporte real num navegador alvo nem de privacidade do modo remoto.
+
+
+## Artifact scope
+
+User amendment: STATE.md, lessons.json and LESSONS.md are scoped exclusively to `.specs/features/shifu-105-mentor-dictation/`, alongside this plan, checks and verification. No shared memory files under `.specs/`. This overrides the skill’s default memory placement and leaves product behavior and acceptance criteria unchanged.
+
+
+Amendment revision8: aprovação humana “ok” à troca por browser-managed em 2026-10-13. AC26/27 e C26/27 revisados; AC28–31/C28–31 passam a regressões condicionais do modo local opcional do hook. Nenhuma assertion é retirada para esconder falha.

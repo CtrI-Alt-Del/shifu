@@ -9,7 +9,8 @@ export async function installControlledDictation(
   await page.evaluate((availability) => {
     class ControlledRecognition {
       static current: ControlledRecognition | null = null
-      static available = async () => availability
+      static available = async ({ processLocally }: { processLocally: boolean }) =>
+        processLocally ? availability : 'available'
       static install = async () => true
       processLocally = false
       lang = ''
@@ -131,7 +132,7 @@ export async function exerciseDictationStates(
   await expect(draft).toHaveValue('Texto revisado explicitamente')
 }
 
-export async function exerciseLanguageInstallationControls(
+export async function exerciseBrowserManagedControls(
   page: Page,
   surface: 'page' | 'fab',
 ) {
@@ -141,12 +142,14 @@ export async function exerciseLanguageInstallationControls(
   if (surface === 'fab') await page.getByRole('button', { name: 'Abrir Mentor' }).click()
   const form = page.getByRole('form', { name: 'Enviar mensagem ao Mentor' })
   await expect(
-    form.getByText('Ditado indisponível neste navegador. Continue digitando.'),
+    form.getByText('O navegador pode usar um serviço na nuvem para reconhecer sua fala.'),
   ).toBeVisible()
-  await assertKeyboardControl(
-    page,
+  await expect(
     form.getByRole('button', { name: 'Instalar pacote de idioma' }),
-  )
+  ).toHaveCount(0)
+  const microphone = form.getByRole('button', { name: 'Gravar ditado', exact: true })
+  await expect(microphone).toBeEnabled()
+  await assertKeyboardControl(page, microphone)
   await expect(form.getByRole('textbox')).toBeEnabled()
   expect(
     await page.evaluate(

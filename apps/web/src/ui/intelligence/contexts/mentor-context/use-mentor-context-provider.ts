@@ -51,7 +51,7 @@ export function useMentorContextProvider(
     finishRecognition,
     cancelRecognition,
     installLanguagePack,
-  } = useSpeechRecognition()
+  } = useSpeechRecognition('pt-BR', false)
   const [draftDictationError, setDraftDictationError] = useState<string | null>(null)
   const draftRevision = useRef(0)
   const installationTarget = useRef<{ surface: 'page' | 'fab' } | null>(null)

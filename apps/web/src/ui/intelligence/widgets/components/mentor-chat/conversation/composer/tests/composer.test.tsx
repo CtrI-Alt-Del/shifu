@@ -205,3 +205,22 @@ describe('Composer dictation', () => {
     expect(screen.getByRole('button', { name: 'Gravar ditado' })).toBeEnabled()
   })
 })
+
+it('discloses browser-managed recognition before microphone use', () => {
+  useComposerMock.mockReturnValue({
+    canStartDictation: true,
+    dictationLanguageAvailability: 'available',
+    draft: '',
+    handleSubmit: vi.fn(),
+    setDraft: vi.fn(),
+  } as unknown as ReturnType<typeof useComposer>)
+  render(<Composer surface='page' />)
+  expect(
+    screen.getByText(
+      'O navegador pode usar um serviço na nuvem para reconhecer sua fala.',
+    ),
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('button', { name: 'Instalar pacote de idioma' }),
+  ).not.toBeInTheDocument()
+})

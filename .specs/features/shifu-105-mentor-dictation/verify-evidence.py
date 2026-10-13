@@ -22,7 +22,7 @@ if args.filter == 'visual':
         assert row['reference'] and row['copy'] == 'PASS' and row['arrangement'] == 'PASS'
         assert row['observation']
 else:
-    assert record['native'] is True and record['process_locally'] is True and record['language'] == 'pt-BR'
+    assert record['native'] is True and record['process_locally'] is False and record['language'] == 'pt-BR'
     assert {r['category'] for r in record['samples']} == {'short question', 'negation', 'number', 'programming term', 'pause', 'moderate noise'}
     assert len(record['samples']) == 6
     for row in record['samples']:

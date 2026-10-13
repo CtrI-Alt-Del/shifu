@@ -12,7 +12,18 @@ const ports = vi.hoisted(() => ({
   remove: vi.fn(),
   location: { pathname: '/intelligence', search: {} },
   submitting: false,
+  localRecognition: false,
 }))
+// Optional local-mode regressions select the shared hook's real local implementation.
+vi.mock('@/ui/shared/hooks/use-speech-recognition', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/ui/shared/hooks/use-speech-recognition')>()
+  return {
+    ...actual,
+    useSpeechRecognition: (language: string, processLocally: boolean) =>
+      actual.useSpeechRecognition(language, ports.localRecognition || processLocally),
+  }
+})
 vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ports.location,
   useNavigate: () => ports.navigate,
@@ -147,6 +158,7 @@ beforeEach(() => {
   BrowserRecognition.install.mockResolvedValue(true)
   vi.stubGlobal('SpeechRecognition', BrowserRecognition)
   ports.submitting = false
+  ports.localRecognition = false
   ports.location = { pathname: '/intelligence', search: {} }
   ports.list.mockResolvedValue({ items: [], nextCursor: null })
   ports.detail.mockResolvedValue(session)
@@ -173,7 +185,7 @@ describe('Mentor native dictation consumer', () => {
       const recognition = await start(value, surface)
       expect(recognition.start).toHaveBeenCalledOnce()
       expect(recognition.lang).toBe('pt-BR')
-      expect(recognition.processLocally).toBe(true)
+      expect(recognition.processLocally).toBe(false)
     },
   )
   it('stops recognition and awaits finalization', async () => {
@@ -465,7 +477,8 @@ describe('Mentor native dictation consumer', () => {
     blob.mockRestore()
     file.mockRestore()
   })
-  it('requires real local processing support before starting', async () => {
+  it('still requires real local processing support when explicitly selected', async () => {
+    ports.localRecognition = true
     class RemoteRecognition extends BrowserRecognition {
       constructor() {
         super()
@@ -479,13 +492,53 @@ describe('Mentor native dictation consumer', () => {
     )
     await act(async () => value.result.current.startDictation())
     expect(
-      BrowserRecognition.instances.every(
-        (instance) => instance.start.mock.calls.length === 0,
-      ),
+      BrowserRecognition.instances.every((instance) => !instance.start.mock.calls.length),
     ).toBe(true)
   })
+  it('never installs in browser-managed mode even on an installation call', async () => {
+    const value = await openProvider()
+    await act(async () => value.result.current.installDictationLanguage())
+    expect(BrowserRecognition.install).not.toHaveBeenCalled()
+    expect(value.result.current.canInstallDictationLanguage).toBe(false)
+    expect(value.result.current.dictationInstallationStatus).toBe('idle')
+  })
+  it('starts browser-managed recognition without local processing support', async () => {
+    class RemoteRecognition extends BrowserRecognition {
+      constructor() {
+        super()
+        delete (this as { processLocally?: boolean }).processLocally
+      }
+    }
+    BrowserRecognition.available.mockImplementation(async ({ processLocally }) =>
+      processLocally ? 'unavailable' : 'available',
+    )
+    vi.stubGlobal('SpeechRecognition', RemoteRecognition)
+    const value = await openProvider()
+    const recognition = await start(value)
+    expect(recognition.start).toHaveBeenCalledOnce()
+    expect(BrowserRecognition.available).toHaveBeenCalledWith({
+      langs: ['pt-BR'],
+      processLocally: false,
+      quality: 'dictation',
+    })
+    expect(BrowserRecognition.install).not.toHaveBeenCalled()
+    expect(value.result.current.canInstallDictationLanguage).toBe(false)
+  })
+  it('supports legacy browser recognition without static language APIs', async () => {
+    class LegacyRecognition extends BrowserRecognition {}
+    Object.defineProperty(LegacyRecognition, 'available', { value: undefined })
+    Object.defineProperty(LegacyRecognition, 'install', { value: undefined })
+    vi.stubGlobal('SpeechRecognition', undefined)
+    vi.stubGlobal('webkitSpeechRecognition', LegacyRecognition)
+    const value = await openProvider()
+    const recognition = await start(value)
+    expect(recognition.start).toHaveBeenCalledOnce()
+    expect(recognition.processLocally).toBe(false)
+    expect(recognition.lang).toBe('pt-BR')
+    expect(value.result.current.canInstallDictationLanguage).toBe(false)
+  })
   it.each(['unsupported', 'unavailable'])(
-    'preserves typing when local Portuguese is unavailable: %s',
+    'preserves typing when browser recognition is unavailable: %s',
     async (reason) => {
       if (reason === 'unsupported') vi.stubGlobal('SpeechRecognition', undefined)
       else BrowserRecognition.available.mockResolvedValue('unavailable')
@@ -502,6 +555,7 @@ describe('Mentor native dictation consumer', () => {
     },
   )
   it('installs Portuguese only on an explicit action', async () => {
+    ports.localRecognition = true
     BrowserRecognition.available.mockResolvedValue('downloadable')
     const value = renderHook(() => useMentorContextProvider('learner@example.com'))
     await waitFor(() =>
@@ -522,6 +576,7 @@ describe('Mentor native dictation consumer', () => {
   it.each([false, 'throws'])(
     'preserves the draft when installation fails: %s',
     async (failure) => {
+      ports.localRecognition = true
       const value = await openProvider()
       act(() => value.result.current.setDraft('preservado'))
       if (failure === false) BrowserRecognition.install.mockResolvedValue(false)
@@ -534,6 +589,7 @@ describe('Mentor native dictation consumer', () => {
     },
   )
   it('announces installation success without starting recognition', async () => {
+    ports.localRecognition = true
     const value = await openProvider()
     await act(async () => value.result.current.installDictationLanguage())
     expect(value.result.current.dictationInstallationStatus).toBe('installed')
@@ -544,6 +600,7 @@ describe('Mentor native dictation consumer', () => {
     ).toBe(true)
   })
   it('never installs a language pack automatically', async () => {
+    ports.localRecognition = true
     BrowserRecognition.available.mockResolvedValue('downloadable')
     const value = renderHook(() => useMentorContextProvider('learner@example.com'))
     await waitFor(() =>
@@ -604,6 +661,7 @@ describe('Mentor native dictation consumer', () => {
     expect(value.result.current.scopeError).toBeTruthy()
   })
   it('does not announce installation success when the language is still unavailable', async () => {
+    ports.localRecognition = true
     BrowserRecognition.available.mockResolvedValue('downloadable')
     const value = renderHook(() => useMentorContextProvider('learner@example.com'))
     await waitFor(() =>
@@ -634,6 +692,7 @@ describe('Mentor native dictation consumer', () => {
   it.each(['close', 'navigation', 'surface'])(
     'stops observing language installation after abandoning the flow: %s',
     async (scope) => {
+      ports.localRecognition = true
       BrowserRecognition.available.mockResolvedValue('downloadable')
       let complete: (installed: boolean) => void = () => undefined
       BrowserRecognition.install.mockReturnValue(

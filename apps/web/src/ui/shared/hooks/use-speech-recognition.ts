@@ -39,7 +39,7 @@ type NativeRecognitionConstructor = {
   new (): NativeRecognition
   available?(options: {
     langs: string[]
-    processLocally: true
+    processLocally: boolean
     quality: 'dictation'
   }): Promise<SpeechLanguageAvailability>
   install?(options: { langs: string[]; quality: 'dictation' }): Promise<boolean>
@@ -67,7 +67,7 @@ function getRecognitionConstructor(): NativeRecognitionConstructor | undefined {
   return browser.SpeechRecognition ?? browser.webkitSpeechRecognition
 }
 
-export function useSpeechRecognition(language = 'pt-BR') {
+export function useSpeechRecognition(language = 'pt-BR', processLocally = true) {
   const [status, setStatus] = useState<SpeechRecognitionStatus>('idle')
   const [error, setError] = useState<string | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
@@ -139,15 +139,21 @@ export function useSpeechRecognition(language = 'pt-BR') {
       const Constructor = getRecognitionConstructor()
       async function checkAvailability() {
         try {
-          if (!Constructor?.available || !('processLocally' in new Constructor())) {
+          if (
+            !Constructor ||
+            (processLocally &&
+              (!Constructor.available || !('processLocally' in new Constructor())))
+          ) {
             if (!ignored) setLanguageAvailability('unavailable')
             return
           }
-          const available = await Constructor.available({
-            langs: [language],
-            processLocally: true,
-            quality: 'dictation',
-          })
+          const available = Constructor.available
+            ? await Constructor.available({
+                langs: [language],
+                processLocally,
+                quality: 'dictation',
+              })
+            : 'available'
           if (!ignored) setLanguageAvailability(available)
         } catch {
           if (!ignored) setLanguageAvailability('unavailable')
@@ -163,13 +169,13 @@ export function useSpeechRecognition(language = 'pt-BR') {
         cancelRecognition()
       }
     },
-    [cancelRecognition, language],
+    [cancelRecognition, language, processLocally],
   )
 
   async function startRecognition(): Promise<string | null> {
     if (operation.current) return null
     const Constructor = getRecognitionConstructor()
-    if (!Constructor?.available) {
+    if (!Constructor || (processLocally && !Constructor.available)) {
       setStatus('error')
       setError(UNAVAILABLE_MESSAGE)
       return null
@@ -200,15 +206,17 @@ export function useSpeechRecognition(language = 'pt-BR') {
     try {
       const recognition = new Constructor()
       current.recognition = recognition
-      if (!('processLocally' in recognition)) {
+      if (processLocally && !('processLocally' in recognition)) {
         terminate('error', UNAVAILABLE_MESSAGE)
         return result
       }
-      const available = await Constructor.available({
-        langs: [language],
-        processLocally: true,
-        quality: 'dictation',
-      })
+      const available = Constructor.available
+        ? await Constructor.available({
+            langs: [language],
+            processLocally,
+            quality: 'dictation',
+          })
+        : 'available'
       if (operation.current !== current) return result
       setLanguageAvailability(available)
       if (available !== 'available') {
@@ -216,7 +224,7 @@ export function useSpeechRecognition(language = 'pt-BR') {
         return result
       }
       recognition.lang = language
-      recognition.processLocally = true
+      if ('processLocally' in recognition) recognition.processLocally = processLocally
       recognition.continuous = true
       recognition.interimResults = false
       recognition.maxAlternatives = 1
@@ -299,7 +307,13 @@ export function useSpeechRecognition(language = 'pt-BR') {
 
   async function installLanguagePack() {
     const Constructor = getRecognitionConstructor()
-    if (!Constructor?.install || operation.current || installationPending.current) return
+    if (
+      !processLocally ||
+      !Constructor?.install ||
+      operation.current ||
+      installationPending.current
+    )
+      return
     const generation = ++installationGeneration.current
     installationPending.current = true
     setInstallationStatus('installing')
@@ -347,6 +361,7 @@ export function useSpeechRecognition(language = 'pt-BR') {
     installationStatus,
     installationError,
     canInstallLanguage:
+      processLocally &&
       ['downloadable', 'downloading'].includes(languageAvailability) &&
       Boolean(getRecognitionConstructor()?.install),
     startRecognition,
