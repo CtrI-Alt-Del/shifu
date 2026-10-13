@@ -8,10 +8,10 @@ None - não há AD geral ativo neste fluxo. Decisões específicas confirmadas p
 
 **Feature**: shifu-105-mentor-dictation, plano revision7.
 **Where**: plano revision7 aprovado; checks C1–C39 derivados antes de Build; implementação em hook compartilhado e contexto/compositor existentes.
-**In progress**: candidato local validado pelo autor, aguardando commit e Verifier independente.
+**In progress**: commit08c5006 entregue localmente; round1 independente35/39 PASS, lacunas de prova e observação de instalação corrigidas, preparando commit e round2.
 **Next step**: commit escopado e Verifier fresco sobre feature base..HEAD com todos os checks; executar validate_verification.py. Não declarar entrega completa com C34 bloqueado.
 **Blockers**: C34: Chrome151 Linux retorna local pt-BR unavailable; seis resultados nativos reais ausentes. Digitação permanece utilizável. Nenhuma decisão de arquitetura/escopo pendente; usuário autorizou continuar implementação explicitamente.
-**Uncommitted**: mudanças SHIFU-105 de código/testes em apps/web; FAQ mentor-answers.json; .specs/STATE.md e arquivos desta feature. design/shifu.pen preexistente preservado e excluído de staging. Nenhuma operação Pencil de escrita.
+**Uncommitted**: correção de observação de instalação e testes suplementares em apps/web; .specs/STATE.md/checks.md; verification.md do Verifier. design/shifu.pen preexistente preservado e excluído de staging. Nenhuma operação Pencil de escrita.
 **Branch**: feat/shifu-105.
 **Feature base**: c2adb6ad85d35f7ddd5cb8eb35754791f10ef5df.
 **Sessions/ports**: API7777 via uv/main.py (exec34832), web7000 via pnpm/Vite (exec62328), CLI shifu105; encerrar apenas estes ao terminar validação. Docker compartilhado preservado, nenhum evento Inngest emitido.

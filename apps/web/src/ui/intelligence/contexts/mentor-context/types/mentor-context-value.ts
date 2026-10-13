@@ -26,7 +26,7 @@ export type MentorContextValue = {
   startDictation(surface?: 'page' | 'fab'): Promise<void>
   finishDictation(): void
   cancelDictation(): void
-  installDictationLanguage(): Promise<void>
+  installDictationLanguage(surface?: 'page' | 'fab'): Promise<void>
   releaseDictationSurface(surface: 'page' | 'fab'): void
   response: MentorResponseSnapshot | null
   isCancellingResponse: boolean

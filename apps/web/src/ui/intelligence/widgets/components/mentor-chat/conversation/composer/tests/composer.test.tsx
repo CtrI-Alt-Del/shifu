@@ -175,4 +175,33 @@ describe('Composer dictation', () => {
     }
     expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
   })
+  it('preserves typing when local Portuguese is unavailable with the exact fallback copy', () => {
+    setup({
+      dictationStatus: 'idle',
+      isDictationBusy: false,
+      canSend: true,
+      dictationLanguageAvailability: 'unavailable',
+    })
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Ditado indisponível neste navegador. Continue digitando.',
+    )
+    expect(screen.getByRole('textbox')).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeEnabled()
+    expect(
+      screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
+    ).toBeDisabled()
+  })
+  it('announces installation success without starting recognition with the exact copy', () => {
+    setup({
+      dictationStatus: 'idle',
+      isDictationBusy: false,
+      dictationInstallationStatus: 'installed',
+      canStartDictation: true,
+    })
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Pacote de idioma instalado. Você pode gravar seu ditado.',
+    )
+    expect(startDictation).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Gravar ditado' })).toBeEnabled()
+  })
 })

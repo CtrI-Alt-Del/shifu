@@ -1,4 +1,7 @@
-import { exerciseDictationStates } from '../support/native-dictation'
+import {
+  exerciseDictationStates,
+  exerciseLanguageInstallationControls,
+} from '../support/native-dictation'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
@@ -264,4 +267,10 @@ test('renders native dictation states on fab at 1440', async ({ authenticatedPag
 })
 test('renders native dictation states on fab at 390', async ({ authenticatedPage }) => {
   await exerciseDictationStates(authenticatedPage, 'fab', 390)
+})
+
+test('renders native dictation states with accessible language installation on fab', async ({
+  authenticatedPage,
+}) => {
+  await exerciseLanguageInstallationControls(authenticatedPage, 'fab')
 })

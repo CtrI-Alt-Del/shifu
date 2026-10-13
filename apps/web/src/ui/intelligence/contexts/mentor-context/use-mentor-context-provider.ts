@@ -54,6 +54,7 @@ export function useMentorContextProvider(
   } = useSpeechRecognition()
   const [draftDictationError, setDraftDictationError] = useState<string | null>(null)
   const draftRevision = useRef(0)
+  const installationTarget = useRef<{ surface: 'page' | 'fab' } | null>(null)
   const dictationTarget = useRef<{
     generation: number
     revision: number
@@ -62,6 +63,7 @@ export function useMentorContextProvider(
   const cancelDictation = useCallback(
     function cancelDictation() {
       dictationTarget.current = null
+      installationTarget.current = null
       cancelRecognition()
       setDraftDictationError(null)
     },
@@ -69,7 +71,11 @@ export function useMentorContextProvider(
   )
   const releaseDictationSurface = useCallback(
     function releaseDictationSurface(surface: 'page' | 'fab') {
-      if (dictationTarget.current?.surface === surface) cancelDictation()
+      if (
+        dictationTarget.current?.surface === surface ||
+        installationTarget.current?.surface === surface
+      )
+        cancelDictation()
     },
     [cancelDictation],
   )
@@ -315,6 +321,14 @@ export function useMentorContextProvider(
     },
     [search],
   )
+
+  async function installDictationLanguage(surface: 'page' | 'fab' = 'page') {
+    if (installationTarget.current) return
+    const target = { surface }
+    installationTarget.current = target
+    await installLanguagePack()
+    if (installationTarget.current === target) installationTarget.current = null
+  }
 
   const isDictationBusy = ['preparing', 'recording', 'transcribing'].includes(
     dictationStatus,
@@ -722,7 +736,7 @@ export function useMentorContextProvider(
     startDictation,
     finishDictation: finishRecognition,
     cancelDictation,
-    installDictationLanguage: installLanguagePack,
+    installDictationLanguage,
     releaseDictationSurface,
     response,
     isCancellingResponse,

@@ -1,12 +1,15 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, navigateAuthenticatedPage } from '../playwright'
 
 /** Controlled events prove UI composition, not native recognition quality. */
-export async function installControlledDictation(page: Page) {
-  await page.evaluate(() => {
+export async function installControlledDictation(
+  page: Page,
+  availability: 'available' | 'downloadable' = 'available',
+) {
+  await page.evaluate((availability) => {
     class ControlledRecognition {
       static current: ControlledRecognition | null = null
-      static available = async () => 'available'
+      static available = async () => availability
       static install = async () => true
       processLocally = false
       lang = ''
@@ -27,7 +30,24 @@ export async function installControlledDictation(page: Page) {
       }
     }
     Object.assign(window, { SpeechRecognition: ControlledRecognition })
+  }, availability)
+}
+
+async function assertKeyboardControl(page: Page, control: Locator) {
+  const box = await control.boundingBox()
+  expect(box?.width).toBeGreaterThanOrEqual(44)
+  expect(box?.height).toBeGreaterThanOrEqual(44)
+  await control.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(control).toHaveAttribute('type', 'button')
+  expect(await control.evaluate((element) => element.tabIndex)).toBe(0)
+  await expect(control).toBeFocused()
+  const ring = await control.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { width: Number.parseFloat(style.outlineWidth), style: style.outlineStyle }
   })
+  expect(ring.width).toBeGreaterThan(0)
+  expect(ring.style).not.toBe('none')
 }
 
 export async function exerciseDictationStates(
@@ -42,6 +62,10 @@ export async function exerciseDictationStates(
   const form = page.getByRole('form', { name: 'Enviar mensagem ao Mentor' })
   const draft = form.getByRole('textbox')
   await draft.fill('Rascunho anterior')
+  await assertKeyboardControl(
+    page,
+    form.getByRole('button', { name: 'Gravar ditado', exact: true }),
+  )
   await form.getByRole('button', { name: 'Gravar ditado', exact: true }).click()
   await expect(form.getByText('Preparando ditado…')).toBeVisible()
   await expect(form.getByRole('button', { name: 'Enviar', exact: true })).toBeDisabled()
@@ -57,6 +81,11 @@ export async function exerciseDictationStates(
   ).toBeVisible()
   await expect(form.getByRole('button', { name: 'Cancelar', exact: true })).toBeVisible()
   const stop = form.getByRole('button', { name: 'Encerrar ditado' })
+  await assertKeyboardControl(
+    page,
+    form.getByRole('button', { name: 'Cancelar', exact: true }),
+  )
+  await assertKeyboardControl(page, stop)
   const box = await stop.boundingBox()
   expect(box?.height).toBeGreaterThanOrEqual(44)
   await page.screenshot({
@@ -100,4 +129,30 @@ export async function exerciseDictationStates(
   await form.getByRole('button', { name: 'Gravar ditado', exact: true }).click()
   await form.getByRole('button', { name: 'Cancelar', exact: true }).click()
   await expect(draft).toHaveValue('Texto revisado explicitamente')
+}
+
+export async function exerciseLanguageInstallationControls(
+  page: Page,
+  surface: 'page' | 'fab',
+) {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await installControlledDictation(page, 'downloadable')
+  await navigateAuthenticatedPage(page, surface === 'page' ? '/intelligence/' : '/')
+  if (surface === 'fab') await page.getByRole('button', { name: 'Abrir Mentor' }).click()
+  const form = page.getByRole('form', { name: 'Enviar mensagem ao Mentor' })
+  await expect(
+    form.getByText('Ditado indisponível neste navegador. Continue digitando.'),
+  ).toBeVisible()
+  await assertKeyboardControl(
+    page,
+    form.getByRole('button', { name: 'Instalar pacote de idioma' }),
+  )
+  await expect(form.getByRole('textbox')).toBeEnabled()
+  expect(
+    await page.evaluate(
+      () =>
+        (window as typeof window & { SpeechRecognition: { current: unknown } })
+          .SpeechRecognition.current,
+    ),
+  ).toBeNull()
 }

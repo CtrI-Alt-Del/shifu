@@ -78,6 +78,7 @@ export function useSpeechRecognition(language = 'pt-BR') {
   const [installationError, setInstallationError] = useState<string | null>(null)
   const operation = useRef<RecognitionOperation | null>(null)
   const installationGeneration = useRef(0)
+  const installationPending = useRef(false)
   const mounted = useRef(false)
 
   const terminate = useCallback(function terminate(
@@ -118,6 +119,14 @@ export function useSpeechRecognition(language = 'pt-BR') {
 
   const cancelRecognition = useCallback(
     function cancelRecognition() {
+      installationGeneration.current += 1
+      if (installationPending.current) {
+        installationPending.current = false
+        if (mounted.current) {
+          setInstallationStatus('idle')
+          setInstallationError(null)
+        }
+      }
       terminate('idle')
     },
     [terminate],
@@ -290,9 +299,9 @@ export function useSpeechRecognition(language = 'pt-BR') {
 
   async function installLanguagePack() {
     const Constructor = getRecognitionConstructor()
-    if (!Constructor?.install || operation.current || installationStatus === 'installing')
-      return
+    if (!Constructor?.install || operation.current || installationPending.current) return
     const generation = ++installationGeneration.current
+    installationPending.current = true
     setInstallationStatus('installing')
     setInstallationError(null)
     try {
@@ -324,6 +333,9 @@ export function useSpeechRecognition(language = 'pt-BR') {
         setInstallationStatus('failed')
         setInstallationError(INSTALLATION_ERROR_MESSAGE)
       }
+    } finally {
+      if (generation === installationGeneration.current)
+        installationPending.current = false
     }
   }
 

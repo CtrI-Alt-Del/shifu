@@ -126,7 +126,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
               type='button'
               variant='ghost'
               disabled={dictationInstallationStatus === 'installing'}
-              onClick={() => void installDictationLanguage()}
+              onClick={() => void installDictationLanguage(surface)}
             >
               Instalar pacote de idioma
             </Button>

@@ -631,4 +631,45 @@ describe('Mentor native dictation consumer', () => {
       BrowserRecognition.instances.every((instance) => !instance.start.mock.calls.length),
     ).toBe(true)
   })
+  it.each(['close', 'navigation', 'surface'])(
+    'stops observing language installation after abandoning the flow: %s',
+    async (scope) => {
+      BrowserRecognition.available.mockResolvedValue('downloadable')
+      let complete: (installed: boolean) => void = () => undefined
+      BrowserRecognition.install.mockReturnValue(
+        new Promise<boolean>((resolve) => {
+          complete = resolve
+        }),
+      )
+      const value = renderHook(() => useMentorContextProvider('learner@example.com'))
+      await waitFor(() =>
+        expect(value.result.current.canInstallDictationLanguage).toBe(true),
+      )
+      act(() => {
+        value.result.current.setDraft('Preservado')
+        void value.result.current.installDictationLanguage('fab')
+      })
+      expect(value.result.current.dictationInstallationStatus).toBe('installing')
+      if (scope === 'navigation') {
+        ports.location.pathname = '/gamification'
+        value.rerender()
+      } else
+        act(() =>
+          scope === 'close'
+            ? value.result.current.closePanel()
+            : value.result.current.releaseDictationSurface('fab'),
+        )
+      await act(async () => {
+        complete(true)
+      })
+      expect(value.result.current.dictationInstallationStatus).toBe('idle')
+      expect(value.result.current.dictationInstallationError).toBeNull()
+      expect(value.result.current.draft).toBe('Preservado')
+      expect(
+        BrowserRecognition.instances.every(
+          (instance) => !instance.start.mock.calls.length,
+        ),
+      ).toBe(true)
+    },
+  )
 })
