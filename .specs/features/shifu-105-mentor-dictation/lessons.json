@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "promote_threshold": 2,
+  "window_days": 45,
+  "quarantine_threshold": 2,
+  "next_id": 4,
+  "lessons": [
+    {
+      "id": "L-001",
+      "key": "ac_gap::assert exact visible copy at the owning component boundary rather than only the hook status",
+      "text": "Assert exact visible copy at the owning component boundary, rather than only the hook status",
+      "signal": "ac_gap",
+      "scope": "web",
+      "status": "candidate",
+      "features": ["shifu-105-mentor-dictation"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": ["C27/C31, verification round1 and resolved round2 (web)"],
+      "created": "2026-10-13T13:37:22Z",
+      "last_seen": "2026-10-13T13:37:22Z"
+    },
+    {
+      "id": "L-002",
+      "key": "ac_gap::measure real control bounds and keyboard focus styles in a browser rather than inferring them from utility classes",
+      "text": "Measure real control bounds and keyboard focus styles in a browser, rather than inferring them from utility classes",
+      "signal": "ac_gap",
+      "scope": "web",
+      "status": "candidate",
+      "features": ["shifu-105-mentor-dictation"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": ["C32, verification round1 and resolved round2 (web)"],
+      "created": "2026-10-13T13:37:22Z",
+      "last_seen": "2026-10-13T13:37:22Z"
+    },
+    {
+      "id": "L-003",
+      "key": "spec_deviation::invalidate asynchronous browser results when their owning composer is abandoned even if native work cannot be canceled",
+      "text": "Invalidate asynchronous browser results when their owning composer is abandoned, even if native work cannot be canceled",
+      "signal": "spec_deviation",
+      "scope": "web",
+      "status": "candidate",
+      "features": ["shifu-105-mentor-dictation"],
+      "recurrence": 1,
+      "harmful": 0,
+      "evidence": [
+        "Flow installation abandonment, verification round1 and resolved round2 (web)"
+      ],
+      "created": "2026-10-13T13:37:22Z",
+      "last_seen": "2026-10-13T13:37:22Z"
+    }
+  ]
+}
