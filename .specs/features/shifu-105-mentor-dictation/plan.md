@@ -1,6 +1,6 @@
 # SHIFU-105 — Ditado nativo do navegador para o Mentor
 
-Status: approved — revisão humana final confirmada em 2026-10-13; checks podem ser derivados. Data: 2026-10-13. Revision: 8.
+Status: approved — plano original confirmado em 2026-10-13 e critério C34 removido a pedido explícito do usuário em 2026-10-13. Data: 2026-10-13. Revision: 9.
 
 Profile: light. Budget: 150k. Mantido o padrão da skill; o usuário não solicitou mudança de perfil.
 
@@ -61,7 +61,7 @@ Forma técnica confirmada pelo usuário: API nativa do navegador, sem backend/Op
 
 Decisão de privacidade atual, aprovada pelo usuário: browser-managed, com processLocally false quando essa propriedade existir. Sem available() estático, a existência de SpeechRecognition/webkitSpeechRecognition permite tentar iniciar por gesto; falhas nativas continuam visíveis e preservam o rascunho. available() quando existente consulta processLocally false. A disponibilidade local não é requisito. O Composer informa que o navegador pode usar serviço na nuvem.
 
-A decisão anterior (revision7) exigia modo local e instalação explícita. Esta aprovação substitui somente esse requisito no Mentor. O modo local permanece opção explícita do hook compartilhado com verificações reais; seus testes de instalação são regressões condicionais, não evidência de um fluxo habilitado no Mentor. Append com quebra de linha, watchdogs30s/10s, envio explícito e seis amostras permanecem.
+A decisão anterior (revision7) exigia modo local e instalação explícita. Esta aprovação substitui somente esse requisito no Mentor. O modo local permanece opção explícita do hook compartilhado com verificações reais; seus testes de instalação são regressões condicionais, não evidência de um fluxo habilitado no Mentor. Append com quebra de linha, watchdogs30s/10s e envio explícito permanecem.
 
 Conflito de autoridade registrado: Intelligence83099649v7 e Política100106241v4 mantêm ZDR para processamento de IA. Reconhecimento browser-managed não comprova ZDR, retenção nem condições do operador. A alteração local implementa a escolha explícita do usuário; não declara conformidade nem altera Confluence. Nenhuma alteração externa foi autorizada.
 
@@ -133,11 +133,10 @@ O recurso respeita as capacidades reais do navegador; digitação permanece disp
 31. WHERE o hook for consumido em modo local explícito (não ativo no Mentor) WHEN a instalação concluir THEN o sistema SHALL informar Pacote de idioma instalado. Você pode gravar seu ditado. sem iniciar reconhecimento automaticamente.
 32. The controles de ditado SHALL ter nomes acessíveis em pt-BR, foco identificável, estados anunciados por tecnologia assistiva e alvos de toque de pelo menos 44px no mobile.
 33. The bloco de ditado SHALL seguir copy e arranjo dos estados s8UGf/qsYWq/QZB2M em 1440×1058 e nxL5i/e9FXb/VC7Ro em 390×900, adaptado ao FAB e aos tokens existentes.
-34. WHEN executar a jornada real de reconhecimento THEN o registro de qualidade SHALL apresentar seis amostras fictícias em pt-BR — dúvida curta, negação, número, termo de programação, pausa e ruído moderado — com referência, transcrição e limitações por amostra.
-35. The sistema SHALL realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma.
-36. WHERE o Mentor oferecer reconhecimento browser-managed o sistema SHALL mostrar “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” antes de iniciar captura.
+34. The sistema SHALL realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma.
+35. WHERE o Mentor oferecer reconhecimento browser-managed o sistema SHALL mostrar “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” antes de iniciar captura.
 
-**Independent test:** validar reconhecimento nativo em navegador/dispositivo identificado, revisar e enviar na página/FAB, inclusive por teclado. Usar Playwright CLI para jornada e capturas; um mock da API ou apenas viewport mobile não prova suporte de microfone/idioma num aparelho real. Se não houver ambiente nativo pt-BR disponível, registrar a limitação sem declarar o reconhecimento real comprovado.
+**Independent test:** validar reconhecimento nativo em navegador/dispositivo identificado, revisar e enviar na página/FAB, inclusive por teclado. Usar Playwright CLI para jornada e capturas; um mock da API ou apenas viewport mobile não prova suporte de microfone/idioma num aparelho real. Uma indisponibilidade nativa deve resultar no fallback de digitação definido no critério34.
 
 ## Out of scope
 
@@ -157,9 +156,9 @@ None - todas as decisões materiais perguntadas foram resolvidas. Escolhas rever
 
 **Open questions:** none - todas resolvidas.
 
-Decisões confirmadas nesta conversa: reconhecimento nativo browser-managed em pt-BR (substitui a decisão local anterior), hook compartilhado, texto acrescentado após quebra de linha, watchdogs de 30s/10s, instalação de idioma por gesto explícito, suporte por capacidade com digitação nos demais ambientes (Q5=A) e avaliação de seis exemplos pt-BR com erros/limitações documentados, sem limiar numérico de acurácia (Q6=A). Instalar não inicia gravação automaticamente.
+Decisões confirmadas nesta conversa: reconhecimento nativo browser-managed em pt-BR (substitui a decisão local anterior), hook compartilhado, texto acrescentado após quebra de linha, watchdogs de 30s/10s, instalação de idioma por gesto explícito, suporte por capacidade com digitação nos demais ambientes (Q5=A) e a posterior remoção explícita da avaliação de qualidade com amostras (revision9). Instalar não inicia gravação automaticamente.
 
-O usuário confirmou o mecanismo nativo, não o plano anterior de OpenRouter ou seus limites. Este plano não impõe limite adicional de duração do ditado; os watchdogs cobrem início e finalização. A evidência de qualidade não será apresentada como garantia de acurácia. Os testes automatizados verificam fluxo, preservação de rascunho e limpeza; reconhecimento real e suas limitações são registrados separadamente.
+O usuário confirmou o mecanismo nativo, não o plano anterior de OpenRouter ou seus limites. Este plano não impõe limite adicional de duração do ditado; os watchdogs cobrem início e finalização. Não há avaliação de acurácia ou exigência de amostras reconhecidas nesta feature. Os testes verificam fluxo, preservação do rascunho, limpeza e tratamento de falhas nativas.
 
 Os checkers, Coverage e Test policy serão derivados deste documento após a revisão final aprovada; execução e evidências passam a checks.md e verification.md.
 
@@ -176,9 +175,10 @@ Os checkers, Coverage e Test policy serão derivados deste documento após a rev
 | Página e FAB do Mentor | Densidade e ordenação | AC33; cancelar à esquerda e encerrar à direita no bloco de gravação |
 | Página e FAB do Mentor | Confirmação de cancelamento | n/a - descarta somente a operação temporária, preservando o rascunho |
 | Página e FAB do Mentor | Navegador indisponível | AC27 |
-| Página e FAB do Mentor | Instalação de idioma: gesto, carregamento, falha e sucesso | AC28/29/30/31/35 |
+| Página e FAB do Mentor | Instalação de idioma: gesto, carregamento, falha e sucesso | AC28/29/30/31/34 |
 | Página e FAB do Mentor | Teclado, foco e anúncio de estado | AC6/32 |
-| Documento de qualidade | Estrutura, tom, profundidade e próximo passo | AC34; referência/resultado/limitação por amostra para orientar revisão do texto |
+| Página e FAB do Mentor | Aviso de possível processamento em nuvem | AC35 |
+| Documento de qualidade | n/a - o usuário removeu explicitamente essa obrigação na revision9; nenhum documento de qualidade integra a feature |
 | Coleção de anexos preparada | Agrupamento/nome/ordem/duplicados/exceções | AC18; existing - ditado não organiza ou altera a coleção |
 | API/webhook | Respostas, erros, acesso, versão e rate limit | n/a - nenhuma API de ditado; envio de texto continua usando o contrato existente |
 | Comando/tarefa agendada | Saída, flags, defaults, exit codes e falha parcial | n/a - nenhum comando ou job criado |
@@ -198,3 +198,6 @@ User amendment: STATE.md, lessons.json and LESSONS.md are scoped exclusively to 
 
 
 Amendment revision8: aprovação humana “ok” à troca por browser-managed em 2026-10-13. AC26/27 e C26/27 revisados; AC28–31/C28–31 passam a regressões condicionais do modo local opcional do hook. Nenhuma assertion é retirada para esconder falha.
+
+
+Amendment revision9 (2026-10-13): a pedido explícito do usuário, removida a avaliação das seis amostras pt-BR e o respectivo gate C34. Os resultados BLOCKED registrados nas revisions7/8 permanecem somente no histórico e não são uma obrigação ativa. Nenhum objetivo de acurácia foi acrescentado.

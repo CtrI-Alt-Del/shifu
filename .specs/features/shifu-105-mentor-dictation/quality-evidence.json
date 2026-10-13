@@ -1,6 +1,6 @@
 {
-  "status": "BLOCKED",
-  "reason": "Browser-managed pt-BR available; real authenticated native start/cancel observed. Six controlled pt-BR speech samples with native outcomes have not been executed; capability/start alone is not recognition quality evidence.",
+  "status": "RETIRED",
+  "reason": "The user removed acceptance criterion C34 in revision9. This historical record is retained for prior-round traceability and is not an active check.",
   "browser": "Chrome 151.0.0.0 Linux",
   "observed_at": "2026-10-13",
   "native": true,

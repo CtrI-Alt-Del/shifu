@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--filter', choices=('visual', 'quality'), required=True)
+parser.add_argument('--filter', choices=('visual',), required=True)
 args = parser.parse_args()
 feature = Path(__file__).resolve().parent
 root = feature.parents[2]
@@ -21,11 +21,4 @@ if args.filter == 'visual':
         assert hashlib.sha256(path.read_bytes()).hexdigest() == row['sha256'], f'Changed capture: {path}'
         assert row['reference'] and row['copy'] == 'PASS' and row['arrangement'] == 'PASS'
         assert row['observation']
-else:
-    assert record['native'] is True and record['process_locally'] is False and record['language'] == 'pt-BR'
-    assert {r['category'] for r in record['samples']} == {'short question', 'negation', 'number', 'programming term', 'pause', 'moderate noise'}
-    assert len(record['samples']) == 6
-    for row in record['samples']:
-        assert row['reference'].strip() and isinstance(row['transcript'], str) and row['limitations'].strip()
-        assert row['outcome'] in ('recognized', 'native-error') and row['errors'] is not None
 print(f'{args.filter}: PASS')

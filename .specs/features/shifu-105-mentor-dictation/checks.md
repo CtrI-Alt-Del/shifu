@@ -3,7 +3,7 @@
 Profile: light
 Plan: `.specs/features/shifu-105-mentor-dictation/plan.md`
 
-35 critérios + gates estáticos/build. Cada Proof é obrigação planejada, não resultado executado. Status inicial: OPEN; a avaliação real de qualidade requer ambiente local pt-BR elegível. Nenhum arquivo de áudio integra a entrega.
+34 critérios de aceitação ativos. C34 foi removido por solicitação explícita do usuário na revision9; IDs posteriores preservados para rastreabilidade histórica. Quatro gates de tipos/lint/arquitetura/build permanecem. Cada Proof é obrigação planejada, não resultado executado. Nenhum arquivo de áudio integra a entrega.
 
 ## Checks
 
@@ -116,11 +116,7 @@ Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/widgets/components/men
 Proof: `cd apps/web && pnpm test:integration tests/intelligence/intelligence-page.test.ts tests/shared/app-layout.test.ts --grep 'renders native dictation states'`
 Proof: `python3 .specs/features/shifu-105-mentor-dictation/verify-evidence.py --filter visual`
 
-**C34** - WHEN executar a jornada real de reconhecimento THEN o registro de qualidade — apresentar seis amostras fictícias em pt-BR — dúvida curta, negação, número, termo de programação, pausa e ruído moderado — com referência, transcrição e limitações por amostra. (AC 34)
-Proof: `python3 .specs/features/shifu-105-mentor-dictation/verify-evidence.py --filter quality`
-Limite: exige seis resultados de reconhecimento nativo real com referência/resultado/limitações e navegador/versão identificados. Não gerar resultados por mock ou inventar qualidade. O probe histórico local registra unavailable. No modo aprovado atual, início nativo real foi observado (Gravando ditado…); seis amostras com resultado/limitações ainda faltam e C34 permanece BLOCKED.
-
-**C35** - The sistema — realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma. (AC 35)
+**C35** - The sistema — realizar zero instalações de pacote de idioma sem o gesto explícito Instalar pacote de idioma. (AC 34)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts -t 'never installs a language pack automatically|never installs in browser-managed mode'`
 
 **C36** - Contratos TypeScript e consumidores afetados compilam sem erros.
@@ -135,7 +131,7 @@ Proof: `cd apps/web && pnpm check:architecture`
 **C39** - A aplicação web produz o build configurado.
 Proof: `cd apps/web && pnpm build`
 
-**C40** - Antes de iniciar ditado browser-managed, o Composer mostra “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” (AC36)
+**C40** - Antes de iniciar ditado browser-managed, o Composer mostra “O navegador pode usar um serviço na nuvem para reconhecer sua fala.” (AC35)
 Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx -t 'discloses browser-managed recognition before microphone use'`
 
 ## Coverage
@@ -151,14 +147,13 @@ Proof: `cd apps/web && pnpm test:unit src/ui/intelligence/widgets/components/men
 | Callbacks tardios (3) | operation C20 · conversation C20 · account C20 | - |
 | Disponibilidade nativa (5) | missing constructor C27 · missing local API C26 · unavailable service C27 · browser-managed available C26 · optional local downloadable C28 | - |
 | Instalação (3) | installing C29 · failure C30 · success C31 | - |
-| Qualidade representativa (6) | short question C34 · negation C34 · number C34 · programming term C34 · pause C34 · moderate noise C34 | - |
 | Referências visuais (6) | s8UGf C33 · qsYWq C33 · QZB2M C33 · nxL5i C33 · e9FXb C33 · VC7Ro C33 | - |
 
-Não há nova rota, entidade persistida ou one-way door no plano. O campo Unproven acima indica falta de proof atribuída, não conclusão da execução. A condição de anexos tem conjunto vazio nesta base; a integração real futura continua fora desta conclusão.
+Não há nova rota, entidade persistida ou one-way door no plano. O campo Unproven acima indica falta de proof atribuída, não conclusão da execução. Não há set de acurácia/amostras: C34 foi removido explicitamente na revision9. A condição de anexos tem conjunto vazio nesta base; a integração real futura continua fora desta conclusão.
 
 ## Test policy
 
-As regras existentes resolvem os níveis: componente com owning hook mockado; guards de useComposer em teste colocated; hook compartilhado real exercitado no consumidor/contexto com API nativa controlada; rota real com transporte controlado para composição. Reconhecimento/qualidade real permanece evidência separada. Não criar teste de provision ou fingir que mocks provam speech recognition real. Perfil light: sem fault injection e sem recomputação independente de Coverage.
+As regras existentes resolvem os níveis: componente com owning hook mockado; guards de useComposer em teste colocated; hook compartilhado real exercitado no consumidor/contexto com API nativa controlada; rota real com transporte controlado para composição. O fluxo nativo é coberto por comportamento e fallback; não existe obrigação de avaliar acurácia nem reunir amostras. Não criar teste de provision ou fingir que mocks provam speech recognition real. Perfil light: sem fault injection e sem recomputação independente de Coverage.
 
 ## Swept
 
@@ -170,7 +165,7 @@ As regras existentes resolvem os níveis: componente com owning hook mockado; gu
 - data lifecycle: C11, C19, C23, C24, C25
 - dependency failure: C26, C27, C30
 - state transitions: C2, C3, C4, C6, C11, C17, C29, C31
-- observability: C34; n/a - nenhum log de áudio/transcrição ou analytics novo
+- observability: n/a - nenhum log de áudio/transcrição ou analytics novo
 
 ## Handoff
 
@@ -225,3 +220,8 @@ O usuário aprovou explicitamente a troca de modo. C26/27 passam a testar o modo
 
 
 Revision8 author results:80 focused tests/3 targets PASS,6 browser cases PASS, types/lint/architecture/build exit0. New checks first failed:4 recognition cases under the old local-only implementation and1 privacy-copy case. Actual authenticated Chrome151 at localhost:7000 had microphoneEnabled=true and entered Gravando ditado… (00:03), with no controlled recognition API. Cancellation removed recording and preserved exact draft. This proves native start/cancel, not six speech-to-text outcomes. Logs:shifu-105-browser-managed-{native-click,native-cancel,cli-ui}.txt and{unit,integration,types,lint,architecture,build}.log in apps/web/.playwright-cli/logs. All12 new captures inspected; cloud notice legible, no clipping. Browser console had only React DevTools INFO. Optional local-mode regressions explicitly select real shared-hook local mode in the consumer harness; production Mentor explicitly selects false.
+
+
+## Amendment revision9 — 2026-10-13
+
+A pedido explícito do usuário, C34 e a exigência de seis transcrições reais foram removidos. Os resultados históricos de reconhecimento indisponível permanecem em verification.md e quality-evidence.json apenas como registro das rodadas anteriores; não participam dos checks ativos. Os IDs C35/C40 e gates subsequentes permanecem estáveis. A Coverage não contém qualidade representativa.
