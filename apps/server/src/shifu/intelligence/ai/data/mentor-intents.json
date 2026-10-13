@@ -1,0 +1,51 @@
+{
+  "explain_concept": [
+    "Explique o conceito de variável",
+    "O que é uma lista em Python?",
+    "Como funciona um laço de repetição?",
+    "Qual a diferença entre lista e tupla?"
+  ],
+  "request_hint": [
+    "Preciso de uma dica para esta atividade",
+    "Me ajude a começar sem dar a solução",
+    "Estou travado no exercício e quero uma pista",
+    "Como posso raciocinar sobre esta questão?"
+  ],
+  "consult_progress": [
+    "Qual é meu progresso no Objetivo?",
+    "Quais Habilidades já concluí?",
+    "Quanto falta para concluir meu Objetivo?",
+    "Mostre o andamento dos meus estudos"
+  ],
+  "find_materials_activities": [
+    "Quero materiais para estudar esta Habilidade",
+    "Onde encontro atividades liberadas?",
+    "Me indique um material de estudo",
+    "Procure exercícios sobre Python",
+    "Indique materiais e exercícios disponíveis para estudar uma Habilidade"
+  ],
+  "explain_assessment": [
+    "Explique minha avaliação nesta atividade",
+    "O que significa minha nota?",
+    "Por que recebi esse resultado?",
+    "Como interpretar o feedback oficial?"
+  ],
+  "search_curriculum": [
+    "Quais Habilidades existem no catálogo?",
+    "Procure uma Habilidade de Python",
+    "Quero conhecer a Habilidade de programação",
+    "Encontre uma Habilidade sobre bancos de dados"
+  ],
+  "consult_gamification": [
+    "Quantos pontos de XP eu tenho?",
+    "Qual é meu nível?",
+    "Qual minha sequência de estudos?",
+    "Quais conquistas obtive?"
+  ],
+  "learning_conversation": [
+    "Quero conversar sobre como estudar",
+    "Como organizar meus estudos?",
+    "Estou desanimado com o aprendizado",
+    "Me ajude a refletir sobre minha aprendizagem"
+  ]
+}

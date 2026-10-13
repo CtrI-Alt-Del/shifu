@@ -1,6 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, Index, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Index,
+    String,
+    UniqueConstraint,
+    Integer,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from shifu.shared.database.sqlalchemy.model import Model
@@ -10,6 +17,7 @@ class MentorSessionModel(Model):
     __tablename__ = 'intelligence_mentor_sessions'
     __table_args__ = (
         UniqueConstraint('account_id', 'submission_key', name='uq_mentor_submission'),
+        UniqueConstraint('id', 'account_id', name='uq_mentor_session_owner'),
         Index(
             'ix_mentor_account_activity',
             'account_id',
@@ -28,6 +36,9 @@ class MentorSessionModel(Model):
     )
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    response_sequence: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default='0'
+    )
     account_id: Mapped[str] = mapped_column(String(26), nullable=False)
     submission_key: Mapped[str] = mapped_column(String(36), nullable=False)
     content_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)

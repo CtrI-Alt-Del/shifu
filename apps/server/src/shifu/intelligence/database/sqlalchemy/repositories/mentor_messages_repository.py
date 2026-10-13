@@ -137,6 +137,22 @@ class SqlalchemyMentorMessagesRepository:
             .limit(1)
         )
 
+    def find_all(self, account_id: str, session_id: str) -> tuple[MentorMessage, ...]:
+        models = self._session.scalars(
+            select(MentorMessageModel)
+            .join(
+                MentorSessionModel,
+                MentorSessionModel.id == MentorMessageModel.session_id,
+            )
+            .where(
+                MentorSessionModel.account_id == account_id,
+                MentorSessionModel.id == session_id,
+                MentorSessionModel.deleted_at.is_(None),
+            )
+            .order_by(MentorMessageModel.created_at, MentorMessageModel.id)
+        )
+        return tuple(MentorMessageMapper.to_domain(model) for model in models)
+
     def add(self, message: MentorMessage) -> None:
         self._session.add(MentorMessageMapper.to_model(message))
         self._session.flush()

@@ -75,3 +75,7 @@ export function learningDiagnosticResultPath({
 
 export type RouteName = StaticRouteName
 export type RoutePath = (typeof ROUTES)[RouteName]
+
+export function buildMentorResponseEventsPath(sessionId: string): string {
+  return `/api/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/events`
+}

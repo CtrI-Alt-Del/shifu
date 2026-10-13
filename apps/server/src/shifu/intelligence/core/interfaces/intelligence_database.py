@@ -1,3 +1,12 @@
+from shifu.intelligence.core.interfaces.mentor_embeddings_repository import (
+    MentorEmbeddingsRepository,
+)
+from shifu.intelligence.core.interfaces.mentor_response_attempts_repository import (
+    MentorResponseAttemptsRepository,
+)
+from shifu.intelligence.core.interfaces.mentor_response_events_repository import (
+    MentorResponseEventsRepository,
+)
 from contextlib import AbstractContextManager
 from typing import Protocol
 
@@ -19,7 +28,10 @@ class IntelligenceDatabaseRepositories:
     planning_sessions: PlanningSessionsRepository
     events: EventsRepository
     mentor_sessions: MentorSessionsRepository
+    mentor_embeddings: MentorEmbeddingsRepository
     mentor_messages: MentorMessagesRepository
+    mentor_response_attempts: MentorResponseAttemptsRepository
+    mentor_response_events: MentorResponseEventsRepository
 
 
 class IntelligenceDatabase(Protocol):

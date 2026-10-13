@@ -32,7 +32,9 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill('invalid-email')
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
 
@@ -68,7 +70,9 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
 
@@ -113,7 +117,9 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
     await page.getByRole('button', { name: 'Tentar novamente' }).click()

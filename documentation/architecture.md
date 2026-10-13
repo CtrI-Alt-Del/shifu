@@ -444,8 +444,30 @@ Learning HTTP and Inngest paths. The provider calls OpenRouter's
 Neither business module imports the other, and `shifu.composition` needs
 no additional dependency.
 
-Agno implementations live under
-`apps/server/src/shifu/intelligence/ai/generative/agno`. Agents receive only the
+New Agno implementations live under
+`apps/server/src/shifu/intelligence/ai/agno`; existing implementations under the
+legacy `ai/generative/agno` layout remain until a scoped refactor migrates them.
+NLP technology adapters belong to Intelligence providers; persistent semantic
+indexes use Core repository ports and module-owned database adapters.
+The Mentor contextual-response implementation uses local Portuguese spaCy and
+multilingual E5 embeddings with versioned pgvector indexes, BM25/RRF retrieval,
+bounded Agno generation and a separate cumulative Mentor review capability.
+The default runtime composes GPT-6 Luna, the technical DeepSeek fallback and JEV
+when an OpenRouter key and the account logging-disabled attestation are configured.
+Requests require ZDR and deny provider data collection; SDK and provider automatic
+fallbacks are disabled. The application lifespan closes the owned inference clients.
+The application command `uv run python -m shifu.mentor_indexes` prepares the
+non-personal indexes offline. Registered Inngest processing publishes approved
+blocks through persisted SSE events; disconnect closes transport only.
+Identity authorizes Mentor reads and inference operations against the real active
+account and current access revision. Monthly quota and coordinated cross-module
+account closure are deferred by Mentor Context revision6; their absence does not
+block this delivery. Account guards remain distinct from the transactional
+session/attempt/deletion fences; separate account checks do not establish atomic
+account revocation across modules. Intelligence retains private idempotent inference
+receipts without commercial quota accounting. Langfuse is optional and receives
+allowlisted metadata only.
+Agents receive only the
 minimum authorized context and tools required for the workflow. Tools expose typed
 application operations; they do not provide direct access to SQLAlchemy, credentials,
 another module's private repository, or unrestricted code execution.

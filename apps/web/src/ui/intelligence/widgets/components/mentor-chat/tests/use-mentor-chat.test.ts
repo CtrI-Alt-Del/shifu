@@ -20,6 +20,14 @@ vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
 const useMentorContextMock = vi.mocked(useMentorContext)
 
 const baseValue: MentorContextValue = {
+  response: null,
+  isCancellingResponse: false,
+  isRetryingResponse: false,
+  submitMessage: vi.fn(),
+  cancelResponse: vi.fn(),
+  retryResponse: vi.fn(),
+  shouldAnimateBlock: vi.fn(),
+  markBlockPresented: vi.fn(),
   selectedSessionId: null,
   sessionDetail: null,
   sessionsPage: { items: [], nextCursor: null },

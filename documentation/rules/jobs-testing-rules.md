@@ -104,3 +104,12 @@ any order.
 Use a separate, Docker-capable pytest selection for Inngest integration tests. CI must
 run it; local Docker unavailability may produce an explicit skip but does not count as
 passing integration evidence.
+
+## AI/NLP jobs and subprocess behavior
+
+When a job owns an AI/NLP capability, its integration scenarios also verify the
+concrete local adapters and Agno composition under AI Layer Rules. Controlled
+external inference/review endpoints may supply deterministic outputs and failures;
+assert call counts, bounded retries/review, and persisted/public effects. Do not
+invoke workflow internals or replace the composition with an approved-output mock
+for scenarios intended to prove that composition.

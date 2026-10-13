@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:0.8.1-pg17
         env:
           POSTGRES_DB: shifu
           POSTGRES_PASSWORD: shifu-local
@@ -251,7 +251,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:0.8.1-pg17
         env:
           POSTGRES_DB: shifu
           POSTGRES_PASSWORD: shifu-local
@@ -303,6 +303,12 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      - name: Prepare pinned local Mentor model
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
+          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
       - name: Run real Inngest job tests
         run: uv run poe test:jobs

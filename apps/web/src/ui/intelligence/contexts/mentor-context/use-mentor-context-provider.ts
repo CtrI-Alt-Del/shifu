@@ -1,3 +1,14 @@
+import type {
+  MentorContextHint,
+  MentorResponseEvent,
+  MentorResponseSnapshot,
+  SubmitMentorMessageInput,
+} from '@/core/intelligence/mentor-response'
+import { NativeMentorEventSource } from '@/provision/realtime/native-mentor-event-source'
+import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-response-stream'
+import { useSubmitMentorMessageAction } from '@/ui/intelligence/hooks/use-submit-mentor-message-action'
+import { useCancelMentorResponseAction } from '@/ui/intelligence/hooks/use-cancel-mentor-response-action'
+import { useRetryMentorResponseAction } from '@/ui/intelligence/hooks/use-retry-mentor-response-action'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -17,7 +28,20 @@ import type { MentorContextValue } from './types'
 const SEARCH_DEBOUNCE_MS = 300
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
 
-export function useMentorContextProvider(accountEmail: string): MentorContextValue {
+export function useMentorContextProvider(
+  accountEmail: string,
+  contextHint: MentorContextHint | null = null,
+): MentorContextValue {
+  const { submitMentorMessage, isPending: isSubmittingMessage } =
+    useSubmitMentorMessageAction(accountEmail)
+  const { cancelMentorResponse, isPending: isCancellingResponse } =
+    useCancelMentorResponseAction(accountEmail)
+  const { retryMentorResponse, isPending: isRetryingResponse } =
+    useRetryMentorResponseAction(accountEmail)
+  const presentedBlocks = useRef(new Set<string>())
+  const newBlocks = useRef(new Set<string>())
+  const submissionHint = useRef<MentorContextHint | null>(null)
+  const controlKeys = useRef(new Map<string, string>())
   const navigate = useNavigate()
   const location = useLocation()
   const { readMentorSessions } = useMentorSessionsQuery(accountEmail)
@@ -52,10 +76,15 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
   const historyGeneration = useRef(0)
   const detailGeneration = useRef(0)
   const submissionMessage = useRef<string | null>(null)
+  const submissionRunning = useRef(false)
 
   const clearPrivateState = useCallback(() => {
     historyGeneration.current += 1
     detailGeneration.current += 1
+    presentedBlocks.current.clear()
+    newBlocks.current.clear()
+    controlKeys.current.clear()
+    submissionHint.current = null
     setSelectedSessionId(null)
     setSessionDetail(null)
     setSessionsPage(EMPTY_SESSIONS_PAGE)
@@ -122,18 +151,9 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
         const detail = await readMentorSession(sessionId, cursor)
         if (generation !== detailGeneration.current) return
         if (selectedSessionId !== sessionId && cursor) return
-        setSessionDetail((current) => {
-          if (!cursor || !current || current.session.id !== sessionId) return detail
-          const pageIds = new Set(detail.messages.items.map((message) => message.id))
-          const messages = [
-            ...current.messages.items.filter((message) => !pageIds.has(message.id)),
-            ...detail.messages.items,
-          ].sort((left, right) => left.createdAt.localeCompare(right.createdAt))
-          return {
-            ...detail,
-            messages: { items: messages, nextCursor: detail.messages.nextCursor },
-          }
-        })
+        setSessionDetail((current) =>
+          mergeSessionDetail(current, detail, Boolean(cursor)),
+        )
         setScopeError(null)
       } catch (error) {
         if (generation !== detailGeneration.current) return
@@ -188,7 +208,10 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
     setIsPanelOpen(true)
     void refresh()
   }, [refresh])
-  const closePanel = useCallback(() => setIsPanelOpen(false), [])
+  const closePanel = useCallback(() => {
+    newBlocks.current.clear()
+    setIsPanelOpen(false)
+  }, [])
   const showPanelHistory = useCallback(() => setPanelView('history'), [])
   const showPanelConversation = useCallback(() => setPanelView('conversation'), [])
   const startNewConversation = useCallback(() => {
@@ -246,41 +269,229 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
     [search],
   )
 
-  const sendFirstMessage = useCallback(async () => {
-    if (!draft.trim() || isCreatingMentorSession) return
-    const stableKey = submissionKey ?? crypto.randomUUID()
-    if (!submissionKey) setSubmissionKey(stableKey)
-    submissionMessage.current = draft
-    setSubmissionError(null)
+  const sendFirstMessage = useCallback(
+    async (surface: 'page' | 'fab' = 'page') => {
+      if (
+        submissionRunning.current ||
+        !draft.trim() ||
+        isCreatingMentorSession ||
+        isSubmittingMessage ||
+        sessionDetail?.pendingLearnerMessageId
+      )
+        return
+      const generation = detailGeneration.current
+      submissionRunning.current = true
+      const stableKey = submissionKey ?? crypto.randomUUID()
+      if (!submissionKey) setSubmissionKey(stableKey)
+      if (submissionMessage.current === null)
+        submissionHint.current = surface === 'fab' ? contextHint : null
+      submissionMessage.current = draft
+      setSubmissionError(null)
+      try {
+        const detail = selectedSessionId
+          ? await submitMentorMessage({
+              sessionId: selectedSessionId,
+              submissionKey: stableKey,
+              content: draft,
+              contextHint: submissionHint.current,
+            })
+          : await createMentorSession({
+              submissionKey: stableKey,
+              firstMessage: draft,
+              contextHint: submissionHint.current,
+            })
+        if (generation !== detailGeneration.current) return
+        setSelectedSessionId(detail.session.id)
+        setSessionDetail(detail)
+        setDraft('')
+        setSubmissionKey(null)
+        submissionMessage.current = null
+        setPanelView('conversation')
+        await readHistory(debouncedSearch)
+      } catch (error) {
+        if (generation !== detailGeneration.current) return
+        if (isMentorScopeError(error)) {
+          clearPrivateState()
+          setScopeError('Não foi possível confirmar sua sessão. Atualize a página.')
+        } else {
+          setSubmissionError('Não foi possível enviar sua mensagem. Tente novamente.')
+        }
+      } finally {
+        submissionRunning.current = false
+      }
+    },
+    [
+      createMentorSession,
+      clearPrivateState,
+      debouncedSearch,
+      draft,
+      isCreatingMentorSession,
+      readHistory,
+      submissionKey,
+      contextHint,
+      selectedSessionId,
+      sessionDetail?.pendingLearnerMessageId,
+      submitMentorMessage,
+      isSubmittingMessage,
+    ],
+  )
+
+  const response = sessionDetail?.response ?? null
+  const isResponseActive =
+    response?.status === 'queued' || response?.status === 'processing'
+  const isViewingConversation =
+    (location.pathname === ROUTES.intelligence || isPanelOpen) &&
+    panelView === 'conversation'
+  const shouldAnimateBlock = useCallback((attemptId: string, blockKey: string) => {
+    const key = `${attemptId}:${blockKey}`
+    return newBlocks.current.has(key) && !presentedBlocks.current.has(key)
+  }, [])
+  const markBlockPresented = useCallback((attemptId: string, blockKey: string) => {
+    presentedBlocks.current.add(`${attemptId}:${blockKey}`)
+  }, [])
+  function applyResponseEvent(event: MentorResponseEvent) {
+    setSessionDetail((current) => {
+      if (
+        !current ||
+        current.session.id !== event.sessionId ||
+        current.response?.attemptId !== event.attemptId ||
+        !['queued', 'processing'].includes(current.response.status) ||
+        event.sequence <= current.response.lastSequence
+      )
+        return current
+      const previous = current.response
+      const shouldDiscardPartial = event.kind === 'cancelled' || event.kind === 'failed'
+      const blocks = shouldDiscardPartial
+        ? []
+        : event.block &&
+            !previous.blocks.some((block) => block.blockKey === event.block?.blockKey)
+          ? [...previous.blocks, event.block].sort(
+              (left, right) => left.ordinal - right.ordinal,
+            )
+          : previous.blocks
+      if (shouldDiscardPartial) newBlocks.current.clear()
+      else if (
+        event.block &&
+        isViewingConversation &&
+        document.visibilityState === 'visible'
+      )
+        newBlocks.current.add(`${event.attemptId}:${event.block.blockKey}`)
+      const consultations = shouldDiscardPartial
+        ? []
+        : event.consultation && !previous.consultations.includes(event.consultation)
+          ? [...previous.consultations, event.consultation]
+          : previous.consultations
+      return {
+        ...current,
+        response: {
+          ...previous,
+          blocks,
+          consultations,
+          status: event.status,
+          progress: ['queued', 'processing'].includes(event.status)
+            ? (event.progress ?? previous.progress ?? null)
+            : null,
+          lastSequence: event.sequence,
+          failureCode: event.failureCode,
+        },
+        pendingLearnerMessageId:
+          event.status === 'completed' ? null : current.pendingLearnerMessageId,
+      }
+    })
+    if (event.kind === 'completed' && selectedSessionId)
+      void readDetail(selectedSessionId)
+  }
+  async function reconcileResponse() {
+    if (!selectedSessionId) return null
+    const generation = detailGeneration.current
+    const attemptId = response?.attemptId
+    let detail: MentorSessionDetail
     try {
-      const detail = await createMentorSession({
-        submissionKey: stableKey,
-        firstMessage: draft,
-      })
-      setSelectedSessionId(detail.session.id)
-      setSessionDetail(detail)
-      setDraft('')
-      setSubmissionKey(null)
-      submissionMessage.current = null
-      setPanelView('conversation')
-      await readHistory(debouncedSearch)
+      detail = await readMentorSession(selectedSessionId)
     } catch (error) {
+      if (generation === detailGeneration.current && isMentorScopeError(error)) {
+        clearPrivateState()
+        setScopeError('Não foi possível confirmar sua sessão. Atualize a página.')
+      }
+      throw error
+    }
+    if (generation !== detailGeneration.current) return null
+    setSessionDetail((current) =>
+      current?.response?.attemptId !== attemptId
+        ? current
+        : mergeSessionDetail(current, detail),
+    )
+    return detail.response ?? null
+  }
+  useMentorResponseStream({
+    sessionId: selectedSessionId,
+    attemptId: response?.attemptId ?? null,
+    afterSequence: response?.lastSequence ?? 0,
+    enabled: Boolean(isResponseActive && !scopeError),
+    openEventSource: NativeMentorEventSource,
+    onEvent: applyResponseEvent,
+    reconcile: reconcileResponse,
+    onUnavailable: () =>
+      setConversationError(
+        'Não foi possível acompanhar a resposta. Atualize a conversa.',
+      ),
+  })
+  async function changeResponse(action: 'cancel' | 'retry') {
+    if (!selectedSessionId || !response || isCancellingResponse || isRetryingResponse)
+      return
+    const sessionId = selectedSessionId
+    const attemptId = response.attemptId
+    const generation = detailGeneration.current
+    const key = `${attemptId}:${action}`
+    const submissionKey = controlKeys.current.get(key) ?? crypto.randomUUID()
+    controlKeys.current.set(key, submissionKey)
+    try {
+      const snapshot = await (action === 'cancel'
+        ? cancelMentorResponse
+        : retryMentorResponse)({ sessionId, attemptId, submissionKey })
+      if (generation !== detailGeneration.current) return
+      setSessionDetail((current) => {
+        if (
+          current?.session.id !== sessionId ||
+          current.response?.attemptId !== attemptId
+        )
+          return current
+        const nextResponse = chooseResponseSnapshot(current.response, snapshot)
+        if (nextResponse === current.response) return current
+        newBlocks.current.clear()
+        return { ...current, response: nextResponse }
+      })
+      setSubmissionError(null)
+    } catch (error) {
+      if (generation !== detailGeneration.current) return
       if (isMentorScopeError(error)) {
         clearPrivateState()
         setScopeError('Não foi possível confirmar sua sessão. Atualize a página.')
-      } else {
-        setSubmissionError('Não foi possível enviar sua mensagem. Tente novamente.')
-      }
+      } else setSubmissionError('Não foi possível alterar a resposta. Tente novamente.')
     }
-  }, [
-    createMentorSession,
-    clearPrivateState,
-    debouncedSearch,
-    draft,
-    isCreatingMentorSession,
-    readHistory,
-    submissionKey,
-  ])
+  }
+  function cancelResponse() {
+    return changeResponse('cancel')
+  }
+  function retryResponse() {
+    return changeResponse('retry')
+  }
+  async function submitMessage(input: SubmitMentorMessageInput) {
+    if (
+      !selectedSessionId ||
+      isSubmittingMessage ||
+      sessionDetail?.pendingLearnerMessageId
+    )
+      return
+    const generation = detailGeneration.current
+    try {
+      const detail = await submitMentorMessage({ ...input, sessionId: selectedSessionId })
+      if (generation === detailGeneration.current) setSessionDetail(detail)
+    } catch (error) {
+      if (isMentorScopeError(error)) clearPrivateState()
+      else setSubmissionError('Não foi possível enviar sua mensagem. Tente novamente.')
+    }
+  }
 
   const loadMoreSessions = useCallback(async () => {
     if (!sessionsPage.nextCursor || isReadingHistory) return
@@ -413,6 +624,14 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
   }, [navigate, refresh, selectedSessionId])
 
   return {
+    response,
+    isCancellingResponse,
+    isRetryingResponse,
+    submitMessage,
+    cancelResponse,
+    retryResponse,
+    shouldAnimateBlock,
+    markBlockPresented,
     selectedSessionId,
     sessionDetail,
     sessionsPage,
@@ -425,7 +644,7 @@ export function useMentorContextProvider(accountEmail: string): MentorContextVal
     isValidatingScope,
     isReadingHistory,
     isReadingMessages,
-    isSubmittingFirstMessage: isCreatingMentorSession,
+    isSubmittingFirstMessage: isCreatingMentorSession || isSubmittingMessage,
     isRenamingSession: isRenamingMentorSession,
     isRemovingSession: isRemovingMentorSession,
     scopeError,
@@ -459,4 +678,48 @@ function isMentorScopeError(error: unknown): boolean {
   return (
     error instanceof Error && /sessão expirou|sessão da conta mudou/i.test(error.message)
   )
+}
+
+function chooseResponseSnapshot(
+  current: MentorResponseSnapshot | null | undefined,
+  incoming: MentorResponseSnapshot | null | undefined,
+): MentorResponseSnapshot | null {
+  if (!current) return incoming ?? null
+  if (!incoming || incoming.lastSequence <= current.lastSequence) return current
+  if (incoming.attemptId !== current.attemptId) return incoming
+  if (!['queued', 'processing'].includes(current.status)) return current
+  if (incoming.status === 'cancelled') return incoming
+  const blockKeys = new Set(incoming.blocks.map((block) => block.blockKey))
+  return {
+    ...incoming,
+    blocks: [
+      ...current.blocks.filter((block) => !blockKeys.has(block.blockKey)),
+      ...incoming.blocks,
+    ].sort((left, right) => left.ordinal - right.ordinal),
+    consultations: [...new Set([...current.consultations, ...incoming.consultations])],
+  }
+}
+function mergeSessionDetail(
+  current: MentorSessionDetail | null,
+  incoming: MentorSessionDetail,
+  isOlderPage = false,
+): MentorSessionDetail {
+  if (!current || current.session.id !== incoming.session.id) return incoming
+  const response = chooseResponseSnapshot(current.response, incoming.response)
+  const pageIds = new Set(incoming.messages.items.map((message) => message.id))
+  const messages = [
+    ...current.messages.items.filter((message) => !pageIds.has(message.id)),
+    ...incoming.messages.items,
+  ].sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+  const nextCursor =
+    isOlderPage || current.messages.items.length <= incoming.messages.items.length
+      ? incoming.messages.nextCursor
+      : current.messages.nextCursor
+  return {
+    ...incoming,
+    response,
+    pendingLearnerMessageId:
+      response?.status === 'completed' ? null : incoming.pendingLearnerMessageId,
+    messages: { items: messages, nextCursor },
+  }
 }

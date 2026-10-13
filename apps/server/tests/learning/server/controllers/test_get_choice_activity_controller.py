@@ -10,6 +10,7 @@ from shifu.app import FastAPIApp
 from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_CLASSIFY_ACTIVITY_ID,
     LOGIC_DECISIONS_COMPETENCY_ID,
+    LOGIC_INITIAL_DIAGNOSTIC_ACTIVITY_IDS,
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
@@ -32,7 +33,11 @@ from shifu.curriculum.core.domain.structures import (
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.learning.core.domain.enums import SkillExperienceStatus
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+    SkillExperienceStatus,
+)
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
@@ -135,6 +140,41 @@ class TestGetChoiceActivityController:
         }
 
         assert progress_ids == logic_competency_ids
+
+    def test_seeded_logic_experience_has_completed_diagnosis_and_learning(self) -> None:
+        seed = build_development_seed()
+        experience = next(
+            item
+            for item in seed.skill_experiences
+            if item.id == SEED_LOGIC_EXPERIENCE_ID
+        )
+        attempts = tuple(
+            item
+            for item in seed.activity_attempts
+            if item.skill_experience_id == SEED_LOGIC_EXPERIENCE_ID
+        )
+        evaluations_by_attempt = {
+            item.attempt_id: item for item in seed.activity_evaluations
+        }
+
+        diagnostic_attempts = tuple(
+            item for item in attempts if item.kind is ActivityAttemptKind.DIAGNOSTIC
+        )
+        learning_attempts = tuple(
+            item for item in attempts if item.kind is ActivityAttemptKind.LEARNING
+        )
+
+        assert experience.status is SkillExperienceStatus.LEARNING
+        assert experience.diagnostic_run_id == 'seed-logic-initial-diagnostic'
+        assert {item.activity_id for item in diagnostic_attempts} == set(
+            LOGIC_INITIAL_DIAGNOSTIC_ACTIVITY_IDS
+        )
+        assert len(learning_attempts) == 2
+        assert all(
+            evaluations_by_attempt[item.id].status is ActivityEvaluationStatus.COMPLETED
+            for item in attempts
+        )
+        assert all(item.grading_snapshot is not None for item in attempts)
 
     def test_seeded_classification_code_question_exposes_zero_and_two_concepts(
         self,

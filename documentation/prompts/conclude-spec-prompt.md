@@ -112,8 +112,8 @@ Use Evaluation Progress and Check Results, rather than adding another acceptance
 matrix. Progress separates implementation from verification and maps CA/RF to
 CI/VM and EV IDs. Manual and Visual VM checks have explicit types and pass
 conditions; baseline checks remain in the same results record. Confirm separate
-current type, lint, complexity and local changed-code coverage dispositions for the
-scoped changes and affected consumer projects. Reuse applicable results;
+current type, lint and complexity dispositions for the scoped changes and affected
+consumer projects. Reuse applicable results;
 configured complexity lint is not
 proof of a quantitative metrics gate, and missing required tooling blocks closure.
 
@@ -156,10 +156,8 @@ or affected selections until required checks pass. Retain unaffected passing pro
 Applicable PR-head CI still executes its actual configured commands independently.
 
 Consume current unit/component, lint, type, architecture, build, integration,
-local changed-code coverage and manual evidence defined by the Spec and repository
-Rules. Use only commands that
-exist in manifests and tooling; never invent a generic checker or claim a
-coverage percentage from a run that did not measure it.
+and manual evidence defined by the Spec and repository Rules. Use only commands
+that exist in manifests and tooling; never invent a generic checker.
 Closure, reviewers, commit and PR workflows reuse that evidence. Additional runs
 require a missing result, changed covered behavior/dependency/fixture/configuration,
 or a concrete unresolved finding. Record skipped or environment-blocked checks

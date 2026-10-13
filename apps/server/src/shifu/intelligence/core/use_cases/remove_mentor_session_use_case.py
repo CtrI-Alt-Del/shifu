@@ -35,5 +35,7 @@ class RemoveMentorSessionUseCase:
             if session is None:
                 raise MentorSessionNotFoundError
 
+            repositories.mentor_response_events.remove_by_session_id(session.id)
+            repositories.mentor_response_attempts.remove_by_session_id(session.id)
             repositories.mentor_messages.remove_by_session_id(session.id)
             repositories.mentor_sessions.remove(session, self._clock_provider.now())

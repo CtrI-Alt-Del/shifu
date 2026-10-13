@@ -1,3 +1,4 @@
+from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -31,3 +32,4 @@ class MentorSessionSchemas:
         session: 'MentorSessionSchemas.Session'
         messages: 'MentorSessionSchemas.MessagesPage'
         pending_learner_message_id: str | None
+        response: MentorResponseSnapshot | None = None

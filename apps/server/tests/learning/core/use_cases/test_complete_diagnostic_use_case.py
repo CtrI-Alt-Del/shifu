@@ -92,6 +92,9 @@ class TestCompleteDiagnosticUseCase:
             goal_id='goal',
             skill_id='skill',
             status=SkillExperienceStatus.DIAGNOSING,
+            created_at=NOW,
+            updated_at=NOW,
+            started_at=NOW,
         )
         self.experience.diagnostic_run_id = RUN_ID
         self.progress = CompetencyProgress(
@@ -177,6 +180,8 @@ class TestCompleteDiagnosticUseCase:
         assert self.experience.completion_summary is not None
         assert self.experience.completion_summary.initial_progress == Decimal('90')
         assert self.experience.completion_summary.final_progress == Decimal('90')
+        assert self.experience.completion_summary.started_at == NOW
+        assert self.experience.completion_summary.completed_at == NOW
         assert self.progress.initial_progress == Decimal('90')
         assert self.progress.current_progress == Decimal('90')
         assert self.progress.coverage_complete is True

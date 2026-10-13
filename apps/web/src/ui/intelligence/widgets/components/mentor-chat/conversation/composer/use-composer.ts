@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, type FormEvent } from 'react'
+import { useLayoutEffect, useRef, type FormEvent, type KeyboardEvent } from 'react'
 
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
-export const useComposer = () => {
+export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   const mentor = useMentorContext()
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -29,15 +29,29 @@ export const useComposer = () => {
     return () => observer.disconnect()
   }, [mentor.draft])
   const hasAcceptedSession = Boolean(mentor.selectedSessionId)
+  const isResponsePending = Boolean(mentor.sessionDetail?.pendingLearnerMessageId)
   const canSend =
-    Boolean(mentor.draft.trim()) &&
-    !mentor.isSubmittingFirstMessage &&
-    !hasAcceptedSession
+    Boolean(mentor.draft.trim()) && !mentor.isSubmittingFirstMessage && !isResponsePending
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (canSend) void mentor.sendFirstMessage()
+    if (canSend) void mentor.sendFirstMessage(surface)
   }
 
-  return { ...mentor, canSend, handleSubmit, hasAcceptedSession, textareaRef }
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return
+
+    event.preventDefault()
+    if (canSend) event.currentTarget.form?.requestSubmit()
+  }
+
+  return {
+    ...mentor,
+    canSend,
+    handleKeyDown,
+    isResponsePending,
+    handleSubmit,
+    hasAcceptedSession,
+    textareaRef,
+  }
 }

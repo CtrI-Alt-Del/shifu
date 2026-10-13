@@ -19,12 +19,18 @@ dependencies = [
     "httpx>=0.28.1",
     "agno>=3.1.2",
     "openai>=3.26.1",
+    "spacy>=3.8,<4",
+    "sentence-transformers>=5,<6",
+    "rank-bm25>=0.2.2,<0.3",
+    "pgvector>=0.4,<0.5",
+    "langfuse>=3,<4",
+    "torch>=2.8",
+    "pt-core-news-sm",
 ]
 
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
-    "coverage[toml]>=7.16,<8",
     "faker>=40.39.0",
     "httpx2>=2.13.1",
     "mutmut>=3.8.0",
@@ -76,9 +82,6 @@ shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'te
 [tool.poe.tasks."test:mutation"]
 cmd = "python scripts/test_mutation.py"
 
-[tool.poe.tasks."test:changed-coverage"]
-cmd = "python scripts/check_changed_coverage.py"
-
 [tool.poe.tasks."test:jobs"]
 cmd = "pytest tests/messaging/inngest/jobs"
 env = { SHIFU_RUN_REAL_INNGEST_TESTS = "1" }
@@ -126,10 +129,6 @@ filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:inngest.*",
 ]
 
-[tool.coverage.run]
-patch = ["subprocess"]
-sigterm = true
-
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -141,4 +140,14 @@ where = ["src"]
 package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
+"shifu.intelligence.ai.data" = ["*.json"]
 "shifu.communication.providers.email.template.generated" = ["*.html", "*.json"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+pt-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

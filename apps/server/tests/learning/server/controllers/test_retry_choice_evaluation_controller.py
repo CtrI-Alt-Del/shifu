@@ -10,8 +10,11 @@ from sqlalchemy import func, select
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
-from shifu.learning.core.domain.enums import CompetencyProgressStatus
+from shifu.learning.core.domain.enums import (
+    ActivityEvaluationStatus,
+    CompetencyProgressStatus,
+    SkillExperienceStatus,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -58,6 +61,8 @@ def application(
     seed = build_development_seed()
     learning_started_at = datetime(2026, 1, 1, tzinfo=UTC)
     for experience in seed.skill_experiences:
+        if experience.status is not SkillExperienceStatus.NOT_STARTED:
+            continue
         experience.start_diagnosis(learning_started_at)
         experience.start_learning(learning_started_at)
     for progress in seed.competency_progresses:

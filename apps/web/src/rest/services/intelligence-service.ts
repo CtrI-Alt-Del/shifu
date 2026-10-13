@@ -1,3 +1,11 @@
+import { AppError } from '@/core/errors/app-error'
+import type { RestStreamClient } from '@/core/shared/interfaces/rest-stream-client'
+import type {
+  MentorContextHint,
+  MentorResponseSnapshot,
+  MentorResponseStatus,
+  SubmitMentorMessageInput,
+} from '@/core/intelligence/mentor-response'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 
 export type MentorSession = {
@@ -31,11 +39,13 @@ export type MentorSessionDetail = {
   session: MentorSession
   messages: MentorMessagesPage
   pendingLearnerMessageId: string | null
+  response?: MentorResponseSnapshot | null
 }
 
 export type CreateMentorSessionInput = {
   submissionKey: string
   firstMessage: string
+  contextHint?: MentorContextHint | null
 }
 
 type MentorSessionDto = {
@@ -69,11 +79,25 @@ type MentorSessionDetailDto = {
   session: MentorSessionDto
   messages: MentorMessagesPageDto
   pending_learner_message_id: string | null
+  response?: MentorResponseSnapshotDto | null
 }
 
+type MentorResponseSnapshotDto = {
+  progress?: MentorResponseSnapshot['progress']
+  attempt_id: string
+  learner_message_id: string
+  status: MentorResponseStatus
+  blocks: { block_key: string; ordinal: number; intent: string | null; content: string }[]
+  consultations: string[]
+  last_sequence: number
+  failure_code: string | null
+}
 export type IntelligenceService = ReturnType<typeof IntelligenceService>
 
-export const IntelligenceService = (restClient: RestClient) => {
+export const IntelligenceService = (
+  restClient: RestClient,
+  streamClient?: RestStreamClient,
+) => {
   const auth = (accessToken: string) => ({
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -106,15 +130,110 @@ export const IntelligenceService = (restClient: RestClient) => {
     return { items: page.items.map(mapMessage), nextCursor: page.next_cursor }
   }
 
+  function mapHint(hint: MentorContextHint | null | undefined) {
+    return hint
+      ? {
+          goal_id: hint.goalId,
+          skill_id: hint.skillId,
+          competency_id: hint.competencyId,
+          material_id: hint.materialId,
+          activity_id: hint.activityId,
+        }
+      : null
+  }
+  function mapSnapshot(snapshot: MentorResponseSnapshotDto): MentorResponseSnapshot {
+    return {
+      attemptId: snapshot.attempt_id,
+      learnerMessageId: snapshot.learner_message_id,
+      status: snapshot.status,
+      blocks: snapshot.blocks.map((block) => ({
+        blockKey: block.block_key,
+        ordinal: block.ordinal,
+        intent: block.intent,
+        content: block.content,
+      })),
+      consultations: snapshot.consultations,
+      lastSequence: snapshot.last_sequence,
+      failureCode: snapshot.failure_code,
+      progress: snapshot.progress ?? null,
+    }
+  }
   function mapDetail(detail: MentorSessionDetailDto): MentorSessionDetail {
     return {
       session: mapSession(detail.session),
       messages: mapMessagesPage(detail.messages),
       pendingLearnerMessageId: detail.pending_learner_message_id,
+      response: detail.response ? mapSnapshot(detail.response) : null,
     }
   }
 
   return {
+    async submitMentorMessage(
+      accessToken: string,
+      sessionId: string,
+      input: SubmitMentorMessageInput,
+    ): Promise<MentorSessionDetail> {
+      const response = await restClient.post<MentorSessionDetailDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/messages`,
+        {
+          submission_key: input.submissionKey,
+          content: input.content,
+          context_hint: mapHint(input.contextHint),
+        },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapDetail(response.body)
+    },
+    async cancelMentorResponse(
+      accessToken: string,
+      sessionId: string,
+      attemptId: string,
+      submissionKey: string,
+    ): Promise<MentorResponseSnapshot> {
+      const response = await restClient.post<MentorResponseSnapshotDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/responses/${encodeURIComponent(attemptId)}/cancel`,
+        { submission_key: submissionKey },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapSnapshot(response.body)
+    },
+    async retryMentorResponse(
+      accessToken: string,
+      sessionId: string,
+      attemptId: string,
+      submissionKey: string,
+    ): Promise<MentorResponseSnapshot> {
+      const response = await restClient.post<MentorResponseSnapshotDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/responses/${encodeURIComponent(attemptId)}/retry`,
+        { submission_key: submissionKey },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapSnapshot(response.body)
+    },
+    async openMentorResponseEvents(
+      accessToken: string,
+      input: { sessionId: string; afterSequence: number },
+      signal: AbortSignal,
+    ): Promise<ReadableStream<Uint8Array>> {
+      if (!streamClient)
+        throw new AppError('Transporte da resposta indisponível.', 'Erro de configuração')
+      const response = await streamClient.getStream(
+        `/intelligence/mentor-sessions/${encodeURIComponent(input.sessionId)}/events`,
+        {
+          headers: {
+            ...auth(accessToken).headers,
+            Accept: 'text/event-stream',
+            'Last-Event-ID': String(input.afterSequence),
+          },
+          signal,
+        },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
     async startPlanning(
       accessToken: string,
       initialIntent: string,
@@ -139,6 +258,7 @@ export const IntelligenceService = (restClient: RestClient) => {
         {
           submission_key: input.submissionKey,
           first_message: input.firstMessage,
+          ...(input.contextHint ? { context_hint: mapHint(input.contextHint) } : {}),
         },
         auth(accessToken),
       )

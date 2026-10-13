@@ -112,7 +112,10 @@ export const SessionHistory = ({
           Suas conversas aceitas aparecerão aqui.
         </p>
       ) : null}
-      <ul className='min-h-0 flex-1 space-y-2 overflow-y-auto' ref={listRef}>
+      <ul
+        className='min-h-0 flex-1 space-y-2 overflow-y-auto [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]'
+        ref={listRef}
+      >
         {sessionsPage.items.map((session) => (
           <SessionItem
             isSelected={session.id === selectedSessionId}

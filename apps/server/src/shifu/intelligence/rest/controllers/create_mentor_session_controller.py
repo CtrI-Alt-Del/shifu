@@ -1,3 +1,9 @@
+from shifu.intelligence.core.domain.structures import MentorContextHint
+from shifu.intelligence.rest.schemas.mentor_context_hint_schema import (
+    MentorContextHintSchema,
+)
+from shifu.shared.core.interfaces import MentorAccessProvider
+from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response as FastApiResponse, status
@@ -20,6 +26,7 @@ class Request(BaseModel):
 
     submission_key: UUID4
     first_message: str = Field(min_length=1)
+    context_hint: MentorContextHintSchema | None = None
 
     @field_validator('first_message')
     @classmethod
@@ -33,6 +40,7 @@ class Response(BaseModel):
     session: MentorSessionSchemas.Session
     messages: MentorSessionSchemas.MessagesPage
     pending_learner_message_id: str | None
+    response: MentorResponseSnapshot | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -61,16 +69,30 @@ class CreateMentorSessionController:
             clock_provider: Annotated[
                 ClockProvider, Depends(IntelligencePipe.get_clock_provider)
             ],
+            access_provider: Annotated[
+                MentorAccessProvider,
+                Depends(IntelligencePipe.get_mentor_access_provider),
+            ],
             title_workflow: Annotated[
                 GenerateMentorTitleWorkflow,
                 Depends(IntelligencePipe.get_generate_mentor_title_workflow),
             ],
         ) -> Response:
             result = CreateMentorSessionUseCase(
-                database, identifier_provider, clock_provider, title_workflow
+                database,
+                identifier_provider,
+                clock_provider,
+                title_workflow,
+                access_provider,
             ).execute(
-                user.account_id, str(request.submission_key), request.first_message
+                user.account_id,
+                str(request.submission_key),
+                request.first_message,
+                MentorContextHint(**request.context_hint.model_dump())
+                if request.context_hint
+                else None,
             )
+            response.headers['Cache-Control'] = 'private, no-store'
             response.status_code = (
                 status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
             )

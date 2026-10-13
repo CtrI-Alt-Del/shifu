@@ -1,3 +1,6 @@
+from shifu.intelligence.database.sqlalchemy.repositories.mentor_embeddings_repository import (
+    SqlalchemyMentorEmbeddingsRepository,
+)
 from collections.abc import Generator
 from contextlib import contextmanager
 
@@ -7,6 +10,8 @@ from sqlalchemy.orm import Session as SqlalchemySession
 from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyMentorMessagesRepository,
+    SqlalchemyMentorResponseAttemptsRepository,
+    SqlalchemyMentorResponseEventsRepository,
     SqlalchemyMentorSessionsRepository,
     SqlalchemyPlanningSessionsRepository,
 )
@@ -42,7 +47,14 @@ class SqlalchemyIntelligenceDatabase:
                     id_provider=self._id_provider,
                 ),
                 mentor_sessions=SqlalchemyMentorSessionsRepository(session),
+                mentor_embeddings=SqlalchemyMentorEmbeddingsRepository(session),
                 mentor_messages=SqlalchemyMentorMessagesRepository(session),
+                mentor_response_attempts=SqlalchemyMentorResponseAttemptsRepository(
+                    session
+                ),
+                mentor_response_events=SqlalchemyMentorResponseEventsRepository(
+                    session
+                ),
             )
             try:
                 yield repositories

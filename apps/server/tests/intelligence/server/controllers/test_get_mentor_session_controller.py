@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -6,7 +7,7 @@ from typing import TYPE_CHECKING, cast
 from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
-from shifu.intelligence.core.domain.entities import MentorMessage
+from shifu.intelligence.core.domain.entities import MentorMessage, MentorSession
 from shifu.intelligence.core.domain.enums import MentorMessageRole
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -14,7 +15,10 @@ from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.pipes import SharedPipe
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
-from tests.intelligence.server.controllers.conftest import MENTOR_ACCOUNT
+from tests.intelligence.server.controllers.conftest import (
+    MENTOR_ACCOUNT,
+    configure_mentor_access,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -204,6 +208,7 @@ class TestGetMentorSessionController:
             },
         )
         other_app = FastAPIApp.register(postgres_database.engine)
+        configure_mentor_access(other_app)
         other_user = AuthenticatedUser(
             account_id='01JOTHER000000000000TEST',
             display_name='Other Learner',
@@ -240,3 +245,66 @@ class TestGetMentorSessionController:
 
         assert response.status_code == 401
         assert response.headers['cache-control'] == 'private, no-store'
+
+    def test_should_preserve_answered_legacy_history_without_response_attempt(
+        self,
+        mentor_client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        identifiers = SystemIdentifierProvider()
+        session_id, learner_id, reply_id = (
+            identifiers.generate(),
+            identifiers.generate(),
+            identifiers.generate(),
+        )
+        created_at = datetime(2025, 1, 1, tzinfo=UTC)
+        question = 'Como organizar meus estudos?'
+        answer = 'Reserve um horário para revisar o que aprendeu.'
+        database = SqlalchemyIntelligenceDatabase(engine=postgres_database.engine)
+        # e633 backfills attempts only for unanswered legacy learners. This
+        # already answered conversation legitimately has no response attempt.
+        with database.transaction() as repositories:
+            repositories.mentor_sessions.add(
+                MentorSession(
+                    id=session_id,
+                    account_id=MENTOR_ACCOUNT.account_id,
+                    title='Conversa anterior',
+                    created_at=created_at,
+                    updated_at=created_at + timedelta(seconds=1),
+                    last_activity_at=created_at + timedelta(seconds=1),
+                ),
+                'legacy:' + session_id,
+                hashlib.sha256(question.encode()).hexdigest(),
+            )
+            repositories.mentor_messages.add(
+                MentorMessage(
+                    id=learner_id,
+                    session_id=session_id,
+                    role=MentorMessageRole.LEARNER,
+                    content=question,
+                    created_at=created_at,
+                    in_reply_to_message_id=None,
+                )
+            )
+            repositories.mentor_messages.add(
+                MentorMessage(
+                    id=reply_id,
+                    session_id=session_id,
+                    role=MentorMessageRole.MENTOR,
+                    content=answer,
+                    created_at=created_at + timedelta(seconds=1),
+                    in_reply_to_message_id=learner_id,
+                )
+            )
+        response = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
+        assert response.status_code == 200
+        assert response.headers['cache-control'] == 'private, no-store'
+        body = response.json()
+        assert body['session']['id'] == session_id
+        assert body['response'] is None
+        assert body['pending_learner_message_id'] is None
+        assert body['messages']['next_cursor'] is None
+        assert [
+            (item['id'], item['role'], item['content'])
+            for item in body['messages']['items']
+        ] == [(learner_id, 'learner', question), (reply_id, 'mentor', answer)]

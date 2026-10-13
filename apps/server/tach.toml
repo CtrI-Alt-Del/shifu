@@ -18,7 +18,7 @@ depends_on = ["shifu.shared"]
 
 [[modules]]
 path = "shifu.composition"
-depends_on = ["shifu.shared", "shifu.identity", "shifu.communication"]
+depends_on = ["shifu.shared", "shifu.identity", "shifu.communication", "shifu.curriculum", "shifu.intelligence"]
 
 [[modules]]
 path = "shifu.learning"
@@ -49,3 +49,7 @@ depends_on = [
   "shifu.intelligence",
   "shifu.rest",
 ]
+
+[[modules]]
+path = "shifu.mentor_indexes"
+depends_on = ["shifu.composition", "shifu.intelligence"]

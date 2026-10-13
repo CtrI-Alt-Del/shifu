@@ -1,0 +1,344 @@
+{
+  "calibration": [
+    {
+      "text": "Defina uma lista na linguagem Python",
+      "answer_id": "python_lists"
+    },
+    {
+      "text": "O que significa variável na linguagem Python",
+      "answer_id": "python_variables"
+    },
+    {
+      "text": "O que é uma tupla na linguagem Python",
+      "answer_id": "python_tuples"
+    },
+    {
+      "text": "Explique primary key em tabelas SQL",
+      "answer_id": "sql_primary_key"
+    },
+    {
+      "text": "Qual é a utilidade da semântica HTML",
+      "answer_id": "html_semantics"
+    },
+    {
+      "text": "O que são as partes da caixa no CSS",
+      "answer_id": "css_box_model"
+    },
+    {
+      "text": "Faça uma lista das minhas notas",
+      "answer_id": null
+    },
+    {
+      "text": "Não quero uma explicação sobre listas, quero meu progresso",
+      "answer_id": null
+    },
+    {
+      "text": "Qual é a chave da minha conta?",
+      "answer_id": null
+    },
+    {
+      "text": "Me dê o código completo da atividade",
+      "answer_id": null
+    },
+    {
+      "text": "Uma lista de compras custa quanto?",
+      "answer_id": null
+    },
+    {
+      "text": "Como consigo uma tupla no banco?",
+      "answer_id": null
+    }
+  ],
+  "held_out": [
+    {
+      "text": "Você pode explicar o tipo list do Python?",
+      "answer_id": "python_lists"
+    },
+    {
+      "text": "Como usar o conceito de variáveis em Python?",
+      "answer_id": "python_variables"
+    },
+    {
+      "text": "Por que uma tupla Python é imutável?",
+      "answer_id": "python_tuples"
+    },
+    {
+      "text": "Qual a função de uma primary key no SQL?",
+      "answer_id": "sql_primary_key"
+    },
+    {
+      "text": "Me explique elementos semânticos do HTML",
+      "answer_id": "html_semantics"
+    },
+    {
+      "text": "Quais partes compõem o box model CSS?",
+      "answer_id": "css_box_model"
+    },
+    {
+      "text": "Liste minhas conquistas em Python",
+      "answer_id": null
+    },
+    {
+      "text": "Não explique variáveis; diga a minha nota",
+      "answer_id": null
+    },
+    {
+      "text": "Qual é a senha da minha conta?",
+      "answer_id": null
+    },
+    {
+      "text": "Resolva completamente o meu diagnóstico",
+      "answer_id": null
+    },
+    {
+      "text": "O preço de uma caixa de papelão",
+      "answer_id": null
+    },
+    {
+      "text": "Qual a previsão do tempo?",
+      "answer_id": null
+    }
+  ],
+  "intent_calibration": [
+    {
+      "text": "O que significa variável na linguagem Python",
+      "intents": ["explain_concept"]
+    },
+    {
+      "text": "Dê apenas uma pista para resolver meu exercício",
+      "intents": ["request_hint"]
+    },
+    {
+      "text": "Quero consultar quanto já avancei no meu Objetivo",
+      "intents": ["consult_progress"]
+    },
+    {
+      "text": "Indique materiais e exercícios que posso acessar",
+      "intents": ["find_materials_activities"]
+    },
+    {
+      "text": "Quero entender o feedback da minha avaliação oficial",
+      "intents": ["explain_assessment"]
+    },
+    {
+      "text": "Busque Habilidades sobre programação no catálogo",
+      "intents": ["search_curriculum"]
+    },
+    {
+      "text": "Consulte meus pontos XP e conquistas",
+      "intents": ["consult_gamification"]
+    },
+    {
+      "text": "Estou desanimado e preciso refletir sobre meus estudos",
+      "intents": ["learning_conversation"]
+    },
+    {
+      "text": "Qual é a previsão do tempo?",
+      "intents": []
+    },
+    {
+      "text": "Quem ganhou a copa?",
+      "intents": []
+    }
+  ],
+  "intent_calibration_scores": [
+    [
+      "O que significa variável na linguagem Python",
+      ["explain_concept"],
+      {
+        "explain_concept": 0.8959634146378737,
+        "request_hint": 0.8074598214321598,
+        "consult_progress": 0.8233280710268664,
+        "find_materials_activities": 0.8511525058744978,
+        "explain_assessment": 0.817701605506361,
+        "search_curriculum": 0.86085236644734,
+        "consult_gamification": 0.8076196249703094,
+        "learning_conversation": 0.8062506689332767
+      }
+    ],
+    [
+      "Dê apenas uma pista para resolver meu exercício",
+      ["request_hint"],
+      {
+        "explain_concept": 0.8550784471045332,
+        "request_hint": 0.9013425674716856,
+        "consult_progress": 0.8765437585133208,
+        "find_materials_activities": 0.8825755783157251,
+        "explain_assessment": 0.8821994061837198,
+        "search_curriculum": 0.8738684483146552,
+        "consult_gamification": 0.8487865990638642,
+        "learning_conversation": 0.8599888839686978
+      }
+    ],
+    [
+      "Quero consultar quanto já avancei no meu Objetivo",
+      ["consult_progress"],
+      {
+        "explain_concept": 0.8501213045142011,
+        "request_hint": 0.8666691940218763,
+        "consult_progress": 0.9142350318388202,
+        "find_materials_activities": 0.8695160059754016,
+        "explain_assessment": 0.8828600049698385,
+        "search_curriculum": 0.8766793570321907,
+        "consult_gamification": 0.8695304686173444,
+        "learning_conversation": 0.8789581735461549
+      }
+    ],
+    [
+      "Indique materiais e exercícios que posso acessar",
+      ["find_materials_activities"],
+      {
+        "explain_concept": 0.8447826456567971,
+        "request_hint": 0.8647874748766428,
+        "consult_progress": 0.8656540807852415,
+        "find_materials_activities": 0.9161549837505771,
+        "explain_assessment": 0.8732111291165843,
+        "search_curriculum": 0.8682069647533442,
+        "consult_gamification": 0.8471471581170483,
+        "learning_conversation": 0.8518477344288014
+      }
+    ],
+    [
+      "Quero entender o feedback da minha avaliação oficial",
+      ["explain_assessment"],
+      {
+        "explain_concept": 0.869959368642916,
+        "request_hint": 0.8530721077044626,
+        "consult_progress": 0.8642861874566191,
+        "find_materials_activities": 0.8592523175276106,
+        "explain_assessment": 0.923478547014436,
+        "search_curriculum": 0.8608271058816801,
+        "consult_gamification": 0.8621824900028283,
+        "learning_conversation": 0.8705930965224797
+      }
+    ],
+    [
+      "Busque Habilidades sobre programação no catálogo",
+      ["search_curriculum"],
+      {
+        "explain_concept": 0.8504742451886291,
+        "request_hint": 0.8387255845601498,
+        "consult_progress": 0.8474148460635248,
+        "find_materials_activities": 0.8781979794076267,
+        "explain_assessment": 0.857979884820736,
+        "search_curriculum": 0.9039884499181119,
+        "consult_gamification": 0.8211508867802257,
+        "learning_conversation": 0.8417547002651138
+      }
+    ],
+    [
+      "Consulte meus pontos XP e conquistas",
+      ["consult_gamification"],
+      {
+        "explain_concept": 0.8562124229201418,
+        "request_hint": 0.8591454152721655,
+        "consult_progress": 0.8865031148229406,
+        "find_materials_activities": 0.8754443363718538,
+        "explain_assessment": 0.8813330823526409,
+        "search_curriculum": 0.8733462843547803,
+        "consult_gamification": 0.8983867002588047,
+        "learning_conversation": 0.8629184986965589
+      }
+    ],
+    [
+      "Estou desanimado e preciso refletir sobre meus estudos",
+      ["learning_conversation"],
+      {
+        "explain_concept": 0.8434194527191974,
+        "request_hint": 0.8644992083107826,
+        "consult_progress": 0.881942690412733,
+        "find_materials_activities": 0.8695248387408466,
+        "explain_assessment": 0.8734448563278161,
+        "search_curriculum": 0.846760812758623,
+        "consult_gamification": 0.8648027804682592,
+        "learning_conversation": 0.8963987052429259
+      }
+    ],
+    [
+      "Qual é a previsão do tempo?",
+      [],
+      {
+        "explain_concept": 0.8448733333302083,
+        "request_hint": 0.844923162166862,
+        "consult_progress": 0.8521141349721324,
+        "find_materials_activities": 0.8408668692771395,
+        "explain_assessment": 0.8621694920580103,
+        "search_curriculum": 0.8377993390815085,
+        "consult_gamification": 0.8510623830123881,
+        "learning_conversation": 0.8431409534136263
+      }
+    ],
+    [
+      "Quem ganhou a copa?",
+      [],
+      {
+        "explain_concept": 0.7995888385487628,
+        "request_hint": 0.7956005817666211,
+        "consult_progress": 0.8135345015162756,
+        "find_materials_activities": 0.7954330462838031,
+        "explain_assessment": 0.8197670364795233,
+        "search_curriculum": 0.7936316240392529,
+        "consult_gamification": 0.8244128473019752,
+        "learning_conversation": 0.7819602471272349
+      }
+    ]
+  ],
+  "faq_calibration": {
+    "procedure": "fixed threshold cosine >= 0.90 and margin >= 0.025 evaluated exclusively on calibration",
+    "correct_selected": 6,
+    "selected": 6,
+    "total": 12,
+    "abstained": 6,
+    "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3"
+  },
+  "pipeline_held_out": [
+    {
+      "text": "No Shifu, a que se refere o nome Objetivo quando organizo aquilo que pretendo aprender?",
+      "answer_id": "shifu_goal"
+    },
+    {
+      "text": "Qual é a função do espaço chamado Objetivo para reunir meus estudos no Shifu?",
+      "answer_id": "shifu_goal"
+    },
+    {
+      "text": "Quando o Shifu fala em Habilidade, que unidade de aprendizagem está descrevendo?",
+      "answer_id": "shifu_skill"
+    },
+    {
+      "text": "O termo Habilidade no Shifu corresponde a que tipo de capacidade a desenvolver?",
+      "answer_id": "shifu_skill"
+    },
+    {
+      "text": "Para que o Shifu verifica meu conhecimento na etapa diagnóstica inicial?",
+      "answer_id": "shifu_diagnostic"
+    },
+    {
+      "text": "Que finalidade tem a avaliação de diagnóstico que antecede a aprendizagem no Shifu?",
+      "answer_id": "shifu_diagnostic"
+    },
+    {
+      "text": "No Shifu, o progresso de uma Habilidade em um Objetivo vale também para a mesma Habilidade em outro Objetivo?",
+      "answer_id": "shifu_experience_independence"
+    },
+    {
+      "text": "Se estudo uma Habilidade em dois Objetivos do Shifu, os registros de diagnóstico e prática ficam separados?",
+      "answer_id": "shifu_experience_independence"
+    },
+    {
+      "text": "Você pode explicar o significado disso?",
+      "answer_id": null
+    },
+    {
+      "text": "Não explique o que é uma Habilidade do Shifu. Quero uma sugestão de título para um conto de ficção científica.",
+      "answer_id": null
+    },
+    {
+      "text": "Na lógica de Prolog, qual é a diferença entre um objetivo e uma cláusula?",
+      "answer_id": null
+    },
+    {
+      "text": "O diagnóstico do meu exame médico permite concluir que preciso de cirurgia?",
+      "answer_id": null
+    }
+  ]
+}

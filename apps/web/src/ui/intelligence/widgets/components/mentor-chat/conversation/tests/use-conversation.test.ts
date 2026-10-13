@@ -1,154 +1,125 @@
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-} from '@testing-library/react'
-import { createElement } from 'react'
+import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
+import type { MentorMessage } from '@/rest/services/intelligence-service'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+
 import { useConversation } from '../use-conversation'
 
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
+
 const useMentorContextMock = vi.mocked(useMentorContext)
 
 describe('useConversation', () => {
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+  })
 
-  it('requests older messages when the reading position reaches the top', () => {
-    const loadOlderMessages = vi.fn()
-    useMentorContextMock.mockReturnValue({
-      selectedSessionId: 'session-1',
+  it('keeps the live response as the only presentation for its persisted reply', () => {
+    const response: MentorResponseSnapshot = {
+      attemptId: 'attempt',
+      learnerMessageId: 'learner',
+      status: 'completed',
+      blocks: [
+        {
+          blockKey: 'block',
+          ordinal: 0,
+          intent: null,
+          content: 'Resposta aprovada.',
+        },
+      ],
+      consultations: [],
+      lastSequence: 2,
+      failureCode: null,
+    }
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Pergunta atual',
+      inReplyToMessageId: null,
+      createdAt: '',
+    }
+    const currentReply: MentorMessage = {
+      id: 'current-reply',
+      sessionId: 'session',
+      role: 'mentor',
+      content: 'Resposta aprovada.',
+      inReplyToMessageId: 'learner',
+      createdAt: '',
+    }
+    const olderReply: MentorMessage = {
+      id: 'older-reply',
+      sessionId: 'session',
+      role: 'mentor',
+      content: 'Resposta anterior.',
+      inReplyToMessageId: 'older-learner',
+      createdAt: '',
+    }
+    const context = {
+      selectedSessionId: 'session',
       sessionDetail: {
         session: {
-          id: 'session-1',
-          title: 'Título',
+          id: 'session',
+          title: 'Conversa',
           createdAt: '',
           updatedAt: '',
           lastActivityAt: '',
         },
-        messages: { items: [], nextCursor: 'older-page' },
-        pendingLearnerMessageId: null,
-      },
-      isReadingMessages: false,
-      loadOlderMessages,
-    } as unknown as MentorContextValue)
-    const { result } = renderHook(() => useConversation())
-    const element = document.createElement('div')
-    Object.defineProperty(element, 'scrollTop', { value: 0, writable: true })
-    Object.defineProperty(element, 'scrollHeight', { value: 500 })
-    result.current.scrollRef.current = element
-    act(() => result.current.handleScroll())
-    expect(loadOlderMessages).toHaveBeenCalledOnce()
-    element.scrollTop = 100
-    act(() => result.current.handleScroll())
-    expect(loadOlderMessages).toHaveBeenCalledOnce()
-  })
-
-  it('scrolls to the latest message and preserves position when older messages arrive', () => {
-    const loadOlderMessages = vi.fn()
-    const firstDetail = {
-      session: {
-        id: 'session-1',
-        title: 'Título',
-        createdAt: '',
-        updatedAt: '',
-        lastActivityAt: '',
-      },
-      messages: {
-        items: [
-          {
-            id: 'new',
-            role: 'mentor',
-            content: 'Atual',
-            createdAt: '2026-10-08T12:01:00Z',
-          },
-        ],
-        nextCursor: 'older',
-      },
-      pendingLearnerMessageId: null,
-    }
-    const firstValue = {
-      selectedSessionId: 'session-1',
-      sessionDetail: firstDetail,
-      isReadingMessages: false,
-      loadOlderMessages,
-    } as unknown as MentorContextValue
-    useMentorContextMock.mockReturnValue(firstValue)
-    const ScrollHarness = () => {
-      const { handleScroll, scrollRef } = useConversation()
-      return createElement('div', {
-        'data-testid': 'conversation-scroll',
-        onScroll: handleScroll,
-        ref: (element: HTMLDivElement | null) => {
-          if (element && !Object.hasOwn(element, 'scrollHeight')) {
-            Object.defineProperty(element, 'scrollHeight', {
-              configurable: true,
-              value: 500,
-            })
-          }
-          scrollRef.current = element
+        messages: {
+          items: [learnerMessage, currentReply, olderReply],
+          nextCursor: null,
         },
-      })
-    }
-    const view = render(createElement(ScrollHarness))
-    const element = screen.getByTestId('conversation-scroll')
-    expect(element.scrollTop).toBe(500)
-    element.scrollTop = 0
-    fireEvent.scroll(element)
-    expect(loadOlderMessages).toHaveBeenCalledOnce()
-
-    const expandedDetail = {
-      ...firstDetail,
-      messages: {
-        items: [
-          {
-            id: 'old',
-            role: 'learner',
-            content: 'Anterior',
-            createdAt: '2026-10-08T12:00:00Z',
-          },
-          ...firstDetail.messages.items,
-        ],
-        nextCursor: null,
+        pendingLearnerMessageId: null,
+        response,
       },
-    }
-    useMentorContextMock.mockReturnValue({
-      ...firstValue,
-      sessionDetail: expandedDetail,
-    } as unknown as MentorContextValue)
-    Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 700 })
-    view.rerender(createElement(ScrollHarness))
-    expect(element.scrollTop).toBe(200)
-    view.unmount()
+      response,
+      isReadingMessages: false,
+      loadOlderMessages: vi.fn(),
+    } as unknown as MentorContextValue
+    useMentorContextMock.mockReturnValue(context)
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(result.current.visibleMessages).toEqual([learnerMessage, olderReply])
   })
 
-  it('uses the browser scrollTo method when returning to a new draft', () => {
-    const scrollTo = vi.fn()
-    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
-      configurable: true,
-      value: scrollTo,
-    })
-    useMentorContextMock.mockReturnValue({
-      selectedSessionId: null,
-      sessionDetail: null,
-    } as unknown as MentorContextValue)
-    const ScrollHarness = () => {
-      const { scrollRef } = useConversation()
-      return createElement('div', { ref: scrollRef })
+  it('keeps persisted replies in the history when no response block is being presented', () => {
+    const reply: MentorMessage = {
+      id: 'reply',
+      sessionId: 'session',
+      role: 'mentor',
+      content: 'Resposta anterior.',
+      inReplyToMessageId: 'learner',
+      createdAt: '',
     }
-    const view = render(createElement(ScrollHarness))
-    expect(scrollTo).toHaveBeenCalledWith({ top: 0 })
-    view.unmount()
-    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
-      configurable: true,
-      value: undefined,
-    })
+    const context = {
+      selectedSessionId: 'session',
+      sessionDetail: {
+        session: {
+          id: 'session',
+          title: 'Conversa',
+          createdAt: '',
+          updatedAt: '',
+          lastActivityAt: '',
+        },
+        messages: { items: [reply], nextCursor: null },
+        pendingLearnerMessageId: null,
+        response: null,
+      },
+      response: null,
+      isReadingMessages: false,
+      loadOlderMessages: vi.fn(),
+    } as unknown as MentorContextValue
+    useMentorContextMock.mockReturnValue(context)
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(result.current.visibleMessages).toEqual([reply])
   })
 })

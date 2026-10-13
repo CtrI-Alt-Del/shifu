@@ -11,7 +11,7 @@ import { useRootLayout } from './use-root-layout'
 export type RootLayoutProps = PropsWithChildren
 
 export const RootLayout = ({ children }: RootLayoutProps) => {
-  const { account, isPublic } = useRootLayout()
+  const { account, isHydrated, isPublic, mentorContextHint } = useRootLayout()
   const [queryClient] = useState(() => new QueryClient())
 
   return (
@@ -19,11 +19,17 @@ export const RootLayout = ({ children }: RootLayoutProps) => {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body data-hydrated={isHydrated}>
         <QueryClientProvider client={queryClient}>
           <RestContextProvider>
             <AuthContextProvider>
-              {isPublic ? children : <AppLayout account={account}>{children}</AppLayout>}
+              {isPublic ? (
+                children
+              ) : (
+                <AppLayout account={account} mentorContextHint={mentorContextHint}>
+                  {children}
+                </AppLayout>
+              )}
             </AuthContextProvider>
           </RestContextProvider>
         </QueryClientProvider>

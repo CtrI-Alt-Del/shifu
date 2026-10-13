@@ -103,7 +103,10 @@ class TestGetGoalDetailController:
             (SEED_GRAPH_HTML_CSS_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
             (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_APIS_SKILL_ID),
         }
-        assert all(skill['status'] == 'not-started' for skill in body['skills'])
+        assert {skill['skillId']: skill['status'] for skill in body['skills']} == {
+            SEED_SKILL_LOGIC_ID: 'learning',
+            **dict.fromkeys(SEED_GRAPH_SKILL_IDS, 'not-started'),
+        }
         with postgres_database.engine.connect() as connection:
             assert (
                 connection.scalar(

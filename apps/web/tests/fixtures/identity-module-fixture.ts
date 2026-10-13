@@ -66,7 +66,12 @@ export const test = base.extend<IdentityModuleFixtures>({
 
     try {
       await page.goto('/login/')
-      await page.waitForFunction(() => '__TSR_ROUTER__' in window)
+      await page.waitForFunction(() => '__TSR_ROUTER__' in window, null, {
+        timeout: 30_000,
+      })
+      await page.waitForFunction(() => document.body.dataset.hydrated === 'true', null, {
+        timeout: 30_000,
+      })
       await use(page)
     } finally {
       await page.unroute('**/_serverFn/**')

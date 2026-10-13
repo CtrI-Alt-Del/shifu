@@ -15,6 +15,9 @@ def load_mentor_detail(
 
         return MentorSessionDetail(
             session=session,
+            response=repositories.mentor_response_events.snapshot(
+                account_id, session_id
+            ),
             messages=repositories.mentor_messages.find_many(
                 account_id, session_id, cursor
             ),

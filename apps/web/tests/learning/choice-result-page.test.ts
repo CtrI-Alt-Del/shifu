@@ -198,7 +198,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
 test('renders mixed official details as independent keyboard-accessible disclosures', async ({
   authenticatedPage,
   bff,
-}) => {
+}, testInfo) => {
   await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
   const mixedActivity = {
     ...activity,
@@ -282,6 +282,10 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   })
   const choiceDisclosure = choiceSummary.locator('..')
   const codeDisclosure = codeSummary.locator('..')
+  const resultContent = authenticatedPage
+    .getByRole('main')
+    .filter({ has: choiceSummary })
+    .last()
 
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
   await expect(
@@ -300,8 +304,8 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   await expect(
     authenticatedPage.getByText('console.log(Number(input) * 2)'),
   ).not.toBeVisible()
-  await authenticatedPage.getByRole('main').nth(2).screenshot({
-    path: '/tmp/shifu-choice-result-default-desktop.png',
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-default-desktop.png'),
   })
 
   await codeSummary.focus()
@@ -322,8 +326,8 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   await expect(authenticatedPage.getByText('stdin · nível 75')).toBeVisible()
   await expect(authenticatedPage.getByText('Somente leitura')).toBeVisible()
   await expect(authenticatedPage.getByText('Terminal')).toHaveCount(0)
-  await authenticatedPage.getByRole('main').nth(2).screenshot({
-    path: '/tmp/shifu-choice-result-expanded-desktop.png',
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-expanded-desktop.png'),
   })
 
   await codeSummary.focus()
@@ -352,9 +356,9 @@ test('renders mixed official details as independent keyboard-accessible disclosu
     if (bounds === null) throw new Error('A result summary score must be rendered')
     expect(bounds.labelBottom).toBeLessThanOrEqual(bounds.scoreTop)
   }
-  await authenticatedPage
-    .locator('main > main')
-    .screenshot({ path: '/tmp/shifu-choice-result-expanded-mobile-current.png' })
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-expanded-mobile.png'),
+  })
 })
 
 test.describe('ChoiceResultPage route coverage', () => {

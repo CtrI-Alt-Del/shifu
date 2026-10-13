@@ -37,7 +37,9 @@ test.describe('ResetPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.resetPassword}/?token=${validToken}`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await expect(page).toHaveURL(/\/reset-password\/?$/)
     await expect(page.getByLabel('Nova senha', { exact: true })).toBeVisible()
     expect(statusRequestBody).toEqual({ token: validToken })

@@ -16,15 +16,32 @@ and Goal Planner own their agents, tools, output schemas, prompts, and workflows
 
 ```text
 apps/server/src/shifu/intelligence/ai/
-├── classical/
-│   └── sklearn/
-└── generative/
-    └── agno/
-        ├── agents/
-        ├── outputs/
-        ├── tools/
-        └── workflows/
+├── agno/
+│   ├── agents/
+│   ├── outputs/
+│   ├── tools/                 only when model-directed tools are required
+│   └── workflows/
+└── data/                      capability-owned curated corpora/manifests
 ```
+
+Do not introduce `classical` or `generative` directory levels in new AI code.
+Technology-specific NLP adapters belong under Intelligence `providers`, for example:
+
+```text
+intelligence/providers/
+├── text_preprocessing/spacy/
+├── retrieval/bm25/
+├── intent_classification/embeddings/
+├── embeddings/sentence_transformers/
+└── mentor_review_provider/openrouter/
+```
+
+Each adapter implements a narrow Core port and translates technology-specific behavior.
+Routing and application policy remain owned by Core, even when a routing provider
+supplies a typed decision. Existing implementations in the previous layout remain
+compatible; migrating them is a separately scoped refactor, not an incidental change.
+Tools are optional: prepared authorized context may be sufficient for an agent.
+Introduce tools only for an approved capability needing model-directed operations.
 
 Shared model selection, credentials, and reusable provider construction belong to the
 provider or composition boundary. Feature prompts and capability-specific orchestration
@@ -281,7 +298,7 @@ receives only the protocol.
 
 ```text
 intelligence/core/interfaces/                  public workflow contracts
-intelligence/ai/generative/agno/               private implementations
+intelligence/ai/agno/               private implementations
 intelligence/pipes/                            FastAPI dependency composition
 intelligence/rest/controllers/                 protocol consumers
 intelligence/messaging/jobs/                   durable protocol consumers
@@ -399,38 +416,58 @@ private tool arguments, unrelated learner context, or unrestricted model respons
 Evaluation datasets and traces follow the source data's access, retention, and deletion
 requirements.
 
-## Classical NLP remains reproducible
+## NLP and semantic indexes remain reproducible
 
-TF-IDF, cosine similarity, and scikit-learn classifiers live under
-`intelligence/ai/classical/sklearn`. Persist or version the vocabulary, preprocessing,
-model artifact, thresholds, and training-data identity required to reproduce results.
+Text preprocessing, embeddings, lexical/semantic retrieval, and intent classifiers
+are technology-named providers implementing typed Core contracts. This applies to
+spaCy, Sentence Transformers, BM25, TF-IDF and scikit-learn; no particular library
+is mandatory for every capability. Version the corpus, preprocessing, model revision,
+dimensions, vocabulary/artifact where relevant, and calibrated thresholds needed to
+reproduce results. Similarity and ranking are not authorization or calibrated
+probabilities by themselves.
 
-Training and reindexing run asynchronously. Request handlers may query a ready artifact
-but never train a model or rebuild an index synchronously. Agno workflows consume
-classical NLP results only through typed contracts.
+Embedding generation belongs to a provider. Persistent embedding records and index
+version queries belong to an owning Core repository port and its database adapter;
+SQL/pgvector must not move into a provider or Agno workflow. A shared index capability
+may use one typed repository across indexed entity kinds when operations/lifecycle
+are shared. Records reference source IDs, kinds and compatible versions; source
+entities remain authoritative in their own modules. Separate repositories require
+distinct persistence contracts, not merely a different source entity name. Eligibility
+must be enforced before ranked result limits when the capability requires it.
 
-## Tests follow the AI boundary
+Training and corpus reindexing use a dedicated background or preparation path outside
+request handling. Requests may generate query embeddings and search a ready index;
+they never train or rebuild the corpus synchronously. Agno consumes NLP results only
+through typed contracts. An incompatible index must not silently match new source
+content against stale vectors.
 
-The agent/tool/workflow test requirements below apply when a feature uses
-Agno. For a typed Jev provider, validate question construction, response
-mapping and failure translation through its consuming use case and composed
-job/controller boundaries, following the Provider Layer prohibition on
-provider-owned test files.
+## Tests follow the consuming execution boundary
 
-Keep focused agent, tool, output-schema, and workflow tests below the Intelligence AI
-package. Use-case tests mock core workflow protocols. Tool tests mock injected use cases
-or read contracts. Workflow tests use deterministic model and tool doubles to verify:
+Use-case unit tests mock Core workflow/provider/repository protocols and verify
+business decisions. Provider and persistence adapters never own dedicated test files.
+For asynchronous AI/NLP capabilities, prove concrete agents, structured outputs,
+workflows and local NLP adapters through the registered Inngest job integration path,
+following Job Testing Rules. Do not add parallel agent/output/workflow/NLP suites or
+call workflow/agent internals directly to duplicate that job proof. Synchronous
+capabilities use their composed controller boundary instead. Existing dedicated AI
+suites are legacy evidence; changing them requires a scoped migration.
 
-- structured input and output contracts;
-- agent instructions and allowed tools;
-- step order, branches, parallel joins, and review-loop limits;
-- authorization-context minimization and user isolation;
-- timeout, cancellation, quota, retry, and typed error behavior;
-- suppression of prompts, tool traces, and hidden reasoning from public output.
+Consumer integration tests retain the relevant matrices:
 
-Provider behavior remains covered through the consuming workflow or use-case boundary;
-providers do not own dedicated test files. Real-model tests are opt-in, never the only
-coverage, and never use production data.
+- structured input/output, malformed outputs, and allowed tools;
+- step order, branches, parallel joins, and bounded review loops;
+- authorized context minimization and account isolation;
+- timeout, cancellation, quota, retry and typed failures;
+- suppression of prompts, hidden reasoning and raw tool/provider output;
+- for retrieval: paraphrases, negatives, multiple/unknown intents, eligibility,
+  duplicate candidates, incompatible versions and calibrated acceptance/abstention.
+
+Use real local NLP models/indexes and database adapters where they are under test.
+Control external inference/review through endpoint doubles or emulators at the
+transport boundary; do not replace the workflow with a pre-approved result and claim
+its behavior was verified. Observe persisted/public effects and captured external
+interactions through the consumer boundary. Real remote-model checks are opt-in,
+never the only proof, and never use production data.
 
 ## Review checklist
 

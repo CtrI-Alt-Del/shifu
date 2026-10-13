@@ -200,9 +200,6 @@ After all implementation streams and generated artifacts are integrated:
    when lint and configured complexity rules share a command. Missing required
    quantitative complexity tooling is Blocked, never inferred passing from lint.
    One designated runner in the main task owns integration commands/results.
-   Measure local changed-code coverage for eligible production Web/Server files using
-   related tests under [Tooling](../tooling.md#changed-code-coverage), recording
-   per-file statements/functions/lines/branches and the actual selection.
 4. Run the contracted affected integration files/scenarios against the integrated
    candidate. Use actual commands with exact selections and show intended tests
    ran, including registered Inngest functions where required. Select tests only
@@ -270,8 +267,8 @@ this correction loop. Do not silently reduce acceptance or update external PRDs.
 Follow the seven-section [Evaluation template](../templates/sdd/evaluation.md).
 Progress has one row per CA with separate Implementation (Pending/Partial/Complete)
 and Verification (Pending/Partial/Passed/Failed/Blocked/Stale), mapped checks/evidence
-and remaining work. Check Results includes baseline and changed-code coverage
-checks and uses Pending, Passed, Failed, Blocked, Stale or Not applicable, with
+and remaining work. Check Results includes baseline checks and uses Pending,
+Passed, Failed, Blocked, Stale or Not applicable, with
 EV IDs, exact procedures,
 actual test selection/counts, expected/observed outcomes, candidate/date,
 environment/fixtures, artifact paths and limits. Record explicit Manual/Visual
