@@ -3,7 +3,7 @@
 Profile: light
 Plan: `.specs/features/shifu-105-mentor-dictation/plan.md`
 
-34 critérios de aceitação ativos. C34 foi removido por solicitação explícita do usuário na revision9; IDs posteriores preservados para rastreabilidade histórica. Quatro gates de tipos/lint/arquitetura/build permanecem. Cada Proof é obrigação planejada, não resultado executado. Nenhum arquivo de áudio integra a entrega.
+35 critérios de aceitação ativos (AC1–AC35). O check C34, referente às seis amostras de qualidade, foi removido por solicitação explícita do usuário na revision9; C35 e C40 continuam ativos e verificam AC34 (instalação somente por gesto explícito) e AC35 (aviso de processamento em nuvem). Quatro gates de tipos/lint/arquitetura/build permanecem. Cada Proof é obrigação planejada, não resultado executado. Nenhum arquivo de áudio integra a entrega.
 
 ## Checks
 

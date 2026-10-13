@@ -10,12 +10,12 @@ Rev9 removes the six-sample quality criterion at the user's explicit request. Cu
 
 ## Handoff
 
-**Feature**: shifu-105-mentor-dictation, plano revision9.
-**Where**: plano revision9 aprovado; C34 retirado por pedido explícito; checks ativos restantes aguardam revalidação independente. Implementação no hook compartilhado e contexto/compositor existentes.
-**In progress**: nenhuma implementação pendente. Candidate feature code commit fece469; 39 checks ativos após a revisão9, revalidação independente em andamento.
-**Next step**: concluir a revalidação independente dos 39 checks atuais e confirmar o completion gate. Para rollout do corpus FAQ, preparar novo índice pelo procedimento existente sem reescrever índice ativo compartilhado automaticamente.
-**Blockers**: a verificação da Spec passou, mas o PRD Intelligence v8 agora condiciona reconhecimento browser-managed à elegibilidade ZDR do provedor. O usuário esclareceu que essa elegibilidade está fora do escopo da Spec; a implementação não comprova ZDR. Registrar e reconciliar a divergência com a autoridade do PRD antes de declarar alinhamento do PR.
-**Uncommitted**: .specs/features/shifu-105-mentor-dictation/STATE.md and checks.md atualizados após verificação; verification.md, lessons.json e LESSONS.md locais. Código/testes da feature integralmente commitados. design/shifu.pen preexistente preservado e excluído de staging. Nenhuma operação Pencil de escrita.
+**Feature**: shifu-105-mentor-dictation, plano revision10.
+**Where**: plano revision10 reconciliado com Intelligence PRD v9; C34 e a avaliação de seis amostras seguem retirados por pedido explícito. O critério de aviso de processamento em nuvem permanece ativo. Implementação no hook compartilhado e contexto/compositor existentes.
+**In progress**: nenhuma implementação pendente. Candidate feature code commit fece469; 39 checks ativos aprovados em fca6445 e relatório verificado em e842217.
+**Next step**: criar commit documental escopado, publicar/atualizar um único PR e registrar CI/review do head atual.
+**Blockers**: nenhum bloqueio de implementação. A elegibilidade ZDR do provedor de reconhecimento gerenciado pelo navegador está fora do escopo desta feature, conforme decisão do usuário e Intelligence PRD v9. RP-13 permanece aplicável à inferência de IA fornecida pelo Shifu.
+**Uncommitted**: alterações locais necessárias à revisão10 e avaliação em `documentation/features/intelligence/mentor-dictation/evaluation.md`. `design/shifu.pen` e a exclusão de `.specs/STATE.md` são alterações preexistentes e ficam fora do commit. Nenhuma operação Pencil de escrita.
 **Branch**: feat/shifu-105.
 **Feature base**: c2adb6ad85d35f7ddd5cb8eb35754791f10ef5df.
 **Sessions/ports**: API7777 (exec34832), web7000 (exec62328) e CLI shifu105 encerrados após verificação. Docker compartilhado preservado. Nenhum evento Inngest emitido; apenas registro automático do Dev Server durante execução da API. Auth state e capturas locais ignorados, nunca stageados. Log de relay da tarefa reduzido a início/fim após encerrar processo, com tamanho original registrado.
@@ -23,7 +23,7 @@ Rev9 removes the six-sample quality criterion at the user's explicit request. Cu
 ### Working evidence
 
 - Repositório começou limpo; .codegraph/ existe. Não há .specs anterior nem store de lessons. Nenhum prompt de documentation/prompts foi lido/aplicado.
-- Jira12615/SHIFU-105 e PRD83099649v7 completos lidos via Atlassian Shifu, cloudId b02dca9c-1d01-40c3-bef0-85720330145e; PRD relido integralmente após atualização para v8. Política100106241v4 lida completa. Nenhuma mutação externa além da atualização autorizada do PRD.
+- Jira12615/SHIFU-105 e PRD83099649v9 completos lidos via Atlassian Shifu, cloudId b02dca9c-1d01-40c3-bef0-85720330145e. Política100106241v4 lida completa. PRD v9 mantém a divulgação do processamento gerenciado pelo navegador e remove a exigência de elegibilidade ZDR específica para esse modo.
 - CodeGraph `Mentor page FAB composer send message draft attachments conversation lifecycle transcription audio speech provider` e `useComposer useMentorContextProvider MentorContextValue useMentorPage useMentorFab MentorChat Conversation`: Composer compartilhado, microfone/anexos desabilitados, rascunho sem anexos.
 - CodeGraph sobre provider hook/sendFirstMessage/startNewConversation/selectSession/closePanel e caminhos de autenticação: seleção e callback têm detailGeneration; fechar FAB preserva rascunho; troca de conta remonta contexto; uma revisão de rascunho própria é necessária.
 - CodeGraph `transcription audio speech recording MediaRecorder getUserMedia browser microphone provider approved privacy openrouter MentorModelPipe Settings` e query restrita de áudio: nenhuma captura, port, controller ou modelo STT existente; buscas locais posteriores limitadas confirmaram FAQ de indisponibilidade. Todas as consultas CodeGraph funcionaram.

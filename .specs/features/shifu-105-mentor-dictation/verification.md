@@ -25,7 +25,7 @@ CodeGraph query: `SHIFU-105 native dictation feature tests assertions in mentor-
 
 ## Contract revision audit
 
-The active plan has 34 criteria: AC1–AC33 and AC35. Checks has 39 active IDs: C1–C33 and C35–C40. C34 is absent from the active check list and no active check claims six speech samples, transcription accuracy, or representative recognition quality. The existing C35 still maps to AC34 (no automatic language installation); the active C40 maps to AC35 (cloud-processing disclosure). The prior C40-to-AC36 mapping in the round3 report is corrected here.
+The active plan has 35 criteria, AC1–AC35. Checks has 39 active IDs: C1–C33 and C35–C40. C34 is absent from the active check list and no active check claims six speech samples, transcription accuracy, or representative recognition quality. The existing C35 maps to AC34 (no automatic language installation); the active C40 maps to AC35 (cloud-processing disclosure). The prior C40-to-AC36 mapping in the round3 report is corrected here. The original round4 summary's “34 criteria” count was an arithmetic typo; this correction does not change any check, result, or proof.
 
 The plan's Observable table marks the quality document `n/a` under the user's revision9 decision. Checks Coverage contains these ten sets: surfaces, dictation states, cancellation, conversation guards, native failures, scope abandonment, stale callbacks, native availability, installation, and visual references. There is no quality/sample set or member row. `quality-evidence.json` has `status: RETIRED` with a traceability-only reason; it is not a current proof input. The visual evidence checker was run only with `--filter visual`.
 
@@ -94,3 +94,7 @@ Only this `verification.md` was edited. No source, plan, checks, quality evidenc
 ## Gate
 
 `python3 .agents/skills/tlc-spec-lean/scripts/validate_verification.py shifu-105-mentor-dictation` — exit 0; 0 errors, 0 warnings.
+
+## Orchestrator source reconciliation — 2026-10-13
+
+After the independent round4 report, the canonical Intelligence PRD advanced to v9. Its browser-managed dictation paragraph requires advance cloud-processing disclosure and states that Shifu does not receive or store the audio; it no longer gates browser recognition on provider ZDR eligibility, which the user confirmed is outside this feature's scope. The plan source and evaluation record this reconciliation. No implementation, acceptance criterion, check assertion, or proof command changed; the v9 read-back was verified at content ID 83099649.

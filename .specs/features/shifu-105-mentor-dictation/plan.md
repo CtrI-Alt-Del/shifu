@@ -1,6 +1,6 @@
 # SHIFU-105 — Ditado nativo do navegador para o Mentor
 
-Status: approved — plano original confirmado em 2026-10-13 e critério C34 removido a pedido explícito do usuário em 2026-10-13. Data: 2026-10-13. Revision: 9.
+Status: approved — plano original confirmado em 2026-10-13; C34 removido a pedido explícito do usuário na revision9; fonte reconciliada com o PRD v9 na revision10. Data: 2026-10-13. Revision: 10.
 
 Profile: light. Budget: 150k. Mantido o padrão da skill; o usuário não solicitou mudança de perfil.
 
@@ -63,7 +63,7 @@ Decisão de privacidade atual, aprovada pelo usuário: browser-managed, com proc
 
 A decisão anterior (revision7) exigia modo local e instalação explícita. Esta aprovação substitui somente esse requisito no Mentor. O modo local permanece opção explícita do hook compartilhado com verificações reais; seus testes de instalação são regressões condicionais, não evidência de um fluxo habilitado no Mentor. Append com quebra de linha, watchdogs30s/10s e envio explícito permanecem.
 
-Conflito de autoridade registrado: Intelligence83099649v7 e Política100106241v4 mantêm ZDR para processamento de IA. Reconhecimento browser-managed não comprova ZDR, retenção nem condições do operador. A alteração local implementa a escolha explícita do usuário; não declara conformidade nem altera Confluence. Nenhuma alteração externa foi autorizada.
+Reconciliação: Intelligence83099649v9 exige aviso prévio quando o reconhecimento gerenciado pelo navegador puder enviar áudio ao provedor do navegador e confirma que o Shifu não recebe nem armazena o áudio. O usuário confirmou que a elegibilidade ZDR desse provedor está fora do escopo da feature. O fluxo usa a API nativa do navegador; não integra endpoint de IA controlado pelo Shifu nem declara conformidade ZDR do provedor. As proteções RP-13 para inferência de IA fornecida pelo Shifu permanecem inalteradas.
 
 ## Criteria
 
@@ -186,7 +186,7 @@ Os checkers, Coverage e Test policy serão derivados deste documento após a rev
 ## Sources
 
 - [SHIFU-105](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-105): id12615, Implementar ditado por áudio, parent SHIFU-29, updated 2026-10-05T18:09:38.116-03:00. Composição, revisão explícita, cancelamento e preservação; mecanismo nativo confirmado pelo usuário nesta conversa em 2026-10-13.
-- [PRD Intelligence](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83099649): content83099649 v7, updated 2026-10-05T12:12:33.092Z; RP-06 principal e RP-01/03/11/12/13 relacionados, JN-01. Lido completo, assim como a [Política de privacidade](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/100106241), content100106241 v4, updated 2026-10-08T01:07:15.769Z. Parent das páginas não exposto no retorno; não inferido. Nenhuma edição externa autorizada ou realizada.
+- [PRD Intelligence](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83099649): content83099649 v9, updated 2026-10-13T16:12:19.811Z; RP-06 principal e RP-01/03/11/12/13 relacionados, JN-01. Lido completo. A [Política de privacidade](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/100106241), content100106241 v4, updated 2026-10-08T01:07:15.769Z, permanece aplicável ao processamento de IA fornecido pelo Shifu; elegibilidade ZDR do serviço de fala gerenciado pelo navegador está fora do escopo desta feature.
 - Design vinculante: design/shifu.pen, nós s8UGf/qsYWq/QZB2M e nxL5i/e9FXb/VC7Ro; componentes ihZ8z/PXcJb/puC0u. Árvore e screenshots inspecionadas pelo Pencil em 2026-10-13; arranjo/copy de ditado vinculam a feature, sem ampliar o escopo pelas capacidades representadas ao redor.
 
 Referências técnicas: [SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition), [modo local](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/processLocally), [disponibilidade do idioma](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/available_static) , [instalação de idioma](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition/install_static) e [Web Speech API](https://webaudio.github.io/web-speech-api/). São documentação da API, não prova de suporte real num navegador alvo nem de privacidade do modo remoto.
@@ -201,3 +201,5 @@ Amendment revision8: aprovação humana “ok” à troca por browser-managed em
 
 
 Amendment revision9 (2026-10-13): a pedido explícito do usuário, removida a avaliação das seis amostras pt-BR e o respectivo gate C34. Os resultados BLOCKED registrados nas revisions7/8 permanecem somente no histórico e não são uma obrigação ativa. Nenhum objetivo de acurácia foi acrescentado.
+
+Amendment revision10 (2026-10-13): reconciliação com o PRD Intelligence v9 após o usuário confirmar que a elegibilidade ZDR do provedor browser-managed está fora do escopo desta feature. O PRD exige aviso prévio e informa que o Shifu não recebe nem armazena o áudio; esse modo não é mais condicionado à elegibilidade ZDR do provedor. AC35/C40 de divulgação permanece inalterado; nenhuma implementação ou prova foi alterada.
