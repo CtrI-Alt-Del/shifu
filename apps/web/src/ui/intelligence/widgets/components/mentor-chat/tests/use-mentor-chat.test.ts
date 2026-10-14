@@ -20,6 +20,20 @@ vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
 const useMentorContextMock = vi.mocked(useMentorContext)
 
 const baseValue: MentorContextValue = {
+  dictationStatus: 'idle',
+  dictationError: null,
+  dictationElapsedSeconds: 0,
+  dictationLanguageAvailability: 'unavailable',
+  dictationInstallationStatus: 'idle',
+  dictationInstallationError: null,
+  isDictationBusy: false,
+  canStartDictation: false,
+  canInstallDictationLanguage: false,
+  startDictation: vi.fn(),
+  finishDictation: vi.fn(),
+  cancelDictation: vi.fn(),
+  installDictationLanguage: vi.fn(),
+  releaseDictationSurface: vi.fn(),
   response: null,
   isCancellingResponse: false,
   isRetryingResponse: false,

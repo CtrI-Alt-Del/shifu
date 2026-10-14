@@ -24,6 +24,7 @@ import { useRemoveMentorSessionAction } from '@/ui/intelligence/hooks/use-remove
 import { useRenameMentorSessionAction } from '@/ui/intelligence/hooks/use-rename-mentor-session-action'
 
 import type { MentorContextValue } from './types'
+import { useSpeechRecognition } from '@/ui/shared/hooks/use-speech-recognition'
 
 const SEARCH_DEBOUNCE_MS = 300
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
@@ -38,12 +39,59 @@ export function useMentorContextProvider(
     useCancelMentorResponseAction(accountEmail)
   const { retryMentorResponse, isPending: isRetryingResponse } =
     useRetryMentorResponseAction(accountEmail)
+  const {
+    status: dictationStatus,
+    error: recognitionError,
+    elapsedSeconds: dictationElapsedSeconds,
+    languageAvailability: dictationLanguageAvailability,
+    installationStatus: dictationInstallationStatus,
+    installationError: dictationInstallationError,
+    canInstallLanguage: canInstallDictationLanguage,
+    startRecognition,
+    finishRecognition,
+    cancelRecognition,
+    installLanguagePack,
+  } = useSpeechRecognition('pt-BR', false)
+  const [draftDictationError, setDraftDictationError] = useState<string | null>(null)
+  const draftRevision = useRef(0)
+  const installationTarget = useRef<{ surface: 'page' | 'fab' } | null>(null)
+  const dictationTarget = useRef<{
+    generation: number
+    revision: number
+    surface: 'page' | 'fab'
+  } | null>(null)
+  const cancelDictation = useCallback(
+    function cancelDictation() {
+      dictationTarget.current = null
+      installationTarget.current = null
+      cancelRecognition()
+      setDraftDictationError(null)
+    },
+    [cancelRecognition],
+  )
+  const releaseDictationSurface = useCallback(
+    function releaseDictationSurface(surface: 'page' | 'fab') {
+      if (
+        dictationTarget.current?.surface === surface ||
+        installationTarget.current?.surface === surface
+      )
+        cancelDictation()
+    },
+    [cancelDictation],
+  )
   const presentedBlocks = useRef(new Set<string>())
   const newBlocks = useRef(new Set<string>())
   const submissionHint = useRef<MentorContextHint | null>(null)
   const controlKeys = useRef(new Map<string, string>())
   const navigate = useNavigate()
   const location = useLocation()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: route/account changes invalidate the active dictation scope.
+  useEffect(
+    function cancelOnNavigation() {
+      cancelDictation()
+    },
+    [cancelDictation, location.pathname, accountEmail],
+  )
   const { readMentorSessions } = useMentorSessionsQuery(accountEmail)
   const { readMentorSession } = useMentorSessionQuery(accountEmail)
   const { createMentorSession, isCreatingMentorSession, resetCreateMentorSession } =
@@ -79,6 +127,7 @@ export function useMentorContextProvider(
   const submissionRunning = useRef(false)
 
   const clearPrivateState = useCallback(() => {
+    cancelDictation()
     historyGeneration.current += 1
     detailGeneration.current += 1
     presentedBlocks.current.clear()
@@ -103,7 +152,7 @@ export function useMentorContextProvider(
     setScopeError(null)
     setIsReadingHistory(false)
     setIsReadingMessages(false)
-  }, [])
+  }, [cancelDictation])
 
   const readHistory = useCallback(
     async (nextSearch: string, cursor?: string, append = false) => {
@@ -209,12 +258,14 @@ export function useMentorContextProvider(
     void refresh()
   }, [refresh])
   const closePanel = useCallback(() => {
+    cancelDictation()
     newBlocks.current.clear()
     setIsPanelOpen(false)
-  }, [])
+  }, [cancelDictation])
   const showPanelHistory = useCallback(() => setPanelView('history'), [])
   const showPanelConversation = useCallback(() => setPanelView('conversation'), [])
   const startNewConversation = useCallback(() => {
+    cancelDictation()
     detailGeneration.current += 1
     setSelectedSessionId(null)
     setSessionDetail(null)
@@ -226,9 +277,10 @@ export function useMentorContextProvider(
     setSubmissionError(null)
     resetCreateMentorSession()
     setPanelView('conversation')
-  }, [resetCreateMentorSession])
+  }, [cancelDictation, resetCreateMentorSession])
   const selectSession = useCallback(
     async (sessionId: string) => {
+      cancelDictation()
       detailGeneration.current += 1
       setSelectedSessionId(sessionId)
       setSessionDetail(null)
@@ -238,10 +290,11 @@ export function useMentorContextProvider(
       setPanelView('conversation')
       await readDetail(sessionId)
     },
-    [readDetail],
+    [cancelDictation, readDetail],
   )
   const handleSetDraft = useCallback(
     (value: string) => {
+      draftRevision.current += 1
       setDraft(value)
       if (!value.trim()) {
         setSubmissionKey(null)
@@ -269,9 +322,51 @@ export function useMentorContextProvider(
     [search],
   )
 
+  async function installDictationLanguage(surface: 'page' | 'fab' = 'page') {
+    if (installationTarget.current) return
+    const target = { surface }
+    installationTarget.current = target
+    await installLanguagePack()
+    if (installationTarget.current === target) installationTarget.current = null
+  }
+
+  const isDictationBusy = ['preparing', 'recording', 'transcribing'].includes(
+    dictationStatus,
+  )
+  const canStartDictation =
+    dictationLanguageAvailability === 'available' &&
+    !isDictationBusy &&
+    !isValidatingScope &&
+    !scopeError &&
+    !isCreatingMentorSession &&
+    !isSubmittingMessage &&
+    !['queued', 'processing'].includes(sessionDetail?.response?.status ?? '') &&
+    !sessionDetail?.pendingLearnerMessageId
+  async function startDictation(surface: 'page' | 'fab' = 'page') {
+    if (!canStartDictation || dictationTarget.current) return
+    const target = {
+      generation: detailGeneration.current,
+      revision: draftRevision.current,
+      surface,
+    }
+    const original = draft
+    dictationTarget.current = target
+    setDraftDictationError(null)
+    const text = await startRecognition()
+    if (dictationTarget.current !== target) return
+    dictationTarget.current = null
+    if (!text || target.generation !== detailGeneration.current) return
+    if (target.revision !== draftRevision.current) {
+      setDraftDictationError('Seu rascunho mudou. O ditado não foi aplicado.')
+      return
+    }
+    handleSetDraft(original + (original ? '\n' : '') + text.trim())
+  }
+
   const sendFirstMessage = useCallback(
     async (surface: 'page' | 'fab' = 'page') => {
       if (
+        dictationTarget.current ||
         submissionRunning.current ||
         !draft.trim() ||
         isCreatingMentorSession ||
@@ -280,6 +375,7 @@ export function useMentorContextProvider(
       )
         return
       const generation = detailGeneration.current
+      cancelDictation()
       submissionRunning.current = true
       const stableKey = submissionKey ?? crypto.randomUUID()
       if (!submissionKey) setSubmissionKey(stableKey)
@@ -321,6 +417,7 @@ export function useMentorContextProvider(
       }
     },
     [
+      cancelDictation,
       createMentorSession,
       clearPrivateState,
       debouncedSearch,
@@ -570,6 +667,7 @@ export function useMentorContextProvider(
         items: current.items.filter((item) => item.id !== dialogSessionId),
       }))
       if (selectedSessionId === dialogSessionId) {
+        cancelDictation()
         detailGeneration.current += 1
         setSelectedSessionId(null)
         setSessionDetail(null)
@@ -601,6 +699,7 @@ export function useMentorContextProvider(
       }
     }
   }, [
+    cancelDictation,
     closeDialog,
     clearPrivateState,
     debouncedSearch,
@@ -615,15 +714,30 @@ export function useMentorContextProvider(
   ])
 
   const expandConversation = useCallback(async () => {
+    cancelDictation()
     setIsPanelOpen(false)
     await refresh()
     await navigate({
       to: ROUTES.intelligence,
       search: { session: selectedSessionId ?? undefined },
     })
-  }, [navigate, refresh, selectedSessionId])
+  }, [cancelDictation, navigate, refresh, selectedSessionId])
 
   return {
+    dictationStatus: draftDictationError ? 'error' : dictationStatus,
+    dictationElapsedSeconds,
+    dictationLanguageAvailability,
+    dictationInstallationStatus,
+    dictationInstallationError,
+    dictationError: draftDictationError ?? recognitionError,
+    isDictationBusy,
+    canStartDictation,
+    canInstallDictationLanguage,
+    startDictation,
+    finishDictation: finishRecognition,
+    cancelDictation,
+    installDictationLanguage,
+    releaseDictationSurface,
     response,
     isCancellingResponse,
     isRetryingResponse,
