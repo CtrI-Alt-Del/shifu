@@ -4,18 +4,18 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from typing import TYPE_CHECKING, cast
 
-from fastapi.testclient import TestClient
 from agno.models.openai import OpenAIChat
+from fastapi.testclient import TestClient
 from openai import OpenAI
-
 from shifu.app import FastAPIApp
-from shifu.intelligence.ai.generative.agno.workflows import (
-    AgnoGenerateMentorTitleWorkflow,
-)
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
-from shifu.intelligence.providers.openrouter import MentorTitleModelProvider
 from shifu.intelligence.pipes import IntelligencePipe
+from shifu.intelligence.providers.mentor_title.agentos.agentos_mentor_title_provider import (
+    AgentOSMentorTitleProvider,
+)
+from shifu.intelligence.providers.openrouter import MentorTitleModelProvider
 from shifu.shared.pipes import SharedPipe
+from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.settings import Settings
 from tests.intelligence.server.controllers.conftest import (
     MENTOR_ACCOUNT,
@@ -24,12 +24,29 @@ from tests.intelligence.server.controllers.conftest import (
 )
 
 if TYPE_CHECKING:
-    from httpx import Response
     import pytest
+    from httpx import Response
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
 class TestCreateMentorSessionController:
+    def test_should_forward_attachment_references_to_session_creation(
+        self, mentor_client: TestClient
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        response = mentor_client.post(
+            '/intelligence/mentor-sessions',
+            json={
+                'submission_key': '30d8e23e-413b-47de-a737-b86df292d860',
+                'first_message': 'Revise meus arquivos.',
+                'attachment_batch_id': ids.generate(),
+                'attachment_ids': [ids.generate()],
+            },
+        )
+
+        assert response.status_code == 409
+        assert response.headers['cache-control'] == 'private, no-store'
+
     def test_should_use_fallback_title_when_model_provider_is_unavailable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -39,7 +56,8 @@ class TestCreateMentorSessionController:
             return None
 
         monkeypatch.setattr(
-            'shifu.app.MentorTitleModelProvider.build', provide_no_title_model
+            'shifu.intelligence.ai.intelligence_workflows_registry.MentorTitleModelProvider.build',
+            provide_no_title_model,
         )
         app = FastAPIApp.register(postgres_database.engine)
         configure_mentor_access(app)
@@ -80,7 +98,8 @@ class TestCreateMentorSessionController:
             return model
 
         monkeypatch.setattr(
-            'shifu.app.MentorTitleModelProvider.build', provide_title_model
+            'shifu.intelligence.ai.intelligence_workflows_registry.MentorTitleModelProvider.build',
+            provide_title_model,
         )
 
         app = FastAPIApp.register(postgres_database.engine)
@@ -89,7 +108,7 @@ class TestCreateMentorSessionController:
         with TestClient(app, headers={'Authorization': 'Bearer test-token'}):
             assert isinstance(
                 app.state.generate_mentor_title_workflow,
-                AgnoGenerateMentorTitleWorkflow,
+                AgentOSMentorTitleProvider,
             )
 
         assert model_client.is_closed
@@ -106,6 +125,13 @@ class TestCreateMentorSessionController:
                 json={
                     'submission_key': '2a7e963f-d7dd-4cc9-9a46-8c650193f7a6',
                     'first_message': '  Olá, Mentor!\nQuero estudar.  ',
+                    'context_hint': {
+                        'goal_id': '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+                        'skill_id': None,
+                        'competency_id': None,
+                        'material_id': None,
+                        'activity_id': None,
+                    },
                 },
             ),
         )
@@ -132,9 +158,15 @@ class TestCreateMentorSessionController:
             message_page = repositories.mentor_messages.find_many(
                 MENTOR_ACCOUNT.account_id, body['session']['id'], None
             )
+            attempt = repositories.mentor_response_attempts.find_current(
+                MENTOR_ACCOUNT.account_id, body['session']['id']
+            )
         assert persisted is not None
         assert persisted.session_id == body['session']['id']
         assert message_page.items[0].content == '  Olá, Mentor!\nQuero estudar.  '
+        assert attempt is not None
+        assert attempt.context_hint is not None
+        assert attempt.context_hint.goal_id == '01J7T8AC91Z5K8M4JQ8C2D6F0D'
 
     def test_should_replay_matching_submission_without_duplicate_content(
         self,

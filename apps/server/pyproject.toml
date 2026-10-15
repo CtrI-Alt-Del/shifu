@@ -23,14 +23,18 @@ dependencies = [
     "sentence-transformers>=5,<6",
     "rank-bm25>=0.2.2,<0.3",
     "pgvector>=0.4,<0.5",
-    "langfuse>=3,<4",
     "torch>=2.8",
     "pt-core-news-sm",
+    "boto3==1.43.114",
+    "Pillow==12.3.0",
+    "pypdf==6.20.1",
+    "pypdfium2==5.14.0",
 ]
 
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
+    "coverage>=7.16.2",
     "faker>=40.39.0",
     "httpx2>=2.13.1",
     "mutmut>=3.8.0",
@@ -128,6 +132,10 @@ testpaths = ["tests"]
 filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:inngest.*",
 ]
+
+[tool.coverage.run]
+patch = ["subprocess"]
+sigterm = true
 
 [build-system]
 requires = ["setuptools", "wheel"]

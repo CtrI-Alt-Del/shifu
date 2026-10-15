@@ -3,23 +3,15 @@ import re
 import unicodedata
 from uuid import UUID
 
-from shifu.intelligence.core.domain.entities import MentorMessage, MentorSession
+from shifu.intelligence.core.domain.entities import (
+    MentorMessage,
+    MentorResponseAttempt,
+    MentorSession,
+)
 from shifu.intelligence.core.domain.enums import (
     MentorMessageRole,
-    MentorResponseStatus,
     MentorResponseEventKind,
-)
-from shifu.intelligence.core.domain.entities import MentorResponseAttempt
-from shifu.intelligence.core.domain.events import (
-    MentorResponseRequestedEvent,
-    MentorResponseRequestedPayload,
-)
-from shifu.intelligence.core.domain.structures import (
-    MentorContextHint,
-    MentorResponseEvent,
-)
-from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
-    mentor_submission_fingerprint,
+    MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
     MentorInputInvalidError,
@@ -28,18 +20,31 @@ from shifu.intelligence.core.domain.errors import (
     MentorTitleOutputInvalidError,
     MentorTitleUnavailableError,
 )
+from shifu.intelligence.core.domain.events import (
+    MentorResponseRequestedEvent,
+    MentorResponseRequestedPayload,
+)
 from shifu.intelligence.core.domain.structures import (
     CreateMentorSessionResult,
-    MentorMessagesPage,
+    MentorContextHint,
+    MentorResponseEvent,
     MentorSessionDetail,
     MentorSubmissionRecord,
 )
-from shifu.intelligence.core.interfaces.intelligence_database import (
-    IntelligenceDatabaseRepositories,
+from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
+    mentor_submission_fingerprint,
+    mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import (
     GenerateMentorTitleWorkflow,
     IntelligenceDatabase,
+)
+from shifu.intelligence.core.interfaces.intelligence_database import (
+    IntelligenceDatabaseRepositories,
+)
+from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
+    attachment_fingerprint_values,
+    selected_attachments,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -69,6 +74,8 @@ class CreateMentorSessionUseCase:
         submission_key: str,
         first_message: str,
         context_hint: MentorContextHint | None = None,
+        attachment_batch_id: str | None = None,
+        attachment_ids: tuple[str, ...] = (),
     ) -> CreateMentorSessionResult:
         if not first_message.strip():
             raise MentorInputInvalidError
@@ -79,10 +86,16 @@ class CreateMentorSessionUseCase:
         if parsed_key.version != 4 or str(parsed_key) != submission_key.lower():
             raise MentorInputInvalidError
 
-        fingerprint = mentor_submission_fingerprint(first_message, context_hint)
+        legacy_fingerprint = mentor_submission_fingerprint(first_message, context_hint)
         grant = self._access_provider.authorize(account_id, submission_key)
         self._access_provider.assert_current(grant)
         with self._database.transaction() as repositories:
+            fingerprint_values = attachment_fingerprint_values(
+                repositories, account_id, attachment_batch_id, attachment_ids
+            )
+            fingerprint = mentor_submission_fingerprint_v2(
+                first_message, context_hint, fingerprint_values
+            )
             existing = repositories.mentor_sessions.find_submission(
                 account_id, submission_key
             )
@@ -93,11 +106,19 @@ class CreateMentorSessionUseCase:
                     submission_key,
                     existing,
                     fingerprint,
+                    legacy_fingerprint,
+                    attachment_ids,
                 )
 
         title = self._generate_title(first_message)
         now = self._clock_provider.now()
         with self._database.transaction() as repositories:
+            fingerprint_values = attachment_fingerprint_values(
+                repositories, account_id, attachment_batch_id, attachment_ids
+            )
+            fingerprint = mentor_submission_fingerprint_v2(
+                first_message, context_hint, fingerprint_values
+            )
             repositories.mentor_sessions.lock_submission(account_id, submission_key)
             existing = repositories.mentor_sessions.find_submission(
                 account_id, submission_key
@@ -109,6 +130,8 @@ class CreateMentorSessionUseCase:
                     submission_key,
                     existing,
                     fingerprint,
+                    legacy_fingerprint,
+                    attachment_ids,
                 )
 
             session = MentorSession(
@@ -127,6 +150,27 @@ class CreateMentorSessionUseCase:
                 created_at=now,
                 in_reply_to_message_id=None,
             )
+            selected = selected_attachments(
+                repositories,
+                account_id=account_id,
+                batch_id=attachment_batch_id,
+                session_id=session.id,
+                attachment_ids=attachment_ids,
+                now=now,
+                allow_unbound_session=True,
+            )
+            if selected:
+                batch = repositories.mentor_attachment_batches.find_by_id(
+                    attachment_batch_id or '', for_update=True
+                )
+                if batch is None:
+                    raise MentorSubmissionConflictError
+                batch.session_id = session.id
+                batch.consume(message.id)
+                for attachment in selected:
+                    attachment.bind(session.id, message.id)
+                    repositories.mentor_attachments.update(attachment)
+                repositories.mentor_attachment_batches.update(batch)
             repositories.mentor_sessions.add(session, submission_key, fingerprint)
             repositories.mentor_messages.add(message)
             self._access_provider.assert_current(grant)
@@ -168,7 +212,9 @@ class CreateMentorSessionUseCase:
             )
             detail = MentorSessionDetail(
                 session=session,
-                messages=MentorMessagesPage(items=[message], next_cursor=None),
+                messages=repositories.mentor_messages.find_many(
+                    account_id, session.id, None
+                ),
                 pending_learner_message_id=message.id,
                 response=repositories.mentor_response_events.snapshot(
                     account_id, session.id
@@ -200,6 +246,8 @@ class CreateMentorSessionUseCase:
         submission_key: str,
         existing: MentorSubmissionRecord,
         fingerprint: str,
+        legacy_fingerprint: str,
+        attachment_ids: tuple[str, ...],
     ) -> CreateMentorSessionResult:
         repositories.mentor_sessions.lock_session(account_id, existing.session_id)
         current = repositories.mentor_sessions.find_submission(
@@ -228,9 +276,14 @@ class CreateMentorSessionUseCase:
             )
             if (
                 first is None
+                or attachment_ids
+                or first.attachments
                 or hashlib.sha256(first.content.encode('utf-8')).hexdigest()
                 != current.content_fingerprint
-                or mentor_submission_fingerprint(first.content, None) != fingerprint
+                or (
+                    mentor_submission_fingerprint(first.content, None)
+                    != legacy_fingerprint
+                )
             ):
                 raise MentorSubmissionConflictError
         session = repositories.mentor_sessions.find_by_id(

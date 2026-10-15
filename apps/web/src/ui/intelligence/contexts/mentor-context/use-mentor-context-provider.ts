@@ -4,6 +4,7 @@ import type {
   MentorResponseSnapshot,
   SubmitMentorMessageInput,
 } from '@/core/intelligence/mentor-response'
+import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
 import { NativeMentorEventSource } from '@/provision/realtime/native-mentor-event-source'
 import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-response-stream'
 import { useSubmitMentorMessageAction } from '@/ui/intelligence/hooks/use-submit-mentor-message-action'
@@ -18,15 +19,21 @@ import type {
 } from '@/rest/services/intelligence-service'
 import { ROUTES } from '@/constants/routes'
 import { useCreateMentorSessionAction } from '@/ui/intelligence/hooks/use-create-mentor-session-action'
+import { useCreateMentorAttachmentBatchAction } from '@/ui/intelligence/hooks/use-create-mentor-attachment-batch-action'
+import { useUploadMentorAttachmentAction } from '@/ui/intelligence/hooks/use-upload-mentor-attachment-action'
+import { useMentorAttachmentBatchQuery } from '@/ui/intelligence/hooks/use-mentor-attachment-batch-query'
+import { useRemoveMentorAttachmentAction } from '@/ui/intelligence/hooks/use-remove-mentor-attachment-action'
 import { useMentorSessionQuery } from '@/ui/intelligence/hooks/use-mentor-session-query'
 import { useMentorSessionsQuery } from '@/ui/intelligence/hooks/use-mentor-sessions-query'
 import { useRemoveMentorSessionAction } from '@/ui/intelligence/hooks/use-remove-mentor-session-action'
 import { useRenameMentorSessionAction } from '@/ui/intelligence/hooks/use-rename-mentor-session-action'
 
-import type { MentorContextValue } from './types'
+import type { MentorContextValue, MentorDraftAttachment } from './types'
 import { useSpeechRecognition } from '@/ui/shared/hooks/use-speech-recognition'
 
 const SEARCH_DEBOUNCE_MS = 300
+const MAX_MENTOR_ATTACHMENTS = 5
+const MAX_MENTOR_ATTACHMENT_BYTES = 10_000_000
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
 
 export function useMentorContextProvider(
@@ -96,6 +103,10 @@ export function useMentorContextProvider(
   const { readMentorSession } = useMentorSessionQuery(accountEmail)
   const { createMentorSession, isCreatingMentorSession, resetCreateMentorSession } =
     useCreateMentorSessionAction(accountEmail)
+  const { createMentorAttachmentBatch, resetCreateMentorAttachmentBatch } =
+    useCreateMentorAttachmentBatchAction(accountEmail)
+  const { uploadMentorAttachment } = useUploadMentorAttachmentAction()
+  const { removeMentorAttachment } = useRemoveMentorAttachmentAction()
   const { isRenamingMentorSession, renameMentorSession, resetRenameMentorSession } =
     useRenameMentorSessionAction(accountEmail)
   const { isRemovingMentorSession, removeMentorSession, resetRemoveMentorSession } =
@@ -105,6 +116,8 @@ export function useMentorContextProvider(
   const [sessionDetail, setSessionDetail] = useState<MentorSessionDetail | null>(null)
   const [sessionsPage, setSessionsPage] = useState(EMPTY_SESSIONS_PAGE)
   const [draft, setDraft] = useState('')
+  const [draftAttachments, setDraftAttachments] = useState<MentorDraftAttachment[]>([])
+  const [attachmentBatchId, setAttachmentBatchId] = useState<string | null>(null)
   const [submissionKey, setSubmissionKey] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -125,6 +138,107 @@ export function useMentorContextProvider(
   const detailGeneration = useRef(0)
   const submissionMessage = useRef<string | null>(null)
   const submissionRunning = useRef(false)
+  const attachmentGeneration = useRef(0)
+  const draftAttachmentsRef = useRef(draftAttachments)
+  draftAttachmentsRef.current = draftAttachments
+  const attachmentBatchIdRef = useRef<string | null>(attachmentBatchId)
+  attachmentBatchIdRef.current = attachmentBatchId
+  const attachmentBatchCreation = useRef<Promise<string> | null>(null)
+
+  const isPreparingAttachments = draftAttachments.some(
+    (draftAttachment) =>
+      !draftAttachment.error &&
+      (!draftAttachment.attachment ||
+        draftAttachment.attachment.status === 'uploading' ||
+        draftAttachment.attachment.status === 'processing'),
+  )
+  const { mentorAttachmentBatch, mentorAttachmentBatchError } =
+    useMentorAttachmentBatchQuery(accountEmail, attachmentBatchId, isPreparingAttachments)
+
+  const updateDraftAttachments = useCallback(function updateDraftAttachments(
+    update: (current: MentorDraftAttachment[]) => MentorDraftAttachment[],
+  ) {
+    const next = update(draftAttachmentsRef.current)
+    draftAttachmentsRef.current = next
+    setDraftAttachments(next)
+  }, [])
+
+  const clearDraftAttachments = useCallback(() => {
+    attachmentGeneration.current += 1
+    for (const attachment of draftAttachmentsRef.current) {
+      if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
+    }
+    draftAttachmentsRef.current = []
+    setDraftAttachments([])
+    attachmentBatchIdRef.current = null
+    attachmentBatchCreation.current = null
+    setAttachmentBatchId(null)
+    resetCreateMentorAttachmentBatch()
+  }, [resetCreateMentorAttachmentBatch])
+
+  useEffect(function releaseDraftAttachmentUrlsOnUnmount() {
+    return () => {
+      attachmentGeneration.current += 1
+      for (const attachment of draftAttachmentsRef.current) {
+        if (attachment.previewUrl) URL.revokeObjectURL(attachment.previewUrl)
+      }
+    }
+  }, [])
+
+  useEffect(
+    function applyAttachmentBatchStatus() {
+      if (!mentorAttachmentBatch || mentorAttachmentBatch.batchId !== attachmentBatchId)
+        return
+      updateDraftAttachments((current) =>
+        current.map((draftAttachment) => {
+          if (!draftAttachment.attachment) return draftAttachment
+          const attachment = mentorAttachmentBatch.attachments.find(
+            (candidate) =>
+              candidate.attachmentId === draftAttachment.attachment?.attachmentId,
+          )
+          if (!attachment || attachment.status === 'removed') return draftAttachment
+          if (
+            isTerminalMentorAttachmentStatus(draftAttachment.attachment.status) &&
+            attachment.status !== draftAttachment.attachment.status
+          )
+            return draftAttachment
+          if (
+            getMentorAttachmentStatusRank(attachment.status) <
+            getMentorAttachmentStatusRank(draftAttachment.attachment.status)
+          )
+            return draftAttachment
+          return {
+            ...draftAttachment,
+            attachment,
+            error:
+              attachment.status === 'failed'
+                ? getMentorAttachmentFailureMessage(attachment)
+                : null,
+          }
+        }),
+      )
+    },
+    [attachmentBatchId, mentorAttachmentBatch, updateDraftAttachments],
+  )
+
+  useEffect(
+    function markAttachmentBatchReadFailure() {
+      if (!mentorAttachmentBatchError) return
+      updateDraftAttachments((current) =>
+        current.map((draftAttachment) =>
+          draftAttachment.attachment &&
+          ['uploading', 'processing'].includes(draftAttachment.attachment.status)
+            ? {
+                ...draftAttachment,
+                error:
+                  'Não foi possível acompanhar a preparação. Remova e adicione o arquivo novamente.',
+              }
+            : draftAttachment,
+        ),
+      )
+    },
+    [mentorAttachmentBatchError, updateDraftAttachments],
+  )
 
   const clearPrivateState = useCallback(() => {
     cancelDictation()
@@ -138,6 +252,7 @@ export function useMentorContextProvider(
     setSessionDetail(null)
     setSessionsPage(EMPTY_SESSIONS_PAGE)
     setDraft('')
+    clearDraftAttachments()
     setSubmissionKey(null)
     submissionMessage.current = null
     setSearch('')
@@ -152,7 +267,7 @@ export function useMentorContextProvider(
     setScopeError(null)
     setIsReadingHistory(false)
     setIsReadingMessages(false)
-  }, [cancelDictation])
+  }, [cancelDictation, clearDraftAttachments])
 
   const readHistory = useCallback(
     async (nextSearch: string, cursor?: string, append = false) => {
@@ -272,12 +387,13 @@ export function useMentorContextProvider(
     setIsReadingMessages(false)
     setConversationError(null)
     setDraft('')
+    clearDraftAttachments()
     setSubmissionKey(null)
     submissionMessage.current = null
     setSubmissionError(null)
     resetCreateMentorSession()
     setPanelView('conversation')
-  }, [cancelDictation, resetCreateMentorSession])
+  }, [cancelDictation, clearDraftAttachments, resetCreateMentorSession])
   const selectSession = useCallback(
     async (sessionId: string) => {
       cancelDictation()
@@ -285,12 +401,13 @@ export function useMentorContextProvider(
       setSelectedSessionId(sessionId)
       setSessionDetail(null)
       setDraft('')
+      clearDraftAttachments()
       setSubmissionKey(null)
       submissionMessage.current = null
       setPanelView('conversation')
       await readDetail(sessionId)
     },
-    [cancelDictation, readDetail],
+    [cancelDictation, clearDraftAttachments, readDetail],
   )
   const handleSetDraft = useCallback(
     (value: string) => {
@@ -309,6 +426,207 @@ export function useMentorContextProvider(
     },
     [submissionKey],
   )
+  async function addAttachments(files: File[]) {
+    if (!files.length) return
+    const currentCount = draftAttachmentsRef.current.length
+    const additions = files.map((file, index) => {
+      const mediaType = getMentorAttachmentMediaType(file.name)
+      const isOverLimit = currentCount + index >= MAX_MENTOR_ATTACHMENTS
+      const error = isOverLimit
+        ? 'Você pode anexar até cinco arquivos por mensagem.'
+        : !mediaType
+          ? 'Formato não aceito. Use PNG, JPG, WebP, PDF, JSON, CSV ou TXT.'
+          : file.size > MAX_MENTOR_ATTACHMENT_BYTES
+            ? 'O arquivo excede o limite de 10 MB.'
+            : file.size === 0
+              ? 'O arquivo está vazio.'
+              : null
+      return {
+        localKey: crypto.randomUUID(),
+        uploadKey: crypto.randomUUID(),
+        file,
+        previewUrl:
+          !error && mediaType?.startsWith('image/')
+            ? createMentorAttachmentPreviewUrl(file)
+            : null,
+        attachment: null,
+        error,
+        retryable: false,
+      } satisfies MentorDraftAttachment
+    })
+    updateDraftAttachments((current) => [...current, ...additions])
+    setSubmissionKey(null)
+    submissionMessage.current = null
+    const validAdditions = additions.filter((attachment) => !attachment.error)
+    if (!validAdditions.length) return
+
+    const generation = attachmentGeneration.current
+    await Promise.all(
+      validAdditions.map((draftAttachment) =>
+        uploadDraftAttachment(draftAttachment, generation),
+      ),
+    )
+  }
+
+  async function uploadDraftAttachment(
+    draftAttachment: MentorDraftAttachment,
+    generation: number,
+  ) {
+    if (
+      generation !== attachmentGeneration.current ||
+      !draftAttachmentsRef.current.some(
+        (current) => current.localKey === draftAttachment.localKey,
+      )
+    )
+      return
+
+    let batchId = attachmentBatchIdRef.current
+    let pendingBatch = attachmentBatchCreation.current
+    try {
+      if (!batchId) {
+        if (!pendingBatch) {
+          const creation = createMentorAttachmentBatch(selectedSessionId).then(
+            (batch) => batch.batchId,
+          )
+          attachmentBatchCreation.current = creation
+          pendingBatch = creation
+        }
+        batchId = await pendingBatch
+        if (attachmentBatchCreation.current === pendingBatch)
+          attachmentBatchCreation.current = null
+        if (generation !== attachmentGeneration.current) return
+        attachmentBatchIdRef.current = batchId
+        setAttachmentBatchId(batchId)
+      }
+    } catch {
+      if (pendingBatch && attachmentBatchCreation.current === pendingBatch)
+        attachmentBatchCreation.current = null
+      if (generation !== attachmentGeneration.current) return
+      updateDraftAttachments((current) =>
+        current.map((candidate) =>
+          candidate.localKey === draftAttachment.localKey
+            ? {
+                ...candidate,
+                error:
+                  'Não foi possível preparar o envio. Tente novamente ou remova o arquivo.',
+                retryable: true,
+              }
+            : candidate,
+        ),
+      )
+      return
+    }
+
+    try {
+      const attachment = await uploadMentorAttachment({
+        batchId,
+        uploadKey: draftAttachment.uploadKey,
+        file: draftAttachment.file,
+      })
+      const isCurrent =
+        generation === attachmentGeneration.current &&
+        draftAttachmentsRef.current.some(
+          (current) => current.localKey === draftAttachment.localKey,
+        )
+      if (!isCurrent) {
+        try {
+          await removeMentorAttachment({
+            accountEmail,
+            batchId,
+            attachmentId: attachment.attachmentId,
+          })
+        } catch {
+          // The server batch expiry remains the cleanup boundary for stale uploads.
+        }
+        return
+      }
+      updateDraftAttachments((current) =>
+        current.map((candidate) =>
+          candidate.localKey === draftAttachment.localKey
+            ? {
+                ...candidate,
+                attachment,
+                error:
+                  attachment.status === 'failed'
+                    ? getMentorAttachmentFailureMessage(attachment)
+                    : null,
+                retryable: false,
+              }
+            : candidate,
+        ),
+      )
+    } catch (error) {
+      if (generation !== attachmentGeneration.current) return
+      updateDraftAttachments((current) =>
+        current.map((candidate) =>
+          candidate.localKey === draftAttachment.localKey
+            ? {
+                ...candidate,
+                error: getMentorAttachmentRequestFailureMessage(error),
+                retryable: true,
+              }
+            : candidate,
+        ),
+      )
+    }
+  }
+
+  async function retryAttachment(localKey: string) {
+    const draftAttachment = draftAttachmentsRef.current.find(
+      (candidate) => candidate.localKey === localKey,
+    )
+    if (!draftAttachment?.retryable || draftAttachment.attachment) return
+    const generation = attachmentGeneration.current
+    const retrying = { ...draftAttachment, error: null, retryable: false }
+    updateDraftAttachments((current) =>
+      current.map((candidate) =>
+        candidate.localKey === localKey ? retrying : candidate,
+      ),
+    )
+    await uploadDraftAttachment(retrying, generation)
+  }
+
+  async function removeAttachment(localKey: string) {
+    const draftAttachment = draftAttachmentsRef.current.find(
+      (candidate) => candidate.localKey === localKey,
+    )
+    if (!draftAttachment) return
+    const generation = attachmentGeneration.current
+    const batchId = attachmentBatchIdRef.current
+    if (draftAttachment.attachment && batchId) {
+      try {
+        await removeMentorAttachment({
+          accountEmail,
+          batchId,
+          attachmentId: draftAttachment.attachment.attachmentId,
+        })
+      } catch {
+        if (generation !== attachmentGeneration.current) return
+        updateDraftAttachments((current) =>
+          current.map((candidate) =>
+            candidate.localKey === localKey
+              ? {
+                  ...candidate,
+                  error: 'Não foi possível remover o arquivo. Tente novamente.',
+                }
+              : candidate,
+          ),
+        )
+        return
+      }
+    }
+    if (generation !== attachmentGeneration.current) return
+    if (draftAttachment.previewUrl) URL.revokeObjectURL(draftAttachment.previewUrl)
+    updateDraftAttachments((current) =>
+      current.filter((candidate) => candidate.localKey !== localKey),
+    )
+    setSubmissionKey(null)
+    submissionMessage.current = null
+    if (draftAttachmentsRef.current.length === 0) {
+      attachmentBatchIdRef.current = null
+      setAttachmentBatchId(null)
+    }
+  }
   const handleSetSearch = useCallback(
     (value: string) => {
       if (value !== search) {
@@ -365,10 +683,18 @@ export function useMentorContextProvider(
 
   const sendFirstMessage = useCallback(
     async (surface: 'page' | 'fab' = 'page') => {
+      const readyAttachments = draftAttachmentsRef.current
+      const canSendAttachments = readyAttachments.every(
+        (draftAttachment) =>
+          !draftAttachment.error &&
+          draftAttachment.attachment &&
+          ['ready', 'partial'].includes(draftAttachment.attachment.status),
+      )
       if (
         dictationTarget.current ||
         submissionRunning.current ||
         !draft.trim() ||
+        !canSendAttachments ||
         isCreatingMentorSession ||
         isSubmittingMessage ||
         sessionDetail?.pendingLearnerMessageId
@@ -378,6 +704,16 @@ export function useMentorContextProvider(
       cancelDictation()
       submissionRunning.current = true
       const stableKey = submissionKey ?? crypto.randomUUID()
+      const attachmentIds = readyAttachments.map(
+        (draftAttachment) => draftAttachment.attachment?.attachmentId as string,
+      )
+      const attachmentInput =
+        attachmentIds.length && attachmentBatchIdRef.current
+          ? {
+              attachmentBatchId: attachmentBatchIdRef.current,
+              attachmentIds,
+            }
+          : {}
       if (!submissionKey) setSubmissionKey(stableKey)
       if (submissionMessage.current === null)
         submissionHint.current = surface === 'fab' ? contextHint : null
@@ -390,16 +726,19 @@ export function useMentorContextProvider(
               submissionKey: stableKey,
               content: draft,
               contextHint: submissionHint.current,
+              ...attachmentInput,
             })
           : await createMentorSession({
               submissionKey: stableKey,
               firstMessage: draft,
               contextHint: submissionHint.current,
+              ...attachmentInput,
             })
         if (generation !== detailGeneration.current) return
         setSelectedSessionId(detail.session.id)
         setSessionDetail(detail)
         setDraft('')
+        clearDraftAttachments()
         setSubmissionKey(null)
         submissionMessage.current = null
         setPanelView('conversation')
@@ -420,6 +759,7 @@ export function useMentorContextProvider(
       cancelDictation,
       createMentorSession,
       clearPrivateState,
+      clearDraftAttachments,
       debouncedSearch,
       draft,
       isCreatingMentorSession,
@@ -458,21 +798,43 @@ export function useMentorContextProvider(
         return current
       const previous = current.response
       const shouldDiscardPartial = event.kind === 'cancelled' || event.kind === 'failed'
+      const learnerAttachments = new Set(
+        current.messages.items
+          .filter(
+            (message) =>
+              message.id === previous.learnerMessageId &&
+              message.sessionId === current.session.id &&
+              message.role === 'learner',
+          )
+          .flatMap((message) =>
+            (message.attachments ?? [])
+              .filter((attachment) => ['ready', 'partial'].includes(attachment.status))
+              .map((attachment) => attachment.attachmentId),
+          ),
+      )
+      const safeEventBlock = event.block
+        ? {
+            ...event.block,
+            sources: event.block.sources.filter((source) =>
+              learnerAttachments.has(source.attachmentId),
+            ),
+          }
+        : null
       const blocks = shouldDiscardPartial
         ? []
-        : event.block &&
-            !previous.blocks.some((block) => block.blockKey === event.block?.blockKey)
-          ? [...previous.blocks, event.block].sort(
+        : safeEventBlock &&
+            !previous.blocks.some((block) => block.blockKey === safeEventBlock.blockKey)
+          ? [...previous.blocks, safeEventBlock].sort(
               (left, right) => left.ordinal - right.ordinal,
             )
           : previous.blocks
       if (shouldDiscardPartial) newBlocks.current.clear()
       else if (
-        event.block &&
+        safeEventBlock &&
         isViewingConversation &&
         document.visibilityState === 'visible'
       )
-        newBlocks.current.add(`${event.attemptId}:${event.block.blockKey}`)
+        newBlocks.current.add(`${event.attemptId}:${safeEventBlock.blockKey}`)
       const consultations = shouldDiscardPartial
         ? []
         : event.consultation && !previous.consultations.includes(event.consultation)
@@ -675,6 +1037,7 @@ export function useMentorContextProvider(
         setIsReadingMessages(false)
         setConversationError(null)
         setDraft('')
+        clearDraftAttachments()
         setSubmissionKey(null)
         submissionMessage.current = null
         if (
@@ -702,6 +1065,7 @@ export function useMentorContextProvider(
     cancelDictation,
     closeDialog,
     clearPrivateState,
+    clearDraftAttachments,
     debouncedSearch,
     dialogSessionId,
     isRemovingMentorSession,
@@ -750,6 +1114,8 @@ export function useMentorContextProvider(
     sessionDetail,
     sessionsPage,
     draft,
+    draftAttachments,
+    isPreparingAttachments,
     search,
     isPanelOpen,
     panelView,
@@ -775,6 +1141,9 @@ export function useMentorContextProvider(
     startNewConversation,
     selectSession,
     setDraft: handleSetDraft,
+    addAttachments,
+    retryAttachment,
+    removeAttachment,
     setSearch: handleSetSearch,
     sendFirstMessage,
     loadMoreSessions,
@@ -792,6 +1161,60 @@ function isMentorScopeError(error: unknown): boolean {
   return (
     error instanceof Error && /sessão expirou|sessão da conta mudou/i.test(error.message)
   )
+}
+
+function getMentorAttachmentMediaType(filename: string): string | null {
+  const extension = filename.split('.').at(-1)?.toLowerCase()
+  switch (extension) {
+    case 'png':
+      return 'image/png'
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg'
+    case 'webp':
+      return 'image/webp'
+    case 'pdf':
+      return 'application/pdf'
+    case 'json':
+      return 'application/json'
+    case 'csv':
+      return 'text/csv'
+    case 'txt':
+      return 'text/plain'
+    default:
+      return null
+  }
+}
+
+function createMentorAttachmentPreviewUrl(file: File): string | null {
+  try {
+    return URL.createObjectURL(file)
+  } catch {
+    return null
+  }
+}
+
+function getMentorAttachmentFailureMessage(_attachment: MentorAttachment): string {
+  return 'Não foi possível interpretar este arquivo. Remova-o ou tente outro arquivo.'
+}
+
+function isTerminalMentorAttachmentStatus(status: MentorAttachment['status']): boolean {
+  return ['ready', 'partial', 'failed', 'removed'].includes(status)
+}
+
+function getMentorAttachmentStatusRank(status: MentorAttachment['status']): number {
+  return {
+    uploading: 0,
+    processing: 1,
+    ready: 2,
+    partial: 2,
+    failed: 2,
+    removed: 3,
+  }[status]
+}
+
+function getMentorAttachmentRequestFailureMessage(_error: unknown): string {
+  return 'Não foi possível enviar o arquivo. Tente novamente ou remova-o.'
 }
 
 function chooseResponseSnapshot(

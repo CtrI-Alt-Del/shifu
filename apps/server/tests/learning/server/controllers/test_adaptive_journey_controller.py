@@ -1,9 +1,14 @@
 """Persisted HTTP journey for an eligible adaptive Skill in disposable PostgreSQL."""
 
+import json
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from time import monotonic, sleep
 from typing import Any, cast
 from uuid import uuid4
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -30,6 +35,8 @@ from shifu.curriculum.providers.curriculum_content_provider import (
 from shifu.learning.core.use_cases.evaluate_choice_activity_use_case import (
     EvaluateChoiceActivityUseCase,
 )
+from shifu.learning.core.domain.entities import ActivityAttempt
+from shifu.learning.core.domain.structures import CodeQuestionAssessmentDecisions
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import (
     ConceptObservationModel,
@@ -41,10 +48,14 @@ from shifu.shared.core.domain.structures import AuthenticatedUser, RateLimitDeci
 from shifu.shared.core.domain.structures import (
     CodeConceptDecision,
     CodeCriterionDecision,
-    CodeRubricAssessmentInput,
     CodeRubricDecisions,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
+from shifu.shared.core.interfaces import OutboxEvent
+from shifu.shared.messaging.inngest.inngest_broker import InngestBroker
 from shifu.shared.database.seed import seed as seed_database
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
@@ -70,6 +81,26 @@ from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
 
+_NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+
+
+def _learning_event(name: str, payload: dict[str, object]) -> OutboxEvent:
+    return OutboxEvent(
+        id='event-1',
+        name=name,
+        payload=payload,
+        destination='unrouted',
+        status='pending',
+        attempts=0,
+        available_at=_NOW,
+        reserved_by=None,
+        reservation_expires_at=None,
+        last_error_code=None,
+        created_at=_NOW,
+        updated_at=_NOW,
+        published_at=None,
+    )
+
 
 class _Authentication:
     def authenticate(self, access_token: str) -> AuthenticatedUser:
@@ -90,6 +121,48 @@ class _NoopBroker:
         pass
 
 
+@dataclass
+class _ControlledJevEndpoint:
+    requests: list[dict[str, object]] = field(default_factory=list)
+    score: int = 0
+
+    def respond(self, request: httpx.Request) -> httpx.Response:
+        payload = cast('dict[str, object]', json.loads(request.content))
+        self.requests.append(payload)
+        raw_questions = payload.get('questions')
+        questions = (
+            cast('dict[str, object]', raw_questions)
+            if isinstance(raw_questions, dict)
+            else {}
+        )
+        answers: dict[str, dict[str, str]] = {}
+        choice_index = self.score // 25
+        for question_id, raw_question in questions.items():
+            if not isinstance(raw_question, dict):
+                continue
+            question = cast('dict[str, object]', raw_question)
+            raw_criteria = question.get('criteria')
+            if not isinstance(raw_criteria, dict):
+                continue
+            choices = tuple(cast('dict[str, object]', raw_criteria))
+            if choices:
+                choice = choices[min(choice_index, len(choices) - 1)]
+                answers[question_id] = {'type': 'choice', 'choice': choice}
+        return httpx.Response(200, json={'answers': answers})
+
+    def build_client(self) -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(self.respond))
+
+
+class _RecordingInngestClient:
+    def __init__(self) -> None:
+        self.events: list[object] = []
+
+    def send_sync(self, event: object) -> object:
+        self.events.append(event)
+        return None
+
+
 class _UnlimitedCache:
     async def consume_rate_limit_token(
         self, key: str, capacity: int, refill_per_second: float
@@ -97,21 +170,41 @@ class _UnlimitedCache:
         return RateLimitDecision(allowed=True, retry_after_seconds=0)
 
 
-class _FixedCodeRubricAssessor:
-    def __init__(self, score: CodeRubricLevel = 75) -> None:
-        self._score: CodeRubricLevel = score
+def _code_decisions_for_attempt(
+    attempt: ActivityAttempt,
+    score: CodeRubricLevel,
+) -> tuple[CodeQuestionAssessmentDecisions, ...]:
+    snapshot = attempt.grading_snapshot
+    if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
+        return ()
 
-    def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
-        return CodeRubricDecisions(
-            criterion_levels=tuple(
-                CodeCriterionDecision(key=item.key, level=self._score)
-                for item in request.rubric_criteria
-            ),
-            concept_levels=tuple(
-                CodeConceptDecision(concept_id=item.concept_id, level=self._score)
-                for item in request.concept_criteria
-            ),
+    parts_by_question = {part.question_key: part for part in snapshot.parts}
+    decisions: list[CodeQuestionAssessmentDecisions] = []
+    for question in snapshot.questions:
+        if not isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            continue
+        part = parts_by_question[question.key]
+        if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+            raise TypeError('Code questions require a code rubric part.')
+        decisions.append(
+            CodeQuestionAssessmentDecisions(
+                question_key=question.key,
+                decisions=CodeRubricDecisions(
+                    criterion_levels=tuple(
+                        CodeCriterionDecision(key=item.key, level=score)
+                        for item in part.criteria
+                    ),
+                    concept_levels=tuple(
+                        CodeConceptDecision(
+                            concept_id=item.concept_id,
+                            level=score,
+                        )
+                        for item in question.concept_criteria
+                    ),
+                ),
+            )
         )
+    return tuple(decisions)
 
 
 def _get(client: TestClient, path: str, headers: dict[str, str]) -> Response:
@@ -180,6 +273,7 @@ def adaptive_app(
     postgres_database: PostgresDatabase,
     redis_fixture: RedisFixture,
     monkeypatch: pytest.MonkeyPatch,
+    controlled_jev_endpoint: _ControlledJevEndpoint,
 ) -> Iterator[FastAPI]:
     # CI intentionally has no .env.local. Diagnostic activity snapshots are
     # unavailable unless their revision can be signed, so give this HTTP
@@ -206,6 +300,67 @@ def adaptive_app(
     yield app
     app.dependency_overrides.clear()
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def controlled_jev_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> _ControlledJevEndpoint:
+    endpoint = _ControlledJevEndpoint()
+    monkeypatch.setattr(
+        'shifu.intelligence.ai.intelligence_workflows_registry.IntelligenceWorkflowsRegistry._build_code_rubric_client',
+        staticmethod(endpoint.build_client),
+    )
+    return endpoint
+
+
+def _wait_for_completed_evaluation(
+    learning: SqlalchemyLearningDatabase,
+    attempt_id: str,
+) -> None:
+    deadline = monotonic() + 30
+    while monotonic() < deadline:
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        if evaluation is not None and evaluation.status.value != 'pending':
+            assert evaluation.status.value == 'completed'
+            return
+        sleep(0.05)
+    pytest.fail(f'Registered code evaluation did not complete for {attempt_id}')
+
+
+def _set_registered_code_score(
+    endpoint: _ControlledJevEndpoint,
+    activity: Activity,
+    *,
+    enabled: bool,
+    correct: bool,
+) -> None:
+    if enabled and any(
+        isinstance(question, JavascriptStdinQuestion) for question in activity.questions
+    ):
+        endpoint.score = 100 if correct else 0
+
+
+def _evaluate_attempt_or_wait_for_workflow(
+    learning: SqlalchemyLearningDatabase,
+    provider: DatabaseCurriculumContentProvider,
+    attempt_id: str,
+    run_id: str,
+    code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+    *,
+    registered_workflows_enabled: bool,
+) -> None:
+    if registered_workflows_enabled and code_decisions:
+        _wait_for_completed_evaluation(learning, attempt_id)
+    else:
+        EvaluateChoiceActivityUseCase(
+            learning,
+            SystemClockProvider(),
+            provider,
+        ).execute(attempt_id, run_id, code_decisions)
 
 
 def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
@@ -346,8 +501,11 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
                 learning,
                 SystemClockProvider(),
                 provider,
-                _FixedCodeRubricAssessor(),
-            ).execute(attempt.id, evaluation.run_id)
+            ).execute(
+                attempt.id,
+                evaluation.run_id,
+                _code_decisions_for_attempt(attempt, 75),
+            )
 
         confirmation = _post(
             client, f'{skill_path}/diagnostic/complete', diagnostic_headers
@@ -408,12 +566,17 @@ def test_adaptive_creation_diagnostic_privacy_and_persisted_baseline(
             )
             assert evaluation is not None and evaluation.run_id is not None
             learning_run_id = evaluation.run_id
+            attempt = repositories.activity_attempts.find_by_id(learning_attempt_id)
+            assert attempt is not None
         EvaluateChoiceActivityUseCase(
             learning,
             SystemClockProvider(),
             provider,
-            _FixedCodeRubricAssessor(),
-        ).execute(learning_attempt_id, learning_run_id)
+        ).execute(
+            learning_attempt_id,
+            learning_run_id,
+            _code_decisions_for_attempt(attempt, 100),
+        )
         learning_result = _get(
             client,
             f'{learning_activity_path}/attempts/{learning_attempt_id}',
@@ -452,6 +615,7 @@ class TestAdaptiveLabSeed:
         adaptive_app: FastAPI,
         postgres_database: PostgresDatabase,
         monkeypatch: pytest.MonkeyPatch,
+        controlled_jev_endpoint: _ControlledJevEndpoint,
     ) -> None:
         headers = {'Authorization': 'Bearer test-access-token'}
         seed = build_development_seed()
@@ -479,6 +643,7 @@ class TestAdaptiveLabSeed:
             classmethod(disposable_seed_settings),
         )
         seed_database()
+        registered_workflows_enabled = False
 
         def submit_and_evaluate(
             client: TestClient,
@@ -555,6 +720,12 @@ class TestAdaptiveLabSeed:
                     'activity_revision': activity_data['activity_revision'],
                     'answers': answers,
                 }
+            _set_registered_code_score(
+                controlled_jev_endpoint,
+                activity,
+                enabled=registered_workflows_enabled,
+                correct=correct,
+            )
             submission = _post(
                 client,
                 f'{path}/attempts',
@@ -569,14 +740,18 @@ class TestAdaptiveLabSeed:
                 )
                 assert evaluation is not None and evaluation.run_id is not None
                 run_id = evaluation.run_id
-            EvaluateChoiceActivityUseCase(
+                attempt = repositories.activity_attempts.find_by_id(attempt_id)
+                assert attempt is not None and attempt.grading_snapshot is not None
+                score: CodeRubricLevel = 100 if correct else 0
+                code_decisions = _code_decisions_for_attempt(attempt, score)
+            _evaluate_attempt_or_wait_for_workflow(
                 learning,
-                SystemClockProvider(),
                 provider,
-                _FixedCodeRubricAssessor(
-                    0 if diagnostic_run_id is not None else 100 if correct else 0
-                ),
-            ).execute(attempt_id, run_id)
+                attempt_id,
+                run_id,
+                code_decisions,
+                registered_workflows_enabled=registered_workflows_enabled,
+            )
             return None
 
         def submit_diagnostic_batch(
@@ -651,12 +826,15 @@ class TestAdaptiveLabSeed:
                 diagnostic_attempts, diagnostic_evaluations, strict=True
             ):
                 assert evaluation is not None and evaluation.run_id is not None
-                EvaluateChoiceActivityUseCase(
+                code_decisions = _code_decisions_for_attempt(attempt, 0)
+                _evaluate_attempt_or_wait_for_workflow(
                     learning,
-                    SystemClockProvider(),
                     provider,
-                    _FixedCodeRubricAssessor(score=0),
-                ).execute(attempt.id, evaluation.run_id)
+                    attempt.id,
+                    evaluation.run_id,
+                    code_decisions,
+                    registered_workflows_enabled=registered_workflows_enabled,
+                )
 
         with TestClient(adaptive_app, raise_server_exceptions=True) as client:
             adaptive_app.state.cache_provider = _UnlimitedCache()
@@ -683,7 +861,55 @@ class TestAdaptiveLabSeed:
             )
             assert started.status_code == 200, started.text
             diagnostic_headers = {**headers, 'X-Diagnostic-Run-Id': diagnostic_run_id}
-            submit_diagnostic_batch(client, skill_path, diagnostic_run_id)
+            routed_inngest_client = _RecordingInngestClient()
+            registered_broker = InngestBroker(
+                routed_inngest_client,
+                engine=postgres_database.engine,
+                destination_resolver=lambda event: (
+                    adaptive_app.state.intelligence_workflows_registry.destination_for_event(
+                        event
+                    )
+                    or adaptive_app.state.learning_workflows_registry.destination_for_event(
+                        event
+                    )
+                ),
+            )
+            adaptive_app.state.inngest_broker = registered_broker
+            registered_broker.start()
+            controlled_jev_endpoint.score = 0
+            registered_workflows_enabled = True
+            try:
+                submit_diagnostic_batch(client, skill_path, diagnostic_run_id)
+            finally:
+                registered_workflows_enabled = False
+                registered_broker.stop()
+            assert controlled_jev_endpoint.requests
+            assert routed_inngest_client.events
+
+            with learning.transaction() as repositories:
+                experience = (
+                    repositories.skill_experiences.find_by_goal_id_and_skill_id(
+                        SEED_ADAPTIVE_LAB_GOAL_ID,
+                        SEED_ADAPTIVE_LAB_SKILL_ID,
+                    )
+                )
+                assert experience is not None
+                diagnostic_attempts = repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
+                    experience.id,
+                    diagnostic_run_id,
+                )
+            learning_registry = adaptive_app.state.learning_workflows_registry
+            destinations = tuple(
+                learning_registry.destination_for_event(
+                    _learning_event(
+                        name='learning/activity-submission.requested',
+                        payload={'attempt_id': attempt.id},
+                    )
+                )
+                for attempt in diagnostic_attempts
+            )
+            assert 'agentos:learning' in destinations
+            assert 'inngest' in destinations
 
             confirmation = _post(
                 client, f'{skill_path}/diagnostic/complete', diagnostic_headers
@@ -1013,8 +1239,11 @@ class TestLogicProgrammingSeed:
                     learning,
                     SystemClockProvider(),
                     provider,
-                    _FixedCodeRubricAssessor(),
-                ).execute(attempt.id, evaluation.run_id)
+                ).execute(
+                    attempt.id,
+                    evaluation.run_id,
+                    _code_decisions_for_attempt(attempt, 75),
+                )
 
             completed = _post(
                 client, f'{skill_path}/diagnostic/complete', diagnostic_headers
@@ -1218,12 +1447,17 @@ def _submit_logic_learning_activity(
         evaluation = repositories.activity_evaluations.find_by_attempt_id(attempt_id)
         assert evaluation is not None and evaluation.run_id is not None
         run_id = evaluation.run_id
+        attempt = repositories.activity_attempts.find_by_id(attempt_id)
+        assert attempt is not None
     EvaluateChoiceActivityUseCase(
         learning,
         SystemClockProvider(),
         provider,
-        _FixedCodeRubricAssessor(score=100 if correct else 0),
-    ).execute(attempt_id, run_id)
+    ).execute(
+        attempt_id,
+        run_id,
+        _code_decisions_for_attempt(attempt, 100 if correct else 0),
+    )
     result = _get(client, f'{path}/attempts/{attempt_id}', headers)
     assert result.status_code == 200, result.text
     assert result.json()['status'] == 'completed'

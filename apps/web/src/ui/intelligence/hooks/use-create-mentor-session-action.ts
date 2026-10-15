@@ -21,7 +21,10 @@ const INPUT = z
     submissionKey: z.uuid({ version: 'v4' }),
     firstMessage: z.string().refine((value) => Boolean(value.trim())),
     contextHint: HINT.nullish(),
+    attachmentBatchId: ID.optional(),
+    attachmentIds: z.array(ID).max(5).optional(),
   })
+  .refine((input) => !input.attachmentIds?.length || Boolean(input.attachmentBatchId))
   .strict()
 export const createMentorSessionServer = createServerFn({ method: 'POST' })
   .validator((data: unknown) => INPUT.parse(data))
@@ -30,7 +33,9 @@ export const createMentorSessionServer = createServerFn({ method: 'POST' })
       getRequest(),
       data.accountEmail,
     )
-    return service.createMentorSession(accessToken, data)
+    const { accountEmail, ...input } = data
+    void accountEmail
+    return service.createMentorSession(accessToken, input)
   })
 
 export const useCreateMentorSessionAction = (accountEmail: string) => {

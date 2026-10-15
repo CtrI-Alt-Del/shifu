@@ -3,13 +3,13 @@ from uuid import UUID
 from shifu.intelligence.core.domain.entities import MentorMessage, MentorResponseAttempt
 from shifu.intelligence.core.domain.enums import (
     MentorMessageRole,
-    MentorResponseStatus,
     MentorResponseEventKind,
+    MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
     MentorInputInvalidError,
-    MentorSessionNotFoundError,
     MentorResponseConflictError,
+    MentorSessionNotFoundError,
     MentorSubmissionConflictError,
 )
 from shifu.intelligence.core.domain.events import (
@@ -17,14 +17,19 @@ from shifu.intelligence.core.domain.events import (
     MentorResponseRequestedPayload,
 )
 from shifu.intelligence.core.domain.structures import (
-    MentorSubmission,
-    MentorSessionDetail,
     MentorResponseEvent,
+    MentorSessionDetail,
+    MentorSubmission,
 )
 from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
     mentor_submission_fingerprint,
+    mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
+    attachment_fingerprint_values,
+    selected_attachments,
+)
 from shifu.shared.core.interfaces import (
     ClockProvider,
     IdentifierProvider,
@@ -50,21 +55,42 @@ class SubmitMentorMessageUseCase:
         self, account_id: str, session_id: str, submission: MentorSubmission
     ) -> MentorSessionDetail:
         self._validate(submission)
-        fingerprint = mentor_submission_fingerprint(
-            submission.content, submission.context_hint
-        )
         with self._database.transaction() as repositories:
             session = repositories.mentor_sessions.find_by_id_for_update(
                 account_id, session_id
             )
             if session is None:
                 raise MentorSessionNotFoundError
+            fingerprint_values = attachment_fingerprint_values(
+                repositories,
+                account_id,
+                submission.attachment_batch_id,
+                submission.attachment_ids,
+            )
+            fingerprint = mentor_submission_fingerprint_v2(
+                submission.content, submission.context_hint, fingerprint_values
+            )
             replay = repositories.mentor_response_attempts.find_submission(
                 account_id, session_id, submission.submission_key
             )
             if replay is not None:
                 self.replayed = True
-                if replay[1] != fingerprint:
+                attached = repositories.mentor_attachments.find_by_message_id(
+                    replay[0].learner_message_id
+                )
+                replay_attachment_ids = {attachment.id for attachment in attached}
+                requested_attachment_ids = set(submission.attachment_ids)
+                if (
+                    replay[1] != fingerprint
+                    and not (
+                        not submission.attachment_ids
+                        and not attached
+                        and replay[1]
+                        == mentor_submission_fingerprint(
+                            submission.content, submission.context_hint
+                        )
+                    )
+                ) or replay_attachment_ids != requested_attachment_ids:
                     raise MentorSubmissionConflictError
                 self._access_provider.assert_current(
                     self._access_provider.authorize(account_id, replay[0].operation_key)
@@ -77,6 +103,14 @@ class SubmitMentorMessageUseCase:
                     is not None
                 ):
                     raise MentorResponseConflictError
+                selected = selected_attachments(
+                    repositories,
+                    account_id=account_id,
+                    batch_id=submission.attachment_batch_id,
+                    session_id=session_id,
+                    attachment_ids=submission.attachment_ids,
+                    now=self._clock_provider.now(),
+                )
                 grant = self._access_provider.authorize(
                     account_id, submission.submission_key
                 )
@@ -103,6 +137,17 @@ class SubmitMentorMessageUseCase:
                     updated_at=now,
                 )
                 repositories.mentor_messages.add(message)
+                if selected:
+                    batch = repositories.mentor_attachment_batches.find_by_id(
+                        submission.attachment_batch_id or '', for_update=True
+                    )
+                    if batch is None:
+                        raise MentorSubmissionConflictError
+                    batch.consume(message.id)
+                    for attachment in selected:
+                        attachment.bind(session_id, message.id)
+                        repositories.mentor_attachments.update(attachment)
+                    repositories.mentor_attachment_batches.update(batch)
                 repositories.mentor_response_attempts.add(attempt)
                 repositories.mentor_response_attempts.add_submission(
                     account_id,

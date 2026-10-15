@@ -1,17 +1,20 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, Response as FastApiResponse
-from pydantic import BaseModel, ConfigDict, UUID4, TypeAdapter, Field, field_validator
+
+from fastapi import APIRouter, Depends
+from fastapi import Response as FastApiResponse
+from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+
 from shifu.intelligence.core.domain.structures import (
-    MentorSubmission,
     MentorContextHint,
+    MentorSubmission,
 )
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.intelligence.core.use_cases import SubmitMentorMessageUseCase
-from shifu.intelligence.rest.schemas.mentor_session_schemas import MentorSessionSchemas
+from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.rest.schemas.mentor_context_hint_schema import (
     MentorContextHintSchema,
 )
-from shifu.intelligence.pipes import IntelligencePipe
+from shifu.intelligence.rest.schemas.mentor_session_schemas import MentorSessionSchemas
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -26,6 +29,8 @@ class Request(BaseModel):
     submission_key: UUID4
     content: str = Field(min_length=1)
     context_hint: MentorContextHintSchema | None = None
+    attachment_batch_id: str | None = None
+    attachment_ids: list[str] = Field(default_factory=list, max_length=5)
 
     @field_validator('content')
     @classmethod
@@ -81,6 +86,8 @@ class SubmitMentorMessageController:
                     context_hint=MentorContextHint(**request.context_hint.model_dump())
                     if request.context_hint
                     else None,
+                    attachment_batch_id=request.attachment_batch_id,
+                    attachment_ids=tuple(request.attachment_ids),
                 ),
             )
             response.status_code = 200 if use_case.replayed else 202

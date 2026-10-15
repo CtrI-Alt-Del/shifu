@@ -8,8 +8,9 @@ import { useMentorContextProvider } from '../use-mentor-context-provider'
 const ports = vi.hoisted(() => ({
   post: vi.fn(),
   get: vi.fn(),
+  patch: vi.fn(),
+  delete: vi.fn(),
   access: vi.fn(),
-  list: vi.fn(),
   navigate: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
@@ -32,16 +33,51 @@ vi.mock('@/provision/auth/better-auth/better-auth-provider', () => ({
   getBetterAuthProvider: () => ({ getCurrentAccess: ports.access }),
 }))
 vi.mock('@/rest/axios/axios-rest-client', () => ({
-  AxiosRestClient: () => ({ post: ports.post, get: ports.get }),
+  AxiosRestClient: () => ({
+    post: ports.post,
+    get: ports.get,
+    patch: ports.patch,
+    delete: ports.delete,
+    postFormData: vi.fn(),
+    getFile: vi.fn(),
+    put: vi.fn(),
+  }),
 }))
-vi.mock('@/ui/intelligence/hooks/mentor-server-functions', () => ({
-  listMentorSessionsServer: ports.list,
-  renameMentorSessionServer: vi.fn(),
-  removeMentorSessionServer: vi.fn(),
+vi.mock('@/rest/fetch/fetch-rest-stream-client', () => ({
+  FetchRestStreamClient: () => ({ getStream: vi.fn() }),
 }))
 const sessionId = '01J7T8AC91Z5K8M4JQ8C2D6F0B'
 const attemptId = '01J7T8AC91Z5K8M4JQ8C2D6F0C'
 const submissionKey = 'e9cfaab2-fb57-40e6-96aa-e6d7afdd7259'
+const attachmentBatchId = '01J7T8AC91Z5K8M4JQ8C2D6F0E'
+const attachmentId = '01J7T8AC91Z5K8M4JQ8C2D6F0F'
+const attachmentDto = {
+  attachment_id: attachmentId,
+  filename: 'anotacao.txt',
+  media_type: 'text/plain',
+  size_bytes: 4,
+  status: 'ready',
+  failure_code: null,
+  analyzed_pages: [],
+  illegible_pages: [],
+  uninterpreted_pages: [],
+}
+const attachmentDomain = {
+  attachmentId,
+  filename: 'anotacao.txt',
+  mediaType: 'text/plain',
+  sizeBytes: 4,
+  status: 'processing',
+  failureCode: null,
+  analyzedPages: [],
+  illegiblePages: [],
+  uninterpretedPages: [],
+}
+const attachmentBatchDto = {
+  batch_id: attachmentBatchId,
+  expires_at: '2026-10-15T12:00:00Z',
+  attachments: [attachmentDto],
+}
 const snapshot = {
   attempt_id: attemptId,
   learner_message_id: sessionId,
@@ -100,24 +136,61 @@ describe('Mentor consumer through authenticated transport', () => {
       email: 'learner@example.com',
       accessToken: 'test-access',
     })
-    ports.list.mockResolvedValue({ items: [], nextCursor: null })
-    ports.get.mockResolvedValue(new RestResponse({ statusCode: 200, body: detail }))
+    ports.get.mockImplementation(async (path: string) => {
+      if (path === '/intelligence/mentor-sessions')
+        return new RestResponse({
+          statusCode: 200,
+          body: { items: [], next_cursor: null },
+        })
+      if (path.includes('/mentor-attachment-batches/'))
+        return new RestResponse({ statusCode: 200, body: attachmentBatchDto })
+      return new RestResponse({ statusCode: 200, body: detail })
+    })
     ports.post.mockImplementation(
       async (path: string) =>
         new RestResponse({
-          statusCode: 202,
-          body: path.endsWith('/cancel')
-            ? { ...snapshot, status: 'cancelled', blocks: [], last_sequence: 3 }
-            : path.endsWith('/retry')
+          statusCode: path.includes('/mentor-attachment-batches') ? 201 : 202,
+          body:
+            path === '/intelligence/mentor-attachment-batches'
               ? {
-                  ...snapshot,
-                  status: 'queued',
-                  attempt_id: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
-                  blocks: [],
-                  last_sequence: 4,
+                  batch_id: attachmentBatchId,
+                  expires_at: attachmentBatchDto.expires_at,
                 }
-              : detail,
+              : path.endsWith('/cancel')
+                ? { ...snapshot, status: 'cancelled', blocks: [], last_sequence: 3 }
+                : path.endsWith('/retry')
+                  ? {
+                      ...snapshot,
+                      status: 'queued',
+                      attempt_id: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+                      blocks: [],
+                      last_sequence: 4,
+                    }
+                  : detail,
         }),
+    )
+    ports.patch.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          id: sessionId,
+          title: 'Título atualizado',
+          created_at: 'now',
+          updated_at: 'now',
+          last_activity_at: 'now',
+        },
+      }),
+    )
+    ports.delete.mockResolvedValue(new RestResponse({ statusCode: 204 }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(attachmentDomain), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
     )
   })
   afterEach(() => {
@@ -243,6 +316,124 @@ describe('Mentor consumer through authenticated transport', () => {
     await act(() => result.current.sendFirstMessage())
     expect(result.current.scopeError).toBeTruthy()
     expect(ports.post).toHaveBeenCalledTimes(1)
+  })
+  it('runs attachment creation, upload, polling, and removal through provider actions', async () => {
+    const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+
+    await act(() =>
+      result.current.addAttachments([
+        new File(['nota'], 'anotacao.txt', { type: 'text/plain' }),
+      ]),
+    )
+    await waitFor(() =>
+      expect(result.current.draftAttachments[0]?.attachment?.status).toBe('ready'),
+    )
+    expect(ports.get).toHaveBeenCalledWith(
+      `/intelligence/mentor-attachment-batches/${attachmentBatchId}`,
+      expect.any(Object),
+    )
+    expect(ports.post).toHaveBeenCalledWith(
+      '/intelligence/mentor-attachment-batches',
+      {},
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer test-access' }),
+      }),
+    )
+    expect(fetch).toHaveBeenCalledWith(
+      `/api/intelligence/mentor-attachment-batches/${attachmentBatchId}/attachments`,
+      expect.objectContaining({ method: 'POST' }),
+    )
+
+    const draftAttachment = result.current.draftAttachments[0]
+    expect(draftAttachment?.attachment?.attachmentId).toBe(attachmentId)
+    if (!draftAttachment) throw new Error('Expected uploaded draft attachment')
+    await act(() => result.current.removeAttachment(draftAttachment.localKey))
+    expect(ports.delete).toHaveBeenCalledWith(
+      `/intelligence/mentor-attachment-batches/${attachmentBatchId}/attachments/${attachmentId}`,
+      undefined,
+      expect.any(Object),
+    )
+  })
+  it('routes session rename and removal through their operation-owned server functions', async () => {
+    const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+    act(() => result.current.openRenameDialog(sessionId))
+    await act(() => result.current.renameSession('Título atualizado'))
+    expect(ports.patch).toHaveBeenCalledWith(
+      `/intelligence/mentor-sessions/${sessionId}`,
+      { title: 'Título atualizado' },
+      expect.any(Object),
+    )
+    act(() => result.current.openRemoveDialog(sessionId))
+    await act(() => result.current.removeSession())
+    expect(ports.delete).toHaveBeenCalledWith(
+      `/intelligence/mentor-sessions/${sessionId}`,
+      undefined,
+      expect.any(Object),
+    )
+  })
+  it('creates an attachment batch scoped to the selected session', async () => {
+    const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+    await act(() => result.current.selectSession(sessionId))
+    await act(() =>
+      result.current.addAttachments([
+        new File(['nota'], 'anotacao.txt', { type: 'text/plain' }),
+      ]),
+    )
+    await waitFor(() =>
+      expect(result.current.draftAttachments[0]?.attachment?.status).toBe('ready'),
+    )
+    expect(ports.post).toHaveBeenCalledWith(
+      '/intelligence/mentor-attachment-batches',
+      { session_id: sessionId },
+      expect.any(Object),
+    )
+  })
+  it.each([
+    {
+      code: 'attachment_too_large',
+      message: 'Não foi possível enviar o arquivo. Tente novamente ou remova-o.',
+    },
+    {
+      code: 'backend_error',
+      message: 'Não foi possível enviar o arquivo. Tente novamente ou remova-o.',
+    },
+    {
+      code: null,
+      message: 'Não foi possível enviar o arquivo. Tente novamente ou remova-o.',
+    },
+  ])('shows the upload failure message for code $code', async ({ code, message }) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: false,
+            json: async () => {
+              if (code === null) throw new Error('invalid response')
+              return { code }
+            },
+          }) as Response,
+      ),
+    )
+    const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+    await act(() =>
+      result.current.addAttachments([
+        new File(['nota'], 'anotacao.txt', { type: 'text/plain' }),
+      ]),
+    )
+    await waitFor(() => expect(result.current.draftAttachments[0]?.error).toBe(message))
   })
   it.each(['submit', 'cancel', 'retry'] as const)(
     'preserves authoritative response when %s transport fails',

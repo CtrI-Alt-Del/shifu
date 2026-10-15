@@ -1,13 +1,13 @@
 """Durable PostgreSQL outbox relay for Inngest."""
 
+import secrets
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
-from datetime import timedelta
-import secrets
+from datetime import datetime, timedelta
+from importlib import import_module
 from threading import Event as ThreadEvent
 from threading import Lock, Thread, current_thread
 from typing import ClassVar, Literal, Protocol, cast
-from importlib import import_module
 
 from sqlalchemy.engine import Engine
 
@@ -23,8 +23,8 @@ from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
-
 RepositoryScope = Callable[[], AbstractContextManager[EventsRepository]]
+DestinationResolver = Callable[[OutboxEvent], str | None]
 
 
 class _InngestClient(Protocol):
@@ -38,6 +38,7 @@ class InngestBroker:
     _RESERVATION_DURATION: ClassVar[timedelta] = timedelta(minutes=5)
     _MAX_IDLE_SECONDS: ClassVar[float] = 30.0
     _MAX_ATTEMPTS: ClassVar[int] = 10
+    _DESTINATION: ClassVar[str] = 'inngest'
     _DELIVERY_BACKOFF_SECONDS: ClassVar[
         tuple[
             Literal[5],
@@ -60,6 +61,7 @@ class InngestBroker:
         *,
         engine: Engine | None = None,
         events_repository: EventsRepository | None = None,
+        destination_resolver: DestinationResolver,
         id_provider: IdentifierProvider | None = None,
         instance_id: str | None = None,
         clock_provider: ClockProvider | None = None,
@@ -84,6 +86,7 @@ class InngestBroker:
 
         self._inngest_client = cast('_InngestClient', inngest_client)
         self._repository_scope = repository_scope
+        self._destination_resolver = destination_resolver
         self._id_provider: IdentifierProvider = (
             id_provider or SystemIdentifierProvider()
         )
@@ -174,7 +177,10 @@ class InngestBroker:
         while not self._stop.is_set():
             now = self._clock_provider.now()
             with self._repository_scope() as repository:
-                deadline = repository.find_earliest_wakeup(now=now)
+                deadline = repository.find_earliest_wakeup(
+                    destination=InngestBroker._DESTINATION,
+                    now=now,
+                )
             timeout = InngestBroker._MAX_IDLE_SECONDS
             if deadline is not None:
                 timeout = min(timeout, max(0.0, (deadline - now).total_seconds()))
@@ -188,8 +194,13 @@ class InngestBroker:
         while not self._stop.is_set():
             now = self._clock_provider.now()
             with self._repository_scope() as repository:
-                repository.release_expired_reservations(now=now)
+                self._route_unrouted(repository, now=now)
+                repository.release_expired_reservations(
+                    destination=InngestBroker._DESTINATION,
+                    now=now,
+                )
                 events = repository.reserve_available(
+                    destination=InngestBroker._DESTINATION,
                     now=now,
                     reserved_by=self._instance_id,
                     reservation_expires_at=now + InngestBroker._RESERVATION_DURATION,
@@ -202,6 +213,19 @@ class InngestBroker:
                     return
                 self._deliver(event)
 
+    def _route_unrouted(self, repository: EventsRepository, *, now: datetime) -> None:
+        for event in repository.find_unrouted(
+            now=now,
+            limit=InngestBroker._DRAIN_LIMIT,
+        ):
+            try:
+                destination = self._destination_resolver(event)
+            except Exception:  # noqa: BLE001, S112 - unresolved events remain retryable.
+                continue
+            if destination is None or destination == 'unrouted':
+                continue
+            repository.assign_destination(event_id=event.id, destination=destination)
+
     def _deliver(self, event: OutboxEvent) -> None:
         try:
             self._inngest_client.send_sync(self._build_inngest_event(event))
@@ -211,6 +235,7 @@ class InngestBroker:
         with self._repository_scope() as repository:
             repository.mark_published(
                 event_id=event.id,
+                destination=InngestBroker._DESTINATION,
                 reserved_by=self._instance_id,
                 published_at=self._clock_provider.now(),
             )
@@ -236,6 +261,7 @@ class InngestBroker:
         with self._repository_scope() as repository:
             repository.mark_delivery_failed(
                 event_id=event.id,
+                destination=InngestBroker._DESTINATION,
                 reserved_by=self._instance_id,
                 available_at=available_at,
                 error_code=error_code,

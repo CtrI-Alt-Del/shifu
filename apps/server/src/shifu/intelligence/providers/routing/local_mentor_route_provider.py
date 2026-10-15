@@ -24,6 +24,9 @@ from shifu.intelligence.core.interfaces.mentor_embeddings_repository import (
 from shifu.intelligence.core.interfaces.mentor_faq_reranker_provider import (
     MentorFaqRerankerProvider,
 )
+from shifu.intelligence.core.interfaces.mentor_telemetry_provider import (
+    MentorTelemetryProvider,
+)
 from shifu.intelligence.providers.intent_classification.embeddings.embeddings_mentor_intent_classifier_provider import (
     EmbeddingsMentorIntentClassifierProvider,
 )
@@ -33,8 +36,8 @@ from shifu.intelligence.providers.retrieval.bm25.bm25_mentor_hybrid_retrieval_pr
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
 )
-from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
-    LangfuseMentorTelemetryProvider,
+from shifu.intelligence.providers.telemetry.agentos.agentos_mentor_telemetry_provider import (
+    AgentOSMentorTelemetryProvider,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures.mentor_context_snapshot import (
@@ -70,7 +73,7 @@ class LocalMentorRouteProvider:
     _resources: MentorResources
     _classifier: EmbeddingsMentorIntentClassifierProvider
     _retrieval: Bm25MentorHybridRetrievalProvider
-    _telemetry: LangfuseMentorTelemetryProvider
+    _telemetry: MentorTelemetryProvider
     _catalog: MentorCatalogProvider | None
     _preprocessor: SpacyMentorTextPreprocessorProvider
 
@@ -80,13 +83,13 @@ class LocalMentorRouteProvider:
         repository: MentorEmbeddingsRepository,
         preprocessor: SpacyMentorTextPreprocessorProvider,
         resources: MentorResources,
-        telemetry: LangfuseMentorTelemetryProvider | None = None,
+        telemetry: MentorTelemetryProvider | None = None,
         catalog_provider: MentorCatalogProvider | None = None,
         reranker_provider: MentorFaqRerankerProvider | None = None,
     ) -> None:
         self._catalog = catalog_provider
         self._preprocessor = preprocessor
-        self._telemetry = telemetry or LangfuseMentorTelemetryProvider()
+        self._telemetry = telemetry or AgentOSMentorTelemetryProvider()
         self._embeddings = embeddings
         self._resources = resources
         self._classifier = EmbeddingsMentorIntentClassifierProvider(
@@ -150,7 +153,7 @@ class LocalMentorRouteProvider:
         return MentorRouteResult(
             intents=tuple(matches.values()),
             local_blocks=tuple(blocks),
-            generation_requests=(),
+            generation_requests=generation,
             clarification=clarification,
             proposed_reference_ids=proposed,
         )

@@ -1,0 +1,52 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+@mentorSessionId = 01J00000000000000000000000
+@attachmentBatchId = 01J00000000000000000000001
+@attachmentId = 01J00000000000000000000002
+@uploadKey = 236118d8-a7a0-445a-bbc6-927780aec501
+
+### Create a temporary attachment batch for a new Mentor conversation
+POST {{baseUrl}}/intelligence/mentor-attachment-batches
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{}
+
+### Create a batch bound to an existing Mentor conversation
+POST {{baseUrl}}/intelligence/mentor-attachment-batches
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "session_id": "{{mentorSessionId}}" }
+
+### Upload one supported file (up to 10 MB; at most five per batch)
+POST {{baseUrl}}/intelligence/mentor-attachment-batches/{{attachmentBatchId}}/attachments
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=ShifuAttachmentBoundary
+
+--ShifuAttachmentBoundary
+Content-Disposition: form-data; name="upload_key"
+
+{{uploadKey}}
+--ShifuAttachmentBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./example.png
+--ShifuAttachmentBoundary--
+
+### Read batch and per-file preparation state
+GET {{baseUrl}}/intelligence/mentor-attachment-batches/{{attachmentBatchId}}
+Authorization: Bearer {{accessToken}}
+
+### Remove an unbound file before submission
+DELETE {{baseUrl}}/intelligence/mentor-attachment-batches/{{attachmentBatchId}}/attachments/{{attachmentId}}
+Authorization: Bearer {{accessToken}}
+
+### Read an authorized image preview from a sent conversation
+GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/attachments/{{attachmentId}}/file?preview=true
+Authorization: Bearer {{accessToken}}
+
+### Download the original attachment from a sent conversation
+GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/attachments/{{attachmentId}}/file
+Authorization: Bearer {{accessToken}}

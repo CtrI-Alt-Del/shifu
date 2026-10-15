@@ -23,8 +23,18 @@ class EventModel(Model):
             "status IN ('pending', 'publishing', 'failed', 'published', 'terminal')",
             name='ck_events_status',
         ),
+        CheckConstraint(
+            "destination IN ('unrouted', 'inngest', 'agentos:intelligence', 'agentos:learning')",
+            name='ck_events_destination',
+        ),
         CheckConstraint('attempts >= 0', name='ck_events_attempts'),
         Index('ix_events_status_available_at', 'status', 'available_at'),
+        Index(
+            'ix_events_destination_status_available_at',
+            'destination',
+            'status',
+            'available_at',
+        ),
         Index('ix_events_reservation_expires_at', 'reservation_expires_at'),
         Index('ix_events_published_at', 'published_at'),
     )
@@ -32,6 +42,9 @@ class EventModel(Model):
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    destination: Mapped[str] = mapped_column(
+        String(80), nullable=False, server_default=text("'unrouted'")
+    )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default=text("'pending'")
     )

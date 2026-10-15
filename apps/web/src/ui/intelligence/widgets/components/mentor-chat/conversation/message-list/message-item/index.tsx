@@ -5,6 +5,8 @@ import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { AnswerBlock } from './answer-block'
 import { useMessageItem } from './use-message-item'
+import { MentorAttachmentPreview } from '@/ui/intelligence/widgets/components/mentor-attachment-preview'
+import { Sources } from './sources'
 
 export type MessageItemProps = {
   message: MentorMessage
@@ -18,6 +20,8 @@ export const MessageItem = ({
 }: MessageItemProps) => {
   const {
     blocks,
+    attachments,
+    handleOpenAttachment,
     shouldAnimateEntrance,
     shouldReduceMotion,
     copyAccessibleLabel,
@@ -63,6 +67,7 @@ export const MessageItem = ({
             ) : (
               <AnswerBlock content={block.content} />
             )}
+            <Sources sources={block.sources} onOpen={handleOpenAttachment} />
           </div>
         ))
       ) : isMentorMessage ? (
@@ -70,6 +75,59 @@ export const MessageItem = ({
       ) : (
         <p className='whitespace-pre-wrap'>{message.content}</p>
       )}
+      {attachments.length > 0 ? (
+        <ul aria-label='Arquivos desta mensagem' className='mt-3 space-y-3'>
+          {attachments.map(({ attachment, url, error }) => (
+            <li className='min-w-0 space-y-1' key={attachment.attachmentId}>
+              {url && attachment.mediaType.startsWith('image/') ? (
+                <MentorAttachmentPreview
+                  filename={attachment.filename}
+                  mediaType={attachment.mediaType}
+                  src={url}
+                />
+              ) : null}
+              <p className='break-all text-xs font-medium' title={attachment.filename}>
+                {attachment.filename}
+              </p>
+              <p className='text-xs text-muted-foreground'>
+                {attachment.mediaType.toUpperCase()}
+                {' · '}
+                {`${(attachment.sizeBytes / 1_000_000).toFixed(1).replace('.', ',')} MB`}
+                {' · '}
+                {attachment.status === 'partial'
+                  ? 'Leitura parcial'
+                  : attachment.status === 'ready'
+                    ? 'Arquivo disponível'
+                    : attachment.status === 'failed'
+                      ? 'Arquivo não interpretado'
+                      : 'Arquivo indisponível'}
+              </p>
+              {attachment.status === 'partial' ? (
+                <p className='text-xs text-muted-foreground'>
+                  {attachment.analyzedPages.length > 0
+                    ? `Páginas analisadas: ${attachment.analyzedPages.join(', ')}.`
+                    : 'Parte do conteúdo não pôde ser interpretada.'}
+                  {attachment.illegiblePages.length > 0
+                    ? ` Páginas ilegíveis: ${attachment.illegiblePages.join(', ')}.`
+                    : ''}
+                  {attachment.uninterpretedPages.length > 0
+                    ? ` Páginas não analisadas: ${attachment.uninterpretedPages.join(', ')}.`
+                    : ''}
+                </p>
+              ) : null}
+              {attachment.mediaType.startsWith('image/') &&
+              attachment.status !== 'failed' &&
+              !url &&
+              !error ? (
+                <output className='block text-xs text-muted-foreground'>
+                  Carregando prévia do arquivo…
+                </output>
+              ) : null}
+              {error ? <output className='block'>{error}</output> : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className='mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground'>
         {timeLabel ? <time dateTime={message.createdAt}>{timeLabel}</time> : <span />}
         <Button

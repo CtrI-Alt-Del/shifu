@@ -1,0 +1,110 @@
+"""Purge private Mentor files after account deletion retention expires."""
+
+import asyncio
+import logging
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
+from typing import ClassVar, cast
+
+from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+
+from shifu.identity.core.domain.events import AccountDeletedEvent
+from shifu.intelligence.core.use_cases import PurgeMentorAttachmentsUseCase
+
+LOGGER = logging.getLogger(__name__)
+
+
+class _Payload(BaseModel):
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        extra='forbid',
+        frozen=True,
+        strict=True,
+    )
+
+    account_id: str = Field(min_length=1)
+    deleted_at: str = Field(min_length=1)
+
+    @field_validator('account_id')
+    @classmethod
+    def validate_account_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError('account_id must not be empty')
+        return value
+
+    @field_validator('deleted_at')
+    @classmethod
+    def validate_deleted_at(cls, value: str) -> str:
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as error:
+            raise ValueError('deleted_at must be an ISO-8601 timestamp') from error
+        if parsed.tzinfo is None or parsed.utcoffset() != UTC.utcoffset(parsed):
+            raise ValueError('deleted_at must be UTC')
+        return value
+
+
+def _validate_payload(data: Mapping[str, object]) -> _Payload:
+    try:
+        return _Payload.model_validate(dict(data))
+    except ValidationError as error:
+        raise NonRetriableError('Invalid account deletion event payload') from error
+
+
+class PurgeMentorAttachmentsOnAccountDeletedJob:
+    FUNCTION_ID: ClassVar[str] = (
+        'intelligence-purge-mentor-attachments-on-account-deleted'
+    )
+    _EVENT_NAME: ClassVar[str] = AccountDeletedEvent.EVENT_NAME
+    _RETENTION: ClassVar[timedelta] = timedelta(hours=24)
+
+    @staticmethod
+    def handle(
+        inngest: Inngest,
+        use_case: PurgeMentorAttachmentsUseCase,
+    ) -> Function[None]:
+        @inngest.create_function(
+            fn_id=PurgeMentorAttachmentsOnAccountDeletedJob.FUNCTION_ID,
+            trigger=TriggerEvent(
+                event=PurgeMentorAttachmentsOnAccountDeletedJob._EVENT_NAME
+            ),
+            retries=3,
+        )
+        async def _(context: Context) -> None:
+            data = cast('dict[str, object]', dict(context.event.data))
+            try:
+                payload = await context.step.run(
+                    'normalize_payload',
+                    PurgeMentorAttachmentsOnAccountDeletedJob._normalize_payload,
+                    data,
+                )
+            except NonRetriableError:
+                LOGGER.warning(
+                    'mentor_attachment_account_deletion_payload_rejected event_id=%s',
+                    context.event.id,
+                )
+                raise
+            purge_after = datetime.fromisoformat(payload['deleted_at']) + (
+                PurgeMentorAttachmentsOnAccountDeletedJob._RETENTION
+            )
+            await context.step.sleep_until('account_retention_period', purge_after)
+            await context.step.run(
+                'purge_mentor_attachments',
+                PurgeMentorAttachmentsOnAccountDeletedJob._purge,
+                use_case,
+                payload['account_id'],
+            )
+
+        return _
+
+    @staticmethod
+    async def _normalize_payload(data: dict[str, object]) -> dict[str, str]:
+        payload = _validate_payload(data)
+        return {'account_id': payload.account_id, 'deleted_at': payload.deleted_at}
+
+    @staticmethod
+    async def _purge(
+        use_case: PurgeMentorAttachmentsUseCase,
+        account_id: str,
+    ) -> None:
+        await asyncio.to_thread(use_case.execute_for_deleted_account, account_id)

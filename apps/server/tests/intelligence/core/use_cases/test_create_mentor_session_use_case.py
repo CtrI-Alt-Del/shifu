@@ -1,35 +1,38 @@
-from shifu.shared.core.domain.structures import MentorAccessGrant
-from shifu.shared.core.interfaces import MentorAccessProvider
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import call, create_autospec
 
 import pytest
-from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
-    mentor_submission_fingerprint,
-)
-
 from shifu.intelligence.core.domain.entities import (
+    MentorAttachment,
+    MentorAttachmentBatch,
     MentorMessage,
-    MentorSession,
     MentorResponseAttempt,
+    MentorSession,
 )
 from shifu.intelligence.core.domain.enums import (
+    MentorAttachmentStatus,
     MentorMessageRole,
-    MentorResponseStatus,
     MentorResponseEventKind,
+    MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
+    MentorAttachmentConflictError,
+    MentorAttachmentInvalidError,
     MentorInputInvalidError,
     MentorSessionNotFoundError,
     MentorSubmissionConflictError,
     MentorTitleUnavailableError,
 )
 from shifu.intelligence.core.domain.structures import (
-    MentorMessagesPage,
     MentorContextHint,
+    MentorMessagesPage,
     MentorResponseSnapshot,
     MentorSubmissionRecord,
+)
+from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
+    mentor_submission_fingerprint,
+    mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import (
     GenerateMentorTitleWorkflow,
@@ -40,7 +43,12 @@ from shifu.intelligence.core.use_cases import CreateMentorSessionUseCase
 from shifu.intelligence.providers.openrouter import (
     UnavailableGenerateMentorTitleWorkflow,
 )
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.domain.structures import MentorAccessGrant
+from shifu.shared.core.interfaces import (
+    ClockProvider,
+    IdentifierProvider,
+    MentorAccessProvider,
+)
 
 
 class TestCreateMentorSessionUseCase:
@@ -90,6 +98,19 @@ class TestCreateMentorSessionUseCase:
         self,
     ) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        self.repositories.mentor_messages.find_many.return_value = MentorMessagesPage(
+            items=[
+                MentorMessage(
+                    id='01JMENTORMESSAGE000000000001',
+                    session_id='01JMENTORSESSION000000000001',
+                    role=MentorMessageRole.LEARNER,
+                    content='  Olá\n\t mundo  ',
+                    created_at=self.now,
+                    in_reply_to_message_id=None,
+                )
+            ],
+            next_cursor=None,
+        )
 
         result = self.subject.execute(
             '01JACCOUNT000000000000000001',
@@ -130,11 +151,157 @@ class TestCreateMentorSessionUseCase:
         self.repositories.mentor_sessions.add.assert_called_once_with(
             persisted,
             '123e4567-e89b-42d3-a456-426614174000',
-            'aedf549f2f109230b8161431937d26da20a920bbb99af14ccf72afbb210b16cd',
+            mentor_submission_fingerprint_v2('  Olá\n\t mundo  ', None, ()),
         )
         self.repositories.mentor_messages.add.assert_called_once()
         assert self.database.transaction.call_count == 2
         assert self.repositories.mentor_sessions.lock_submission.call_count == 1
+
+    def test_should_reject_attachment_batch_without_selected_attachments(self) -> None:
+        with pytest.raises(MentorAttachmentInvalidError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id='01JBATCH00000000000000000001',
+            )
+
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ('batch_id', 'attachment_ids'),
+        [
+            (None, ('01JATTACHMENT00000000000001',)),
+            ('01JBATCH000000000000000001', ('same', 'same')),
+            ('01JBATCH000000000000000001', ('1', '2', '3', '4', '5', '6')),
+        ],
+    )
+    def test_should_reject_malformed_attachment_selection_before_title_generation(
+        self, batch_id: str | None, attachment_ids: tuple[str, ...]
+    ) -> None:
+        with pytest.raises(MentorAttachmentInvalidError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id=batch_id,
+                attachment_ids=attachment_ids,
+            )
+
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+
+    def test_should_reject_missing_attachment_before_title_generation(self) -> None:
+        self.repositories.mentor_attachments.find_by_id.return_value = None
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id='01JBATCH000000000000000001',
+                attachment_ids=('01JATTACHMENT00000000000001',),
+            )
+
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+
+    def test_should_reject_an_attachment_from_another_batch_before_title_generation(
+        self,
+    ) -> None:
+        attachment = self._ready_attachment(
+            attachment_id='01JATTACHMENT00000000000001',
+            account_id='01JACCOUNT000000000000000001',
+            batch_id='01JOTHERBATCH00000000000001',
+        )
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id='01JBATCH000000000000000001',
+                attachment_ids=(attachment.id,),
+            )
+
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+
+    def test_should_reject_a_bound_attachment_selection(self) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        attachment = self._ready_attachment(
+            attachment_id='01JATTACHMENT00000000000001',
+            account_id='01JACCOUNT000000000000000001',
+            batch_id='01JBATCH000000000000000001',
+        )
+        attachment.message_id = '01JMESSAGE000000000000000001'
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = (
+            self._attachment_batch()
+        )
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id='01JBATCH000000000000000001',
+                attachment_ids=(attachment.id,),
+            )
+
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+
+    def test_should_reject_selected_attachment_when_batch_disappears(self) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        attachment = self._ready_attachment(
+            attachment_id='01JATTACHMENT00000000000001',
+            account_id='01JACCOUNT000000000000000001',
+            batch_id='01JBATCH000000000000000001',
+        )
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = None
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+                attachment_batch_id='01JBATCH000000000000000001',
+                attachment_ids=(attachment.id,),
+            )
+
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+
+    def _ready_attachment(
+        self, *, attachment_id: str, account_id: str, batch_id: str
+    ) -> MentorAttachment:
+        attachment = MentorAttachment.create(
+            attachment_id=attachment_id,
+            account_id=account_id,
+            batch_id=batch_id,
+            upload_key='upload-key',
+            filename='material.pdf',
+            media_type='application/pdf',
+            size_bytes=20,
+            checksum='a' * 64,
+            object_key=f'mentor-attachments/{attachment_id}/1/original',
+            now=self.now,
+        )
+        attachment.status = MentorAttachmentStatus.READY
+        return attachment
+
+    def _attachment_batch(self) -> MentorAttachmentBatch:
+        return MentorAttachmentBatch.create(
+            '01JBATCH000000000000000001',
+            '01JACCOUNT000000000000000001',
+            None,
+            self.now,
+            self.now + timedelta(hours=1),
+        )
 
     def test_should_limit_title_input_to_first_1000_codepoints(self) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
@@ -516,6 +683,19 @@ class TestCreateMentorSessionUseCase:
     ) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
         self.repositories.mentor_response_events.next_sequence.return_value = 1
+        self.repositories.mentor_messages.find_many.return_value = MentorMessagesPage(
+            items=[
+                MentorMessage(
+                    id='01JMENTORMESSAGE000000000001',
+                    session_id='01JMENTORSESSION000000000001',
+                    role=MentorMessageRole.LEARNER,
+                    content='hello',
+                    created_at=self.now,
+                    in_reply_to_message_id=None,
+                )
+            ],
+            next_cursor=None,
+        )
         hint = MentorContextHint(goal_id='goal', skill_id='skill')
         result = self.subject.execute(
             '01JACCOUNT000000000000000001',
@@ -554,7 +734,7 @@ class TestCreateMentorSessionUseCase:
             call(self.access.authorize.return_value),
         ]
         fingerprint = self.repositories.mentor_sessions.add.call_args.args[2]
-        assert fingerprint == mentor_submission_fingerprint('hello', hint)
+        assert fingerprint == mentor_submission_fingerprint_v2('hello', hint, ())
         self.repositories.mentor_response_attempts.add_submission.assert_called_once_with(
             '01JACCOUNT000000000000000001',
             result.detail.session.id,

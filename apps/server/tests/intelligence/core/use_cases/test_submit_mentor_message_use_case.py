@@ -1,25 +1,30 @@
 from datetime import timedelta
+from unittest.mock import call
 
 import pytest
-from unittest.mock import call
 from shifu.intelligence.core.domain.enums import (
     MentorMessageRole,
-    MentorResponseStatus,
+    MentorAttachmentStatus,
     MentorResponseEventKind,
+    MentorResponseStatus,
 )
-
 from shifu.intelligence.core.domain.errors import (
-    MentorResponseConflictError,
-    MentorSubmissionConflictError,
-    MentorSessionNotFoundError,
     MentorInputInvalidError,
+    MentorResponseConflictError,
+    MentorSessionNotFoundError,
+    MentorSubmissionConflictError,
 )
 from shifu.intelligence.core.domain.structures import (
-    MentorSubmission,
     MentorContextHint,
+    MentorSubmission,
+)
+from shifu.intelligence.core.domain.entities import (
+    MentorAttachment,
+    MentorAttachmentBatch,
 )
 from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
     mentor_submission_fingerprint,
+    mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.use_cases import SubmitMentorMessageUseCase
 from shifu.shared.core.domain.errors import ServiceUnavailableError
@@ -122,6 +127,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
         [
             ('bad', 'text'),
             ('123e4567-e89b-12d3-a456-426614174000', 'text'),
+            ('123E4567-E89B-12D3-A456-426614174000', 'text'),
             ('123e4567-e89b-42d3-a456-426614174000', '  '),
         ],
     )
@@ -179,7 +185,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             'session',
             self.key,
             attempt.id,
-            mentor_submission_fingerprint('texto', None),
+            mentor_submission_fingerprint_v2('texto', None, ()),
         )
         self.access.assert_current.assert_called_once_with(
             self.access.authorize.return_value
@@ -269,6 +275,116 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
         self.repositories.mentor_messages.add.assert_not_called()
         self.repositories.mentor_response_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def test_should_conflict_when_replay_changes_a_stored_v2_context_hint(self) -> None:
+        self.repositories.mentor_response_attempts.find_submission.return_value = (
+            self.attempt,
+            mentor_submission_fingerprint_v2('texto', None, ()),
+        )
+
+        with pytest.raises(MentorSubmissionConflictError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(
+                    submission_key=self.key,
+                    content='texto',
+                    context_hint=MentorContextHint(goal_id='goal'),
+                ),
+            )
+
+    def test_should_consume_batch_and_bind_selected_attachments_to_message(
+        self,
+    ) -> None:
+        batch = MentorAttachmentBatch.create(
+            'batch', 'account', 'session', self.now, self.now + timedelta(hours=1)
+        )
+        attachment = MentorAttachment.create(
+            attachment_id='attachment',
+            account_id='account',
+            batch_id='batch',
+            upload_key='upload',
+            filename='worksheet.pdf',
+            media_type='application/pdf',
+            size_bytes=1,
+            checksum='a' * 64,
+            object_key='private/worksheet.pdf',
+            now=self.now,
+        )
+        attachment.status = MentorAttachmentStatus.READY
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = batch
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+
+        self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(
+                submission_key=self.key,
+                content='texto',
+                attachment_batch_id='batch',
+                attachment_ids=('attachment',),
+            ),
+        )
+
+        message = self.repositories.mentor_messages.add.call_args.args[0]
+        assert batch.consumed_by_message_id == message.id
+        assert (attachment.session_id, attachment.message_id) == ('session', message.id)
+        self.repositories.mentor_attachments.update.assert_called_once_with(attachment)
+        self.repositories.mentor_attachment_batches.update.assert_called_once_with(
+            batch
+        )
+        assert self.repositories.mentor_attachment_batches.find_by_id.call_args_list[
+            -1
+        ].args == ('batch',)
+
+    def test_should_replay_exact_attachment_selection_without_rebinding(self) -> None:
+        batch = MentorAttachmentBatch.create(
+            'batch', 'account', 'session', self.now, self.now + timedelta(hours=1)
+        )
+        batch.consume(self.attempt.learner_message_id)
+        attachment = MentorAttachment.create(
+            attachment_id='attachment',
+            account_id='account',
+            batch_id='batch',
+            upload_key='upload',
+            filename='worksheet.pdf',
+            media_type='application/pdf',
+            size_bytes=1,
+            checksum='a' * 64,
+            object_key='private/worksheet.pdf',
+            now=self.now,
+        )
+        attachment.status = MentorAttachmentStatus.READY
+        attachment.bind('session', self.attempt.learner_message_id)
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        self.repositories.mentor_attachments.find_by_message_id.return_value = (
+            attachment,
+        )
+        self.repositories.mentor_response_attempts.find_submission.return_value = (
+            self.attempt,
+            mentor_submission_fingerprint_v2(
+                'texto', None, ((attachment.id, attachment.checksum),)
+            ),
+        )
+
+        self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(
+                submission_key=self.key,
+                content='texto',
+                attachment_batch_id='batch',
+                attachment_ids=('attachment',),
+            ),
+        )
+
+        assert self.subject.replayed is True
+        self.repositories.mentor_attachments.find_by_message_id.assert_called_once_with(
+            self.attempt.learner_message_id
+        )
+        self.repositories.mentor_attachments.update.assert_not_called()
+        self.repositories.mentor_attachment_batches.find_by_id.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
 
     def test_should_fail_closed_when_identifier_port_cannot_identify_learner_message(
         self,

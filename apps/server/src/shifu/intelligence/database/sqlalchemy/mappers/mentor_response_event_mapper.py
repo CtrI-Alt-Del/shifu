@@ -1,3 +1,5 @@
+from typing import cast
+
 from shifu.intelligence.core.domain.enums import (
     MentorIntent,
     MentorResponseEventKind,
@@ -7,6 +9,9 @@ from shifu.intelligence.core.domain.enums import (
 from shifu.intelligence.core.domain.structures import (
     MentorResponseBlock,
     MentorResponseEvent,
+)
+from shifu.intelligence.core.domain.structures.mentor_attachment_source import (
+    MentorAttachmentSource,
 )
 from shifu.intelligence.database.sqlalchemy.models import MentorResponseEventModel
 
@@ -25,6 +30,15 @@ class MentorResponseEventMapper:
                 ordinal=model.ordinal,
                 intent=MentorIntent(model.intent) if model.intent else None,
                 content=model.content,
+                sources=tuple(
+                    MentorAttachmentSource(
+                        attachment_id=cast('str', source['attachment_id']),
+                        chunk_id=cast('str', source['chunk_id']),
+                        page_number=cast('int | None', source['page_number']),
+                        locator=cast('str', source['locator']),
+                    )
+                    for source in model.sources
+                ),
             )
         return MentorResponseEvent(
             session_id=model.session_id,
@@ -52,6 +66,19 @@ class MentorResponseEventMapper:
             ordinal=block.ordinal if block else None,
             intent=block.intent.value if block and block.intent else None,
             content=block.content if block else None,
+            sources=(
+                [
+                    {
+                        'attachment_id': source.attachment_id,
+                        'chunk_id': source.chunk_id,
+                        'page_number': source.page_number,
+                        'locator': source.locator,
+                    }
+                    for source in block.sources
+                ]
+                if block
+                else []
+            ),
             progress=event.progress.value if event.progress else None,
             consultation=event.consultation,
             failure_code=event.failure_code,

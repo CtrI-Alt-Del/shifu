@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
+from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.intelligence.server.controllers.conftest import MENTOR_ACCOUNT
 from tests.intelligence.server.controllers.mentor_response_scenarios import (
@@ -10,6 +11,39 @@ from tests.intelligence.server.controllers.mentor_response_scenarios import (
 
 
 class TestSubmitMentorMessageController:
+    def test_should_forward_attachment_references_to_message_submission(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session, attempt, learner = create_session(mentor_client)
+        complete_response(postgres_database, session, attempt, learner)
+        with SqlalchemyIntelligenceDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            before = repositories.mentor_messages.find_all(
+                MENTOR_ACCOUNT.account_id, session
+            )
+
+        ids = SystemIdentifierProvider()
+        response = mentor_client.post(
+            f'/intelligence/mentor-sessions/{session}/messages',
+            json={
+                'submission_key': '4b9e25c4-2a9b-42fe-9c37-649c844bc170',
+                'content': 'Considere os arquivos enviados.',
+                'attachment_batch_id': ids.generate(),
+                'attachment_ids': [ids.generate()],
+            },
+        )
+
+        assert response.status_code == 409
+        assert response.headers['cache-control'] == 'private, no-store'
+        with SqlalchemyIntelligenceDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            after = repositories.mentor_messages.find_all(
+                MENTOR_ACCOUNT.account_id, session
+            )
+        assert after == before
+
     def test_should_persist_subsequent_text_and_replay_once(
         self, mentor_client: TestClient, postgres_database: PostgresDatabase
     ) -> None:
@@ -18,7 +52,13 @@ class TestSubmitMentorMessageController:
         payload = {
             'submission_key': '223e4567-e89b-42d3-a456-426614174000',
             'content': '  Texto exato\nsegunda mensagem  ',
-            'context_hint': None,
+            'context_hint': {
+                'goal_id': '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+                'skill_id': None,
+                'competency_id': None,
+                'material_id': None,
+                'activity_id': None,
+            },
         }
         accepted = mentor_client.post(
             f'/intelligence/mentor-sessions/{session}/messages', json=payload
@@ -29,11 +69,32 @@ class TestSubmitMentorMessageController:
         assert accepted.status_code == 202
         assert replay.status_code == 200
         assert accepted.headers['cache-control'] == 'private, no-store'
+        accepted_body = accepted.json()
+        assert set(accepted_body) == {
+            'session',
+            'messages',
+            'pending_learner_message_id',
+            'response',
+        }
+        response_snapshot = accepted_body['response']
+        assert {
+            'attempt_id',
+            'learner_message_id',
+            'status',
+            'blocks',
+            'consultations',
+            'last_sequence',
+            'failure_code',
+        } <= set(response_snapshot)
         assert (
-            replay.json()['response']['attempt_id']
-            == accepted.json()['response']['attempt_id']
+            replay.json()['response']['attempt_id'] == response_snapshot['attempt_id']
         )
-        assert accepted.json()['response']['status'] == 'queued'
+        # The registered AgentOS worker may advance the attempt before the
+        # request snapshot is serialized.
+        assert response_snapshot['status'] in {
+            'queued',
+            'completed',
+        }
         with SqlalchemyIntelligenceDatabase(
             postgres_database.engine
         ).transaction() as repositories:
@@ -43,10 +104,23 @@ class TestSubmitMentorMessageController:
             current = repositories.mentor_response_attempts.find_current(
                 MENTOR_ACCOUNT.account_id, session
             )
+            response_events = repositories.mentor_response_events.find_after(
+                MENTOR_ACCOUNT.account_id, session, 0
+            )
             assert len(messages) == 3
             assert messages[-1].content == payload['content']
             assert current is not None
-            assert current.id == accepted.json()['response']['attempt_id']
+            assert current.id == response_snapshot['attempt_id']
+            assert current.learner_message_id == response_snapshot['learner_message_id']
+            assert messages[-1].id == current.learner_message_id
+            assert current.context_hint is not None
+            assert current.context_hint.goal_id == '01J7T8AC91Z5K8M4JQ8C2D6F0D'
+            assert any(
+                event.attempt_id == current.id
+                and event.kind.value == 'status'
+                and event.status.value == 'queued'
+                for event in response_events
+            )
 
     def test_should_reject_distinct_submit_with_pending_learner(
         self, mentor_client: TestClient

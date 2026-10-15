@@ -25,10 +25,12 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
+import { Route as ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRouteImport } from './routes/api/intelligence/mentor-attachment-batches/$batchId/attachments/index'
 import { Route as ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport } from './routes/api/intelligence/mentor-sessions/$sessionId/events/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/index'
 import { Route as LearningGoalsGoalIdSkillsAddIndexRouteImport } from './routes/learning/goals/$goalId/skills/add/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+import { Route as ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRouteImport } from './routes/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/diagnostic/result/index'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId/route'
 import { Route as LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRouteImport } from './routes/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
@@ -118,6 +120,14 @@ const LearningGoalsNewIndexRoute = LearningGoalsNewIndexRouteImport.update({
   path: '/learning/goals/new/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute =
+  ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRouteImport.update(
+    {
+      id: '/api/intelligence/mentor-attachment-batches/$batchId/attachments/',
+      path: '/api/intelligence/mentor-attachment-batches/$batchId/attachments/',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 const ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute =
   ApiIntelligenceMentorSessionsSessionIdEventsIndexRouteImport.update({
     id: '/api/intelligence/mentor-sessions/$sessionId/events/',
@@ -142,6 +152,14 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute =
     path: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute =
+  ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRouteImport.update(
+    {
+      id: '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/',
+      path: '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/',
+      getParentRoute: () => rootRouteImport,
+    } as any,
+  )
 const LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute =
   LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRouteImport.update({
     id: '/learning/goals/$goalId/skills/$skillId/diagnostic/result/',
@@ -202,10 +220,12 @@ export interface FileRoutesByFullPath {
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
+  '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/': typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute
   '/learning/goals/$goalId/skills/$skillId/diagnostic/result/': typeof LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
@@ -229,10 +249,12 @@ export interface FileRoutesByTo {
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-attachment-batches/$batchId/attachments': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
+  '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file': typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute
   '/learning/goals/$goalId/skills/$skillId/diagnostic/result': typeof LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
@@ -256,10 +278,12 @@ export interface FileRoutesById {
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
+  '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   '/api/intelligence/mentor-sessions/$sessionId/events/': typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   '/learning/goals/$goalId/skills/$skillId/': typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   '/learning/goals/$goalId/skills/add/': typeof LearningGoalsGoalIdSkillsAddIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
+  '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/': typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute
   '/learning/goals/$goalId/skills/$skillId/diagnostic/result/': typeof LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteWithChildren
   '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId': typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdMaterialsMaterialIdRoute
@@ -285,10 +309,12 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
     | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
     | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+    | '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/'
     | '/learning/goals/$goalId/skills/$skillId/diagnostic/result/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
@@ -312,10 +338,12 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
     | '/learning/goals/new'
+    | '/api/intelligence/mentor-attachment-batches/$batchId/attachments'
     | '/api/intelligence/mentor-sessions/$sessionId/events'
     | '/learning/goals/$goalId/skills/$skillId'
     | '/learning/goals/$goalId/skills/add'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+    | '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file'
     | '/learning/goals/$goalId/skills/$skillId/diagnostic/result'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
@@ -338,10 +366,12 @@ export interface FileRouteTypes {
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
+    | '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
     | '/api/intelligence/mentor-sessions/$sessionId/events/'
     | '/learning/goals/$goalId/skills/$skillId/'
     | '/learning/goals/$goalId/skills/add/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+    | '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/'
     | '/learning/goals/$goalId/skills/$skillId/diagnostic/result/'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId'
     | '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/materials/$materialId'
@@ -366,10 +396,12 @@ export interface RootRouteChildren {
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
   LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
+  ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute: typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute
   ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute: typeof ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute
   LearningGoalsGoalIdSkillsSkillIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdIndexRoute
   LearningGoalsGoalIdSkillsAddIndexRoute: typeof LearningGoalsGoalIdSkillsAddIndexRoute
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren
+  ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute: typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute
   LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute
 }
 
@@ -487,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LearningGoalsNewIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/intelligence/mentor-attachment-batches/$batchId/attachments/': {
+      id: '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
+      path: '/api/intelligence/mentor-attachment-batches/$batchId/attachments'
+      fullPath: '/api/intelligence/mentor-attachment-batches/$batchId/attachments/'
+      preLoaderRoute: typeof ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/intelligence/mentor-sessions/$sessionId/events/': {
       id: '/api/intelligence/mentor-sessions/$sessionId/events/'
       path: '/api/intelligence/mentor-sessions/$sessionId/events'
@@ -513,6 +552,13 @@ declare module '@tanstack/react-router' {
       path: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
       fullPath: '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
       preLoaderRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/': {
+      id: '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/'
+      path: '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file'
+      fullPath: '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/'
+      preLoaderRoute: typeof ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/learning/goals/$goalId/skills/$skillId/diagnostic/result/': {
@@ -607,6 +653,8 @@ const rootRouteChildren: RootRouteChildren = {
     IntelligencePlannerPlanningIdIndexRoute,
   LearningGoalsGoalIdIndexRoute: LearningGoalsGoalIdIndexRoute,
   LearningGoalsNewIndexRoute: LearningGoalsNewIndexRoute,
+  ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute:
+    ApiIntelligenceMentorAttachmentBatchesBatchIdAttachmentsIndexRoute,
   ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute:
     ApiIntelligenceMentorSessionsSessionIdEventsIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdIndexRoute:
@@ -615,6 +663,8 @@ const rootRouteChildren: RootRouteChildren = {
     LearningGoalsGoalIdSkillsAddIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRoute:
     LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren,
+  ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute:
+    ApiIntelligenceMentorSessionsSessionIdAttachmentsAttachmentIdFileIndexRoute,
   LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute:
     LearningGoalsGoalIdSkillsSkillIdDiagnosticResultIndexRoute,
 }

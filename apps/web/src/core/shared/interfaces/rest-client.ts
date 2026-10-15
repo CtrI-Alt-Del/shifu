@@ -6,6 +6,7 @@ export type RestRequestOptions = {
     string | number | boolean | readonly (string | number)[] | undefined
   >
   headers?: Record<string, string>
+  signal?: AbortSignal
 }
 
 export interface RestClient {
@@ -13,7 +14,7 @@ export interface RestClient {
     url: string,
     options?: RestRequestOptions,
   ): Promise<RestResponse<ResponseBody>>
-  getFile(url: string): Promise<RestResponse<File>>
+  getFile(url: string, options?: RestRequestOptions): Promise<RestResponse<Blob>>
   post<ResponseBody>(
     url: string,
     body?: unknown,
@@ -22,6 +23,7 @@ export interface RestClient {
   postFormData<ResponseBody>(
     url: string,
     body: FormData,
+    options?: RestRequestOptions,
   ): Promise<RestResponse<ResponseBody>>
   patch<ResponseBody>(
     url: string,

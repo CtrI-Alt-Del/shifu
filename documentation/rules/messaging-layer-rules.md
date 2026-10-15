@@ -1,12 +1,12 @@
 ---
-description: Python domain-event repository, database-listening Inngest relay, job registration, durable-step, and delivery rules.
+description: Python domain-event repository, destination-aware durable dispatch, job registration, durable-step, and delivery rules.
 ---
 
 # Messaging Layer Rules
 
 These rules apply to module-owned messaging code under
-`apps/server/src/shifu/<module>/messaging`, shared Inngest infrastructure, and domain
-events consumed asynchronously.
+`apps/server/src/shifu/<module>/messaging`, shared Inngest and AgentOS transport,
+and domain events consumed asynchronously.
 
 ## Core owns events and the event-repository port
 
@@ -40,11 +40,12 @@ ORM models, open sessions, provider clients, secrets, or mutable domain objects.
 Consumers normalize and validate payloads before doing work. They must not reach into
 another module's private repositories to reconstruct missing event data.
 
-## Shared infrastructure owns one Inngest endpoint
+## Shared infrastructure owns the non-AI Inngest endpoint
 
 Shared messaging creates the Inngest client, database-listening broker relay, base job
-helpers, and one FastAPI endpoint. Application composition starts one broker listener
-and registers every module-owned function with that endpoint.
+helpers, and one FastAPI endpoint for non-AI functions. Application composition starts
+one Inngest broker listener and registers module-owned non-AI functions with that
+endpoint. AI workflows are registered by their owning module's AgentOS registry.
 
 Shared Inngest infrastructure uses the `shared/messaging/inngest` package boundary:
 
@@ -79,6 +80,28 @@ Modules own their jobs:
 
 A module must not create another Inngest HTTP endpoint or register jobs as an import
 side effect.
+
+## Destination-aware outbox admission
+
+The outbox records one delivery destination: `inngest`, `agentos:intelligence`,
+`agentos:learning`, or the temporary migration value `unrouted`. Event producers use
+the vendor-neutral `EventsRepository.add(event)` contract. Application composition
+assigns a canonical destination before reservation, including classification of legacy
+mixed Learning events from their saved immutable source. Assignment is durable and
+compare-and-set; an unclassified event is never acknowledged or dropped.
+
+The Shared AgentOS broker adapter is transport infrastructure only. Each module
+registry creates its own broker with its fixed module destination. A broker reserves
+only matching rows, submits ID-only tickets to that module's active native AgentOS
+queue, and acknowledges only after durable queue admission. It cannot reserve, deliver,
+or mark another module's event complete. Shared transport does not import module
+registries, workflow classes, or business event classifiers.
+
+Native AgentOS run inputs, durable queue records, and step outputs contain only stable
+IDs, opaque one-shot references, closed status values, and counts. Private prompts,
+attachments, learner snapshots, generated candidates, or decisions never enter the
+outbox or queue payload. Brokers use explicit finite admission/retry settings and
+close only resources they own.
 
 The shared Inngest settings boundary lives at
 `apps/server/src/shifu/shared/messaging/inngest/inngest_settings.py`; client creation
@@ -134,7 +157,7 @@ Batch work uses one fan-out job that emits an existing individual event per item
 child remains independently retryable and observable. Do not process an unbounded
 collection in one step or erase successful siblings when one item fails.
 
-## Events are persisted before Inngest publication
+## Events are persisted before durable dispatch
 
 Every use-case-originated event is added through `EventsRepository`, including events
 whose only purpose is observability. When an operation also changes official state,
@@ -142,11 +165,13 @@ the state mutation and event row belong to the same module database transaction.
 Operations with no business mutation still open the owning module transaction for the
 event insert.
 
-`InngestBroker` is a long-lived shared database listener and relay, not a use-case
-publisher. PostgreSQL notifies it of committed event changes. It reserves eligible
-rows, sends them directly through the Inngest client using the stable event-row ID,
-and marks them published only after acknowledgement. Never call Inngest directly from
-a use case, controller, repository, or page request.
+The shared destination brokers are long-lived database listeners and relays, not
+use-case publishers. PostgreSQL notifies them of committed event changes. The Inngest
+broker reserves only `inngest` rows and sends them through the Inngest client. Each
+module AgentOS broker reserves only its module destination and submits to that native
+queue. Every path uses the stable event-row ID and acknowledges only after its own
+durable system accepts the work. Never call Inngest or AgentOS directly from a use
+case, controller, repository, or page request.
 
 Database notifications are a latency optimization, not the durability boundary. The
 broker drains eligible rows on startup and reconnect before waiting for subsequent
@@ -163,11 +188,11 @@ share it with transactional repository work.
 Consumers remain idempotent because delivery can occur more than once. Failed outbox
 rows remain visible and retryable with bounded backoff; they are not silently dropped.
 
-Keep broker tuning values as typed `ClassVar` constants on `InngestBroker`, including
-the drain limit, reservation duration, idle limit, attempt limit, delivery backoff,
-and reconnect backoff. Current time comes from an injected `ClockProvider` (normally
-`SystemClockProvider`), never from a free `_utc_now()` helper or direct clock access
-inside relay logic.
+Keep broker tuning values as typed `ClassVar` constants or validated module settings,
+including drain limits, reservation duration, idle limits, attempt limits, delivery
+backoff, and reconnect backoff. Current time comes from an injected `ClockProvider`
+(normally `SystemClockProvider`), never from a free `_utc_now()` helper or direct clock
+access inside relay logic.
 
 The PostgreSQL notification implementation belongs under
 `shared/database/sqlalchemy/repositories/listeners/`. The events repository delegates

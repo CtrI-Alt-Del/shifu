@@ -72,6 +72,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
                 content: '',
                 createdAt: '',
                 inReplyToMessageId: response.learnerMessageId,
+                attachments: [],
               }}
             />
           </ol>

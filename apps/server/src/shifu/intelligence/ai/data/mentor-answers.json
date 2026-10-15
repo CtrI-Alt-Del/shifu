@@ -331,7 +331,7 @@
       "O Mentor do Shifu aceita anexos ou mensagens por voz atualmente?",
       "Como funcionam arquivos e ditado no Mentor do Shifu hoje?"
     ],
-    "answer": "Anexos ainda não estão disponíveis. O ditado pode ser usado quando o navegador oferece reconhecimento em português, que pode usar seu serviço na nuvem. Grave, encerre e revise o texto antes de enviar. Se o ditado estiver indisponível, continue digitando.",
+    "answer": "Você pode enviar até cinco arquivos PNG, JPG/JPEG, WebP, PDF, JSON, CSV ou TXT, com até 10 MB por arquivo, junto com uma mensagem de texto obrigatória. Imagens e trechos legíveis de PDFs podem ser analisados; partes ilegíveis ou não processadas são indicadas, e as respostas podem citar o nome do arquivo e a página ou trecho usado. Os arquivos ficam privados e vinculados à conversa, não criam memórias e não executam código, fórmulas ou instruções contidas neles. O ditado pode ser usado quando o navegador oferece reconhecimento em português, que pode usar seu serviço na nuvem. Grave, encerre e revise o texto antes de enviar. Se o ditado estiver indisponível, continue digitando.",
     "topics": ["shifu", "mentor"]
   }
 ]

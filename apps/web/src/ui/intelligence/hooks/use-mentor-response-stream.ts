@@ -19,6 +19,19 @@ const EVENT = z
         ordinal: z.number().int().nonnegative(),
         intent: z.string().nullable(),
         content: z.string(),
+        sources: z
+          .array(
+            z
+              .object({
+                attachment_id: z.string(),
+                chunk_id: z.string(),
+                page_number: z.number().int().positive().nullable(),
+                locator: z.string(),
+              })
+              .strict(),
+          )
+          .optional()
+          .default([]),
       })
       .nullable(),
     consultation: z.enum(['learning', 'curriculum', 'gamification']).nullable(),
@@ -107,6 +120,12 @@ export function useMentorResponseStream(input: UseMentorResponseStreamInput): vo
                 ordinal: parsed.block.ordinal,
                 intent: parsed.block.intent,
                 content: parsed.block.content,
+                sources: parsed.block.sources.map((source) => ({
+                  attachmentId: source.attachment_id,
+                  chunkId: source.chunk_id,
+                  pageNumber: source.page_number,
+                  locator: source.locator,
+                })),
               }
             : null,
           consultation: parsed.consultation,

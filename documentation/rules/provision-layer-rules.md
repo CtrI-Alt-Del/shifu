@@ -72,6 +72,14 @@ Contain untyped SDK behavior, retries, pagination tokens, headers, and transport
 inside the adapter. Raise a typed application/infrastructure error without leaking
 credentials or raw vendor payloads.
 
+The Shared `FileStorageProvider` is deliberately limited to private byte/object
+operations with primitive keys and media types. Its S3-compatible adapter owns SDK
+configuration and safe transport errors, not account authorization, object-key policy,
+retention, attachment status, or deletion decisions. A business module supplies those
+policies through its own Core use cases. Storage reads must pass through the owning
+authenticated application boundary; never expose public or presigned URLs for private
+learner files.
+
 ## Pipes construct replaceable dependencies
 
 FastAPI dependency factories live in the owning module's `pipes` package or

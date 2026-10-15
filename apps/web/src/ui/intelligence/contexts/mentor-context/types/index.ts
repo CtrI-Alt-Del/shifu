@@ -1,1 +1,1 @@
-export type { MentorContextValue } from './mentor-context-value'
+export type { MentorContextValue, MentorDraftAttachment } from './mentor-context-value'

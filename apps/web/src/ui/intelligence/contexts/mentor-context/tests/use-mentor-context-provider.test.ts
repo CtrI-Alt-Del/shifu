@@ -22,6 +22,12 @@ const mocks = vi.hoisted(() => ({
   submit: vi.fn(),
   cancel: vi.fn(),
   retry: vi.fn(),
+  createAttachmentBatch: vi.fn(),
+  resetAttachmentBatch: vi.fn(),
+  uploadAttachment: vi.fn(),
+  removeAttachment: vi.fn(),
+  attachmentBatch: null as null | Record<string, unknown>,
+  attachmentBatchError: null as unknown,
   location: { pathname: '/gamification', search: {} as Record<string, unknown> },
 }))
 
@@ -29,14 +35,6 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => mocks.location,
   useNavigate: () => mocks.navigate,
 }))
-vi.mock('@/ui/intelligence/hooks/mentor-server-functions', () => ({
-  createMentorSessionServer: mocks.create,
-  getMentorSessionServer: mocks.detail,
-  listMentorSessionsServer: mocks.list,
-  removeMentorSessionServer: mocks.remove,
-  renameMentorSessionServer: mocks.rename,
-}))
-
 vi.mock('@/ui/intelligence/hooks/use-create-mentor-session-action', async () => {
   const { useMutation } = await import('@tanstack/react-query')
   return {
@@ -65,10 +63,55 @@ vi.mock('@/ui/intelligence/hooks/use-mentor-session-query', async () => {
     }),
   }
 })
+vi.mock('@/ui/intelligence/hooks/use-mentor-sessions-query', async () => {
+  const { useCallback } = await import('react')
+  return {
+    useMentorSessionsQuery: (accountEmail: string) => ({
+      readMentorSessions: useCallback(
+        (input: unknown) => mocks.list({ data: { accountEmail, ...(input as object) } }),
+        [accountEmail],
+      ),
+    }),
+  }
+})
+vi.mock('@/ui/intelligence/hooks/use-rename-mentor-session-action', () => ({
+  useRenameMentorSessionAction: () => ({
+    renameMentorSession: mocks.rename,
+    resetRenameMentorSession: vi.fn(),
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-remove-mentor-session-action', () => ({
+  useRemoveMentorSessionAction: () => ({
+    removeMentorSession: mocks.remove,
+    resetRemoveMentorSession: vi.fn(),
+  }),
+}))
 vi.mock('@/ui/intelligence/hooks/use-submit-mentor-message-action', () => ({
   useSubmitMentorMessageAction: () => ({
     submitMentorMessage: mocks.submit,
     isPending: false,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-create-mentor-attachment-batch-action', () => ({
+  useCreateMentorAttachmentBatchAction: () => ({
+    createMentorAttachmentBatch: mocks.createAttachmentBatch,
+    resetCreateMentorAttachmentBatch: mocks.resetAttachmentBatch,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-upload-mentor-attachment-action', () => ({
+  useUploadMentorAttachmentAction: () => ({
+    uploadMentorAttachment: mocks.uploadAttachment,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-remove-mentor-attachment-action', () => ({
+  useRemoveMentorAttachmentAction: () => ({
+    removeMentorAttachment: mocks.removeAttachment,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-mentor-attachment-batch-query', () => ({
+  useMentorAttachmentBatchQuery: () => ({
+    mentorAttachmentBatch: mocks.attachmentBatch,
+    mentorAttachmentBatchError: mocks.attachmentBatchError,
   }),
 }))
 vi.mock('@/ui/intelligence/hooks/use-cancel-mentor-response-action', () => ({
@@ -95,6 +138,17 @@ const detail: MentorSessionDetail = {
   },
   messages: { items: [], nextCursor: null },
   pendingLearnerMessageId: null,
+}
+const readyAttachment = {
+  attachmentId: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+  filename: 'resumo.txt',
+  mediaType: 'text/plain',
+  sizeBytes: 5,
+  status: 'ready' as const,
+  failureCode: null,
+  analyzedPages: [],
+  illegiblePages: [],
+  uninterpretedPages: [],
 }
 
 const renderProvider = () => {
@@ -142,6 +196,75 @@ const Consumer = () => {
       'button',
       { type: 'button', onClick: () => mentor.setDraft('texto editado') },
       'Editar mensagem',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.addAttachments([
+            new File(['texto'], 'resumo.txt', { type: 'text/plain' }),
+          ]),
+      },
+      'Anexar arquivo de teste',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.retryAttachment(mentor.draftAttachments[0]?.localKey ?? ''),
+      },
+      'Tentar novamente o envio',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.addAttachments([
+            new File([new Uint8Array(10_000_000)], 'limite.txt', { type: 'text/plain' }),
+            new File([new Uint8Array(10_000_001)], 'acima.txt', { type: 'text/plain' }),
+            new File(['x'], 'programa.exe', { type: 'application/octet-stream' }),
+            new File([], 'vazio.txt', { type: 'text/plain' }),
+          ]),
+      },
+      'Anexar arquivos de limite',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.addAttachments(
+            Array.from(
+              { length: 6 },
+              (_, index) =>
+                new File([`arquivo ${index + 1}`], `arquivo-${index + 1}.txt`, {
+                  type: 'text/plain',
+                }),
+            ),
+          ),
+      },
+      'Anexar seis arquivos',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.removeAttachment(mentor.draftAttachments[0]?.localKey ?? ''),
+      },
+      'Remover primeiro anexo',
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        onClick: () =>
+          void mentor.removeAttachment(mentor.draftAttachments.at(-1)?.localKey ?? ''),
+      },
+      'Remover último anexo',
     ),
     createElement(
       'button',
@@ -231,6 +354,17 @@ const Consumer = () => {
     createElement('output', { 'aria-label': 'selected id' }, mentor.selectedSessionId),
     createElement(
       'output',
+      { 'aria-label': 'draft attachments' },
+      JSON.stringify(
+        mentor.draftAttachments.map(({ attachment, error, file }) => ({
+          filename: file.name,
+          status: attachment?.status ?? null,
+          error,
+        })),
+      ),
+    ),
+    createElement(
+      'output',
       { 'aria-label': 'reading messages' },
       String(mentor.isReadingMessages),
     ),
@@ -285,10 +419,25 @@ describe('useMentorContextProvider', () => {
     mocks.create
       .mockRejectedValueOnce(new Error('transport failed'))
       .mockResolvedValue(detail)
+    mocks.createAttachmentBatch.mockResolvedValue({
+      batchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
+      expiresAt: '2026-10-14T12:00:00Z',
+      attachments: [],
+    })
+    mocks.uploadAttachment.mockResolvedValue(readyAttachment)
+    mocks.removeAttachment.mockResolvedValue(undefined)
+    mocks.attachmentBatch = null
+    mocks.attachmentBatchError = null
     mocks.rename.mockResolvedValue(detail.session)
     mocks.remove.mockResolvedValue(undefined)
+    let uuidCount = 0
     vi.stubGlobal('crypto', {
-      randomUUID: vi.fn(() => '4f8d5418-2f14-4a12-8d80-7a8c31b5bc50'),
+      randomUUID: vi.fn(() => {
+        uuidCount += 1
+        return uuidCount === 1
+          ? '4f8d5418-2f14-4a12-8d80-7a8c31b5bc50'
+          : `00000000-0000-4000-8000-${uuidCount.toString(16).padStart(12, '0')}`
+      }),
     })
   })
 
@@ -334,6 +483,221 @@ describe('useMentorContextProvider', () => {
         'Primeira conversa',
       ),
     )
+  })
+
+  it('uploads ready files in the shared draft and retries a failed text submission with the same attachment IDs', async () => {
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+    act(() => screen.getByRole('button', { name: 'Preparar mensagem' }).click())
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivo de teste' }).click(),
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready'),
+    )
+    expect(mocks.createAttachmentBatch).toHaveBeenCalledWith(null)
+    expect(mocks.uploadAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
+        file: expect.objectContaining({ name: 'resumo.txt' }),
+      }),
+    )
+    mocks.attachmentBatch = {
+      batchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
+      expiresAt: '2026-10-14T12:00:00Z',
+      attachments: [{ ...readyAttachment, status: 'processing' }],
+    }
+    act(() => screen.getByRole('button', { name: 'Editar mensagem' }).click())
+    expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready')
+    mocks.attachmentBatch = null
+    act(() => screen.getByRole('button', { name: 'Preparar mensagem' }).click())
+
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+    expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready')
+    expect(screen.getByLabelText('submission error')).toHaveTextContent(
+      'Não foi possível enviar',
+    )
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+
+    const createCalls = mocks.create.mock.calls.map(([request]) => request.data)
+    expect(createCalls).toHaveLength(2)
+    for (const input of createCalls) {
+      expect(input).toEqual(
+        expect.objectContaining({
+          attachmentBatchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
+          attachmentIds: [readyAttachment.attachmentId],
+          firstMessage: '  dúvida\ncom detalhes  ',
+        }),
+      )
+    }
+    expect(screen.getByLabelText('draft attachments')).toHaveTextContent('[]')
+  })
+
+  it('reuses an upload key when retrying a failed attachment draft', async () => {
+    mocks.uploadAttachment
+      .mockRejectedValueOnce(new Error('connection lost'))
+      .mockResolvedValue(readyAttachment)
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivo de teste' }).click(),
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent(
+        'Não foi possível enviar',
+      ),
+    )
+    const firstUpload = mocks.uploadAttachment.mock.calls[0]?.[0] as {
+      uploadKey: string
+    }
+
+    await act(async () =>
+      screen.getByRole('button', { name: 'Tentar novamente o envio' }).click(),
+    )
+
+    expect(mocks.uploadAttachment).toHaveBeenCalledTimes(2)
+    expect(mocks.uploadAttachment.mock.calls[1]?.[0]).toMatchObject({
+      uploadKey: firstUpload.uploadKey,
+      file: expect.objectContaining({ name: 'resumo.txt' }),
+    })
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready'),
+    )
+  })
+
+  it('retries batch creation for the same draft after a temporary failure', async () => {
+    mocks.createAttachmentBatch
+      .mockRejectedValueOnce(new Error('connection lost'))
+      .mockResolvedValue({
+        batchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
+        expiresAt: '2026-10-14T12:00:00Z',
+        attachments: [],
+      })
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivo de teste' }).click(),
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent(
+        'Não foi possível preparar o envio',
+      ),
+    )
+    await act(async () =>
+      screen.getByRole('button', { name: 'Tentar novamente o envio' }).click(),
+    )
+
+    await waitFor(() => expect(mocks.uploadAttachment).toHaveBeenCalledOnce())
+    expect(mocks.createAttachmentBatch).toHaveBeenCalledTimes(2)
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready'),
+    )
+  })
+
+  it('keeps the text when an upload fails, blocks send, and recovers after removing and re-adding the file', async () => {
+    mocks.uploadAttachment
+      .mockRejectedValueOnce(new Error('temporary upload failure'))
+      .mockResolvedValueOnce(readyAttachment)
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+    act(() => screen.getByRole('button', { name: 'Preparar mensagem' }).click())
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivo de teste' }).click(),
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent(
+        'Não foi possível enviar o arquivo',
+      ),
+    )
+    expect(screen.getByLabelText('submission error')).toBeEmptyDOMElement()
+    expect(mocks.create).not.toHaveBeenCalled()
+
+    await act(async () =>
+      screen.getByRole('button', { name: 'Remover primeiro anexo' }).click(),
+    )
+    expect(screen.getByLabelText('draft attachments')).toHaveTextContent('[]')
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivo de teste' }).click(),
+    )
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready'),
+    )
+    expect(mocks.uploadAttachment).toHaveBeenCalledTimes(2)
+  })
+
+  it('validates each file independently and accepts the exact 10 MB boundary', async () => {
+    let localId = 0
+    vi.stubGlobal('crypto', {
+      randomUUID: vi.fn(() => `local-${++localId}`),
+    })
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+    act(() => screen.getByRole('button', { name: 'Preparar mensagem' }).click())
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar arquivos de limite' }).click(),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent('ready'),
+    )
+    const state = screen.getByLabelText('draft attachments').textContent ?? ''
+    expect(state).toContain('acima.txt')
+    expect(state).toContain('O arquivo excede o limite de 10 MB.')
+    expect(state).toContain('programa.exe')
+    expect(state).toContain('Formato não aceito.')
+    expect(state).toContain('vazio.txt')
+    expect(state).toContain('O arquivo está vazio.')
+    expect(mocks.uploadAttachment).toHaveBeenCalledOnce()
+    expect(mocks.uploadAttachment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: expect.objectContaining({ name: 'limite.txt', size: 10_000_000 }),
+      }),
+    )
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('draft attachments')).toHaveTextContent('limite.txt')
+  })
+
+  it('uploads at most five selected files and requires removal of the sixth before send', async () => {
+    let id = 0
+    vi.stubGlobal('crypto', {
+      randomUUID: vi.fn(() => `local-${++id}`),
+    })
+    mocks.uploadAttachment.mockImplementation(async ({ file }: { file: File }) => ({
+      ...readyAttachment,
+      attachmentId: `attachment-${file.name}`,
+      filename: file.name,
+      sizeBytes: file.size,
+    }))
+    renderProvider()
+    await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+    act(() => screen.getByRole('button', { name: 'Preparar mensagem' }).click())
+    await act(async () =>
+      screen.getByRole('button', { name: 'Anexar seis arquivos' }).click(),
+    )
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('draft attachments')).toHaveTextContent(
+        'Você pode anexar até cinco arquivos',
+      ),
+    )
+    expect(mocks.uploadAttachment).toHaveBeenCalledTimes(5)
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+    expect(mocks.create).not.toHaveBeenCalled()
+
+    await act(async () =>
+      screen.getByRole('button', { name: 'Remover último anexo' }).click(),
+    )
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+    await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
+    const submittedIds = mocks.create.mock.calls.map(
+      ([request]) => request.data.attachmentIds,
+    )
+    expect(submittedIds).toHaveLength(2)
+    expect(submittedIds[0]).toHaveLength(5)
+    expect(submittedIds[1]).toEqual(submittedIds[0])
   })
 
   it('re-fetches private history on window focus without retaining a query cache', async () => {
@@ -405,11 +769,8 @@ describe('useMentorContextProvider', () => {
     expect(screen.getByLabelText('active dialog')).toHaveTextContent('rename')
     await act(async () => screen.getByRole('button', { name: 'Renomear' }).click())
     expect(mocks.rename).toHaveBeenCalledWith({
-      data: {
-        accountEmail: 'aluna@example.com',
-        sessionId: detail.session.id,
-        title: 'Novo título',
-      },
+      sessionId: detail.session.id,
+      title: 'Novo título',
     })
     await waitFor(() =>
       expect(screen.getByLabelText('active dialog')).toBeEmptyDOMElement(),
@@ -417,9 +778,7 @@ describe('useMentorContextProvider', () => {
 
     act(() => screen.getByRole('button', { name: 'Abrir remover' }).click())
     await act(async () => screen.getByRole('button', { name: 'Remover' }).click())
-    expect(mocks.remove).toHaveBeenCalledWith({
-      data: { accountEmail: 'aluna@example.com', sessionId: detail.session.id },
-    })
+    expect(mocks.remove).toHaveBeenCalledWith(detail.session.id)
     act(() => screen.getByRole('button', { name: 'Fechar diálogo' }).click())
     act(() => screen.getByRole('button', { name: 'Histórico' }).click())
     act(() => screen.getByRole('button', { name: 'Conversa' }).click())
@@ -930,7 +1289,15 @@ describe('useMentorContextProvider response lifecycle', () => {
       response: {
         ...initialResponse,
         lastSequence: 3,
-        blocks: [{ blockKey: 'later', ordinal: 1, intent: null, content: 'Segundo' }],
+        blocks: [
+          {
+            blockKey: 'later',
+            ordinal: 1,
+            intent: null,
+            content: 'Segundo',
+            sources: [],
+          },
+        ],
       },
     })
     await act(() => result.current.refresh())
@@ -984,7 +1351,15 @@ describe('useMentorContextProvider response lifecycle', () => {
   it('cancels partial content and retries the same learner under a new attempt without resending', async () => {
     const { result } = openResponseProvider({
       ...initialResponse,
-      blocks: [{ blockKey: 'block-a', ordinal: 0, intent: null, content: 'Parcial' }],
+      blocks: [
+        {
+          blockKey: 'block-a',
+          ordinal: 0,
+          intent: null,
+          content: 'Parcial',
+          sources: [],
+        },
+      ],
     })
     await act(() => result.current.selectSession(detail.session.id))
     mocks.cancel.mockResolvedValue({
@@ -1017,6 +1392,7 @@ describe('useMentorContextProvider response lifecycle', () => {
           ordinal: 0,
           intent: null,
           content: 'Resposta já aprovada',
+          sources: [],
         },
       ],
     }

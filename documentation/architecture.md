@@ -23,13 +23,14 @@ Server — FastAPI
    ├── Curriculum
    ├── Learning
    ├── Intelligence
-   │   ├── agentic workflows with Agno
+   │   ├── private attachments and agentic workflows with Agno AgentOS
    │   ├── typed Jev decisions through the OpenRouter Decisions API
    │   └── classical NLP
    ├── Gamification
    └── Shared
        ├── PostgreSQL
        ├── Redis
+       ├── private S3-compatible attachment storage
        └── Inngest
 ```
 
@@ -59,10 +60,13 @@ flowchart LR
     subgraph datastore ["Data Stores"]
         postgres[PostgreSQL]
         redis[Redis]
+        s3["Private S3 / MinIO"]
     end
 
     subgraph async ["Asynchronous Infrastructure"]
         inngest[Inngest]
+        intelligence_agentos["Intelligence AgentOS"]
+        learning_agentos["Learning AgentOS"]
     end
 
     browser -->|"HTTPS"| web
@@ -70,7 +74,10 @@ flowchart LR
     web -->|"JWT + HTTP"| api
     api -->|"Reads and writes"| postgres
     api -->|"Cache and rate limits"| redis
-    api -.->|"Produces events"| inngest
+    api -->|"Private attachment bytes"| s3
+    api -.->|"Non-AI durable events"| inngest
+    api -.->|"AI workflow tickets"| intelligence_agentos
+    api -.->|"AI workflow tickets"| learning_agentos
 ```
 
 Solid edges represent synchronous request, persistence, and practice paths.
@@ -343,7 +350,8 @@ owning domain module make authoritative business decisions.
 | BFF-to-API authentication | JWT validated through JWKS |
 | Authorization | FastAPI and domain rules |
 | Asynchronous processing | Inngest |
-| Agentic workflows | Agno |
+| Agentic workflows | Agno AgentOS, scoped to Intelligence and Learning |
+| Private object storage | S3-compatible provider (MinIO for local development) |
 | Classical NLP | NLTK |
 | Text representation and search | TF-IDF with scikit-learn |
 | Text similarity | Cosine similarity |
@@ -407,8 +415,12 @@ infrastructure into business modules.
 
 ### Agentic workflow composition
 
-Agno is the orchestration framework for generative AI workflows owned by Intelligence.
-Bounded Jev rubric decisions are a separate Intelligence provider capability.
+Agno is the orchestration framework for generative AI workflows. Each active AI
+module owns a separate native AgentOS runtime and registry: Intelligence owns Mentor
+and attachment workflows; Learning owns code evaluation. Shared infrastructure
+provides transport, sanitized observability, and the destination-aware durable outbox
+adapter, but it does not collect module registrations or decide which module owns an
+operation. Bounded Jev rubric decisions remain an Intelligence provider capability.
 The provider implements a Shared core assessor port over one immutable,
 normalized input assembled from saved Curriculum snapshots and submitted files,
 wraps OpenRouter's Decisions API with
@@ -418,12 +430,14 @@ Code question kinds share this decision implementation; their prompt, project
 files and saved criteria vary, while kind is context rather than provider dispatch.
 This one-step assessment does not construct an Agno Agent, Team, or Workflow.
 
-Agno's `Agent`, `Team`, and `Workflow` primitives are infrastructure details
-behind typed core protocols. The following path applies to Agno-orchestrated
+Agno's `Agent`, `Team`, `Workflow`, and AgentOS primitives are infrastructure details
+behind typed core protocols. Each module registry builds only its own workflows and
+resources; FastAPI composition manages the two module lifespans without importing
+individual workflow classes. The following path applies to Agno-orchestrated
 capabilities:
 
 ```text
-FastAPI controller or Inngest job
+FastAPI controller or owning module AgentOS queue
   ↓
 Intelligence use case
   ↓ workflow protocol
@@ -478,10 +492,20 @@ policy, official Learning results, Curriculum content, or Gamification state. Ev
 machine-consumed result is validated through Pydantic or a domain DTO before it crosses
 the workflow boundary.
 
-FastAPI invokes workflows that must participate in the current request or SSE stream.
-Inngest invokes durable, retryable, or long-running workflows. Model providers,
-credentials, quotas, timeouts, retry limits, and token limits remain provider
-configuration rather than agent-selected values.
+FastAPI owns request and SSE transport. Request-bound AI operations call the registered
+workflow through the owning module's internal AgentOS client and pass private input
+through a trusted, single-use in-memory handoff; native run records contain only the
+opaque reference and safe status. The owning module's AgentOS queue admits durable AI
+workflows, and Inngest handles durable non-AI work such as email delivery and scheduled
+operations. The transactional outbox records the destination; a broker acknowledges
+only its own destination's durable admission. Model providers, credentials, quotas,
+timeouts, retry limits, and token limits remain provider configuration rather than
+agent-selected values.
+
+Shared attachment storage is a technical byte-and-key capability. `FileStorageProvider`
+and its S3-compatible adapter have no Intelligence policies or account rules.
+Intelligence owns attachment authorization, validation, retention, and deletion; private
+objects are read through authenticated API boundaries and never through public URLs.
 
 ## Module boundaries
 
@@ -526,17 +550,21 @@ complete ownership and dependency model.
 
 ## Synchronous and asynchronous processing
 
-Operations that require an immediate response remain in FastAPI's HTTP flow. Inngest
-will handle work that can happen after the response, including:
+Operations that require an immediate response remain in FastAPI's HTTP flow. The
+owning module's native AgentOS queue handles durable AI workflows. Inngest handles
+non-AI work that can happen after the response, including:
 
 - sending email;
 - scheduled tasks;
-- NLP data reindexing;
 - secondary or long-running processing;
 - asynchronous effects between modules.
 
-Jobs receive stable events or contracts. They do not access another module's internal
-details and must be idempotent when execution can be retried.
+Both async paths receive stable ID-only events or tickets and must be idempotent when
+execution can be retried. The transactional outbox records an explicit destination;
+each broker reserves and acknowledges only its own destination. AgentOS registries,
+queues, storage schemas, and lifecycles belong to their owning AI module. Shared owns
+transport and sanitized observability, not a cross-module workflow catalog. NLP
+reindexing runs through its owning preparation path.
 
 ## Code execution
 
@@ -628,7 +656,7 @@ Server
 ├── pytest
 ├── FastAPI TestClient
 ├── Testcontainers
-├── pytest-cov
+├── scoped coverage runners
 └── SonarQube / Shifu API
 ```
 
@@ -638,7 +666,5 @@ analysis and quality gates independent.
 ## Pending decisions
 
 - validate the browser-practice time/output/project-size limits, supported environments, and WebContainers deployment configuration on the target host;
-- define Inngest event contracts and idempotency strategy;
-- define PostgreSQL persistence, migration, and connection lifecycle conventions;
 - define JWT/JWKS issuance, audience, expiration, and key rotation;
 - define operational limits for SSE, AI usage, and code execution.

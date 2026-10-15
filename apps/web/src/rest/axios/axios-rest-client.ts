@@ -32,10 +32,13 @@ export const AxiosRestClient = (
   return {
     get,
 
-    getFile(url) {
-      return request<File>(client, {
+    getFile(url, requestOptions) {
+      return request<Blob>(client, {
         method: 'get',
         url,
+        params: requestOptions?.params,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        signal: requestOptions?.signal,
         responseType: 'blob',
       })
     },
@@ -49,11 +52,17 @@ export const AxiosRestClient = (
       })
     },
 
-    postFormData<ResponseBody>(url: string, body: FormData) {
+    postFormData<ResponseBody>(
+      url: string,
+      body: FormData,
+      requestOptions?: RestRequestOptions,
+    ) {
       return request<ResponseBody>(client, {
         method: 'post',
         url,
         data: body,
+        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        signal: requestOptions?.signal,
       })
     },
 

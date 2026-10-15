@@ -17,7 +17,7 @@ see [`rules.md`](rules.md).
 - **Python** `3.13.5`, selected by `.python-version`.
 - **uv**, used for server dependencies, virtual environments, and builds.
 - **Docker Engine with Docker Compose**, required for PostgreSQL, Redis, Inngest,
-  Mailpit, and the local SonarQube stack.
+  MinIO, Mailpit, and the local SonarQube stack.
 
 Check the runtime files before upgrading a local tool. Lockfiles and manifests are
 the source of truth for exact dependency versions.
@@ -108,6 +108,8 @@ Important local variables include:
 | `POSTGRES_PORT` | `54344` | PostgreSQL host port |
 | `REDIS_PORT` | `6379` | Redis host port |
 | `INNGEST_PORT` | `18288` | Inngest UI/API host port |
+| `MENTOR_ATTACHMENT_STORAGE_PORT` | `9000` | Private Mentor MinIO API host port |
+| `MENTOR_ATTACHMENT_STORAGE_BUCKET` | `shifu-mentor-attachments` | Local private attachment bucket |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
 | `INNGEST_APP_URL` | `http://host.docker.internal:7777/api/inngest` | FastAPI Inngest endpoint discovered by the existing Compose Dev Server |
@@ -129,6 +131,7 @@ The Compose stack provides:
 - PostgreSQL 17 for application data;
 - Redis 8 for server cache and rate limiting;
 - Inngest development server;
+- private S3-compatible MinIO storage for Mentor attachments;
 - Mailpit for local mail capture; and
 - SonarQube with its PostgreSQL database.
 
@@ -139,6 +142,7 @@ Default endpoints are:
 | PostgreSQL | `postgresql://shifu:change-me@localhost:54344/shifu` |
 | Redis | `redis://localhost:6379/0` |
 | Inngest | `http://localhost:18288` |
+| Private MinIO | `http://localhost:9000` (API; local credentials only) |
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
 | SonarQube | `http://localhost:19000` |
@@ -153,6 +157,27 @@ docker compose down
 
 Do not delete Docker volumes or reset local databases unless explicitly requested.
 
+Compose starts the private `minio` service and one-shot `minio-init` service; the latter
+creates the configured attachment bucket after MinIO is healthy. This storage has its
+own named volume and credentials, separate from the optional Langfuse MinIO. The
+server's `MENTOR_ATTACHMENT_STORAGE_*` values in `apps/server/.env.local` must match
+the root Compose values copied from `.env.example`. Values in the environment examples
+are local placeholders only. The typed server limits default to 20,000,000 decoded
+image pixels, 40 PDF pages, 200,000 extracted characters, a 10-second PDF processing
+deadline and 20,000,000 total rendered PDF bytes per attachment. PDF parsing and raster
+rendering run in deadline-bounded workers; pages that exceed the render-byte budget or
+deadline remain uninterpreted. The upload boundary also enforces at most five files
+and 10,000,000 bytes per file. These bounds apply before content is sent to model
+inference.
+
+Compose also runs the idempotent `agentos-role-init` service to provision the
+`shifu_agentos_runtime` login. `DATABASE_URL` remains the migration and application
+database connection; `AGENTOS_DATABASE_URL` in `apps/server/.env.local` must use the
+restricted runtime login. Alembic grants that role schema usage and table DML on the
+two AgentOS schemas, but no schema ownership or DDL permission. Start
+`docker compose up -d agentos-role-init` when bringing up only selected services;
+never point the AgentOS runtime URL at the migration owner.
+
 The existing Compose Inngest service is the development Dev Server. It starts with
 `-u ${INNGEST_APP_URL}` and reaches the host FastAPI process through the Linux
 `host-gateway` mapping. Job integration tests use disposable Testcontainers
@@ -165,8 +190,9 @@ docker compose up -d inngest
 curl http://localhost:18288/e/health
 ```
 
-The server registers the logging-only Identity job at `/api/inngest`; no second
-Inngest process or obsolete `pubsub` task is required.
+The server registers non-AI Inngest functions at `/api/inngest`; registered AI
+workflows use the owning module's AgentOS queue. Do not add a second Inngest process or
+obsolete `pubsub` task.
 
 From `apps/server`, configure `DATABASE_URL` in `.env.local` and run:
 
@@ -248,9 +274,18 @@ Playwright.
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
 | `pnpm --filter web test:coverage` | Run Vitest unit tests with V8 coverage |
+| `node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts --base origin/main` | Enforce per-file changed-source coverage from `apps/web/coverage/coverage-summary.json` |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
+
+The Web changed-file coverage job runs the affected Mentor tests with Vitest's
+V8 provider, then checks every changed eligible production file against
+`coverage/coverage-summary.json`. It requires at least 85% statements, lines and
+functions, and 80% branches per file. Use `--files <repo-path...>` for a local
+explicit file selection instead of `--base origin/main`; files missing from the
+coverage summary fail the check. The workflow's focused test selection is in
+`.github/workflows/web-app-ci.yaml` and its report is uploaded as an artifact.
 
 Biome is configured centrally in the root `biome.json`. Formatting uses two spaces,
 a 90-character line width,
@@ -312,6 +347,19 @@ Run commands from `apps/server` through uv:
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |
 | `uv run --env-file .env.local python src/main.py` | Start the API locally |
+
+Server changed-file coverage uses `coverage.py` branch data and
+`scripts/check_changed_coverage.py`. The checker requires at least 85% statements,
+lines and function entries, and 80% branches for every changed eligible
+`src/shifu/**/*.py` file. Statements and lines both count Coverage.py executable
+source lines; function entries count arcs from a named function's entry to its
+first executable body line; branches count possible and executed arcs. Abstract,
+overload and declaration-only stub functions are excluded from the function-entry
+denominator. Run focused pytest selections under `coverage run --branch`, emit
+`coverage.json`, then pass the changed files with `--files` locally or use
+`--base origin/main` in a full-history checkout. The dedicated CI job records the
+exact affected test selections in `.github/workflows/server-app-ci.yaml` and uploads
+the JSON report, raw coverage data, and checker summary.
 
 The server's module boundaries are declared in `apps/server/tach.toml`. The current
 module policy keeps business modules dependent on shared code while application
@@ -487,8 +535,8 @@ uploads the Markdown report artifact. The table groups killed, survived,
 uncovered, timed-out and error mutants by module and shows one overall score and
 a combined gate result for each module. The module score is
 `killed / (killed + survived)`; uncovered, timeout and error outcomes are
-excluded. The required Server aggregate waits for both mutation execution and
-the summary gate.
+excluded. Server CI exposes mutation execution and the summary gate as
+individual checks; no Server verify aggregate job remains.
 
 The separate `.github/workflows/server-mutation-comment.yaml` workflow uses the
 `workflow_run` event to publish the report artifact after Server CI completes.
@@ -607,9 +655,10 @@ configuration are deferred. The local SonarQube service is separate from the
 planned SonarCloud coverage and quality-gate integration.
 
 Inspect the current `.github/workflows` when selecting delivery gates. CI uses
-application-owned commands and repository runtime files. Current Web and Server
-workflows run tests without configured coverage collection; do not claim coverage
-percentages or a coverage gate from those results. Server CI also runs
+application-owned commands and repository runtime files. Web and Server have
+dedicated changed-file coverage jobs that enforce the per-file thresholds above;
+their uploaded reports apply only to the exact candidate and scoped tests in that
+job. Server CI also runs
 `uv run alembic check` after migrating its disposable database to detect schema
 migration drift. The Email workflow separately checks package code/types,
 generates templates and verifies the server distribution contract when its path
@@ -619,21 +668,41 @@ do not treat a pending or failed check as passed.
 Web CI runs type, lint, architecture, unit, browser integration and build checks
 as independent jobs. Playwright uses the development server and
 keeps its own database/server setup. Server CI runs type, lint, architecture,
-unit, mutation tooling, integration, real Inngest job and distribution checks
-independently. Mutation shards run independently, and their summary depends only
-on those shards. Email CI runs package code, type, template build, Server type
+unit, integration and real AI eval checks independently. Controller and registered
+workflow tests plus real Inngest job tests run as separate steps in the same
+integration job. Mutation tooling checks run within unit tests. The 12 mutation
+shards run independently, and their summary depends only on those shards.
+Distribution build/verification runs in its own build job; architecture-check
+only validates dependency boundaries. Server eval CI runs every available eval
+class through `apps/server/evals/run.py`, without workflow/name/tag filters, with
+`SHIFU_RUN_REAL_AI_EVALS=1`, and uploads reports on failure. The runner writes
+per-workflow JSON reports and a summary, and exits nonzero when a workflow or
+report write fails. Its model settings use the `OPENROUTER_API_KEY` repository secret and the
+`OPENROUTER_PROMPT_LOGGING_DISABLED` / `MENTOR_TITLE_PROMPT_LOGGING_DISABLED`
+repository variables. Resolve actual provider privacy attestations before setting
+those variables; this local workflow edit does not configure external secrets or
+variables. Local eval validation selects only complete changed/affected workflow
+classes, while current-head CI requires the full catalogue. Email CI runs package code, type, template build, Server type
 and Server distribution checks independently; the package does not define unit or integration
-test scripts. Each workflow keeps its required check name as an aggregate that
-fails if any child job fails.
+test scripts. Email retains its required aggregate check. Web and Server expose
+individual checks directly, without verify aggregate jobs; these local edits do
+not change repository branch-protection settings.
 
 ## Database and asynchronous tooling status
 
-The server provides an explicit Alembic migration workflow and registers its
-module-owned Inngest functions through one `/api/inngest` endpoint. REST integration
-tests use disposable PostgreSQL Testcontainers and do not reuse the developer's
-Compose database. Docker-backed job tests use disposable PostgreSQL and Inngest
-containers; they may skip locally when Docker or the configured callback port is
-unavailable, but CI must run them on a Docker-capable runner.
+The server provides an explicit Alembic migration workflow. It registers non-AI
+Inngest functions through one `/api/inngest` endpoint and starts separate native
+AgentOS registries for Intelligence and Learning. Their PostgreSQL schemas, queues,
+clients and lifecycles are module-scoped; Shared supplies only destination-aware
+transport and sanitized observability. REST integration tests use disposable
+PostgreSQL Testcontainers and do not reuse the developer's Compose database.
+Registered AgentOS integration tests use disposable PostgreSQL and Redis; attachment
+controller tests also use disposable MinIO. Inngest tests use disposable PostgreSQL and
+Inngest. Local tests may report a precise Docker or callback-port skip, but CI must run
+all contracted runtime selections on a Docker-capable runner. Set
+`SHIFU_RUN_REAL_AGENTOS_TESTS=1` for AgentOS runtime tests and
+`SHIFU_RUN_REAL_INNGEST_TESTS=1` for real Inngest tests; skips or empty selections do
+not pass.
 
 ## Delivery handoff
 
