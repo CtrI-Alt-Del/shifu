@@ -38,8 +38,8 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 
 | Sprint |    Período da Sprint    |                                       Link para a documentação                                       |      Status      |
 | :----: | :---------------------: | :--------------------------------------------------------------------------------------------------: | :-------------: |
-|   01   | 15/09/2026 – 27/09/2026 | [Relatório](documentation/sprints/sprint-1.md) | Concluída |
-|   02   | A definir | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-2-report.md)  | Não iniciada |
+|   01   | 15/09/2026 – 27/09/2026 | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-1-report.md) | Concluída |
+|   02   | 05/10/2026 – 25/10/2026 | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-2-report.md)  | Não iniciada |
 |   03   | A definir | [Relatório](https://github.com/CtrI-Alt-Del/shifu/blob/main/documentation/sprints/sprint-3-report.md)  | Não iniciada |
 
 ## 🛠️ Tecnologias
