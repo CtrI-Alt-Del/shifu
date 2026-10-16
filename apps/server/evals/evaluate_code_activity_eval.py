@@ -25,14 +25,28 @@ class _CodeRubricProvider(Protocol):
 _RUBRIC = CurriculumCodeRubricCriterionSnapshot(
     key='correctness',
     name='Correctness',
-    description='The submitted result follows the frozen expected behavior.',
+    description=(
+        'Evaluate whether is_even(value) returns a boolean that is true exactly '
+        'when the integer value is divisible by 2. Level 100 requires correct '
+        'results for positive, zero, and negative integers. Level 75 is correct '
+        'for non-negative integers but fails for negative integers. Level 50 '
+        'attempts a parity check but returns the opposite result. Level 25 has '
+        'the function but no meaningful parity check. Level 0 has no relevant '
+        'implementation. If there is no submitted source, choose inconclusive.'
+    ),
     weight_percentage=100,
     required=True,
     fixed_comments=tuple(
         CurriculumCodeRubricCommentSnapshot(
             id=f'correctness-{level}',
             level=level,
-            text=f'The implementation demonstrates correctness at level {level}.',
+            text={
+                0: 'No relevant implementation of is_even is present.',
+                25: 'is_even exists but does not meaningfully check parity.',
+                50: 'is_even checks parity but returns the opposite result.',
+                75: 'is_even works for non-negative integers but fails for negatives.',
+                100: 'is_even returns the correct boolean for every integer.',
+            }[level],
         )
         for level in (0, 25, 50, 75, 100)
     ),
@@ -46,13 +60,20 @@ _DEFINITIONS = (
     CaseDefinition(
         name='code_rubric_supported_decision',
         tags=('smoke', 'rubric'),
-        input='Synthetic captured consumer request with sufficient evidence.',
-        expected={'expected_level': 75, 'source': 'composed-consumer'},
+        input=(
+            'Implement is_even(value) so it returns True exactly when the integer '
+            'value is divisible by 2, including negative integers, and returns '
+            'False otherwise. The result must be a boolean.'
+        ),
+        expected={'expected_level': 100, 'source': 'composed-consumer'},
     ),
     CaseDefinition(
         name='code_rubric_insufficient_evidence_is_inconclusive',
         tags=('rubric', 'safety'),
-        input='Synthetic captured consumer request with insufficient evidence.',
+        input=(
+            'No source was submitted for the is_even task. The saved project file '
+            'is an empty template, so there is no implementation to assess.'
+        ),
         expected={'expected_level': 'inconclusive', 'source': 'composed-consumer'},
     ),
     CaseDefinition(
@@ -69,11 +90,18 @@ _DEFINITIONS = (
 
 
 def _assessment_input(definition: CaseDefinition) -> CodeRubricAssessmentInput:
+    no_submission = (
+        definition.name == 'code_rubric_insufficient_evidence_is_inconclusive'
+    )
     return CodeRubricAssessmentInput(
         question_kind='text',
         prompt=definition.input,
-        project_files=(('main.py', 'def equivalent(value):\n    return value\n'),),
-        submitted_paths=('main.py',),
+        project_files=(
+            ('main.py', '')
+            if no_submission
+            else ('main.py', 'def is_even(value):\n    return value % 2 == 0\n'),
+        ),
+        submitted_paths=() if no_submission else ('main.py',),
         rubric_criteria=(_RUBRIC,),
         concept_criteria=(),
     )
@@ -83,7 +111,7 @@ class EvaluateCodeActivityEval:
     selector = 'evaluate-code-activity'
     workflow_id = 'learning-evaluate-code-activity'
     dataset_revision = DATASET_REVISION
-    prompt_revision = 'code-rubric-eval-v1'
+    prompt_revision = 'code-rubric-eval-v2'
 
     def __init__(
         self,

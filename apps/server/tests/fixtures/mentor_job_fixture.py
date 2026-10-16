@@ -1,4 +1,4 @@
-"""Concrete NLP/Agno/Decisions proof through the registered disposable job."""
+"""Concrete NLP/Agno/Decisions proof through the registered AgentOS workflow."""
 
 import hashlib
 import json
@@ -61,6 +61,9 @@ from shifu.shared.core.domain.structures import (
     MentorUsage,
 )
 from shifu.shared.database.sqlalchemy.model import Model
+from shifu.shared.database.sqlalchemy.repositories.events_repository import (
+    SqlalchemyEventsRepository,
+)
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from sqlalchemy import select
@@ -891,8 +894,9 @@ def publish_and_wait(
     event = MentorResponseRequestedEvent(
         payload=MentorResponseRequestedPayload(attempt_id=attempt_id)
     )
-    event_id = SystemIdentifierProvider().generate()
-    fixture.publish(event.name, {'attempt_id': event.payload.attempt_id}, event_id)
+    with fixture.inspection_session() as session:
+        SqlalchemyEventsRepository(session).add(event)
+        session.commit()
 
     def reached_terminal_status(session: 'SqlalchemySession') -> bool:
         attempt = session.get(MentorResponseAttemptModel, attempt_id)
@@ -903,7 +907,6 @@ def publish_and_wait(
         }
 
     fixture.wait_for_database(reached_terminal_status)
-    fixture.wait_for_log(f'mentor_response_job_completed event_id={event_id}')
     with fixture.inspection_session() as session:
         attempt = session.get(MentorResponseAttemptModel, attempt_id)
         assert attempt is not None

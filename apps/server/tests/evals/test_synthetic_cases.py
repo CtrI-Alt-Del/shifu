@@ -281,10 +281,16 @@ def test_attachment_vision_dataset_contains_two_private_synthetic_pngs() -> None
 def test_code_activity_eval_checks_composed_decisions_and_negative_control() -> None:
     class Provider:
         def assess(self, request: Any) -> Any:
-            if 'insufficient evidence' in request.prompt:
+            if 'No source was submitted' in request.prompt:
+                assert request.submitted_paths == ()
+                assert request.project_files == (('main.py', ''),)
                 level: int | str = 'inconclusive'
             else:
-                level = 75
+                assert request.submitted_paths == ('main.py',)
+                assert request.project_files == (
+                    ('main.py', 'def is_even(value):\n    return value % 2 == 0\n'),
+                )
+                level = 100
             return SimpleNamespace(
                 criterion_levels=(SimpleNamespace(level=level),),
                 concept_levels=(),

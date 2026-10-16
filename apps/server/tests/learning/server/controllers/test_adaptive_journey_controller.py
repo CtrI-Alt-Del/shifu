@@ -307,6 +307,7 @@ def controlled_jev_endpoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> _ControlledJevEndpoint:
     endpoint = _ControlledJevEndpoint()
+    monkeypatch.setenv('OPENROUTER_API_KEY', 'test-openrouter-key')
     monkeypatch.setattr(
         'shifu.intelligence.ai.intelligence_workflows_registry.IntelligenceWorkflowsRegistry._build_code_rubric_client',
         staticmethod(endpoint.build_client),
