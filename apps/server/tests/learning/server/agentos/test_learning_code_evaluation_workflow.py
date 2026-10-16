@@ -301,6 +301,7 @@ class TestLearningCodeEvaluationWorkflow:
         database = object()
         assessor = object()
         object.__setattr__(registry, '_runtime', runtime)
+        object.__setattr__(registry, '_observability', runtime.observability)
         object.__setattr__(registry, '_handoffs', handoffs)
         object.__setattr__(registry, '_database_port', database)
         object.__setattr__(registry, '_assessment_provider', assessor)
@@ -347,6 +348,7 @@ class TestLearningCodeEvaluationWorkflow:
         registry = object.__new__(LearningWorkflowsRegistry)
         handoffs = Mock()
         object.__setattr__(registry, '_runtime', None)
+        object.__setattr__(registry, '_observability', None)
         object.__setattr__(registry, '_handoffs', handoffs)
         object.__setattr__(registry, '_closed', False)
 

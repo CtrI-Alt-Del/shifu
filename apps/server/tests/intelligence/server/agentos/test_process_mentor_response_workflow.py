@@ -503,6 +503,11 @@ def test_registered_runtime_processes_and_persists_attachment_answer(
     agentos_fixture: RegisteredAgentOSFixture,
     postgres_database: PostgresDatabase,
 ) -> None:
+    with postgres_database.engine.connect() as connection:
+        learning_run_count_before = connection.execute(
+            text('SELECT count(*) FROM agentos_learning.agentos_workflow_runs')
+        ).scalar_one()
+
     session_id = create_session(agentos_fixture.client)
     initial_detail = wait_for_session_response(agentos_fixture.client, session_id)
     initial_snapshot = cast('dict[str, object]', initial_detail['response'])
@@ -563,13 +568,13 @@ def test_registered_runtime_processes_and_persists_attachment_answer(
             .scalars()
             .all()
         )
-        learning_run_count = connection.execute(
+        learning_run_count_after = connection.execute(
             text('SELECT count(*) FROM agentos_learning.agentos_workflow_runs')
         ).scalar_one()
 
     assert process_runs
     assert preparation_runs
-    assert learning_run_count == 0
+    assert learning_run_count_after == learning_run_count_before
     assert any(str(status).lower() == 'completed' for status, _data in process_runs), (
         f'Native response run statuses: {[status for status, _data in process_runs]}'
     )
@@ -684,7 +689,6 @@ def test_registered_runtime_processes_and_persists_attachment_answer(
         ATTACHMENT_TEXT not in str(data) and MODEL_ANSWER not in str(data)
         for _status, data in process_runs
     )
-    assert learning_run_count == 0
 
 
 def _review_output(content: object) -> dict[str, object] | None:

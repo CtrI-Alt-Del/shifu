@@ -371,6 +371,7 @@ class FastAPIApp:
             destination_resolver=lambda event: (
                 intelligence_registry.destination_for_event(event)
                 or learning_registry.destination_for_event(event)
+                or 'inngest'
             ),
             id_provider=id_provider,
         )
