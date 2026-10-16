@@ -19,7 +19,7 @@ Content-Type: application/json
 
 { "session_id": "{{mentorSessionId}}" }
 
-### Upload one supported file (up to 10 MB; at most five per batch)
+### Upload one supported file (up to 2 MB; at most five per batch)
 POST {{baseUrl}}/intelligence/mentor-attachment-batches/{{attachmentBatchId}}/attachments
 Authorization: Bearer {{accessToken}}
 Content-Type: multipart/form-data; boundary=ShifuAttachmentBoundary
@@ -50,3 +50,30 @@ Authorization: Bearer {{accessToken}}
 ### Download the original attachment from a sent conversation
 GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/attachments/{{attachmentId}}/file
 Authorization: Bearer {{accessToken}}
+
+### Send ready/partial attachments without a caption in a new conversation
+# Replace IDs with an owned unconsumed batch and prepared attachments.
+# Repeat this exact payload for a 200 replay, without consuming another batch.
+POST {{baseUrl}}/intelligence/mentor-sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "7501d2cb-e28e-48f4-bfbb-d6b3db1ced97",
+  "first_message": "",
+  "attachment_batch_id": "{{attachmentBatchId}}",
+  "attachment_ids": ["{{attachmentId}}"]
+}
+
+### Send ready/partial attachments without a caption in an existing conversation
+# Use a fresh owned batch bound to this session after its pending response ends.
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/messages
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "9956c987-0cb1-4af1-b81d-653b9d23f755",
+  "content": "",
+  "attachment_batch_id": "{{attachmentBatchId}}",
+  "attachment_ids": ["{{attachmentId}}"]
+}

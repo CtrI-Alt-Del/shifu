@@ -317,6 +317,167 @@ describe('Mentor consumer through authenticated transport', () => {
     expect(result.current.scopeError).toBeTruthy()
     expect(ports.post).toHaveBeenCalledTimes(1)
   })
+  it.each([
+    { surface: 'page' as const, existingSession: false, status: 'ready', draft: '' },
+    { surface: 'fab' as const, existingSession: false, status: 'partial', draft: '   ' },
+    { surface: 'page' as const, existingSession: true, status: 'partial', draft: '' },
+    { surface: 'fab' as const, existingSession: true, status: 'ready', draft: '   ' },
+  ])(
+    'sends attachment-only text on $surface (existing=$existingSession, $status) and replays a failed send',
+    async ({ surface, existingSession, status, draft }) => {
+      ports.get.mockImplementation(async (path: string) => {
+        if (path === '/intelligence/mentor-sessions')
+          return new RestResponse({
+            statusCode: 200,
+            body: { items: [], next_cursor: null },
+          })
+        if (path.includes('/mentor-attachment-batches/'))
+          return new RestResponse({
+            statusCode: 200,
+            body: { ...attachmentBatchDto, attachments: [{ ...attachmentDto, status }] },
+          })
+        return new RestResponse({
+          statusCode: 200,
+          body: { ...detail, pending_learner_message_id: null, response: null },
+        })
+      })
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      if (existingSession) await act(() => result.current.selectSession(sessionId))
+      act(() => result.current.setDraft(draft))
+      await act(() =>
+        result.current.addAttachments([
+          new File(['nota'], 'anotacao.txt', { type: 'text/plain' }),
+        ]),
+      )
+      await waitFor(() =>
+        expect(result.current.draftAttachments[0]?.attachment?.status).toBe(status),
+      )
+      const endpoint = existingSession
+        ? `/intelligence/mentor-sessions/${sessionId}/messages`
+        : '/intelligence/mentor-sessions'
+      ports.post.mockResolvedValueOnce(new RestResponse({ statusCode: 503 }))
+      await act(() => result.current.sendFirstMessage(surface))
+      expect(result.current.submissionError).toBe(
+        'Não foi possível enviar sua mensagem. Tente novamente.',
+      )
+      expect(result.current.draft).toBe(draft)
+      expect(result.current.draftAttachments[0]?.attachment?.attachmentId).toBe(
+        attachmentId,
+      )
+      await act(() => result.current.sendFirstMessage(surface))
+      const submissions = ports.post.mock.calls.filter(([path]) => path === endpoint)
+      expect(submissions).toHaveLength(2)
+      expect(submissions[0]?.[1]).toEqual(submissions[1]?.[1])
+      expect(submissions[1]?.[1]).toEqual(
+        expect.objectContaining({
+          [existingSession ? 'content' : 'first_message']: '',
+          attachment_batch_id: attachmentBatchId,
+          attachment_ids: [attachmentId],
+          submission_key: expect.any(String),
+        }),
+      )
+      expect(result.current.draftAttachments).toEqual([])
+      expect(result.current.selectedSessionId).toBe(sessionId)
+    },
+  )
+
+  it.each(['', '   '])(
+    'blocks a completely empty submission with draft %j before posting',
+    async (draft) => {
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      act(() => result.current.setDraft(draft))
+      await act(() => result.current.sendFirstMessage())
+      expect(ports.post).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each([
+    {},
+    { attachmentIds: [] },
+    { attachmentIds: [attachmentId] },
+    { attachmentBatchId, attachmentIds: ['invalid-id'] },
+  ])(
+    'rejects blank direct continuation input with invalid selection %j',
+    async (selection) => {
+      ports.get.mockImplementation(
+        async (path: string) =>
+          new RestResponse({
+            statusCode: 200,
+            body:
+              path === '/intelligence/mentor-sessions'
+                ? { items: [], next_cursor: null }
+                : { ...detail, pending_learner_message_id: null, response: null },
+          }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+      await act(() =>
+        result.current.submitMessage({
+          submissionKey,
+          content: '',
+          contextHint: null,
+          ...selection,
+        }),
+      )
+      expect(ports.post).not.toHaveBeenCalled()
+      expect(result.current.submissionError).toBe(
+        'Não foi possível enviar sua mensagem. Tente novamente.',
+      )
+    },
+  )
+
+  it.each(['processing', 'failed'])(
+    'blocks attachment-only sending when an attachment is %s',
+    async (status) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ ...attachmentDomain, status }), {
+              status: 201,
+              headers: { 'Content-Type': 'application/json' },
+            }),
+        ),
+      )
+      ports.get.mockImplementation(
+        async (path: string) =>
+          new RestResponse({
+            statusCode: 200,
+            body: path.includes('/mentor-attachment-batches/')
+              ? { ...attachmentBatchDto, attachments: [{ ...attachmentDto, status }] }
+              : { items: [], next_cursor: null },
+          }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() =>
+        result.current.addAttachments([
+          new File(['nota'], 'anotacao.txt', { type: 'text/plain' }),
+        ]),
+      )
+      await act(() => result.current.sendFirstMessage())
+      expect(ports.post.mock.calls.map(([path]) => path)).toEqual([
+        '/intelligence/mentor-attachment-batches',
+      ])
+      expect(result.current.draftAttachments).toHaveLength(1)
+    },
+  )
+
   it('runs attachment creation, upload, polling, and removal through provider actions', async () => {
     const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
       wrapper,

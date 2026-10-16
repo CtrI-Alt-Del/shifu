@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import create_autospec
+from unittest.mock import call, create_autospec
 
 import pytest
 from shifu.intelligence.core.domain.entities import (
@@ -80,6 +80,7 @@ def harness() -> _Harness:
 
 def test_renew_extends_only_the_current_claim(harness: _Harness) -> None:
     subject, dependencies = harness
+    grant = dependencies['access'].authorize.return_value
 
     renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
 
@@ -89,7 +90,97 @@ def test_renew_extends_only_the_current_claim(harness: _Harness) -> None:
     dependencies['repositories'].mentor_attachments.update.assert_called_once_with(
         dependencies['attachment']
     )
-    assert dependencies['access'].assert_current.call_count == 2
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
+        [
+            call(_ATTACHMENT_ID),
+            call(_ATTACHMENT_ID, for_update=True),
+        ]
+    )
+    dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_called_once_with(
+        _BATCH_ID, for_update=True
+    )
+    dependencies['access'].authorize.assert_called_once_with(
+        _ACCOUNT_ID, _ATTACHMENT_ID
+    )
+    assert dependencies['access'].assert_current.call_args_list == [
+        call(grant),
+        call(grant),
+    ]
+
+
+def test_renew_rejects_a_missing_attachment_without_authorizing(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    dependencies['repositories'].mentor_attachments.find_by_id.return_value = None
+
+    renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert renewed is False
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_called_once_with(
+        _ATTACHMENT_ID
+    )
+    dependencies['access'].authorize.assert_not_called()
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+
+
+def test_renew_rejects_an_attachment_deleted_before_it_is_locked(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    dependencies['repositories'].mentor_attachments.find_by_id.side_effect = [
+        dependencies['attachment'],
+        None,
+    ]
+
+    renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert renewed is False
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
+        [
+            call(_ATTACHMENT_ID),
+            call(_ATTACHMENT_ID, for_update=True),
+        ]
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+
+
+def test_renew_rejects_a_missing_batch(harness: _Harness) -> None:
+    subject, dependencies = harness
+    dependencies['repositories'].mentor_attachment_batches.find_by_id.return_value = (
+        None
+    )
+
+    renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert renewed is False
+    dependencies[
+        'repositories'
+    ].mentor_attachment_batches.find_by_id.assert_called_once_with(
+        _BATCH_ID, for_update=True
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+
+
+def test_renew_checks_a_bound_session_under_lock(harness: _Harness) -> None:
+    subject, dependencies = harness
+    dependencies['batch'].session_id = _SESSION_ID
+    session = object()
+    dependencies[
+        'repositories'
+    ].mentor_sessions.find_by_id_for_update.return_value = session
+
+    renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert renewed is True
+    dependencies[
+        'repositories'
+    ].mentor_sessions.find_by_id_for_update.assert_called_once_with(
+        _ACCOUNT_ID, _SESSION_ID
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_called_once_with(
+        dependencies['attachment']
+    )
 
 
 @pytest.mark.parametrize(

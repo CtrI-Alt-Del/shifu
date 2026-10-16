@@ -1,8 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Self
 
 from fastapi import APIRouter, Depends, status
 from fastapi import Response as FastApiResponse
-from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.intelligence.core.domain.structures import (
     MentorContextHint,
@@ -31,17 +31,16 @@ class Request(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     submission_key: UUID4
-    first_message: str = Field(min_length=1)
+    first_message: str
     context_hint: MentorContextHintSchema | None = None
     attachment_batch_id: str | None = None
     attachment_ids: list[str] = Field(default_factory=list, max_length=5)
 
-    @field_validator('first_message')
-    @classmethod
-    def _require_non_whitespace(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError('first_message must contain non-whitespace text')
-        return value
+    @model_validator(mode='after')
+    def _require_message_or_attachments(self) -> Self:
+        if not self.first_message.strip() and not self.attachment_ids:
+            raise ValueError('Message must contain text or attachments')
+        return self
 
 
 class Response(BaseModel):

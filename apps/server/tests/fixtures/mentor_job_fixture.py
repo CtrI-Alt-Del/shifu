@@ -48,8 +48,8 @@ from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_tran
 from shifu.intelligence.providers.routing.local_mentor_route_provider import (
     LocalMentorRouteProvider,
 )
-from shifu.intelligence.providers.telemetry.agentos.agentos_mentor_telemetry_provider import (
-    AgentOSMentorTelemetryProvider,
+from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
+    LangfuseMentorTelemetryProvider,
 )
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
@@ -661,7 +661,7 @@ def create_mentor_test_app() -> FastAPI:
     reranker = cast(
         'MentorFaqRerankerProvider', _configure_native_faq_reranker(endpoint)
     )
-    telemetry = AgentOSMentorTelemetryProvider()
+    telemetry = LangfuseMentorTelemetryProvider()
     catalog = CurriculumMentorCatalogProvider(SqlalchemyCurriculumDatabase(engine))
     preprocessor = SpacyMentorTextPreprocessorProvider()
     stable_route = LazyMentorRouteProvider(

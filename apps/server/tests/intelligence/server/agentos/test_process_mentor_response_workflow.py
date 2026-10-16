@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
 from agno.agent import Agent
+from agno.metrics import RunMetrics
 from agno.run.agent import RunOutput
 from pydantic import BaseModel
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
+from agno.workflow.types import StepInput
 
 from shifu.intelligence.database.sqlalchemy.models import (
     MentorMessageModel,
@@ -21,6 +25,21 @@ from shifu.intelligence.database.sqlalchemy.models import (
 from shifu.intelligence.core.use_cases.publish_mentor_response_block_use_case import (
     PublishMentorResponseBlockUseCase,
 )
+import shifu.intelligence.ai.agno.workflows.process_mentor_response_workflow as response_workflow_module
+from shifu.intelligence.ai.agno.workflows.process_mentor_response_workflow import (
+    ProcessMentorResponseWorkflow,
+    _ExecutionState,
+    _Input,
+    _StepReference,
+)
+from shifu.intelligence.core.domain.enums import MentorResponseStatus
+from shifu.intelligence.core.domain.structures import (
+    MentorReviewResult,
+    MentorResponseBlock,
+    PreparedMentorResponse,
+)
+from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.structures import MentorContextSnapshot
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from tests.intelligence.server.agentos.mentor_attachment_test_support import (
     ATTACHMENT_TEXT,
@@ -35,15 +54,299 @@ from tests.intelligence.server.agentos.mentor_attachment_test_support import (
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from shifu.intelligence.core.domain.structures import MentorResponseBlock
-    from shifu.shared.core.domain.structures import MentorContextSnapshot
     from tests.fixtures.agentos_fixture import RegisteredAgentOSFixture
     from tests.fixtures.postgres_fixture import PostgresDatabase
+
+# The deterministic tests below exercise private workflow transition methods directly.
+# ruff: noqa: SLF001
 
 pytestmark = pytest.mark.skipif(
     os.environ.get('SHIFU_RUN_REAL_AGENTOS_TESTS') != '1',
     reason='Set SHIFU_RUN_REAL_AGENTOS_TESTS=1 for registered AgentOS tests',
 )
+
+
+_UNIT_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
+
+
+def _response_snapshot() -> MentorContextSnapshot:
+    return MentorContextSnapshot(
+        goal_id=None,
+        skill_experience_id=None,
+        skill_id=None,
+        competency_id=None,
+        activity_id=None,
+        skill_completed=None,
+        diagnostic_in_progress=False,
+        facts=(),
+        eligible_references=(),
+        resolved_references=(),
+        unavailable_sources=(),
+    )
+
+
+def _prepared_response(
+    *, local_blocks: tuple[MentorResponseBlock, ...] = ()
+) -> PreparedMentorResponse:
+    return PreparedMentorResponse(
+        attempt_id=_UNIT_ID,
+        execution_owner=_UNIT_ID,
+        account_id=_UNIT_ID,
+        session_id=_UNIT_ID,
+        learner_message_id=_UNIT_ID,
+        context=_response_snapshot(),
+        local_blocks=local_blocks,
+        attachment_request=None,
+    )
+
+
+def _local_block(key: str = 'local-0', ordinal: int = 0) -> MentorResponseBlock:
+    return MentorResponseBlock(
+        block_key=key,
+        ordinal=ordinal,
+        intent=None,
+        content=f'Answer {key}',
+        sources=(),
+    )
+
+
+def _step_input(last_content: str | None = None) -> object:
+    return type(
+        'WorkflowStepInput',
+        (),
+        {
+            'input': {'attempt_id': _UNIT_ID},
+            'get_last_step_content': lambda self: last_content,
+        },
+    )()
+
+
+def test_response_workflow_rejects_json_and_mapping_input_errors() -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+
+    for raw in ('{invalid', {'attempt_id': _UNIT_ID, 'extra': True}, []):
+        with pytest.raises(ServiceUnavailableError):
+            workflow._prepare_and_publish(StepInput(input=raw))
+
+
+def test_response_workflow_validates_publication_review_and_usage_contracts() -> None:
+    for published in (False, True):
+        if published:
+            ProcessMentorResponseWorkflow._assert_published(published)
+        else:
+            with pytest.raises(ServiceUnavailableError):
+                ProcessMentorResponseWorkflow._assert_published(published)
+
+    with pytest.raises(ServiceUnavailableError):
+        ProcessMentorResponseWorkflow._assert_review_result(object())
+    ProcessMentorResponseWorkflow._assert_review_result(
+        MentorReviewResult(
+            approved=True,
+            criteria=(),
+            correction=None,
+            probabilities=(),
+        )
+    )
+
+    assert ProcessMentorResponseWorkflow._usage_fields(
+        SimpleNamespace(metrics=None)
+    ) == (None, None, None, None)
+    assert ProcessMentorResponseWorkflow._usage_fields(
+        SimpleNamespace(
+            metrics=RunMetrics(input_tokens=1, output_tokens=2, total_tokens=3)
+        )
+    ) == (1, 2, 3, None)
+    for metrics in (
+        RunMetrics(input_tokens=-1, output_tokens=2, total_tokens=1),
+        RunMetrics(input_tokens=1, output_tokens=2, total_tokens=0),
+        RunMetrics(input_tokens=1, output_tokens=2, total_tokens=4),
+    ):
+        assert ProcessMentorResponseWorkflow._usage_fields(
+            SimpleNamespace(metrics=metrics)
+        ) == (None, None, None, None)
+    assert ProcessMentorResponseWorkflow._usage_fields(
+        SimpleNamespace(
+            metrics=RunMetrics(input_tokens=1, output_tokens=2, total_tokens=3, cost=-1)
+        )
+    ) == (1, 2, 3, None)
+
+
+def test_response_workflow_cancels_recovery_when_claim_is_no_longer_active() -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow._consume = Mock(side_effect=KeyError('expired handoff'))
+    workflow._prepare = Mock()
+    workflow._prepare.execute.return_value = None
+    workflow._release_claim = Mock()
+
+    state = workflow._consume_or_recover(
+        _StepReference(handoff='h' * 32, decision='continue'),
+        _Input(attempt_id=_UNIT_ID),
+    )
+
+    assert state.prepared is None
+    assert state.status is MentorResponseStatus.CANCELLED
+    workflow._release_claim.execute.assert_called_once_with(_UNIT_ID, _UNIT_ID)
+
+
+def test_response_workflow_rejects_handoff_values_outside_its_execution_state() -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow._handoffs = Mock()
+    workflow._handoffs.read_input.return_value = object()
+
+    with pytest.raises(ServiceUnavailableError):
+        workflow._consume(_StepReference(handoff='h' * 32, decision='continue'))
+
+
+def test_response_workflow_reuses_existing_handoff_without_repreparing() -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    state = _ExecutionState(
+        prepared=_prepared_response(),
+        status=MentorResponseStatus.PROCESSING,
+    )
+    workflow._consume = Mock(return_value=state)
+    workflow._prepare = Mock()
+
+    recovered = workflow._consume_or_recover(
+        _StepReference(handoff='h' * 32, decision='continue'),
+        _Input(attempt_id=_UNIT_ID),
+    )
+
+    assert recovered is state
+    workflow._prepare.execute.assert_not_called()
+
+
+def test_response_workflow_stops_inference_when_claim_renewal_is_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ControlledEvent:
+        def __init__(self) -> None:
+            self.state = False
+
+        def wait(self, timeout: float | None = None) -> bool:
+            return self.state
+
+        def is_set(self) -> bool:
+            return self.state
+
+        def set(self) -> None:
+            self.state = True
+
+    class SynchronousThread:
+        def __init__(self, *, target: Callable[[], None], daemon: bool) -> None:
+            self.target = target
+            self.joined = False
+
+        def start(self) -> None:
+            self.target()
+
+        def join(self, timeout: float | None = None) -> None:
+            self.joined = True
+
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow._renew_claim = Mock()
+    workflow._renew_claim.execute.return_value = False
+    workflow._assert_current = Mock()
+    events: list[ControlledEvent] = []
+
+    def make_event() -> ControlledEvent:
+        event = ControlledEvent()
+        events.append(event)
+        return event
+
+    thread: SynchronousThread | None = None
+
+    def make_thread(*, target: Callable[[], None], daemon: bool) -> SynchronousThread:
+        nonlocal thread
+        thread = SynchronousThread(target=target, daemon=daemon)
+        return thread
+
+    monkeypatch.setattr(response_workflow_module, 'Event', make_event)
+    monkeypatch.setattr(response_workflow_module, 'Thread', make_thread)
+
+    with (
+        pytest.raises(ServiceUnavailableError),
+        workflow._inference_guard(_UNIT_ID, _UNIT_ID),
+    ):
+        pytest.fail('inference must not run after claim renewal is lost')
+
+    workflow._renew_claim.execute.assert_called_once_with(_UNIT_ID, _UNIT_ID)
+    workflow._assert_current.assert_not_called()
+    assert len(events) == 2 and events[0].state
+    assert thread is not None and thread.joined
+
+
+@pytest.mark.parametrize(
+    ('published', 'expected'), [(True, 'continue'), (False, 'done')]
+)
+def test_response_workflow_publishes_local_blocks_or_fails_closed(
+    published: bool, expected: str
+) -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    block = _local_block()
+    workflow._prepare = Mock()
+    workflow._prepare.execute.return_value = _prepared_response(local_blocks=(block,))
+    workflow._publish_block = Mock()
+    workflow._publish_block.execute.return_value = published
+    workflow._fail = Mock()
+    workflow._fail.execute.return_value = MentorResponseStatus.FAILED
+    workflow._release_claim = Mock()
+    workflow._handoffs = Mock()
+    workflow._handoffs.create.return_value = 'h' * 32
+
+    output = workflow._prepare_and_publish(StepInput(input={'attempt_id': _UNIT_ID}))
+    reference = _StepReference.model_validate_json(output.content, strict=True)
+
+    assert reference.decision == expected
+    if published:
+        stored = workflow._handoffs.create.call_args.kwargs['input_value']
+        assert stored.status is MentorResponseStatus.PROCESSING
+        assert stored.approved_blocks == (block,)
+        workflow._fail.execute.assert_not_called()
+    else:
+        assert workflow._handoffs.create.call_args.kwargs['input_value'].status is (
+            MentorResponseStatus.FAILED
+        )
+        workflow._fail.execute.assert_called_once_with(
+            _UNIT_ID, _UNIT_ID, 'service_unavailable'
+        )
+
+
+@pytest.mark.parametrize(
+    ('finalized', 'expected'),
+    [(True, MentorResponseStatus.COMPLETED), (False, MentorResponseStatus.FAILED)],
+)
+def test_response_workflow_finalizes_recovered_local_answer_and_releases_claim(
+    finalized: bool, expected: MentorResponseStatus
+) -> None:
+    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    block = _local_block()
+    prepared = _prepared_response()
+    state = _ExecutionState(
+        prepared=prepared,
+        status=MentorResponseStatus.PROCESSING,
+        approved_blocks=(block,),
+    )
+    workflow._consume_or_recover = Mock(return_value=state)
+    workflow._assert_current = Mock()
+    workflow._finalizer = Mock()
+    workflow._finalizer.execute.return_value = finalized
+    workflow._fail = Mock()
+    workflow._fail.execute.return_value = MentorResponseStatus.FAILED
+    workflow._release_claim = Mock()
+    reference = _StepReference(handoff='h' * 32, decision='done')
+
+    output = workflow._publish_and_finalize(_step_input(reference.model_dump_json()))
+
+    assert output.content == expected.value
+    workflow._finalizer.execute.assert_called_once_with(
+        _UNIT_ID,
+        _UNIT_ID,
+        _UNIT_ID,
+        block.content,
+        _UNIT_ID,
+        _UNIT_ID,
+    )
+    workflow._release_claim.execute.assert_called_once_with(_UNIT_ID, _UNIT_ID)
 
 
 def test_registered_runtime_keeps_indexed_faq_and_abstention_local(

@@ -33,7 +33,7 @@ import { useSpeechRecognition } from '@/ui/shared/hooks/use-speech-recognition'
 
 const SEARCH_DEBOUNCE_MS = 300
 const MAX_MENTOR_ATTACHMENTS = 5
-const MAX_MENTOR_ATTACHMENT_BYTES = 10_000_000
+const MAX_MENTOR_ATTACHMENT_BYTES = 2_000_000
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
 
 export function useMentorContextProvider(
@@ -128,6 +128,7 @@ export function useMentorContextProvider(
   const [isValidatingScope, setIsValidatingScope] = useState(true)
   const [isReadingHistory, setIsReadingHistory] = useState(false)
   const [isReadingMessages, setIsReadingMessages] = useState(false)
+  const [isReadingOlderMessages, setIsReadingOlderMessages] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [conversationError, setConversationError] = useState<string | null>(null)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
@@ -267,6 +268,7 @@ export function useMentorContextProvider(
     setScopeError(null)
     setIsReadingHistory(false)
     setIsReadingMessages(false)
+    setIsReadingOlderMessages(false)
   }, [cancelDictation, clearDraftAttachments])
 
   const readHistory = useCallback(
@@ -310,6 +312,7 @@ export function useMentorContextProvider(
     async (sessionId: string, cursor?: string) => {
       const generation = ++detailGeneration.current
       setIsReadingMessages(true)
+      setIsReadingOlderMessages(Boolean(cursor))
       setConversationError(null)
       try {
         const detail = await readMentorSession(sessionId, cursor)
@@ -327,7 +330,10 @@ export function useMentorContextProvider(
           setScopeError('Não foi possível confirmar sua sessão. Atualize a página.')
         }
       } finally {
-        if (generation === detailGeneration.current) setIsReadingMessages(false)
+        if (generation === detailGeneration.current) {
+          setIsReadingMessages(false)
+          setIsReadingOlderMessages(false)
+        }
       }
     },
     [clearPrivateState, readMentorSession, selectedSessionId],
@@ -358,15 +364,13 @@ export function useMentorContextProvider(
   }, [clearPrivateState, readHistory])
 
   useEffect(() => {
-    const handleFocus = () => {
-      setIsValidatingScope(true)
-      void refresh().finally(() => {
-        setIsValidatingScope(false)
-      })
+    function handleFocus() {
+      void readHistory(debouncedSearch)
+      if (selectedSessionId) void readDetail(selectedSessionId)
     }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [refresh])
+  }, [debouncedSearch, readDetail, readHistory, selectedSessionId])
 
   const openPanel = useCallback(() => {
     setIsPanelOpen(true)
@@ -385,6 +389,7 @@ export function useMentorContextProvider(
     setSelectedSessionId(null)
     setSessionDetail(null)
     setIsReadingMessages(false)
+    setIsReadingOlderMessages(false)
     setConversationError(null)
     setDraft('')
     clearDraftAttachments()
@@ -437,7 +442,7 @@ export function useMentorContextProvider(
         : !mediaType
           ? 'Formato não aceito. Use PNG, JPG, WebP, PDF, JSON, CSV ou TXT.'
           : file.size > MAX_MENTOR_ATTACHMENT_BYTES
-            ? 'O arquivo excede o limite de 10 MB.'
+            ? 'O arquivo excede o limite de 2 MB.'
             : file.size === 0
               ? 'O arquivo está vazio.'
               : null
@@ -693,13 +698,14 @@ export function useMentorContextProvider(
       if (
         dictationTarget.current ||
         submissionRunning.current ||
-        !draft.trim() ||
+        (!draft.trim() && readyAttachments.length === 0) ||
         !canSendAttachments ||
         isCreatingMentorSession ||
         isSubmittingMessage ||
         sessionDetail?.pendingLearnerMessageId
       )
         return
+      const content = draft.trim() ? draft : ''
       const generation = detailGeneration.current
       cancelDictation()
       submissionRunning.current = true
@@ -724,13 +730,13 @@ export function useMentorContextProvider(
           ? await submitMentorMessage({
               sessionId: selectedSessionId,
               submissionKey: stableKey,
-              content: draft,
+              content,
               contextHint: submissionHint.current,
               ...attachmentInput,
             })
           : await createMentorSession({
               submissionKey: stableKey,
-              firstMessage: draft,
+              firstMessage: content,
               contextHint: submissionHint.current,
               ...attachmentInput,
             })
@@ -1035,6 +1041,7 @@ export function useMentorContextProvider(
         setSessionDetail(null)
         setPanelView('conversation')
         setIsReadingMessages(false)
+        setIsReadingOlderMessages(false)
         setConversationError(null)
         setDraft('')
         clearDraftAttachments()
@@ -1124,6 +1131,7 @@ export function useMentorContextProvider(
     isValidatingScope,
     isReadingHistory,
     isReadingMessages,
+    isReadingOlderMessages,
     isSubmittingFirstMessage: isCreatingMentorSession || isSubmittingMessage,
     isRenamingSession: isRenamingMentorSession,
     isRemovingSession: isRemovingMentorSession,

@@ -77,7 +77,7 @@ class CreateMentorSessionUseCase:
         attachment_batch_id: str | None = None,
         attachment_ids: tuple[str, ...] = (),
     ) -> CreateMentorSessionResult:
-        if not first_message.strip():
+        if not first_message.strip() and not attachment_ids:
             raise MentorInputInvalidError
         try:
             parsed_key = UUID(submission_key)
@@ -159,6 +159,10 @@ class CreateMentorSessionUseCase:
                 now=now,
                 allow_unbound_session=True,
             )
+            # Persist the parent row before attachment updates flush. The
+            # attachment has a composite FK to its owning session, and these
+            # repositories flush their writes immediately within this transaction.
+            repositories.mentor_sessions.add(session, submission_key, fingerprint)
             if selected:
                 batch = repositories.mentor_attachment_batches.find_by_id(
                     attachment_batch_id or '', for_update=True
@@ -171,7 +175,6 @@ class CreateMentorSessionUseCase:
                     attachment.bind(session.id, message.id)
                     repositories.mentor_attachments.update(attachment)
                 repositories.mentor_attachment_batches.update(batch)
-            repositories.mentor_sessions.add(session, submission_key, fingerprint)
             repositories.mentor_messages.add(message)
             self._access_provider.assert_current(grant)
             attempt = MentorResponseAttempt.create(
@@ -223,6 +226,8 @@ class CreateMentorSessionUseCase:
             return CreateMentorSessionResult(detail=detail, created=True)
 
     def _generate_title(self, first_message: str) -> str:
+        if not first_message.strip():
+            return 'Conversa com anexos'
         try:
             title = self._title_workflow.generate(first_message[:1000]).strip()
         except (MentorTitleUnavailableError, MentorTitleOutputInvalidError):

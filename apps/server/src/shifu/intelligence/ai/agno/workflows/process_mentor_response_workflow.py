@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import asdict, dataclass, replace
+from contextlib import contextmanager, suppress
+from dataclasses import asdict, dataclass, field, replace
 from datetime import timedelta
 from json import dumps
 from math import isfinite
 from threading import Event, Thread
+from time import perf_counter
 from typing import TYPE_CHECKING, Literal
+from uuid import uuid4
 
 from agno.metrics import RunMetrics
 from agno.run.base import RunStatus
@@ -37,6 +39,9 @@ from shifu.intelligence.core.domain.structures import (
     MentorReviewResult,
     PreparedMentorResponse,
 )
+from shifu.intelligence.providers.telemetry.mentor_telemetry_correlation import (
+    mentor_telemetry_correlation,
+)
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.messaging.agentos.workflow_helpers import copy_agent
 
@@ -51,6 +56,7 @@ if TYPE_CHECKING:
         MentorWriterAgent,
     )
     from shifu.intelligence.core.domain.structures import MentorInferenceUsage
+    from shifu.intelligence.core.interfaces import MentorTelemetryProvider
     from shifu.intelligence.core.use_cases import (
         AssertMentorResponseCurrentUseCase,
         FailMentorResponseUseCase,
@@ -99,6 +105,7 @@ class _ExecutionState:
     correction: str | None = None
     approved: bool = False
     iteration: int = 0
+    telemetry_correlation_id: str = field(default_factory=lambda: uuid4().hex)
 
 
 class ProcessMentorResponseWorkflow(Workflow):
@@ -121,6 +128,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         finalizer: FinalizeMentorResponseUseCase,
         identifier_provider: SystemIdentifierProvider,
         handoffs: AgentOSHandoffStore,
+        telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
         self._prepare = prepare_use_case
         self._publish_block = publish_block_use_case
@@ -135,6 +143,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         self._reviewer = reviewer_agent
         self._finalizer = finalizer
         self._identifier_provider = identifier_provider
+        self._telemetry: MentorTelemetryProvider | None = telemetry
         self._handoffs = handoffs
         super().__init__(
             id='intelligence-process-mentor-response',
@@ -189,6 +198,7 @@ class ProcessMentorResponseWorkflow(Workflow):
             finalizer=self._finalizer,
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
+            telemetry=self._telemetry,
         )
         workflow.db = self.db
         if update:
@@ -262,6 +272,12 @@ class ProcessMentorResponseWorkflow(Workflow):
         return self._write_state(state)
 
     def _write_state(self, state: _ExecutionState) -> StepOutput:
+        # This random token stays in the private handoff and ContextVar only. It
+        # connects native step observations without exporting business identifiers.
+        with mentor_telemetry_correlation(state.telemetry_correlation_id):
+            return self._write_state_correlated(state)
+
+    def _write_state_correlated(self, state: _ExecutionState) -> StepOutput:
         if (
             state.prepared is None
             or state.status is not MentorResponseStatus.PROCESSING
@@ -315,8 +331,9 @@ class ProcessMentorResponseWorkflow(Workflow):
                     usage_recorder,
                 ),
             ):
-                review = self._reviewer.review(request, candidate)
-            self._assert_review_result(review)
+                review = self._review_candidate(
+                    request, candidate, state.telemetry_correlation_id
+                )
             updated = replace(
                 state,
                 candidate=candidate if review.approved else None,
@@ -332,6 +349,33 @@ class ProcessMentorResponseWorkflow(Workflow):
             return self._store(
                 replace(state, status=status, candidate=None, approved=False), 'done'
             )
+
+    def _review_candidate(
+        self,
+        request: MentorGenerationRequest,
+        candidate: MentorResponseBlock,
+        correlation_id: str,
+    ) -> MentorReviewResult:
+        started = perf_counter()
+        outcome: Literal['passed', 'failed', 'abstained'] = 'failed'
+        criteria_count = 0
+        try:
+            review = self._reviewer.review(request, candidate)
+            self._assert_review_result(review)
+            criteria_count = len(review.criteria)
+            outcome = 'passed' if review.approved else 'abstained'
+            return review
+        finally:
+            if self._telemetry is not None:
+                with suppress(Exception):
+                    self._telemetry.emit(
+                        'review',
+                        correlation_id=correlation_id,
+                        profile='mentor-reviewer',
+                        duration_ms=(perf_counter() - started) * 1000,
+                        counts={'criteria': criteria_count},
+                        outcome=outcome,
+                    )
 
     def _write_general_answer(
         self,

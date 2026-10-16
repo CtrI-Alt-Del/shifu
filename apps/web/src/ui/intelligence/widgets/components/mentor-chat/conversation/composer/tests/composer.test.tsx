@@ -267,7 +267,13 @@ describe('Composer attachments', () => {
     expect(
       screen.getByText(/até cinco arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT/),
     ).toBeVisible()
-    expect(screen.getByText(/até 10 MB/)).toBeVisible()
+    expect(screen.getByText(/até 2 MB/)).toBeVisible()
+    expect(
+      screen.getByText(/A mensagem de texto é opcional ao enviar arquivos/),
+    ).toBeVisible()
+    expect(
+      screen.queryByText(/Escreva uma mensagem para continuar/),
+    ).not.toBeInTheDocument()
     fireEvent.change(
       screen.getByLabelText('Selecionar arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT'),
       { target: { files: [file] } },

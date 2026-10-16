@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     mentor_title_prompt_logging_disabled: bool = False
     mentor_telemetry_enabled: bool = False
     mentor_telemetry_content_enabled: bool = False
+    langfuse_public_key: SecretStr | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_base_url: HttpUrl = HttpUrl('http://localhost:7003')
     agentos_database_url: PostgresDsn | None = None
     agentos_intelligence_queue_max_concurrency: int = Field(default=4, ge=1, le=128)
     agentos_intelligence_queue_max_depth: int = Field(default=1000, ge=1, le=100_000)

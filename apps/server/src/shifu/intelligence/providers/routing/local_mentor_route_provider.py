@@ -36,8 +36,8 @@ from shifu.intelligence.providers.retrieval.bm25.bm25_mentor_hybrid_retrieval_pr
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
 )
-from shifu.intelligence.providers.telemetry.agentos.agentos_mentor_telemetry_provider import (
-    AgentOSMentorTelemetryProvider,
+from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
+    LangfuseMentorTelemetryProvider,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures.mentor_context_snapshot import (
@@ -89,7 +89,7 @@ class LocalMentorRouteProvider:
     ) -> None:
         self._catalog = catalog_provider
         self._preprocessor = preprocessor
-        self._telemetry = telemetry or AgentOSMentorTelemetryProvider()
+        self._telemetry = telemetry or LangfuseMentorTelemetryProvider()
         self._embeddings = embeddings
         self._resources = resources
         self._classifier = EmbeddingsMentorIntentClassifierProvider(

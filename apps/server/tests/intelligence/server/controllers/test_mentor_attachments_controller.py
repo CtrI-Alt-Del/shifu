@@ -25,7 +25,7 @@ from tests.intelligence.server.controllers.mentor_response_scenarios import (
 )
 
 _UPLOAD_PATH = f'/intelligence/mentor-attachment-batches/{"0" * 25}1/attachments'
-_MAX_MULTIPART_BYTES = 10_064_000
+_MAX_MULTIPART_BYTES = 2_064_000
 
 
 def _create_attachment_batch(client: TestClient, session_id: str) -> str:
@@ -286,8 +286,8 @@ class TestMentorAttachmentsController:
             _UPLOAD_PATH,
             content=iter(
                 (
-                    b'x' * 6_000_000,
-                    b'x' * (_MAX_MULTIPART_BYTES - 6_000_000 + 1),
+                    b'x' * 1_000_000,
+                    b'x' * (_MAX_MULTIPART_BYTES - 1_000_000 + 1),
                 )
             ),
             headers={'content-type': 'multipart/form-data; boundary=unused'},

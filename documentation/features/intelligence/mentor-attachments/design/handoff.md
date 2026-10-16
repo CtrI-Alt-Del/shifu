@@ -14,7 +14,7 @@ references, not runtime screenshots or proof of behavior.
 
 ## Approved adaptations
 
-- Enable attachment selection; keep text mandatory. No fabricated quota/memories,
+- Enable attachment selection; revision11 permits ready/partial attachments without text, and keeps a completely empty message disabled. No fabricated quota/memories,
   contextual suggestions, tool transcript or action card from reference artwork.
 - Inline image preview in draft and historical message, bounded by message width
   with preserved aspect ratio, filename/alt and loading/error text. Non-images use
@@ -54,3 +54,17 @@ Implementation captures belong only under
 `apps/web/.playwright-cli/{screenshots,snapshots,logs}/`; record fresh paths and
 comparisons in Evaluation. Required captures: desktop page ready/history, desktop
 FAB ready/history, mobile ready/history. Negative states use automated checks.
+
+Revision11 adaptation (explicit user request, 2026-10-16): the ready attachment
+with an empty textbox enables Send; omit an empty learner text bubble and remove
+mandatory-text copy. Existing tokens/layout/references and per-file errors remain.
+CI-21/VM-06 cover the changed behavior; fresh captures require independent review.
+
+Visual refinement requested 2026-10-16: non-image draft and history attachments
+show a neutral file-type icon beside the filename (PDF, TXT, JSON, CSV; generic
+file fallback). Use the shared Icon wrapper and existing text-muted-foreground
+token. Preserve image previews, metadata, actions and layout. Static proof and
+local browser availability limitation are recorded in EV-133.
+
+Revision12 user-selected upload limit: 2 MB (2_000_000 bytes) per new file.
+Composer guidance and oversize errors use 2 MB; existing private history is preserved.

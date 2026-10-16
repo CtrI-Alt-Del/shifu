@@ -9,7 +9,6 @@ from typing import ClassVar, cast
 from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from shifu.identity.core.domain.events import AccountDeletedEvent
 from shifu.intelligence.core.use_cases import PurgeMentorAttachmentsUseCase
 
 LOGGER = logging.getLogger(__name__)
@@ -55,19 +54,18 @@ class PurgeMentorAttachmentsOnAccountDeletedJob:
     FUNCTION_ID: ClassVar[str] = (
         'intelligence-purge-mentor-attachments-on-account-deleted'
     )
-    _EVENT_NAME: ClassVar[str] = AccountDeletedEvent.EVENT_NAME
     _RETENTION: ClassVar[timedelta] = timedelta(hours=24)
 
     @staticmethod
     def handle(
         inngest: Inngest,
         use_case: PurgeMentorAttachmentsUseCase,
+        *,
+        account_deleted_event_name: str,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=PurgeMentorAttachmentsOnAccountDeletedJob.FUNCTION_ID,
-            trigger=TriggerEvent(
-                event=PurgeMentorAttachmentsOnAccountDeletedJob._EVENT_NAME
-            ),
+            trigger=TriggerEvent(event=account_deleted_event_name),
             retries=3,
         )
         async def _(context: Context) -> None:

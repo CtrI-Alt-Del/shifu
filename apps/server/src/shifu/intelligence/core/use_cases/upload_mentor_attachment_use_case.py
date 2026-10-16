@@ -58,7 +58,7 @@ _MEDIA_TYPES = {
     '.txt': 'text/plain',
 }
 _UNSAFE_FILENAME = re.compile(r'[\x00-\x1f\x7f]')
-_MAX_FILE_SIZE = 10_000_000
+_MAX_FILE_SIZE = 2_000_000
 _BATCH_INACTIVITY = timedelta(hours=1)
 
 

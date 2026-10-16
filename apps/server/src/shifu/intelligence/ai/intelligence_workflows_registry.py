@@ -56,8 +56,8 @@ from shifu.intelligence.providers.openrouter import (
 from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
     OpenrouterMentorAnswerModelProvider,
 )
-from shifu.intelligence.providers.telemetry.agentos.agentos_mentor_telemetry_provider import (
-    AgentOSMentorTelemetryProvider,
+from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
+    LangfuseMentorTelemetryProvider,
 )
 from shifu.intelligence.providers.routing.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
@@ -67,12 +67,14 @@ from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffS
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
 from shifu.shared.messaging.agentos.agentos_settings import AgentOSQueueSettings
 from shifu.shared.pipes.file_storage_pipe import FileStoragePipe
+from shifu.shared.providers.langfuse_telemetry_provider import LangfuseTelemetryProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Mapping
 
+    from langfuse import Langfuse
     from sqlalchemy.engine import Engine
 
     from shifu.intelligence.core.domain.structures import MentorInferenceUsage
@@ -91,9 +93,6 @@ if TYPE_CHECKING:
         OutboxEvent,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
-    from shifu.shared.messaging.agentos.agentos_observability import (
-        AgentOSObservability,
-    )
     from shifu.shared.settings import Settings
 
 
@@ -144,15 +143,19 @@ class IntelligenceWorkflowsRegistry:
     def __init__(
         self,
         settings: Settings,
-        observability: AgentOSObservability | None,
+        observability: LangfuseTelemetryProvider | None,
         access_provider: MentorAccessProvider,
         context_provider: MentorContextProvider,
         catalog_provider: MentorCatalogProvider,
         *,
         outbox_engine: Engine,
+        telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
+        observability = observability or LangfuseTelemetryProvider(
+            'intelligence', telemetry_client
+        )
         self._settings = settings
         self._engine = outbox_engine
         self._database: IntelligenceDatabase = IntelligencePipe.create_database(
@@ -164,7 +167,7 @@ class IntelligenceWorkflowsRegistry:
         self._context_provider = context_provider
         self._catalog_provider = catalog_provider
         self._telemetry: MentorTelemetryProvider = telemetry or (
-            AgentOSMentorTelemetryProvider(observability)
+            LangfuseMentorTelemetryProvider(observability)
         )
         self._route_provider = (
             route_provider
@@ -187,7 +190,9 @@ class IntelligenceWorkflowsRegistry:
             if title_model is not None
             else cast('MentorTitleAgent', _UnavailableTitleAgent())
         )
-        title_workflow = AgnoGenerateMentorTitleWorkflow(title_agent, self._handoffs)
+        title_workflow = AgnoGenerateMentorTitleWorkflow(
+            title_agent, self._handoffs, observability
+        )
 
         vision_model = OpenrouterMentorAnswerModelProvider.build(
             settings, profile='vision'
@@ -314,6 +319,7 @@ class IntelligenceWorkflowsRegistry:
             ),
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
+            telemetry=self._telemetry,
         )
         self._workflows = (
             title_workflow,
@@ -348,7 +354,7 @@ class IntelligenceWorkflowsRegistry:
         self._observability = (
             self._runtime.observability if self._runtime is not None else observability
         )
-        if isinstance(self._telemetry, AgentOSMentorTelemetryProvider):
+        if isinstance(self._telemetry, LangfuseMentorTelemetryProvider):
             self._telemetry.bind(self._observability)
         if self._runtime is None:
             self._mentor_title_provider: GenerateMentorTitleWorkflow = (
@@ -399,7 +405,7 @@ class IntelligenceWorkflowsRegistry:
         return self._route_provider
 
     @property
-    def observability(self) -> AgentOSObservability | None:
+    def observability(self) -> LangfuseTelemetryProvider:
         if self._runtime is not None:
             return self._runtime.observability
         return self._observability

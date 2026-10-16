@@ -431,6 +431,13 @@ class PrepareMentorResponseUseCase:
     def _route(
         self, content: str, context: MentorContextSnapshot, clarification: str | None
     ) -> MentorRouteResult:
+        if not content.strip():
+            return MentorRouteResult(
+                intents=(),
+                local_blocks=(),
+                generation_requests=(),
+                clarification='Como posso ajudar com os anexos?',
+            )
         clarification = next(
             (value for key, value in context.facts if key == 'context_clarification'),
             clarification,

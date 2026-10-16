@@ -94,6 +94,16 @@ def changed_paths(base: str) -> list[Path]:
 
 
 def normalize_source_path(path: Path, root: Path) -> Path | None:
+    # `git diff` reports paths from the repository root even when this checker
+    # runs from apps/server. Accept that form alongside paths relative to the
+    # current working directory (used by --file/--files).
+    if (
+        not path.is_absolute()
+        and root.name == 'server'
+        and root.parent.name == 'apps'
+        and path.parts[:2] == ('apps', 'server')
+    ):
+        path = Path(*path.parts[2:])
     candidate = path if path.is_absolute() else root / path
     candidate = candidate.resolve()
     try:
@@ -150,14 +160,21 @@ def function_entries(path: Path) -> list[FunctionEntry]:
         if first_statement is None:
             continue
         decorator_lines = [decorator.lineno for decorator in node.decorator_list]
+        first_statement_lines = [first_statement.lineno]
+        if isinstance(first_statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            first_statement_lines.extend(
+                decorator.lineno for decorator in first_statement.decorator_list
+            )
         code_start = min([node.lineno, *decorator_lines])
         entries.append(
             FunctionEntry(
                 name=node.name,
                 code_start_line=code_start,
-                first_body_line=first_statement.lineno,
-                first_body_end_line=first_statement.end_lineno
-                or first_statement.lineno,
+                first_body_line=min(first_statement_lines),
+                first_body_end_line=max(
+                    first_statement.end_lineno or first_statement.lineno,
+                    *first_statement_lines,
+                ),
             ),
         )
     return entries
@@ -237,7 +254,11 @@ def main() -> int:
         },
     )
     if not eligible:
-        print('No changed eligible Server production files.')
+        message = 'No changed eligible Server production files.'
+        if args.base:
+            print(f'Coverage gate cannot run: {message}', file=sys.stderr)
+            return 2
+        print(message)
         return 0
 
     try:

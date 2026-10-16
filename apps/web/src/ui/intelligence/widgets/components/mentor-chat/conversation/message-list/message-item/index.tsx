@@ -6,6 +6,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { AnswerBlock } from './answer-block'
 import { useMessageItem } from './use-message-item'
 import { MentorAttachmentPreview } from '@/ui/intelligence/widgets/components/mentor-attachment-preview'
+import { MentorAttachmentTypeIcon } from '@/ui/intelligence/widgets/components/mentor-attachment-type-icon'
 import { Sources } from './sources'
 
 export type MessageItemProps = {
@@ -72,9 +73,9 @@ export const MessageItem = ({
         ))
       ) : isMentorMessage ? (
         <AnswerBlock content={message.content} />
-      ) : (
+      ) : message.content.trim() ? (
         <p className='whitespace-pre-wrap'>{message.content}</p>
-      )}
+      ) : null}
       {attachments.length > 0 ? (
         <ul aria-label='Arquivos desta mensagem' className='mt-3 space-y-3'>
           {attachments.map(({ attachment, url, error }) => (
@@ -86,9 +87,17 @@ export const MessageItem = ({
                   src={url}
                 />
               ) : null}
-              <p className='break-all text-xs font-medium' title={attachment.filename}>
-                {attachment.filename}
-              </p>
+              <div className='flex min-w-0 items-start gap-2'>
+                {!attachment.mediaType.startsWith('image/') ? (
+                  <MentorAttachmentTypeIcon mediaType={attachment.mediaType} />
+                ) : null}
+                <p
+                  className='min-w-0 break-all text-xs font-medium'
+                  title={attachment.filename}
+                >
+                  {attachment.filename}
+                </p>
+              </div>
               <p className='text-xs text-muted-foreground'>
                 {attachment.mediaType.toUpperCase()}
                 {' · '}

@@ -177,14 +177,15 @@ class TestCreateMentorSessionUseCase:
             ('01JBATCH000000000000000001', ('1', '2', '3', '4', '5', '6')),
         ],
     )
+    @pytest.mark.parametrize('content', ['hello', ''])
     def test_should_reject_malformed_attachment_selection_before_title_generation(
-        self, batch_id: str | None, attachment_ids: tuple[str, ...]
+        self, batch_id: str | None, attachment_ids: tuple[str, ...], content: str
     ) -> None:
         with pytest.raises(MentorAttachmentInvalidError):
             self.subject.execute(
                 '01JACCOUNT000000000000000001',
                 '123e4567-e89b-42d3-a456-426614174000',
-                'hello',
+                content,
                 attachment_batch_id=batch_id,
                 attachment_ids=attachment_ids,
             )
@@ -275,6 +276,145 @@ class TestCreateMentorSessionUseCase:
 
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
+
+    @pytest.mark.parametrize('content', ['hello with attachment', '', ' \n\t '])
+    @pytest.mark.parametrize(
+        'status', [MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL]
+    )
+    def test_should_persist_new_session_before_binding_selected_attachments(
+        self,
+        content: str,
+        status: MentorAttachmentStatus,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        attachment = self._ready_attachment(
+            attachment_id='01JATTACHMENT00000000000001',
+            account_id='01JACCOUNT000000000000000001',
+            batch_id='01JBATCH000000000000000001',
+        )
+        attachment.status = status
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = (
+            self._attachment_batch()
+        )
+
+        result = self.subject.execute(
+            '01JACCOUNT000000000000000001',
+            '123e4567-e89b-42d3-a456-426614174000',
+            content,
+            attachment_batch_id='01JBATCH000000000000000001',
+            attachment_ids=(attachment.id,),
+        )
+
+        assert self.repositories.method_calls.index(
+            call.mentor_sessions.add(
+                *self.repositories.mentor_sessions.add.call_args.args
+            )
+        ) < self.repositories.method_calls.index(
+            call.mentor_attachments.update(
+                *self.repositories.mentor_attachments.update.call_args.args
+            )
+        )
+
+        message = self.repositories.mentor_messages.add.call_args.args[0]
+        assert message.content == content
+        assert attachment.message_id == message.id
+        if not content.strip():
+            assert result.detail.session.title == 'Conversa com anexos'
+            self.workflow.generate.assert_not_called()
+
+    @pytest.mark.parametrize('content', ['', ' \n\t '])
+    def test_should_replay_attachment_only_session_without_writes(
+        self, content: str
+    ) -> None:
+        attachment = self._ready_attachment(
+            attachment_id='attachment',
+            account_id='account',
+            batch_id='batch',
+        )
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        record = MentorSubmissionRecord(
+            session_id='session',
+            content_fingerprint=mentor_submission_fingerprint_v2(
+                content,
+                None,
+                ((attachment.id, attachment.checksum),),
+            ),
+            deleted_at=None,
+        )
+        self.repositories.mentor_sessions.find_submission.return_value = record
+        self.repositories.mentor_sessions.find_by_id.return_value = MentorSession(
+            id='session',
+            account_id='account',
+            title='Conversa com anexos',
+            created_at=self.now,
+            updated_at=self.now,
+            last_activity_at=self.now,
+        )
+
+        result = self.subject.execute(
+            'account',
+            '123e4567-e89b-42d3-a456-426614174000',
+            content,
+            attachment_batch_id='batch',
+            attachment_ids=(attachment.id,),
+        )
+
+        assert result.created is False
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_attachments.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+        with pytest.raises(MentorSubmissionConflictError):
+            self.subject.execute(
+                'account',
+                '123e4567-e89b-42d3-a456-426614174000',
+                content + 'changed',
+                attachment_batch_id='batch',
+                attachment_ids=(attachment.id,),
+            )
+        self.repositories.mentor_messages.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'status',
+        [
+            MentorAttachmentStatus.UPLOADING,
+            MentorAttachmentStatus.PROCESSING,
+            MentorAttachmentStatus.FAILED,
+            MentorAttachmentStatus.REMOVED,
+        ],
+    )
+    def test_should_reject_unready_attachment_only_first_message_without_writes(
+        self, status: MentorAttachmentStatus
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        attachment = self._ready_attachment(
+            attachment_id='attachment',
+            account_id='01JACCOUNT000000000000000001',
+            batch_id='01JBATCH000000000000000001',
+        )
+        attachment.status = status
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = (
+            self._attachment_batch()
+        )
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                '',
+                attachment_batch_id=attachment.batch_id,
+                attachment_ids=(attachment.id,),
+            )
+
+        self.workflow.generate.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_attachments.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def _ready_attachment(
         self, *, attachment_id: str, account_id: str, batch_id: str

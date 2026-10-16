@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { handleMentorAttachmentFile } from '@/provision/attachments/mentor-attachment-server-provider'
+import { MentorAttachmentServerProvider } from '@/provision/attachments/mentor-attachment-server-provider'
+
+const { handleMentorAttachmentFile } = MentorAttachmentServerProvider()
 
 export const Route = createFileRoute(
   '/api/intelligence/mentor-sessions/$sessionId/attachments/$attachmentId/file/',

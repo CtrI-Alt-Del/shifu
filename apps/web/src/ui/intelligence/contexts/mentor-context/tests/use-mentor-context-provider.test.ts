@@ -223,8 +223,8 @@ const Consumer = () => {
         type: 'button',
         onClick: () =>
           void mentor.addAttachments([
-            new File([new Uint8Array(10_000_000)], 'limite.txt', { type: 'text/plain' }),
-            new File([new Uint8Array(10_000_001)], 'acima.txt', { type: 'text/plain' }),
+            new File([new Uint8Array(2_000_000)], 'limite.txt', { type: 'text/plain' }),
+            new File([new Uint8Array(2_000_001)], 'acima.txt', { type: 'text/plain' }),
             new File(['x'], 'programa.exe', { type: 'application/octet-stream' }),
             new File([], 'vazio.txt', { type: 'text/plain' }),
           ]),
@@ -627,7 +627,7 @@ describe('useMentorContextProvider', () => {
     expect(mocks.uploadAttachment).toHaveBeenCalledTimes(2)
   })
 
-  it('validates each file independently and accepts the exact 10 MB boundary', async () => {
+  it('validates each file independently and accepts the exact 2 MB boundary', async () => {
     let localId = 0
     vi.stubGlobal('crypto', {
       randomUUID: vi.fn(() => `local-${++localId}`),
@@ -644,7 +644,7 @@ describe('useMentorContextProvider', () => {
     )
     const state = screen.getByLabelText('draft attachments').textContent ?? ''
     expect(state).toContain('acima.txt')
-    expect(state).toContain('O arquivo excede o limite de 10 MB.')
+    expect(state).toContain('O arquivo excede o limite de 2 MB.')
     expect(state).toContain('programa.exe')
     expect(state).toContain('Formato não aceito.')
     expect(state).toContain('vazio.txt')
@@ -652,7 +652,7 @@ describe('useMentorContextProvider', () => {
     expect(mocks.uploadAttachment).toHaveBeenCalledOnce()
     expect(mocks.uploadAttachment).toHaveBeenCalledWith(
       expect.objectContaining({
-        file: expect.objectContaining({ name: 'limite.txt', size: 10_000_000 }),
+        file: expect.objectContaining({ name: 'limite.txt', size: 2_000_000 }),
       }),
     )
     await act(async () => screen.getByRole('button', { name: 'Enviar mensagem' }).click())
@@ -709,6 +709,94 @@ describe('useMentorContextProvider', () => {
       expect(mocks.list.mock.calls.length).toBeGreaterThan(initialCount),
     )
   })
+
+  it('keeps the composer scope ready while window focus refreshes history and selected detail', async () => {
+    const { result } = renderHook(() => useMentorContextProvider('aluna@example.com'), {
+      wrapper: responseWrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+    await act(async () => result.current.selectSession(detail.session.id))
+    act(() => result.current.setDraft('Mensagem ainda não enviada'))
+    await act(async () =>
+      result.current.addAttachments([
+        new File(['texto'], 'resumo.txt', { type: 'text/plain' }),
+      ]),
+    )
+    const attachment = result.current.draftAttachments[0]
+    let resolveHistory!: (value: MentorSessionsPage) => void
+    let resolveDetail!: (value: MentorSessionDetail) => void
+    mocks.list.mockReturnValueOnce(
+      new Promise<MentorSessionsPage>((resolve) => {
+        resolveHistory = resolve
+      }),
+    )
+    mocks.detail.mockReturnValueOnce(
+      new Promise<MentorSessionDetail>((resolve) => {
+        resolveDetail = resolve
+      }),
+    )
+    const historyCalls = mocks.list.mock.calls.length
+    const detailCalls = mocks.detail.mock.calls.length
+
+    act(() => window.dispatchEvent(new Event('focus')))
+
+    expect(mocks.list).toHaveBeenCalledTimes(historyCalls + 1)
+    expect(mocks.detail).toHaveBeenCalledTimes(detailCalls + 1)
+    expect(result.current.isValidatingScope).toBe(false)
+    expect(result.current.isReadingMessages).toBe(true)
+    expect(result.current.isReadingOlderMessages).toBe(false)
+    expect(result.current.draft).toBe('Mensagem ainda não enviada')
+    expect(result.current.draftAttachments).toEqual([attachment])
+    expect(result.current.selectedSessionId).toBe(detail.session.id)
+    await act(async () => {
+      resolveHistory({
+        items: [{ ...detail.session, title: 'Título atualizado' }],
+        nextCursor: null,
+      })
+      resolveDetail({
+        ...detail,
+        session: { ...detail.session, title: 'Título atualizado' },
+      })
+    })
+    expect(result.current.sessionsPage.items[0]?.title).toBe('Título atualizado')
+    expect(result.current.sessionDetail?.session.title).toBe('Título atualizado')
+    expect(result.current.isValidatingScope).toBe(false)
+    expect(result.current.draftAttachments).toEqual([attachment])
+  })
+
+  it.each([
+    ['history', 'A sessão da conta mudou'],
+    ['detail', 'A sessão expirou'],
+  ])(
+    'clears private composer state when focus %s revalidation loses scope',
+    async (boundary, message) => {
+      const { result } = renderHook(() => useMentorContextProvider('aluna@example.com'), {
+        wrapper: responseWrapper,
+      })
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(async () => result.current.selectSession(detail.session.id))
+      act(() => result.current.setDraft('Mensagem privada'))
+      await act(async () =>
+        result.current.addAttachments([
+          new File(['texto privado'], 'resumo.txt', { type: 'text/plain' }),
+        ]),
+      )
+      expect(result.current.draftAttachments).toHaveLength(1)
+      if (boundary === 'history') mocks.list.mockRejectedValueOnce(new Error(message))
+      else mocks.detail.mockRejectedValueOnce(new Error(message))
+
+      await act(async () => window.dispatchEvent(new Event('focus')))
+
+      await waitFor(() =>
+        expect(result.current.scopeError).toContain('Não foi possível confirmar'),
+      )
+      expect(result.current.selectedSessionId).toBeNull()
+      expect(result.current.sessionDetail).toBeNull()
+      expect(result.current.sessionsPage.items).toEqual([])
+      expect(result.current.draft).toBe('')
+      expect(result.current.draftAttachments).toEqual([])
+    },
+  )
 
   it('covers history paging, selection, search and dialog actions on the shared context', async () => {
     const first = { ...detail.session, id: 'session-1' }
@@ -788,6 +876,64 @@ describe('useMentorContextProvider', () => {
     expect(screen.getByLabelText('selected id')).toBeEmptyDOMElement()
     view.unmount()
   })
+
+  it.each(['success', 'failure'] as const)(
+    'tracks only a cursor request as older-message loading until %s',
+    async (outcome) => {
+      const message = {
+        id: 'current-message',
+        sessionId: detail.session.id,
+        role: 'learner' as const,
+        content: 'Mensagem atual',
+        createdAt: '2026-10-08T12:00:00Z',
+        inReplyToMessageId: null,
+      }
+      const currentDetail = {
+        ...detail,
+        messages: { items: [message], nextCursor: 'older-page' },
+      }
+      mocks.detail.mockResolvedValue(currentDetail)
+      const { result } = renderHook(() => useMentorContextProvider('aluna@example.com'), {
+        wrapper: responseWrapper,
+      })
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(async () => result.current.selectSession(detail.session.id))
+      expect(result.current.isReadingOlderMessages).toBe(false)
+      let resolvePage!: (page: MentorSessionDetail) => void
+      let rejectPage!: (error: Error) => void
+      mocks.detail.mockImplementationOnce(
+        () =>
+          new Promise<MentorSessionDetail>((resolve, reject) => {
+            resolvePage = resolve
+            rejectPage = reject
+          }),
+      )
+      let pending!: Promise<void>
+      act(() => {
+        pending = result.current.loadOlderMessages()
+      })
+      expect(result.current.isReadingMessages).toBe(true)
+      expect(result.current.isReadingOlderMessages).toBe(true)
+      expect(result.current.sessionDetail?.messages.items).toEqual([message])
+      expect(mocks.detail).toHaveBeenLastCalledWith({
+        data: {
+          accountEmail: 'aluna@example.com',
+          sessionId: detail.session.id,
+          cursor: 'older-page',
+        },
+      })
+      await act(async () => {
+        if (outcome === 'failure') rejectPage(new Error('Page unavailable'))
+        else resolvePage({ ...currentDetail, messages: { items: [], nextCursor: null } })
+        await pending
+      })
+      expect(result.current.isReadingMessages).toBe(false)
+      expect(result.current.isReadingOlderMessages).toBe(false)
+      expect(result.current.sessionDetail?.messages.items).toEqual([message])
+      if (outcome === 'failure')
+        expect(result.current.conversationError).toContain('Não foi possível carregar')
+    },
+  )
 
   it('merges older message pages without duplicates and sorts them by timestamp', async () => {
     const latest = {

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from unittest.mock import create_autospec
+from unittest.mock import call, create_autospec
 
 import pytest
 from shifu.intelligence.core.domain.entities import MentorAttachment
@@ -87,7 +87,14 @@ def test_fail_records_safe_failure_and_removes_old_chunks(harness: _Harness) -> 
     dependencies['repositories'].mentor_attachments.update.assert_called_once_with(
         attachment
     )
-    assert dependencies['access'].assert_current.call_count == 2
+    dependencies['access'].authorize.assert_called_once_with(
+        _ACCOUNT_ID, _ATTACHMENT_ID
+    )
+    grant = dependencies['access'].authorize.return_value
+    dependencies['access'].assert_current.assert_has_calls([call(grant), call(grant)])
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
+        [call(_ATTACHMENT_ID), call(_ATTACHMENT_ID, for_update=True)]
+    )
 
 
 @pytest.mark.parametrize(
@@ -121,14 +128,48 @@ def test_fail_ignores_expired_claim(harness: _Harness) -> None:
     dependencies['repositories'].mentor_attachments.update.assert_not_called()
 
 
+def test_fail_ignores_attachment_without_claim_expiry(harness: _Harness) -> None:
+    subject, dependencies = harness
+    dependencies['attachment'].claim_expires_at = None
+
+    status = subject.execute(
+        _ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'attachment_unavailable'
+    )
+
+    assert status is MentorAttachmentStatus.PROCESSING
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+    dependencies[
+        'repositories'
+    ].mentor_attachment_chunks.remove_by_attachment_id.assert_not_called()
+
+
+def test_fail_ignores_attachment_that_is_not_processing(harness: _Harness) -> None:
+    subject, dependencies = harness
+    attachment = dependencies['attachment']
+    attachment.status = MentorAttachmentStatus.READY
+    attachment.execution_owner = _EXECUTION_OWNER
+    attachment.claim_expires_at = _NOW + timedelta(minutes=1)
+
+    status = subject.execute(
+        _ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'attachment_unavailable'
+    )
+
+    assert status is MentorAttachmentStatus.READY
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+    dependencies[
+        'repositories'
+    ].mentor_attachment_chunks.remove_by_attachment_id.assert_not_called()
+
+
 def test_fail_validates_failure_code_before_opening_a_transaction(
     harness: _Harness,
 ) -> None:
     subject, dependencies = harness
 
-    with pytest.raises(ValueError, match='Unsupported mentor attachment failure code'):
+    with pytest.raises(ValueError) as error:
         subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'unsafe failure detail')
 
+    assert str(error.value) == 'Unsupported mentor attachment failure code'
     dependencies['repositories'].mentor_attachments.find_by_id.assert_not_called()
 
 
@@ -152,4 +193,65 @@ def test_fail_raises_for_missing_attachment(harness: _Harness) -> None:
     with pytest.raises(MentorAttachmentNotFoundError):
         subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'attachment_unavailable')
 
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_called_once_with(
+        _ATTACHMENT_ID
+    )
     dependencies['access'].authorize.assert_not_called()
+
+
+def test_fail_raises_if_attachment_disappears_after_authorization(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    dependencies['repositories'].mentor_attachments.find_by_id.side_effect = [
+        dependencies['attachment'],
+        None,
+    ]
+
+    with pytest.raises(MentorAttachmentNotFoundError):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'attachment_unavailable')
+
+    dependencies['access'].assert_current.assert_called_once_with(
+        dependencies['access'].authorize.return_value
+    )
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
+        [call(_ATTACHMENT_ID), call(_ATTACHMENT_ID, for_update=True)]
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+
+
+def test_fail_raises_if_attachment_changes_accounts_after_authorization(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    attachment = dependencies['attachment']
+    other_account_attachment = MentorAttachment.create(
+        _ATTACHMENT_ID,
+        '01JACCOUNT000000000000000002',
+        _BATCH_ID,
+        'upload-key',
+        'notes.txt',
+        'text/plain',
+        10,
+        'a' * 64,
+        f'mentor-attachments/{_ATTACHMENT_ID}/1/original',
+        _NOW,
+    )
+    other_account_attachment.claim(
+        _EXECUTION_OWNER, _NOW - timedelta(minutes=1), _NOW + timedelta(minutes=4)
+    )
+    dependencies['repositories'].mentor_attachments.find_by_id.side_effect = [
+        attachment,
+        other_account_attachment,
+    ]
+
+    with pytest.raises(MentorAttachmentNotFoundError):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, 'attachment_unavailable')
+
+    dependencies['access'].assert_current.assert_called_once_with(
+        dependencies['access'].authorize.return_value
+    )
+    dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
+        [call(_ATTACHMENT_ID), call(_ATTACHMENT_ID, for_update=True)]
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()

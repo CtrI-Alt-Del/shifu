@@ -10,8 +10,8 @@ from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     MentorTelemetryProvider,
 )
-from shifu.intelligence.providers.telemetry.agentos.agentos_mentor_telemetry_provider import (
-    AgentOSMentorTelemetryProvider,
+from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
+    LangfuseMentorTelemetryProvider,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorContextSnapshot
@@ -35,7 +35,7 @@ class LazyMentorRouteProvider:
         self._provider: MentorRouteProvider | None = None
         self._lock: Lock = Lock()
         self._telemetry: MentorTelemetryProvider = telemetry or (
-            AgentOSMentorTelemetryProvider()
+            LangfuseMentorTelemetryProvider()
         )
         self._catalog_version: str | None = None
 

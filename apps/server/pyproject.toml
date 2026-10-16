@@ -29,6 +29,8 @@ dependencies = [
     "Pillow==12.3.0",
     "pypdf==6.20.1",
     "pypdfium2==5.14.0",
+    "opentelemetry-sdk>=1.45.1",
+    "langfuse>=3,<4",
 ]
 
 [dependency-groups]

@@ -120,6 +120,12 @@ Each job class also declares its trigger as a static class attribute named
 repeating a string literal. The Identity main-page logging job therefore keeps
 `_EVENT_NAME = 'app/main-page.entered'` as its canonical trigger declaration.
 
+When a job consumes an event owned by another business module, it must not import
+that module's event class to populate `_EVENT_NAME`. Instead, require the canonical
+event name as an explicit keyword argument at the job/registrar boundary, and have
+application composition pass the name from the owning module's event class. The
+consumer remains in its owning module and uses the injected name in its trigger.
+
 Validate every incoming job payload with a strict Pydantic model at the job boundary.
 Reject unknown fields, require non-empty identifiers, and validate timestamp fields as
 UTC ISO-8601 values before durable steps construct or log normalized data. Pydantic

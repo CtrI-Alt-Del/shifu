@@ -315,7 +315,9 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: playwright-report
-          path: apps/web/playwright-report
+          path: |
+            apps/web/.playwright-cli/logs/html-report
+            apps/web/.playwright-cli/logs/test-results
           if-no-files-found: ignore
 
   build:

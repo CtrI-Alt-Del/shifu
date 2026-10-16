@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from threading import Barrier
 from typing import TYPE_CHECKING, cast
 
+import pytest
 from agno.models.openai import OpenAIChat
 from fastapi.testclient import TestClient
 from openai import OpenAI
 from shifu.app import FastAPIApp
+from shifu.intelligence.core.domain.entities import (
+    MentorAttachment,
+    MentorAttachmentBatch,
+)
+from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.providers.mentor_title.agentos.agentos_mentor_title_provider import (
@@ -24,12 +31,88 @@ from tests.intelligence.server.controllers.conftest import (
 )
 
 if TYPE_CHECKING:
-    import pytest
     from httpx import Response
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
 class TestCreateMentorSessionController:
+    @pytest.mark.parametrize('content', ['', ' \n\t '])
+    @pytest.mark.parametrize(
+        'status', [MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL]
+    )
+    def test_should_persist_and_replay_attachment_only_message(
+        self,
+        mentor_client: TestClient,
+        postgres_database: PostgresDatabase,
+        content: str,
+        status: MentorAttachmentStatus,
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        now = datetime.now(UTC)
+        batch = MentorAttachmentBatch.create(
+            ids.generate(),
+            MENTOR_ACCOUNT.account_id,
+            None,
+            now,
+            now + timedelta(hours=1),
+        )
+        attachment = MentorAttachment.create(
+            attachment_id=ids.generate(),
+            account_id=MENTOR_ACCOUNT.account_id,
+            batch_id=batch.id,
+            upload_key='controlled-upload',
+            filename='image.png',
+            media_type='image/png',
+            size_bytes=20,
+            checksum='a' * 64,
+            object_key='private/controlled-image.png',
+            now=now,
+        )
+        attachment.status = status
+        database = SqlalchemyIntelligenceDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.mentor_attachment_batches.add(batch)
+            repositories.mentor_attachments.add(attachment)
+        payload = {
+            'submission_key': '76f06641-8074-4314-99ed-a6cc7c981080',
+            'first_message': content,
+            'attachment_batch_id': batch.id,
+            'attachment_ids': [attachment.id],
+        }
+
+        response = mentor_client.post('/intelligence/mentor-sessions', json=payload)
+        replay = mentor_client.post('/intelligence/mentor-sessions', json=payload)
+
+        assert response.status_code == 201
+        assert replay.status_code == 200
+        body = response.json()
+        session_id = body['session']['id']
+        assert replay.json()['session']['id'] == session_id
+        assert body['session']['title'] == 'Conversa com anexos'
+        with database.transaction() as repositories:
+            messages = repositories.mentor_messages.find_all(
+                MENTOR_ACCOUNT.account_id, session_id
+            )
+            sent = tuple(message for message in messages if message.attachments)
+            persisted_batch = repositories.mentor_attachment_batches.find_by_id(
+                batch.id
+            )
+        assert len(sent) == 1
+        assert sent[0].content == content
+        assert sent[0].attachments[0].attachment_id == attachment.id
+        assert sent[0].attachments[0].status is status
+        assert persisted_batch is not None
+        assert persisted_batch.consumed_by_message_id == sent[0].id
+        detail = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
+        assert detail.status_code == 200
+        stored = next(
+            message
+            for message in detail.json()['messages']['items']
+            if message['id'] == sent[0].id
+        )
+        assert stored['content'] == content
+        assert stored['attachments'][0]['attachment_id'] == attachment.id
+
     def test_should_forward_attachment_references_to_session_creation(
         self, mentor_client: TestClient
     ) -> None:

@@ -84,6 +84,41 @@ describe('MessageItem', () => {
     expect(screen.getByText(/Páginas ilegíveis: 3/)).toBeVisible()
   })
 
+  it.each(['page', 'fab'] as const)(
+    'renders an attachment-only learner message on %s without an empty paragraph or invented caption',
+    (surface) => {
+      useMessageItemMock.mockReturnValue(
+        makeHookValue({
+          isLearnerMessage: true,
+          isMentorMessage: false,
+          speakerLabel: null,
+          copyContent: '',
+          attachments: [{ attachment, url: 'blob:private-preview', error: null }],
+        }),
+      )
+      render(
+        <ol>
+          <MessageItem
+            surface={surface}
+            message={{
+              id: 'learner',
+              sessionId: 'session',
+              role: 'learner',
+              content: '',
+              createdAt: '2026-10-14T12:00:00Z',
+              inReplyToMessageId: null,
+              attachments: [attachment],
+            }}
+          />
+        </ol>,
+      )
+      const message = screen.getAllByRole('listitem')[0]
+      expect(message?.querySelector('p')).toHaveTextContent('desenho.png')
+      expect(screen.getByRole('img', { name: 'Prévia de desenho.png' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Copiar mensagem' })).toBeDisabled()
+    },
+  )
+
   it('shows only supplied source rows and delegates opening to the owning hook', () => {
     const source = {
       attachmentId: attachment.attachmentId,

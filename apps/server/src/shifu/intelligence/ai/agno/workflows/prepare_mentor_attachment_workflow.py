@@ -1,7 +1,9 @@
+import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from threading import Event, Thread
 from typing import Self, cast
 from typing import ClassVar
@@ -9,7 +11,7 @@ from typing import ClassVar
 from agno.run.workflow import WorkflowRunOutput
 from agno.workflow.step import Step
 from agno.workflow.types import StepInput, StepOutput
-from agno.workflow.workflow import Workflow
+from agno.workflow.workflow import Workflow, WorkflowSteps
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from shifu.intelligence.ai.agno.agents import MentorAttachmentVisionAgent
@@ -114,20 +116,13 @@ class PrepareMentorAttachmentWorkflow(Workflow):
     ) -> None:
         if max_pdf_pages < 1:
             raise ValueError('max_pdf_pages must be positive')
+        self._execution: ContextVar[_Execution | None] = ContextVar(
+            'prepare_mentor_attachment_execution', default=None
+        )
         super().__init__(
             id='intelligence-prepare-mentor-attachment',
             name='prepare-mentor-attachment',
-            steps=[
-                Step(
-                    name='prepare-private-source', executor=self._prepare, max_retries=0
-                ),
-                Step(
-                    name='extract-and-interpret', executor=self._extract, max_retries=0
-                ),
-                Step(
-                    name='commit-safe-coverage', executor=self._complete, max_retries=0
-                ),
-            ],
+            steps=self._build_steps(asynchronous=True),
             telemetry=False,
             store_events=False,
             store_executor_outputs=False,
@@ -142,9 +137,40 @@ class PrepareMentorAttachmentWorkflow(Workflow):
         self._identifier_provider = identifier_provider
         self._max_pdf_pages = max_pdf_pages
         self._usage_recorder = usage_recorder
-        self._execution: ContextVar[_Execution | None] = ContextVar(
-            'prepare_mentor_attachment_execution', default=None
+
+    def _build_steps(self, *, asynchronous: bool) -> WorkflowSteps:
+        phases = (
+            ('prepare-private-source', self._prepare),
+            ('extract-and-interpret', self._extract),
+            ('commit-safe-coverage', self._complete),
         )
+        return [
+            Step(
+                name=name,
+                executor=(
+                    self._async_phase(execute, name=name) if asynchronous else execute
+                ),
+                max_retries=0,
+            )
+            for name, execute in phases
+        ]
+
+    def _async_phase(
+        self, execute: Callable[[StepInput], StepOutput], *, name: str
+    ) -> Callable[[StepInput], Awaitable[StepOutput]]:
+        @wraps(execute)
+        async def execute_phase(step_input: StepInput) -> StepOutput:
+            # Native queued runs use arun. Initialize state in its run task:
+            # ContextVar assignments inside to_thread do not propagate back.
+            execution = self._execution_for_step(step_input)
+            try:
+                return await asyncio.to_thread(execute, step_input)
+            finally:
+                if execution.completed:
+                    self._execution.set(None)
+
+        execute_phase.__name__ = f'prepare_mentor_attachment_{name.replace("-", "_")}'
+        return execute_phase
 
     def deep_copy(
         self, *, update: dict[str, object] | None = None
@@ -170,14 +196,16 @@ class PrepareMentorAttachmentWorkflow(Workflow):
     def run(  # pyright: ignore[reportIncompatibleMethodOverride] - This boundary accepts only a normalized event payload.
         self, input: object
     ) -> WorkflowRunOutput:
+        workflow = self.deep_copy()
+        workflow.steps = workflow._build_steps(asynchronous=False)  # noqa: SLF001 - Configure this class's per-call clone.
         request = self._parse_input(input)
         execution = _Execution(
             request=request,
             owner=request.event_id or request.attachment_id,
         )
-        token = self._execution.set(execution)
+        token = workflow._execution.set(execution)  # noqa: SLF001 - Scope state on this class's per-call clone.
         try:
-            return super().run(input=request.model_dump_json())
+            return Workflow.run(workflow, input=request.model_dump_json())
         except Exception:
             if not execution.completed:
                 self._release_claim_use_case.execute(
@@ -185,7 +213,7 @@ class PrepareMentorAttachmentWorkflow(Workflow):
                 )
             raise
         finally:
-            self._execution.reset(token)
+            workflow._execution.reset(token)  # noqa: SLF001 - Restore this class's per-call clone context.
 
     @staticmethod
     def _parse_input(raw: object) -> _PreparationInput:

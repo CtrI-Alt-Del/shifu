@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { RestResponse } from '@/core/shared/responses/rest-response'
+
 const { axiosCreate, request } = vi.hoisted(() => ({
   axiosCreate: vi.fn(),
   request: vi.fn(),
@@ -50,7 +52,7 @@ describe('AxiosRestClient', () => {
       params: undefined,
       headers: {},
       signal,
-      responseType: 'blob',
+      responseType: 'arraybuffer',
     })
     expect(request).toHaveBeenNthCalledWith(3, client, {
       method: 'post',
@@ -83,6 +85,22 @@ describe('AxiosRestClient', () => {
       data: { value: 4 },
       headers: {},
     })
+  })
+
+  it('preserves raw bytes when adapting a file response to Blob', async () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+    request.mockResolvedValueOnce(
+      new RestResponse({
+        body: bytes.buffer,
+        statusCode: 200,
+        headers: { 'content-type': 'image/png' },
+      }),
+    )
+
+    const response = await AxiosRestClient().getFile('/file')
+
+    expect(response.body).toBeInstanceOf(Blob)
+    expect([...new Uint8Array(await response.body.arrayBuffer())]).toEqual([...bytes])
   })
 
   it('allows callers to override credentials and merges request headers over defaults', async () => {

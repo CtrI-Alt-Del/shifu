@@ -67,6 +67,7 @@ class ControlledMentorModelTransport:
         self.openai_clients: list[OpenAI] = []
         self.model_profiles: list[str] = []
         self.reject_attachment_source = False
+        self.reported_cost_usd: float | None = None
 
     def build_client(self) -> OpenAI:
         client = OpenAI(
@@ -171,6 +172,11 @@ class ControlledMentorModelTransport:
                     'prompt_tokens': 17,
                     'completion_tokens': 13,
                     'total_tokens': 30,
+                    **(
+                        {'cost': self.reported_cost_usd}
+                        if self.reported_cost_usd is not None
+                        else {}
+                    ),
                 },
             },
         )
@@ -228,10 +234,22 @@ class RegisteredAgentOSFixture:
 
 
 @pytest.fixture
+def agentos_telemetry_environment() -> dict[str, str]:
+    """Keep ordinary runtime tests isolated from developer monitoring credentials."""
+    return {
+        'MENTOR_TELEMETRY_ENABLED': 'false',
+        'LANGFUSE_PUBLIC_KEY': '',
+        'LANGFUSE_SECRET_KEY': '',
+        'LANGFUSE_BASE_URL': 'http://127.0.0.1:1',
+    }
+
+
+@pytest.fixture
 def agentos_fixture(
     monkeypatch: pytest.MonkeyPatch,
     postgres_database: PostgresDatabase,
     redis_fixture: RedisFixture,
+    agentos_telemetry_environment: dict[str, str],
 ) -> Iterator[RegisteredAgentOSFixture]:
     """Start the owning FastAPI app and both native AgentOS registries."""
 
@@ -243,6 +261,8 @@ def agentos_fixture(
     monkeypatch.setenv('OPENROUTER_API_KEY', 'local-agentos-test-key')
     monkeypatch.setenv('OPENROUTER_PROMPT_LOGGING_DISABLED', 'true')
     monkeypatch.setenv('MENTOR_TITLE_PROMPT_LOGGING_DISABLED', 'false')
+    for name, value in agentos_telemetry_environment.items():
+        monkeypatch.setenv(name, value)
     get_settings.cache_clear()
 
     from shifu.intelligence.providers.openrouter import (

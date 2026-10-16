@@ -206,6 +206,14 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      minio:
+        image: cgr.dev/chainguard/minio
+        command: server --address ":9000" --console-address ":9001" /data
+        env:
+          MINIO_ROOT_USER: shifu-ci
+          MINIO_ROOT_PASSWORD: shifu-ci-secret
+        ports:
+          - 9000:9000
     defaults:
       run:
         working-directory: apps/server
@@ -214,6 +222,12 @@ jobs:
       AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
       AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
       REDIS_URL: redis://localhost:6379/0
+      MENTOR_ATTACHMENT_STORAGE_BUCKET: shifu-mentor-attachments
+      MENTOR_ATTACHMENT_STORAGE_REGION: us-east-1
+      MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL: http://127.0.0.1:9000
+      MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE: path
+      MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY: shifu-ci
+      MENTOR_ATTACHMENT_STORAGE_SECRET_KEY: shifu-ci-secret
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
       SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -263,6 +277,17 @@ jobs:
           'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
           SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
+      - name: Wait for private attachment storage
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready" >&2
+          exit 1
+
       - name: Run controller and registered workflow integration tests
         run: uv run poe test:integration
         env:
@@ -308,6 +333,14 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      minio:
+        image: cgr.dev/chainguard/minio
+        command: server --address ":9000" --console-address ":9001" /data
+        env:
+          MINIO_ROOT_USER: shifu-ci
+          MINIO_ROOT_PASSWORD: shifu-ci-secret
+        ports:
+          - 9000:9000
     defaults:
       run:
         working-directory: apps/server
@@ -316,6 +349,12 @@ jobs:
       AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
       AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
       REDIS_URL: redis://localhost:6379/0
+      MENTOR_ATTACHMENT_STORAGE_BUCKET: shifu-mentor-attachments
+      MENTOR_ATTACHMENT_STORAGE_REGION: us-east-1
+      MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL: http://127.0.0.1:9000
+      MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE: path
+      MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY: shifu-ci
+      MENTOR_ATTACHMENT_STORAGE_SECRET_KEY: shifu-ci-secret
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
       SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -355,6 +394,17 @@ jobs:
           -v database_name=shifu
           -f scripts/create_agentos_runtime_role.sql
 
+      - name: Wait for private attachment storage
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready" >&2
+          exit 1
+
       - name: Prepare pinned local Mentor model
         run: >-
           uv run python -c
@@ -369,6 +419,8 @@ jobs:
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
             tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
             tests/intelligence/server/agentos/test_agentos_runtime_role.py \
+            tests/intelligence/ai/agno/agents/test_mentor_agent_contract_coverage.py \
+            tests/intelligence/ai/agno/workflows/test_mentor_workflow_branches.py \
             tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
             tests/intelligence/ai/generative/agno/workflows/test_agno_generate_mentor_title_workflow.py \
             tests/intelligence/adapters/test_mentor_persistence_adapters.py \
@@ -407,6 +459,7 @@ jobs:
             tests/intelligence/core/use_cases/test_submit_mentor_message_use_case.py \
             tests/intelligence/core/use_cases/test_remove_mentor_session_use_case.py \
             tests/intelligence/rest/controllers/test_mentor_attachments_controller.py \
+            tests/intelligence/rest/controllers/test_mentor_session_routes_coverage.py \
             tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_submit_mentor_message_controller.py \
             tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
@@ -418,6 +471,7 @@ jobs:
             tests/intelligence/server/controllers/test_retry_mentor_response_controller.py \
             tests/intelligence/server/controllers/test_stream_mentor_response_controller.py \
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_boundaries.py \
+            tests/intelligence/providers/test_local_mentor_attachment_extractor_provider.py \
             tests/intelligence/ai/test_eval_factories.py \
             tests/intelligence/ai/test_intelligence_workflows_registry.py \
             tests/intelligence/core/domain/test_mentor_attachment_domain.py \
@@ -434,7 +488,7 @@ jobs:
             tests/rest/handlers/test_app_error_handler.py \
             tests/shared/messaging/agentos/test_agentos_client.py \
             tests/shared/messaging/agentos/test_agentos_handoff_store.py \
-            tests/shared/messaging/agentos/test_agentos_observability.py \
+            tests/intelligence/server/agentos/test_agent_monitoring_workflow.py \
             tests/shared/messaging/test_outbox_brokers.py \
             tests/shared/test_settings.py \
             tests/shared/providers/test_s3_file_storage_provider.py

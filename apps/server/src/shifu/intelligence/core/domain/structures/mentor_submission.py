@@ -16,7 +16,7 @@ class MentorSubmission:
     attachment_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.content.strip():
+        if not self.content.strip() and not self.attachment_ids:
             raise MentorInputInvalidError
         try:
             parsed = UUID(self.submission_key)

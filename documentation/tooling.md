@@ -110,6 +110,9 @@ Important local variables include:
 | `INNGEST_PORT` | `18288` | Inngest UI/API host port |
 | `MENTOR_ATTACHMENT_STORAGE_PORT` | `9000` | Private Mentor MinIO API host port |
 | `MENTOR_ATTACHMENT_STORAGE_BUCKET` | `shifu-mentor-attachments` | Local private attachment bucket |
+| `LANGFUSE_PORT` | `7003` | Local agent monitoring UI/API host port |
+| `LANGFUSE_BASE_URL` | `http://localhost:7003` | Server telemetry destination |
+| `MENTOR_TELEMETRY_ENABLED` | `false` | Opt in to sanitized Intelligence and Learning agent monitoring |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
 | `INNGEST_APP_URL` | `http://host.docker.internal:7777/api/inngest` | FastAPI Inngest endpoint discovered by the existing Compose Dev Server |
@@ -146,6 +149,7 @@ Default endpoints are:
 | Mailpit UI | `http://localhost:54326` |
 | Mailpit SMTP | `localhost:1026` |
 | SonarQube | `http://localhost:19000` |
+| Langfuse (profile `langfuse`) | `http://localhost:7003` |
 | Web application | `http://localhost:7000` |
 | FastAPI application | `http://localhost:7777` (fallback) |
 
@@ -703,6 +707,48 @@ all contracted runtime selections on a Docker-capable runner. Set
 `SHIFU_RUN_REAL_AGENTOS_TESTS=1` for AgentOS runtime tests and
 `SHIFU_RUN_REAL_INNGEST_TESTS=1` for real Inngest tests; skips or empty selections do
 not pass.
+
+### Local agent monitoring with Langfuse
+
+AgentOS runs the Intelligence and Learning workflows. Langfuse supplies their
+local monitoring UI at `http://localhost:7003`. Start its existing Compose profile
+from the repository root:
+
+```bash
+docker compose --profile langfuse up -d langfuse-web langfuse-worker
+docker compose --profile langfuse ps
+curl --fail http://localhost:7003/api/public/health
+```
+
+The profile includes a separate PostgreSQL database, Redis, ClickHouse and MinIO
+with persistent named volumes. It does not use the application database or Mentor
+attachment bucket. The web UI/API is published only on loopback.
+
+Sign in to the local UI, open the Shifu project's settings, and obtain its API key
+pair. Configure the following in the ignored `apps/server/.env.local` and restart
+the Server so its settings are reloaded:
+
+```dotenv
+MENTOR_TELEMETRY_ENABLED=true
+LANGFUSE_BASE_URL=http://localhost:7003
+LANGFUSE_PUBLIC_KEY=<project-public-key>
+LANGFUSE_SECRET_KEY=<project-secret-key>
+MENTOR_TELEMETRY_CONTENT_ENABLED=false
+```
+
+Monitoring exports sanitized operational traces for both modules: stage/profile,
+timing, outcome, reported usage, and opaque correlation identifiers. Raw prompts,
+answers, JEV decisions, attachment content, credentials and exception text are
+excluded; `MENTOR_TELEMETRY_CONTENT_ENABLED` remains only as a compatibility
+setting and cannot enable content capture. Telemetry is optional and failures do
+not interrupt agent execution. AgentOS retains its module-scoped runtime,
+persistence and restricted database credentials.
+
+The local stack uses Langfuse v4. With its default `events_only` ingestion mode,
+legacy `/api/public/traces` reads return 404 even after successful ingestion.
+Use `/api/public/v2/observations` with `traceId` and bounded
+`fromStartTime`/`toStartTime` filters to verify persisted monitoring data; the
+native UI groups those observations into traces.
 
 ## Delivery handoff
 

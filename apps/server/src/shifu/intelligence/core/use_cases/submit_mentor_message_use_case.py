@@ -194,7 +194,7 @@ class SubmitMentorMessageUseCase:
 
     @staticmethod
     def _validate(submission: MentorSubmission) -> None:
-        if not submission.content.strip():
+        if not submission.content.strip() and not submission.attachment_ids:
             raise MentorInputInvalidError
         try:
             parsed = UUID(submission.submission_key)

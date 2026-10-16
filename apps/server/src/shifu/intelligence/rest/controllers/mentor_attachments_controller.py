@@ -45,7 +45,7 @@ from shifu.shared.core.interfaces import (
 )
 from shifu.shared.pipes import FileStoragePipe, SharedPipe
 
-_MAX_FILE_SIZE = 10_000_000
+_MAX_FILE_SIZE = 2_000_000
 _MAX_MULTIPART_SIZE = _MAX_FILE_SIZE + 64_000
 _ID_PATTERN = r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$'
 
@@ -296,6 +296,6 @@ def _too_large() -> HTTPException:
         status_code=413,
         detail={
             'code': 'attachment_too_large',
-            'message': 'O arquivo excede o limite de 10 MB.',
+            'message': 'O arquivo excede o limite de 2 MB.',
         },
     )

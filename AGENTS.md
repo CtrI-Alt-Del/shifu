@@ -201,8 +201,12 @@ locators; check the resulting URL, visible outcome, relevant requests, console
 errors, and keyboard path. For UI changes, capture and inspect fresh screenshots
 of the Spec-required states and viewports against their design references.
 
-Keep browser artifacts under
-`apps/web/.playwright-cli/{logs,screenshots,snapshots,states}/`. Close only the
+Keep Playwright test results, test-results evidence, HTML reports, and other
+browser logs under `apps/web/.playwright-cli/logs/`. Keep screenshots,
+snapshots, and storage states under their named sibling folders:
+`apps/web/.playwright-cli/{screenshots,snapshots,states}/`. Do not recreate
+`apps/web/test-results/` or `apps/web/test-results-evidence/`; configure test
+result and report outputs to use `.playwright-cli/logs/`. Close only the
 session and app processes started for the task; leave shared Docker services
 running. Record concise pass/fail observations and artifact paths in Evaluation.
 Automated tests cover negative, failure, recovery, concurrency, and unusual

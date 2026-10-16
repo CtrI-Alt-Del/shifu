@@ -17,8 +17,8 @@ from shifu.shared.messaging.agentos.agentos_broker import (
     WorkflowEventProjector,
 )
 from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
-from shifu.shared.messaging.agentos.agentos_observability import (
-    AgentOSObservability,
+from shifu.shared.providers.langfuse_telemetry_provider import (
+    LangfuseTelemetryProvider,
 )
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ class AgentOSRuntime:
         workflows: Sequence[Workflow],
         workflow_event_projector: WorkflowEventProjector,
         outbox_engine: Engine,
-        observability: AgentOSObservability | None = None,
+        observability: LangfuseTelemetryProvider | None = None,
     ) -> None:
         if not database_url:
             raise ValueError('AGENTOS_DATABASE_URL is required')
@@ -119,9 +119,7 @@ class AgentOSRuntime:
             workflow_event_projector=workflow_event_projector,
             engine=outbox_engine,
         )
-        self.observability = observability or AgentOSObservability(
-            module, self._database
-        )
+        self.observability = observability or LangfuseTelemetryProvider(module)
         self._native_lifespan: AbstractAsyncContextManager[object] | None = None
         self._native_started = False
         self._closed = False

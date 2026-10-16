@@ -50,7 +50,7 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   const hasAcceptedSession = Boolean(mentor.selectedSessionId)
   const isResponsePending = Boolean(mentor.sessionDetail?.pendingLearnerMessageId)
   const canSend =
-    Boolean(mentor.draft.trim()) &&
+    (Boolean(mentor.draft.trim()) || draftAttachments.length > 0) &&
     !mentor.isSubmittingFirstMessage &&
     !isResponsePending &&
     !mentor.isDictationBusy &&

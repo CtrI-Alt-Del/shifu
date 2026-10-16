@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 _BATCH_ID = '0' * 25 + '1'
 _UPLOAD_PATH = f'/intelligence/mentor-attachment-batches/{_BATCH_ID}/attachments'
-_MAX_MULTIPART_BYTES = 10_064_000
+_MAX_MULTIPART_BYTES = 2_064_000
 
 
 def test_upload_body_limit_rejects_invalid_content_length(client: TestClient) -> None:
@@ -48,14 +48,14 @@ def test_upload_body_limit_rejects_oversized_content_length(client: TestClient) 
     assert response.status_code == 413
     assert response.json() == {
         'code': 'attachment_too_large',
-        'message': 'O arquivo excede o limite de 10 MB.',
+        'message': 'O arquivo excede o limite de 2 MB.',
     }
 
 
 def test_upload_body_limit_counts_streamed_body_without_content_length(
     client: TestClient,
 ) -> None:
-    body: Iterator[bytes] = iter((b'x' * 5_032_001, b'x' * 5_032_000))
+    body: Iterator[bytes] = iter((b'x' * 1_032_001, b'x' * 1_032_000))
 
     response = client.post(_UPLOAD_PATH, content=body)
 

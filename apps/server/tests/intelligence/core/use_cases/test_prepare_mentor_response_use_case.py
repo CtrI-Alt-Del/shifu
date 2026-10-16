@@ -135,6 +135,35 @@ class TestPrepareMentorResponseUseCase(MentorResponsePhaseTestSetup):
         with pytest.raises(ServiceUnavailableError):
             self.subject.execute('attempt', 'owner')
 
+    @pytest.mark.parametrize('content', ['', ' \n\t '])
+    def test_should_ask_attachment_intent_without_routing_or_model_request(
+        self, content: str
+    ) -> None:
+        attachment = MentorAttachmentView(
+            attachment_id='ready',
+            filename='image.png',
+            media_type='image/png',
+            size_bytes=20,
+            status=MentorAttachmentStatus.READY,
+            failure_code=None,
+            analyzed_pages=(1,),
+            illegible_pages=(),
+            uninterpreted_pages=(),
+        )
+        self.repositories.mentor_messages.find_all.return_value = (
+            replace(self.message, content=content, attachments=(attachment,)),
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert len(prepared.local_blocks) == 1
+        assert prepared.local_blocks[0].content == 'Como posso ajudar com os anexos?'
+        assert prepared.attachment_request is None
+        self.route_provider.route.assert_not_called()
+        self.attachment_context_use_case.execute.assert_not_called()
+        self.access.assert_current.assert_called()
+
     def test_should_keep_general_generation_local(self) -> None:
         approved = replace(self.block, block_key='approved', ordinal=0)
         self.repositories.mentor_response_events.snapshot.return_value = replace(

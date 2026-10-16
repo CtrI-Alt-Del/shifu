@@ -170,7 +170,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
       ) : null}
       <p className='px-1 text-xs text-muted-foreground'>
         Anexe até cinco arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT. Cada arquivo pode
-        ter até 10 MB. Escreva uma mensagem para continuar.
+        ter até 2 MB. A mensagem de texto é opcional ao enviar arquivos.
       </p>
       <div className='flex min-h-14 items-end gap-2 rounded-md border border-control-border bg-muted px-2 py-1 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-selo-text'>
         <Button

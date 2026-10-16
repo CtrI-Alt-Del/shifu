@@ -1,3 +1,4 @@
+from asyncio import to_thread
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
@@ -17,6 +18,10 @@ from shifu.composition import (
     build_message_renderer,
     build_secret_envelope_provider,
 )
+from shifu.composition.agent_monitoring import (
+    build_agent_monitoring_client,
+    close_agent_monitoring_client,
+)
 from shifu.curriculum.database.sqlalchemy import (
     SqlalchemyCurriculumDatabase,
 )
@@ -31,6 +36,7 @@ from shifu.curriculum.rest.router import CurriculumRouter
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.gamification.messaging.inngest import GamificationInngestMessaging
 from shifu.gamification.rest.router import GamificationRouter
+from shifu.identity.core.domain.events import AccountDeletedEvent
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
@@ -282,6 +288,14 @@ class FastAPIApp:
                     message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
 
+            monitoring = build_agent_monitoring_client(settings)
+            monitoring_client = monitoring.client if monitoring is not None else None
+            app.state.agent_monitoring_client = monitoring_client
+            app.state.agent_monitoring_tracer_provider = (
+                monitoring.tracer_provider if monitoring is not None else None
+            )
+            intelligence_registry.observability.bind(monitoring_client)
+            learning_registry.observability.bind(monitoring_client)
             app.state.max_activity_payload_bytes = settings.max_activity_payload_bytes
             app.state.max_code_assessment_input_bytes = (
                 settings.max_code_assessment_input_bytes
@@ -301,8 +315,13 @@ class FastAPIApp:
                     finally:
                         broker.stop()
             finally:
-                await cache_provider.close()
-                database_engine.dispose()
+                intelligence_registry.observability.bind(None)
+                learning_registry.observability.bind(None)
+                try:
+                    await to_thread(close_agent_monitoring_client, monitoring)
+                finally:
+                    await cache_provider.close()
+                    database_engine.dispose()
 
         app = FastAPI(title='Shifu API', version='0.1.0', lifespan=lifespan)
         inngest_client = InngestMessaging.register(
@@ -318,6 +337,7 @@ class FastAPIApp:
                     purge_mentor_attachments_use_case=(
                         intelligence_registry.purge_mentor_attachments_use_case
                     ),
+                    account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                 ),
                 lambda inngest: CommunicationInngestMessaging.register_jobs(
                     inngest,

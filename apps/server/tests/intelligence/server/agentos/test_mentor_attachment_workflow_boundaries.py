@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from threading import Event
 from time import monotonic, sleep
 from typing import TYPE_CHECKING, NoReturn, Protocol, cast
 from uuid import uuid4
@@ -42,6 +44,7 @@ if TYPE_CHECKING:
 
     from tests.fixtures.agentos_fixture import RegisteredAgentOSFixture
     from tests.fixtures.postgres_fixture import PostgresDatabase
+    from shifu.intelligence.core.domain.structures import MentorInferenceUsage
 
 
 class _NamedTestNode(Protocol):
@@ -834,3 +837,85 @@ def _image_bytes(image_format: str) -> bytes:
     image.save(buffer, format=image_format)
     image.close()
     return buffer.getvalue()
+
+
+class TestPrepareMentorAttachmentWorkflow:
+    def test_registered_vision_keeps_api_responsive_and_runs_once(
+        self,
+        agentos_fixture: RegisteredAgentOSFixture,
+        postgres_database: PostgresDatabase,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        entered = Event()
+        release = Event()
+        analyze = MentorAttachmentVisionAgent.analyze
+        vision_calls: list[str] = []
+
+        def held_analysis(
+            agent: MentorAttachmentVisionAgent,
+            image_content: bytes,
+            *,
+            media_type: str,
+            attachment_id: str,
+            page_number: int,
+            usage_recorder: Callable[[MentorInferenceUsage], None] | None = None,
+        ) -> MentorAttachmentVisionOutput:
+            vision_calls.append(attachment_id)
+            entered.set()
+            assert release.wait(30), 'Controlled vision request was never released'
+            return analyze(
+                agent,
+                image_content,
+                media_type=media_type,
+                attachment_id=attachment_id,
+                page_number=page_number,
+                usage_recorder=usage_recorder,
+            )
+
+        monkeypatch.setattr(MentorAttachmentVisionAgent, 'analyze', held_analysis)
+        client = agentos_fixture.client
+        batch_response = client.post('/intelligence/mentor-attachment-batches', json={})
+        assert batch_response.status_code == 201, batch_response.text
+        batch_id = batch_response.json()['batch_id']
+        batch_path = f'/intelligence/mentor-attachment-batches/{batch_id}'
+
+        with ThreadPoolExecutor(max_workers=2) as requests:
+            upload = requests.submit(
+                client.post,
+                f'{batch_path}/attachments',
+                data={'upload_key': str(uuid4())},
+                files={'file': ('synthetic.png', _image_bytes('PNG'), 'image/png')},
+            )
+            try:
+                assert entered.wait(15), 'Registered vision extraction did not start'
+                health = requests.submit(client.get, '/health').result(timeout=2)
+                assert health.status_code == 200, health.text
+                batch = requests.submit(client.get, batch_path).result(timeout=2)
+                assert batch.status_code == 200, batch.text
+                assert batch.json()['attachments'][0]['status'] == 'processing'
+            finally:
+                release.set()
+            upload_response = upload.result(timeout=10)
+
+        assert upload_response.status_code == 201, upload_response.text
+        attachment_id = upload_response.json()['attachment_id']
+        deadline = monotonic() + 20
+        while monotonic() < deadline:
+            with Session(postgres_database.engine) as session:
+                attachment = session.get(MentorAttachmentModel, attachment_id)
+                if attachment is not None and attachment.status == 'ready':
+                    assert attachment.analyzed_pages == [1]
+                    assert attachment.execution_owner is None
+                    chunks = session.scalars(
+                        select(MentorAttachmentChunkModel).where(
+                            MentorAttachmentChunkModel.attachment_id == attachment_id
+                        )
+                    ).all()
+                    assert len(chunks) == 1
+                    break
+            sleep(0.1)
+        else:
+            pytest.fail('Registered vision extraction did not commit its result')
+
+        assert vision_calls == [attachment_id]
+        assert len(agentos_fixture.model_transport.requests) == 1

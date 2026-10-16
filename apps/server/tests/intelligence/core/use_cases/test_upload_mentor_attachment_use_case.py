@@ -356,7 +356,7 @@ def test_invalid_upload_key_fails_before_validation_or_access(
     'uploaded_file',
     [
         _file(content=b''),
-        _file(content=b'x' * 10_000_001),
+        _file(content=b'x' * 2_000_001),
         _file(filename=''),
         _file(filename='n' * 256 + '.txt'),
         _file(filename='n' * 252 + '.txt'),
@@ -497,11 +497,11 @@ def test_upload_accepts_maximum_content_and_filename_sizes(harness: _Harness) ->
         _ACCOUNT_ID,
         _BATCH_ID,
         _UPLOAD_KEY,
-        _file(filename=filename, content=b'x' * 10_000_000),
+        _file(filename=filename, content=b'x' * 2_000_000),
     )
 
     assert result.attachment.filename == filename
-    assert result.attachment.size_bytes == 10_000_000
+    assert result.attachment.size_bytes == 2_000_000
 
 
 @pytest.mark.parametrize('filename', ['archive.backup.txt', 'archive.backup.final.txt'])

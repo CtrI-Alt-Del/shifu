@@ -12,7 +12,7 @@ type UploadMentorAttachmentInput = {
 }
 
 const FAILURE_MESSAGES: Record<string, string> = {
-  attachment_too_large: 'O arquivo excede o limite de 10 MB.',
+  attachment_too_large: 'O arquivo excede o limite de 2 MB.',
   unsupported_attachment: 'Este formato de arquivo não é aceito.',
   malformed_attachment: 'Não foi possível ler este arquivo.',
   attachment_batch_expired:

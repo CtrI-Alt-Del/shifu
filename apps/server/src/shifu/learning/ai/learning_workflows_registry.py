@@ -26,11 +26,13 @@ from shifu.shared.core.domain.structures import (
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
 from shifu.shared.messaging.agentos.agentos_settings import AgentOSQueueSettings
+from shifu.shared.providers.langfuse_telemetry_provider import LangfuseTelemetryProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Mapping
 
+    from langfuse import Langfuse
     from sqlalchemy.engine import Engine
 
     from shifu.learning.core.interfaces import LearningDatabase
@@ -41,9 +43,6 @@ if TYPE_CHECKING:
         OutboxEvent,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
-    from shifu.shared.messaging.agentos.agentos_observability import (
-        AgentOSObservability,
-    )
     from shifu.shared.settings import Settings
 
 
@@ -56,14 +55,19 @@ class LearningWorkflowsRegistry:
     def __init__(
         self,
         settings: Settings,
-        observability: AgentOSObservability | None,
+        observability: LangfuseTelemetryProvider | None,
         assessor: CodeRubricAssessorProvider,
         access_provider: MentorAccessProvider,
         curriculum_content_provider: CurriculumContentProvider,
         *,
         outbox_engine: Engine,
+        telemetry_client: Langfuse | None = None,
     ) -> None:
         database_url = settings.agentos_database_url
+        observability = observability or LangfuseTelemetryProvider(
+            'learning', telemetry_client
+        )
+        self._observability: LangfuseTelemetryProvider = observability
         self._settings = settings
         self._assessor = assessor
         self._access_provider = access_provider
@@ -86,6 +90,7 @@ class LearningWorkflowsRegistry:
             fail,
             assessor,
             self._handoffs,
+            observability,
         )
         self._runtime = (
             AgentOSRuntime(
@@ -126,8 +131,8 @@ class LearningWorkflowsRegistry:
         return self._assessment_provider
 
     @property
-    def observability(self) -> AgentOSObservability | None:
-        return self._runtime.observability if self._runtime is not None else None
+    def observability(self) -> LangfuseTelemetryProvider:
+        return self._observability
 
     def destination_for_event(self, event: OutboxEvent) -> str | None:
         if event.name != _EVENT_NAME:

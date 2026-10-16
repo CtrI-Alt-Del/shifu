@@ -2,6 +2,7 @@ import type { MentorDraftAttachment } from '@/ui/intelligence/contexts/mentor-co
 import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { MentorAttachmentPreview } from '@/ui/intelligence/widgets/components/mentor-attachment-preview'
+import { MentorAttachmentTypeIcon } from '@/ui/intelligence/widgets/components/mentor-attachment-type-icon'
 
 type AttachmentListProps = {
   attachments: MentorDraftAttachment[]
@@ -55,6 +56,12 @@ export const AttachmentList = ({
                   src={draftAttachment.previewUrl}
                 />
               </div>
+            ) : !(attachment?.mediaType || draftAttachment.file.type).startsWith(
+                'image/',
+              ) ? (
+              <MentorAttachmentTypeIcon
+                mediaType={attachment?.mediaType || draftAttachment.file.type}
+              />
             ) : null}
             <div className='min-w-0 flex-1 space-y-1'>
               <p

@@ -44,6 +44,7 @@ const mentorValue = {
   isValidatingScope: false,
   isReadingHistory: false,
   isReadingMessages: false,
+  isReadingOlderMessages: false,
   isSubmittingFirstMessage: false,
   isRenamingSession: false,
   isRemovingSession: false,
@@ -168,6 +169,17 @@ describe('Conversation', () => {
     expect(loadOlderMessages).toHaveBeenCalledOnce()
     mockConversationValue({ ...conversationState, isReadingMessages: true })
     rerender(<Conversation />)
+    expect(screen.queryByText('Carregando mensagens anteriores…')).toBeNull()
+    expect(screen.getByText('Pergunta salva')).toBeVisible()
+    mockConversationValue({
+      ...conversationState,
+      isReadingMessages: true,
+      isReadingOlderMessages: true,
+    })
+    rerender(<Conversation />)
+    expect(
+      screen.getByRole('button', { name: 'Carregar mensagens anteriores' }),
+    ).toBeDisabled()
     expect(screen.getByText('Carregando mensagens anteriores…')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(refresh).toHaveBeenCalledOnce()

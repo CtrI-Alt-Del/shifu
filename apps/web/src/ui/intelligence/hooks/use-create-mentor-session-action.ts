@@ -19,11 +19,14 @@ const INPUT = z
   .object({
     accountEmail: z.string().email(),
     submissionKey: z.uuid({ version: 'v4' }),
-    firstMessage: z.string().refine((value) => Boolean(value.trim())),
+    firstMessage: z.string(),
     contextHint: HINT.nullish(),
     attachmentBatchId: ID.optional(),
     attachmentIds: z.array(ID).max(5).optional(),
   })
+  .refine(
+    (input) => Boolean(input.firstMessage.trim()) || Boolean(input.attachmentIds?.length),
+  )
   .refine((input) => !input.attachmentIds?.length || Boolean(input.attachmentBatchId))
   .strict()
 export const createMentorSessionServer = createServerFn({ method: 'POST' })

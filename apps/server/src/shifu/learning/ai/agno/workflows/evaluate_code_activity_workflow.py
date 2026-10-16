@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from contextvars import ContextVar
 from dataclasses import dataclass
+from time import perf_counter
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from agno.workflow.step import Step
 from agno.workflow.types import StepInput, StepOutput
@@ -29,6 +31,9 @@ if TYPE_CHECKING:
         EvaluateChoiceActivityUseCase,
         FailCodeActivityEvaluationUseCase,
         PrepareCodeActivityEvaluationUseCase,
+    )
+    from shifu.shared.providers.langfuse_telemetry_provider import (
+        LangfuseTelemetryProvider,
     )
     from shifu.shared.core.interfaces import CodeRubricAssessorProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
@@ -73,11 +78,13 @@ class EvaluateCodeActivityWorkflow(Workflow):
         fail_use_case: FailCodeActivityEvaluationUseCase,
         assessor: CodeRubricAssessorProvider,
         handoffs: AgentOSHandoffStore,
+        observability: LangfuseTelemetryProvider | None = None,
     ) -> None:
         self._prepare_use_case = prepare_use_case
         self._evaluate_use_case = evaluate_use_case
         self._fail_use_case = fail_use_case
         self._assessor = assessor
+        self._observability: LangfuseTelemetryProvider | None = observability
         self._handoffs = handoffs
         self._execution: ContextVar[_Execution | None] = ContextVar(
             'learning_code_activity_execution', default=None
@@ -114,6 +121,7 @@ class EvaluateCodeActivityWorkflow(Workflow):
             self._fail_use_case,
             self._assessor,
             self._handoffs,
+            self._observability,
         )
         workflow.db = self.db
         if update:
@@ -196,6 +204,22 @@ class EvaluateCodeActivityWorkflow(Workflow):
         return StepOutput(content='prepared')
 
     def _assess(self, step_input: StepInput) -> StepOutput:
+        started = perf_counter()
+        execution = self._execution_for_step(step_input)
+        try:
+            return self._assess_execution(step_input)
+        finally:
+            if self._observability is not None:
+                self._observability.record(
+                    stage='evaluate',
+                    outcome='failed' if execution.failure else 'passed',
+                    duration_ms=(perf_counter() - started) * 1000,
+                    correlation_id=uuid4().hex,
+                    model_profile='jev-rubric',
+                    counts={'inference_requests': len(execution.decisions)},
+                )
+
+    def _assess_execution(self, step_input: StepInput) -> StepOutput:
         execution = self._execution_for_step(step_input)
         if execution.failure:
             return StepOutput(content='skipped')

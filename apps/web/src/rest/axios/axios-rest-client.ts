@@ -1,5 +1,6 @@
 import axios from 'axios'
 
+import { RestResponse } from '@/core/shared/responses/rest-response'
 import { request } from '@/rest/axios/utils'
 import type { RestClient, RestRequestOptions } from '@/core/shared/interfaces/rest-client'
 
@@ -32,14 +33,28 @@ export const AxiosRestClient = (
   return {
     get,
 
-    getFile(url, requestOptions) {
-      return request<Blob>(client, {
+    async getFile(url, requestOptions) {
+      const response = await request<ArrayBuffer>(client, {
         method: 'get',
         url,
         params: requestOptions?.params,
         headers: { ...options.defaultHeaders, ...requestOptions?.headers },
         signal: requestOptions?.signal,
-        responseType: 'blob',
+        // Axios' Node adapter decodes `blob` responses as text. Use raw bytes
+        // here because this client also runs in the server-side BFF.
+        responseType: 'arraybuffer',
+      })
+      if (response.isFailure)
+        return new RestResponse<Blob>({
+          statusCode: response.statusCode,
+          headers: response.headers,
+          errorMessage: response.errorMessage,
+        })
+
+      return new RestResponse<Blob>({
+        body: new Blob([response.body]),
+        statusCode: response.statusCode,
+        headers: response.headers,
       })
     },
 

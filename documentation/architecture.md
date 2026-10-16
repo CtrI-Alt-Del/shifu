@@ -351,6 +351,7 @@ owning domain module make authoritative business decisions.
 | Authorization | FastAPI and domain rules |
 | Asynchronous processing | Inngest |
 | Agentic workflows | Agno AgentOS, scoped to Intelligence and Learning |
+| Agent monitoring | Optional local Langfuse with sanitized operational telemetry |
 | Private object storage | S3-compatible provider (MinIO for local development) |
 | Classical NLP | NLTK |
 | Text representation and search | TF-IDF with scikit-learn |
@@ -418,7 +419,7 @@ infrastructure into business modules.
 Agno is the orchestration framework for generative AI workflows. Each active AI
 module owns a separate native AgentOS runtime and registry: Intelligence owns Mentor
 and attachment workflows; Learning owns code evaluation. Shared infrastructure
-provides transport, sanitized observability, and the destination-aware durable outbox
+provides transport, sanitized Langfuse monitoring, and the destination-aware durable outbox
 adapter, but it does not collect module registrations or decide which module owns an
 operation. Bounded Jev rubric decisions remain an Intelligence provider capability.
 The provider implements a Shared core assessor port over one immutable,
@@ -480,7 +481,14 @@ block this delivery. Account guards remain distinct from the transactional
 session/attempt/deletion fences; separate account checks do not establish atomic
 account revocation across modules. Intelligence retains private idempotent inference
 receipts without commercial quota accounting. Langfuse is optional and receives
-allowlisted metadata only.
+allowlisted operational metadata only from both Intelligence and Learning. Its local
+UI runs through the existing Compose profile. A dedicated SDK client is created in
+the application lifespan, shared across module telemetry providers, and closed after
+both runtimes stop. It uses an isolated tracer provider with manual spans and
+generations; automatic Agno/model/HTTP tracing and content capture remain disabled.
+Private prompts, answers, attachments and learner identifiers never enter monitoring.
+AgentOS continues to own private execution and durable runtime state; no AgentOS
+control plane or custom monitoring UI is exposed.
 Agents receive only the
 minimum authorized context and tools required for the workflow. Tools expose typed
 application operations; they do not provide direct access to SQLAlchemy, credentials,

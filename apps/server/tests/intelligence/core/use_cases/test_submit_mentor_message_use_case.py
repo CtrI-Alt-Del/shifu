@@ -2,13 +2,18 @@ from datetime import timedelta
 from unittest.mock import call
 
 import pytest
+from shifu.intelligence.core.domain.entities import (
+    MentorAttachment,
+    MentorAttachmentBatch,
+)
 from shifu.intelligence.core.domain.enums import (
-    MentorMessageRole,
     MentorAttachmentStatus,
+    MentorMessageRole,
     MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
+    MentorAttachmentConflictError,
     MentorInputInvalidError,
     MentorResponseConflictError,
     MentorSessionNotFoundError,
@@ -17,10 +22,6 @@ from shifu.intelligence.core.domain.errors import (
 from shifu.intelligence.core.domain.structures import (
     MentorContextHint,
     MentorSubmission,
-)
-from shifu.intelligence.core.domain.entities import (
-    MentorAttachment,
-    MentorAttachmentBatch,
 )
 from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint import (
     mentor_submission_fingerprint,
@@ -293,8 +294,14 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
                 ),
             )
 
+    @pytest.mark.parametrize('content', ['texto', '', ' \n\t '])
+    @pytest.mark.parametrize(
+        'status', [MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL]
+    )
     def test_should_consume_batch_and_bind_selected_attachments_to_message(
         self,
+        content: str,
+        status: MentorAttachmentStatus,
     ) -> None:
         batch = MentorAttachmentBatch.create(
             'batch', 'account', 'session', self.now, self.now + timedelta(hours=1)
@@ -311,7 +318,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             object_key='private/worksheet.pdf',
             now=self.now,
         )
-        attachment.status = MentorAttachmentStatus.READY
+        attachment.status = status
         self.repositories.mentor_attachment_batches.find_by_id.return_value = batch
         self.repositories.mentor_attachments.find_by_id.return_value = attachment
 
@@ -320,13 +327,14 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             'session',
             MentorSubmission(
                 submission_key=self.key,
-                content='texto',
+                content=content,
                 attachment_batch_id='batch',
                 attachment_ids=('attachment',),
             ),
         )
 
         message = self.repositories.mentor_messages.add.call_args.args[0]
+        assert message.content == content
         assert batch.consumed_by_message_id == message.id
         assert (attachment.session_id, attachment.message_id) == ('session', message.id)
         self.repositories.mentor_attachments.update.assert_called_once_with(attachment)
@@ -337,7 +345,13 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             -1
         ].args == ('batch',)
 
-    def test_should_replay_exact_attachment_selection_without_rebinding(self) -> None:
+    @pytest.mark.parametrize('content', ['texto', '', ' \n\t '])
+    @pytest.mark.parametrize(
+        'status', [MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL]
+    )
+    def test_should_replay_exact_attachment_selection_without_rebinding(
+        self, content: str, status: MentorAttachmentStatus
+    ) -> None:
         batch = MentorAttachmentBatch.create(
             'batch', 'account', 'session', self.now, self.now + timedelta(hours=1)
         )
@@ -354,7 +368,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             object_key='private/worksheet.pdf',
             now=self.now,
         )
-        attachment.status = MentorAttachmentStatus.READY
+        attachment.status = status
         attachment.bind('session', self.attempt.learner_message_id)
         self.repositories.mentor_attachments.find_by_id.return_value = attachment
         self.repositories.mentor_attachments.find_by_message_id.return_value = (
@@ -363,7 +377,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
         self.repositories.mentor_response_attempts.find_submission.return_value = (
             self.attempt,
             mentor_submission_fingerprint_v2(
-                'texto', None, ((attachment.id, attachment.checksum),)
+                content, None, ((attachment.id, attachment.checksum),)
             ),
         )
 
@@ -372,7 +386,7 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             'session',
             MentorSubmission(
                 submission_key=self.key,
-                content='texto',
+                content=content,
                 attachment_batch_id='batch',
                 attachment_ids=('attachment',),
             ),
@@ -385,6 +399,71 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
         self.repositories.mentor_attachments.update.assert_not_called()
         self.repositories.mentor_attachment_batches.find_by_id.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
+
+        with pytest.raises(MentorSubmissionConflictError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(
+                    submission_key=self.key,
+                    content=content + 'changed',
+                    attachment_batch_id='batch',
+                    attachment_ids=('attachment',),
+                ),
+            )
+        self.repositories.mentor_messages.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'status',
+        [
+            MentorAttachmentStatus.UPLOADING,
+            MentorAttachmentStatus.PROCESSING,
+            MentorAttachmentStatus.FAILED,
+            MentorAttachmentStatus.REMOVED,
+        ],
+    )
+    def test_should_reject_unready_attachment_only_continuation_without_writes(
+        self, status: MentorAttachmentStatus
+    ) -> None:
+        batch = MentorAttachmentBatch.create(
+            'batch',
+            'account',
+            'session',
+            self.now,
+            self.now + timedelta(hours=1),
+        )
+        attachment = MentorAttachment.create(
+            attachment_id='attachment',
+            account_id='account',
+            batch_id='batch',
+            upload_key='upload',
+            filename='image.png',
+            media_type='image/png',
+            size_bytes=20,
+            checksum='a' * 64,
+            object_key='private/image.png',
+            now=self.now,
+        )
+        attachment.status = status
+        self.repositories.mentor_attachment_batches.find_by_id.return_value = batch
+        self.repositories.mentor_attachments.find_by_id.return_value = attachment
+
+        with pytest.raises(MentorAttachmentConflictError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(
+                    submission_key=self.key,
+                    content='',
+                    attachment_batch_id='batch',
+                    attachment_ids=('attachment',),
+                ),
+            )
+
+        assert batch.consumed_by_message_id is None
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_attachments.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_fail_closed_when_identifier_port_cannot_identify_learner_message(
         self,

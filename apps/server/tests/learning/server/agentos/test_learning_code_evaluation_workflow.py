@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, cast
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -15,9 +16,14 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
 from shifu.learning.ai.learning_workflows_registry import LearningWorkflowsRegistry
+from shifu.learning.ai.agno.workflows.evaluate_code_activity_workflow import (
+    AgentOSCodeRubricAssessorProvider,
+    EvaluateCodeActivityWorkflow,
+)
 from shifu.learning.core.domain.entities import ActivityAttempt
 from shifu.learning.core.domain.enums import ActivityAttemptKind
 from shifu.shared.core.domain.structures import (
+    CodeRubricDecisions,
     CodeRubricAssessmentInput,
     CurriculumChoiceActivitySnapshot,
     CurriculumChoiceOptionSnapshot,
@@ -29,6 +35,7 @@ from shifu.shared.core.domain.structures import (
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces import OutboxEvent
+from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from tests.fixtures.agentos_fixture import RegisteredAgentOSFixture
 
 _NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
@@ -191,6 +198,309 @@ def controlled_jev_endpoint(
 
 
 class TestLearningCodeEvaluationWorkflow:
+    def test_workflow_deep_copy_preserves_dependencies_and_applies_updates(self) -> None:
+        prepare = Mock()
+        evaluate = Mock()
+        fail = Mock()
+        assessor = Mock()
+        handoffs = AgentOSHandoffStore()
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare, evaluate, fail, assessor, handoffs
+        )
+        workflow.db = object()
+
+        copied = workflow.deep_copy()
+        updated = workflow.deep_copy(update={'name': 'Updated Learning Workflow'})
+
+        assert copied is not workflow
+        assert copied.db is workflow.db
+        assert updated.name == 'Updated Learning Workflow'
+        assert updated._prepare_use_case is prepare  # noqa: SLF001
+
+    def test_direct_workflow_run_hides_preparation_failures(self) -> None:
+        prepare = Mock()
+        prepare.execute.side_effect = RuntimeError('private persistence detail')
+        evaluate = Mock()
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare, evaluate, Mock(), Mock(), AgentOSHandoffStore()
+        )
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+
+        evaluate.execute.assert_not_called()
+
+    def test_direct_workflow_run_hides_missing_handoff(self) -> None:
+        assessor = Mock()
+        evaluate = Mock()
+        workflow = EvaluateCodeActivityWorkflow(
+            Mock(), evaluate, Mock(), assessor, AgentOSHandoffStore()
+        )
+
+        workflow.run(input={'handoff_ref': 'unknown-handoff-reference-123'})
+
+        assessor.assess.assert_not_called()
+        evaluate.execute.assert_not_called()
+
+    def test_direct_workflow_run_completes_failed_handoff_as_unavailable(self) -> None:
+        assessment = _assessment_request()
+        handoffs = AgentOSHandoffStore()
+        reference = handoffs.create(
+            capability='learning-code-assessment', input_value=assessment
+        )
+        assessor = Mock()
+        assessor.assess.side_effect = RuntimeError('private provider detail')
+        workflow = EvaluateCodeActivityWorkflow(
+            Mock(), Mock(), Mock(), assessor, handoffs
+        )
+
+        workflow.run(input={'handoff_ref': reference})
+
+        assert handoffs.take_result(
+            reference, capability='learning-code-assessment'
+        ) == 'unavailable'
+
+    def test_assessor_adapter_discards_failed_and_rejects_missing_results(self) -> None:
+        assessment = _assessment_request()
+        handoffs = AgentOSHandoffStore()
+        failed_client = Mock()
+        failed_client.submit_workflow.side_effect = RuntimeError('private detail')
+        provider = AgentOSCodeRubricAssessorProvider(failed_client, handoffs)
+
+        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+            provider.assess(assessment)
+        failed_reference = failed_client.submit_workflow.call_args.kwargs['fields'][
+            'handoff_ref'
+        ]
+        with pytest.raises(KeyError):
+            handoffs.read_input(
+                failed_reference, capability='learning-code-assessment'
+            )
+
+        empty_client = Mock()
+        empty_client.submit_workflow.return_value = None
+        provider = AgentOSCodeRubricAssessorProvider(empty_client, handoffs)
+        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+            provider.assess(assessment)
+
+    def test_learning_registry_properties_lifespan_and_idempotent_close(self) -> None:
+        registry = object.__new__(LearningWorkflowsRegistry)
+        runtime = SimpleNamespace(
+            client=object(),
+            observability=object(),
+            start=AsyncMock(),
+            close=AsyncMock(),
+        )
+        handoffs = Mock()
+        database = object()
+        assessor = object()
+        object.__setattr__(registry, '_runtime', runtime)
+        object.__setattr__(registry, '_handoffs', handoffs)
+        object.__setattr__(registry, '_database_port', database)
+        object.__setattr__(registry, '_assessment_provider', assessor)
+        object.__setattr__(registry, '_closed', False)
+
+        assert registry.client is runtime.client
+        assert registry.database is database
+        assert registry.code_rubric_assessor is assessor
+        assert registry.observability is runtime.observability
+
+        async def run_lifespan() -> None:
+            async with registry.lifespan():
+                pass
+
+        asyncio.run(run_lifespan())
+        asyncio.run(registry.close())
+
+        runtime.start.assert_awaited_once()
+        runtime.close.assert_awaited_once()
+        handoffs.clear.assert_called_once()
+
+    def test_learning_registry_closes_after_runtime_start_failure(self) -> None:
+        registry = object.__new__(LearningWorkflowsRegistry)
+        runtime = SimpleNamespace(
+            start=AsyncMock(side_effect=RuntimeError('runtime unavailable')),
+            close=AsyncMock(),
+        )
+        handoffs = Mock()
+        object.__setattr__(registry, '_runtime', runtime)
+        object.__setattr__(registry, '_handoffs', handoffs)
+        object.__setattr__(registry, '_closed', False)
+
+        async def run_lifespan() -> None:
+            async with registry.lifespan():
+                pytest.fail('runtime startup should fail')
+
+        with pytest.raises(RuntimeError, match='runtime unavailable'):
+            asyncio.run(run_lifespan())
+
+        runtime.close.assert_awaited_once()
+        handoffs.clear.assert_called_once()
+
+    def test_learning_registry_without_runtime_fails_closed(self) -> None:
+        registry = object.__new__(LearningWorkflowsRegistry)
+        handoffs = Mock()
+        object.__setattr__(registry, '_runtime', None)
+        object.__setattr__(registry, '_handoffs', handoffs)
+        object.__setattr__(registry, '_closed', False)
+
+        with pytest.raises(ServiceUnavailableError):
+            _ = registry.client
+        assert registry.observability is None
+
+        async def run_lifespan() -> None:
+            async with registry.lifespan():
+                pytest.fail('lifespan should not start without an AgentOS runtime')
+
+        with pytest.raises(ServiceUnavailableError):
+            asyncio.run(run_lifespan())
+        asyncio.run(registry.close())
+        handoffs.clear.assert_called_once()
+
+    def test_unavailable_learning_assessor_returns_safe_error(self) -> None:
+        from shifu.learning.ai.learning_workflows_registry import (
+            _UnavailableCodeRubricAssessorProvider,
+        )
+
+        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+            _UnavailableCodeRubricAssessorProvider().assess(_assessment_request())
+
+    def test_agentos_assessor_consumes_a_workflow_handoff_result(self) -> None:
+        handoffs = AgentOSHandoffStore()
+        decisions = CodeRubricDecisions(criterion_levels=(), concept_levels=())
+        client = Mock()
+
+        def complete_handoff(**kwargs: object) -> None:
+            fields = cast('dict[str, str]', kwargs['fields'])
+            handoffs.complete(
+                fields['handoff_ref'],
+                capability='learning-code-assessment',
+                result_value=decisions,
+            )
+
+        client.submit_workflow.side_effect = complete_handoff
+        provider = AgentOSCodeRubricAssessorProvider(client, handoffs)
+
+        assert provider.assess(_assessment_request()) == decisions
+        client.submit_workflow.assert_called_once()
+
+    def test_direct_workflow_run_leaves_stale_attempt_unchanged(self) -> None:
+        prepare = Mock()
+        prepare.execute.return_value = None
+        evaluate = Mock()
+        fail = Mock()
+        assessor = Mock()
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare,
+            evaluate,
+            fail,
+            assessor,
+            AgentOSHandoffStore(),
+        )
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+
+        assessor.assess.assert_not_called()
+        evaluate.execute.assert_not_called()
+        fail.execute.assert_not_called()
+
+    def test_direct_workflow_run_rejects_malformed_input_safely(self) -> None:
+        workflow = EvaluateCodeActivityWorkflow(
+            Mock(), Mock(), Mock(), Mock(), AgentOSHandoffStore()
+        )
+
+        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+            workflow.run(input={'attempt_id': 'attempt-1'})
+
+    def test_direct_workflow_run_completes_assessment_handoff(self) -> None:
+        assessment = _assessment_request()
+        handoffs = AgentOSHandoffStore()
+        reference = handoffs.create(
+            capability='learning-code-assessment', input_value=assessment
+        )
+        assessor = Mock()
+        decisions = CodeRubricDecisions(criterion_levels=(), concept_levels=())
+        assessor.assess.return_value = decisions
+        workflow = EvaluateCodeActivityWorkflow(
+            Mock(), Mock(), Mock(), assessor, handoffs
+        )
+
+        workflow.run(input={'handoff_ref': reference})
+
+        assessor.assess.assert_called_once_with(assessment)
+        assert handoffs.take_result(
+            reference, capability='learning-code-assessment'
+        ) == decisions
+
+    def test_direct_workflow_run_completes_invalid_handoff_as_unavailable(self) -> None:
+        handoffs = AgentOSHandoffStore()
+        reference = handoffs.create(
+            capability='learning-code-assessment', input_value=object()
+        )
+        assessor = Mock()
+        workflow = EvaluateCodeActivityWorkflow(
+            Mock(), Mock(), Mock(), assessor, handoffs
+        )
+
+        workflow.run(input={'handoff_ref': reference})
+
+        assessor.assess.assert_not_called()
+
+    def test_direct_workflow_run_prepares_assesses_and_applies_code_decisions(self) -> None:
+        assessment = _assessment_request()
+        prepare = Mock()
+        prepare.execute.return_value = SimpleNamespace(
+            attempt_id='attempt-1',
+            run_id='run-1',
+            questions=(
+                SimpleNamespace(question_key='question-1', assessment_input=assessment),
+            ),
+        )
+        evaluate = Mock()
+        fail = Mock()
+        assessor = Mock()
+        assessor.assess.return_value = object()
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare,
+            evaluate,
+            fail,
+            assessor,
+            AgentOSHandoffStore(),
+        )
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+
+        prepare.execute.assert_called_once_with('attempt-1', 'run-1')
+        assessor.assess.assert_called_once_with(assessment)
+        evaluate.execute.assert_called_once()
+        fail.execute.assert_not_called()
+
+    def test_direct_workflow_run_fails_closed_when_assessment_fails(self) -> None:
+        assessment = _assessment_request()
+        prepare = Mock()
+        prepare.execute.return_value = SimpleNamespace(
+            attempt_id='attempt-1',
+            run_id='run-1',
+            questions=(
+                SimpleNamespace(question_key='question-1', assessment_input=assessment),
+            ),
+        )
+        evaluate = Mock()
+        fail = Mock()
+        assessor = Mock()
+        assessor.assess.side_effect = RuntimeError('private provider detail')
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare,
+            evaluate,
+            fail,
+            assessor,
+            AgentOSHandoffStore(),
+        )
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+
+        fail.execute.assert_called_once_with('attempt-1', 'run-1')
+        evaluate.execute.assert_not_called()
+
     def test_learning_event_projector_rejects_incomplete_events(self) -> None:
         name = 'learning/activity-submission.requested'
 

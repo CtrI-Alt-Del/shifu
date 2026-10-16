@@ -78,8 +78,8 @@ if TYPE_CHECKING:
     from tests.fixtures.agentos_fixture import RegisteredAgentOSFixture
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
-    from shifu.shared.messaging.agentos.agentos_observability import (
-        AgentOSObservability,
+    from shifu.shared.providers.langfuse_telemetry_provider import (
+        LangfuseTelemetryProvider,
     )
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
         AgentOSHandoffStore,
@@ -206,12 +206,14 @@ class _RuntimeDouble:
         self,
         *,
         workflow_event_projector: _Projector,
-        observability: AgentOSObservability | None,
+        observability: LangfuseTelemetryProvider | None,
         **_configuration: object,
     ) -> None:
         self.client: AgentOSClient = cast('AgentOSClient', object())
         self.workflow_event_projector = workflow_event_projector
-        self.observability = observability or cast('AgentOSObservability', object())
+        self.observability = observability or cast(
+            'LangfuseTelemetryProvider', object()
+        )
         self.start_count = 0
         self.close_count = 0
         self.start_error: BaseException | None = None
@@ -275,7 +277,7 @@ def _registry_harness(
     monkeypatch: pytest.MonkeyPatch,
     *,
     agentos_enabled: bool = False,
-    observability: AgentOSObservability | None = None,
+    observability: LangfuseTelemetryProvider | None = None,
 ) -> Generator[_RegistryHarness]:
     storage = _StorageProvider()
     client = _TrackedHttpClient()
@@ -294,7 +296,7 @@ def _registry_harness(
                     '_Projector', kwargs['workflow_event_projector']
                 ),
                 observability=cast(
-                    'AgentOSObservability | None', kwargs.get('observability')
+                    'LangfuseTelemetryProvider | None', kwargs.get('observability')
                 ),
             )
             runtime_instances.append(self)
@@ -491,7 +493,7 @@ def test_registry_lifespan_fails_closed_without_runtime_and_close_is_idempotent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     with _registry_harness(monkeypatch) as harness:
-        assert harness.registry.observability is None
+        assert harness.registry.observability is not None
         with pytest.raises(ServiceUnavailableError, match='AGENTOS_DATABASE_URL'):
             _ = harness.registry.client
 
@@ -510,7 +512,7 @@ def test_registry_lifespan_fails_closed_without_runtime_and_close_is_idempotent(
 def test_registry_runtime_starts_and_releases_owned_resources(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    observability = cast('AgentOSObservability', object())
+    observability = cast('LangfuseTelemetryProvider', object())
     with _registry_harness(
         monkeypatch,
         agentos_enabled=True,

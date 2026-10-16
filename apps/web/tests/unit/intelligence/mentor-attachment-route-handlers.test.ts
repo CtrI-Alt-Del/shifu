@@ -243,7 +243,7 @@ describe('Mentor attachment API route handlers', () => {
       )
       const oversizedStream = await postUpload(bodyLimitRequest())
       const oversizedFile = await postUpload(
-        uploadRequest({ contents: new Uint8Array(10_000_001) }),
+        uploadRequest({ contents: new Uint8Array(2_000_001) }),
       )
 
       await expectPrivateFailure(

@@ -1,7 +1,7 @@
 ---
 title: Anexos privados do Mentor e workflows de IA com Agno AgentOS
-status: ready
-revision: 8
+status: completed
+revision: 13
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103
@@ -10,19 +10,22 @@ scope:
   - learning
   - shared runtime and private object storage
   - mentor UI and authenticated BFF
+  - local Langfuse agent monitoring
   - observability, evals and server/web CI
-last_updated_at: 2026-10-14
+last_updated_at: 2026-10-16
 ---
 
 # Objective
 
 Modo **complete**. Entregar SHIFU-103 com anexos privados e análise de arquivos
 no Mentor, executando todos os fluxos ativos de IA por Agno AgentOS nos módulos
-proprietários, substituindo a telemetria ativa Langfuse e estabelecendo evals
+proprietários, usando Langfuse para monitoramento operacional e estabelecendo evals
 versionados e gates de CI. Esta é a única Spec da entrega; runtime, anexos,
-armazenamento, UI, avaliação e CI são partes do mesmo contrato.
+armazenamento, UI, avaliação e CI são partes do mesmo contrato. O monitoramento usa a UI local nativa do Langfuse e spans sanitizados dos dois
+módulos. AgentOS permanece o runtime privado; a ferramenta de dashboard customizado
+da revisão 9 é substituída por pedido explícito do usuário em 2026-10-16.
 
-O aprendiz envia texto obrigatório com até cinco arquivos, consulta previews de
+O aprendiz envia texto, até cinco arquivos sem texto, ou ambos, consulta previews de
 imagem no histórico e recebe respostas com fontes reais e limites de leitura.
 S3 privado é a implementação de produção; MinIO é usado no desenvolvimento local.
 Intelligence continua dono das experiências de IA e do lifecycle dos anexos;
@@ -46,6 +49,7 @@ para respostas do Mentor fica restrita à interpretação e consulta de anexos.
 | Learning | LearningWorkflowsRegistry e AgentOS interno próprio; avaliação de código preliminar, oficial, diagnóstica e revisão; separação do job misto atual | Alterar pesos, modelos de questão, notas, feedback, progresso ou prática no navegador |
 | Shared | AgentOSBroker reutilizável, cliente interno, settings e exportação filtrada; recursos PostgreSQL/Redis separados por módulo | Regras dos módulos; substituir jobs sem IA do Inngest |
 | Desenvolvimento e operação | Execução interna autenticada; migrations; fixtures descartáveis; traces filtrados; CI Server/Web com jobs independentes e build próprio, sem verify | Expor APIs nativas ao browser; apagar histórico/volumes do Langfuse |
+| Operação local | UI local nativa do Langfuse no profile Compose existente; exportação operacional opcional dos dois módulos | Dashboard customizado, control plane hospedado AgentOS, exposição de APIs AgentOS ao browser ou mudanças de comportamento do aprendiz |
 | Qualidade | Prompts nos agentes e datasets sintéticos no Git; Eval Suites completas obrigatórias na validação, execução real explicitamente habilitada e relatórios | Studio, publicação de prompts independente do deploy, datasets com dados de produção |
 
 Disposição de produto: Intelligence RP-01/03/04/05/06/11/13 **partial**, apenas
@@ -57,7 +61,7 @@ Os resultados completos dos PRDs não são declarados implementados por esta mig
 
 | Área / ator | Incluído | Excluído ou adiado |
 | --- | --- | --- |
-| Aprendiz autenticado | PNG, JPG/JPEG, WebP, PDF, JSON, CSV, TXT; texto obrigatório; até 5 arquivos de até 10 MB cada | Envio só de arquivos, áudio/vídeo, outros formatos, compartilhamento |
+| Aprendiz autenticado | PNG, JPG/JPEG, WebP, PDF, JSON, CSV, TXT; texto opcional quando há anexos utilizáveis; até 5 arquivos de até 2 MB cada | Mensagem sem texto e sem anexos, áudio/vídeo, outros formatos, compartilhamento |
 | Compositor e histórico | Página/FAB, desktop/mobile, preparação individual, remoção/substituição antes de enviar, preview de imagem, reabertura autorizada | Editar mensagem ou substituir arquivo já enviado |
 | Análise | Extração local, interpretação visual elegível, recuperação mínima de trechos, PDFs textuais/escaneados, fontes e cobertura parcial | Internet, plugins/OCR externos sem elegibilidade, executar arquivos/código |
 | Persistência e operação | S3 privado, MinIO local, metadados/chunks com escopo, lifecycle e reconciliação | Alterar política de retenção; concluir o fluxo ausente de encerramento de conta |
@@ -88,8 +92,9 @@ Prefixos `I:` e `L:` identificam respectivamente Intelligence e Learning nas fon
 | RF-04 | I:RP-03/11/13; L:RP-06/07/14/21/22/29 | Autorização é revalidada antes de executar e antes de aplicar efeitos. Cancelamento, exclusão, encerramento de conta, abandono de diagnóstico e substituição de experiência invalidam resultados antigos. Runtime não recria objetos excluídos. |
 | RF-05 | L:RP-11/12/13/20/24/27 | Jev mantém decisões fechadas sobre snapshot autorizado. Learning valida chaves/níveis, calcula nota e efeitos; falha/inconclusivo obrigatório nunca vira zero, nota parcial ou redistribuição de pesos. Revisão preserva resultado oficial concluído e diagnóstico não revela resultados individuais. |
 | RF-06 | I:RP-01/11/13; L:RP-24/29 | Inferência principal, alternativa e juiz de eval usam endpoint elegível ZDR e logging de prompts desligado no agregador. Tokens, credenciais, prompts, conteúdo privado e respostas brutas não entram em traces/logs/registros operacionais do AgentOS. Configuração inadequada falha de forma segura. |
-| RF-07 | I:RP-13; L:RP-29; substituição aprovada | AgentOS substitui o uso atual do Langfuse; telemetria contém somente atributos permitidos e tokens/custo efetivamente informados. Falha de telemetria não causa falha de negócio. Histórico do Langfuse não é apagado. |
+| RF-07 | I:RP-13; L:RP-29; correção explícita do usuário 2026-10-16 | AgentOS permanece o runtime de agentes/workflows e Langfuse fornece monitoramento opcional. A exportação contém somente atributos permitidos e tokens/custo efetivamente informados; nenhuma falha de configuração/exportação pode impedir execução ou efeitos de negócio. Histórico/volumes existentes do Langfuse são preservados. |
 | RF-08 | I:RP-01/13; L:RP-11/24; suíte aprovada | Regressão usa prompts e casos sintéticos versionados, identifica versão/modelo e retorna relatório e exit code. Suites de agentes não substituem testes de execução dos workflows, persistência ou autorização. |
+| RF-18 | Pedido explícito de AgentOS para runtime e Langfuse para monitoramento local | `MENTOR_TELEMETRY_ENABLED` é falso por padrão e habilita monitoramento operacional de Intelligence e Learning somente com chaves válidas e endpoint Langfuse configurados. Um cliente SDK isolado é criado no lifespan, compartilhado pelos registries e encerrado após eles; sem opt-in/chaves não existe exportação nem fallback para cloud. A UI oficial local do Langfuse usa o profile Compose existente em loopback. Spans/generations preservam correlação opaca, módulo, stage, perfil, duração medida, outcome, counts permitidos e uso/custo realmente informado. Prompts, respostas, anexos, ferramentas privadas, IDs de usuário/session/attempt e exceções brutas nunca são exportados, mesmo com o flag legado de conteúdo ativo. Não há instrumentação automática, UI customizada ou montagem pública de routers AgentOS. |
 
 | ID | RF coverage | Given | When | Then | Checks |
 | --- | --- | --- | --- | --- | --- |
@@ -100,13 +105,14 @@ Prefixos `I:` e `L:` identificam respectivamente Intelligence e Learning nas fon
 | CA-05 | RF-06/07 | Marcadores sintéticos em conteúdo, erro e credencial | Executar sucesso, timeout, retry e falha de tracing | Nenhum marcador privado no DB/queue/traces/logs; atributos permitidos presentes; custo ausente não inventado; endpoint inelegível não chamado | CI-03/05 |
 | CA-06 | RF-08 | Versão fixa de prompt/modelo e dataset sintético | Executar suite selecionada e caso propositalmente reprovado | Relatório reproduzível por configuração, sem alegar determinismo do modelo; reprovação retorna exit não zero; nenhuma escrita de produto | CI-06 |
 | CA-07 | RF-01/03 | Migração aplicada e jobs sem IA registrados | Executar job determinístico Learning e consumidores preservados | Inngest mantém caminho sem IA; somente um destino executa cada pedido misto/legado | CI-03/04/07 |
+| CA-15 | RF-07/18 | Langfuse local e app com registries Intelligence/Learning; inferência controlada e marcadores privados sintéticos | Executar workflows registrados com monitoramento desabilitado, habilitado e exportador indisponível | Sem opt-in/chaves não há chamadas de monitoramento; com opt-in há spans sanitizados/correlacionados dos dois módulos no Langfuse, métricas reais preservadas e ausentes não inventadas; falha de exportação preserva o resultado de negócio; cliente fecha após os registries; UI local permite consultar traces sem conteúdo privado; AgentOS permanece o runtime | CI-05/20; VM-05 |
 
 ### Anexos, fontes e lifecycle
 
 | ID | RP/JN/source coverage | Observable required behavior |
 | --- | --- | --- |
-| RF-09 | RP-16; JN-20; SHIFU-103 | Informar formatos/limites antes de selecionar; validar individualmente, máximo 5 arquivos e10MB por arquivo. Texto não vazio continua obrigatório. Arquivos inválidos/falhos não apagam texto ou irmãos. |
-| RF-10 | RP-03/06/16 | Preparar arquivos no draft sem criar conversa vazia. Upload/processamento/status independentes. Envio associa somente arquivos prontos/parciais autorizados, texto e resposta à mensagem de forma atômica; falha impede envio até remover/substituir o arquivo. |
+| RF-09 | RP-16; JN-20; SHIFU-103 | Informar formatos/limites antes de selecionar; validar individualmente, máximo 5 arquivos e2MB por arquivo. Texto é opcional com ao menos um anexo próprio pronto/parcial selecionado; sem anexos, texto não vazio continua obrigatório. Arquivos inválidos/falhos não apagam texto ou irmãos. |
+| RF-10 | RP-03/06/16 | Preparar arquivos no draft sem criar conversa vazia. Upload/processamento/status independentes. Envio associa somente arquivos prontos/parciais autorizados, texto opcional e resposta à mensagem de forma atômica; falha impede envio até remover/substituir o arquivo. |
 | RF-11 | RP-03/12/16; preview solicitado | Página e FAB compartilham draft; imagens exibem preview no compositor e na mensagem histórica. Demais formatos exibem nome, tipo, tamanho e estado. Reabrir conversa mantém anexos reais e privados. |
 | RF-12 | RP-16 | Extrair texto localmente e interpretar imagem/página escaneada somente por inferência elegível. Distinguir páginas analisadas, ilegíveis e não interpretadas. Arquivo totalmente ilegível falha; parcial utilizável pode prosseguir com limitação explícita. |
 | RF-13 | RP-04/05/16 | Consultar apenas anexos da conversa atual quando necessários. Respostas identificam arquivo e página/trecho real; não alegam ler partes não analisadas. Aceitar texto indicando páginas/trechos específicos; fonte inacessível não é usada. |
@@ -117,13 +123,14 @@ Prefixos `I:` e `L:` identificam respectivamente Intelligence e Learning nas fon
 
 | ID | RF coverage | Given | When | Then | Checks |
 | --- | --- | --- | --- | --- | --- |
-| CA-08 | RF-09/10 | Draft com texto e seleção | Selecionar0/1/5/6 arquivos, limites e formatos válidos/inválidos | Limites por arquivo, erro identificado, texto/irmãos preservados; texto em branco nunca envia; zero arquivos conserva comportamento local | CI-11/12/14 |
+| CA-08 | RF-09/10 | Draft com texto e seleção | Selecionar0/1/5/6 arquivos, limites e formatos válidos/inválidos | Limites por arquivo, erro identificado, texto/irmãos preservados; texto em branco envia somente com seleção autorizada pronta/parcial não vazia; zero arquivos exige texto | CI-11/12/14 |
 | CA-09 | RF-10/11 | Nova conversa ou conversa selecionada | Preparar e enviar; repetir chave; alternar página/FAB | Nenhuma conversa vazia; associação única e imutável; mesmos arquivos/texto replay, divergência conflito; preview e estado compartilhados | CI-11/12/14; VM-02/03/04 |
 | CA-10 | RF-12 | Arquivos de cada formato, PDF textual/escaneado/misto | Processar e falhar parcialmente | Conteúdo real ou falha segura; cobertura por página correta, irmãos preservados e parcial explicado | CI-13/16 |
 | CA-11 | RF-13/14 | Arquivo da própria conversa e contexto autorizado | Perguntar geral, pedir parte específica ou tentar bypass | Geral permanece local; somente trechos necessários entram em inferência; referências reais e cobertura explícita; diagnóstico/acesso bloqueado prevalecem | CI-13/15/16 |
 | CA-12 | RF-15/16 | Contas A/B e arquivo privado | Ler/trocar IDs, revogar acesso, cancelar/excluir durante processamento | Acesso não autorizado negado; nenhuma URL pública/secret leak; callbacks tardios não escrevem nem recriam; cleanup comprovado | CI-11/12/13 |
 | CA-13 | RF-11 | Mensagem com imagem e outros formatos | Reabrir e navegar por teclado no desktop/mobile | Preview histórico carregado pela BFF privada, alt/nome acessível, fontes navegáveis, composer alcançável sem overflow | CI-14/15; VM-02/03/04 |
 | CA-14 | RF-17 | Arquivo descreve pessoa ou dificuldade | Analisar com/sem declaração pessoal | Nenhuma criação de memória neste slice; nenhuma inferência pessoal tácita | CI-13/16 |
+| CA-16 | RF-09/10/11/13 | Nova conversa ou conversa existente, texto vazio ou só espaços, e anexo próprio pronto/parcial | Enviar e repetir a mesma chave; reabrir histórico | Mensagem com conteúdo original sem legenda fabricada e anexos reais; título inicial seguro; resposta local pede a intenção sem inferência extra; replay não duplica. Sem anexo, ou com seleção inválida/falha/em preparo, não envia | CI-21; VM-06 |
 
 # Technical Contract
 
@@ -157,7 +164,8 @@ Rule Pack: [Python](../../../rules/python-conventions-rules.md),
 [AI](../../../rules/ai-layer-rules.md),
 [Use cases](../../../rules/use-case-testing-rules.md),
 [Controllers](../../../rules/controllers-testing-rules.md),
-[Jobs](../../../rules/jobs-testing-rules.md).
+[Jobs](../../../rules/jobs-testing-rules.md),
+[UI](../../../rules/ui-layer-rules.md).
 
 As regras atuais exigem Inngest para durabilidade/prova de IA e proíbem suites
 diretas de agentes. O pedido aprovado autoriza alterar essas autoridades na
@@ -176,10 +184,11 @@ Nenhuma redução das garantias de integração, privacidade ou domínio é auto
 | Delete after consumer migration | Legacy global assembly | `composition/mentor_answer_runtime.py`, `composition/mentor_telemetry.py` | Mover a montagem de dependências específicas para IntelligenceWorkflowsRegistry; app.py recebe ports dos registries, sem montar workflows individuais |
 | Create | Module workflows | `intelligence/ai/agno/workflows/`, `learning/ai/agno/workflows/` | Um Workflow nativo registrado por operação, com Steps de preparação, inferência e conclusão; sem Workflow filho de entrega ou inferência |
 | Delete/Modify | Migrated consumers | Job Inngest de resposta do Mentor, registro Learning misto e fixtures legadas | Remover caminho Mentor antigo; manter ramo determinístico Learning; migrar todas as seleções afetadas, incluindo NLP e privacidade, para o runtime correspondente |
-| Replace | Telemetry | `LangfuseMentorTelemetryProvider`, `composition/mentor_telemetry.py` | Preservar Core port; substituir adapter por AgentOS/OpenTelemetry filtrado; remover dependência/config ativa Langfuse com lockfile, sem apagar dados |
+| Restore/Modify | Telemetry | `shared/providers/langfuse_telemetry_provider/`, `intelligence/providers/telemetry/langfuse/`, `composition/agent_monitoring.py`, settings e dependências | Preservar Core port e projeção operacional fechada; restaurar SDK/config Langfuse, usar um cliente isolado no lifespan e compartilhar entre módulos; falha de exportação não altera execução |
 | Modify | CI | `.github/workflows/server-app-ci.yaml` | Separate types/lint/architecture/unit/integration/build/mutation-shards/evals jobs; controllers and all jobs in one integration job; unfiltered real evals and individual job status with no verify aggregate; preserve auxiliary proof |
 | Modify | Web CI | `.github/workflows/web-app-ci.yaml` | Independent type-check/lint-check/architecture-check/unit-tests/integration-tests/build jobs; remove verify; preserve commands, browser infrastructure, triggers and reports |
 | Create | Quality | `apps/server/evals/`, scripts de cobertura e fixture AgentOS | Suites completas e relatórios obrigatórios; execução real explicitamente habilitada, infraestrutura real descartável; métricas por arquivo explícito |
+| Modify/Delete | Local operations | Profile Langfuse no `docker-compose.yaml`, exemplos env e Tooling; remover script/view/API customizados da revisão 9 | Reusar UI Langfuse local e volumes existentes; preservar AgentOS interno e sua autenticação privada; nenhum reset de dados |
 
 Árvore esperada, caminhos novos são **planned**; helpers privados podem variar:
 
@@ -199,7 +208,7 @@ apps/server/
       core/interfaces/[M] events_repository.py
       core/interfaces/[M] outbox_event.py
       messaging/
-        agentos/[N] agentos_settings.py, agentos_broker.py, agentos_client.py, agentos_observability.py
+        agentos/[N] agentos_settings.py, agentos_broker.py, agentos_client.py
         inngest/[M] inngest_broker.py
       database/sqlalchemy/repositories/[M] events_repository.py
     intelligence/
@@ -212,7 +221,7 @@ apps/server/
       providers/
         mentor_title/agentos/[N] agentos_mentor_title_provider.py
         code_rubric_assessor/agentos/[N] agentos_code_rubric_assessor_provider.py
-        telemetry/agentos/[N] agentos_mentor_telemetry_provider.py
+        telemetry/langfuse/[M] langfuse_mentor_telemetry_provider.py
       core/domain/structures/[N] prepared_mentor_response.py
       core/use_cases/[N] prepare_mentor_response_use_case.py, publish_mentor_response_block_use_case.py, assert_mentor_response_current_use_case.py, renew_mentor_response_claim_use_case.py, release_mentor_response_claim_use_case.py, fail_mentor_response_use_case.py, record_mentor_inference_usage_use_case.py
       core/use_cases/[M] finalize_mentor_response_use_case.py
@@ -248,8 +257,8 @@ CI workflow files are selected from the actual affected registration and fixture
 Server integration selection must include the new real runtime and retain non-AI
 Inngest checks. Update `.env.example` files for typed server-only settings.
 Existing legacy title classes under `ai/generative/agno` are removed only after
-all composed consumers switch. Old Langfuse integration tests are replaced by
-privacy/telemetry runtime cases, not silently retained as dormant passing evidence.
+all composed consumers switch. Legacy Inngest-specific Langfuse tests are migrated to registered AgentOS
+consumer cases with the actual SDK/export transport and privacy assertions.
 
 ### Workflow-named eval classes and single runner
 
@@ -627,7 +636,7 @@ class IntelligenceWorkflowsRegistry:
     MODULE_ID: ClassVar[str] = 'intelligence'
 
     def __init__(self, settings: AgentOSSettings,
-                 observability: AgentOSObservability,
+                 observability: LangfuseTelemetryProvider,
                  access_provider: MentorAccessProvider,
                  context_provider: MentorContextProvider,
                  catalog_provider: MentorCatalogProvider) -> None: ...
@@ -645,7 +654,7 @@ class LearningWorkflowsRegistry:
     MODULE_ID: ClassVar[str] = 'learning'
 
     def __init__(self, settings: AgentOSSettings,
-                 observability: AgentOSObservability,
+                 observability: LangfuseTelemetryProvider,
                  assessor: CodeRubricAssessorProvider,
                  access_provider: MentorAccessProvider,
                  curriculum_content_provider: CurriculumContentProvider) -> None: ...
@@ -773,10 +782,16 @@ titles; downgrade applicability is documented and verified in disposable DBs.
 ### Internal surface and privacy
 
 Each module registry owns its internal ASGI app/client and native AgentOS lifespan.
-The global app lifecycle starts/stops registries only; in-process authenticated
+The global app lifecycle owns the optional monitoring client and module registries:
+create/bind monitoring before starting registries, stop registries in reverse order,
+then drain/close monitoring; in-process authenticated
 HTTP transport calls the intended module app without a public mount.
 Native AgentOS routers must not be appended to Shifu's public FastAPI application.
 No public access to sessions, agents, workflows, evals, files, scheduler or traces.
+Local monitoring uses Langfuse's existing self-hosted UI at `http://localhost:7003`.
+It remains separate from Shifu's API and from the internal AgentOS apps. Remove
+revision 9's custom viewer and settings; preserve the existing Compose services,
+projects, credentials and history. No AgentOS control plane connection is required.
 Service auth, explicit route allowlist and docs disabled apply to the internal
 surface; native auth is not a substitute for Shifu account/resource authorization.
 
@@ -800,21 +815,28 @@ db inheritance or store flags alone cannot justify private payloads in run recor
 No handoff token is returned to browser or written to traces.
 
 `MentorTelemetryProvider.scope` and `record_inference` remain the public port.
-Replace concrete Langfuse references in routing with that port. Install the actual
-OpenInference instrumentation extras needed for Agno 3.1.2; successful startup is
-not proof of tracing because missing instrumentation currently only warns.
-Configure the process-wide OpenTelemetry provider once before module registries start;
-remove active Langfuse exporter registration. AgentOS setup_tracing does not expose
-a sanitizer and does not replace an existing TracerProvider. Therefore install
-an explicit pre-export allowlist processor/export boundary, or emit only safe
-manual spans into the native trace store. Unfiltered native spans never reach DB.
+The module registries compose scoped `LangfuseTelemetryProvider` instances from a
+single optional process-owned Langfuse SDK client. Create it inside the FastAPI
+lifespan, bind it before module execution starts, then flush/shutdown off the event
+loop after both registries stop. Import/registration must not start exporter threads.
+SDK version 3 uses the explicit local base URL, configured project keys and ingestion
+version 4 header. Use a dedicated OpenTelemetry TracerProvider supplied only to this
+client; never install it globally or attach automatic Agno/HTTP/model instrumentors.
+Inference and review share a random per-execution correlation token held only in
+private in-memory state; it survives bounded review iteration and is reset on exit.
+Exporters pseudonymize UUID correlations so business identifiers never leave the process.
 
-Module registries receive the shared filtered observability service. The single
-process-wide tracer exports safe spans to the intended module trace store using a
-trusted module_id; neither registry calls setup_tracing to replace global state.
-Both native AgentOS instances keep unchecked automatic tracing disabled.
+Manual spans/generations export the existing closed operational projection to
+Langfuse. `duration_ms` retains the measured operation duration; SDK v3 creates the
+observation after the operation and its native span timing reflects export recording,
+so this metadata is authoritative for operation duration. Real input/output/total
+usage and cost are included only when provided, without guessing missing metrics.
+Native AgentOS automatic tracing remains disabled. Its operational run/job persistence
+remains mandatory for recovery; the monitoring path does not write AgentOS trace tables.
+A legacy content flag never enables answer/review capture. Monitoring unavailable,
+missing keys, exporter rejection or shutdown errors cannot change business outcomes.
 
-Allowed attributes: trusted module_id, random correlation ID, capability/stage, model profile,
+Allowed attributes: trusted module, random correlation ID, capability/stage, model profile,
 duration, safe outcome/failure class, and actual finite token/cost usage. Drop
 user/session IDs, private inputs/outputs/tools, raw exception names/messages,
 prompts and hidden reasoning from names, attributes, events and status descriptions.
@@ -898,6 +920,8 @@ apps/server/
       core/interfaces/[N] file_storage_provider.py
       providers/s3_file_storage_provider/[N] s3_file_storage_provider.py
       pipes/[N] file_storage_pipe.py
+  src/shifu/composition/[N] agent_monitoring.py
+  src/shifu/shared/providers/langfuse_telemetry_provider/[N] langfuse_telemetry_provider.py
   tests/
     fixtures/[N] agentos_fixture.py
     fixtures/[N] mentor_attachment_fixture.py
@@ -906,6 +930,7 @@ apps/server/
     intelligence/server/controllers/[N] test_create_mentor_attachment_batch_controller.py, test_upload_mentor_attachment_controller.py, test_get_mentor_attachment_batch_controller.py, test_remove_mentor_attachment_controller.py, test_read_mentor_attachment_controller.py
     intelligence/server/controllers/[M] test_create_mentor_session_controller.py, test_submit_mentor_message_controller.py, test_get_mentor_session_controller.py
     intelligence/server/agentos/[N] test_prepare_mentor_attachment_workflow.py, test_purge_mentor_attachments_workflow.py, test_answer_mentor_attachments_workflow.py
+    intelligence/server/agentos/[N] test_agent_monitoring_workflow.py
   evals/[N] process_mentor_response_eval.py, prepare_mentor_attachment_eval.py
   evals/[N] run.py
   evals/data/[N] mentor-attachments.json
@@ -1205,7 +1230,7 @@ Responses and failures have private/no-store, nosniff and safe filename headers.
 Do not serve JSON/TXT/CSV as active HTML. No range/inline PDF viewer is introduced.
 New preparation subtree receives the existing Mentor privacy middleware guarantees.
 Body limit applies before buffering multipart, including concurrent uploads and
-chunked transfer; enforce10_000_000 bytes per file and bounded request overhead.
+chunked transfer; enforce2_000_000 bytes per file and bounded request overhead.
 
 Existing POST `/mentor-sessions` and POST `/mentor-sessions/{session_id}/messages`
 retain201/200 replay and202/200 replay respectively. Omitted attachment fields
@@ -1286,6 +1311,63 @@ child renders validated file/page/chunk references and triggers the owning read.
 No hooks/tests are fabricated for pure structural children. Existing message
 order, streaming sequence/reconnect and cancellation state remain unchanged;
 extend validation for structured citations and reject unknown/cross-session refs.
+
+### Revision 11 — Attachment-only messages
+
+Explicit user request on 2026-10-16 supersedes the local text-mandatory decision.
+Intelligence RP-06/16 and JN-20 accept messages and files without prescribing a
+mandatory caption; no Confluence/Jira write is required or authorized.
+
+Create-session `first_message` and continuation `content` remain required string
+fields, but may be empty/whitespace when a nonempty attachment selection is
+provided. Existing batch pairing, owner, session, generation, readiness, limits,
+access, pending-response and atomic consumption checks still validate the actual
+selected attachments before writes. Arbitrary IDs cannot substitute for content.
+HTTP rejects blank text without attachments with422. Core rejects the same input
+without persisting messages, sessions, attempts or consuming a batch. No migration:
+message content already accepts strings, including empty strings. Preserve raw API
+content and replay fingerprint semantics; Web preserves nonblank draft content and sends `''` for an empty/whitespace draft. No fabricated learner text.
+
+For a first message without nonblank text, use `Conversa com anexos` without a
+blank title-model request; normal text titles retain RF-02. The response keeps
+existing authorization/context/claim/finalization checks and returns local
+clarification `Como posso ajudar com os anexos?` without route/model inference
+or invented instructions. Subsequent explicit questions use the existing attachment
+retrieval pipeline. History renders actual attachments without an empty text bubble.
+Page/FAB share send eligibility, remove the mandatory-text helper, preserve draft,
+files and the existing stable replay key on an unchanged failed submission.
+
+Affected declarations are the existing `CreateMentorSessionUseCase.execute`,
+`SubmitMentorMessageUseCase.execute`, `MentorSubmission`, their two HTTP request
+schemas, response preparation and Web operation validators; public names and
+payload keys remain unchanged. Scope-specific expected tree (all modifications):
+
+```text
+apps/server/src/shifu/intelligence/
+  core/domain/structures/[M] mentor_submission.py
+  core/use_cases/[M] create_mentor_session_use_case.py
+  core/use_cases/[M] submit_mentor_message_use_case.py
+  core/use_cases/[M] prepare_mentor_response_use_case.py
+  rest/controllers/[M] create_mentor_session_controller.py
+  rest/controllers/[M] submit_mentor_message_controller.py
+apps/server/tests/intelligence/
+  core/use_cases/[M] test_create_mentor_session_use_case.py
+  core/use_cases/[M] test_submit_mentor_message_use_case.py
+  core/use_cases/[M] test_prepare_mentor_response_use_case.py
+  server/controllers/[M] test_create_mentor_session_controller.py
+  server/controllers/[M] test_submit_mentor_message_controller.py
+apps/web/src/ui/intelligence/
+  hooks/[M] use-create-mentor-session-action.ts
+  hooks/[M] use-submit-mentor-message-action.ts
+  contexts/mentor-context/[M] use-mentor-context-provider.ts
+  contexts/mentor-context/tests/[M] use-mentor-context-provider.test.ts
+  contexts/mentor-context/tests/[M] mentor-transport-consumer.test.tsx
+  widgets/components/mentor-chat/conversation/
+    composer/[M] index.tsx, use-composer.ts
+    composer/tests/[M] composer.test.tsx, use-composer.test.ts
+    message-list/message-item/[M] index.tsx
+    message-list/message-item/tests/[M] message-item.test.tsx
+```
 
 ### Processing, storage and transactions
 
@@ -1421,8 +1503,8 @@ flowchart LR
     S --> I
     I --> P[Eligible provider]
     U2 --> D
-    A --> T[Filtered native traces]
-    S --> T
+    A -.-> T[Optional sanitized Langfuse monitoring]
+    S -.-> T
 ```
 
 1. Trusted account comes from Shifu authentication. Module loads authorized
@@ -1435,9 +1517,11 @@ flowchart LR
 4. Inference occurs outside DB transaction. Afterward the use case reloads and
    locks exact current identities/account grant before writing its validated
    result and domain events. Shared/AgentOS never calculates score or emits rewards.
-5. Safe traces are exported separately. Readiness verifies registered IDs, active
-   queue and configured filter; shutdown stops brokers, drains bounded telemetry
-   and releases owned resources without tearing down shared services.
+5. Safe traces are exported separately to optional Langfuse monitoring. Runtime
+   readiness requires registered IDs, active queues and mandatory privacy settings.
+   Missing/disabled monitoring configuration or unavailable Langfuse cannot block
+   readiness. Shutdown stops brokers/registries, then drains monitoring off the event
+   loop and releases owned resources without tearing down shared services.
 
 ### Jornada de anexos
 
@@ -1447,12 +1531,36 @@ flowchart LR
    da transação; conclusão comprometida publica pedido de preparação via outbox.
 3. AgentOS executa processamento, revalida geração e grava chunks/status. Poll
    autorizado mostra READY/PARTIAL/FAILED. Falha de um arquivo não altera irmãos.
-4. Com texto não vazio e todos os arquivos escolhidos utilizáveis, send consome
+4. Com texto não vazio ou ao menos um arquivo, e todos os arquivos escolhidos utilizáveis, send consome
    batch e associa anexos na mesma transação da mensagem/attempt/outbox existente.
 5. Pipeline decide se conteúdo de arquivo é necessário; consulta autorizada mínima
    produz resposta com fontes/cobertura. Pergunta geral conserva resposta local.
 6. Histórico carregado pelo servidor mostra metadados/previews. Cancel/delete/account
    change invalida callbacks e elimina acesso; cleanup real S3/DB segue fences.
+
+
+### Revision 12 — Two-megabyte upload admission
+
+The user explicitly selected 2 MB per file on 2026-10-16. This supersedes
+the previous local 10 MB upload limit in RF-09 and its owning checks. MB is
+decimal: accept exactly 2_000_000 bytes and reject 2_000_001 bytes. Keep
+the five-file count and supported formats unchanged. Browser preflight,
+BFF body/file bounds, Core upload admission and REST streaming/body bounds
+must agree, including pt-BR guidance and attachment-help answers. Server
+multipart overhead remains 64_000 bytes; BFF overhead remains 65_536 bytes.
+
+Previously admitted private attachments remain readable, usable and eligible
+for pending preparation under the existing authorization/lifecycle rules.
+The entity/database/extractor retain their historical 10_000_000-byte safety
+ceiling; that ceiling does not authorize new uploads above 2_000_000 bytes.
+No destructive migration, deletion or revalidation of historical files.
+
+Affected owners: upload_mentor_attachment_use_case.py,
+mentor_attachments_controller.py, mentor_attachment_body_limit_middleware.py,
+mentor-attachment-server-provider.ts, use-mentor-context-provider.ts,
+use-upload-mentor-attachment-action.ts, Composer, mentor-answers.json, and
+existing owning boundary expectations under CI-11/12/14. Refresh affected
+boundary proof before claiming verification; prior 10 MB results are historical.
 
 # Verification Contract
 
@@ -1665,7 +1773,7 @@ unexecuted files are not omitted. No forbidden adapter suite to raise coverage.
 uv run pytest tests/intelligence/core/use_cases/test_upload_mentor_attachment_use_case.py tests/intelligence/core/use_cases/test_prepare_mentor_attachment_use_case.py tests/intelligence/core/use_cases/test_complete_mentor_attachment_use_case.py tests/intelligence/core/use_cases/test_fail_mentor_attachment_use_case.py tests/intelligence/core/use_cases/test_renew_mentor_attachment_claim_use_case.py tests/intelligence/core/use_cases/test_release_mentor_attachment_claim_use_case.py tests/intelligence/core/use_cases/test_purge_mentor_attachments_use_case.py tests/intelligence/core/use_cases/test_create_mentor_session_use_case.py tests/intelligence/core/use_cases/test_submit_mentor_message_use_case.py tests/intelligence/core/use_cases/test_remove_mentor_session_use_case.py
 ```
 
-Prove0/1/5/6 files,9_999_999/10_000_000/10_000_001 bytes, blank/nonblank text,
+Prove0/1/5/6 files,1_999_999/2_000_000/2_000_001 bytes, blank/nonblank text,
 parallel fifth slot, stale generations, foreign/consumed batch, v1/v2 replay,
 different-content conflict, atomic failure/rollback, idempotent purge and no empty
 history. No provider/repository/domain-entity-owned tests.
@@ -1674,8 +1782,12 @@ history. No provider/repository/domain-entity-owned tests.
 
 **Criteria:** CA-08/09/12. New controllers plus modified create/submit/get:
 
+The attachment HTTP cases are consolidated in the current controller suites;
+the former per-operation test module paths no longer exist. Run the registered
+HTTP and storage boundary suites with the modified session/message consumers:
+
 ```bash
-uv run pytest tests/intelligence/server/controllers/test_create_mentor_attachment_batch_controller.py tests/intelligence/server/controllers/test_upload_mentor_attachment_controller.py tests/intelligence/server/controllers/test_get_mentor_attachment_batch_controller.py tests/intelligence/server/controllers/test_remove_mentor_attachment_controller.py tests/intelligence/server/controllers/test_read_mentor_attachment_controller.py tests/intelligence/server/controllers/test_create_mentor_session_controller.py tests/intelligence/server/controllers/test_submit_mentor_message_controller.py tests/intelligence/server/controllers/test_get_mentor_session_controller.py
+uv run pytest -p no:tach -q tests/intelligence/server/controllers/test_mentor_attachments_controller.py tests/intelligence/server/controllers/test_mentor_attachment_storage_http_boundary.py tests/intelligence/server/controllers/test_create_mentor_session_controller.py tests/intelligence/server/controllers/test_submit_mentor_message_controller.py tests/intelligence/server/controllers/test_get_mentor_session_controller.py
 ```
 
 Actual registered HTTP app and disposable PostgreSQL/MinIO; bytes/checksum readback,
@@ -1712,7 +1824,7 @@ pnpm --filter web exec vitest run src/ui/intelligence/contexts/mentor-context/te
 
 Finite statuses and interactions; preserves drafts on failure/close/expand;
 switch/account clears private state; stale polls ignored, object URLs revoked,
-nonblank text required, ready/partial sources shown, focus/status/filename accessible.
+nonblank text or at least one ready/partial attachment required, ready/partial sources shown, focus/status/filename accessible.
 Component tests mock each widget's own colocated hook with a typed fresh return,
 render real internal children and verify preview/source/removal markup and public
 callback delegation; hook/route tests prove real state/transport wiring.
@@ -1820,6 +1932,62 @@ Select all actual changed eligible paths above with related use-case tests only;
 Review uncovered/error/equivalent outcomes; no Docker/full-package/--all mutation.
 Web mutation Not applicable because no runner exists.
 
+### CI-20 — Langfuse monitoring through registered AgentOS
+
+**Criteria:** CA-05/15. Run the registered monitoring suite from `apps/server`:
+
+```bash
+SHIFU_RUN_REAL_AGENTOS_TESTS=1 uv run pytest tests/intelligence/server/agentos/test_agent_monitoring_workflow.py -q
+```
+
+Use disposable PostgreSQL/Redis and the real owning AgentOS registries. Capture
+actual Langfuse SDK OTLP export at a task-owned HTTP endpoint, not the developer
+project. Verify the ingestion-version header, allowed span/generation fields,
+both module identities, opaque trace correlation, reported usage/cost and missing
+usage semantics. Synthetic private prompt, answer, attachment, user/session/attempt,
+credential and raw exception markers must be absent from decoded exports and logs.
+Enable the legacy content flag to prove it cannot bypass this boundary. Prove no
+export when disabled or without keys, and that exporter rejection does not fail
+registered work. Verify client lifetime and shutdown after module resources stop.
+CI-05's native run/queue privacy guarantees remain independently required.
+
+### CI-21 — Attachment-only submission and empty-message rejection
+
+**Criteria:** CA-08/09/11/13/16. Revision11 affected checks, not a replacement
+for previous full lifecycle/coverage/quality gates.
+
+Through the owning Core, real HTTP and Web consumers, prove first-send and
+continuation with empty and whitespace text, ready/partial selections, same-key
+replay, rejected divergent selections, no attachment/no text, malformed/foreign/
+failed/preparing selections, retained failed-send draft, page/FAB eligibility,
+empty learner bubble omission and private history readback. Prove safe initial
+title without an empty model call and local intent clarification without extra
+route/model work. Preserve raw API content and existing fingerprints.
+
+Focused commands from `apps/server`:
+
+```bash
+uv run pytest tests/intelligence/core/use_cases/test_create_mentor_session_use_case.py tests/intelligence/core/use_cases/test_submit_mentor_message_use_case.py tests/intelligence/core/use_cases/test_prepare_mentor_response_use_case.py -q
+```
+
+Run affected integration after building with disposable PostgreSQL fixtures:
+
+```bash
+uv run pytest tests/intelligence/server/controllers/test_create_mentor_session_controller.py tests/intelligence/server/controllers/test_submit_mentor_message_controller.py -q
+```
+
+From `apps/web`:
+
+```bash
+pnpm exec vitest run src/ui/intelligence/contexts/mentor-context/tests/use-mentor-context-provider.test.ts src/ui/intelligence/contexts/mentor-context/tests/mentor-transport-consumer.test.tsx src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/use-composer.test.ts src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/message-item.test.tsx
+pnpm check:types
+```
+
+Run Biome on actual changed paths. Existing CI-17/18 baseline obligations remain applicable. New guard
+matrices explicitly assert blank+no-files rejection and real selected-attachment
+validation; no additional mutation obligation beyond existing CI-19 is introduced.
+Web mutation remains not applicable. No broader unchanged suite is implied passing.
+
 ## Manual
 
 ### VM-01 — Real compatibility path
@@ -1847,6 +2015,19 @@ same stored attachments remain readable. Repeat shared composer happy path at
 1440 × 900 and 390 × 844; inspect real requests, URL, console and keyboard reachability.
 Record response/persistence separately from screenshots. Teardown task-owned sessions.
 
+### VM-06 — Send a prepared image without typing
+
+**Type:** Manual. **Criteria:** CA-16. Use existing authenticated local setup,
+Playwright CLI and a synthetic image. From the desktop page, prepare the image,
+leave the textbox empty, explicitly send, and verify real creation/attachment
+binding, local clarification, safe title, reload and history without a fabricated
+caption. Repeat an attachment-only continuation, then verify shared page/FAB and
+mobile390x844 eligibility/history. Capture the affected ready composer/history
+states under `.playwright-cli/screenshots/`, inspect against existing handoff
+references and the revision11 adaptation; no style/token change or Pencil edit.
+Negative and recovery matrices belong to CI-21. Delete only the task-created
+conversation through its normal confirmation flow after proof.
+
 ## Visual
 
 ### VM-03 — Desktop page and FAB
@@ -1864,17 +2045,29 @@ preview stays in viewport, independent content scroll and reachable composer,
 44 px targets, no horizontal overflow. Accepted absence of dedicated attachment
 mobile frames is recorded in handoff; negative states covered automatically only.
 
+### VM-05 — Native local Langfuse monitoring UI
+
+**Type:** Manual. **Criteria:** CA-15. Verify the existing local Langfuse profile is
+healthy and use Playwright CLI from `apps/web` to open `http://localhost:7003`.
+Sign in through the visible local form using ignored/source-configured credentials.
+Inspect a synthetic operational trace list and selected trace detail; verify module,
+stage, safe outcome and measured `duration_ms` metadata are readable. Confirm both
+modules are queryable and no private content is present. Save an inspected browser
+capture under `apps/web/.playwright-cli/screenshots/` and concise observations in
+Evaluation. This uses an upstream UI, so no Shifu design/Pencil change or visual
+redesign review is required. SDK transport/privacy proof belongs to CI-20.
+
 # Documentation Alignment
 
 | Document / authority | Governs | Required update or confirmation | Disposition / dependency |
 | --- | --- | --- | --- |
-| [Intelligence PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83099649), Shifu — PRD — Intelligence, 83099649 v9; full read initially 2026-10-14 00:40 UTC, metadata rechecked 16:12 UTC; updated 2026-10-13T16:12:19.811Z; parent PRD's 82804737 beneath Shifu 82509992 | I:RP-01/03/04/05/06/11/12/13/14/16; JN-20 | Preserve runtime behavior/privacy and consume complete attachment outcome; memory deferred; no external edit | Partial delivery, no PRD checkbox update |
+| [Intelligence PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83099649), Shifu — PRD — Intelligence, 83099649 v9; full read initially 2026-10-14 00:40 UTC, completely reread unchanged v9 on 2026-10-16 for revision11; metadata rechecked 16:12 UTC; updated 2026-10-13T16:12:19.811Z; parent PRD's 82804737 beneath Shifu 82509992 | I:RP-01/03/04/05/06/11/12/13/14/16; JN-20 | Preserve runtime behavior/privacy and consume complete attachment outcome; memory deferred; no external edit | Partial delivery, no PRD checkbox update |
 | [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/83066881), Shifu — PRD — Learning, 83066881 v26, complete read 2026-10-14 16:12:10–16:12:51 UTC; updated 2026-10-05T02:11:45.152Z; parent not returned, markdown loses underline only | L:RP-06/07/09/11/12/13/14/20/21/22/24/27/29 | Preserve grading/lifecycle and transport compatibility | No external amendment |
 | [Privacy policy](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/100106241), v4; full read in this task; updated 2026-10-08T01:07:15.769Z | Account lifecycle and logging | Account active copies 24 h/minimal logs and backups 30 d; do not invent individual conversation deadline | Individual deadline remains unspecified |
-| [Architecture](../../../architecture.md), [Modules](../../../modules.md), selected Rules and [Tooling](../../../tooling.md) | Runtime, ownership, tests and operations | Amend runtime diagrams, dispatch, lifecycle, real AgentOS fixture/CI and explicit synthetic eval exception; retain non-AI Inngest; S3/MinIO/extraction lifecycle, allowed consumers and independent Server/Web CI | Authorized implementation deliverable; do not silently treat current Inngest rule as already amended |
+| [Architecture](../../../architecture.md), [Modules](../../../modules.md), selected Rules and [Tooling](../../../tooling.md) | Runtime, ownership, tests and operations | Amend runtime diagrams, dispatch, lifecycle, real AgentOS fixture/CI and explicit synthetic eval exception; retain non-AI Inngest; S3/MinIO/extraction lifecycle, allowed consumers and independent Server/Web CI. Document local Langfuse monitoring, optional credentials/SDK lifecycle and AgentOS runtime separation in Tooling; it does not change learner-facing PRD behavior | Authorized implementation deliverable; do not silently treat current Inngest rule as already amended |
 | [Mentor context rev18](../mentor-context/spec.md) and sessions management artifacts | Existing local-only flow, APIs/shared UI | Amend attachment-specific inference/projections/FAQ, preserve local general answers | No dormant global generation activation |
 | [Agno tracing](https://docs.agno.com/agent-os/tracing/overview), [Eval Suites](https://docs.agno.com/evals/suite/overview); installed Agno 3.1.2 source | Native APIs and limitations | Confirm queue admission, global tracer and privacy flags against installed code | Source evidence, not instruction |
-| [SHIFU-103](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103), issue12613, parent SHIFU-29; created2026-10-05, updated18:09:33.890-0300 | Delivery slice and exclusions | Text+files, previews and global runtime decisions recorded locally | Issue references PRD v7; current v9 authority prevails without silently editing issue |
+| [SHIFU-103](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103), issue12613, parent SHIFU-29; created2026-10-05, updated18:09:33.890-0300 | Delivery slice and exclusions | Text or files, previews and global runtime decisions recorded locally; revision11 follows explicit user request | Issue references PRD v7; current v9 authority prevails without silently editing issue |
 | [SHIFU-101](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-101) | Structured personal memories | No auto-personalization; future integration requires explicit declaration | Not implemented/deferred, not an attachment delivery shortcut |
 | [Design handoff](design/handoff.md) | Required references, tokens, states/viewports | Saved references inspected; explicitly approved missing-state/mobile adaptations | Pencil unavailable during research; staged user design preserved |
 
@@ -1883,9 +2076,11 @@ UoW/delete fences, Jev consumers and native AgentOS admission/tracing/eval limit
 Source authority metadata above is preserved from complete reads in this task.
 Earlier runtime revision 13 and attachment revision 7 passed independent compatibility
 review. The fresh independent consolidation review passed with no compatibility findings.
-The user approved the unified written contract on 2026-10-14; status is ready. CI organization was updated
-at the user's explicit request; AgentOS, storage, eval classes and coverage runners
-remain planned. No production/model/runtime verification is claimed by consolidation.
+The user approved the unified written contract on 2026-10-14. CI organization was updated
+at the user's explicit request. At consolidation time, AgentOS, storage, eval classes and
+coverage runners were planned; implementation and verification evidence is recorded in
+Evaluation. The current local delivery status is completed with open checks retained by
+the user's explicit disposition.
 
 # Revision History
 
@@ -1894,6 +2089,11 @@ remain planned. No production/model/runtime verification is claimed by consolida
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 8 | 2026-10-14 | Consolidate attachment rev7 and AgentOS runtime rev13 into one contract; unique local IDs, internal runtime dependencies, one guide and authority | User requested one single Spec |
+| 9 | 2026-10-16 | Add an opt-in, read-only local dashboard for sanitized AgentOS traces; require loopback-only access, closed allowlist and non-local fail-closed behavior | Historical scope, superseded by revision 10 |
+| 10 | 2026-10-16 | Retain AgentOS for runtime; restore local Langfuse monitoring for both modules with a filtered SDK client; remove the custom viewer | User explicitly requested this runtime/monitoring split and implementation |
+| 11 | 2026-10-16 | Permit supported ready/partial attachments without a typed caption; preserve completely empty-message rejection, atomic ownership/replay rules, safe initial title and local intent clarification | Explicit user request: send images without typing anything; screenshot also shows a prepared TXT attachment |
+| 12 | 2026-10-16 | Reduce new-upload admission to2MB decimal across UI/BFF/Core/REST, preserve previously admitted files and update guidance/boundary fixtures | Explicit user choice:2MB per file |
+| 13 | 2026-10-16 | Reconcile CI-12 selectors with the current consolidated controller and storage-boundary test modules; preserve the HTTP/S3/database ownership obligations | Conclusion review found the previous test paths no longer exist; no acceptance behavior changed |
 
 ## Identifier migration
 

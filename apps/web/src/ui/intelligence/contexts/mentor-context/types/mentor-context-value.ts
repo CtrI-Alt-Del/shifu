@@ -61,6 +61,7 @@ export type MentorContextValue = {
   isValidatingScope: boolean
   isReadingHistory: boolean
   isReadingMessages: boolean
+  isReadingOlderMessages: boolean
   isSubmittingFirstMessage: boolean
   isRenamingSession: boolean
   isRemovingSession: boolean

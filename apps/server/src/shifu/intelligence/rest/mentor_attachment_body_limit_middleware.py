@@ -2,7 +2,7 @@ import json
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-_MAX_MULTIPART_BYTES = 10_064_000
+_MAX_MULTIPART_BYTES = 2_064_000
 _UPLOAD_PATH_PREFIX = '/intelligence/mentor-attachment-batches/'
 _UPLOAD_PATH_SUFFIX = '/attachments'
 
@@ -42,7 +42,7 @@ class MentorAttachmentBodyLimitMiddleware:
                     send,
                     413,
                     'attachment_too_large',
-                    'O arquivo excede o limite de 10 MB.',
+                    'O arquivo excede o limite de 2 MB.',
                 )
                 return
 
@@ -74,7 +74,7 @@ class MentorAttachmentBodyLimitMiddleware:
                     send,
                     413,
                     'attachment_too_large',
-                    'O arquivo excede o limite de 10 MB.',
+                    'O arquivo excede o limite de 2 MB.',
                 )
                 return None
             buffered.append(message)

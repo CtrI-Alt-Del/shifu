@@ -11,8 +11,8 @@ _CORRELATION: ContextVar[str | None] = ContextVar(
 
 
 @contextmanager
-def mentor_telemetry_correlation() -> Generator[None]:
-    token = _CORRELATION.set(str(uuid4()))
+def mentor_telemetry_correlation(correlation_id: str | None = None) -> Generator[None]:
+    token = _CORRELATION.set(correlation_id or str(uuid4()))
     try:
         yield
     finally:

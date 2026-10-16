@@ -56,6 +56,7 @@ const baseValue: MentorContextValue = {
   isValidatingScope: false,
   isReadingHistory: false,
   isReadingMessages: false,
+  isReadingOlderMessages: false,
   isSubmittingFirstMessage: false,
   isRenamingSession: false,
   isRemovingSession: false,
