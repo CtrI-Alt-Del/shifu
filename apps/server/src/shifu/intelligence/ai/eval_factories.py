@@ -21,6 +21,8 @@ from shifu.intelligence.providers.openrouter.mentor_title_model_provider import 
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 
+_REAL_EVAL_MODEL_TIMEOUT_SECONDS = 20.0
+
 if TYPE_CHECKING:
     import httpx
     from agno.models.base import Model
@@ -32,7 +34,12 @@ def build_mentor_title_eval_agent(
     settings: Settings, *, model: Model | None = None
 ) -> MentorTitleAgent:
     selected_model = (
-        model if model is not None else MentorTitleModelProvider.build(settings)
+        model
+        if model is not None
+        else MentorTitleModelProvider.build(
+            settings,
+            timeout_seconds=_REAL_EVAL_MODEL_TIMEOUT_SECONDS,
+        )
     )
     if selected_model is None:
         raise ServiceUnavailableError('Mentor title generation is unavailable.')

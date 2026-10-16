@@ -326,10 +326,10 @@ jobs:
           SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest --collect-only -q --color=no "${job_files[@]}" \
             > "$jobs_report"
           mapfile -t controller_items < <(
-            rg '^tests/.*::' "$controller_report" | sort -u
+            grep -E '^tests/.*::' "$controller_report" | sort -u
           )
           mapfile -t job_items < <(
-            rg '^tests/.*::' "$jobs_report" | sort -u
+            grep -E '^tests/.*::' "$jobs_report" | sort -u
           )
           if (( ${#controller_items[@]} < 4 || ${#job_items[@]} < 4 )); then
             cat "$controller_report" "$jobs_report"
