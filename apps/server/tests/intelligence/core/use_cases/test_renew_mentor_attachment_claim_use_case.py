@@ -96,7 +96,9 @@ def test_renew_extends_only_the_current_claim(harness: _Harness) -> None:
             call(_ATTACHMENT_ID, for_update=True),
         ]
     )
-    dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_called_once_with(
+    dependencies[
+        'repositories'
+    ].mentor_attachment_batches.find_by_id.assert_called_once_with(
         _BATCH_ID, for_update=True
     )
     dependencies['access'].authorize.assert_called_once_with(
@@ -147,9 +149,9 @@ def test_renew_rejects_an_attachment_deleted_before_it_is_locked(
 
 def test_renew_rejects_a_missing_batch(harness: _Harness) -> None:
     subject, dependencies = harness
-    dependencies['repositories'].mentor_attachment_batches.find_by_id.return_value = (
-        None
-    )
+    dependencies[
+        'repositories'
+    ].mentor_attachment_batches.find_by_id.return_value = None
 
     renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
 
