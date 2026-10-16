@@ -181,8 +181,13 @@ jobs:
           tests/tooling/test_check_changed_coverage.py
 
   integration-tests:
-    name: Server integration tests
+    name: Server integration shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: pgvector/pgvector:0.8.1-pg17
@@ -288,24 +293,93 @@ jobs:
           echo "MinIO did not become ready" >&2
           exit 1
 
-      - name: Run controller and registered workflow integration tests
-        run: uv run poe test:integration
+      - name: Run integration test shard
         env:
-          PYTEST_ADDOPTS: --junitxml=test-results/integration/controllers-and-workflows.xml
-
-      - name: Run real Inngest job integration tests
-        if: ${{ !cancelled() }}
-        run: uv run poe test:jobs
-        env:
-          PYTEST_ADDOPTS: --junitxml=test-results/integration/inngest-jobs.xml
+          INTEGRATION_SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/integration
+          mapfile -d '' controller_files < <(
+            find tests -type f \
+              \( -path 'tests/*/server/test_*.py' \
+              -o -path 'tests/*/server/*/test_*.py' \
+              -o -path 'tests/rest/test_*.py' \
+              -o -path 'tests/rest/*/test_*.py' \) -print0 | sort -zu
+          )
+          mapfile -d '' job_files < <(
+            find tests/messaging/inngest/jobs -type f -name 'test_*.py' -print0 \
+              | sort -zu
+          )
+          shard="$INTEGRATION_SHARD"
+          if (( shard < 1 || shard > 4 )); then
+            echo "Invalid integration shard: $shard" >&2
+            exit 2
+          fi
+          if (( ${#controller_files[@]} == 0 || ${#job_files[@]} == 0 )); then
+            echo "Controller/workflow and Inngest job test selections must both be non-empty" >&2
+            exit 1
+          fi
+          controller_report="test-results/integration/controller-collection-${shard}.txt"
+          jobs_report="test-results/integration/jobs-collection-${shard}.txt"
+          uv run pytest --collect-only -q --color=no "${controller_files[@]}" \
+            > "$controller_report"
+          SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest --collect-only -q --color=no "${job_files[@]}" \
+            > "$jobs_report"
+          mapfile -t controller_items < <(
+            rg '^tests/.*::' "$controller_report" | sort -u
+          )
+          mapfile -t job_items < <(
+            rg '^tests/.*::' "$jobs_report" | sort -u
+          )
+          if (( ${#controller_items[@]} < 4 || ${#job_items[@]} < 4 )); then
+            cat "$controller_report" "$jobs_report"
+            echo "Each integration selection needs at least four collected tests" >&2
+            exit 1
+          fi
+          controller_shard_items=()
+          for index in "${!controller_items[@]}"; do
+            if (( index % 4 == shard - 1 )); then
+              controller_shard_items+=("${controller_items[index]}")
+            fi
+          done
+          job_shard_items=()
+          for index in "${!job_items[@]}"; do
+            if (( index % 4 == shard - 1 )); then
+              job_shard_items+=("${job_items[index]}")
+            fi
+          done
+          printf 'Shard %s/4: %s controller/workflow tests; %s Inngest job tests\n' \
+            "$shard" "${#controller_shard_items[@]}" "${#job_shard_items[@]}"
+          controller_exit=0
+          uv run pytest -s -x -vv \
+            --junitxml="test-results/integration/controllers-shard-${shard}-of-4.xml" \
+            "${controller_shard_items[@]}" || controller_exit=$?
+          jobs_exit=0
+          SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest -s -x -vv \
+            --junitxml="test-results/integration/jobs-shard-${shard}-of-4.xml" \
+            "${job_shard_items[@]}" || jobs_exit=$?
+          if (( controller_exit != 0 || jobs_exit != 0 )); then
+            exit 1
+          fi
 
       - name: Upload integration reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: server-integration
+          name: server-integration-shard-${{ matrix.shard }}-of-4
           path: apps/server/test-results/integration
           if-no-files-found: warn
+
+  integration-summary:
+    name: Server integration tests
+    if: always()
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all four integration shards
+        env:
+          SHARD_RESULT: ${{ needs.integration-tests.result }}
+        run: test "$SHARD_RESULT" = success
 
   changed-file-coverage:
     name: Changed Server file coverage
