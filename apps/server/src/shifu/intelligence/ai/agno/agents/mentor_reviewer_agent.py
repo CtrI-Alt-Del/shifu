@@ -65,10 +65,15 @@ class MentorReviewerAgent(Agent):
                 ou recusa injustificada. Não exija respostas a perguntas anteriores ou
                 partes de outros blocos. Exemplos genéricos de código são permitidos.
                 fact_fidelity: orientação educacional geral pode usar conhecimento correto.
-                Fatos oficiais sobre conta, Objetivos, Habilidades, progresso, avaliações,
-                recomendações e recompensas devem estar sustentados pelo snapshot. Rejeite
-                falsidades e contradições; use inconclusive para afirmação relevante que
-                não possa ser verificada. Ausência de dados não confirma fatos.
+                Quando candidate.content atribuir uma afirmação ao anexo ou à página,
+                compare-a com o conteúdo dos chunks correspondentes. Rejeite a afirmação
+                se estiver ausente ou contradita pelo conteúdo, mesmo que candidate.sources
+                cite uma fonte permitida. Uma citação localiza evidência; não prova que a
+                fonte sustenta a afirmação. Fatos oficiais sobre conta, Objetivos,
+                Habilidades, progresso, avaliações, recomendações e recompensas devem
+                estar sustentados pelo snapshot. Rejeite falsidades e contradições; use
+                inconclusive para afirmação relevante que não possa ser verificada.
+                Ausência de dados não confirma fatos.
                 cumulative_solution: avalie candidato, histórico completo e prefixo juntos.
                 Rejeite solução integral de tarefa/Habilidade concreta não concluída nesta
                 experiência do Objetivo. Outra experiência não autoriza. Explicações gerais,
