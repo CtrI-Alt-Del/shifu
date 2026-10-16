@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -32,13 +32,21 @@ _USER = SimpleNamespace(account_id='account')
 _VALID_ULID = '01M00000000000000000000000'
 
 
-def _endpoint(router: APIRouter, path: str, method: str) -> object:
-    route = next(
-        route
-        for route in router.routes
-        if getattr(route, 'path', None) == path and method in route.methods
+def _endpoint(router: APIRouter, path: str, method: str) -> Any:
+    route = cast(
+        'Any',
+        next(
+            route
+            for route in router.routes
+            if getattr(route, 'path', None) == path
+            and method in cast('Any', route).methods
+        ),
     )
     return route.endpoint
+
+
+def _validate_passthrough(value: Any, **_kwargs: Any) -> Any:
+    return value
 
 
 def test_create_session_route_calls_use_case_and_sets_replay_status(
@@ -60,11 +68,11 @@ def test_create_session_route_calls_use_case_and_sets_replay_status(
     monkeypatch.setattr(
         create_session_module,
         '_RESPONSE_ADAPTER',
-        SimpleNamespace(validate_python=lambda value, **_kwargs: value),
+        SimpleNamespace(validate_python=_validate_passthrough),
     )
     response = Response()
-    endpoint = cast('object', _endpoint(router, '/mentor-sessions', 'POST'))
-    result = endpoint(  # type: ignore[operator]
+    endpoint = _endpoint(router, '/mentor-sessions', 'POST')
+    result = endpoint(
         CreateSessionRequest(submission_key=uuid4(), first_message='hello'),
         response,
         _USER,
@@ -100,14 +108,11 @@ def test_submit_message_route_calls_use_case_and_sets_response_status(
     monkeypatch.setattr(
         submit_message_module,
         '_RESPONSE_ADAPTER',
-        SimpleNamespace(validate_python=lambda value, **_kwargs: value),
+        SimpleNamespace(validate_python=_validate_passthrough),
     )
     response = Response()
-    endpoint = cast(
-        'object',
-        _endpoint(router, '/mentor-sessions/{session_id}/messages', 'POST'),
-    )
-    result = endpoint(  # type: ignore[operator]
+    endpoint = _endpoint(router, '/mentor-sessions/{session_id}/messages', 'POST')
+    result = endpoint(
         _VALID_ULID,
         SubmitMessageRequest(submission_key=uuid4(), content='hello'),
         response,
@@ -126,14 +131,10 @@ def test_submit_message_route_calls_use_case_and_sets_response_status(
 def test_remove_session_route_rejects_a_malformed_id_directly() -> None:
     router = APIRouter()
     RemoveMentorSessionController.handle(router)
-    endpoint = cast(
-        'object', _endpoint(router, '/mentor-sessions/{session_id}', 'DELETE')
-    )
+    endpoint = _endpoint(router, '/mentor-sessions/{session_id}', 'DELETE')
 
     with pytest.raises(HTTPException) as error:
-        endpoint(  # type: ignore[operator]
-            'not-a-ulid', Response(), _USER, object(), object(), object()
-        )
+        endpoint('not-a-ulid', Response(), _USER, object(), object(), object())
 
     assert error.value.status_code == 422
 
@@ -183,10 +184,10 @@ def test_attachment_routes_reject_malformed_ids_inside_handlers(
 ) -> None:
     router = APIRouter()
     MentorAttachmentsController.handle(router)
-    endpoint = cast('object', _endpoint(router, path, method))
+    endpoint = _endpoint(router, path, method)
 
     with pytest.raises(HTTPException) as error:
-        endpoint(*args)  # type: ignore[operator]
+        endpoint(*args)
 
     assert error.value.status_code == expected_status
 
@@ -202,13 +203,10 @@ async def test_upload_route_rejects_invalid_declared_lengths_inside_handler(
 ) -> None:
     router = APIRouter()
     MentorAttachmentsController.handle(router)
-    endpoint = cast(
-        'object',
-        _endpoint(
-            router,
-            '/mentor-attachment-batches/{batch_id}/attachments',
-            'POST',
-        ),
+    endpoint = _endpoint(
+        router,
+        '/mentor-attachment-batches/{batch_id}/attachments',
+        'POST',
     )
     request = StarletteRequest(
         {

@@ -35,10 +35,11 @@ def test_base_with_no_eligible_changed_files_fails(
     monkeypatch.setattr(
         'sys.argv', ['check_changed_coverage.py', '--base', 'origin/main']
     )
-    monkeypatch.setattr(
-        'scripts.check_changed_coverage.changed_paths',
-        lambda _base: [Path('apps/web/src/module.ts')],
-    )
+
+    def changed_paths(_base: str | None) -> list[Path]:
+        return [Path('apps/web/src/module.ts')]
+
+    monkeypatch.setattr('scripts.check_changed_coverage.changed_paths', changed_paths)
 
     assert main() == 2
     assert 'No changed eligible Server production files.' in capsys.readouterr().err

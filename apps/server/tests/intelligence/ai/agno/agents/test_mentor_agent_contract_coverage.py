@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 from agno.agent import Agent
@@ -26,6 +25,7 @@ from shifu.intelligence.core.domain.structures import (
     MentorResponseBlock,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.structures import MentorContextSnapshot
 
 if TYPE_CHECKING:
     from agno.models.base import Model
@@ -49,11 +49,6 @@ def test_attachment_outputs_reject_blank_and_inconsistent_content() -> None:
         MentorAttachmentVisionOutput(legible=False, description='readable text')
 
 
-@dataclass
-class _RequestContext:
-    marker: str = 'authorized-context'
-
-
 def _review_request() -> tuple[MentorGenerationRequest, MentorResponseBlock]:
     request = MentorGenerationRequest(
         session_id='01J00000000000000000000000',
@@ -61,7 +56,19 @@ def _review_request() -> tuple[MentorGenerationRequest, MentorResponseBlock]:
         attempt_id='01J00000000000000000000002',
         requested_part='Explain lists',
         history=(),
-        context=cast('object', _RequestContext()),
+        context=MentorContextSnapshot(
+            goal_id=None,
+            skill_experience_id=None,
+            skill_id=None,
+            competency_id=None,
+            activity_id=None,
+            skill_completed=None,
+            diagnostic_in_progress=False,
+            facts=(),
+            eligible_references=(),
+            resolved_references=(),
+            unavailable_sources=(),
+        ),
         approved_blocks=(),
         correction=None,
     )
@@ -85,18 +92,38 @@ def _review_content(
             'choice': 'rejected' if key in rejected_criteria else choice,
             'feedback': feedback,
         }
-        for key in MentorReviewerAgent._CRITERIA  # noqa: SLF001 - test all closed criteria.
+        for key in (
+            'request_adherence',
+            'fact_fidelity',
+            'cumulative_solution',
+            'diagnostic_safety',
+            'privacy_access',
+            'official_action_claims',
+        )
     }
+
+
+def _stub_agent_init(monkeypatch: pytest.MonkeyPatch) -> None:
+    def initialize(_self: Any, **_kwargs: Any) -> None:
+        return
+
+    monkeypatch.setattr(cast('Any', Agent), '__init__', initialize)
+
+
+def _stub_agent(monkeypatch: pytest.MonkeyPatch, result: Any) -> None:
+    def run(_self: Any, _input: Any) -> Any:
+        return result
+
+    _stub_agent_init(monkeypatch)
+    monkeypatch.setattr(cast('Any', Agent), 'run', run)
 
 
 def test_reviewer_maps_all_criteria_and_sanitizes_feedback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, _input: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             status=RunStatus.completed,
             content=_review_content(),
             metrics=None,
@@ -122,11 +149,9 @@ def test_reviewer_maps_all_criteria_and_sanitizes_feedback(
 def test_reviewer_reports_rejected_criteria_with_fallback_feedback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, _input: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             status=RunStatus.completed,
             content=_review_content(choice='rejected', feedback=' '),
             metrics=None,
@@ -149,11 +174,9 @@ def test_reviewer_reports_rejected_criteria_with_fallback_feedback(
 def test_reviewer_maps_unsupported_claim_to_factual_correction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, _input: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             status=RunStatus.completed,
             content=_review_content(
                 rejected_criteria=('fact_fidelity',),
@@ -189,12 +212,12 @@ def test_reviewer_maps_unsupported_claim_to_factual_correction(
 def test_reviewer_sanitizes_transport_errors_and_extracts_failure_usage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
+    _stub_agent_init(monkeypatch)
 
     def fail(_self: object, _input: object) -> None:
         raise RuntimeError('private provider detail')
 
-    monkeypatch.setattr(Agent, 'run', fail)
+    monkeypatch.setattr(cast('Any', Agent), 'run', fail)
     agent = MentorReviewerAgent(cast('Model', object()))
     request, candidate = _review_request()
     usage: list[object] = []
@@ -211,19 +234,27 @@ def test_reviewer_sanitizes_transport_errors_and_extracts_failure_usage(
 
 
 def test_reviewer_usage_helpers_validate_metrics_and_failure_payloads() -> None:
-    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract.
-        SimpleNamespace(metrics=None)
+    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract. # pyright: ignore[reportPrivateUsage]
+        cast('Any', SimpleNamespace(metrics=None))
     ) == (None, None, None, None)
-    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract.
-        SimpleNamespace(
-            metrics=RunMetrics(
-                input_tokens=2, output_tokens=3, total_tokens=5, cost=0.25
-            )
+    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract. # pyright: ignore[reportPrivateUsage]
+        cast(
+            'Any',
+            SimpleNamespace(
+                metrics=RunMetrics(
+                    input_tokens=2, output_tokens=3, total_tokens=5, cost=0.25
+                )
+            ),
         )
     ) == (2, 3, 5, 0.25)
-    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract.
-        SimpleNamespace(
-            metrics=RunMetrics(input_tokens=2, output_tokens=3, total_tokens=7, cost=-1)
+    assert MentorReviewerAgent._usage(  # noqa: SLF001 - helper contract. # pyright: ignore[reportPrivateUsage]
+        cast(
+            'Any',
+            SimpleNamespace(
+                metrics=RunMetrics(
+                    input_tokens=2, output_tokens=3, total_tokens=7, cost=-1
+                )
+            ),
         )
     ) == (None, None, None, None)
 
@@ -235,29 +266,32 @@ def test_reviewer_usage_helpers_validate_metrics_and_failure_payloads() -> None:
     )
     api_error = APIStatusError(
         'provider error',
-        response=response,
+        response=cast('Any', response),
         body=None,
     )
     error.__cause__ = api_error
-    assert MentorReviewerAgent._failure_tokens(error) == 5  # noqa: SLF001
+    assert MentorReviewerAgent._failure_tokens(error) == 5  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
     inconsistent = RuntimeError('transport')
     inconsistent.__cause__ = APIStatusError(
         'provider error',
-        response=httpx.Response(
-            400,
-            json={
-                'usage': {
-                    'prompt_tokens': 2,
-                    'completion_tokens': 3,
-                    'total_tokens': 6,
-                }
-            },
-            request=httpx.Request('POST', 'https://model.invalid'),
+        response=cast(
+            'Any',
+            httpx.Response(
+                400,
+                json={
+                    'usage': {
+                        'prompt_tokens': 2,
+                        'completion_tokens': 3,
+                        'total_tokens': 6,
+                    }
+                },
+                request=httpx.Request('POST', 'https://model.invalid'),
+            ),
         ),
         body=None,
     )
-    assert MentorReviewerAgent._failure_tokens(inconsistent) is None  # noqa: SLF001
+    assert MentorReviewerAgent._failure_tokens(inconsistent) is None  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.mark.parametrize(
@@ -273,8 +307,7 @@ def test_reviewer_fails_closed_for_incomplete_run_or_invalid_schema(
     monkeypatch: pytest.MonkeyPatch,
     response: SimpleNamespace,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(Agent, 'run', lambda _self, _input: response)
+    _stub_agent(monkeypatch, response)
     agent = MentorReviewerAgent(cast('Model', object()))
     request, candidate = _review_request()
     usage: list[object] = []
@@ -310,6 +343,8 @@ def test_reviewer_failure_tokens_rejects_malformed_provider_usage_payloads() -> 
 
     for response in responses:
         error = RuntimeError('transport')
-        error.__cause__ = APIStatusError('provider error', response=response, body=None)
+        error.__cause__ = APIStatusError(
+            'provider error', response=cast('Any', response), body=None
+        )
 
-        assert MentorReviewerAgent._failure_tokens(error) is None  # noqa: SLF001
+        assert MentorReviewerAgent._failure_tokens(error) is None  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]

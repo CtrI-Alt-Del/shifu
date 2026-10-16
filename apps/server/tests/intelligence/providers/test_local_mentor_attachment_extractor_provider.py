@@ -1,9 +1,10 @@
+# pyright: reportPrivateUsage=false
 from __future__ import annotations
 
 # ruff: noqa: FBT003, SLF001
 
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import pytest
 from PIL import Image
@@ -37,7 +38,7 @@ def _provider() -> LocalMentorAttachmentExtractorProvider:
 
 def test_pdf_page_text_caps_output_and_keeps_bad_pages_independent() -> None:
     text, truncated = extractor._extract_pdf_page_text(
-        _TextPage(('abcdef', 'later')),
+        cast('Any', _TextPage(('abcdef', 'later'))),
         3,  # type: ignore[arg-type]
     )
     assert (text, truncated) == ('abc', True)
@@ -70,7 +71,7 @@ def test_require_pdf_render_result_rejects_malformed_and_oversized_results() -> 
     assert extractor._require_pdf_render_result(((1, b'png'),), 3) == ((1, b'png'),)
 
 
-def test_registered_pdf_worker_returns_none_when_process_start_fails(
+def test_registered_pdf_worker_returns_none_when_process_start_fails(  # noqa: C901 - covers resource cleanup across the mocked worker failure.
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class Endpoint:
@@ -96,11 +97,18 @@ def test_registered_pdf_worker_returns_none_when_process_start_fails(
         def kill(self) -> None:
             pass
 
-    context = SimpleNamespace(
-        Pipe=lambda **_kwargs: (Endpoint(), Endpoint()),
-        Process=lambda **kwargs: ProcessImpl(**kwargs),
-    )
-    monkeypatch.setattr(extractor.multiprocessing, 'get_context', lambda _name: context)
+    def make_pipe(**_kwargs: Any) -> tuple[Endpoint, Endpoint]:
+        return Endpoint(), Endpoint()
+
+    def make_process(**kwargs: Any) -> ProcessImpl:
+        return ProcessImpl(**kwargs)
+
+    context = SimpleNamespace(Pipe=make_pipe, Process=make_process)
+
+    def get_context(_name: str) -> Any:
+        return context
+
+    monkeypatch.setattr(extractor.multiprocessing, 'get_context', get_context)
     assert extractor._run_pdf_worker(lambda _pipe: None, 0.01) is None
 
 
@@ -132,11 +140,11 @@ def test_provider_pdf_extraction_records_illegible_empty_and_page_limited_result
     provider = _provider()
     provider._max_pdf_pages = 1
     provider._max_extracted_chars = 3
-    monkeypatch.setattr(
-        extractor,
-        '_run_pdf_parser',
-        lambda *_args: extractor._PdfParseResult(3, (None, 'later'), False),
-    )
+
+    def page_limited_parser(*_args: Any) -> Any:
+        return extractor._PdfParseResult(3, (None, 'later'), False)
+
+    monkeypatch.setattr(extractor, '_run_pdf_parser', page_limited_parser)
     result = provider._extract_pdf(b'pdf', 'attachment', 1)
     assert result.illegible_pages == (1,)
     assert result.uninterpreted_pages == (2, 3)
@@ -144,11 +152,11 @@ def test_provider_pdf_extraction_records_illegible_empty_and_page_limited_result
 
     provider._max_pdf_pages = 3
     provider._max_extracted_chars = 0
-    monkeypatch.setattr(
-        extractor,
-        '_run_pdf_parser',
-        lambda *_args: extractor._PdfParseResult(2, ('text', ''), False),
-    )
+
+    def empty_text_parser(*_args: Any) -> Any:
+        return extractor._PdfParseResult(2, ('text', ''), False)
+
+    monkeypatch.setattr(extractor, '_run_pdf_parser', empty_text_parser)
     result = provider._extract_pdf(b'pdf', 'attachment', 1)
     assert result.uninterpreted_pages == (1, 2)
 
@@ -157,11 +165,11 @@ def test_provider_rejects_zero_page_pdf_and_invalid_images(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     provider = _provider()
-    monkeypatch.setattr(
-        extractor,
-        '_run_pdf_parser',
-        lambda *_args: extractor._PdfParseResult(0, (), False),
-    )
+
+    def empty_pdf_parser(*_args: Any) -> Any:
+        return extractor._PdfParseResult(0, (), False)
+
+    monkeypatch.setattr(extractor, '_run_pdf_parser', empty_pdf_parser)
     with pytest.raises(MentorAttachmentInvalidError):
         provider.extract(b'%PDF', 'application/pdf', 'attachment', 1)
     with pytest.raises(MentorAttachmentInvalidError):

@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 import asyncio
 import json
 from collections.abc import Generator, Iterator
@@ -6,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -198,7 +199,9 @@ def controlled_jev_endpoint(
 
 
 class TestLearningCodeEvaluationWorkflow:
-    def test_workflow_deep_copy_preserves_dependencies_and_applies_updates(self) -> None:
+    def test_workflow_deep_copy_preserves_dependencies_and_applies_updates(
+        self,
+    ) -> None:
         prepare = Mock()
         evaluate = Mock()
         fail = Mock()
@@ -207,7 +210,8 @@ class TestLearningCodeEvaluationWorkflow:
         workflow = EvaluateCodeActivityWorkflow(
             prepare, evaluate, fail, assessor, handoffs
         )
-        workflow.db = object()
+        workflow_any = cast('Any', workflow)
+        workflow_any.db = object()
 
         copied = workflow.deep_copy()
         updated = workflow.deep_copy(update={'name': 'Updated Learning Workflow'})
@@ -255,9 +259,10 @@ class TestLearningCodeEvaluationWorkflow:
 
         workflow.run(input={'handoff_ref': reference})
 
-        assert handoffs.take_result(
-            reference, capability='learning-code-assessment'
-        ) == 'unavailable'
+        assert (
+            handoffs.take_result(reference, capability='learning-code-assessment')
+            == 'unavailable'
+        )
 
     def test_assessor_adapter_discards_failed_and_rejects_missing_results(self) -> None:
         assessment = _assessment_request()
@@ -266,20 +271,22 @@ class TestLearningCodeEvaluationWorkflow:
         failed_client.submit_workflow.side_effect = RuntimeError('private detail')
         provider = AgentOSCodeRubricAssessorProvider(failed_client, handoffs)
 
-        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+        with pytest.raises(
+            ServiceUnavailableError, match='Code assessment is unavailable'
+        ):
             provider.assess(assessment)
         failed_reference = failed_client.submit_workflow.call_args.kwargs['fields'][
             'handoff_ref'
         ]
         with pytest.raises(KeyError):
-            handoffs.read_input(
-                failed_reference, capability='learning-code-assessment'
-            )
+            handoffs.read_input(failed_reference, capability='learning-code-assessment')
 
         empty_client = Mock()
         empty_client.submit_workflow.return_value = None
         provider = AgentOSCodeRubricAssessorProvider(empty_client, handoffs)
-        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+        with pytest.raises(
+            ServiceUnavailableError, match='Code assessment is unavailable'
+        ):
             provider.assess(assessment)
 
     def test_learning_registry_properties_lifespan_and_idempotent_close(self) -> None:
@@ -361,7 +368,9 @@ class TestLearningCodeEvaluationWorkflow:
             _UnavailableCodeRubricAssessorProvider,
         )
 
-        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+        with pytest.raises(
+            ServiceUnavailableError, match='Code assessment is unavailable'
+        ):
             _UnavailableCodeRubricAssessorProvider().assess(_assessment_request())
 
     def test_agentos_assessor_consumes_a_workflow_handoff_result(self) -> None:
@@ -408,7 +417,9 @@ class TestLearningCodeEvaluationWorkflow:
             Mock(), Mock(), Mock(), Mock(), AgentOSHandoffStore()
         )
 
-        with pytest.raises(ServiceUnavailableError, match='Code assessment is unavailable'):
+        with pytest.raises(
+            ServiceUnavailableError, match='Code assessment is unavailable'
+        ):
             workflow.run(input={'attempt_id': 'attempt-1'})
 
     def test_direct_workflow_run_completes_assessment_handoff(self) -> None:
@@ -427,9 +438,10 @@ class TestLearningCodeEvaluationWorkflow:
         workflow.run(input={'handoff_ref': reference})
 
         assessor.assess.assert_called_once_with(assessment)
-        assert handoffs.take_result(
-            reference, capability='learning-code-assessment'
-        ) == decisions
+        assert (
+            handoffs.take_result(reference, capability='learning-code-assessment')
+            == decisions
+        )
 
     def test_direct_workflow_run_completes_invalid_handoff_as_unavailable(self) -> None:
         handoffs = AgentOSHandoffStore()
@@ -445,7 +457,9 @@ class TestLearningCodeEvaluationWorkflow:
 
         assessor.assess.assert_not_called()
 
-    def test_direct_workflow_run_prepares_assesses_and_applies_code_decisions(self) -> None:
+    def test_direct_workflow_run_prepares_assesses_and_applies_code_decisions(
+        self,
+    ) -> None:
         assessment = _assessment_request()
         prepare = Mock()
         prepare.execute.return_value = SimpleNamespace(

@@ -1,7 +1,11 @@
+"""Direct workflow branch coverage uses internal boundaries by design."""
+
+# pyright: reportPrivateUsage=false
 import json
+from contextlib import nullcontext
 from contextvars import ContextVar
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -74,17 +78,38 @@ if TYPE_CHECKING:
 _ID = '01J00000000000000000000000'
 
 
+def _ignore_usage(_usage: Any) -> None:
+    return
+
+
+def _noop_guard(*_args: Any) -> Any:
+    return nullcontext()
+
+
+def _stub_agent(monkeypatch: pytest.MonkeyPatch, result: Any) -> None:
+    def initialize(_self: Any, **_kwargs: Any) -> None:
+        return
+
+    def run(_self: Any, **_kwargs: Any) -> Any:
+        return result
+
+    monkeypatch.setattr(cast('Any', Agent), '__init__', initialize)
+    monkeypatch.setattr(cast('Any', Agent), 'run', run)
+
+
 def test_title_workflow_validates_handoff_and_completes_result() -> None:
-    workflow = object.__new__(AgnoGenerateMentorTitleWorkflow)
-    workflow._handoffs = Mock()
-    workflow._agent = Mock()
-    workflow._handoffs.read_input.return_value = 'Help me study'
-    workflow._agent.run.return_value = SimpleNamespace(content={'title': 'Study plan'})
+    handoffs = Mock()
+    handoffs.read_input.return_value = 'Help me study'
+    agent = Mock()
+    agent.run.return_value = SimpleNamespace(content={'title': 'Study plan'})
+    workflow = AgnoGenerateMentorTitleWorkflow(
+        cast('Any', agent), cast('Any', handoffs)
+    )
 
     output = workflow._generate(StepInput(input='{"handoff_ref":"handoff-1"}'))
 
     assert output.content == {'status': 'complete'}
-    workflow._handoffs.complete.assert_called_once_with(
+    handoffs.complete.assert_called_once_with(
         'handoff-1',
         capability='mentor-title-generation',
         result_value='Study plan',
@@ -102,25 +127,27 @@ def test_title_workflow_validates_handoff_and_completes_result() -> None:
 def test_title_workflow_fails_closed_on_invalid_handoff_or_output(
     payload: object, handoff_value: object, expected_status: str
 ) -> None:
-    workflow = object.__new__(AgnoGenerateMentorTitleWorkflow)
-    workflow._handoffs = Mock()
-    workflow._agent = Mock()
-    workflow._handoffs.read_input.return_value = (
+    handoffs = Mock()
+    handoffs.read_input.return_value = (
         'valid request' if expected_status == 'invalid_output' else handoff_value
     )
-    workflow._agent.run.return_value = SimpleNamespace(
+    agent = Mock()
+    agent.run.return_value = SimpleNamespace(
         content={'private': 'bad'}
         if expected_status == 'invalid_output'
         else handoff_value
     )
+    workflow = AgnoGenerateMentorTitleWorkflow(
+        cast('Any', agent), cast('Any', handoffs)
+    )
 
-    output = workflow._generate(StepInput(input=payload))
+    output = workflow._generate(StepInput(input=cast('Any', payload)))
 
     assert output.content == {'status': expected_status}
 
 
 def test_purge_workflow_parses_string_generation_and_executes_target() -> None:
-    workflow = object.__new__(PurgeMentorAttachmentsWorkflow)
+    workflow = cast('Any', object.__new__(PurgeMentorAttachmentsWorkflow))
     workflow._purge_use_case = Mock()
     workflow._request = ContextVar('test-purge-request', default=None)
     workflow._purge_use_case.execute.return_value = 3
@@ -153,7 +180,8 @@ def test_purge_workflow_rejects_missing_or_ambiguous_cleanup_target() -> None:
 def test_purge_workflow_deep_copy_preserves_use_case_and_applies_updates() -> None:
     use_case = Mock()
     workflow = PurgeMentorAttachmentsWorkflow(use_case)
-    workflow.db = 'test-database'
+    workflow_any = cast('Any', workflow)
+    workflow_any.db = 'test-database'
 
     copied = workflow.deep_copy(update={'db': 'copied-database'})
 
@@ -161,9 +189,11 @@ def test_purge_workflow_deep_copy_preserves_use_case_and_applies_updates() -> No
     assert copied._purge_use_case is use_case
 
 
-def _prepare_workflow() -> PrepareMentorAttachmentWorkflow:
-    workflow = object.__new__(PrepareMentorAttachmentWorkflow)
-    workflow._execution = ContextVar('test-preparation-execution', default=None)
+def _prepare_workflow() -> Any:
+    workflow = cast('Any', object.__new__(PrepareMentorAttachmentWorkflow))
+    workflow._execution = cast(
+        'Any', ContextVar('test-preparation-execution', default=None)
+    )
     workflow._prepare_use_case = Mock()
     workflow._release_claim_use_case = Mock()
     workflow._complete_use_case = Mock()
@@ -217,7 +247,9 @@ def test_prepare_workflow_extracts_and_commits_safe_coverage(
         _Heartbeat,
     )
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-successful-preparation', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-successful-preparation', default=None)
+    )
     prepared = PreparedMentorAttachment(
         attachment_id=_ID,
         generation=1,
@@ -245,7 +277,9 @@ def test_prepare_workflow_extracts_and_commits_safe_coverage(
     extraction_output = workflow._extract(StepInput(input={}))
     completion_output = workflow._complete(StepInput(input={}))
 
+    assert isinstance(extraction_output.content, str)
     assert json.loads(extraction_output.content)['attachment_id'] == _ID
+    assert isinstance(completion_output.content, str)
     assert json.loads(completion_output.content)['status'] == 'ready'
     workflow._complete_use_case.execute.assert_called_once()
     assert workflow._execution.get() is None
@@ -272,7 +306,9 @@ def test_prepare_workflow_marks_invalid_extraction_as_terminal_failure(
 
     monkeypatch.setattr(module, '_ClaimHeartbeat', _Heartbeat)
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-invalid-preparation', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-invalid-preparation', default=None)
+    )
     workflow._execution.set(
         _Execution(
             request=_PreparationInput(attachment_id=_ID, generation=1),
@@ -320,7 +356,7 @@ def test_prepare_workflow_discards_extraction_after_heartbeat_loss(
 
     monkeypatch.setattr(module, '_ClaimHeartbeat', _LostHeartbeat)
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-lost-preparation', default=None)
+    workflow._execution = cast('Any', ContextVar('test-lost-preparation', default=None))
     workflow._execution.set(
         _Execution(
             request=_PreparationInput(attachment_id=_ID, generation=1),
@@ -365,7 +401,9 @@ def test_prepare_workflow_analyzes_rendered_image_and_commits_failure_safely(
 
     monkeypatch.setattr(module, '_ClaimHeartbeat', _Heartbeat)
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-image-preparation', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-image-preparation', default=None)
+    )
     prepared = PreparedMentorAttachment(
         attachment_id=_ID,
         generation=1,
@@ -390,10 +428,11 @@ def test_prepare_workflow_analyzes_rendered_image_and_commits_failure_safely(
     )
     workflow._renew_claim_use_case = Mock()
     workflow._renew_claim_use_case.execute.return_value = True
-    workflow._usage_recorder = lambda _usage: None
+    workflow._usage_recorder = _ignore_usage
 
     extracted = workflow._extract(StepInput(input={}))
 
+    assert isinstance(extracted.content, str)
     assert json.loads(extracted.content)['analyzed_page_count'] == 0
     assert execution.extraction is not None
     assert execution.extraction.illegible_pages == (1,)
@@ -405,7 +444,9 @@ def test_prepare_workflow_analyzes_rendered_image_and_commits_failure_safely(
 
 def test_prepare_workflow_releases_claim_when_completion_fails() -> None:
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-failed-completion', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-failed-completion', default=None)
+    )
     prepared = PreparedMentorAttachment(
         attachment_id=_ID,
         generation=1,
@@ -436,16 +477,21 @@ def test_prepare_workflow_releases_claim_when_completion_fails() -> None:
 
 def test_prepare_workflow_uses_local_extractor_for_text_and_asserts_claim() -> None:
     provider = LocalMentorAttachmentExtractorProvider(
-        SimpleNamespace(
-            mentor_attachment_max_image_pixels=1_000_000,
-            mentor_attachment_max_pdf_pages=5,
-            mentor_attachment_max_extracted_chars=2_000,
-            mentor_attachment_pdf_processing_timeout_seconds=1.0,
-            mentor_attachment_max_pdf_rendered_bytes=1_000_000,
+        cast(
+            'Any',
+            SimpleNamespace(
+                mentor_attachment_max_image_pixels=1_000_000,
+                mentor_attachment_max_pdf_pages=5,
+                mentor_attachment_max_extracted_chars=2_000,
+                mentor_attachment_pdf_processing_timeout_seconds=1.0,
+                mentor_attachment_max_pdf_rendered_bytes=1_000_000,
+            ),
         )
     )
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-real-text-extraction', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-real-text-extraction', default=None)
+    )
     prepared = PreparedMentorAttachment(
         attachment_id=_ID,
         generation=1,
@@ -462,11 +508,12 @@ def test_prepare_workflow_uses_local_extractor_for_text_and_asserts_claim() -> N
     workflow._extractor_provider = provider
     workflow._renew_claim_use_case = Mock()
     workflow._renew_claim_use_case.execute.return_value = True
-    workflow._usage_recorder = lambda _usage: None
+    workflow._usage_recorder = _ignore_usage
 
     output = workflow._extract(StepInput(input={}))
     workflow._assert_claim_current(execution)
 
+    assert isinstance(output.content, str)
     assert json.loads(output.content)['chunk_count'] == 1
     assert execution.extraction is not None
     assert execution.extraction.chunks[0].content == 'A list stores items in order.'
@@ -474,7 +521,7 @@ def test_prepare_workflow_uses_local_extractor_for_text_and_asserts_claim() -> N
 
 
 def test_prepare_workflow_heartbeat_stops_after_lost_claim() -> None:
-    heartbeat = _ClaimHeartbeat(Mock(), _ID, 1, _ID)
+    heartbeat = cast('Any', _ClaimHeartbeat(Mock(), _ID, 1, _ID))
 
     class _StopAfterRenewal:
         calls = 0
@@ -494,7 +541,9 @@ def test_prepare_workflow_heartbeat_stops_after_lost_claim() -> None:
 
 def test_prepare_workflow_skips_completion_after_execution_is_already_done() -> None:
     workflow = _prepare_workflow()
-    workflow._execution = ContextVar('test-completed-execution', default=None)
+    workflow._execution = cast(
+        'Any', ContextVar('test-completed-execution', default=None)
+    )
     workflow._execution.set(
         _Execution(
             request=_PreparationInput(attachment_id=_ID, generation=1),
@@ -523,7 +572,7 @@ def test_prepare_workflow_rejects_non_positive_pdf_page_limit() -> None:
 
 
 def test_process_workflow_cancels_when_prepare_returns_no_active_claim() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     workflow._prepare = Mock()
     workflow._release_claim = Mock()
     workflow._handoffs = Mock()
@@ -532,12 +581,13 @@ def test_process_workflow_cancels_when_prepare_returns_no_active_claim() -> None
 
     output = workflow._prepare_and_publish(StepInput(input={'attempt_id': _ID}))
 
+    assert isinstance(output.content, str)
     assert json.loads(output.content)['decision'] == 'done'
     workflow._release_claim.execute.assert_called_once_with(_ID, _ID)
 
 
 def test_process_workflow_fails_closed_when_preparation_raises() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     workflow._prepare = Mock()
     workflow._prepare.execute.side_effect = RuntimeError('private adapter error')
     workflow._fail = Mock()
@@ -548,13 +598,14 @@ def test_process_workflow_fails_closed_when_preparation_raises() -> None:
 
     output = workflow._prepare_and_publish(StepInput(input={'attempt_id': _ID}))
 
+    assert isinstance(output.content, str)
     assert json.loads(output.content)['decision'] == 'done'
     workflow._fail.execute.assert_called_once_with(_ID, _ID, 'service_unavailable')
     workflow._release_claim.execute.assert_called_once_with(_ID, _ID)
 
 
 def test_process_workflow_rejects_malformed_request_and_publication() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     with pytest.raises(ServiceUnavailableError):
         workflow._prepare_and_publish(StepInput(input={'unexpected': True}))
     with pytest.raises(ServiceUnavailableError):
@@ -563,7 +614,7 @@ def test_process_workflow_rejects_malformed_request_and_publication() -> None:
 
 
 def test_process_workflow_writes_and_reviews_attachment_answer() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     context, _ = _attachment_context()
     snapshot = MentorContextSnapshot(
         goal_id=None,
@@ -607,6 +658,8 @@ def test_process_workflow_writes_and_reviews_attachment_answer() -> None:
     workflow._record_progress = Mock()
     workflow._assert_current = Mock()
     workflow._renew_claim = Mock()
+    workflow._inference_guard = _noop_guard
+    workflow._telemetry = None
     workflow._attachment_answer = Mock()
     workflow._attachment_answer.answer.return_value = SimpleNamespace(
         answer='A list stores items.'
@@ -639,7 +692,7 @@ def test_process_workflow_writes_and_reviews_attachment_answer() -> None:
 
 
 def test_process_workflow_writes_general_answer_from_structured_output() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     snapshot = MentorContextSnapshot(
         goal_id=None,
         skill_experience_id=None,
@@ -718,7 +771,7 @@ def test_process_workflow_stops_review_loop_for_terminal_or_malformed_output(
 
 
 def test_process_workflow_recovers_handoff_from_prepared_response() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     workflow._handoffs = Mock()
     workflow._handoffs.read_input.side_effect = KeyError('expired handoff')
     workflow._prepare = Mock()
@@ -764,7 +817,7 @@ def test_process_workflow_recovers_handoff_from_prepared_response() -> None:
 def test_process_workflow_recovers_and_republishes_local_blocks_after_handoff_loss() -> (
     None
 ):
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     workflow._handoffs = Mock()
     workflow._handoffs.read_input.side_effect = KeyError('expired handoff')
     workflow._prepare = Mock()
@@ -811,7 +864,7 @@ def test_process_workflow_recovers_and_republishes_local_blocks_after_handoff_lo
 
 
 def test_process_workflow_recovers_prior_review_iteration() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     workflow._handoffs = Mock()
     workflow._prepare = Mock()
     workflow._prepare.execute.return_value = PreparedMentorResponse(
@@ -860,7 +913,7 @@ def test_process_workflow_recovers_prior_review_iteration() -> None:
 
 
 def test_process_workflow_finalizes_published_local_response() -> None:
-    workflow = object.__new__(ProcessMentorResponseWorkflow)
+    workflow = cast('Any', object.__new__(ProcessMentorResponseWorkflow))
     context = MentorContextSnapshot(
         goal_id=None,
         skill_experience_id=None,
@@ -937,11 +990,9 @@ def test_attachment_answer_agent_accepts_only_context_sources(
         page_number=source.page_number,
         locator=source.locator,
     )
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, **_kwargs: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             content=MentorAttachmentAnswerOutput(
                 answer='A list stores items.', sources=[output_source]
             ),
@@ -977,11 +1028,9 @@ def test_attachment_answer_agent_rejects_empty_input_and_unapproved_citations(
         page_number=None,
         locator='page:3/secret',
     )
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, **_kwargs: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             content=MentorAttachmentAnswerOutput(
                 answer='claim', sources=[foreign_source]
             ),
@@ -1001,11 +1050,9 @@ def test_attachment_answer_agent_rejects_empty_input_and_unapproved_citations(
 def test_attachment_vision_agent_records_usage_and_rejects_invalid_boundaries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(Agent, '__init__', lambda _self, **_kwargs: None)
-    monkeypatch.setattr(
-        Agent,
-        'run',
-        lambda _self, **_kwargs: SimpleNamespace(
+    _stub_agent(
+        monkeypatch,
+        SimpleNamespace(
             content=MentorAttachmentVisionOutput(
                 legible=True, description='lesson text'
             ),

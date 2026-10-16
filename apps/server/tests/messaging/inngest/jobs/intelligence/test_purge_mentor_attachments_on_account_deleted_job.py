@@ -1,6 +1,7 @@
+# pyright: reportPrivateUsage=false
 from datetime import UTC, datetime, timedelta
 from contextvars import ContextVar
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 
 import pytest
@@ -138,10 +139,12 @@ class TestPurgeMentorAttachmentsWorkflow:
         assert workflow.telemetry is False
         assert workflow.store_events is False
         assert workflow.store_executor_outputs is False
-        assert len(workflow.steps) == 1
-        assert workflow.steps[0].name == 'purge-private-artifacts'
-        assert workflow.steps[0].max_retries == 0
-        assert workflow.steps[0].executor.__self__ is workflow
+        steps = cast('Any', workflow.steps)
+        assert steps is not None
+        assert len(steps) == 1
+        assert steps[0].name == 'purge-private-artifacts'
+        assert steps[0].max_retries == 0
+        assert steps[0].executor.__self__ is workflow
 
     @pytest.mark.parametrize(
         ('target', 'expected_session_id', 'expected_batch_id'),
@@ -229,7 +232,7 @@ class TestPurgeMentorAttachmentsWorkflow:
         )
 
         assert result is sentinel
-        assert observed[0].deletion_generation == 4
+        assert cast('Any', observed[0]).deletion_generation == 4
         assert observed[1] == (
             '{"account_id":"'
             + 'F' * 26
@@ -282,7 +285,8 @@ class TestPurgeMentorAttachmentsWorkflow:
     def test_deep_copy_preserves_use_case_and_applies_updates(self) -> None:
         use_case = Mock()
         workflow = PurgeMentorAttachmentsWorkflow(use_case)
-        workflow.db = 'original-database'
+        workflow_any = cast('Any', workflow)
+        workflow_any.db = 'original-database'
 
         copied = workflow.deep_copy()
         updated = workflow.deep_copy(update={'db': 'updated-database'})

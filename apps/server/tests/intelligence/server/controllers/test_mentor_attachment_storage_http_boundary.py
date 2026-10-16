@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import time
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import boto3
@@ -135,13 +135,16 @@ def mentor_client_with_minio_storage(
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
 
-    storage = boto3.client(
-        's3',
-        region_name='us-east-1',
-        endpoint_url=endpoint_url,
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        config=Config(signature_version='s3v4', s3={'addressing_style': 'path'}),
+    storage = cast(
+        'Any',
+        boto3.client(  # pyright: ignore[reportUnknownMemberType] - boto3's generated client is intentionally dynamic.
+            's3',
+            region_name='us-east-1',
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            config=Config(signature_version='s3v4', s3={'addressing_style': 'path'}),
+        ),
     )
     bucket_created = False
     try:
@@ -160,7 +163,10 @@ def mentor_client_with_minio_storage(
         yield client, bucket, storage
     finally:
         if bucket_created:
-            objects = storage.list_objects_v2(Bucket=bucket).get('Contents', [])
+            objects = cast(
+                'list[dict[str, Any]]',
+                storage.list_objects_v2(Bucket=bucket).get('Contents', []),
+            )
             if objects:
                 storage.delete_objects(
                     Bucket=bucket,
@@ -368,9 +374,9 @@ class TestMentorAttachmentStorageHttpBoundary:
         assert downloaded.headers['cache-control'] == 'private, no-store'
         assert persisted is not None
         assert persisted.checksum == hashlib.sha256(content).hexdigest()
-        assert storage.head_object(Bucket=bucket, Key=persisted.object_key)[
-            'ContentLength'
-        ] == len(content)
+        assert cast('Any', storage).head_object(
+            Bucket=bucket, Key=persisted.object_key
+        )['ContentLength'] == len(content)
 
     def test_registered_download_does_not_read_another_accounts_attachment(
         self,
@@ -381,12 +387,12 @@ class TestMentorAttachmentStorageHttpBoundary:
         session_id, attachment_id, _ = _prepare_attachment_for_download(
             client, postgres_database, storage
         )
-        client.app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
-            AuthenticatedUser(
-                account_id='01JOTHERACCOUNT00000000000',
-                display_name='Other Learner',
-                time_zone=None,
-            )
+        cast('Any', client.app).dependency_overrides[
+            SharedPipe.get_authenticated_user
+        ] = lambda: AuthenticatedUser(
+            account_id='01JOTHERACCOUNT00000000000',
+            display_name='Other Learner',
+            time_zone=None,
         )
 
         response = client.get(

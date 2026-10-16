@@ -1,9 +1,10 @@
+# pyright: reportPrivateUsage=false
 from __future__ import annotations
 
 import json
 import os
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import Mock
 from uuid import uuid4
 
@@ -110,13 +111,16 @@ def _local_block(key: str = 'local-0', ordinal: int = 0) -> MentorResponseBlock:
     )
 
 
-def _step_input(last_content: str | None = None) -> object:
+def _step_input(last_content: str | None = None) -> Any:
+    def get_last_step_content(_self: Any) -> str | None:
+        return last_content
+
     return type(
         'WorkflowStepInput',
         (),
         {
             'input': {'attempt_id': _UNIT_ID},
-            'get_last_step_content': lambda self: last_content,
+            'get_last_step_content': get_last_step_content,
         },
     )()
 
@@ -124,7 +128,9 @@ def _step_input(last_content: str | None = None) -> object:
 def test_response_workflow_rejects_json_and_mapping_input_errors() -> None:
     workflow = object.__new__(ProcessMentorResponseWorkflow)
 
-    for raw in ('{invalid', {'attempt_id': _UNIT_ID, 'extra': True}, []):
+    for raw in cast(
+        'tuple[Any, ...]', ('{invalid', {'attempt_id': _UNIT_ID, 'extra': True}, [])
+    ):
         with pytest.raises(ServiceUnavailableError):
             workflow._prepare_and_publish(StepInput(input=raw))
 
@@ -149,11 +155,14 @@ def test_response_workflow_validates_publication_review_and_usage_contracts() ->
     )
 
     assert ProcessMentorResponseWorkflow._usage_fields(
-        SimpleNamespace(metrics=None)
+        cast('Any', SimpleNamespace(metrics=None))
     ) == (None, None, None, None)
     assert ProcessMentorResponseWorkflow._usage_fields(
-        SimpleNamespace(
-            metrics=RunMetrics(input_tokens=1, output_tokens=2, total_tokens=3)
+        cast(
+            'Any',
+            SimpleNamespace(
+                metrics=RunMetrics(input_tokens=1, output_tokens=2, total_tokens=3)
+            ),
         )
     ) == (1, 2, 3, None)
     for metrics in (
@@ -162,11 +171,16 @@ def test_response_workflow_validates_publication_review_and_usage_contracts() ->
         RunMetrics(input_tokens=1, output_tokens=2, total_tokens=4),
     ):
         assert ProcessMentorResponseWorkflow._usage_fields(
-            SimpleNamespace(metrics=metrics)
+            cast('Any', SimpleNamespace(metrics=metrics))
         ) == (None, None, None, None)
     assert ProcessMentorResponseWorkflow._usage_fields(
-        SimpleNamespace(
-            metrics=RunMetrics(input_tokens=1, output_tokens=2, total_tokens=3, cost=-1)
+        cast(
+            'Any',
+            SimpleNamespace(
+                metrics=RunMetrics(
+                    input_tokens=1, output_tokens=2, total_tokens=3, cost=-1
+                )
+            ),
         )
     ) == (1, 2, 3, None)
 
@@ -294,7 +308,9 @@ def test_response_workflow_publishes_local_blocks_or_fails_closed(
     workflow._handoffs.create.return_value = 'h' * 32
 
     output = workflow._prepare_and_publish(StepInput(input={'attempt_id': _UNIT_ID}))
-    reference = _StepReference.model_validate_json(output.content, strict=True)
+    reference = _StepReference.model_validate_json(
+        cast('str', output.content), strict=True
+    )
 
     assert reference.decision == expected
     if published:
@@ -335,7 +351,9 @@ def test_response_workflow_finalizes_recovered_local_answer_and_releases_claim(
     workflow._release_claim = Mock()
     reference = _StepReference(handoff='h' * 32, decision='done')
 
-    output = workflow._publish_and_finalize(_step_input(reference.model_dump_json()))
+    output = workflow._publish_and_finalize(
+        cast('StepInput', _step_input(reference.model_dump_json()))
+    )
 
     assert output.content == expected.value
     workflow._finalizer.execute.assert_called_once_with(

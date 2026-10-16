@@ -26,6 +26,8 @@ from tests.intelligence.server.agentos.mentor_attachment_test_support import (
 )
 
 if TYPE_CHECKING:
+    from agno.workflow.types import StepInput, StepOutput
+
     from collections.abc import Callable
 
     from shifu.intelligence.ai.agno.outputs import MentorAttachmentVisionOutput
@@ -212,7 +214,7 @@ def test_registered_attachment_removal_during_vision_inference_does_not_resurrec
     batch_id = batch_response.json()['batch_id']
 
     concurrent_client = TestClient(
-        agentos_fixture.client.app, headers=agentos_fixture.client.headers
+        agentos_fixture.client.app, headers=dict(agentos_fixture.client.headers)
     )
     with ThreadPoolExecutor(max_workers=1) as executor:
         upload = executor.submit(
