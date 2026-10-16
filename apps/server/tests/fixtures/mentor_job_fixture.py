@@ -1,54 +1,32 @@
-"""Concrete NLP/Agno/Decisions proof through the registered disposable job."""
+"""Concrete NLP/Agno/Decisions proof through the registered AgentOS workflow."""
 
 import hashlib
 import json
-import logging
-import os
-import sys
-import subprocess
 import math
-from pathlib import Path
+import os
+import subprocess
+import sys
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from threading import Event, Lock, Thread
-from typing import TYPE_CHECKING, Never, cast
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
-
-from agno.workflow.step import Step
-from agno.workflow.types import StepOutput
-from langfuse.types import TraceContext
 from uuid import uuid4
 
 import httpx
 import pytest
+from agno.workflow.step import Step
+from agno.workflow.types import StepOutput
 from fastapi import FastAPI
-from sqlalchemy import select
-
-from shifu.intelligence.ai.agno.agents.mentor_writer_agent import MentorWriterAgent
-from shifu.intelligence.ai.agno.models.mentor_openai_chat import MentorOpenAIChat
-from shifu.intelligence.ai.agno.workflows.agno_answer_mentor_message_workflow import (
-    AgnoAnswerMentorMessageWorkflow,
-)
 from shifu.intelligence.ai.data.mentor_resources import MentorResources
 from shifu.intelligence.core.domain.events.mentor_response_requested_event import (
     MentorResponseRequestedEvent,
     MentorResponseRequestedPayload,
 )
-from shifu.intelligence.core.domain.structures.mentor_generation_request import (
-    MentorGenerationRequest,
-)
-from shifu.intelligence.core.domain.structures.mentor_response_block import (
-    MentorResponseBlock,
-)
 from shifu.intelligence.core.domain.structures.mentor_route_result import (
     MentorRouteResult,
-)
-from shifu.intelligence.core.domain.entities.mentor_response_attempt import (
-    MentorResponseAttempt,
-)
-from shifu.intelligence.core.domain.enums.mentor_response_status import (
-    MentorResponseStatus,
 )
 from shifu.intelligence.database.mentor_embeddings_database_repository import (
     MentorEmbeddingsDatabaseRepository,
@@ -57,18 +35,15 @@ from shifu.intelligence.database.sqlalchemy.intelligence_database import (
     SqlalchemyIntelligenceDatabase,
 )
 from shifu.intelligence.database.sqlalchemy.models import (
+    MentorEmbeddingVersionModel,
+    MentorIndexedEmbeddingModel,
     MentorMessageModel,
     MentorResponseAttemptModel,
     MentorResponseEventModel,
     MentorSessionModel,
-    MentorEmbeddingVersionModel,
-    MentorIndexedEmbeddingModel,
 )
 from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import (
     SentenceTransformersEmbeddingsProvider,
-)
-from shifu.intelligence.providers.mentor_review_provider.openrouter.openrouter_jev_mentor_review_provider import (
-    OpenrouterJevMentorReviewProvider,
 )
 from shifu.intelligence.providers.routing.local_mentor_route_provider import (
     LocalMentorRouteProvider,
@@ -79,30 +54,29 @@ from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_p
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
 )
+from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import (
     MentorAccessGrant,
-    MentorUsage,
     MentorContextSnapshot,
+    MentorUsage,
+)
+from shifu.shared.database.sqlalchemy.model import Model
+from shifu.shared.database.sqlalchemy.repositories.events_repository import (
+    SqlalchemyEventsRepository,
 )
 from shifu.shared.database.sqlalchemy.session import Session
-from shifu.shared.database.sqlalchemy.model import Model
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from sqlalchemy import select
 
 _PRIVATE_SDK_ERROR_CANARY = 'mentor-private-sdk-error-body-canary'
-_PUBLIC_SDK_LOG_MARKER = 'mentor_sdk_public_log_boundary'
 
 if TYPE_CHECKING:
+    from shifu.intelligence.core.interfaces import (
+        MentorRouteProvider,
+    )
     from shifu.intelligence.core.interfaces.mentor_faq_reranker_provider import (
         MentorFaqRerankerProvider,
     )
-    from shifu.intelligence.core.interfaces import (
-        MentorRouteProvider,
-        MentorReviewProvider,
-        AnswerMentorMessageWorkflow,
-    )
-    from shifu.intelligence.core.domain.enums import MentorWorkflowStep
-    from shifu.intelligence.core.domain.structures import MentorInferenceUsage
     from sqlalchemy.orm import Session as SqlalchemySession
     from tests.fixtures.inngest_fixture import InngestFixture
 
@@ -151,7 +125,6 @@ class _ControlledInference:
     calibration_progress: list[dict[str, object]]
     requests: list[tuple[str, dict[str, object]]]
     native_steps: list[str]
-    metadata_requests: list[dict[str, object]]
     accounting_requests: list[dict[str, object]]
     effective_usage: dict[tuple[str, str], int]
     writer_entered: Event
@@ -170,7 +143,6 @@ class _ControlledInference:
         self.mode = 'approve'
         self.requests = []
         self.native_steps = []
-        self.metadata_requests = []
         self.accounting_requests = []
         self.effective_usage = {}
         self.writer_entered = Event()
@@ -187,7 +159,6 @@ class _ControlledInference:
             self.requests.clear()
             self.calibration_progress.clear()
             self.native_steps.clear()
-            self.metadata_requests.clear()
             self.accounting_requests.clear()
             self.effective_usage.clear()
             self.writer_entered.clear()
@@ -204,8 +175,6 @@ class _ControlledInference:
             return self._backoff_response()
         if path == '/accounting':
             return self._accounting_response(payload)
-        if path == '/telemetry':
-            return self._telemetry_response(payload)
         with self.lock:
             if path in {'/configuration', '/access'}:
                 return self._control_response(path, payload)
@@ -609,88 +578,6 @@ class _ControlledInference:
                 return 503, {'error': 'controlled accounting pause timeout'}
         return 200, {'accepted': True}
 
-    def _telemetry_response(
-        self, payload: dict[str, object]
-    ) -> tuple[int, dict[str, object]]:
-        with self.lock:
-            self.metadata_requests.append(payload)
-            pause = self.mode == 'pause_finalize' and payload.get('name') == 'persist'
-        if pause:
-            self.accounting_entered.set()
-            if not self.accounting_release.wait(timeout=30):
-                return 503, {'error': 'controlled finalization pause timeout'}
-        return 503, {'error': 'controlled telemetry unavailable'}
-
-
-class _ThrowingTelemetryClient:
-    _endpoint: str
-
-    def __init__(self, endpoint: str) -> None:
-        self._endpoint = endpoint
-
-    def start_span(
-        self,
-        *,
-        name: str,
-        metadata: dict[str, str | int | float],
-        input: object | None = None,
-        output: object | None = None,
-        trace_context: TraceContext | None = None,
-    ) -> Never:
-        observation: dict[str, object] = {'name': name, 'metadata': metadata}
-        if trace_context is not None:
-            observation['trace_context'] = trace_context
-        if input is not None:
-            observation['input'] = input
-        if output is not None:
-            observation['output'] = output
-        httpx.post(f'{self._endpoint}/telemetry', json=observation).raise_for_status()
-        raise RuntimeError('controlled telemetry failure')
-
-    def start_generation(
-        self,
-        *,
-        trace_context: TraceContext | None = None,
-        name: str,
-        model: str,
-        metadata: dict[str, str | int | float],
-        usage_details: dict[str, int] | None,
-        cost_details: dict[str, float] | None,
-    ) -> Never:
-        httpx.post(
-            f'{self._endpoint}/telemetry',
-            json={
-                'name': name,
-                'trace_context': trace_context,
-                'model': model,
-                'metadata': metadata,
-                'usage_details': usage_details,
-                'cost_details': cost_details,
-            },
-        ).raise_for_status()
-        raise RuntimeError('controlled telemetry failure')
-
-
-class _LegacyOptionalObserverConsumer:
-    """Test-only legacy port consumer retaining native inference and accounting."""
-
-    def __init__(self, workflow: AgnoAnswerMentorMessageWorkflow) -> None:
-        self._workflow: AgnoAnswerMentorMessageWorkflow = workflow
-
-    def run(
-        self,
-        request: MentorGenerationRequest,
-        usage_recorder: Callable[['MentorInferenceUsage'], None] | None = None,
-        inference_guard: Callable[[], None] | None = None,
-        progress_recorder: Callable[['MentorWorkflowStep'], None] | None = None,
-    ) -> MentorResponseBlock:
-        assert usage_recorder is not None
-        assert inference_guard is not None
-        assert progress_recorder is not None
-        # Spec11 keeps this observer optional for callers using the older public
-        # signature. Native calls still execute the real fresh guard and sink.
-        return self._workflow.run(request, usage_recorder, inference_guard)
-
 
 def _observe_native_steps(endpoint: str) -> None:
     actual_step_execute = cast('Callable[..., StepOutput]', Step.execute)
@@ -706,8 +593,8 @@ def _observe_native_steps(endpoint: str) -> None:
 
 
 def _configure_native_faq_reranker(endpoint: str) -> object:
-    from sentence_transformers import CrossEncoder
     import sentence_transformers
+    from sentence_transformers import CrossEncoder
     from shifu.intelligence.providers.retrieval.sentence_transformers.sentence_transformers_mentor_faq_reranker_provider import (
         SentenceTransformersMentorFaqRerankerProvider,
     )
@@ -743,52 +630,17 @@ def _configure_native_faq_reranker(endpoint: str) -> object:
 
 def create_mentor_test_app() -> FastAPI:
     """Factory loaded only by the fixture-owned child, never production composition."""
-    from shifu.app import FastAPIApp
-    import shifu.app as app_module
-    from shifu.intelligence.core.use_cases.process_mentor_response_use_case import (
-        ProcessMentorResponseUseCase,
-    )
-    from shifu.composition.lazy_mentor_route_provider import LazyMentorRouteProvider
     import shifu.intelligence.providers.mentor_review_provider.openrouter.openrouter_jev_mentor_review_provider as review_module
+    from shifu.app import FastAPIApp
+    from shifu.intelligence.providers.routing.lazy_mentor_route_provider import (
+        LazyMentorRouteProvider,
+    )
     from shifu.curriculum.database.sqlalchemy.curriculum_database import (
         SqlalchemyCurriculumDatabase,
     )
     from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
         CurriculumMentorCatalogProvider,
     )
-
-    job_logger = logging.getLogger(
-        'shifu.intelligence.messaging.inngest.jobs.answer_mentor_message_job'
-    )
-    job_logger.addHandler(logging.StreamHandler(sys.stdout))
-    job_logger.setLevel(logging.INFO)
-    job_logger.propagate = False
-
-    from agno.utils.log import agent_logger
-
-    class _DiagnosedProcess(ProcessMentorResponseUseCase):
-        def _process(self, attempt: MentorResponseAttempt) -> MentorResponseStatus:
-            try:
-                return super()._process(attempt)
-            except Exception as error:
-                frame = error.__traceback__
-                while frame is not None and frame.tb_next is not None:
-                    frame = frame.tb_next
-                location = (
-                    f'{Path(frame.tb_frame.f_code.co_filename).name}:{frame.tb_frame.f_code.co_name}:{frame.tb_lineno}'
-                    if frame is not None
-                    else 'unknown'
-                )
-                job_logger.error(  # noqa: TRY400 - Never emit private exception text or stack.
-                    'mentor_test_process_error kind=%s location=%s',
-                    type(error).__name__,
-                    location,
-                )
-                raise
-            finally:
-                agent_logger.warning(_PUBLIC_SDK_LOG_MARKER)
-
-    app_module.ProcessMentorResponseUseCase = _DiagnosedProcess
 
     endpoint = os.environ['SHIFU_MENTOR_TEST_ENDPOINT']
     _observe_native_steps(endpoint)
@@ -808,16 +660,11 @@ def create_mentor_test_app() -> FastAPI:
     embeddings = SentenceTransformersEmbeddingsProvider()
     resources = MentorResources()
     resources.bind_catalog_version(())
-    startup_mode = httpx.post(f'{endpoint}/configuration', json={}).json()['mode']
+    httpx.post(f'{endpoint}/configuration', json={}).raise_for_status()
     reranker = cast(
         'MentorFaqRerankerProvider', _configure_native_faq_reranker(endpoint)
     )
-    telemetry = LangfuseMentorTelemetryProvider(
-        None
-        if startup_mode == 'telemetry_disabled'
-        else _ThrowingTelemetryClient(endpoint),
-        capture_content=startup_mode != 'telemetry_metadata_only',
-    )
+    telemetry = LangfuseMentorTelemetryProvider()
     catalog = CurriculumMentorCatalogProvider(SqlalchemyCurriculumDatabase(engine))
     preprocessor = SpacyMentorTextPreprocessorProvider()
     stable_route = LazyMentorRouteProvider(
@@ -848,52 +695,11 @@ def create_mentor_test_app() -> FastAPI:
             ).route(content, context)
 
     route: MentorRouteProvider = _CurrentTestRoute()
-    writer = MentorWriterAgent(
-        MentorOpenAIChat(
-            id='controlled-writer',
-            base_url=f'{endpoint}/v1',
-            api_key='disposable-test-key',
-            max_retries=0,
-            retries=0,
-            store=False,
-        )
-    )
-    review: MentorReviewProvider = OpenrouterJevMentorReviewProvider(
-        httpx.Client(),
-        '' if startup_mode == 'review_key_missing' else 'disposable-test-key',
-        f'{endpoint}/decisions',
-        resources.manifest.review_thresholds,
-    )
-    fallback = MentorWriterAgent(
-        MentorOpenAIChat(
-            id='controlled-approved-fallback',
-            base_url=f'{endpoint}/fallback/v1',
-            api_key='disposable-test-key',
-            max_retries=0,
-            retries=0,
-            store=False,
-        )
-    )
-    workflow: AnswerMentorMessageWorkflow | None = None
-    if startup_mode != 'unavailable_workflow':
-        native_workflow = AgnoAnswerMentorMessageWorkflow(
-            writer,
-            review,
-            fallback_writer=fallback,
-            fallback_privacy_verified=True,
-            telemetry=telemetry,
-        )
-        workflow = (
-            _LegacyOptionalObserverConsumer(native_workflow)
-            if startup_mode == 'legacy_optional_observer'
-            else native_workflow
-        )
     return FastAPIApp.register(
         database_engine=engine,
         mentor_access_provider=_Access(endpoint),
         mentor_telemetry_provider=telemetry,
         mentor_route_provider=route,
-        answer_mentor_message_workflow=workflow,
     )
 
 
@@ -987,7 +793,7 @@ def run_preparation_cli(
         environment['PYTHONPATH'] = str(package_root)
     command = [sys.executable]
     command.extend(['-m', 'shifu.mentor_indexes'])
-    return subprocess.run(  # noqa: S603 - Execute the fixed application CLI in the fixture-owned isolated environment.
+    return subprocess.run(  # noqa: S603 - Python executable and args are assembled locally.
         command,
         cwd=fixture.runtime_directory,
         env=environment,
@@ -1088,8 +894,9 @@ def publish_and_wait(
     event = MentorResponseRequestedEvent(
         payload=MentorResponseRequestedPayload(attempt_id=attempt_id)
     )
-    event_id = SystemIdentifierProvider().generate()
-    fixture.publish(event.name, {'attempt_id': event.payload.attempt_id}, event_id)
+    with fixture.inspection_session() as session:
+        SqlalchemyEventsRepository(session).add(event)
+        session.commit()
 
     def reached_terminal_status(session: 'SqlalchemySession') -> bool:
         attempt = session.get(MentorResponseAttemptModel, attempt_id)
@@ -1100,7 +907,6 @@ def publish_and_wait(
         }
 
     fixture.wait_for_database(reached_terminal_status)
-    fixture.wait_for_log(f'mentor_response_job_completed event_id={event_id}')
     with fixture.inspection_session() as session:
         attempt = session.get(MentorResponseAttemptModel, attempt_id)
         assert attempt is not None

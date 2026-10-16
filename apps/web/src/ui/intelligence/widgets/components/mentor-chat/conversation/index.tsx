@@ -19,6 +19,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     conversationError,
     handleScroll,
     isReadingMessages,
+    isReadingOlderMessages,
     loadOlderMessages,
     refresh,
     scrollRef,
@@ -72,6 +73,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
                 content: '',
                 createdAt: '',
                 inReplyToMessageId: response.learnerMessageId,
+                attachments: [],
               }}
             />
           </ol>
@@ -84,7 +86,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             onRetry={retryResponse}
           />
         ) : null}
-        {isReadingMessages && messages.length > 0 ? (
+        {isReadingOlderMessages && messages.length > 0 ? (
           <p aria-live='polite' className='py-2 text-center text-sm'>
             Carregando mensagens anteriores…
           </p>

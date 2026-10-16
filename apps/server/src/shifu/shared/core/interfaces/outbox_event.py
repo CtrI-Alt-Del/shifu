@@ -9,6 +9,7 @@ class OutboxEvent:
     id: str
     name: str
     payload: Mapping[str, object]
+    destination: str
     status: str
     attempts: int
     available_at: datetime

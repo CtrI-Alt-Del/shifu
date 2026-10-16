@@ -1,7 +1,9 @@
-from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 from datetime import datetime
 
 from pydantic import BaseModel
+
+from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
+from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 
 
 class MentorSessionSchemas:
@@ -19,6 +21,18 @@ class MentorSessionSchemas:
         content: str
         created_at: datetime
         in_reply_to_message_id: str | None
+        attachments: list['MentorSessionSchemas.Attachment'] = []
+
+    class Attachment(BaseModel):
+        attachment_id: str
+        filename: str
+        media_type: str
+        size_bytes: int
+        status: MentorAttachmentStatus
+        failure_code: str | None
+        analyzed_pages: list[int]
+        illegible_pages: list[int]
+        uninterpreted_pages: list[int]
 
     class MessagesPage(BaseModel):
         items: list['MentorSessionSchemas.Message']

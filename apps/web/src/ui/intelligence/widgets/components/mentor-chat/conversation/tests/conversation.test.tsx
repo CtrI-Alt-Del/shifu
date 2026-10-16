@@ -12,6 +12,15 @@ vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
+vi.mock('@/ui/intelligence/hooks/use-mentor-attachment-file-query', () => {
+  const emptyAttachmentQuery = {
+    mentorAttachmentFiles: {},
+    mentorAttachmentFileErrors: {},
+    mentorAttachmentFilesError: undefined,
+    isReadingMentorAttachmentFiles: false,
+  }
+  return { useMentorAttachmentFileQuery: () => emptyAttachmentQuery }
+})
 const useConversationMock = vi.mocked(useConversation)
 const useMentorContextMock = vi.mocked(useMentorContext)
 const mockConversationValue = (value: object) =>
@@ -25,6 +34,8 @@ const mentorValue = {
   sessionDetail: null,
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
+  draftAttachments: [],
+  isPreparingAttachments: false,
   search: '',
   isPanelOpen: false,
   panelView: 'conversation',
@@ -33,6 +44,7 @@ const mentorValue = {
   isValidatingScope: false,
   isReadingHistory: false,
   isReadingMessages: false,
+  isReadingOlderMessages: false,
   isSubmittingFirstMessage: false,
   isRenamingSession: false,
   isRemovingSession: false,
@@ -50,6 +62,8 @@ const mentorValue = {
   startNewConversation: vi.fn(),
   selectSession: vi.fn(),
   setDraft: vi.fn(),
+  addAttachments: vi.fn(),
+  removeAttachment: vi.fn(),
   setSearch: vi.fn(),
   sendFirstMessage: vi.fn(),
   loadMoreSessions: vi.fn(),
@@ -97,9 +111,9 @@ describe('Conversation', () => {
     expect(screen.getByLabelText('Escreva sua mensagem para o Mentor')).toBeEnabled()
     expect(
       screen.getByRole('button', {
-        name: 'Anexar arquivo ou imagem. Indisponível no momento',
+        name: 'Anexar arquivo ou imagem',
       }),
-    ).toBeDisabled()
+    ).toBeEnabled()
   })
 
   it('renders older-page, loading and recoverable conversation states', () => {
@@ -112,6 +126,7 @@ describe('Conversation', () => {
         content: 'Pergunta salva',
         inReplyToMessageId: null,
         createdAt: '2026-10-08T12:00:00Z',
+        attachments: [],
       },
       {
         id: 'mentor-reply',
@@ -120,6 +135,7 @@ describe('Conversation', () => {
         content: 'Resposta',
         inReplyToMessageId: 'learner-pending',
         createdAt: '2026-10-08T12:01:00Z',
+        attachments: [],
       },
     ]
     const loadOlderMessages = vi.fn()
@@ -153,6 +169,17 @@ describe('Conversation', () => {
     expect(loadOlderMessages).toHaveBeenCalledOnce()
     mockConversationValue({ ...conversationState, isReadingMessages: true })
     rerender(<Conversation />)
+    expect(screen.queryByText('Carregando mensagens anteriores…')).toBeNull()
+    expect(screen.getByText('Pergunta salva')).toBeVisible()
+    mockConversationValue({
+      ...conversationState,
+      isReadingMessages: true,
+      isReadingOlderMessages: true,
+    })
+    rerender(<Conversation />)
+    expect(
+      screen.getByRole('button', { name: 'Carregar mensagens anteriores' }),
+    ).toBeDisabled()
     expect(screen.getByText('Carregando mensagens anteriores…')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(refresh).toHaveBeenCalledOnce()
@@ -169,6 +196,7 @@ describe('Conversation', () => {
           intent: null,
           content:
             '**Explicação**\n\n<script>alert(1)</script>\n\n[perigoso](javascript:alert(1))\n\n```js\nconst result = 42\n```',
+          sources: [],
         },
       ],
       consultations: ['learning'],
@@ -200,6 +228,7 @@ describe('Conversation', () => {
               content: '  Mensagem preservada  ',
               createdAt: '',
               inReplyToMessageId: null,
+              attachments: [],
             },
           ],
           nextCursor: null,
@@ -236,6 +265,7 @@ describe('Conversation', () => {
           ordinal: 0,
           intent: null,
           content: 'Resposta local persistida.',
+          sources: [],
         },
       ],
       consultations: [],
@@ -249,6 +279,7 @@ describe('Conversation', () => {
       content: 'Pergunta local',
       inReplyToMessageId: null,
       createdAt: '',
+      attachments: [],
     }
     const mentorReply: MentorMessage = {
       id: 'reply',
@@ -257,6 +288,7 @@ describe('Conversation', () => {
       content: 'Resposta local persistida.',
       inReplyToMessageId: 'learner',
       createdAt: '',
+      attachments: [],
     }
     const shouldAnimateBlock = vi.fn(() => true)
     const markBlockPresented = vi.fn()

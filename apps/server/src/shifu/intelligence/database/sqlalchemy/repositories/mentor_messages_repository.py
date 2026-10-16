@@ -2,10 +2,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, aliased
 
 from shifu.intelligence.core.domain.entities import MentorMessage
-from shifu.intelligence.core.domain.enums import MentorMessageRole
-from shifu.intelligence.core.domain.structures import MentorMessagesPage
+from shifu.intelligence.core.domain.enums import (
+    MentorAttachmentStatus,
+    MentorMessageRole,
+)
+from shifu.intelligence.core.domain.structures import (
+    MentorAttachmentView,
+    MentorMessagesPage,
+)
 from shifu.intelligence.database.sqlalchemy.mappers import MentorMessageMapper
 from shifu.intelligence.database.sqlalchemy.models import (
+    MentorAttachmentModel,
     MentorMessageModel,
     MentorSessionModel,
 )
@@ -71,7 +78,7 @@ class SqlalchemyMentorMessagesRepository:
                 }
             )
             models = models[:30]
-        messages = [MentorMessageMapper.to_domain(model) for model in reversed(models)]
+        messages = [self._to_domain(model) for model in reversed(models)]
         return MentorMessagesPage(items=messages, next_cursor=next_cursor)
 
     def find_by_id(
@@ -90,7 +97,7 @@ class SqlalchemyMentorMessagesRepository:
                 MentorMessageModel.id == message_id,
             )
         )
-        return MentorMessageMapper.to_domain(model) if model is not None else None
+        return self._to_domain(model) if model is not None else None
 
     def find_response(
         self, account_id: str, session_id: str, learner_message_id: str
@@ -108,7 +115,7 @@ class SqlalchemyMentorMessagesRepository:
                 MentorMessageModel.in_reply_to_message_id == learner_message_id,
             )
         )
-        return MentorMessageMapper.to_domain(model) if model is not None else None
+        return self._to_domain(model) if model is not None else None
 
     def find_pending_learner_message_id(
         self, account_id: str, session_id: str
@@ -151,7 +158,41 @@ class SqlalchemyMentorMessagesRepository:
             )
             .order_by(MentorMessageModel.created_at, MentorMessageModel.id)
         )
-        return tuple(MentorMessageMapper.to_domain(model) for model in models)
+        return tuple(self._to_domain(model) for model in models)
+
+    def _to_domain(self, model: MentorMessageModel) -> MentorMessage:
+        message = MentorMessageMapper.to_domain(model)
+        attachments = self._session.scalars(
+            select(MentorAttachmentModel)
+            .where(
+                MentorAttachmentModel.message_id == model.id,
+                MentorAttachmentModel.session_id == model.session_id,
+                MentorAttachmentModel.status != MentorAttachmentStatus.REMOVED.value,
+            )
+            .order_by(MentorAttachmentModel.created_at, MentorAttachmentModel.id)
+        )
+        return MentorMessage(
+            id=message.id,
+            session_id=message.session_id,
+            role=message.role,
+            content=message.content,
+            created_at=message.created_at,
+            in_reply_to_message_id=message.in_reply_to_message_id,
+            attachments=tuple(
+                MentorAttachmentView(
+                    attachment_id=attachment.id,
+                    filename=attachment.filename,
+                    media_type=attachment.media_type,
+                    size_bytes=attachment.size_bytes,
+                    status=MentorAttachmentStatus(attachment.status),
+                    failure_code=attachment.failure_code,
+                    analyzed_pages=tuple(attachment.analyzed_pages),
+                    illegible_pages=tuple(attachment.illegible_pages),
+                    uninterpreted_pages=tuple(attachment.uninterpreted_pages),
+                )
+                for attachment in attachments
+            ),
+        )
 
     def add(self, message: MentorMessage) -> None:
         self._session.add(MentorMessageMapper.to_model(message))

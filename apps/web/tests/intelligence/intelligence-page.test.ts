@@ -23,6 +23,7 @@ type MentorDetailFixture = {
       content: string
       createdAt: string
       inReplyToMessageId: string | null
+      attachments: []
     }>
     nextCursor: string | null
   }
@@ -175,6 +176,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
                 index === 0 ? 'Quero organizar meu estudo.' : 'Como começo álgebra?',
               createdAt: session.createdAt,
               inReplyToMessageId: null,
+              attachments: [],
             },
           ],
           nextCursor: null,

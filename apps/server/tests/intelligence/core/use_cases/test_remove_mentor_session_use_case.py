@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, call, create_autospec
 
 import pytest
-
 from shifu.intelligence.core.domain.entities import MentorSession
 from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
 from shifu.intelligence.core.domain.structures import MentorSubmissionRecord
@@ -11,7 +10,7 @@ from shifu.intelligence.core.interfaces import (
     IntelligenceDatabaseRepositories,
 )
 from shifu.intelligence.core.use_cases import RemoveMentorSessionUseCase
-from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
 
 
 class TestRemoveMentorSessionUseCase:
@@ -45,7 +44,10 @@ class TestRemoveMentorSessionUseCase:
         )
         self.clock = create_autospec(ClockProvider, instance=True)
         self.clock.now.return_value = self.now
-        self.subject = RemoveMentorSessionUseCase(self.database, self.clock)
+        self.access_provider = create_autospec(MentorAccessProvider, instance=True)
+        self.subject = RemoveMentorSessionUseCase(
+            self.database, self.clock, self.access_provider
+        )
 
     def test_should_purge_messages_then_tombstone_session_in_one_transaction(
         self,

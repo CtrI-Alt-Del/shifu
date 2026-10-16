@@ -45,7 +45,6 @@ const success = (body: unknown) => ({
   body,
   throwError: vi.fn(),
 })
-
 const failure = (error: Error) => ({
   isFailure: true,
   body: undefined,
@@ -107,6 +106,7 @@ describe('IntelligenceService mentor session transport', () => {
       content: 'Quero estudar frações.',
       createdAt: CREATED_AT,
       inReplyToMessageId: null,
+      attachments: [],
     })
     expect(detail.pendingLearnerMessageId).toBe(learnerMessageDto.id)
     expect(detail.messages.nextCursor).toBe('older-page')

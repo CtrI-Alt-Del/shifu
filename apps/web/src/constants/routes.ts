@@ -79,3 +79,14 @@ export type RoutePath = (typeof ROUTES)[RouteName]
 export function buildMentorResponseEventsPath(sessionId: string): string {
   return `/api/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/events`
 }
+
+export function buildMentorAttachmentUploadPath(batchId: string): string {
+  return `/api/intelligence/mentor-attachment-batches/${encodeURIComponent(batchId)}/attachments`
+}
+
+export function buildMentorAttachmentFilePath(
+  sessionId: string,
+  attachmentId: string,
+): string {
+  return `/api/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(attachmentId)}/file`
+}

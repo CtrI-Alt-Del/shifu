@@ -24,6 +24,9 @@ from shifu.intelligence.core.interfaces.mentor_embeddings_repository import (
 from shifu.intelligence.core.interfaces.mentor_faq_reranker_provider import (
     MentorFaqRerankerProvider,
 )
+from shifu.intelligence.core.interfaces.mentor_telemetry_provider import (
+    MentorTelemetryProvider,
+)
 from shifu.intelligence.providers.intent_classification.embeddings.embeddings_mentor_intent_classifier_provider import (
     EmbeddingsMentorIntentClassifierProvider,
 )
@@ -70,7 +73,7 @@ class LocalMentorRouteProvider:
     _resources: MentorResources
     _classifier: EmbeddingsMentorIntentClassifierProvider
     _retrieval: Bm25MentorHybridRetrievalProvider
-    _telemetry: LangfuseMentorTelemetryProvider
+    _telemetry: MentorTelemetryProvider
     _catalog: MentorCatalogProvider | None
     _preprocessor: SpacyMentorTextPreprocessorProvider
 
@@ -80,7 +83,7 @@ class LocalMentorRouteProvider:
         repository: MentorEmbeddingsRepository,
         preprocessor: SpacyMentorTextPreprocessorProvider,
         resources: MentorResources,
-        telemetry: LangfuseMentorTelemetryProvider | None = None,
+        telemetry: MentorTelemetryProvider | None = None,
         catalog_provider: MentorCatalogProvider | None = None,
         reranker_provider: MentorFaqRerankerProvider | None = None,
     ) -> None:
@@ -150,7 +153,7 @@ class LocalMentorRouteProvider:
         return MentorRouteResult(
             intents=tuple(matches.values()),
             local_blocks=tuple(blocks),
-            generation_requests=(),
+            generation_requests=generation,
             clarification=clarification,
             proposed_reference_ids=proposed,
         )

@@ -1,3 +1,15 @@
+from .mentor_attachment_conflict_error import (
+    MentorAttachmentConflictError as MentorAttachmentConflictError,
+)
+from .mentor_attachment_invalid_error import (
+    MentorAttachmentInvalidError as MentorAttachmentInvalidError,
+)
+from .mentor_attachment_not_found_error import (
+    MentorAttachmentNotFoundError as MentorAttachmentNotFoundError,
+)
+from .mentor_attachment_unavailable_error import (
+    MentorAttachmentUnavailableError as MentorAttachmentUnavailableError,
+)
 from .mentor_input_invalid_error import (
     MentorInputInvalidError as MentorInputInvalidError,
 )

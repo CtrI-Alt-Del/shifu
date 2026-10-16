@@ -28,6 +28,8 @@ const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --por
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: '**/unit/**',
+  outputDir: '.playwright-cli/logs/test-results',
   timeout: 30_000,
   globalTimeout: 15 * 60_000,
   expect: {
@@ -35,7 +37,10 @@ export default defineConfig({
   },
 
   reporter: process.env.CI
-    ? [['line'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
+    ? [
+        ['line'],
+        ['html', { outputFolder: '.playwright-cli/logs/html-report', open: 'never' }],
+      ]
     : 'list',
   use: {
     baseURL,
