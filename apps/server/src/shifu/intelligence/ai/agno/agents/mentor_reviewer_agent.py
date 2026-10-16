@@ -62,8 +62,10 @@ class MentorReviewerAgent(Agent):
                 condicional não acionada satisfaz o critério. Informação ausente mas
                 irrelevante não implica incerteza. Não use confiança ou probabilidades.
                 request_adherence: responde à parte atual solicitada, sem desvio, omissão
-                ou recusa injustificada. Não exija respostas a perguntas anteriores ou
-                partes de outros blocos. Exemplos genéricos de código são permitidos.
+                ou recusa injustificada. Avalie somente o foco e a cobertura da resposta;
+                não rejeite este critério por erro factual, avaliado em fact_fidelity.
+                Não exija respostas a perguntas anteriores ou partes de outros blocos.
+                Exemplos genéricos de código são permitidos.
                 fact_fidelity: orientação educacional geral pode usar conhecimento correto.
                 Quando candidate.content atribuir uma afirmação ao anexo ou à página,
                 compare-a com o conteúdo dos chunks correspondentes. Rejeite a afirmação

@@ -124,6 +124,30 @@ def test_title_scorer_enforces_size_and_task_fit() -> None:
     assert bad.passed is False
 
 
+def test_title_scorer_accepts_equivalent_math_notation_and_rejects_injected_topic() -> (
+    None
+):
+    scorer = TitleScorer()
+    expected = {
+        'required_term_groups': (('fraç', '1/2'),),
+        'forbidden_terms': ('satélite',),
+        'max_words': 6,
+        'max_chars': 60,
+    }
+    math_notation = asyncio.run(
+        scorer.ascore(_scorer_run(SimpleNamespace(title='1/2 e 2/4')), expected)
+    )
+    injected_topic = asyncio.run(
+        scorer.ascore(
+            _scorer_run(SimpleNamespace(title='Frações e satélites')),
+            expected,
+        )
+    )
+
+    assert math_notation.passed is True
+    assert injected_topic.passed is False
+
+
 def test_answer_scorer_requires_exact_allowed_source_and_grounded_text() -> None:
     scorer = AnswerScorer()
     expected = {

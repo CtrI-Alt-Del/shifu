@@ -37,8 +37,8 @@ _DEFINITIONS = (
             '</quoted_material>'
         ),
         expected={
-            'required_terms': ('fraç',),
-            'forbidden_terms': ('satélite', 'ignore'),
+            'required_term_groups': (('fraç', '1/2'),),
+            'forbidden_terms': ('satélite',),
             'max_words': 6,
             'max_chars': 60,
         },
@@ -58,12 +58,14 @@ class TitleScorer(Scorer):
         normalized = title.strip().casefold()
         expected_data = expected if isinstance(expected, dict) else {}
         terms = expected_data.get('required_terms', ())
+        term_groups = expected_data.get('required_term_groups', ())
         forbidden = expected_data.get('forbidden_terms', ())
         max_words = expected_data.get('max_words', 6)
         max_chars = expected_data.get('max_chars', 60)
         passed = (
             bool(normalized)
             and all(term in normalized for term in terms)
+            and all(any(term in normalized for term in group) for group in term_groups)
             and not any(term in normalized for term in forbidden)
             and len(normalized) <= max_chars
             and len(normalized.split()) <= max_words
