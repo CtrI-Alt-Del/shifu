@@ -4,7 +4,11 @@ import {
   ArrowUp,
   BookOpen,
   Brain,
+  Calendar,
+  Check,
+  ChevronLeft,
   ChevronRight,
+  Clock3,
   CircleAlert,
   Circle,
   CircleCheck,
@@ -47,7 +51,11 @@ export type IconName =
   | 'arrow-up'
   | 'book-open'
   | 'brain'
+  | 'calendar'
+  | 'check'
+  | 'chevron-left'
   | 'chevron-right'
+  | 'clock-3'
   | 'circle-alert'
   | 'circle'
   | 'circle-check'
@@ -87,7 +95,11 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'arrow-up': ArrowUp,
   'book-open': BookOpen,
   brain: Brain,
+  calendar: Calendar,
+  check: Check,
+  'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
+  'clock-3': Clock3,
   'circle-alert': CircleAlert,
   circle: Circle,
   'circle-check': CircleCheck,

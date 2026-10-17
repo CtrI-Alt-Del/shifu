@@ -19,6 +19,8 @@ class ActivityEvaluatedPayload:
     difficulty: ActivityDifficulty
     score: str
     evaluated_at: str
+    submitted_at: str
+    time_zone: str | None = None
 
 
 @structure

@@ -41,6 +41,7 @@ class ActivityAttemptMapper:
             submission_key=model.submission_key,
             grading_snapshot=grading_snapshot,
             diagnostic_run_id=model.diagnostic_run_id,
+            time_zone=model.time_zone,
         )
 
     @staticmethod
@@ -196,4 +197,5 @@ class ActivityAttemptMapper:
                 else None
             ),
             diagnostic_run_id=attempt.diagnostic_run_id,
+            time_zone=attempt.time_zone,
         )

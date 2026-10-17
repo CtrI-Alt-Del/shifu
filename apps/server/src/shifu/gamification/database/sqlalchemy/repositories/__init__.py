@@ -4,6 +4,9 @@ from .earned_achievements_repository import (
 from .gamification_profiles_repository import (
     SqlalchemyGamificationProfilesRepository as SqlalchemyGamificationProfilesRepository,
 )
+from .practice_days_repository import (
+    SqlalchemyPracticeDaysRepository as SqlalchemyPracticeDaysRepository,
+)
 from .rewarded_milestones_repository import (
     SqlalchemyRewardedMilestonesRepository as SqlalchemyRewardedMilestonesRepository,
 )

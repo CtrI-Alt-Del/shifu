@@ -12,6 +12,8 @@ class DiagnosticCompletedPayload:
     skill_id: str
     initial_progress: str
     completed_at: str
+    submitted_at: str
+    time_zone: str | None = None
 
 
 @structure

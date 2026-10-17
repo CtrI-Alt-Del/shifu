@@ -46,3 +46,4 @@ class ActivityAttemptModel(Model):
     submission_key: Mapped[str | None] = mapped_column(String(36), nullable=True)
     grading_snapshot: Mapped[object | None] = mapped_column(JSON, nullable=True)
     diagnostic_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    time_zone: Mapped[str | None] = mapped_column(String(64), nullable=True)

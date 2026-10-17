@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, call, create_autospec
 
@@ -52,6 +52,7 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+SUBMITTED_AT = NOW - timedelta(hours=5)
 ACCOUNT_ID = 'account-1'
 GOAL_ID = 'goal-1'
 SKILL_ID = 'skill-1'
@@ -189,9 +190,10 @@ class TestEvaluateChoiceActivityUseCase:
                 ),
                 MultipleSelectionAnswer(question_key='q3', selected_option_keys=('a',)),
             ),
-            submitted_at=NOW,
+            submitted_at=SUBMITTED_AT,
             submission_key='submission-1',
             grading_snapshot=grading_snapshot(),
+            time_zone='America/Sao_Paulo',
         )
         self.evaluation = ActivityEvaluation.create(
             id='evaluation-1',
@@ -255,6 +257,18 @@ class TestEvaluateChoiceActivityUseCase:
             self.progress
         )
         self.repositories.events.add.assert_called_once()
+
+        # Gamification dates the practice day from the attempt submission, not
+        # from when the asynchronous evaluation finished.
+        payload = self.repositories.events.add.call_args.args[0].payload
+        assert payload.submitted_at == SUBMITTED_AT.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+        assert payload.time_zone == 'America/Sao_Paulo'
+        assert payload.evaluated_at == NOW.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+        assert payload.submitted_at != payload.evaluated_at
 
     def test_should_apply_diagnostic_score_provisionally_using_frozen_rubric(
         self,
