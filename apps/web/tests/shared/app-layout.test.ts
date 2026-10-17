@@ -129,7 +129,7 @@ test.describe('AppLayout', () => {
     await trigger.click()
     const gamificationMain = authenticatedPage
       .getByRole('main')
-      .filter({ hasText: 'Cada passo merece ser visto.' })
+      .filter({ hasText: 'Gamificação' })
     await expect(gamificationMain).toBeVisible()
 
     await gamificationMain.click({ position: { x: 20, y: 20 } })
@@ -217,9 +217,9 @@ test.describe('AppLayout', () => {
     await expect.poll(() => requestCount).toBe(1)
     releaseFirstResponse()
 
-    await expect(authenticatedPage.getByRole('alert')).toHaveText(
-      /Não foi possível sair agora\. Tente novamente\./,
-    )
+    await expect(
+      authenticatedPage.getByRole('menu', { name: 'Menu da conta' }).getByRole('alert'),
+    ).toHaveText(/Não foi possível sair agora\. Tente novamente\./)
     await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 
     await authenticatedPage.getByRole('menuitem', { name: 'Sair' }).click()

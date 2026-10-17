@@ -355,9 +355,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
   await authenticatedPage.goBack()
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ROUTES.gamification}/?$`))
   await expect(
-    authenticatedPage
-      .getByRole('main')
-      .filter({ hasText: 'Cada passo merece ser visto.' }),
+    authenticatedPage.getByRole('main').filter({ hasText: 'Gamificação' }),
   ).toBeVisible()
   await authenticatedPage.goForward()
   await expect(authenticatedPage).toHaveURL(selectedSessionUrl)
