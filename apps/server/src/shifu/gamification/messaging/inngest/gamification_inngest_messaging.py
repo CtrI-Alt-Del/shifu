@@ -11,6 +11,7 @@ from shifu.gamification.core.use_cases import (
     GrantXpUseCase,
     RecognizeCompetencyMasteredUseCase,
     RecognizeDiagnosticCompletedUseCase,
+    RecognizePracticeDayUseCase,
     RecognizeSkillCompletedUseCase,
 )
 from shifu.gamification.messaging.inngest.jobs import (
@@ -18,6 +19,8 @@ from shifu.gamification.messaging.inngest.jobs import (
     PurgeProfileOnAccountDeletedJob,
     RecognizeCompetencyMasteredJob,
     RecognizeDiagnosticCompletedJob,
+    RecognizePracticeDayOnActivityEvaluatedJob,
+    RecognizePracticeDayOnDiagnosticCompletedJob,
     RecognizeSkillCompletedJob,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
@@ -56,6 +59,9 @@ class GamificationInngestMessaging:
             gamification_database,
             id_provider,
             grant_xp_use_case,
+        )
+        recognize_practice_day_use_case = RecognizePracticeDayUseCase(
+            gamification_database, id_provider
         )
         recognize_skill_use_case = RecognizeSkillCompletedUseCase(
             gamification_database,
@@ -100,6 +106,22 @@ class GamificationInngestMessaging:
                 RecognizeSkillCompletedJob.handle(
                     inngest,
                     recognize_skill_use_case,
+                    clock_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                RecognizePracticeDayOnActivityEvaluatedJob.handle(
+                    inngest,
+                    recognize_practice_day_use_case,
+                    clock_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                RecognizePracticeDayOnDiagnosticCompletedJob.handle(
+                    inngest,
+                    recognize_practice_day_use_case,
                     clock_provider,
                 ),
             ),

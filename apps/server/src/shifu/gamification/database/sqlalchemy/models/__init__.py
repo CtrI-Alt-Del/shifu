@@ -2,6 +2,7 @@ from .earned_achievement_model import EarnedAchievementModel as EarnedAchievemen
 from .gamification_profile_model import (
     GamificationProfileModel as GamificationProfileModel,
 )
+from .practice_day_model import PracticeDayModel as PracticeDayModel
 from .rewarded_milestone_model import (
     RewardedMilestoneModel as RewardedMilestoneModel,
 )

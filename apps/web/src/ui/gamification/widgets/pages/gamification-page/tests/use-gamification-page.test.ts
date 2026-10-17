@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthError } from '@/core/errors/auth-error'
@@ -195,6 +195,19 @@ describe('useGamificationPage', () => {
     mockQuery({ isLoadingOverview: true, isFetchingOverview: true })
     const { result: initialLoadResult } = renderHook(() => useGamificationPage())
     expect(initialLoadResult.current.isRetrying).toBe(false)
+  })
+
+  it('opens on the Calendário tab and switches on request', () => {
+    mockQuery({ overview })
+    const { result } = renderHook(() => useGamificationPage())
+
+    expect(result.current.activeTab).toBe('calendario')
+
+    act(() => result.current.handleTabChange('conquistas'))
+    expect(result.current.activeTab).toBe('conquistas')
+
+    act(() => result.current.handleTabChange('calendario'))
+    expect(result.current.activeTab).toBe('calendario')
   })
 
   it('redirects to login when the session is rejected', async () => {

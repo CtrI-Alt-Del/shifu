@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import create_autospec
 
@@ -114,10 +114,11 @@ class TestCompleteDiagnosticUseCase:
                 activity_id=f'diagnostic-{difficulty.value}',
                 kind=ActivityAttemptKind.DIAGNOSTIC,
                 answers=(),
-                submitted_at=NOW,
+                submitted_at=NOW + timedelta(days=index),
                 diagnostic_run_id=RUN_ID,
+                time_zone='America/Sao_Paulo',
             )
-            for difficulty in LEVELS
+            for index, difficulty in enumerate(LEVELS)
         )
         self.evaluations = tuple(
             ActivityEvaluation.create(
@@ -194,6 +195,24 @@ class TestCompleteDiagnosticUseCase:
             'learning/skill-completed',
             'learning/diagnostic-completed',
         ]
+
+        # Gamification dates the practice day from the *last* attempt required
+        # to complete the diagnostic, not from the completion timestamp.
+        completed = next(
+            call.args[0]
+            for call in self.repositories.events.add.call_args_list
+            if call.args[0].name == 'learning/diagnostic-completed'
+        )
+        latest_attempt = max(self.attempts, key=lambda item: item.submitted_at)
+        assert completed.payload.submitted_at == latest_attempt.submitted_at.astimezone(
+            UTC
+        ).isoformat().replace('+00:00', 'Z')
+        assert completed.payload.time_zone == 'America/Sao_Paulo'
+        # `completed_at` keeps its own meaning for the existing XP consumer.
+        assert completed.payload.completed_at == NOW.astimezone(
+            UTC
+        ).isoformat().replace('+00:00', 'Z')
+        assert completed.payload.submitted_at != completed.payload.completed_at
 
         self.execute()
 

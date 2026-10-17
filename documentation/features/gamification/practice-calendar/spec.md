@@ -1,6 +1,6 @@
 ---
 title: Practice calendar and streak calculation
-status: ready
+status: implemented
 revision: 1
 source:
   type: issue
@@ -322,7 +322,7 @@ surface the learner sees. A submission zone is used for exactly one purpose:
 
 | Action | Boundary | Element / Path | Required change |
 | --- | --- | --- | --- |
-| Create | Database / model | `PracticeDayModel` — `apps/server/src/shifu/gamification/database/sqlalchemy/models/practice_day_model.py` | `__tablename__ = 'practice_days'`; `id` `String(26)` PK; `account_id` `String(26)` not null; `practice_date` `Date` not null; `time_zone` `String(64)` not null; `practiced_at` / `recognized_at` `DateTime(timezone=True)` not null; unique index `ix_practice_day_account_date` on `(account_id, practice_date)` |
+| Create | Database / model | `PracticeDayModel` — `apps/server/src/shifu/gamification/database/sqlalchemy/models/practice_day_model.py` | `__tablename__ = 'gamification_practice_days'` (module convention; every sibling table is `gamification_*`); `id` `String(26)` PK; `account_id` `String(26)` not null; `practice_date` `Date` not null; `time_zone` `String(64)` not null; `practiced_at` / `recognized_at` `DateTime(timezone=True)` not null; unique constraint `uq_gamification_practice_day_account_date` on `(account_id, practice_date)` |
 | Create | Database / mapper | `PracticeDayMapper` — `.../mappers/practice_day_mapper.py` | `to_domain` / `to_model`, mirroring `GamificationProfileMapper` |
 | Create | Database / repository | `SqlalchemyPracticeDaysRepository` — `.../repositories/practice_days_repository.py` | `try_add` via `session.begin_nested()` + `flush()` catching `IntegrityError`, exactly as `SqlalchemyRewardedMilestonesRepository.try_add`; `find_many_dates_by_account_id` ordered ascending; `remove_many_by_account_id` |
 | Modify | Database / composition | `SqlalchemyGamificationDatabase` — `.../gamification_database.py` | Construct and expose the new repository in `GamificationDatabaseRepositories` |
