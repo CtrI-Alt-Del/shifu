@@ -344,7 +344,6 @@ Run commands from `apps/server` through uv:
 | `uv run poe check:types` | Run strict basedpyright checking |
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
-| `uv run poe test:mutation` | Run mutmut against changed Python source and related pytest files |
 | `uv run poe test:unit` | Run module-first use-case tests under `tests/<module>/core/use_cases` plus legacy `tests/core/**/use_cases` during migration |
 | `uv run poe test:integration` | Run module-first server integration tests under `tests/<module>/server` plus legacy `tests/rest` during migration, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
@@ -465,129 +464,6 @@ journeys. Select their actual consumers and identify remaining coverage gaps
 before expanding further. CI independently runs its configured suites for
 applicable current PR heads; these local scope rules do not change CI discovery.
 
-### Mutation testing
-
-Mutation tooling is configured only for Server, using mutmut 3.8 for Python.
-Web and packages such as Email have no mutation runner; record mutation checks
-as Not applicable for those scopes. Verify Web correctness through applicable
-unit/component, browser and static checks. Run Server commands from `apps/server`:
-
-```bash
-uv run poe test:mutation
-uv run poe test:mutation --base main
-uv run poe test:mutation --all --core
-uv run poe test:mutation --all --core --shard 1/12
-uv run poe test:mutation --core --files src/shifu/learning/core/use_cases/remove_goal_use_case.py
-```
-
-Default selection includes staged, unstaged and untracked changes. On a feature
-branch it also includes changes since the merge base with `origin/main` (or local
-`main`); on `main` it compares against HEAD. `--base` supplies an explicit Git
-reference. `--files` supplies exact application-relative production paths and
-overrides Git discovery. Empty scope prints that no mutation tests executed;
-it never falls back to a complete suite or proves a mutation check passed.
-`--core` restricts eligible mutation targets to Server
-`core/use_cases/**` paths; it combines with `--all`, `--base` or `--files`. Explicit `--files` paths
-outside core are rejected when `--core` is present.
-
-During Spec implementation, mutation targets are limited to production Server
-`core/use_cases/**` files created or modified by the current Spec:
-`apps/server/src/shifu/<module>/core/use_cases/**`, including shared core only
-when changed by that Spec. Use `--core` with explicit application-relative `--files` paths
-from the Spec's actual diff; do not select the entire use-case directory,
-unrelated branch changes or other application layers. Select only related use-case
-tests under `tests/<module>/core/use_cases/**` or legacy
-`tests/core/**/use_cases/**`; exclude
-controller, job, tooling and other tests, including explicit `--tests` paths
-outside those use-case boundaries.
-When no eligible Server use-case files changed, record mutation testing as Not
-applicable with that reason; reconcile any existing required check before changing
-its disposition. Do not broaden targets or use `--all` during Spec implementation
-without a separate explicit user request. Record the exact targets, command,
-elapsed execution time and mutant outcomes in Evaluation.
-
-Server follows Python imports to select related pytest files; test edits select
-their production dependencies. Dynamic imports can require explicit `--tests`
-paths. Fixture/configuration changes likewise require an explicit scope. Use
-`--dry-run` to inspect selection without executing tests.
-
-Full source includes application runtime code; generated files, declarations,
-test/support fixtures and fakers are excluded. Server additionally excludes
-package `__init__.py` barrels. No application business module is excluded merely
-because its mutation score is low. Server runs in a temporary workspace. With
-`--core`, it mutates only `core/use_cases/**` sources and runs only use-case
-tests. It excludes the global `tests/conftest.py` from that workspace while
-preserving module-local fixtures, and skips Redis and
-Testcontainers setup. Core mutation runs require no Docker or containers; core
-tests mock infrastructure ports. Separately requested runs without `--core` may
-use a disposable Redis container and integration fixtures with disposable
-databases and Inngest instances; those runs require Docker. Reports are ignored
-local artifacts under `apps/server/test-results/mutation/`.
-
-The Server CI workflow runs all eligible `core/use_cases/**` files across 12
-parallel jobs using `uv run poe test:mutation --all --core --shard N/12`, for
-`N` from 1 to 12. Deterministic AST weighting balances source complexity; each
-eligible file belongs to exactly one shard. Each shard retains the complete
-use-case unit test selection and requires no containers. Shared core use cases
-are included independently of the Git diff. Jobs use `fail-fast: false` and
-upload separate reports even on failure under
-`apps/server/test-results/mutation/shard-N-of-12/`. Reports label targets and
-mutation outcomes by module so failures remain attributable without assigning
-unequal modules to separate jobs.
-A summary job downloads the shard artifacts, applies the module score gates and
-uploads the Markdown report artifact. The table groups killed, survived,
-uncovered, timed-out and error mutants by module and shows one overall score and
-a combined gate result for each module. The module score is
-`killed / (killed + survived)`; uncovered, timeout and error outcomes are
-excluded. Server CI exposes mutation execution and the summary gate as
-individual checks; no Server verify aggregate job remains.
-
-The separate `.github/workflows/server-mutation-comment.yaml` workflow uses the
-`workflow_run` event to publish the report artifact after Server CI completes.
-It runs from the default branch and grants pull-request comment permission only
-to the publisher job. That job downloads the report and does not check out the
-pull request or run its code. GitHub starts a `workflow_run` workflow only after
-its file exists on the default branch, so a PR adding this publisher enables
-comment publication for later runs after merge. The publisher targets
-same-repository pull requests; fork pull requests still run the score gates but
-do not receive the comment.
-
-The first 12-shard GitHub Actions measurement completed all shards in **3m38s**
-(2026-10-08, [run 37787846018](https://github.com/CtrI-Alt-Del/shifu/actions/runs/37787846018)).
-This is wall time from the first shard start at 13:52:38 UTC to the last shard
-completion at 13:56:16 UTC, including runner setup and dependency installation.
-Individual shard job durations ranged from 1m08s to 3m38s; shard 11 was the
-longest. At that time, summary-comment publication was part of Server CI and the
-full run took 4m08s. With the separated publisher, comment publication runs in a
-second workflow after Server CI and is excluded from the Server CI duration.
-
-`--shard N/TOTAL` requires `--all --core`; it cannot narrow tests with `--tests`.
-Use the same command locally to reproduce an individual CI shard. Source
-complexity estimates work rather than guaranteeing equal runtime; test startup
-and runner availability also affect elapsed time. Other Server layers remain
-covered by their applicable unit, integration and static checks. `--all` without
-`--core` still selects the full Server application for a separately requested
-run. Spec implementation follows the changed-core-only policy above. Web CI does
-not run mutation testing.
-
-The hybrid gate applies a fixed **70%** minimum to mutants in changed
-`core/use_cases/**` files. It also protects each module's full score from a
-regression greater than **5 percentage points** from the baseline in
-`apps/server/scripts/mutation_score_thresholds.json`. The baseline is the first
-full CI run, recorded per module as exact killed/scored counts. Current full-score
-regression floors are 59.5% for Communication, 74.4% for Identity, 95% for
-Intelligence and 59.1% for Learning. When a module has no changed use-case file,
-only its existing-score regression gate applies; a new module has no historical
-regression floor until its first complete run. A changed file with no scored
-mutants fails the new-code gate. Update baselines only after reviewing a complete
-run; do not lower them. CI enforces the new-code and regression gates separately,
-while the report displays their combined result. Review
-survivors, uncovered mutants and runner errors in the report. For
-correctness-critical Server changes the Spec identifies mutation scope, risk, pass
-conditions and survivor/equivalence disposition; any stricter criterion must be
-verified separately. Mutation is not a universal prerequisite for every edit,
-and ordinary coverage cannot replace a required mutation check.
-
 ### Scoped type, lint and complexity checks
 
 Include type, lint and complexity as explicit Automated check obligations in the
@@ -674,9 +550,7 @@ as independent jobs. Playwright uses the development server and
 keeps its own database/server setup. Server CI runs type, lint, architecture,
 unit, integration and real AI eval checks independently. Controller and registered
 workflow tests plus real Inngest job tests run as separate steps in the same
-integration job. Mutation tooling checks run within unit tests. The 12 mutation
-shards run independently, and their summary depends only on those shards.
-Distribution build/verification runs in its own build job; architecture-check
+integration job. Distribution build/verification runs in its own build job; architecture-check
 only validates dependency boundaries. Server eval CI runs every available eval
 class through `apps/server/evals/run.py`, without workflow/name/tag filters, with
 `SHIFU_RUN_REAL_AI_EVALS=1`, and uploads reports on failure. The runner writes
