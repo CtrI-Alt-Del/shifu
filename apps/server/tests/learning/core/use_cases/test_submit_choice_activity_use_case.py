@@ -9,9 +9,15 @@ from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.enums import ActivityEvaluationStatus
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
+    ActivityAnswer,
     ChoiceAnswerSubmission,
+    CodeAnswer,
+    CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+)
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    mixed_snapshot,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -413,3 +419,192 @@ class TestSubmitChoiceActivityUseCase:
             )
 
         self.provider.get_choice_activity.assert_not_called()
+
+    def test_should_address_every_collaborator_with_the_requested_identity(
+        self,
+    ) -> None:
+        """Submission resolves ownership and replay from the request's own
+        identifiers; a wrong one would attach the attempt to another learner."""
+        self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'submission-key',
+            answers(),
+        )
+
+        self.repositories.goals.find_by_id.assert_called_with(GOAL_ID)
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.assert_called_with(
+            GOAL_ID, SKILL_ID
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.assert_called_with(
+            self.experience.id, 'submission-key'
+        )
+        self.repositories.skill_experiences.find_by_id_for_update.assert_called_with(
+            self.experience.id
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.assert_called_with(
+            self.experience.id, COMPETENCY_ID
+        )
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.assert_called_with(
+            self.experience.id
+        )
+
+    def test_should_persist_the_attempt_under_the_resolved_experience(self) -> None:
+        self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'submission-key',
+            answers(),
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.skill_experience_id == self.experience.id
+        assert attempt.competency_id == COMPETENCY_ID
+        assert attempt.activity_id == ACTIVITY_ID
+        assert attempt.id == 'attempt-1'
+
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        assert evaluation.attempt_id == attempt.id
+        assert evaluation.status is ActivityEvaluationStatus.PENDING
+
+    def test_should_publish_the_handoff_event_for_the_saved_attempt(self) -> None:
+        self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'submission-key',
+            answers(),
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        event = self.repositories.events.add.call_args.args[0]
+        assert event.payload.attempt_id == attempt.id
+        assert event.payload.run_id == evaluation.run_id
+
+
+class TestSubmitChoiceActivityAnswerNormalization:
+    """`normalize_answers` is the submission boundary's validation surface: it
+    decides which payloads are allowed to become an immutable attempt."""
+
+    @staticmethod
+    def _choice() -> tuple[ChoiceAnswerSubmission, ...]:
+        return (
+            ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+            ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+        )
+
+    def _submit(self, code: CodeAnswer) -> tuple[ActivityAnswer, ...]:
+        return SubmitChoiceActivityUseCase.normalize_answers(
+            mixed_snapshot(), (*self._choice(), code)
+        )
+
+    def test_should_sort_editable_files_by_path(self) -> None:
+        normalized = SubmitChoiceActivityUseCase.normalize_answers(
+            mixed_snapshot(),
+            (
+                *self._choice(),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                ),
+            ),
+        )
+
+        code = normalized[2]
+        assert isinstance(code, CodeAnswer)
+        assert code.question_key == 'q3'
+        assert [item.path for item in code.files] == ['src/main.js']
+
+    def test_should_reject_a_code_answer_carrying_inline_source(self) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(
+                CodeAnswer(
+                    question_key='q3',
+                    source_code='console.log(1)',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                )
+            )
+
+    def test_should_reject_duplicated_file_paths(self) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(
+                        CodeSubmittedFile(path='src/main.js', content='a'),
+                        CodeSubmittedFile(path='src/main.js', content='b'),
+                    ),
+                )
+            )
+
+    def test_should_reject_writing_outside_the_editable_files(self) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/lib.js', content='hack'),),
+                )
+            )
+
+    def test_should_reject_a_partial_editable_file_set(self) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(CodeAnswer(question_key='q3', files=()))
+
+    def test_should_reject_a_choice_answer_for_a_code_question(self) -> None:
+        with pytest.raises(ValidationError):
+            SubmitChoiceActivityUseCase.normalize_answers(
+                mixed_snapshot(),
+                (
+                    *self._choice(),
+                    ChoiceAnswerSubmission(
+                        question_key='q3', selected_option_keys=('a',)
+                    ),
+                ),
+            )
+
+    def test_should_reject_a_code_answer_for_a_choice_question(self) -> None:
+        with pytest.raises(ValidationError):
+            SubmitChoiceActivityUseCase.normalize_answers(
+                mixed_snapshot(),
+                (
+                    CodeAnswer(question_key='q1', files=()),
+                    ChoiceAnswerSubmission(
+                        question_key='q2', selected_option_keys=('a',)
+                    ),
+                    CodeAnswer(
+                        question_key='q3',
+                        files=(CodeSubmittedFile(path='src/main.js', content='n'),),
+                    ),
+                ),
+            )
+
+    def test_should_reject_answers_out_of_order_or_short(self) -> None:
+        with pytest.raises(ValidationError):
+            SubmitChoiceActivityUseCase.normalize_answers(
+                mixed_snapshot(), self._choice()
+            )
+        with pytest.raises(ValidationError):
+            SubmitChoiceActivityUseCase.normalize_answers(
+                mixed_snapshot(),
+                (
+                    ChoiceAnswerSubmission(
+                        question_key='q2', selected_option_keys=('a',)
+                    ),
+                    ChoiceAnswerSubmission(
+                        question_key='q1', selected_option_keys=('a',)
+                    ),
+                    CodeAnswer(
+                        question_key='q3',
+                        files=(CodeSubmittedFile(path='src/main.js', content='n'),),
+                    ),
+                ),
+            )
