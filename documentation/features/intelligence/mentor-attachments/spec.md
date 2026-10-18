@@ -1,6 +1,6 @@
 ---
 title: Anexos privados do Mentor e workflows de IA com Agno AgentOS
-status: completed
+status: ready
 revision: 13
 source:
   type: issue
@@ -12,7 +12,7 @@ scope:
   - mentor UI and authenticated BFF
   - local Langfuse agent monitoring
   - observability, evals and server/web CI
-last_updated_at: 2026-10-16
+last_updated_at: 2026-10-17
 ---
 
 # Objective
@@ -2079,8 +2079,10 @@ review. The fresh independent consolidation review passed with no compatibility 
 The user approved the unified written contract on 2026-10-14. CI organization was updated
 at the user's explicit request. At consolidation time, AgentOS, storage, eval classes and
 coverage runners were planned; implementation and verification evidence is recorded in
-Evaluation. The current local delivery status is completed with open checks retained by
-the user's explicit disposition.
+Evaluation. The Spec was reopened to ready on 2026-10-17 for PR #26 review corrections
+(ACH-23 to ACH-28 in Evaluation); revision 13 is unchanged because the corrections
+fall inside the existing contract. Open checks remain retained by the user's explicit
+disposition.
 
 # Revision History
 
