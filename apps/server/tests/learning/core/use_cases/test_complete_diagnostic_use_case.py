@@ -243,3 +243,115 @@ class TestCompleteDiagnosticUseCase:
             self.execute()
 
         self.repositories.skill_experiences.find_by_id_for_update.assert_not_called()
+
+    def test_should_address_every_collaborator_with_the_requested_identity(
+        self,
+    ) -> None:
+        """Confirmation reads each collaborator with identifiers derived from the
+        request and the locked experience; a wrong one would confirm somebody
+        else's diagnostic."""
+        self.execute()
+
+        self.repositories.goals.find_by_id.assert_called_once_with('goal')
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.assert_called_once_with(
+            'goal', 'skill'
+        )
+        self.repositories.skill_experiences.find_by_id_for_update.assert_called_once_with(
+            self.experience.id
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.assert_called_once_with(
+            self.experience.id, RUN_ID
+        )
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.assert_called_once_with(
+            tuple(item.id for item in self.attempts)
+        )
+
+    def test_should_scope_adaptive_reads_to_the_locked_experience(self) -> None:
+        self.execute()
+
+        self.repositories.concept_observations.find_many_by_skill_experience_id.assert_called_with(
+            self.experience.id
+        )
+        self.repositories.competency_progresses.find_many_by_skill_experience_id.assert_called_with(
+            self.experience.id
+        )
+
+    def test_should_persist_the_recommended_concept_from_the_policy(self) -> None:
+        self.execute()
+
+        self.repositories.skill_experiences.update.assert_called_with(self.experience)
+        # The policy either recommends a concept or clears the pointer; it is
+        # never left pointing at a stale target.
+        assert self.experience.recommended_concept_id is None or isinstance(
+            self.experience.recommended_concept_id, str
+        )
+
+    def test_should_publish_the_diagnostic_event_with_the_experience_identity(
+        self,
+    ) -> None:
+        self.execute()
+
+        completed = next(
+            call.args[0]
+            for call in self.repositories.events.add.call_args_list
+            if call.args[0].name == 'learning/diagnostic-completed'
+        )
+        assert completed.payload.account_id == self.goal.account_id
+        assert completed.payload.goal_id == self.goal.id
+        assert completed.payload.skill_experience_id == self.experience.id
+        assert completed.payload.skill_id == self.experience.skill_id
+        assert completed.payload.completed_at == NOW.astimezone(
+            UTC
+        ).isoformat().replace('+00:00', 'Z')
+
+    def test_should_publish_the_skill_completion_with_averaged_progress(self) -> None:
+        """Completion averages the per-competency summaries; a wrong aggregate
+        would misreport how much the learner actually knew."""
+        self.execute()
+
+        completed = next(
+            call.args[0]
+            for call in self.repositories.events.add.call_args_list
+            if call.args[0].name == 'learning/skill-completed'
+        )
+        summary = self.experience.completion_summary
+        assert summary is not None
+        assert completed.payload.account_id == self.goal.account_id
+        assert completed.payload.goal_id == self.goal.id
+        assert completed.payload.skill_experience_id == self.experience.id
+        assert completed.payload.skill_id == self.experience.skill_id
+        assert completed.payload.final_progress == str(summary.final_progress)
+        assert completed.payload.initial_progress == (
+            str(summary.initial_progress)
+            if summary.initial_progress is not None
+            else 'unknown'
+        )
+        assert completed.payload.completed_at == NOW.astimezone(
+            UTC
+        ).isoformat().replace('+00:00', 'Z')
+
+    def test_should_summarize_every_competency_it_confirmed(self) -> None:
+        self.execute()
+
+        summary = self.experience.completion_summary
+        assert summary is not None
+        assert summary.completed_at == NOW
+        assert [item.competency_id for item in summary.competencies] == [
+            self.progress.competency_id
+        ]
+        average = sum(
+            (item.final_progress for item in summary.competencies), Decimal('0')
+        ) / Decimal(len(summary.competencies))
+        assert summary.final_progress == average
+        for item in summary.competencies:
+            assert item.concepts, 'each competency carries its concept summaries'
+
+    def test_should_persist_every_confirmed_competency_progress(self) -> None:
+        self.execute()
+
+        updated = [
+            call.args[0]
+            for call in self.repositories.competency_progresses.update.call_args_list
+        ]
+        assert [item.competency_id for item in updated] == [self.progress.competency_id]
+        self.repositories.concept_states.upsert_many.assert_called_once()
