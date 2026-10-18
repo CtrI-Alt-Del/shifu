@@ -1,7 +1,7 @@
 ---
 title: Anexos privados do Mentor e workflows de IA com Agno AgentOS
 status: ready
-revision: 13
+revision: 14
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103
@@ -185,7 +185,7 @@ Nenhuma redução das garantias de integração, privacidade ou domínio é auto
 | Create | Module workflows | `intelligence/ai/agno/workflows/`, `learning/ai/agno/workflows/` | Um Workflow nativo registrado por operação, com Steps de preparação, inferência e conclusão; sem Workflow filho de entrega ou inferência |
 | Delete/Modify | Migrated consumers | Job Inngest de resposta do Mentor, registro Learning misto e fixtures legadas | Remover caminho Mentor antigo; manter ramo determinístico Learning; migrar todas as seleções afetadas, incluindo NLP e privacidade, para o runtime correspondente |
 | Restore/Modify | Telemetry | `shared/providers/langfuse_telemetry_provider/`, `intelligence/providers/telemetry/langfuse/`, `composition/agent_monitoring.py`, settings e dependências | Preservar Core port e projeção operacional fechada; restaurar SDK/config Langfuse, usar um cliente isolado no lifespan e compartilhar entre módulos; falha de exportação não altera execução |
-| Modify | CI | `.github/workflows/server-app-ci.yaml` | Separate types/lint/architecture/unit/integration/build/mutation-shards/evals jobs; controllers and all jobs in one integration job; unfiltered real evals and individual job status with no verify aggregate; preserve auxiliary proof |
+| Modify | CI | `.github/workflows/server-app-ci.yaml` | Separate types/lint/architecture/unit/integration/build/evals jobs; controllers and all jobs in one integration job; unfiltered real evals and individual job status with no verify aggregate; preserve auxiliary proof |
 | Modify | Web CI | `.github/workflows/web-app-ci.yaml` | Independent type-check/lint-check/architecture-check/unit-tests/integration-tests/build jobs; remove verify; preserve commands, browser infrastructure, triggers and reports |
 | Create | Quality | `apps/server/evals/`, scripts de cobertura e fixture AgentOS | Suites completas e relatórios obrigatórios; execução real explicitamente habilitada, infraestrutura real descartável; métricas por arquivo explícito |
 | Modify/Delete | Local operations | Profile Langfuse no `docker-compose.yaml`, exemplos env e Tooling; remover script/view/API customizados da revisão 9 | Reusar UI Langfuse local e volumes existentes; preservar AgentOS interno e sua autenticação privada; nenhum reset de dados |
@@ -365,9 +365,8 @@ server integration tests regardless of the transport under test.
 | lint-check | uv run poe check:lint |
 | architecture-check | uv run poe check:architecture |
 | build | uv build, then require source distribution and wheel under dist/ |
-| unit-tests | uv run poe test:unit plus existing focused mutation-runner/report tooling checks as steps in this category |
+| unit-tests | uv run poe test:unit plus existing focused coverage-tooling checks as steps in this category |
 | integration-tests | Controllers/REST and registered Inngest/AgentOS job/workflow integration; current uv run poe test:integration plus uv run poe test:jobs, with real AgentOS and Inngest flags enabled |
-| mutation | Preserve separate matrix shards 1–12: uv run poe test:mutation --all --core --shard N/12 |
 | evals | SHIFU_RUN_REAL_AI_EVALS=1 uv run python evals/run.py --output-dir test-results/evals; no workflow/name/tag filter |
 
 Merge the existing inngest-jobs setup/commands into the integration job; do not
@@ -379,16 +378,14 @@ module-owned server/agentos tests but does not cover legacy
 tests/messaging/inngest/jobs, so the existing test:jobs step is still required.
 No empty/skipped runtime selection counts as integration success. Existing
 required tooling checks move into unit-tests rather than disappearing with the
-standalone mutation-tooling job. Preserve distribution build/verification as
+standalone tooling job. Preserve distribution build/verification as
 steps in a separate build job, independent of architecture-check. Remove
-the Server verify aggregate entirely; retain mutation-summary only to collect
-shard reports and enforce thresholds, including failed or missing shards. Each
-CI category exposes its own status. Repository branch-protection changes are
-external configuration and are not performed by this local workflow edit. Reports for integration, mutation and evals
+the Server verify aggregate entirely. Each CI category exposes its own status. Repository branch-protection changes are
+external configuration and are not performed by this local workflow edit. Reports for integration and evals
 remain available on failure. This grouping does not broaden local validation:
 local integration and eval selections stay scoped to affected consumers.
 The planned CI file amendment must reconcile needs/result checks when removing
-old standalone inngest-jobs, mutation-tooling, distributions and verify entries; no
+old standalone inngest-jobs, tooling, distributions and verify entries; no
 required proof may be silently dropped or replaced by a skipped dependency.
 
 ### Web CI job boundaries and individual statuses
@@ -397,7 +394,7 @@ The Web workflow follows the same independent-check convention as Server. Its
 existing build remains a separate job, and its verify aggregate is removed.
 The exact job IDs in both CI files match the agreed names; no stale needs or
 needs.<old-id>.result references remain. Renaming jobs does not change their
-application commands or introduce Server-only eval/mutation categories in Web.
+application commands or introduce Server-only eval categories in Web.
 
 | Web job ID | Required command from repository root |
 | --- | --- |
@@ -414,11 +411,11 @@ Python/uv installation and migration, Chromium installation, test environment,
 real browser selection and Playwright report upload on failure. The build job
 retains its existing server-only configuration inputs. Preserve existing workflow
 triggers, concurrency and permissions. These CI job changes do not authorize
-new frontend behavior, model inference, mutation tooling or an unrelated local
+new frontend behavior, model inference or an unrelated local
 full test suite. Local validation stays selected by actual affected consumers.
 
 Published delivery checks each applicable current-head Server/Web job status
-and the mutation summary directly, with no verify umbrella. Jobs that fail or
+directly, with no verify umbrella. Jobs that fail or
 are skipped/cancelled cannot stand in for their required proof. CI reports and
 local scoped results remain distinct. Branch-protection settings are external;
 this local change does not create or update required-check rules.
@@ -1719,18 +1716,7 @@ authorization or official persistence; CI-03/04 remain required separately.
 uv run pytest tests/intelligence/core/use_cases/test_prepare_mentor_response_use_case.py tests/intelligence/core/use_cases/test_publish_mentor_response_block_use_case.py tests/intelligence/core/use_cases/test_finalize_mentor_response_use_case.py tests/intelligence/core/use_cases/test_assert_mentor_response_current_use_case.py tests/intelligence/core/use_cases/test_renew_mentor_response_claim_use_case.py tests/intelligence/core/use_cases/test_release_mentor_response_claim_use_case.py tests/intelligence/core/use_cases/test_fail_mentor_response_use_case.py tests/intelligence/core/use_cases/test_record_mentor_inference_usage_use_case.py tests/learning/core/use_cases/test_prepare_code_activity_evaluation_use_case.py tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py
 ```
 
-Mock ports only. Required mutation targets actual changed
-the new/modified Intelligence phase use cases listed above and
-`src/shifu/learning/core/use_cases/evaluate_choice_activity_use_case.py`:
-
-```bash
-uv run poe test:mutation --core --files src/shifu/intelligence/core/use_cases/prepare_mentor_response_use_case.py
-uv run poe test:mutation --core --files src/shifu/learning/core/use_cases/evaluate_choice_activity_use_case.py
-```
-
-Repeat the first command for each actual changed eligible Intelligence phase use-case path from the tree; include Learning preparation and completion. Each command selects one actual changed eligible target. Require >=70% changed-file score,
-no surviving mutation of authorization/run equality/idempotent effect guards;
-record equivalent/survived/uncovered/errors individually. No whole-package mutation.
+Mock ports only.
 Alembic upgrade/preflight/native table constraints/no-DDL and applicable downgrade
 are disposable-environment evidence through CI-03/04, not migration-owned tests.
 
@@ -1912,25 +1898,12 @@ Separate lint/complexity results. Server C90 McCabe default 10 gate; Web configu
 Biome complexity diagnostics explicitly disposed. No independent quantitative
 complexity runner/baseline is asserted or required.
 
-### CI-19 — Changed-file coverage and mutation
+### CI-19 — Changed-file coverage
 
 Require per eligible production file 85% statements/functions/lines and80% branches
 via permitted consumer selections CI-11–15. Use the scoped runners delivered by
 CI-10; until available/measurable this obligation is **Blocked**. Record
 exact sources and metrics; unexecuted indirect providers are not excluded.
-
-Mutation required for actual changed Intelligence Core use cases controlling
-upload limits, binding, deletion and stale-result guards. Use the existing runner,
-one explicit target at a time, e.g.:
-
-```bash
-uv run poe test:mutation --core --files src/shifu/intelligence/core/use_cases/complete_mentor_attachment_use_case.py
-```
-
-Select all actual changed eligible paths above with related use-case tests only;
->=70% changed-file score and no unexplained surviving guard/ownership mutation.
-Review uncovered/error/equivalent outcomes; no Docker/full-package/--all mutation.
-Web mutation Not applicable because no runner exists.
 
 ### CI-20 — Langfuse monitoring through registered AgentOS
 
@@ -1985,8 +1958,7 @@ pnpm check:types
 
 Run Biome on actual changed paths. Existing CI-17/18 baseline obligations remain applicable. New guard
 matrices explicitly assert blank+no-files rejection and real selected-attachment
-validation; no additional mutation obligation beyond existing CI-19 is introduced.
-Web mutation remains not applicable. No broader unchanged suite is implied passing.
+validation. No broader unchanged suite is implied passing.
 
 ## Manual
 
@@ -2080,8 +2052,8 @@ The user approved the unified written contract on 2026-10-14. CI organization wa
 at the user's explicit request. At consolidation time, AgentOS, storage, eval classes and
 coverage runners were planned; implementation and verification evidence is recorded in
 Evaluation. The Spec was reopened to ready on 2026-10-17 for PR #26 review corrections
-(ACH-23 to ACH-28 in Evaluation); revision 13 is unchanged because the corrections
-fall inside the existing contract. Open checks remain retained by the user's explicit
+(ACH-23 to ACH-28 in Evaluation), then amended to revision 14 on 2026-10-18 at the user's request to remove
+mutation testing from the project; an independent compatibility review passed. Open checks remain retained by the user's explicit
 disposition.
 
 # Revision History
@@ -2150,3 +2122,5 @@ under changed IDs; both drafts were still awaiting implementation.
 | 12 | 2026-10-14 | Move distribution build/verification into a separate build job; architecture-check only validates boundaries | User requested a build job instead |
 
 | 13 | 2026-10-14 | Reconcile Server/Web CI files, independent named jobs and standalone builds; remove both verify aggregates while preserving runtime/browser proof | User requested the Spec reflect the updated Web and Server workflows |
+
+| 14 | 2026-10-18 | Remove mutation testing from the delivery: no mutation runner, CI shards, summary gate or CI-07/CI-19 mutation obligation; per-file coverage in CI-19 is unchanged | Explicit user request; independent compatibility review passed with no findings (EV-152) |
