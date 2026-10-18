@@ -118,6 +118,7 @@ class SubmitDiagnosticBatchController:
                     )
                     for item in request.items
                 ),
+                user.time_zone,
             )
             response.status_code = (
                 status.HTTP_200_OK if outcome.replayed else status.HTTP_201_CREATED

@@ -71,6 +71,7 @@ class SubmitChoiceActivityUseCase:
         answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
+        time_zone: str | None = None,
     ) -> ChoiceSubmissionOutcome:
         if not submission_key.strip():
             raise ValidationError
@@ -206,6 +207,7 @@ class SubmitChoiceActivityUseCase:
                 submission_key=submission_key,
                 grading_snapshot=snapshot,
                 diagnostic_run_id=None,
+                time_zone=time_zone,
             )
             evaluation = ActivityEvaluation.create(
                 id=evaluation_id,

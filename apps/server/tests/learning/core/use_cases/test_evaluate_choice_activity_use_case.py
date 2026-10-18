@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock, call, create_autospec
 
@@ -60,6 +60,7 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+SUBMITTED_AT = NOW - timedelta(hours=5)
 ACCOUNT_ID = 'account-1'
 GOAL_ID = 'goal-1'
 SKILL_ID = 'skill-1'
@@ -197,9 +198,10 @@ class TestEvaluateChoiceActivityUseCase:
                 ),
                 MultipleSelectionAnswer(question_key='q3', selected_option_keys=('a',)),
             ),
-            submitted_at=NOW,
+            submitted_at=SUBMITTED_AT,
             submission_key='submission-1',
             grading_snapshot=grading_snapshot(),
+            time_zone='America/Sao_Paulo',
         )
         self.evaluation = ActivityEvaluation.create(
             id='evaluation-1',
@@ -263,6 +265,18 @@ class TestEvaluateChoiceActivityUseCase:
             self.progress
         )
         self.repositories.events.add.assert_called_once()
+
+        # Gamification dates the practice day from the attempt submission, not
+        # from when the asynchronous evaluation finished.
+        payload = self.repositories.events.add.call_args.args[0].payload
+        assert payload.submitted_at == SUBMITTED_AT.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+        assert payload.time_zone == 'America/Sao_Paulo'
+        assert payload.evaluated_at == NOW.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+        assert payload.submitted_at != payload.evaluated_at
 
     def test_should_complete_the_skill_when_all_required_concepts_are_mastered(
         self,
@@ -1127,3 +1141,134 @@ class TestEvaluateChoiceActivityUseCase:
 
         self.repositories.competency_progresses.update.assert_not_called()
         self.repositories.activity_evaluations.update.assert_not_called()
+
+    def test_should_address_every_collaborator_with_the_attempt_identity(self) -> None:
+        """The orchestration reads each collaborator with identifiers taken from
+        the attempt and its experience; passing the wrong one would silently
+        evaluate somebody else's work."""
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        self.repositories.activity_attempts.find_by_id.assert_called_with(
+            self.attempt.id
+        )
+        self.repositories.skill_experiences.find_by_id_for_update.assert_called_once_with(
+            self.attempt.skill_experience_id
+        )
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.assert_called_once_with(
+            self.attempt.id
+        )
+        self.repositories.goals.find_by_id.assert_called_once_with(
+            self.experience.goal_id
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.assert_called_once_with(
+            self.experience.id, self.attempt.competency_id
+        )
+        self.curriculum.get_skill_content.assert_called_with(self.experience.skill_id)
+        self.repositories.activity_evaluations.update.assert_called_once_with(
+            self.evaluation
+        )
+
+    def test_should_publish_the_evaluated_event_with_the_attempt_identity(
+        self,
+    ) -> None:
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        payload = self.repositories.events.add.call_args_list[0].args[0].payload
+        assert payload.account_id == self.goal.account_id
+        assert payload.goal_id == self.goal.id
+        assert payload.skill_experience_id == self.experience.id
+        assert payload.skill_id == self.experience.skill_id
+        assert payload.competency_id == self.attempt.competency_id
+        assert payload.activity_id == self.attempt.activity_id
+        assert payload.attempt_id == self.attempt.id
+        assert payload.evaluation_id == self.evaluation.id
+        assert payload.kind is self.attempt.kind
+        assert payload.score == str(self.evaluation.score)
+        assert payload.evaluated_at == NOW.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+
+    def test_should_scope_adaptive_reads_to_the_locked_experience(self) -> None:
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        self.repositories.competency_progresses.find_many_by_skill_experience_id.assert_called_with(
+            self.experience.id
+        )
+        self.repositories.concept_observations.find_many_by_skill_experience_id.assert_called_with(
+            self.experience.id
+        )
+
+    def test_should_stamp_the_evaluation_effect_with_the_injected_clock(self) -> None:
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.effect_applied_at == NOW
+        assert self.evaluation.completed_at == NOW
+        self.clock.now.assert_called()
+
+    def test_should_publish_mastery_lost_with_the_competency_identity(self) -> None:
+        """A competency that regresses out of mastery announces the loss, so
+        Gamification can revoke what it rewarded."""
+        self.progress.status = CompetencyProgressStatus.MASTERED
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        lost = next(
+            call.args[0]
+            for call in self.repositories.events.add.call_args_list
+            if call.args[0].name == 'learning/competency-mastery-lost'
+        )
+        assert lost.payload.account_id == self.goal.account_id
+        assert lost.payload.goal_id == self.goal.id
+        assert lost.payload.skill_experience_id == self.experience.id
+        assert lost.payload.skill_id == self.experience.skill_id
+        assert lost.payload.competency_id == self.attempt.competency_id
+        assert lost.payload.progress == str(self.progress.current_progress)
+        assert lost.payload.lost_at == NOW.astimezone(UTC).isoformat().replace(
+            '+00:00', 'Z'
+        )
+
+    def test_should_not_announce_a_mastery_transition_that_did_not_happen(
+        self,
+    ) -> None:
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        names = [
+            call.args[0].name for call in self.repositories.events.add.call_args_list
+        ]
+        assert 'learning/competency-mastery-lost' not in names
+        assert 'learning/competency-mastered' not in names
+
+    def _as_diagnostic(self, diagnostic_run_id: str) -> None:
+        self.attempt = ActivityAttempt.create(
+            id=self.attempt.id,
+            skill_experience_id=self.attempt.skill_experience_id,
+            competency_id=self.attempt.competency_id,
+            activity_id=self.attempt.activity_id,
+            kind=ActivityAttemptKind.DIAGNOSTIC,
+            answers=self.attempt.answers,
+            submitted_at=self.attempt.submitted_at,
+            submission_key=self.attempt.submission_key,
+            grading_snapshot=self.attempt.grading_snapshot,
+            diagnostic_run_id=diagnostic_run_id,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+
+    def test_should_ignore_a_diagnostic_attempt_outside_its_run(self) -> None:
+        self._as_diagnostic('another-run')
+        self.experience.status = SkillExperienceStatus.DIAGNOSING
+        self.experience.diagnostic_run_id = 'the-run'
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        self.repositories.activity_evaluations.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_ignore_a_diagnostic_attempt_once_diagnosing_ended(self) -> None:
+        self._as_diagnostic('the-run')
+        self.experience.status = SkillExperienceStatus.LEARNING
+        self.experience.diagnostic_run_id = 'the-run'
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        self.repositories.activity_evaluations.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()

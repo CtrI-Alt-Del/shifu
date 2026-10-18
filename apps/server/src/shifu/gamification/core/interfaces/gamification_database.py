@@ -7,6 +7,9 @@ from shifu.gamification.core.interfaces.earned_achievements_repository import (
 from shifu.gamification.core.interfaces.gamification_profiles_repository import (
     GamificationProfilesRepository,
 )
+from shifu.gamification.core.interfaces.practice_days_repository import (
+    PracticeDaysRepository,
+)
 from shifu.gamification.core.interfaces.rewarded_milestones_repository import (
     RewardedMilestonesRepository,
 )
@@ -23,6 +26,7 @@ class GamificationDatabaseRepositories:
     xp_grants: XpGrantsRepository
     earned_achievements: EarnedAchievementsRepository
     rewarded_milestones: RewardedMilestonesRepository
+    practice_days: PracticeDaysRepository
     events: EventsRepository
 
 

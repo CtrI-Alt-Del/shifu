@@ -536,6 +536,10 @@ class EvaluateChoiceActivityUseCase:
                     difficulty=ActivityDifficulty(difficulty),
                     score=str(evaluation.score),
                     evaluated_at=evaluated_at,
+                    submitted_at=attempt.submitted_at.astimezone(UTC)
+                    .isoformat()
+                    .replace('+00:00', 'Z'),
+                    time_zone=attempt.time_zone,
                 )
             )
         )

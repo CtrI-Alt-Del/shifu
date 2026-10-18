@@ -8,6 +8,7 @@ from shifu.gamification.core.interfaces import GamificationDatabaseRepositories
 from shifu.gamification.database.sqlalchemy.repositories import (
     SqlalchemyEarnedAchievementsRepository,
     SqlalchemyGamificationProfilesRepository,
+    SqlalchemyPracticeDaysRepository,
     SqlalchemyRewardedMilestonesRepository,
     SqlalchemyXpGrantsRepository,
 )
@@ -40,6 +41,7 @@ class SqlalchemyGamificationDatabase:
                 xp_grants=SqlalchemyXpGrantsRepository(session),
                 earned_achievements=SqlalchemyEarnedAchievementsRepository(session),
                 rewarded_milestones=SqlalchemyRewardedMilestonesRepository(session),
+                practice_days=SqlalchemyPracticeDaysRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

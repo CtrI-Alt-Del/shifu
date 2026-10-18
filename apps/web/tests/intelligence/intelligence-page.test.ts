@@ -357,10 +357,14 @@ test('keeps the selected route, editable draft, history, search, rename and dele
   await authenticatedPage.goBack()
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ROUTES.gamification}/?$`))
   await expect(
-    authenticatedPage
-      .getByRole('main')
-      .filter({ hasText: 'Cada passo merece ser visto.' }),
+    authenticatedPage.getByRole('main').filter({ hasText: 'Gamificação' }),
   ).toBeVisible()
+  // The Calendário tab is the default and fetches on mount; this suite does not
+  // mock that request. Let it settle before navigating forward, or the in-flight
+  // response races the next route on a slow runner.
+  await expect(
+    authenticatedPage.getByLabel('Carregando calendário de prática'),
+  ).toBeHidden()
   await authenticatedPage.goForward()
   await expect(authenticatedPage).toHaveURL(selectedSessionUrl)
   await expect(

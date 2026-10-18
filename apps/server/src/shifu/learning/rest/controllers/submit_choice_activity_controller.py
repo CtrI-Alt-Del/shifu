@@ -145,6 +145,7 @@ class SubmitChoiceActivityController:
                     ),
                     request.activity_revision,
                     str(diagnostic_run_id) if diagnostic_run_id is not None else None,
+                    user.time_zone,
                 ),
                 from_attributes=True,
             )

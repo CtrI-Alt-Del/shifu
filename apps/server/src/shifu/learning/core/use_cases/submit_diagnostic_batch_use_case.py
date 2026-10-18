@@ -78,6 +78,7 @@ class SubmitDiagnosticBatchUseCase:
         diagnostic_run_id: str,
         submission_key: UUID,
         items: tuple[DiagnosticSubmissionItem, ...],
+        time_zone: str | None = None,
     ) -> DiagnosticBatchOutcome:
         if not items:
             raise ValidationError
@@ -192,6 +193,7 @@ class SubmitDiagnosticBatchUseCase:
                         submission_key=key,
                         grading_snapshot=snapshot,
                         diagnostic_run_id=diagnostic_run_id,
+                        time_zone=time_zone,
                     )
                 )
                 repositories.activity_evaluations.add(
