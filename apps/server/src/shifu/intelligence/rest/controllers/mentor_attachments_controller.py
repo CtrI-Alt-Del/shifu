@@ -101,7 +101,7 @@ class MentorAttachmentsController:
             response_model=Attachment,
             status_code=status.HTTP_201_CREATED,
         )
-        async def upload_attachment(
+        def upload_attachment(
             batch_id: Annotated[str, Path(pattern=_ID_PATTERN)],
             request: FastApiRequest,
             response: Response,
@@ -140,7 +140,7 @@ class MentorAttachmentsController:
                     raise _invalid_request()
                 if int(length) > _MAX_MULTIPART_SIZE:
                     raise _too_large()
-            content = await file.read(_MAX_FILE_SIZE + 1)
+            content = file.file.read(_MAX_FILE_SIZE + 1)
             if len(content) > _MAX_FILE_SIZE:
                 raise _too_large()
             uploaded = MentorAttachmentFile(

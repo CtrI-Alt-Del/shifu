@@ -1,3 +1,4 @@
+from itertools import cycle
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import call, create_autospec
@@ -7,6 +8,7 @@ from shifu.intelligence.core.domain.entities import (
     MentorAttachment,
     MentorAttachmentBatch,
 )
+from shifu.intelligence.core.domain.errors import MentorAttachmentConflictError
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -17,6 +19,10 @@ from shifu.intelligence.core.interfaces import (
 from shifu.intelligence.core.use_cases import RenewMentorAttachmentClaimUseCase
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
+
+from tests.intelligence.core.use_cases.mentor_attachment_lock_order_setup import (
+    LockRecorder,
+)
 
 _ACCOUNT_ID = '01JACCOUNT000000000000000001'
 _ATTACHMENT_ID = '01JATTACHMENT00000000000001'
@@ -96,10 +102,8 @@ def test_renew_extends_only_the_current_claim(harness: _Harness) -> None:
             call(_ATTACHMENT_ID, for_update=True),
         ]
     )
-    dependencies[
-        'repositories'
-    ].mentor_attachment_batches.find_by_id.assert_called_once_with(
-        _BATCH_ID, for_update=True
+    dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_has_calls(
+        [call(_BATCH_ID), call(_BATCH_ID, for_update=True)]
     )
     dependencies['access'].authorize.assert_called_once_with(
         _ACCOUNT_ID, _ATTACHMENT_ID
@@ -156,10 +160,8 @@ def test_renew_rejects_a_missing_batch(harness: _Harness) -> None:
     renewed = subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
 
     assert renewed is False
-    dependencies[
-        'repositories'
-    ].mentor_attachment_batches.find_by_id.assert_called_once_with(
-        _BATCH_ID, for_update=True
+    dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_has_calls(
+        [call(_BATCH_ID), call(_BATCH_ID, for_update=True)]
     )
     dependencies['repositories'].mentor_attachments.update.assert_not_called()
 
@@ -246,3 +248,61 @@ def test_renew_does_not_write_after_authorization_is_revoked(harness: _Harness) 
         subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
 
     dependencies['repositories'].mentor_attachments.update.assert_not_called()
+
+
+def _batch(session_id: str | None) -> MentorAttachmentBatch:
+    return MentorAttachmentBatch.create(
+        _BATCH_ID, _ACCOUNT_ID, session_id, _NOW, _NOW + timedelta(hours=1)
+    )
+
+
+@pytest.mark.parametrize(
+    ('session_id', 'expected'),
+    [
+        (_SESSION_ID, ['session', 'batch', 'attachment']),
+        (None, ['batch', 'attachment']),
+    ],
+)
+def test_should_lock_session_then_batch_then_attachment_in_renew(
+    harness: _Harness,
+    session_id: str | None,
+    expected: list[str],
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    recorder = LockRecorder(repositories, cycle([_batch(session_id)]))
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == expected
+
+
+def test_should_restart_in_renew_with_session_lock_first_when_batch_gets_bound(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(repositories, iter([unbound, bound, bound, bound]))
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == ['batch', 'session', 'batch', 'attachment']
+
+
+def test_should_raise_conflict_in_renew_when_batch_scope_keeps_changing(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(repositories, cycle([unbound, bound]))
+
+    with pytest.raises(MentorAttachmentConflictError):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == ['batch', 'batch', 'batch']
+    repositories.mentor_attachments.update.assert_not_called()

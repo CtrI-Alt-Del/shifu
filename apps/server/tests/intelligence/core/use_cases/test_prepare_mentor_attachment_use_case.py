@@ -1,3 +1,4 @@
+from itertools import chain, cycle
 import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,6 +29,10 @@ from shifu.shared.core.interfaces import (
     ClockProvider,
     FileStorageProvider,
     MentorAccessProvider,
+)
+
+from tests.intelligence.core.use_cases.mentor_attachment_lock_order_setup import (
+    LockRecorder,
 )
 
 _ACCOUNT_ID = '01JACCOUNT000000000000000001'
@@ -355,3 +360,71 @@ def test_should_preserve_a_replacement_claim_when_storage_read_fails(
 
     assert dependencies['attachment'].execution_owner == 'replacement-worker'
     dependencies['repositories'].mentor_attachments.update.assert_called_once()
+
+
+def _batch(session_id: str | None) -> MentorAttachmentBatch:
+    return MentorAttachmentBatch.create(
+        _BATCH_ID, _ACCOUNT_ID, session_id, _NOW, _NOW + timedelta(hours=1)
+    )
+
+
+@pytest.mark.parametrize(
+    ('session_id', 'expected'),
+    [
+        (_SESSION_ID, ['session', 'batch', 'attachment'] * 2),
+        (None, ['batch', 'attachment'] * 2),
+    ],
+)
+def test_should_lock_session_then_batch_then_attachment_in_prepare(
+    harness: _Harness,
+    session_id: str | None,
+    expected: list[str],
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    recorder = LockRecorder(repositories, cycle([_batch(session_id)]))
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == expected
+
+
+def test_should_restart_in_prepare_with_session_lock_first_when_batch_gets_bound(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(
+        repositories, chain(iter([unbound, bound, bound, bound]), cycle([bound]))
+    )
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == [
+        'batch',
+        'session',
+        'batch',
+        'attachment',
+        'session',
+        'batch',
+        'attachment',
+    ]
+
+
+def test_should_raise_conflict_in_prepare_when_batch_scope_keeps_changing(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(repositories, cycle([unbound, bound]))
+
+    with pytest.raises(MentorAttachmentConflictError):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER)
+
+    assert recorder.order == ['batch', 'batch', 'batch']
+    repositories.mentor_attachments.update.assert_not_called()

@@ -1,6 +1,13 @@
 from __future__ import annotations
 
+import inspect
 from typing import TYPE_CHECKING
+
+from fastapi import APIRouter
+from fastapi.routing import APIRoute
+from shifu.intelligence.rest.controllers.mentor_attachments_controller import (
+    MentorAttachmentsController,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -77,3 +84,19 @@ def test_upload_body_limit_does_not_apply_to_other_methods_or_paths(
 
     assert method_response.status_code == 405
     assert path_response.status_code == 405
+
+
+def test_upload_handler_is_synchronous_so_blocking_work_leaves_the_event_loop() -> None:
+    router = APIRouter()
+    MentorAttachmentsController.handle(router)
+
+    routes = [
+        route
+        for route in router.routes
+        if isinstance(route, APIRoute)
+        and route.path == '/mentor-attachment-batches/{batch_id}/attachments'
+        and 'POST' in (route.methods or set())
+    ]
+
+    assert len(routes) == 1
+    assert not inspect.iscoroutinefunction(routes[0].endpoint)

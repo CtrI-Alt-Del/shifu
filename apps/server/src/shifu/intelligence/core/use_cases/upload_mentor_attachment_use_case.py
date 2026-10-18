@@ -43,7 +43,9 @@ from shifu.intelligence.core.domain.structures import (
     MentorAttachmentUploadResult,
 )
 from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
+    LockedMentorAttachmentScope,
     attachment_view,
+    run_with_locked_mentor_attachment_scope,
 )
 from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
 
@@ -240,58 +242,70 @@ class UploadMentorAttachmentUseCase:
         attachment: MentorAttachment,
         grant: MentorAccessGrant,
     ) -> MentorAttachmentUploadResult:
-        access_error: AuthorizationError | None = None
-        with self._database.transaction() as repositories:
-            current = repositories.mentor_attachments.find_by_id(
-                attachment.id, for_update=True
-            )
-            if (
-                current is None
-                or current.generation != 1
-                or current.status is MentorAttachmentStatus.REMOVED
-            ):
-                raise MentorAttachmentConflictError
-            batch = repositories.mentor_attachment_batches.find_by_id(
-                batch_id, for_update=True
-            )
-            if (
-                batch is None
-                or batch.account_id != account_id
-                or batch.revoked_at is not None
-                or batch.consumed_by_message_id is not None
-                or batch.expires_at <= self._clock_provider.now()
-                or (
-                    batch.session_id is not None
-                    and repositories.mentor_sessions.find_by_id_for_update(
-                        account_id, batch.session_id
-                    )
-                    is None
-                )
-            ):
-                return self._revoke_and_queue(
-                    repositories, current, account_id, batch_id
-                )
-            try:
-                self._access_provider.assert_current(grant)
-            except AuthorizationError as error:
-                self._revoke_and_queue(repositories, current, account_id, batch_id)
-                access_error = error
-            else:
-                if current.upload_completed_at is None:
-                    current.mark_upload_completed(self._clock_provider.now())
-                    repositories.mentor_attachments.update(current)
-                    repositories.events.add(
-                        MentorAttachmentPreparationRequestedEvent(
-                            payload=MentorAttachmentPreparationRequestedPayload(
-                                attachment_id=current.id,
-                                generation=current.generation,
-                            )
-                        )
-                    )
+        result, access_error = run_with_locked_mentor_attachment_scope(
+            self._database,
+            account_id,
+            batch_id,
+            lambda repositories, scope: self._complete_locked(
+                repositories, scope, account_id, batch_id, grant
+            ),
+            attachment.id,
+        )
         if access_error is not None:
             raise access_error
-        return MentorAttachmentUploadResult(
-            attachment=attachment_view(current), created=True
+        return result
+
+    def _complete_locked(
+        self,
+        repositories: IntelligenceDatabaseRepositories,
+        scope: LockedMentorAttachmentScope,
+        account_id: str,
+        batch_id: str,
+        grant: MentorAccessGrant,
+    ) -> tuple[MentorAttachmentUploadResult, AuthorizationError | None]:
+        current = scope.attachment
+        batch = scope.batch
+        if (
+            current is None
+            or current.generation != 1
+            or current.status is MentorAttachmentStatus.REMOVED
+        ):
+            raise MentorAttachmentConflictError
+        if (
+            batch is None
+            or batch.account_id != account_id
+            or batch.revoked_at is not None
+            or batch.consumed_by_message_id is not None
+            or batch.expires_at <= self._clock_provider.now()
+            or not scope.session_available
+        ):
+            revoked = self._revoke_and_queue(
+                repositories, current, account_id, batch_id
+            )
+            return revoked, None
+        try:
+            self._access_provider.assert_current(grant)
+        except AuthorizationError as error:
+            self._revoke_and_queue(repositories, current, account_id, batch_id)
+            return MentorAttachmentUploadResult(
+                attachment=attachment_view(current), created=True
+            ), error
+        if current.upload_completed_at is None:
+            current.mark_upload_completed(self._clock_provider.now())
+            repositories.mentor_attachments.update(current)
+            repositories.events.add(
+                MentorAttachmentPreparationRequestedEvent(
+                    payload=MentorAttachmentPreparationRequestedPayload(
+                        attachment_id=current.id,
+                        generation=current.generation,
+                    )
+                )
+            )
+        return (
+            MentorAttachmentUploadResult(
+                attachment=attachment_view(current), created=True
+            ),
+            None,
         )
 
     @staticmethod

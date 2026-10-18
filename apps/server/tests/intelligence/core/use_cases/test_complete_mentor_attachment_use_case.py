@@ -1,3 +1,4 @@
+from itertools import cycle
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -10,6 +11,7 @@ from shifu.intelligence.core.domain.entities import (
 )
 from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.core.domain.errors import (
+    MentorAttachmentConflictError,
     MentorAttachmentInvalidError,
     MentorAttachmentNotFoundError,
 )
@@ -28,6 +30,10 @@ from shifu.intelligence.core.interfaces import (
 from shifu.intelligence.core.use_cases import CompleteMentorAttachmentUseCase
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
+
+from tests.intelligence.core.use_cases.mentor_attachment_lock_order_setup import (
+    LockRecorder,
+)
 
 _ACCOUNT_ID = '01JACCOUNT000000000000000001'
 _ATTACHMENT_ID = '01JATTACHMENT00000000000001'
@@ -135,10 +141,8 @@ def test_complete_persists_valid_chunks_and_clears_the_claim(harness: _Harness) 
     dependencies['repositories'].mentor_attachments.find_by_id.assert_has_calls(
         [call(_ATTACHMENT_ID), call(_ATTACHMENT_ID, for_update=True)]
     )
-    dependencies[
-        'repositories'
-    ].mentor_attachment_batches.find_by_id.assert_called_once_with(
-        _BATCH_ID, for_update=True
+    dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_has_calls(
+        [call(_BATCH_ID), call(_BATCH_ID, for_update=True)]
     )
     dependencies['access'].authorize.assert_called_once_with(
         _ACCOUNT_ID, _ATTACHMENT_ID
@@ -411,3 +415,61 @@ def test_complete_marks_each_unreadable_page_category_as_partial(
 
     assert status is MentorAttachmentStatus.PARTIAL
     assert dependencies['attachment'].status is MentorAttachmentStatus.PARTIAL
+
+
+def _batch(session_id: str | None) -> MentorAttachmentBatch:
+    return MentorAttachmentBatch.create(
+        _BATCH_ID, _ACCOUNT_ID, session_id, _NOW, _NOW + timedelta(hours=1)
+    )
+
+
+@pytest.mark.parametrize(
+    ('session_id', 'expected'),
+    [
+        (_SESSION_ID, ['session', 'batch', 'attachment']),
+        (None, ['batch', 'attachment']),
+    ],
+)
+def test_should_lock_session_then_batch_then_attachment_in_complete(
+    harness: _Harness,
+    session_id: str | None,
+    expected: list[str],
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    recorder = LockRecorder(repositories, cycle([_batch(session_id)]))
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, _extraction())
+
+    assert recorder.order == expected
+
+
+def test_should_restart_in_complete_with_session_lock_first_when_batch_gets_bound(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(repositories, iter([unbound, bound, bound, bound]))
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, _extraction())
+
+    assert recorder.order == ['batch', 'session', 'batch', 'attachment']
+
+
+def test_should_raise_conflict_in_complete_when_batch_scope_keeps_changing(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    repositories = dependencies['repositories']
+
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = LockRecorder(repositories, cycle([unbound, bound]))
+
+    with pytest.raises(MentorAttachmentConflictError):
+        subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, _extraction())
+
+    assert recorder.order == ['batch', 'batch', 'batch']
+    repositories.mentor_attachments.update.assert_not_called()

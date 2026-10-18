@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from itertools import chain, cycle
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from unittest.mock import call, create_autospec
@@ -25,6 +27,7 @@ from shifu.intelligence.core.interfaces import (
     MentorAttachmentBatchesRepository,
     MentorAttachmentExtractorProvider,
     MentorAttachmentsRepository,
+    MentorSessionsRepository,
 )
 from shifu.intelligence.core.use_cases import UploadMentorAttachmentUseCase
 from shifu.shared.core.domain.errors import AuthorizationError, ServiceUnavailableError
@@ -35,6 +38,10 @@ from shifu.shared.core.interfaces import (
     FileStorageProvider,
     IdentifierProvider,
     MentorAccessProvider,
+)
+
+from tests.intelligence.core.use_cases.mentor_attachment_lock_order_setup import (
+    LockRecorder,
 )
 
 _ACCOUNT_ID = '01JACCOUNT000000000000000001'
@@ -145,7 +152,11 @@ def test_upload_reserves_private_bytes_and_queues_preparation(
         b'conteudo educacional', 'text/plain'
     )
     dependencies['repositories'].mentor_attachment_batches.find_by_id.assert_has_calls(
-        [call(_BATCH_ID, for_update=True), call(_BATCH_ID, for_update=True)]
+        [
+            call(_BATCH_ID, for_update=True),
+            call(_BATCH_ID),
+            call(_BATCH_ID, for_update=True),
+        ]
     )
     dependencies[
         'repositories'
@@ -712,3 +723,73 @@ def test_upload_completes_bound_batch_when_session_is_still_owned(
         dependencies['repositories'].events.add.call_args_list[-1].args[0],
         MentorAttachmentPreparationRequestedEvent,
     )
+
+
+_SESSION_ID = '01JSESSION000000000000000001'
+
+
+def _batch(session_id: str | None) -> MentorAttachmentBatch:
+    now = datetime(2026, 10, 10, tzinfo=UTC)
+    return MentorAttachmentBatch.create(
+        _BATCH_ID,
+        _ACCOUNT_ID,
+        session_id,
+        now - timedelta(minutes=5),
+        now + timedelta(hours=1),
+    )
+
+
+def _lock_recorder(
+    dependencies: dict[str, Any], batches: Iterator[MentorAttachmentBatch | None]
+) -> LockRecorder:
+    repositories = dependencies['repositories']
+    repositories.mentor_sessions = create_autospec(
+        MentorSessionsRepository, instance=True
+    )
+    return LockRecorder(repositories, batches)
+
+
+@pytest.mark.parametrize(
+    ('session_id', 'expected'),
+    [
+        (_SESSION_ID, ['batch', 'session', 'batch', 'attachment']),
+        (None, ['batch', 'batch', 'attachment']),
+    ],
+)
+def test_should_lock_session_then_batch_then_attachment_when_completing_upload(
+    harness: _Harness, session_id: str | None, expected: list[str]
+) -> None:
+    subject, dependencies = harness
+    recorder = _lock_recorder(dependencies, cycle([_batch(session_id)]))
+
+    subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+
+    assert recorder.order == expected
+
+
+def test_should_restart_upload_completion_with_session_lock_first_when_batch_gets_bound(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = _lock_recorder(
+        dependencies, iter([unbound, unbound, bound, bound, bound])
+    )
+
+    subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+
+    assert recorder.order == ['batch', 'batch', 'session', 'batch', 'attachment']
+
+
+def test_should_raise_conflict_when_upload_batch_scope_keeps_changing(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+    unbound, bound = _batch(None), _batch(_SESSION_ID)
+    recorder = _lock_recorder(dependencies, chain([unbound], cycle([unbound, bound])))
+
+    with pytest.raises(MentorAttachmentConflictError):
+        subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file())
+
+    assert recorder.order == ['batch', 'batch', 'batch', 'batch']
+    dependencies['repositories'].events.add.assert_not_called()

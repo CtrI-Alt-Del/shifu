@@ -12,7 +12,10 @@ if TYPE_CHECKING:
         MentorAttachment,
         MentorAttachmentBatch,
     )
-    from shifu.intelligence.core.interfaces import IntelligenceDatabase
+    from shifu.intelligence.core.interfaces import (
+        IntelligenceDatabase,
+        IntelligenceDatabaseRepositories,
+    )
     from shifu.shared.core.domain.structures import MentorAccessGrant
     from shifu.shared.core.interfaces import (
         ClockProvider,
@@ -28,11 +31,16 @@ from shifu.intelligence.core.domain.errors import (
     MentorSessionNotFoundError,
 )
 from shifu.intelligence.core.domain.structures import PreparedMentorAttachment
+from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
+    LockedMentorAttachmentScope,
+    run_with_locked_mentor_attachment_scope,
+)
 
 
 @dataclass(frozen=True)
 class _ClaimedAttachment:
     account_id: str
+    batch_id: str
     object_key: str
     media_type: str
     checksum: str
@@ -86,40 +94,57 @@ class PrepareMentorAttachmentUseCase:
             if candidate is None:
                 raise MentorAttachmentNotFoundError
             account_id = candidate.account_id
+            batch_id = candidate.batch_id
         grant = self._access_provider.authorize(account_id, attachment_id)
         self._access_provider.assert_current(grant)
         now = self._clock_provider.now()
-        with self._database.transaction() as repositories:
-            attachment = repositories.mentor_attachments.find_by_id(
-                attachment_id, for_update=True
-            )
-            if attachment is None or attachment.account_id != account_id:
-                raise MentorAttachmentNotFoundError
-            if not self._is_claimable(attachment, generation, execution_owner, now):
-                return None
-            batch = repositories.mentor_attachment_batches.find_by_id(
-                attachment.batch_id, for_update=True
-            )
-            if batch is None or not self._is_batch_active(batch, account_id, now):
-                return None
-            if (
-                batch.session_id is not None
-                and repositories.mentor_sessions.find_by_id_for_update(
-                    account_id, batch.session_id
-                )
-                is None
-            ):
-                raise MentorSessionNotFoundError
-            attachment.claim(execution_owner, now, now + self._CLAIM_DURATION)
-            repositories.mentor_attachments.update(attachment)
-            self._access_provider.assert_current(grant)
-            return _ClaimedAttachment(
-                account_id=account_id,
-                object_key=attachment.object_key,
-                media_type=attachment.media_type,
-                checksum=attachment.checksum,
-                grant=grant,
-            )
+        return run_with_locked_mentor_attachment_scope(
+            self._database,
+            account_id,
+            batch_id,
+            lambda repositories, scope: self._claim_locked(
+                repositories,
+                scope,
+                account_id,
+                generation,
+                execution_owner,
+                grant,
+                now,
+            ),
+            attachment_id,
+        )
+
+    def _claim_locked(
+        self,
+        repositories: IntelligenceDatabaseRepositories,
+        scope: LockedMentorAttachmentScope,
+        account_id: str,
+        generation: int,
+        execution_owner: str,
+        grant: MentorAccessGrant,
+        now: datetime,
+    ) -> _ClaimedAttachment | None:
+        attachment = scope.attachment
+        batch = scope.batch
+        if attachment is None or attachment.account_id != account_id:
+            raise MentorAttachmentNotFoundError
+        if not self._is_claimable(attachment, generation, execution_owner, now):
+            return None
+        if batch is None or not self._is_batch_active(batch, account_id, now):
+            return None
+        if not scope.session_available:
+            raise MentorSessionNotFoundError
+        attachment.claim(execution_owner, now, now + self._CLAIM_DURATION)
+        repositories.mentor_attachments.update(attachment)
+        self._access_provider.assert_current(grant)
+        return _ClaimedAttachment(
+            account_id=account_id,
+            batch_id=batch.id,
+            object_key=attachment.object_key,
+            media_type=attachment.media_type,
+            checksum=attachment.checksum,
+            grant=grant,
+        )
 
     @staticmethod
     def _is_claimable(
@@ -176,33 +201,39 @@ class PrepareMentorAttachmentUseCase:
         claimed: _ClaimedAttachment,
     ) -> bool:
         now = self._clock_provider.now()
-        with self._database.transaction() as repositories:
-            current = repositories.mentor_attachments.find_by_id(
-                attachment_id, for_update=True
-            )
-            if (
-                current is None
-                or current.account_id != claimed.account_id
-                or current.generation != generation
-                or current.status is not MentorAttachmentStatus.PROCESSING
-                or current.execution_owner != execution_owner
-                or current.claim_expires_at is None
-                or current.claim_expires_at <= now
-            ):
-                return False
-            batch = repositories.mentor_attachment_batches.find_by_id(
-                current.batch_id, for_update=True
-            )
-            if batch is None or not self._is_batch_active(
-                batch, claimed.account_id, now
-            ):
-                return False
-            return batch.session_id is None or (
-                repositories.mentor_sessions.find_by_id_for_update(
-                    claimed.account_id, batch.session_id
-                )
-                is not None
-            )
+        return run_with_locked_mentor_attachment_scope(
+            self._database,
+            claimed.account_id,
+            claimed.batch_id,
+            lambda _repositories, scope: self._is_current_locked(
+                scope, generation, execution_owner, claimed, now
+            ),
+            attachment_id,
+        )
+
+    def _is_current_locked(
+        self,
+        scope: LockedMentorAttachmentScope,
+        generation: int,
+        execution_owner: str,
+        claimed: _ClaimedAttachment,
+        now: datetime,
+    ) -> bool:
+        current = scope.attachment
+        batch = scope.batch
+        if (
+            current is None
+            or current.account_id != claimed.account_id
+            or current.generation != generation
+            or current.status is not MentorAttachmentStatus.PROCESSING
+            or current.execution_owner != execution_owner
+            or current.claim_expires_at is None
+            or current.claim_expires_at <= now
+        ):
+            return False
+        if batch is None or not self._is_batch_active(batch, claimed.account_id, now):
+            return False
+        return scope.session_available
 
     def _release_if_current(
         self, attachment_id: str, generation: int, execution_owner: str
