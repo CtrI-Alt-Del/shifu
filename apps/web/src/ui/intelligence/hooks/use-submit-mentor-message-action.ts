@@ -19,9 +19,15 @@ const INPUT = z
     accountEmail: z.string().email(),
     sessionId: ID,
     submissionKey: z.uuid({ version: 'v4' }),
-    content: z.string().refine((value) => Boolean(value.trim())),
+    content: z.string(),
     contextHint: HINT.nullable(),
+    attachmentBatchId: ID.optional(),
+    attachmentIds: z.array(ID).max(5).optional(),
   })
+  .refine(
+    (input) => Boolean(input.content.trim()) || Boolean(input.attachmentIds?.length),
+  )
+  .refine((input) => !input.attachmentIds?.length || Boolean(input.attachmentBatchId))
   .strict()
 export const submitMentorMessageServer = createServerFn({ method: 'POST' })
   .validator((data: unknown) => INPUT.parse(data))
@@ -30,7 +36,9 @@ export const submitMentorMessageServer = createServerFn({ method: 'POST' })
       getRequest(),
       data.accountEmail,
     )
-    return service.submitMentorMessage(accessToken, data.sessionId, data)
+    const { accountEmail, sessionId, ...input } = data
+    void accountEmail
+    return service.submitMentorMessage(accessToken, sessionId, input)
   })
 export const useSubmitMentorMessageAction = (accountEmail: string) => {
   const { mutateAsync, isPending } = useMutation({

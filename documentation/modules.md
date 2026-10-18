@@ -195,6 +195,16 @@ proposal to Learning but does not become the authority for learning state.
 Mentor and Planner share a monthly AI quota. The Shifu supplies the AI; users
 do not configure models, parameters, or credentials in the MVP.
 
+Intelligence owns private Mentor attachment batches, files, extraction, citations,
+authorization, retention, and cleanup. Shared supplies only the technical object
+storage contract and S3-compatible adapter; it does not own attachment policy or
+learner data. Attachment content can inform its linked conversation but does not
+create or update personal memories. Learning independently owns its native AgentOS
+runtime and code evaluation workflows; Intelligence owns its Mentor and attachment
+workflows. Their registries and queues are module-scoped, while Shared provides only
+reusable AgentOS transport and destination-aware outbox infrastructure. Inngest
+remains the durable path for non-AI work.
+
 Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQD0B) · Origin: [Google Doc](https://docs.google.com/document/d/1dp3XQcj0l68ekad1yk3ns-NVOQWTzEQo8jTylqcpNzw/edit)
 
 ## Dependency Graph

@@ -1,6 +1,14 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
+from shifu.learning.core.domain.entities import (
+    ActivityAttempt,
+    ActivityEvaluation,
+    CompetencyProgress,
+    Goal,
+    SkillExperience,
+)
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityDifficulty,
@@ -8,11 +16,9 @@ from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
 )
-from shifu.learning.core.domain.adaptive_learning_policy import AdaptiveLearningPolicy
-from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
 from shifu.learning.core.domain.errors import (
-    InvalidAttemptError,
     EvaluationUnavailableError,
+    InvalidAttemptError,
 )
 from shifu.learning.core.domain.events.activity_evaluated_event import (
     ActivityEvaluatedEvent,
@@ -26,50 +32,47 @@ from shifu.learning.core.domain.events.competency_mastery_lost_event import (
     CompetencyMasteryLostEvent,
     CompetencyMasteryLostPayload,
 )
-from shifu.learning.core.domain.entities import (
-    ActivityAttempt,
-    ActivityEvaluation,
-    CompetencyProgress,
-    Goal,
-    SkillExperience,
-)
 from shifu.learning.core.domain.events.skill_completed_event import (
     SkillCompletedEvent,
     SkillCompletedPayload,
 )
 from shifu.learning.core.domain.structures import (
-    AdaptiveCompetencyMemory,
     ActivityAnswer,
+    AdaptiveCompetencyMemory,
     ChoiceEvaluationResult,
-    ConceptObservation,
+    CodeAnswer,
+    CodeQuestionAssessmentDecisions,
+    CodeRubricResult,
     CompetencyCompletionSummary,
+    ConceptObservation,
     EvaluationPartResult,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
     SkillCompletionSummary,
-    CodeAnswer,
-    CodeRubricResult,
 )
-from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
 )
+from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
+from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
+from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
+    PreviewActivityQuestionFeedbackUseCase,
+)
+from shifu.shared.core.domain.errors import ServiceUnavailableError, ValidationError
 from shifu.shared.core.domain.structures import (
+    CodeRubricDecisions,
     CurriculumChoiceActivitySnapshot,
-    CurriculumLearningActivitySnapshot,
-    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumLearningActivitySnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
-    CodeRubricAssessorProvider,
-)
-from shifu.shared.core.domain.errors import ServiceUnavailableError, ValidationError
-from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
-    PreviewActivityQuestionFeedbackUseCase,
 )
 
 
@@ -79,41 +82,26 @@ class EvaluateChoiceActivityUseCase:
         learning_database: LearningDatabase,
         clock_provider: ClockProvider,
         curriculum_content_provider: CurriculumContentProvider | None = None,
-        code_rubric_assessor_provider: CodeRubricAssessorProvider | None = None,
+        code_rubric_assessor_provider: object | None = None,
         max_code_assessment_input_bytes: int = 262144,
     ) -> None:
         self._learning_database = learning_database
         self._clock_provider = clock_provider
         self._curriculum_content_provider = curriculum_content_provider
-        self._code_rubric_assessor_provider = code_rubric_assessor_provider
+        del code_rubric_assessor_provider
         self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
 
-    def execute(self, attempt_id: str, run_id: str) -> None:  # noqa: C901
-        mixed_results: tuple[EvaluationPartResult, ...] | None = None
-        with self._learning_database.transaction() as repositories:
-            preflight = repositories.activity_attempts.find_by_id(attempt_id)
-            if preflight is None:
-                return
-
-            if isinstance(
-                preflight.grading_snapshot, CurriculumLearningActivitySnapshot
-            ):
-                active = repositories.activity_evaluations.find_by_attempt_id(
-                    attempt_id
-                )
-                saved_attempt = (
-                    preflight
-                    if active is not None
-                    and active.status is ActivityEvaluationStatus.PENDING
-                    and active.run_id == run_id
-                    else None
-                )
-                if saved_attempt is None:
-                    return
-            else:
-                saved_attempt = None
-        if saved_attempt is not None:
-            mixed_results = self._score_mixed(saved_attempt)
+    def execute(
+        self,
+        attempt_id: str,
+        run_id: str,
+        code_decisions: tuple[CodeQuestionAssessmentDecisions, ...] = (),
+    ) -> None:
+        should_return, mixed_results = self._prepare_mixed_results(
+            attempt_id, run_id, code_decisions
+        )
+        if should_return:
+            return
         now = self._clock_provider.now()
         with self._learning_database.transaction() as repositories:
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
@@ -126,11 +114,7 @@ class EvaluateChoiceActivityUseCase:
             if experience is None:
                 return
 
-            if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
-                experience.status is not SkillExperienceStatus.DIAGNOSING
-                or attempt.diagnostic_run_id is None
-                or attempt.diagnostic_run_id != experience.diagnostic_run_id
-            ):
+            if self._is_stale_diagnostic(attempt, experience):
                 return
 
             evaluation = (
@@ -155,14 +139,7 @@ class EvaluateChoiceActivityUseCase:
             if progress is None:
                 raise InvalidAttemptError
 
-            snapshot = attempt.grading_snapshot
-            if isinstance(snapshot, CurriculumLearningActivitySnapshot):
-                if mixed_results is None:
-                    raise EvaluationUnavailableError
-
-                part_results = mixed_results
-            else:
-                part_results = self._score(attempt.answers, snapshot)
+            part_results = self._get_part_results(attempt, mixed_results)
 
             if any(result.score is None for result in part_results):
                 raise EvaluationUnavailableError
@@ -171,16 +148,16 @@ class EvaluateChoiceActivityUseCase:
                 (
                     (result.score if result.score is not None else Decimal(0))
                     * part.weight_percentage
-                    / Decimal('100')
+                    / Decimal(100)
                     for part, result in zip(
                         attempt.grading_snapshot.parts, part_results, strict=True
                     )
                 ),
-                start=Decimal('0'),
+                start=Decimal(0),
             )
             progress_before = progress.current_progress
             if progress_before is None:
-                progress_before = progress.initial_progress or Decimal('0')
+                progress_before = progress.initial_progress or Decimal(0)
             evaluation.complete(score, now, part_results)
 
             self._apply_v2(
@@ -194,7 +171,66 @@ class EvaluateChoiceActivityUseCase:
             )
             return
 
-    def _apply_v2(  # noqa: C901
+    def _get_part_results(
+        self,
+        attempt: ActivityAttempt,
+        mixed_results: tuple[EvaluationPartResult, ...] | None,
+    ) -> tuple[EvaluationPartResult, ...]:
+        snapshot = attempt.grading_snapshot
+        if snapshot is None:
+            raise InvalidAttemptError
+        if isinstance(snapshot, CurriculumLearningActivitySnapshot):
+            if mixed_results is None:
+                raise EvaluationUnavailableError
+            return mixed_results
+        return self._score(attempt.answers, snapshot)
+
+    @staticmethod
+    def _is_stale_diagnostic(
+        attempt: ActivityAttempt,
+        experience: SkillExperience,
+    ) -> bool:
+        return attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
+            experience.status is not SkillExperienceStatus.DIAGNOSING
+            or attempt.diagnostic_run_id is None
+            or attempt.diagnostic_run_id != experience.diagnostic_run_id
+        )
+
+    def _prepare_mixed_results(
+        self,
+        attempt_id: str,
+        run_id: str,
+        code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+    ) -> tuple[bool, tuple[EvaluationPartResult, ...] | None]:
+        with self._learning_database.transaction() as repositories:
+            preflight = repositories.activity_attempts.find_by_id(attempt_id)
+            if preflight is None:
+                return True, None
+
+            if isinstance(
+                preflight.grading_snapshot, CurriculumLearningActivitySnapshot
+            ):
+                active = repositories.activity_evaluations.find_by_attempt_id(
+                    attempt_id
+                )
+                saved_attempt = (
+                    preflight
+                    if active is not None
+                    and active.status is ActivityEvaluationStatus.PENDING
+                    and active.run_id == run_id
+                    else None
+                )
+                if saved_attempt is None:
+                    return True, None
+            else:
+                saved_attempt = None
+        if saved_attempt is not None:
+            return False, self._score_mixed(saved_attempt, code_decisions)
+        if code_decisions:
+            raise EvaluationUnavailableError
+        return False, None
+
+    def _apply_v2(
         self,
         repositories: LearningDatabaseRepositories,
         goal: Goal,
@@ -204,41 +240,15 @@ class EvaluateChoiceActivityUseCase:
         part_results: tuple[EvaluationPartResult, ...],
         now: datetime,
     ) -> None:
-        provider = self._curriculum_content_provider
-        if provider is None:
-            raise InvalidAttemptError
-
-        catalog = provider.get_skill_content(experience.skill_id)
-        if catalog is None or catalog.id != experience.skill_id:
-            raise InvalidAttemptError
-
+        catalog = self._validate_v2_attempt(experience, attempt)
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise InvalidAttemptError
 
-        if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
-            if (
-                experience.status is not SkillExperienceStatus.DIAGNOSING
-                or snapshot.activity_type != 'diagnostic'
-                or attempt.diagnostic_run_id is None
-                or attempt.diagnostic_run_id != experience.diagnostic_run_id
-            ):
-                raise InvalidAttemptError
-        elif attempt.kind is ActivityAttemptKind.LEARNING:
-            if (
-                experience.status is not SkillExperienceStatus.LEARNING
-                or snapshot.activity_type != 'learning'
-            ):
-                raise InvalidAttemptError
-        elif attempt.kind is ActivityAttemptKind.REVIEW:
-            if experience.status is not SkillExperienceStatus.COMPLETED:
-                raise InvalidAttemptError
-
+        if attempt.kind is ActivityAttemptKind.REVIEW:
             evaluation.apply_effect(now)
             repositories.activity_evaluations.update(evaluation)
             return
-        else:
-            raise InvalidAttemptError
 
         attempts = tuple(
             repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id(
@@ -258,39 +268,9 @@ class EvaluateChoiceActivityUseCase:
             ),
             default=attempt.submitted_at,
         )
-        observation_scores: dict[str, list[Decimal | None]] = {}
-        result_by_question = {
-            item.question_key: item
-            for item in part_results
-            if isinstance(item, ChoiceEvaluationResult)
-        }
-        code_results = {
-            item.question_key: item
-            for item in part_results
-            if isinstance(item, CodeRubricResult)
-        }
-        for question in snapshot.questions:
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
-                code_result = code_results.get(question.key)
-                if code_result is None:
-                    raise InvalidAttemptError
-
-                for item in code_result.concept_observations:
-                    observation_scores.setdefault(item.concept_id, []).append(
-                        Decimal(item.level) if isinstance(item.level, int) else None
-                    )
-                continue
-
-            result = result_by_question.get(question.key)
-            if result is None:
-                raise InvalidAttemptError
-
-            for criterion in question.concept_criteria:
-                observation_scores.setdefault(criterion.concept_id, []).append(
-                    criterion.correct_score
-                    if result.is_correct
-                    else criterion.incorrect_score
-                )
+        observation_scores = self._v2_observation_scores(
+            snapshot.questions, part_results
+        )
         catalog_concept_ids = {
             concept.id
             for competency in catalog.competencies
@@ -326,6 +306,110 @@ class EvaluateChoiceActivityUseCase:
             repositories.activity_evaluations.update(evaluation)
             return
 
+        self._apply_v2_learning_progress(
+            repositories,
+            goal,
+            experience,
+            attempt,
+            evaluation,
+            catalog,
+            observations,
+            snapshot.difficulty,
+            now,
+        )
+
+    def _validate_v2_attempt(
+        self, experience: SkillExperience, attempt: ActivityAttempt
+    ) -> CurriculumSkillSnapshot:
+        provider = self._curriculum_content_provider
+        if provider is None:
+            raise InvalidAttemptError
+
+        catalog = provider.get_skill_content(experience.skill_id)
+        if catalog is None or catalog.id != experience.skill_id:
+            raise InvalidAttemptError
+
+        snapshot = attempt.grading_snapshot
+        if snapshot is None:
+            raise InvalidAttemptError
+
+        if attempt.kind is ActivityAttemptKind.DIAGNOSTIC:
+            if (
+                experience.status is not SkillExperienceStatus.DIAGNOSING
+                or snapshot.activity_type != 'diagnostic'
+                or attempt.diagnostic_run_id is None
+                or attempt.diagnostic_run_id != experience.diagnostic_run_id
+            ):
+                raise InvalidAttemptError
+        elif attempt.kind is ActivityAttemptKind.LEARNING:
+            if (
+                experience.status is not SkillExperienceStatus.LEARNING
+                or snapshot.activity_type != 'learning'
+            ):
+                raise InvalidAttemptError
+        elif attempt.kind is ActivityAttemptKind.REVIEW:
+            if experience.status is not SkillExperienceStatus.COMPLETED:
+                raise InvalidAttemptError
+        else:
+            raise InvalidAttemptError
+        return catalog
+
+    @staticmethod
+    def _v2_observation_scores(
+        questions: tuple[
+            CurriculumChoiceQuestionSnapshot
+            | CurriculumJavascriptStdinQuestionSnapshot,
+            ...,
+        ],
+        part_results: tuple[EvaluationPartResult, ...],
+    ) -> dict[str, list[Decimal | None]]:
+        observation_scores: dict[str, list[Decimal | None]] = {}
+        result_by_question = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, ChoiceEvaluationResult)
+        }
+        code_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, CodeRubricResult)
+        }
+        for question in questions:
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                code_result = code_results.get(question.key)
+                if code_result is None:
+                    raise InvalidAttemptError
+
+                for item in code_result.concept_observations:
+                    observation_scores.setdefault(item.concept_id, []).append(
+                        Decimal(item.level) if isinstance(item.level, int) else None
+                    )
+                continue
+
+            result = result_by_question.get(question.key)
+            if result is None:
+                raise InvalidAttemptError
+
+            for criterion in question.concept_criteria:
+                observation_scores.setdefault(criterion.concept_id, []).append(
+                    criterion.correct_score
+                    if result.is_correct
+                    else criterion.incorrect_score
+                )
+        return observation_scores
+
+    def _apply_v2_learning_progress(
+        self,
+        repositories: LearningDatabaseRepositories,
+        goal: Goal,
+        experience: SkillExperience,
+        attempt: ActivityAttempt,
+        evaluation: ActivityEvaluation,
+        catalog: CurriculumSkillSnapshot,
+        observations: tuple[ConceptObservation, ...],
+        difficulty: str,
+        now: datetime,
+    ) -> None:
         all_observations = (
             tuple(
                 repositories.concept_observations.find_many_by_skill_experience_id(
@@ -412,7 +496,7 @@ class EvaluateChoiceActivityUseCase:
                 is not None
             )
             progress.initial_progress = (
-                sum(concept_baselines, Decimal('0')) / Decimal(len(concept_baselines))
+                sum(concept_baselines, Decimal(0)) / Decimal(len(concept_baselines))
                 if concept_baselines
                 else None
             )
@@ -449,7 +533,7 @@ class EvaluateChoiceActivityUseCase:
                     attempt_id=attempt.id,
                     evaluation_id=evaluation.id,
                     kind=attempt.kind,
-                    difficulty=ActivityDifficulty(snapshot.difficulty),
+                    difficulty=ActivityDifficulty(difficulty),
                     score=str(evaluation.score),
                     evaluated_at=evaluated_at,
                 )
@@ -460,7 +544,7 @@ class EvaluateChoiceActivityUseCase:
             goal,
             experience,
             attempt.competency_id,
-            after.current_progress or Decimal('0'),
+            after.current_progress or Decimal(0),
             status_before,
             after.status or CompetencyProgressStatus.LEARNING,
             after.mastered_at,
@@ -485,7 +569,7 @@ class EvaluateChoiceActivityUseCase:
             CompetencyCompletionSummary(
                 competency_id=competency.id,
                 initial_progress=by_id[competency.id].initial_progress,
-                final_progress=by_id[competency.id].current_progress or Decimal('0'),
+                final_progress=by_id[competency.id].current_progress or Decimal(0),
             )
             for competency in catalog.competencies
         )
@@ -495,13 +579,13 @@ class EvaluateChoiceActivityUseCase:
             if item.initial_progress is not None
         )
         initial = (
-            sum(known_initial, Decimal('0')) / Decimal(len(known_initial))
+            sum(known_initial, Decimal(0)) / Decimal(len(known_initial))
             if known_initial
             else None
         )
-        final = sum(
-            (item.final_progress for item in summaries), Decimal('0')
-        ) / Decimal(len(summaries))
+        final = sum((item.final_progress for item in summaries), Decimal(0)) / Decimal(
+            len(summaries)
+        )
         summary = SkillCompletionSummary(
             competencies=summaries,
             initial_progress=initial,
@@ -608,7 +692,7 @@ class EvaluateChoiceActivityUseCase:
             results.append(
                 ChoiceEvaluationResult(
                     question_key=question.key,
-                    score=Decimal('100') if is_correct else Decimal('0'),
+                    score=Decimal(100) if is_correct else Decimal(0),
                     is_correct=is_correct,
                     explanation=(
                         question.correct_explanation
@@ -620,7 +704,9 @@ class EvaluateChoiceActivityUseCase:
         return tuple(results)
 
     def _score_mixed(
-        self, attempt: ActivityAttempt
+        self,
+        attempt: ActivityAttempt,
+        code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
     ) -> tuple[EvaluationPartResult, ...]:
         snapshot = attempt.grading_snapshot
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
@@ -633,65 +719,84 @@ class EvaluateChoiceActivityUseCase:
         ):
             raise InvalidAttemptError
 
-        results: list[EvaluationPartResult] = []
-        for part in snapshot.parts:
-            question = questions_by_key[part.question_key]
-            answer = answers_by_key[part.question_key]
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
-                if (
-                    not isinstance(part, CurriculumCodeRubricPartSnapshot)
-                    or not isinstance(answer, CodeAnswer)
-                    or self._code_rubric_assessor_provider is None
-                ):
-                    raise EvaluationUnavailableError
-
-                try:
-                    request = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
-                        question, part, answer
-                    )
-                    self._validate_assessment_size(request.project_files)
-                    decisions = self._code_rubric_assessor_provider.assess(request)
-                    result = PreviewActivityQuestionFeedbackUseCase.code_result(
-                        question, part, answer, decisions
-                    )
-                except (ServiceUnavailableError, ValidationError) as error:
-                    raise EvaluationUnavailableError from error
-                if result.score is None:
-                    raise EvaluationUnavailableError
-
-                results.append(
-                    CodeRubricResult(
-                        question_key=question.key,
-                        score=result.score,
-                        criterion_results=result.criteria,
-                        concept_observations=result.concept_observations,
-                    )
-                )
-                continue
-
-            if isinstance(answer, SingleChoiceAnswer):
-                selected = {answer.selected_option_key}
-            elif isinstance(answer, MultipleSelectionAnswer):
-                selected = set(answer.selected_option_keys)
-            else:
-                raise InvalidAttemptError
-            correct = {option.key for option in question.options if option.is_correct}
-            is_correct = selected == correct
-            results.append(
-                ChoiceEvaluationResult(
-                    question_key=question.key,
-                    score=Decimal(100 if is_correct else 0),
-                    is_correct=is_correct,
-                    explanation=question.correct_explanation
-                    if is_correct
-                    else question.incorrect_explanation,
-                )
-            )
-        return tuple(results)
-
-    def _validate_assessment_size(self, files: tuple[tuple[str, str], ...]) -> None:
+        code_keys = {
+            question.key
+            for question in snapshot.questions
+            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot)
+        }
+        decisions_by_key = {
+            item.question_key: item.decisions for item in code_decisions
+        }
         if (
-            sum(len(path.encode()) + len(content.encode()) for path, content in files)
-            > self._max_code_assessment_input_bytes
+            len(decisions_by_key) != len(code_decisions)
+            or set(decisions_by_key) != code_keys
         ):
-            raise ValidationError
+            raise EvaluationUnavailableError
+
+        return tuple(
+            self._score_mixed_part(
+                part,
+                questions_by_key[part.question_key],
+                answers_by_key[part.question_key],
+                decisions_by_key,
+            )
+            for part in snapshot.parts
+        )
+
+    def _score_mixed_part(
+        self,
+        part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
+        question: CurriculumChoiceQuestionSnapshot
+        | CurriculumJavascriptStdinQuestionSnapshot,
+        answer: ActivityAnswer,
+        decisions_by_key: dict[str, CodeRubricDecisions],
+    ) -> EvaluationPartResult:
+        if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+                raise EvaluationUnavailableError
+            return self._score_code_part(part, question, answer, decisions_by_key)
+        if not isinstance(part, CurriculumChoicePartSnapshot):
+            raise EvaluationUnavailableError
+        if isinstance(answer, SingleChoiceAnswer):
+            selected = {answer.selected_option_key}
+        elif isinstance(answer, MultipleSelectionAnswer):
+            selected = set(answer.selected_option_keys)
+        else:
+            raise InvalidAttemptError
+        correct = {option.key for option in question.options if option.is_correct}
+        is_correct = selected == correct
+        return ChoiceEvaluationResult(
+            question_key=question.key,
+            score=Decimal(100 if is_correct else 0),
+            is_correct=is_correct,
+            explanation=(
+                question.correct_explanation
+                if is_correct
+                else question.incorrect_explanation
+            ),
+        )
+
+    @staticmethod
+    def _score_code_part(
+        part: CurriculumCodeRubricPartSnapshot,
+        question: CurriculumJavascriptStdinQuestionSnapshot,
+        answer: ActivityAnswer,
+        decisions_by_key: dict[str, CodeRubricDecisions],
+    ) -> CodeRubricResult:
+        if not isinstance(answer, CodeAnswer):
+            raise EvaluationUnavailableError
+        decisions = decisions_by_key[question.key]
+        try:
+            result = PreviewActivityQuestionFeedbackUseCase.code_result(
+                question, part, answer, decisions
+            )
+        except (ServiceUnavailableError, ValidationError) as error:
+            raise EvaluationUnavailableError from error
+        if result.score is None:
+            raise EvaluationUnavailableError
+        return CodeRubricResult(
+            question_key=question.key,
+            score=result.score,
+            criterion_results=result.criteria,
+            concept_observations=result.concept_observations,
+        )

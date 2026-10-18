@@ -1,5 +1,6 @@
+from .mentor_attachment import MentorAttachment as MentorAttachment
+from .mentor_attachment_batch import MentorAttachmentBatch as MentorAttachmentBatch
 from .mentor_message import MentorMessage as MentorMessage
 from .mentor_session import MentorSession as MentorSession
-from .planning_session import PlanningSession as PlanningSession
-
 from .mentor_response_attempt import MentorResponseAttempt as MentorResponseAttempt
+from .planning_session import PlanningSession as PlanningSession

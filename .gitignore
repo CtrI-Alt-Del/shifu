@@ -28,9 +28,6 @@ htmlcov/
 .coverage.*
 **/test-results/
 **/playwright-report/
-**/.stryker-tmp/
-**/reports/mutation/
-**/mutants/
 
 # JavaScript / frontend build output
 .turbo/

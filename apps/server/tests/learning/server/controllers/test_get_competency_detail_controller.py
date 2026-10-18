@@ -590,6 +590,8 @@ def _current_migration_revision(database: PostgresDatabase) -> str:
 def _reset_database_to_revision(database: PostgresDatabase, revision: str) -> None:
     database.engine.dispose()
     with database.engine.begin() as connection:
+        connection.execute(text('DROP SCHEMA IF EXISTS agentos_learning CASCADE'))
+        connection.execute(text('DROP SCHEMA IF EXISTS agentos_intelligence CASCADE'))
         connection.execute(text('DROP SCHEMA public CASCADE'))
         connection.execute(text('CREATE SCHEMA public'))
     _run_alembic(database.url, 'upgrade', revision)
