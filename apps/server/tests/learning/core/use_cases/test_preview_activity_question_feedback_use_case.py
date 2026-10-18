@@ -35,6 +35,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptInitialFileSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactAdditionalFilePolicySnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -43,7 +46,7 @@ from shifu.shared.core.interfaces import (
 )
 
 
-def mixed_snapshot() -> CurriculumLearningActivitySnapshot:
+def mixed_snapshot(*, react: bool = False) -> CurriculumLearningActivitySnapshot:
     choice = tuple(
         CurriculumChoiceQuestionSnapshot(
             key=f'q{number}',
@@ -57,21 +60,45 @@ def mixed_snapshot() -> CurriculumLearningActivitySnapshot:
         )
         for number in (1, 2)
     )
-    code = CurriculumJavascriptStdinQuestionSnapshot(
-        key='q3',
-        prompt='Read stdin',
-        initial_files=(
-            CurriculumJavascriptInitialFileSnapshot(
-                path='src/main.js', content='old', editable=True
+    code = (
+        CurriculumReactQuestionSnapshot(
+            key='q3',
+            prompt='Build a component',
+            initial_files=(
+                CurriculumReactInitialFileSnapshot(
+                    path='src/main.tsx', content='old', editable=True
+                ),
+                CurriculumReactInitialFileSnapshot(
+                    path='src/fixed.css', content='fixed', editable=False
+                ),
             ),
-            CurriculumJavascriptInitialFileSnapshot(
-                path='src/lib.js', content='fixed', editable=False
+            entrypoint='src/main.tsx',
+            fixed_dependencies=(),
+            permitted_commands=(),
+            concept_criteria=(),
+            additional_file_policy=CurriculumReactAdditionalFilePolicySnapshot(
+                allowed_directories=('src/components',),
+                allowed_extensions=('.tsx', '.css'),
+                max_files=2,
             ),
-        ),
-        entrypoint='src/main.js',
-        fixed_dependencies=(),
-        permitted_commands=(),
-        concept_criteria=(),
+        )
+        if react
+        else CurriculumJavascriptStdinQuestionSnapshot(
+            key='q3',
+            prompt='Read stdin',
+            initial_files=(
+                CurriculumJavascriptInitialFileSnapshot(
+                    path='src/main.js', content='old', editable=True
+                ),
+                CurriculumJavascriptInitialFileSnapshot(
+                    path='src/lib.js', content='fixed', editable=False
+                ),
+            ),
+            entrypoint='src/main.js',
+            fixed_dependencies=(),
+            permitted_commands=(),
+            concept_criteria=(),
+        )
     )
     criterion = CurriculumCodeRubricCriterionSnapshot(
         key='correctness',
@@ -181,9 +208,136 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         assert request.submitted_paths == ('src/main.js',)
         self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_assess_react_initial_and_permitted_additional_files(self) -> None:
+        self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)
+
+        result = self._execute(
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(
+                        path='src/components/Card.tsx',
+                        content='export const Card = () => null',
+                    ),
+                ),
+            )
+        )
+
+        request = self.assessor.assess.call_args.args[0]
+        assert request.question_kind == 'react'
+        assert request.project_files == (
+            ('src/components/Card.tsx', 'export const Card = () => null'),
+            ('src/fixed.css', 'fixed'),
+            ('src/main.tsx', 'updated'),
+        )
+        assert request.submitted_paths == (
+            'src/components/Card.tsx',
+            'src/main.tsx',
+        )
+        assert {item.path for item in result.submitted_files} == {
+            'src/components/Card.tsx',
+            'src/fixed.css',
+            'src/main.tsx',
+        }
+
+    @pytest.mark.parametrize(
+        'additional_path',
+        (
+            '../escape.tsx',
+            'src/components/package.json',
+            'src/elsewhere/Card.tsx',
+            'src/components/Card.json',
+        ),
+    )
+    def test_should_reject_disallowed_react_additional_file(
+        self, additional_path: str
+    ) -> None:
+        self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)
+
+        with pytest.raises(ValidationError):
+            self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    kind='react',
+                    files=(
+                        CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                        CodeSubmittedFile(path=additional_path, content='extra'),
+                    ),
+                )
+            )
+
+        self.assessor.assess.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
         self.repositories.competency_progresses.update.assert_not_called()
+
+    def test_should_reject_react_file_count_kind_mismatch_and_oversized_project(
+        self,
+    ) -> None:
+        self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)
+        invalid_answers = (
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                    CodeSubmittedFile(path='src/components/B.tsx', content='b'),
+                    CodeSubmittedFile(path='src/components/C.tsx', content='c'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='javascript_stdin',
+                files=(CodeSubmittedFile(path='src/main.tsx', content='updated'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(
+                        path='src/components/Large.tsx', content='x' * 262144
+                    ),
+                ),
+            ),
+        )
+
+        for answer in invalid_answers:
+            with pytest.raises(ValidationError):
+                self._execute(answer)
+
+        self.assessor.assess.assert_not_called()
+
+    def test_should_reject_additional_file_colliding_with_read_only_initial_file(
+        self,
+    ) -> None:
+        snapshot = mixed_snapshot(react=True)
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactQuestionSnapshot)
+        assert question.additional_file_policy is not None
+        object.__setattr__(
+            question.additional_file_policy, 'allowed_directories', ('src',)
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+
+        with pytest.raises(ValidationError):
+            self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    kind='react',
+                    files=(
+                        CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                        CodeSubmittedFile(path='src/fixed.css', content='tampered'),
+                    ),
+                )
+            )
+
+        self.assessor.assess.assert_not_called()
 
     def test_retries_transient_jev_failure_before_scoring(self) -> None:
         requests: list[httpx.Request] = []

@@ -5,6 +5,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
+import { ReactQuestion } from './react-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
 
@@ -49,6 +50,10 @@ export const ActivityPage = (props: ActivityPageProps) => {
     handleAssessCode,
     handleCodeFilesChange,
     runnerFactory,
+    reactRunnerFactory,
+    accountId,
+    isOnlineAuthority,
+    handleReactAnswerValidityChange,
   } = useActivityPage(props)
   const isDiagnosticLoading =
     isDiagnosticProcessing &&
@@ -201,10 +206,11 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const isNextCompetency =
     'goalId' in props && nextDiagnosticActivity?.competencyId !== props.competencyId
 
-  const isCodeQuestion = currentQuestion.kind === 'javascript_stdin'
+  const isReactQuestion = currentQuestion.kind === 'react'
+  const isCodeQuestion = currentQuestion.kind === 'javascript_stdin' || isReactQuestion
   const isDiagnosticChoice = activity.isDiagnostic && !isCodeQuestion
   const choiceQuestion =
-    currentQuestion.kind !== 'javascript_stdin' ? (
+    currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -224,6 +230,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
         totalQuestions={totalQuestions}
       />
     ) : null
+  const activeQuestionKeys = activity.questions.map(({ key }) => key)
 
   return (
     <div
@@ -254,7 +261,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
         </header>
       ) : null}
 
-      {isCodeQuestion ? (
+      {currentQuestion.kind === 'javascript_stdin' ? (
         <CodeQuestion
           isDiagnostic={activity.isDiagnostic}
           activityTitle={activity.title}
@@ -263,10 +270,40 @@ export const ActivityPage = (props: ActivityPageProps) => {
           question={currentQuestion}
           questionNumber={currentQuestionNumber}
           totalQuestions={totalQuestions}
-          disabled={Boolean(isQuestionReadOnly || isSubmitting)}
+          disabled={Boolean(isQuestionReadOnly || isSubmitting || isAssessing)}
           onFilesChange={handleCodeFilesChange}
           onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
           runnerFactory={runnerFactory}
+        />
+      ) : isReactQuestion ? (
+        <ReactQuestion
+          accountId={accountId}
+          activityId={activity.activityId}
+          activityRevision={activity.activityRevision ?? null}
+          canSubmit={activity.canSubmit}
+          activeQuestionKeys={activeQuestionKeys}
+          activityTitle={activity.title}
+          competencyId={'competencyId' in props ? props.competencyId : undefined}
+          difficulty={activity.difficulty}
+          disabled={Boolean(
+            isQuestionReadOnly ||
+              isSubmitting ||
+              isAssessing ||
+              Boolean(isReactQuestion && (feedback || frozenAnswer)),
+          )}
+          goalId={'goalId' in props ? props.goalId : undefined}
+          isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+          isDiagnostic={Boolean(activity.isDiagnostic)}
+          key={currentQuestion.key}
+          onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+          onFilesChange={handleCodeFilesChange}
+          onAnswerValidityChange={handleReactAnswerValidityChange}
+          question={currentQuestion}
+          questionNumber={currentQuestionNumber}
+          runnerFactory={reactRunnerFactory}
+          readOnly={Boolean(feedback || frozenAnswer)}
+          skillId={'skillId' in props ? props.skillId : undefined}
+          totalQuestions={totalQuestions}
         />
       ) : isDiagnosticChoice ? (
         <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>
@@ -355,7 +392,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
                 <p role='alert'>Não foi possível tentar novamente agora.</p>
               ) : null}
             </div>
-          ) : currentQuestion.kind !== 'javascript_stdin' ||
+          ) : (currentQuestion.kind !== 'javascript_stdin' &&
+              currentQuestion.kind !== 'react') ||
             activity.isDiagnostic ||
             feedback ||
             frozenAnswer ? (
@@ -381,7 +419,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
                         : 'Próxima questão'
                       : !isMixedActivity
                         ? isLastQuestion
-                          ? 'Enviar respostas'
+                          ? isReactQuestion
+                            ? 'Enviar atividade'
+                            : 'Enviar respostas'
                           : 'Próxima questão'
                         : !feedback
                           ? frozenAnswer
@@ -390,7 +430,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
                           : feedback.status === 'inconclusive'
                             ? 'Reavaliar resposta'
                             : isLastQuestion
-                              ? 'Enviar respostas'
+                              ? isReactQuestion
+                                ? 'Enviar atividade'
+                                : 'Enviar respostas'
                               : 'Próxima questão'}
             </Button>
           ) : null}

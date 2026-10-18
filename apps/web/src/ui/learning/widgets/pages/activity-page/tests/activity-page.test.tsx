@@ -54,6 +54,10 @@ function createControllerMock(
   return {
     activity: ACTIVITY,
     runnerFactory: undefined,
+    reactRunnerFactory: undefined,
+    accountId: null,
+    isOnlineAuthority: false,
+    handleReactAnswerValidityChange: vi.fn(),
     isMixedActivity: false,
     canContinue: true,
     feedback: { status: 'conclusive', score: 100 },

@@ -26,6 +26,7 @@ from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumSkillSnapshot,
 )
@@ -225,7 +226,13 @@ class GetChoiceAttemptUseCase:
         for question in snapshot.questions:
             answer = answers.get(question.key)
             result = results.get(question.key)
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 code_answer = answer if isinstance(answer, CodeAnswer) else None
                 code_result = code_results.get(question.key)
                 if code_answer is None or code_result is None:
@@ -247,7 +254,7 @@ class GetChoiceAttemptUseCase:
                 details.append(
                     CodeResultDetail(
                         question_key=question.key,
-                        kind='javascript_stdin',
+                        kind=question.kind,
                         prompt=question.prompt,
                         submitted_files=tuple(
                             CodeSubmittedFile(path=path, content=content)
@@ -299,7 +306,13 @@ class GetChoiceAttemptUseCase:
         questions = {
             item.key: item
             for item in snapshot.questions
-            if isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+            if isinstance(
+                item,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
         }
         details: list[CodeResultDetail] = []
         for answer in attempt.answers:
@@ -315,7 +328,7 @@ class GetChoiceAttemptUseCase:
             details.append(
                 CodeResultDetail(
                     question_key=question.key,
-                    kind='javascript_stdin',
+                    kind=question.kind,
                     prompt=question.prompt,
                     submitted_files=tuple(
                         CodeSubmittedFile(path=path, content=content)

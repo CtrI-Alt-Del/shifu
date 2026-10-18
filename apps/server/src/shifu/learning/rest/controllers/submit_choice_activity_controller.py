@@ -43,15 +43,16 @@ class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
     question_key: str
-    kind: Literal['single_choice', 'multiple_selection', 'javascript_stdin'] | None = (
-        None
-    )
+    kind: (
+        Literal['single_choice', 'multiple_selection', 'javascript_stdin', 'react']
+        | None
+    ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind == 'javascript_stdin':
+        if self.kind in {'javascript_stdin', 'react'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -131,12 +132,13 @@ class SubmitChoiceActivityController:
                     tuple(
                         CodeAnswer(
                             question_key=answer.question_key,
+                            kind=answer.kind,
                             files=tuple(
                                 CodeSubmittedFile(path=item.path, content=item.content)
                                 for item in (answer.files or ())
                             ),
                         )
-                        if answer.kind == 'javascript_stdin'
+                        if answer.kind in {'javascript_stdin', 'react'}
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

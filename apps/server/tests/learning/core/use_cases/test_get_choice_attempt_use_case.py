@@ -18,6 +18,10 @@ from shifu.learning.core.domain.enums import (
 from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
     ChoiceResultDetail,
+    CodeAnswer,
+    CodeResultDetail,
+    CodeRubricResult,
+    CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -32,6 +36,13 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCodeInconclusiveCommentSnapshot,
+    CurriculumCodeRubricCommentSnapshot,
+    CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
@@ -207,6 +218,104 @@ class TestGetChoiceAttemptUseCase:
         assert detail.questions[1].disclosed_correct_option_keys == ('a', 'c')
         assert detail.questions[2].disclosed_correct_option_keys == ()
         assert detail.score == Decimal('33')
+
+    def test_should_preserve_react_kind_in_pending_and_completed_results(self) -> None:
+        original = snapshot()
+        react_question = CurriculumReactQuestionSnapshot(
+            key='q3',
+            prompt='Build a React component',
+            initial_files=(
+                CurriculumReactInitialFileSnapshot(
+                    path='src/App.jsx', content='initial', editable=True
+                ),
+            ),
+            entrypoint='src/App.jsx',
+            fixed_dependencies=(),
+            permitted_commands=(),
+            concept_criteria=(),
+            additional_file_policy=None,
+        )
+        criterion = CurriculumCodeRubricCriterionSnapshot(
+            key='behavior',
+            name='Behavior',
+            description='Counter behavior',
+            weight_percentage=100,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumCodeRubricCommentSnapshot(
+                    id=f'level-{level}', level=level, text=f'Level {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+                id='unknown', text='Inconclusive'
+            ),
+        )
+        grading_snapshot = CurriculumLearningActivitySnapshot(
+            id=ACTIVITY_ID,
+            competency_id=COMPETENCY_ID,
+            difficulty='easy',
+            title='React activity',
+            questions=(*original.questions[:2], react_question),
+            parts=(
+                *original.parts[:2],
+                CurriculumCodeRubricPartSnapshot(
+                    question_key='q3',
+                    weight_percentage=original.parts[2].weight_percentage,
+                    criteria=(criterion,),
+                ),
+            ),
+            required_concept_ids=(),
+            activity_type='learning',
+            schema_version=1,
+            revision='revision-react-1',
+        )
+        self.attempt = ActivityAttempt.create(
+            id='attempt-react',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/App.jsx', content='updated'),),
+                    kind='react',
+                ),
+            ),
+            submitted_at=NOW - timedelta(minutes=10),
+            submission_key='submission-react',
+            grading_snapshot=grading_snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+
+        pending = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+        assert len(pending.questions) == 1
+        assert isinstance(pending.questions[0], CodeResultDetail)
+        assert pending.questions[0].kind == 'react'
+
+        self.evaluation.status = ActivityEvaluationStatus.COMPLETED
+        self.evaluation.completed_at = NOW
+        self.evaluation.score = Decimal(75)
+        self.evaluation.parts = (
+            CodeRubricResult(
+                question_key='q3',
+                score=Decimal(75),
+                criterion_results=(),
+                concept_observations=(),
+            ),
+        )
+        completed = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+        assert len(completed.questions) == 1
+        assert isinstance(completed.questions[0], CodeResultDetail)
+        assert completed.questions[0].kind == 'react'
 
     def test_should_reject_another_accounts_attempt_as_private_absence(self) -> None:
         self.goal.account_id = 'another-account'

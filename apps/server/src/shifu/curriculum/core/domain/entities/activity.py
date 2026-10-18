@@ -3,6 +3,7 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptStdinQuestion,
     CodeRubricEvaluationPart,
     EvaluationRule,
+    ReactQuestion,
 )
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
@@ -39,9 +40,11 @@ class Activity:
         ):
             raise InvalidActivityError
 
-        if any(
-            isinstance(question, JavascriptStdinQuestion) for question in self.questions
-        ):
+        has_code_question = any(
+            isinstance(question, (JavascriptStdinQuestion, ReactQuestion))
+            for question in self.questions
+        )
+        if has_code_question:
             if (
                 len(part_keys) != len(self.evaluation_rule.parts)
                 or part_keys != question_keys
@@ -51,10 +54,15 @@ class Activity:
             parts = {part.question_key: part for part in self.evaluation_rule.parts}
             for question in self.questions:
                 part = parts[question.key]
-                if isinstance(question, JavascriptStdinQuestion) != isinstance(
-                    part, CodeRubricEvaluationPart
-                ):
+                if isinstance(
+                    question, (JavascriptStdinQuestion, ReactQuestion)
+                ) != isinstance(part, CodeRubricEvaluationPart):
                     raise InvalidActivityError
+
+        if self.activity_type == ActivityType.DIAGNOSTIC and any(
+            isinstance(question, ReactQuestion) for question in self.questions
+        ):
+            raise InvalidActivityError
 
         if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
             raise InvalidActivityError

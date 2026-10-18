@@ -30,6 +30,9 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
+from shifu.learning.core.use_cases.code_answer_validation import (
+    CodeAnswerValidation,
+)
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -39,6 +42,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -103,7 +107,13 @@ class SubmitChoiceActivityUseCase:
         )
         snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-            isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+            isinstance(
+                item,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
             for item in snapshot.questions
         ):
             snapshot = self._curriculum_content_provider.get_choice_activity(
@@ -324,26 +334,16 @@ class SubmitChoiceActivityUseCase:
             if answer.question_key != question.key:
                 raise ValidationError
 
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 if not isinstance(answer, CodeAnswer):
                     raise ValidationError
-
-                editable_paths = {
-                    item.path for item in question.initial_files if item.editable
-                }
-                if (
-                    answer.source_code is not None
-                    or len({item.path for item in answer.files}) != len(answer.files)
-                    or {item.path for item in answer.files} != editable_paths
-                ):
-                    raise ValidationError
-
-                normalized.append(
-                    CodeAnswer(
-                        question_key=answer.question_key,
-                        files=tuple(sorted(answer.files, key=lambda item: item.path)),
-                    )
-                )
+                normalized.append(CodeAnswerValidation.normalize(question, answer))
                 continue
 
             if not isinstance(answer, ChoiceAnswerSubmission):

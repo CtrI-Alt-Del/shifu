@@ -59,6 +59,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumSkillSnapshot,
 )
@@ -270,7 +271,13 @@ class EvaluateChoiceActivityUseCase:
             if isinstance(item, CodeRubricResult)
         }
         for question in snapshot.questions:
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 code_result = code_results.get(question.key)
                 if code_result is None:
                     raise InvalidAttemptError
@@ -637,7 +644,13 @@ class EvaluateChoiceActivityUseCase:
         for part in snapshot.parts:
             question = questions_by_key[part.question_key]
             answer = answers_by_key[part.question_key]
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 if (
                     not isinstance(part, CurriculumCodeRubricPartSnapshot)
                     or not isinstance(answer, CodeAnswer)
@@ -647,12 +660,15 @@ class EvaluateChoiceActivityUseCase:
 
                 try:
                     request = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
-                        question, part, answer
+                        question, part, answer, self._max_code_assessment_input_bytes
                     )
-                    self._validate_assessment_size(request.project_files)
                     decisions = self._code_rubric_assessor_provider.assess(request)
                     result = PreviewActivityQuestionFeedbackUseCase.code_result(
-                        question, part, answer, decisions
+                        question,
+                        part,
+                        answer,
+                        decisions,
+                        self._max_code_assessment_input_bytes,
                     )
                 except (ServiceUnavailableError, ValidationError) as error:
                     raise EvaluationUnavailableError from error
@@ -688,10 +704,3 @@ class EvaluateChoiceActivityUseCase:
                 )
             )
         return tuple(results)
-
-    def _validate_assessment_size(self, files: tuple[tuple[str, str], ...]) -> None:
-        if (
-            sum(len(path.encode()) + len(content.encode()) for path, content in files)
-            > self._max_code_assessment_input_bytes
-        ):
-            raise ValidationError

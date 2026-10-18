@@ -10,6 +10,8 @@ from shifu.learning.core.domain.enums import ActivityEvaluationStatus
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
+    CodeAnswer,
+    CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -30,8 +32,16 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCodeInconclusiveCommentSnapshot,
+    CurriculumCodeRubricCommentSnapshot,
+    CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumReactAdditionalFilePolicySnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -105,6 +115,71 @@ def answers() -> tuple[ChoiceAnswerSubmission, ...]:
         ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
         ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('c', 'a')),
         ChoiceAnswerSubmission(question_key='q3', selected_option_keys=('a',)),
+    )
+
+
+def react_activity_snapshot() -> CurriculumLearningActivitySnapshot:
+    choice_questions = choice_snapshot().questions[:2]
+    react_question = CurriculumReactQuestionSnapshot(
+        key='q3',
+        prompt='Build a React component',
+        initial_files=(
+            CurriculumReactInitialFileSnapshot(
+                path='src/main.tsx', content='old', editable=True
+            ),
+            CurriculumReactInitialFileSnapshot(
+                path='src/fixed.css', content='fixed', editable=False
+            ),
+        ),
+        entrypoint='src/main.tsx',
+        fixed_dependencies=(),
+        permitted_commands=(),
+        concept_criteria=(),
+        additional_file_policy=CurriculumReactAdditionalFilePolicySnapshot(
+            allowed_directories=('src/components',),
+            allowed_extensions=('.tsx', '.css'),
+            max_files=2,
+        ),
+    )
+    criterion = CurriculumCodeRubricCriterionSnapshot(
+        key='quality',
+        name='Qualidade',
+        description='Implementação',
+        weight_percentage=100,
+        required=True,
+        fixed_comments=tuple(
+            CurriculumCodeRubricCommentSnapshot(
+                id=f'level-{level}', level=level, text=f'Comentário {level}'
+            )
+            for level in (0, 25, 50, 75, 100)
+        ),
+        inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+            id='unknown', text='Inconclusivo'
+        ),
+    )
+    return CurriculumLearningActivitySnapshot(
+        id=ACTIVITY_ID,
+        competency_id=COMPETENCY_ID,
+        difficulty='easy',
+        title='Atividade React',
+        questions=(*choice_questions, react_question),
+        parts=(
+            CurriculumChoicePartSnapshot(
+                question_key='q1', weight_percentage=Decimal(30)
+            ),
+            CurriculumChoicePartSnapshot(
+                question_key='q2', weight_percentage=Decimal(30)
+            ),
+            CurriculumCodeRubricPartSnapshot(
+                question_key='q3',
+                weight_percentage=Decimal(40),
+                criteria=(criterion,),
+            ),
+        ),
+        required_concept_ids=('concept-1', 'concept-2'),
+        activity_type='learning',
+        schema_version=1,
+        revision='revision-react-1',
     )
 
 
@@ -236,6 +311,84 @@ class TestSubmitChoiceActivityUseCase:
             )
 
         self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_submit_react_files_as_part_of_existing_attempt(self) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        submitted_answers = (
+            *answers()[:2],
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(
+                        path='src/components/Card.tsx',
+                        content='export const Card = () => null',
+                    ),
+                ),
+            ),
+        )
+
+        outcome = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'react-submission',
+            submitted_answers,
+            snapshot.revision,
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert outcome.replayed is False
+        assert attempt.answers[-1] == CodeAnswer(
+            question_key='q3',
+            kind='react',
+            files=(
+                CodeSubmittedFile(
+                    path='src/components/Card.tsx',
+                    content='export const Card = () => null',
+                ),
+                CodeSubmittedFile(path='src/main.tsx', content='updated'),
+            ),
+        )
+        assert attempt.grading_snapshot is snapshot
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_reject_tampered_react_file_policy_without_side_effects(
+        self,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        submitted_answers = (
+            *answers()[:2],
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/package.json', content='{}'),
+                ),
+            ),
+        )
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'react-submission',
+                submitted_answers,
+                snapshot.revision,
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
     def test_should_reject_v2_choice_without_trusted_live_concept_criteria(

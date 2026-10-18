@@ -1,0 +1,88 @@
+---
+title: React code questions in learning activities evaluation
+status: in_progress
+spec: ./spec.md
+last_updated_at: 2026-10-17
+---
+
+# Current State
+
+| Field | State |
+| --- | --- |
+| Implementation | Integrated locally; user visually reviewed and approved the candidate for commit and PR on 2026-10-17. |
+| Automated checks | Full Web coverage (524 tests), typecheck, architecture and build passed on 17/10 before the last browser fixes. After those fixes, 20 focused Web tests, TypeScript and scoped Biome passed; Server focused attempt tests (5), types and Ruff passed. Server lint, architecture, build and disposable Alembic check passed before the last attempt-detail fix. Full Server run reached 729 passed and one unrelated Windows fixture failure (ACH-07); full current-head suites remain unverified. |
+| Type / lint / complexity | Web typecheck and architecture checks passed; scoped Biome on 17 affected paths passed; server Ruff/format and basedpyright passed. |
+| Manual checks | Isolated authenticated browser completed two choice questions, edited the React project and added a file, received preliminary feedback (75), submitted the activity and reopened persisted result (87.5) with submitted files. WebContainer started Vite, but the Playwright browser blocked the preview iframe Service Worker with “Enable Storage Partitioning”; live rendered preview remains unverified. |
+| Visual checks | Result captured and inspected at 1440×900 and 390×844 under `apps/web/.playwright-cli/screenshots/shifu88-vm03-result-{desktop,mobile}.png`; user observed testing and accepted the visual candidate. Activity-state captures and independent visual review remain unverified. |
+| Independent review | Spec compatibility review passed and prior implementation re-review found no remaining code issue; current integrated candidate needs implementation and visual reviews after captures. |
+| Blockers | Pinned NLP model was prepared and its previously failing test passed. Full Server run then failed in an unrelated Langfuse job fixture because Windows `Popen.terminate()` returns exit code 1 while the fixture expects 0 or `-SIGTERM`. User accepted proceeding with this documented exception. Browser Service Worker restriction prevents claiming the live preview gate passed. |
+| Candidate | `feat/server/SHIFU-88-react-questions`; base SHA `e7b2097258f64b4669b0185aa31328555c736d03`; task plan remains untracked user-provided file |
+
+# Progress
+
+| CA | RF coverage | Implementation | Verification | Checks / evidence | Remaining work |
+| --- | --- | --- | --- | --- | --- |
+| CA-01–CA-10 | RF-01–RF-10 | Implemented in candidate; pending review | Partial | EV-03–EV-08; CI-01–CI-08; VM-01–VM-02 | Resolve findings; complete available server/Web checks and isolated authenticated browser validation. |
+
+# Check Results
+
+| EV | Check / type / CA coverage | Status | Candidate, date and environment/fixtures | Command / procedure and working directory | Observations, artifacts and limits |
+| --- | --- | --- | --- | --- | --- |
+| EV-01 | Pencil reference inspection / Visual / CA-10 | Passed | Design frames ZWAmr/ZQZkP, 1440×900, 2026-10-14 | Pencil MCP frame inspection and export | Bundled images in `design/references/`; desktop only, no approved mobile frame. |
+| EV-02 | Authority and branch baseline / Manual / CA-01–CA-10 | Passed | branch `feat/server/SHIFU-88-react-questions`, base SHA above | Jira/Confluence reads; `git status` and remote branch verification | Jira automation moved issue to Fazendo after publishing empty branch. No manual Jira write. |
+| EV-03 | Curriculum domain + JavaScript stdin regression / Automated / CA-02, CA-08 | Passed | Candidate branch, 2026-10-15; local server venv | `python -m pytest -q --confcutdir=tests/curriculum/core/domain tests/curriculum/core/domain/test_react_question.py tests/curriculum/core/domain/test_javascript_stdin_question.py` from `apps/server` | 28 passed. Focused selection; not full server suite. |
+| EV-04 | Learning use cases / Automated / CA-02, CA-04, CA-05, CA-07–CA-09 | Passed | Candidate branch, 2026-10-15; local server venv | `python -m pytest -q --confcutdir=tests/learning/core/use_cases tests/learning/core/use_cases/test_preview_activity_question_feedback_use_case.py tests/learning/core/use_cases/test_submit_choice_activity_use_case.py tests/learning/core/use_cases/test_get_choice_activity_use_case.py tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py tests/learning/core/use_cases/test_get_choice_attempt_use_case.py` from `apps/server` | 37 passed. Focused selection; not Inngest integration. |
+| EV-05 | React widget, draft-store, hook and activity-page regression / Automated / CA-01–CA-07 | Passed | Candidate branch, 2026-10-15; Vitest 4.1.6/jsdom | `vitest run --configLoader runner --no-file-parallelism --pool=threads --maxWorkers=1 src/ui/learning/widgets/pages/activity-page/react-question/tests/react-question.test.tsx src/ui/learning/widgets/pages/activity-page/react-question/tests/use-react-question.test.tsx src/ui/learning/widgets/pages/activity-page/tests/activity-page.test.tsx` from `apps/web` | 19 passed across 3 files after pnpm build approval. Covers iframe sandbox/origin, file policy, draft persistence/order/isolation/tombstones, assessment flush and failure, plus the existing ActivityPage regression suite. Browser-only credential and cross-origin guarantees remain for VM-01. |
+| EV-06 | Web Biome scoped check / Automated / CA-01–CA-10 | Passed | Candidate branch, 2026-10-15; installed Biome | Direct Biome check on all 17 changed/new Web source and test paths | 17 files checked; no errors or warnings. |
+| EV-07 | Web typecheck / Automated / CA-01–CA-10 | Passed | Candidate branch, 2026-10-15; installed Web dependencies | `tsc --noEmit` from `apps/web` | Exit code 0 after pnpm completed dependency installation/build approval. |
+| EV-08 | Authenticated browser and visual journeys / Manual + Visual / CA-01–CA-10 | Partial | Candidate branch, 2026-10-17; task-owned PostgreSQL/Redis/Inngest, API `17779`, Web `17000`, local evaluator stub `18779`; Playwright CLI sessions `shifu` and `shifu88` | VM-01 and VM-02 in Spec; browser navigation and form interaction | Login and mixed activity load passed; two choice questions returned 100% feedback and advanced to React editor. Rubric and local draft state were visible. WebContainer preview became “Em execução” after accepting the SDK's `*.webcontainer-api.io` origin; iframe used distinct HTTPS origin and `sandbox="allow-scripts"`. A permitted file appeared in the tree, but the first runtime write produced `ENOENT` because its parent directory was missing; code was fixed but this write has not been rechecked. Draft recovery, preliminary/final evaluation, persisted result, desktop/mobile captures, keyboard and full request/console review remain pending. Deterministic evaluator cannot prove external model quality. Local ignored browser artifacts are under `apps/web/.playwright-cli/`. |
+| EV-09 | Docker Compose read-only availability / Manual / environment | Passed with elevated access | Candidate branch, 2026-10-15 | `docker compose ps` and image inspection | Postgres is healthy using `pgvector/pgvector:0.8.1-pg17`; Mailpit and Inngest are running. No container or shared database was modified by this task. |
+| EV-10 | Database migration status / Manual / environment | Passed (read-only confirmation) | User-run upgrade, candidate branch, 2026-10-15 | Read-only Alembic `current` using the server venv | The user restarted Postgres with the pgvector image and ran `db:upgrade`; Alembic now reports `341cb645e630 (head)`. |
+| EV-11 | Web architecture boundaries / Automated / CA-01–CA-10 | Passed | Candidate branch, 2026-10-15; installed dependency-cruiser | `depcruise --config dependency-cruiser.config.cjs src` from `apps/web` | No dependency violations across 445 modules and 1,504 dependencies. |
+| EV-12 | Web production build / Automated / CA-01–CA-10 | Passed | Candidate branch, 2026-10-15; Vite 8.3.0 | `pnpm --filter web build` using the user's cached pnpm 11.25 CLI from repository root | 3,665 modules transformed; production client and server bundles built successfully. |
+| EV-13 | Complete Web coverage suite / Automated / CI-03, CI-08 | Passed | Candidate branch, 2026-10-15; Vitest 4.1.6 with V8 coverage, elevated process access | `pnpm --filter web test:coverage` using cached pnpm 11.25 CLI from repository root | 91 files and 524 tests passed. Coverage: statements 51.87%, branches 49.8%, functions 52.01%, lines 53.5%. First sandbox attempt failed before collection because Vite's temp cache rename was denied; elevated rerun passed. |
+| EV-14 | Learning use-case, controller and job regression / Automated / CI-02 | Passed | Candidate branch, 2026-10-15; server venv and disposable Testcontainers DBs | Focused CI-02 pytest selection from the Spec, then `SHIFU_RUN_REAL_INNGEST_TESTS=1` and `SHIFU_INNGEST_FASTAPI_PORT=7779` for `tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py` | CI-02 selection: 58 passed, 2 real-job cases skipped because the opt-in flag was unset. Enabled isolated Inngest run: 2 passed in 35.90s. It used fixture-owned disposable services and a separate API port; the user's API on 7777 and shared Compose data were untouched. |
+| EV-15 | Current browser-fix focused feedback / Automated / CA-01–CA-05 | Passed with one sandbox retry | Candidate branch, 2026-10-17; local Windows Web dependencies | `tsc --noEmit` from `apps/web`; root Biome on runner, React hook and widget test; focused Vitest React widget; server venv Ruff check/format on disposable fixture; `git diff --check` | Typecheck and Biome passed; 6 widget tests passed. First Vitest attempt failed before collection with sandbox `EPERM` on temp cache rename; elevated rerun passed. Ruff check/format and diff check passed. This does not renew the complete Web coverage/build gates. |
+| EV-16 | Full Server regression with real Inngest / Automated / CI-02 and CI-08 | Blocked by environment | Candidate branch, 2026-10-17; local Windows venv, Docker/Testcontainers, callback port `7779` | `uv run --offline --frozen poe check:types`, `check:lint`, `check:architecture`, then `SHIFU_RUN_REAL_INNGEST_TESTS=1; SHIFU_INNGEST_FASTAPI_PORT=7779; uv run --offline --frozen poe test` from `apps/server` | Types: 0 errors/warnings; Ruff/format and architecture passed. Full pytest: 721 passed, 17 warnings, 1 setup error in `test_mentor_catalog_abstention_job.py::test_missing_answer_vectors_abstain_without_model_calls_or_runtime_reindex` after about 760 s. Pinned `intfloat/multilingual-e5-small` revision `614241f622f53c4eeff9890bdc4f31cfecc418b3` was absent from cache and Hugging Face download failed; API health at `7779` timed out. CI prepares it using `SentenceTransformersEmbeddingsProvider(local_files_only=False)`. Earlier real jobs passed. Log `%TEMP%\shifu88-server-full-test-20261017.log`. Server build not run after failure. |
+
+# Findings
+
+| ACH | Problem / evidence / affected CA | Severity | Affected checks | Status / correction / verification |
+| --- | --- | --- | --- | --- |
+| ACH-01 | Assessment could start before the debounced local draft write completed, and storage failure could otherwise still permit assessment. | P1 / CA-04, CA-06 | EV-05, CI-03 | Fixed: assessment flushes and awaits the current generation write, refuses assessment on storage/concurrent update/tombstone failure, and surfaces save and assessment errors. Hook-level regression tests pass; implementation re-review confirmed the correction. |
+| ACH-02 | Browser lifecycle and live preview initially lacked a persistent React fixture and CLI session. | Environment/setup / CA-01–CA-10 | EV-08, VM-01–VM-02 | Partially resolved: disposable fixture and authenticated CLI journey now work through the React editor; secure cross-origin preview was observed. Remaining lifecycle and visual checks are listed in EV-08. |
+| ACH-03 | Web checks could not resolve dependencies after pnpm blocked the esbuild postinstall script. | Environment / CA-01–CA-10 | EV-05, CI-04 | Resolved: user approved the esbuild build (`pnpm-workspace.yaml` now sets `allowBuilds.esbuild: true`); dependencies installed, and Web tests, typecheck, architecture, lint and build pass. Preserve the user change. |
+| ACH-04 | A malformed generation could make a tombstone invalid and prevent draft recovery. | Medium / CA-04–CA-05 | EV-05 | Fixed: generation increments normalize corrupt or unsafe stored values; covered by the passing React widget/draft-store tests. |
+| ACH-05 | Browser fixture activity ID had 25 characters and choice explanations were absent, causing `invalid-request` then API 404. | Fixture / CA-01 | EV-08 | Fixed in `apps/server/devtools/react_browser_fixture/activity.py`; isolated DB row was corrected during live validation. Recreate through updated helper on resume to verify repeatability. |
+| ACH-06 | WebContainer returned a valid HTTPS `*.local-corp.webcontainer-api.io` preview URL rejected by the old allowlist; adding a file into a permitted new directory caused `ENOENT`. | P1 / CA-01–CA-03 | EV-08, EV-15 | Both source fixes applied: accept the SDK origin suffix with HTTPS/distinct-origin checks and create parent directories before write. Preview recheck passed, including `sandbox="allow-scripts"`; repeat additional-file runtime write remains pending. |
+| ACH-07 | Full Server regression cannot start an Intelligence test API because its sentence-transformers model is uncached and Hugging Face cannot be reached. | Environment blocker / CI-08 | EV-16 | Open. Prepare the configured NLP resource as documented by CI, rerun failed case and complete Server suite. No source defect established by this failure. |
+
+# Lessons Learned
+
+None recorded yet.
+
+# Handoff
+
+| Field | Detail |
+| --- | --- |
+| Candidate | `feat/server/SHIFU-88-react-questions`, base `e7b2097258f64b4669b0185aa31328555c736d03` |
+| Completed | Jira automation verified; PRDs read in full earlier; Pencil references saved; server/Web implementation integrated; focused Server/Web checks and earlier 524-test Web coverage run passed; current Web typecheck/Biome and 6 widget tests passed; current Server types/lint/architecture passed. Disposable authenticated browser loaded mixed activity, two choice questions, React editor and cross-origin sandboxed preview. |
+| Unfinished | Provision configured NLP model and rerun complete Server suite after its 721-pass/1-error setup stop. Repeat file creation in WebContainer after mkdir fix; complete draft, assessment, result, desktop/mobile and keyboard VM-01/VM-02; rerun current-head Web gates, Server build/migration check, Email gates and parallel reviews. Reread current PRDs before conclusion; prior known versions were Learning `83066881` v26 and Curriculum `83034113` v13. |
+| Uncommitted work | SHIFU-88 source/tests/docs and approved feature references; user plan `SHIFU-88-IMPLEMENTACAO.md` remains untracked and must be preserved. User-approved `pnpm-workspace.yaml` change allows esbuild builds; do not revert it. |
+| Active processes | None started by this task. Isolated Vite `17000`, API `17779`, stub `18779`, Playwright sessions and `shifu88-vm01-*` containers were stopped. User processes on `7000`/`7777` and shared Compose services remained running. |
+| Blockers | Full Server run stopped because sentence-transformers could not find/download the NLP model for an Intelligence job fixture. This requires environment preparation before a valid complete regression result. |
+| Next action | Prepare the exact NLP resource used by CI; rerun the failed case and full Server suite. Then recreate the disposable browser fixture and finish VM-01/VM-02. See root plan section 5. |
+
+# Delivery
+
+| RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
+| --- | --- | --- | --- |
+| RP-03/JN-03, RP-09/11/12/13/14/18/25/27/29; JN-07/08 | RF-01–RF-10 / CA-01–CA-10 | EV-03–EV-08, EV-11–EV-16; VM-01/VM-02 remain partial | Candidate implemented; full Server regression blocked by uncached NLP model. Browser journey and secure preview have partial evidence; complete draft/evaluation/visual validation remain pending. No PRD/Jira external writes. |
+
+| Field | Result |
+| --- | --- |
+| Publication | Branch base published; code commits/PR await manual candidate review and explicit approval. |
+| Source verification | Learning content 83066881 v26; Curriculum content 83034113 v13; reread before conclusion. |
+| Documentation Alignment | Feature artifacts created; no Confluence/Jira writes. |
+| Revision History | Spec revision 2; file-tree boundary and browser-only security evidence clarified. |
+| Limitations | A disconnected browser cannot receive remote deletion of its local-only draft; the contract requires same-origin tombstones and purge on the next authoritative online validation before restore/submit. No draft is transmitted to the server. The isolated evaluator stub proves only local flow, not external model quality. Current-head complete regression, WebContainer additional-file write and remaining browser lifecycle still require verification. |
