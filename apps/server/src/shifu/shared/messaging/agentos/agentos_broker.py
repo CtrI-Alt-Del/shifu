@@ -34,8 +34,8 @@ class AgentOSBroker:
     _DRAIN_LIMIT: ClassVar[int] = 100
     _RESERVATION_DURATION: ClassVar[timedelta] = timedelta(minutes=5)
     _MAX_IDLE_SECONDS: ClassVar[float] = 30.0
-    _MAX_ATTEMPTS: ClassVar[int] = 2
     _RETRY_DELAY: ClassVar[timedelta] = timedelta(seconds=5)
+    _MAX_RETRY_DELAY: ClassVar[timedelta] = timedelta(minutes=5)
 
     def __init__(
         self,
@@ -218,17 +218,25 @@ class AgentOSBroker:
 
     def _mark_delivery_failed(self, event: OutboxEvent) -> None:
         now = self._clock_provider.now()
-        terminal = event.attempts >= AgentOSBroker._MAX_ATTEMPTS
         with self._repository_scope() as repository:
             repository.mark_delivery_failed(
                 event_id=event.id,
                 destination=self._destination,
                 reserved_by=self._instance_id,
-                available_at=(now if terminal else now + AgentOSBroker._RETRY_DELAY),
+                available_at=now + self._retry_delay(event.attempts),
                 error_code='agentos_submission_error',
-                terminal=terminal,
+                terminal=False,
             )
         self._wake.set()
+
+    @staticmethod
+    def _retry_delay(attempts: int) -> timedelta:
+        """Back off exponentially up to a ceiling; admission failures stay retryable."""
+        exponent = min(max(attempts - 1, 0), 16)
+        return min(
+            AgentOSBroker._RETRY_DELAY * (2**exponent),
+            AgentOSBroker._MAX_RETRY_DELAY,
+        )
 
     def _close_listener(self) -> None:
         with self._listener_lock:

@@ -451,18 +451,20 @@ class TestOutboxBrokers:
         ]
 
     @pytest.mark.parametrize(
-        ('receipt', 'attempts', 'available_at', 'terminal'),
+        ('receipt', 'attempts', 'available_at'),
         [
-            ({}, 1, _NOW + timedelta(seconds=5), False),
-            ({'run_id': ''}, 2, _NOW, True),
+            ({}, 1, _NOW + timedelta(seconds=5)),
+            ({'run_id': ''}, 2, _NOW + timedelta(seconds=10)),
+            ({}, 3, _NOW + timedelta(seconds=20)),
+            ({}, 7, _NOW + timedelta(seconds=300)),
+            ({'run_id': ''}, 500, _NOW + timedelta(seconds=300)),
         ],
     )
-    def test_agentos_broker_preserves_failed_admission_for_retry_or_terminal_state(
+    def test_agentos_broker_keeps_failed_admission_retryable_with_bounded_backoff(
         self,
         receipt: Mapping[str, object],
         attempts: int,
         available_at: datetime,
-        terminal: bool,
     ) -> None:
         repository = _Repository(
             [_event('event-5', destination='agentos:intelligence', attempts=attempts)]
@@ -490,6 +492,6 @@ class TestOutboxBrokers:
                 'test-intelligence-relay',
                 available_at,
                 'agentos_submission_error',
-                terminal,
+                False,
             )
         ]

@@ -6,6 +6,7 @@ import pytest
 from shifu.intelligence.core.domain.entities import MentorAttachment
 from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.core.domain.errors import MentorAttachmentNotFoundError
+from shifu.intelligence.core.domain.events import MentorAttachmentCleanupRequestedEvent
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -14,7 +15,11 @@ from shifu.intelligence.core.interfaces import (
 )
 from shifu.intelligence.core.use_cases import FailMentorAttachmentUseCase
 from shifu.shared.core.domain.structures import MentorAccessGrant
-from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
+from shifu.shared.core.interfaces import (
+    ClockProvider,
+    EventsRepository,
+    MentorAccessProvider,
+)
 
 _ACCOUNT_ID = '01JACCOUNT000000000000000001'
 _ATTACHMENT_ID = '01JATTACHMENT00000000000001'
@@ -49,6 +54,7 @@ def harness() -> _Harness:
     repositories.mentor_attachment_chunks = create_autospec(
         MentorAttachmentChunksRepository, instance=True
     )
+    repositories.events = create_autospec(EventsRepository, instance=True)
     database.transaction.return_value.__enter__.return_value = repositories
     repositories.mentor_attachments.find_by_id.return_value = attachment
     clock = create_autospec(ClockProvider, instance=True)
@@ -65,6 +71,31 @@ def harness() -> _Harness:
         'repositories': repositories,
         'access': access,
     }
+
+
+@pytest.mark.parametrize(
+    'failure_code',
+    [
+        'invalid_file',
+        'unreadable_file',
+        'analysis_unavailable',
+        'attachment_unavailable',
+    ],
+)
+def test_fail_queues_private_object_cleanup_for_every_terminal_failure(
+    harness: _Harness, failure_code: str
+) -> None:
+    subject, dependencies = harness
+
+    subject.execute(_ATTACHMENT_ID, 1, _EXECUTION_OWNER, failure_code)
+
+    event = dependencies['repositories'].events.add.call_args.args[0]
+    assert isinstance(event, MentorAttachmentCleanupRequestedEvent)
+    assert event.payload.account_id == _ACCOUNT_ID
+    assert event.payload.session_id is None
+    assert event.payload.batch_id == _BATCH_ID
+    assert event.payload.deletion_generation == dependencies['attachment'].generation
+    dependencies['repositories'].events.add.assert_called_once()
 
 
 def test_fail_records_safe_failure_and_removes_old_chunks(harness: _Harness) -> None:
@@ -114,6 +145,7 @@ def test_fail_ignores_stale_generation_or_execution_owner(
     dependencies[
         'repositories'
     ].mentor_attachment_chunks.remove_by_attachment_id.assert_not_called()
+    dependencies['repositories'].events.add.assert_not_called()
 
 
 def test_fail_ignores_expired_claim(harness: _Harness) -> None:

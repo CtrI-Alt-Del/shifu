@@ -1,5 +1,9 @@
 from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
 from shifu.intelligence.core.domain.errors import MentorAttachmentNotFoundError
+from shifu.intelligence.core.domain.events import (
+    MentorAttachmentCleanupRequestedEvent,
+    MentorAttachmentCleanupRequestedPayload,
+)
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
 
@@ -57,5 +61,15 @@ class FailMentorAttachmentUseCase:
             attachment.transition(MentorAttachmentStatus.FAILED, failure_code)
             repositories.mentor_attachment_chunks.remove_by_attachment_id(attachment_id)
             repositories.mentor_attachments.update(attachment)
+            repositories.events.add(
+                MentorAttachmentCleanupRequestedEvent(
+                    payload=MentorAttachmentCleanupRequestedPayload(
+                        account_id=account_id,
+                        session_id=None,
+                        batch_id=attachment.batch_id,
+                        deletion_generation=attachment.generation,
+                    )
+                )
+            )
             self._access_provider.assert_current(grant)
             return attachment.status

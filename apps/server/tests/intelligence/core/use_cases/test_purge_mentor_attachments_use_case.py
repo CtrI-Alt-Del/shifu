@@ -128,6 +128,64 @@ def test_should_purge_storage_failed_attachment_for_its_matching_generation() ->
     )
 
 
+@pytest.mark.parametrize(
+    'failure_code', ['invalid_file', 'unreadable_file', 'analysis_unavailable']
+)
+def test_should_purge_private_bytes_of_terminal_failure_but_keep_visible_failure(
+    failure_code: str,
+) -> None:
+    now = datetime(2026, 10, 10, tzinfo=UTC)
+    batch = MentorAttachmentBatch.create(
+        _BATCH_ID, _ACCOUNT_ID, None, now, now + timedelta(hours=1)
+    )
+    batch.consumed_by_message_id = 'message-1'
+    failed = _attachment(
+        '01JFAILED0000000000000000002', _BATCH_ID, now, MentorAttachmentStatus.FAILED
+    )
+    failed.failure_code = failure_code
+    failed.preview_key = f'mentor-attachments/{failed.id}/1/preview'
+    subject, dependencies = _harness(batch, (failed,), now)
+
+    removed_count = subject.execute(_ACCOUNT_ID, None, _BATCH_ID, failed.generation)
+
+    assert removed_count == 2
+    assert failed.status is MentorAttachmentStatus.FAILED
+    assert failed.failure_code == failure_code
+    dependencies['storage'].remove.assert_has_calls(
+        [call(failed.object_key), call(failed.preview_key)]
+    )
+    dependencies['repositories'].mentor_attachments.update.assert_not_called()
+    dependencies[
+        'repositories'
+    ].mentor_attachment_chunks.remove_by_attachment_id.assert_called_once_with(
+        failed.id
+    )
+
+
+def test_terminal_failure_purge_ignores_other_generations_and_siblings() -> None:
+    now = datetime(2026, 10, 10, tzinfo=UTC)
+    batch = MentorAttachmentBatch.create(
+        _BATCH_ID, _ACCOUNT_ID, None, now, now + timedelta(hours=1)
+    )
+    batch.consumed_by_message_id = 'message-1'
+    failed = _attachment(
+        '01JFAILED0000000000000000003', _BATCH_ID, now, MentorAttachmentStatus.FAILED
+    )
+    failed.failure_code = 'unreadable_file'
+    ready = _attachment(
+        '01JREADY00000000000000000003', _BATCH_ID, now, MentorAttachmentStatus.READY
+    )
+    subject, dependencies = _harness(batch, (failed, ready), now)
+
+    stale = subject.execute(_ACCOUNT_ID, None, _BATCH_ID, failed.generation + 1)
+    current = subject.execute(_ACCOUNT_ID, None, _BATCH_ID, failed.generation)
+
+    assert stale == 0
+    assert current == 1
+    dependencies['storage'].remove.assert_called_once_with(failed.object_key)
+    assert ready.status is MentorAttachmentStatus.READY
+
+
 def test_stale_expiry_generation_does_not_remove_current_batch_files() -> None:
     now = datetime(2026, 10, 10, tzinfo=UTC)
     batch = MentorAttachmentBatch.create(

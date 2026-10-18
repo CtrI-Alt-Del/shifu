@@ -126,7 +126,7 @@ class PurgeMentorAttachmentsUseCase:
                     attachment, whole_batch, deletion_generation
                 ):
                     continue
-                if attachment.status is not MentorAttachmentStatus.REMOVED:
+                if self._should_revoke_attachment(attachment, whole_batch):
                     attachment.revoke()
                     repositories.mentor_attachments.update(attachment)
                 repositories.mentor_attachment_chunks.remove_by_attachment_id(
@@ -164,7 +164,17 @@ class PurgeMentorAttachmentsUseCase:
     ) -> bool:
         if whole_batch:
             return True
-        return attachment.generation == deletion_generation and (
-            attachment.status is MentorAttachmentStatus.REMOVED
-            or attachment.failure_code == 'storage_write_failed'
-        )
+        return attachment.generation == deletion_generation and attachment.status in {
+            MentorAttachmentStatus.REMOVED,
+            MentorAttachmentStatus.FAILED,
+        }
+
+    @staticmethod
+    def _should_revoke_attachment(
+        attachment: MentorAttachment, whole_batch: bool
+    ) -> bool:
+        if attachment.status is MentorAttachmentStatus.REMOVED:
+            return False
+        # A partial cleanup keeps the visible failure of other terminal
+        # attachments and only drops their private bytes.
+        return whole_batch or attachment.failure_code == 'storage_write_failed'
