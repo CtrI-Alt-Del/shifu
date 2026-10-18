@@ -81,8 +81,12 @@ class MentorReviewerAgent(Agent):
                 experiência do Objetivo. Outra experiência não autoriza. Explicações gerais,
                 exemplos independentes e dicas parciais não são por si solução integral,
                 mesmo se skill_completed for false ou null. Se não houver solução integral,
-                aprove este critério. Se houver, exija conclusão oficial explícita nesta
-                experiência; inconclusive se faltar elegibilidade necessária.
+                aprove este critério, mesmo que a resposta contenha um fato errado ou
+                não haja informação sobre conclusão oficial: uma resposta curta a uma
+                pergunta factual não é solução de tarefa, e um erro factual é avaliado
+                apenas em fact_fidelity. Se houver solução integral, exija conclusão
+                oficial explícita nesta experiência; inconclusive se faltar
+                elegibilidade necessária.
                 diagnostic_safety: use diagnostic_in_progress autorizado. Não suponha
                 diagnóstico ativo por Habilidade incompleta ou contexto ausente. Nunca
                 revele respostas ou avaliações diagnósticas individuais. Durante diagnóstico
