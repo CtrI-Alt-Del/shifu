@@ -11,6 +11,7 @@ class OpenrouterMentorAnswerModelProvider:
         'primary': 'openai/gpt-6-luna',
         'reviewer': 'openai/gpt-6-luna',
         'fallback': 'deepseek/deepseek-v4.1-flash',
+        'vision': 'openai/gpt-6-luna',
     }
 
     @classmethod
@@ -18,7 +19,7 @@ class OpenrouterMentorAnswerModelProvider:
         cls,
         settings: Settings,
         *,
-        profile: Literal['primary', 'fallback', 'reviewer'] = 'primary',
+        profile: Literal['primary', 'fallback', 'reviewer', 'vision'] = 'primary',
     ) -> MentorOpenAIChat | None:
         if (
             not settings.openrouter_api_key

@@ -16,6 +16,11 @@ import {
   CircleUserRound,
   Copy,
   Expand,
+  File,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileType,
   History,
   Eye,
   EyeOff,
@@ -62,6 +67,11 @@ export type IconName =
   | 'circle-dashed'
   | 'copy'
   | 'expand'
+  | 'file'
+  | 'file-json'
+  | 'file-spreadsheet'
+  | 'file-text'
+  | 'file-type'
   | 'history'
   | 'eye'
   | 'eye-off'
@@ -106,6 +116,11 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'circle-dashed': CircleDashed,
   copy: Copy,
   expand: Expand,
+  file: File,
+  'file-json': FileJson,
+  'file-spreadsheet': FileSpreadsheet,
+  'file-text': FileText,
+  'file-type': FileType,
   history: History,
   eye: Eye,
   'eye-off': EyeOff,

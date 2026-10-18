@@ -6,7 +6,13 @@ import type {
   MentorResponseStatus,
   SubmitMentorMessageInput,
 } from '@/core/intelligence/mentor-response'
+import type {
+  MentorAttachment,
+  MentorAttachmentBatch,
+  MentorAttachmentSource,
+} from '@/core/intelligence/mentor-attachment'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
+import type { RestResponse } from '@/core/shared/responses/rest-response'
 
 export type MentorSession = {
   id: string
@@ -23,6 +29,7 @@ export type MentorMessage = {
   content: string
   createdAt: string
   inReplyToMessageId: string | null
+  attachments: MentorAttachment[]
 }
 
 export type MentorSessionsPage = {
@@ -46,6 +53,38 @@ export type CreateMentorSessionInput = {
   submissionKey: string
   firstMessage: string
   contextHint?: MentorContextHint | null
+  attachmentBatchId?: string
+  attachmentIds?: string[]
+}
+
+type MentorAttachmentDto = {
+  attachment_id: string
+  filename: string
+  media_type: string
+  size_bytes: number
+  status: MentorAttachment['status']
+  failure_code: string | null
+  analyzed_pages: number[]
+  illegible_pages: number[]
+  uninterpreted_pages: number[]
+}
+
+type MentorAttachmentBatchDto = {
+  batch_id: string
+  expires_at: string
+  attachments: MentorAttachmentDto[]
+}
+
+type MentorAttachmentBatchCreatedDto = Pick<
+  MentorAttachmentBatchDto,
+  'batch_id' | 'expires_at'
+>
+
+type MentorAttachmentSourceDto = {
+  attachment_id: string
+  chunk_id: string
+  page_number: number | null
+  locator: string
 }
 
 type MentorSessionDto = {
@@ -63,6 +102,7 @@ type MentorMessageDto = {
   content: string
   created_at: string
   in_reply_to_message_id: string | null
+  attachments?: MentorAttachmentDto[]
 }
 
 type MentorSessionsPageDto = {
@@ -87,7 +127,13 @@ type MentorResponseSnapshotDto = {
   attempt_id: string
   learner_message_id: string
   status: MentorResponseStatus
-  blocks: { block_key: string; ordinal: number; intent: string | null; content: string }[]
+  blocks: {
+    block_key: string
+    ordinal: number
+    intent: string | null
+    content: string
+    sources?: MentorAttachmentSourceDto[]
+  }[]
   consultations: string[]
   last_sequence: number
   failure_code: string | null
@@ -123,6 +169,7 @@ export const IntelligenceService = (
       content: message.content,
       createdAt: message.created_at,
       inReplyToMessageId: message.in_reply_to_message_id,
+      attachments: (message.attachments ?? []).map(mapAttachment),
     }
   }
 
@@ -141,6 +188,36 @@ export const IntelligenceService = (
         }
       : null
   }
+  function mapAttachment(attachment: MentorAttachmentDto): MentorAttachment {
+    return {
+      attachmentId: attachment.attachment_id,
+      filename: attachment.filename,
+      mediaType: attachment.media_type,
+      sizeBytes: attachment.size_bytes,
+      status: attachment.status,
+      failureCode: attachment.failure_code,
+      analyzedPages: attachment.analyzed_pages,
+      illegiblePages: attachment.illegible_pages,
+      uninterpretedPages: attachment.uninterpreted_pages,
+    }
+  }
+  function mapAttachmentSource(
+    source: MentorAttachmentSourceDto,
+  ): MentorAttachmentSource {
+    return {
+      attachmentId: source.attachment_id,
+      chunkId: source.chunk_id,
+      pageNumber: source.page_number,
+      locator: source.locator,
+    }
+  }
+  function mapAttachmentBatch(batch: MentorAttachmentBatchDto): MentorAttachmentBatch {
+    return {
+      batchId: batch.batch_id,
+      expiresAt: batch.expires_at,
+      attachments: batch.attachments.map(mapAttachment),
+    }
+  }
   function mapSnapshot(snapshot: MentorResponseSnapshotDto): MentorResponseSnapshot {
     return {
       attemptId: snapshot.attempt_id,
@@ -151,6 +228,7 @@ export const IntelligenceService = (
         ordinal: block.ordinal,
         intent: block.intent,
         content: block.content,
+        sources: (block.sources ?? []).map(mapAttachmentSource),
       })),
       consultations: snapshot.consultations,
       lastSequence: snapshot.last_sequence,
@@ -179,11 +257,86 @@ export const IntelligenceService = (
           submission_key: input.submissionKey,
           content: input.content,
           context_hint: mapHint(input.contextHint),
+          ...(input.attachmentBatchId
+            ? { attachment_batch_id: input.attachmentBatchId }
+            : {}),
+          ...(input.attachmentIds?.length ? { attachment_ids: input.attachmentIds } : {}),
         },
         auth(accessToken),
       )
       if (response.isFailure) response.throwError()
       return mapDetail(response.body)
+    },
+    async createMentorAttachmentBatch(
+      accessToken: string,
+      sessionId?: string | null,
+    ): Promise<MentorAttachmentBatch> {
+      const response = await restClient.post<MentorAttachmentBatchCreatedDto>(
+        '/intelligence/mentor-attachment-batches',
+        sessionId ? { session_id: sessionId } : {},
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return {
+        batchId: response.body.batch_id,
+        expiresAt: response.body.expires_at,
+        attachments: [],
+      }
+    },
+    async uploadMentorAttachment(
+      accessToken: string,
+      batchId: string,
+      uploadKey: string,
+      file: File,
+      signal?: AbortSignal,
+    ): Promise<{ attachment: MentorAttachment; statusCode: number }> {
+      const formData = new FormData()
+      formData.append('file', file, file.name)
+      formData.append('upload_key', uploadKey)
+      const response = await restClient.postFormData<MentorAttachmentDto>(
+        `/intelligence/mentor-attachment-batches/${encodeURIComponent(batchId)}/attachments`,
+        formData,
+        { ...auth(accessToken), signal },
+      )
+      if (response.isFailure) response.throwError()
+      return { attachment: mapAttachment(response.body), statusCode: response.statusCode }
+    },
+    async getMentorAttachmentBatch(
+      accessToken: string,
+      batchId: string,
+    ): Promise<MentorAttachmentBatch> {
+      const response = await restClient.get<MentorAttachmentBatchDto>(
+        `/intelligence/mentor-attachment-batches/${encodeURIComponent(batchId)}`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapAttachmentBatch(response.body)
+    },
+    async removeMentorAttachment(
+      accessToken: string,
+      batchId: string,
+      attachmentId: string,
+    ): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/intelligence/mentor-attachment-batches/${encodeURIComponent(batchId)}/attachments/${encodeURIComponent(attachmentId)}`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+    },
+    async readMentorAttachmentFile(
+      accessToken: string,
+      sessionId: string,
+      attachmentId: string,
+      preview: boolean,
+      signal?: AbortSignal,
+    ): Promise<RestResponse<Blob>> {
+      const response = await restClient.getFile(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(attachmentId)}/file`,
+        { ...auth(accessToken), params: { preview }, signal },
+      )
+      if (response.isFailure) response.throwError()
+      return response
     },
     async cancelMentorResponse(
       accessToken: string,
@@ -259,6 +412,10 @@ export const IntelligenceService = (
           submission_key: input.submissionKey,
           first_message: input.firstMessage,
           ...(input.contextHint ? { context_hint: mapHint(input.contextHint) } : {}),
+          ...(input.attachmentBatchId
+            ? { attachment_batch_id: input.attachmentBatchId }
+            : {}),
+          ...(input.attachmentIds?.length ? { attachment_ids: input.attachmentIds } : {}),
         },
         auth(accessToken),
       )

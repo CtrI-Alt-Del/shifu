@@ -22,8 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  types:
-    name: Web type checks
+  type-check:
+    name: Web type check
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -47,8 +47,8 @@ jobs:
       - name: Check types
         run: pnpm --filter web check:types
 
-  lint:
-    name: Web lint checks
+  lint-check:
+    name: Web lint check
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -72,8 +72,8 @@ jobs:
       - name: Check lint
         run: pnpm --filter web check:lint
 
-  architecture:
-    name: Web architecture checks
+  architecture-check:
+    name: Web architecture check
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -136,13 +136,91 @@ jobs:
       - name: Run unit tests
         run: pnpm --filter web test:unit
 
-  browser-integration:
-    name: Web browser integration
+  changed-file-coverage:
+    name: Changed Web file coverage
     runs-on: ubuntu-latest
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
       BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run scoped tests with V8 coverage
+        run: >-
+          pnpm --filter web exec vitest run --coverage
+          src/constants/tests/routes.test.ts
+          src/rest/axios/tests/axios-rest-client.test.ts
+          tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
+          tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
+          src/ui/intelligence/hooks/tests/mentor-server-functions.test.ts
+          src/ui/intelligence/hooks/tests/use-mentor-response-stream.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/use-mentor-context-provider.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/mentor-transport-consumer.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/attachment-list.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/use-composer.test.ts
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/use-message-item.test.ts
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/message-item.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/sources.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
+          src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+
+      - name: Enforce thresholds for every changed production file
+        run: >-
+          node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts
+          --base origin/main
+          | tee apps/web/coverage/changed-coverage-summary.txt
+
+      - name: Upload changed-file coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: web-changed-file-coverage
+          path: |
+            apps/web/coverage/coverage-summary.json
+            apps/web/coverage/changed-coverage-summary.txt
+          if-no-files-found: warn
+
+  integration-tests:
+    name: Web integration tests
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
+      AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
       REDIS_URL: redis://127.0.0.1:6379/0
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
@@ -197,6 +275,16 @@ jobs:
         working-directory: apps/server
         run: uv sync --frozen
 
+      - name: Create restricted AgentOS role
+        working-directory: apps/server
+        env:
+          PGPASSWORD: shifu-local
+        run: >-
+          psql "postgresql://shifu:shifu-local@127.0.0.1:54344/shifu"
+          -v runtime_password="${AGENTOS_RUNTIME_ROLE_PASSWORD}"
+          -v database_name=shifu
+          -f scripts/create_agentos_runtime_role.sql
+
       - name: Prepare server database
         working-directory: apps/server
         run: uv run poe db:upgrade
@@ -227,11 +315,13 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: playwright-report
-          path: apps/web/playwright-report
+          path: |
+            apps/web/.playwright-cli/logs/html-report
+            apps/web/.playwright-cli/logs/test-results
           if-no-files-found: ignore
 
   build:
-    name: Build web application
+    name: Web build
     runs-on: ubuntu-latest
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
@@ -268,34 +358,3 @@ jobs:
 
       - name: Build application
         run: pnpm --filter web build
-
-  verify:
-    name: Verify web application
-    if: always()
-    needs:
-      - types
-      - lint
-      - architecture
-      - unit-tests
-      - browser-integration
-      - build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require all Web CI jobs to pass
-        env:
-          TYPES_RESULT: ${{ needs.types.result }}
-          LINT_RESULT: ${{ needs.lint.result }}
-          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
-          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
-          BROWSER_INTEGRATION_RESULT: ${{ needs.browser-integration.result }}
-          BUILD_RESULT: ${{ needs.build.result }}
-        run: |
-          if [[ "$TYPES_RESULT" != "success" || \
-            "$LINT_RESULT" != "success" || \
-            "$ARCHITECTURE_RESULT" != "success" || \
-            "$UNIT_TESTS_RESULT" != "success" || \
-            "$BROWSER_INTEGRATION_RESULT" != "success" || \
-            "$BUILD_RESULT" != "success" ]]; then
-            echo "One or more Web CI jobs did not pass."
-            exit 1
-          fi

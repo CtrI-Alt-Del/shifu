@@ -36,6 +36,7 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
     return () => observer.disconnect()
   }, [mentor.draft])
   const { releaseDictationSurface, dictationStatus, draft } = mentor
+  const draftAttachments = mentor.draftAttachments ?? []
   useEffect(
     () => () => releaseDictationSurface?.(surface),
     [releaseDictationSurface, surface],
@@ -49,10 +50,17 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   const hasAcceptedSession = Boolean(mentor.selectedSessionId)
   const isResponsePending = Boolean(mentor.sessionDetail?.pendingLearnerMessageId)
   const canSend =
-    Boolean(mentor.draft.trim()) &&
+    (Boolean(mentor.draft.trim()) || draftAttachments.length > 0) &&
     !mentor.isSubmittingFirstMessage &&
     !isResponsePending &&
-    !mentor.isDictationBusy
+    !mentor.isDictationBusy &&
+    !mentor.isPreparingAttachments &&
+    draftAttachments.every(
+      ({ attachment, error }) =>
+        !error && attachment && ['ready', 'partial'].includes(attachment.status),
+    )
+  const canManageAttachments =
+    !mentor.isSubmittingFirstMessage && !isResponsePending && !mentor.isDictationBusy
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -69,6 +77,8 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   return {
     ...mentor,
     canSend,
+    canManageAttachments,
+    draftAttachments,
     handleKeyDown,
     isResponsePending,
     handleSubmit,

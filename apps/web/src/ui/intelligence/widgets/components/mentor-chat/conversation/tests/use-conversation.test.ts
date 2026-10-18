@@ -31,6 +31,7 @@ describe('useConversation', () => {
           ordinal: 0,
           intent: null,
           content: 'Resposta aprovada.',
+          sources: [],
         },
       ],
       consultations: [],
@@ -44,6 +45,7 @@ describe('useConversation', () => {
       content: 'Pergunta atual',
       inReplyToMessageId: null,
       createdAt: '',
+      attachments: [],
     }
     const currentReply: MentorMessage = {
       id: 'current-reply',
@@ -52,6 +54,7 @@ describe('useConversation', () => {
       content: 'Resposta aprovada.',
       inReplyToMessageId: 'learner',
       createdAt: '',
+      attachments: [],
     }
     const olderReply: MentorMessage = {
       id: 'older-reply',
@@ -60,6 +63,7 @@ describe('useConversation', () => {
       content: 'Resposta anterior.',
       inReplyToMessageId: 'older-learner',
       createdAt: '',
+      attachments: [],
     }
     const context = {
       selectedSessionId: 'session',
@@ -97,6 +101,7 @@ describe('useConversation', () => {
       content: 'Resposta anterior.',
       inReplyToMessageId: 'learner',
       createdAt: '',
+      attachments: [],
     }
     const context = {
       selectedSessionId: 'session',
