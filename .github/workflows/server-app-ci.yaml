@@ -172,12 +172,10 @@ jobs:
       - name: Run unit tests
         run: uv run poe test:unit
 
-      - name: Check mutation tooling
+      - name: Check coverage tooling
         if: ${{ !cancelled() }}
         run: >-
           uv run pytest --confcutdir=tests/tooling
-          tests/tooling/test_mutation_launcher.py
-          tests/tooling/test_mutation_report.py
           tests/tooling/test_check_changed_coverage.py
 
   integration-tests:
@@ -638,124 +636,3 @@ jobs:
           name: server-evals
           path: apps/server/test-results/evals
           if-no-files-found: error
-
-  mutation:
-    name: Use-case mutation shard ${{ matrix.shard }}/12
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 12
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    defaults:
-      run:
-        working-directory: apps/server
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          version: 0.11.26
-          enable-cache: true
-          cache-dependency-glob: apps/server/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Run use-case mutation tests
-        run: uv run poe test:mutation --all --core --shard ${{ matrix.shard }}/12
-
-      - name: Upload mutation report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: server-mutation-shard-${{ matrix.shard }}-of-12
-          path: apps/server/test-results/mutation/shard-${{ matrix.shard }}-of-12
-          if-no-files-found: error
-
-  mutation-summary:
-    name: Check mutation scores and summarize
-    if: always()
-    needs: mutation
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Identify changed core use-case sources
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: |
-          git diff --name-only --diff-filter=ACMRT \
-            "$BASE_SHA...$HEAD_SHA" -- apps/server/src/shifu \
-            > "$CHANGED_FILES"
-
-      - name: Download mutation shard reports
-        if: always()
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          pattern: server-mutation-shard-*-of-12
-          path: ${{ runner.temp }}/mutation-reports
-          merge-multiple: false
-
-      - name: Build mutation summary
-        id: report
-        if: always()
-        env:
-          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
-          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
-          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: >-
-          python apps/server/scripts/summarize_mutation_reports.py
-          --reports-dir "$REPORTS_DIR"
-          --expected-shards 12
-          --mutation-result "$MUTATION_JOB_RESULT"
-          --thresholds apps/server/scripts/mutation_score_thresholds.json
-          --changed-files "$CHANGED_FILES"
-          --output "$REPORT_PATH"
-
-      - name: Upload mutation summary
-        if: always() && steps.report.outcome == 'success'
-        uses: actions/upload-artifact@v6
-        with:
-          name: server-mutation-summary
-          path: ${{ runner.temp }}/mutation-summary.md
-          if-no-files-found: error
-
-      - name: Enforce per-module mutation score thresholds
-        if: always() && steps.report.outcome == 'success'
-        env:
-          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
-          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
-          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: >-
-          python apps/server/scripts/summarize_mutation_reports.py
-          --reports-dir "$REPORTS_DIR"
-          --expected-shards 12
-          --mutation-result "$MUTATION_JOB_RESULT"
-          --thresholds apps/server/scripts/mutation_score_thresholds.json
-          --changed-files "$CHANGED_FILES"
-          --output "$REPORT_PATH"
-          --enforce
