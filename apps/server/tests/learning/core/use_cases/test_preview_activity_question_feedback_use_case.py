@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
 
@@ -9,7 +10,11 @@ from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_
     JevCodeRubricAssessorProvider,
 )
 from shifu.learning.core.domain.entities import CompetencyProgress
-from shifu.learning.core.domain.structures import CodeAnswer, CodeSubmittedFile
+from shifu.learning.core.domain.structures import (
+    ChoiceAnswerSubmission,
+    CodeAnswer,
+    CodeSubmittedFile,
+)
 from shifu.learning.core.interfaces import (
     LearningDatabase,
     LearningDatabaseRepositories,
@@ -338,6 +343,123 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             )
 
         self.assessor.assess.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ('answer', 'expected_score', 'expected_explanation'),
+        (
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                Decimal(100),
+                'Correct',
+            ),
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('b',)),
+                Decimal(0),
+                'Wrong',
+            ),
+        ),
+    )
+    def test_should_return_exact_choice_feedback_without_assessor(
+        self,
+        answer: ChoiceAnswerSubmission,
+        expected_score: Decimal,
+        expected_explanation: str,
+    ) -> None:
+        snapshot = mixed_snapshot()
+        question = snapshot.questions[0]
+        assert isinstance(question, CurriculumChoiceQuestionSnapshot)
+        self.provider.get_learning_activity.return_value = replace(
+            snapshot,
+            questions=(
+                replace(
+                    question,
+                    options=(
+                        *question.options,
+                        CurriculumChoiceOptionSnapshot(
+                            key='b', text='B', is_correct=False
+                        ),
+                    ),
+                ),
+                *snapshot.questions[1:],
+            ),
+        )
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'q1',
+            'revision-1',
+            answer,
+        )
+
+        assert result.status == 'conclusive'
+        assert result.score == expected_score
+        assert result.is_correct is (expected_score == 100)
+        assert result.explanation == expected_explanation
+        assert result.criteria == ()
+        assert result.submitted_files == ()
+        self.assessor.assess.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            ChoiceAnswerSubmission(question_key='q1', selected_option_keys=()),
+            ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a', 'a')),
+            ChoiceAnswerSubmission(
+                question_key='q1', selected_option_keys=('missing',)
+            ),
+            ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a', 'b')),
+        ),
+        ids=('empty', 'duplicate', 'unknown', 'multiple-for-single'),
+    )
+    def test_should_reject_invalid_choice_feedback_without_assessment(
+        self, answer: ChoiceAnswerSubmission
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                'q1',
+                'revision-1',
+                answer,
+            )
+
+        self.assessor.assess.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'decisions',
+        (
+            CodeRubricDecisions(criterion_levels=(), concept_levels=()),
+            CodeRubricDecisions(
+                criterion_levels=(CodeCriterionDecision(key='other', level=75),),
+                concept_levels=(),
+            ),
+        ),
+        ids=('missing-criterion', 'unexpected-criterion'),
+    )
+    def test_should_reject_invalid_rubric_decisions_without_persistence(
+        self, decisions: CodeRubricDecisions
+    ) -> None:
+        self.assessor.assess.return_value = decisions
+
+        with pytest.raises(ServiceUnavailableError):
+            self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                )
+            )
+
+        self.assessor.assess.assert_called_once()
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_retries_transient_jev_failure_before_scoring(self) -> None:
         requests: list[httpx.Request] = []

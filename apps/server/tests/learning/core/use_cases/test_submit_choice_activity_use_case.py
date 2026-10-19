@@ -391,6 +391,135 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
+    def test_should_accept_exact_react_additional_file_limit_and_normalize_kind(
+        self,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+
+        outcome = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'react-two-additional-files',
+            (
+                *answers()[:2],
+                CodeAnswer(
+                    question_key='q3',
+                    files=(
+                        CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                        CodeSubmittedFile(path='src/components/Z.css', content='z'),
+                        CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                    ),
+                ),
+            ),
+            snapshot.revision,
+        )
+
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.answers[-1] == CodeAnswer(
+            question_key='q3',
+            kind='react',
+            files=(
+                CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                CodeSubmittedFile(path='src/components/Z.css', content='z'),
+                CodeSubmittedFile(path='src/main.tsx', content='updated'),
+            ),
+        )
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'code_answer',
+        (
+            CodeAnswer(question_key='q3', kind='react', files=()),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                source_code='untrusted replacement',
+                files=(CodeSubmittedFile(path='src/main.tsx', content='updated'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='javascript_stdin',
+                files=(CodeSubmittedFile(path='src/main.tsx', content='updated'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='first'),
+                    CodeSubmittedFile(path='src/main.tsx', content='second'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(CodeSubmittedFile(path='src/fixed.css', content='tampered'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/fixed.css', content='tampered'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                    CodeSubmittedFile(path='src/components/B.tsx', content='b'),
+                    CodeSubmittedFile(path='src/components/C.tsx', content='c'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/package.json', content='{}'),
+                ),
+            ),
+        ),
+        ids=(
+            'missing-editable',
+            'legacy-source',
+            'wrong-kind',
+            'duplicate-path',
+            'readonly-instead-of-editable',
+            'readonly-overwrite',
+            'additional-limit',
+            'forbidden-configuration',
+        ),
+    )
+    def test_should_reject_invalid_react_projects_before_any_write(
+        self, code_answer: CodeAnswer
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'invalid-react-project',
+                (*answers()[:2], code_answer),
+                snapshot.revision,
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
     def test_should_reject_v2_choice_without_trusted_live_concept_criteria(
         self,
     ) -> None:

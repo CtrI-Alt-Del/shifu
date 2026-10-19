@@ -20,6 +20,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceResultDetail,
     CodeAnswer,
     CodeResultDetail,
+    CodeCriterionResult,
+    CodeConceptObservationResult,
     CodeRubricResult,
     CodeSubmittedFile,
     MultipleSelectionAnswer,
@@ -228,6 +230,9 @@ class TestGetChoiceAttemptUseCase:
                 CurriculumReactInitialFileSnapshot(
                     path='src/App.jsx', content='initial', editable=True
                 ),
+                CurriculumReactInitialFileSnapshot(
+                    path='src/style.css', content='frozen stylesheet', editable=False
+                ),
             ),
             entrypoint='src/App.jsx',
             fixed_dependencies=(),
@@ -279,7 +284,12 @@ class TestGetChoiceAttemptUseCase:
             answers=(
                 CodeAnswer(
                     question_key='q3',
-                    files=(CodeSubmittedFile(path='src/App.jsx', content='updated'),),
+                    files=(
+                        CodeSubmittedFile(path='src/App.jsx', content='updated'),
+                        CodeSubmittedFile(
+                            path='src/Badge.jsx', content='new component'
+                        ),
+                    ),
                     kind='react',
                 ),
             ),
@@ -298,16 +308,44 @@ class TestGetChoiceAttemptUseCase:
         assert len(pending.questions) == 1
         assert isinstance(pending.questions[0], CodeResultDetail)
         assert pending.questions[0].kind == 'react'
+        assert pending.status is ActivityEvaluationStatus.PENDING
+        assert pending.retry_allowed is False
+        assert pending.score is None
+        assert pending.questions[0].prompt == 'Build a React component'
+        assert pending.questions[0].score is None
+        assert pending.questions[0].criterion_results == ()
+        assert pending.questions[0].concept_observations == ()
+        assert tuple(
+            (file.path, file.content) for file in pending.questions[0].submitted_files
+        ) == (
+            ('src/App.jsx', 'updated'),
+            ('src/Badge.jsx', 'new component'),
+            ('src/style.css', 'frozen stylesheet'),
+        )
 
         self.evaluation.status = ActivityEvaluationStatus.COMPLETED
         self.evaluation.completed_at = NOW
         self.evaluation.score = Decimal(75)
+        self.evaluation.progress_before = Decimal(20)
+        self.evaluation.progress_after = Decimal(65)
+        self.evaluation.status_before = CompetencyProgressStatus.LEARNING
+        self.evaluation.status_after = CompetencyProgressStatus.LEARNING
+        criterion_result = CodeCriterionResult(
+            key='behavior',
+            weight_percentage=100,
+            level=75,
+            comment_id='level-75',
+            comment='Level 75',
+        )
+        concept_observation = CodeConceptObservationResult(
+            concept_id='concept-react', level=75, observation_id='observation-75'
+        )
         self.evaluation.parts = (
             CodeRubricResult(
                 question_key='q3',
                 score=Decimal(75),
-                criterion_results=(),
-                concept_observations=(),
+                criterion_results=(criterion_result,),
+                concept_observations=(concept_observation,),
             ),
         )
         completed = self.subject.execute(
@@ -316,6 +354,21 @@ class TestGetChoiceAttemptUseCase:
         assert len(completed.questions) == 1
         assert isinstance(completed.questions[0], CodeResultDetail)
         assert completed.questions[0].kind == 'react'
+        assert completed.status is ActivityEvaluationStatus.COMPLETED
+        assert completed.retry_allowed is False
+        assert completed.score == Decimal(75)
+        assert completed.progress_before == Decimal(20)
+        assert completed.progress_after == Decimal(65)
+        assert completed.status_before is CompetencyProgressStatus.LEARNING
+        assert completed.status_after is CompetencyProgressStatus.LEARNING
+        assert completed.questions[0].prompt == 'Build a React component'
+        assert completed.questions[0].score == Decimal(75)
+        assert completed.questions[0].criterion_results == (criterion_result,)
+        assert completed.questions[0].concept_observations == (concept_observation,)
+        assert (
+            completed.questions[0].submitted_files
+            == pending.questions[0].submitted_files
+        )
 
     def test_should_reject_another_accounts_attempt_as_private_absence(self) -> None:
         self.goal.account_id = 'another-account'
@@ -331,6 +384,97 @@ class TestGetChoiceAttemptUseCase:
             )
 
         self.repositories.activity_attempts.find_by_id.assert_not_called()
+
+    def test_should_release_only_correct_keys_from_later_completed_attempt(
+        self,
+    ) -> None:
+        self.evaluation.status = ActivityEvaluationStatus.COMPLETED
+        self.evaluation.score = Decimal(33)
+        self.evaluation.completed_at = NOW - timedelta(minutes=5)
+        self.evaluation.parts = (
+            ChoiceEvaluationResult(
+                question_key='q1',
+                score=Decimal(0),
+                is_correct=False,
+                explanation='Explicação incorreta.',
+            ),
+            ChoiceEvaluationResult(
+                question_key='q2',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Explicação correta.',
+            ),
+            ChoiceEvaluationResult(
+                question_key='q3',
+                score=Decimal(0),
+                is_correct=False,
+                explanation='Explicação incorreta.',
+            ),
+        )
+        later = ActivityAttempt.create(
+            id='attempt-later',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(SingleChoiceAnswer(question_key='q1', selected_option_key='a'),),
+            submitted_at=NOW - timedelta(minutes=2),
+            submission_key='submission-later',
+            grading_snapshot=snapshot(),
+        )
+        later_evaluation = ActivityEvaluation.create(
+            id='evaluation-later',
+            attempt_id=later.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW - timedelta(minutes=2),
+            run_id='run-later',
+        )
+        later_evaluation.status = ActivityEvaluationStatus.COMPLETED
+        later_evaluation.completed_at = NOW
+        later_evaluation.score = Decimal(100)
+        later_evaluation.parts = (
+            ChoiceEvaluationResult(
+                question_key='q1',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Explicação correta.',
+            ),
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt,
+            later,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            self.evaluation,
+            later_evaluation,
+        ]
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert tuple(item.question_key for item in detail.questions) == (
+            'q1',
+            'q2',
+            'q3',
+        )
+        first, second, third = detail.questions
+        assert isinstance(first, ChoiceResultDetail)
+        assert isinstance(second, ChoiceResultDetail)
+        assert isinstance(third, ChoiceResultDetail)
+        assert first.selected_option_keys == ('b',)
+        assert first.disclosed_correct_option_keys == ('a',)
+        assert second.selected_option_keys == ('a', 'c')
+        assert second.disclosed_correct_option_keys == ('a', 'c')
+        assert third.selected_option_keys == ('a',)
+        assert third.disclosed_correct_option_keys == ()
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.assert_called_once_with(
+            EXPERIENCE_ID
+        )
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.assert_called_once_with(
+            (self.attempt.id, later.id)
+        )
 
     def test_should_not_project_legacy_next_action_for_adaptive_result(self) -> None:
         self.evaluation.status = ActivityEvaluationStatus.COMPLETED
