@@ -1,10 +1,13 @@
 """Application-owned Inngest client and function registration."""
 
+from inngest._internal.client_lib.client import Inngest
+
+
 from collections.abc import Callable, Sequence
 from typing import cast
 
 from fastapi import FastAPI
-from inngest import Function, Inngest
+from inngest import Function
 from inngest.fast_api import serve
 
 from shifu.shared.messaging.inngest.inngest_client import InngestClient
@@ -21,7 +24,7 @@ class InngestMessaging:
         app: FastAPI,
         job_group_registrars: Sequence[JobGroupRegistrar] = (),
     ) -> Inngest:
-        inngest = cast('Inngest', InngestClient.create())
+        inngest: Inngest = cast('Inngest', InngestClient.create())
 
         serve(
             app,

@@ -85,6 +85,8 @@ class TestRecognizeDiagnosticCompletedJob:
             skill_id=skill_id,
             initial_progress='0',
             completed_at=NOW.isoformat().replace('+00:00', 'Z'),
+            submitted_at=NOW.isoformat().replace('+00:00', 'Z'),
+            time_zone='America/Sao_Paulo',
         )
         event = DiagnosticCompletedEvent(payload=payload)
         event_data: dict[str, object] = {
@@ -94,6 +96,8 @@ class TestRecognizeDiagnosticCompletedJob:
             'skill_id': payload.skill_id,
             'initial_progress': payload.initial_progress,
             'completed_at': payload.completed_at,
+            'submitted_at': payload.submitted_at,
+            'time_zone': payload.time_zone,
         }
 
         inngest_fixture.publish(event.name, event_data, event_id=ids.generate())
@@ -165,6 +169,8 @@ class TestRecognizeDiagnosticCompletedJob:
             skill_id=skill_id,
             initial_progress='0',
             completed_at=historical_completed_at.isoformat().replace('+00:00', 'Z'),
+            submitted_at=historical_completed_at.isoformat().replace('+00:00', 'Z'),
+            time_zone='America/Sao_Paulo',
         )
         event = DiagnosticCompletedEvent(payload=payload)
         inngest_fixture.publish(
@@ -176,6 +182,8 @@ class TestRecognizeDiagnosticCompletedJob:
                 'skill_id': payload.skill_id,
                 'initial_progress': payload.initial_progress,
                 'completed_at': payload.completed_at,
+                'submitted_at': payload.submitted_at,
+                'time_zone': payload.time_zone,
             },
             event_id=ids.generate(),
         )

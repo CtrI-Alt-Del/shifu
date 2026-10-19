@@ -1,9 +1,6 @@
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
-
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,9 +18,7 @@ from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import SharedPipe
 from shifu.shared.settings import get_settings
 from tests.intelligence.server.controllers.conftest import (
-    MENTOR_ACCOUNT,
     MentorTitleWorkflowStub,
-    configure_mentor_access,
 )
 
 if TYPE_CHECKING:
@@ -43,7 +38,6 @@ class TestMentorRuntimeCompositionController:
                 'redis_url': 'redis://127.0.0.1:1/0',
                 'openrouter_api_key': 'disposable-unused-key' if configured else None,
                 'openrouter_prompt_logging_disabled': configured,
-                'mentor_telemetry_enabled': False,
             }
         )
         monkeypatch.setattr('shifu.app.get_settings', lambda: settings)
@@ -222,69 +216,3 @@ class TestMentorRuntimeCompositionController:
             )
         with Session(postgres_database.engine) as session:
             assert session.scalars(select(EventModel)).all() == []
-
-    @pytest.mark.parametrize(
-        ('enabled', 'configured', 'constructor_fails', 'shutdown_fails'),
-        [
-            (False, True, False, False),
-            (True, False, False, False),
-            (True, True, True, False),
-            (True, True, False, False),
-            (True, True, False, True),
-        ],
-    )
-    def test_optional_telemetry_does_not_change_private_history_response(
-        self,
-        postgres_database: 'PostgresDatabase',
-        monkeypatch: pytest.MonkeyPatch,
-        enabled: bool,
-        configured: bool,
-        constructor_fails: bool,
-        shutdown_fails: bool,
-    ) -> None:
-        settings = get_settings().model_copy(
-            update={
-                'mentor_telemetry_enabled': enabled,
-                'langfuse_public_key': SecretStr('synthetic-public')
-                if configured
-                else None,
-                'langfuse_secret_key': SecretStr('synthetic-secret')
-                if configured
-                else None,
-                'openrouter_api_key': None,
-            }
-        )
-        client = Mock(spec=['shutdown'])
-        if shutdown_fails:
-            client.shutdown.side_effect = OSError('controlled telemetry shutdown')
-        factory = Mock(return_value=client)
-        if constructor_fails:
-            factory.side_effect = OSError('controlled telemetry initialization')
-        monkeypatch.setattr('shifu.app.get_settings', lambda: settings)
-        monkeypatch.setattr('shifu.composition.mentor_telemetry.Langfuse', factory)
-        app = FastAPIApp.register(postgres_database.engine)
-        configure_mentor_access(app)
-        app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
-            MENTOR_ACCOUNT
-        )
-        with TestClient(app, headers={'Authorization': 'Bearer synthetic'}) as http:
-            response = http.get(
-                '/intelligence/mentor-sessions/00000000000000000000000000'
-            )
-        assert response.status_code == 404
-        assert response.headers['cache-control'] == 'private, no-store'
-        if enabled and configured:
-            assert settings.langfuse_public_key is not None
-            assert settings.langfuse_secret_key is not None
-            factory.assert_called_once_with(
-                public_key=settings.langfuse_public_key.get_secret_value(),
-                secret_key=settings.langfuse_secret_key.get_secret_value(),
-                base_url=str(settings.langfuse_base_url).rstrip('/'),
-                additional_headers={'x-langfuse-ingestion-version': '4'},
-            )
-        else:
-            factory.assert_not_called()
-        if enabled and configured and not constructor_fails:
-            client.shutdown.assert_called_once_with()
-        else:
-            client.shutdown.assert_not_called()

@@ -142,5 +142,5 @@ def test_corrupt_pinned_model_copy_cannot_replace_active_index_or_break_register
             )
         )
         assert response is not None and response.content.strip()
-    assert all(row['used_tokens'] == 0 for row in state.accounting_requests)
-    assert set(state.effective_usage.values()) == {0}
+    assert state.accounting_requests == []
+    assert state.effective_usage == {}

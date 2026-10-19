@@ -43,6 +43,8 @@ const contextValue: MentorContextValue = {
   sessionDetail: null,
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
+  draftAttachments: [],
+  isPreparingAttachments: false,
   search: '',
   isPanelOpen: false,
   panelView: 'conversation',
@@ -51,6 +53,7 @@ const contextValue: MentorContextValue = {
   isValidatingScope: false,
   isReadingHistory: false,
   isReadingMessages: false,
+  isReadingOlderMessages: false,
   isSubmittingFirstMessage: false,
   isRenamingSession: false,
   isRemovingSession: false,
@@ -68,6 +71,9 @@ const contextValue: MentorContextValue = {
   startNewConversation: startNewMock,
   selectSession: vi.fn(),
   setDraft: setDraftMock,
+  addAttachments: vi.fn(),
+  retryAttachment: vi.fn(),
+  removeAttachment: vi.fn(),
   setSearch: vi.fn(),
   sendFirstMessage: sendFirstMessageMock,
   loadMoreSessions: vi.fn(),
@@ -116,9 +122,9 @@ describe('MentorChat', () => {
     expect(screen.getByLabelText('Buscar conversa por título')).toBeVisible()
     expect(
       screen.getByRole('button', {
-        name: 'Anexar arquivo ou imagem. Indisponível no momento',
+        name: 'Anexar arquivo ou imagem',
       }),
-    ).toBeDisabled()
+    ).toBeEnabled()
     expect(
       screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
     ).toBeDisabled()

@@ -64,7 +64,8 @@ context, resolve material questions, compare viable approaches, present the desi
 in chat for review, then write the approved Spec. Announce this path and its
 expected artifact before the first question. `compact` and `complete` control the
 Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact;
-do not create a second design document or a `plan.md`.
+its required `interactive-spec.html` companion explains that same contract.
+Do not create a second authoritative design document or a `plan.md`.
 
 ### Grilling protocol
 
@@ -138,7 +139,9 @@ the abbreviated examples below do not replace the complete template.
 
 Use `documentation/features/<module>/<feature>/spec.md` with lowercase kebab-case
 slugs. A distinct change to a concluded feature may use
-`changes/<change-name>/spec.md` beneath that feature. Use the contract structure below and omit empty optional fields.
+`changes/<change-name>/spec.md` beneath that feature. Generate
+`interactive-spec.html` in the same directory as that `spec.md`, for both compact
+and complete mode. Use the contract structure below and omit empty optional fields.
 
 ```yaml
 ---
@@ -349,33 +352,9 @@ isolated/disposable setup. Missing executable setup is a contract gap.
 
 Automated checks cover authorization, isolation, persistence, finite contracted
 combinations, bounds, failure/recovery and concurrency at permitted boundaries.
-For unbounded domains specify equivalence classes and boundary values. Assess
-targeted mutation testing for changed Server business rules/correctness-critical logic:
-record whether it is required and why, the concrete risk, target scope, verified
-runner, mutation classes, pass condition and survivor/equivalence disposition.
-It is not a universal gate for every business-rule edit. When not required,
-identify the assertions that address the risk and why mutation adds insufficient
-value for this slice. Tool availability alone is not a reason to omit necessary
-proof; never downgrade an already-required check just to obtain readiness.
-Use the Server mutmut script and scoped selection documented in
-[Tooling](../tooling.md#mutation-testing). Web has no mutation runner; record Web
-mutation checks as Not applicable and verify correctness through applicable
-unit/component, browser and static checks. Server CI explicitly uses 12 balanced
-`--all --core --shard N/12` jobs to mutate every eligible Server
-`core/use_cases/**` file using only use-case tests without containers.
-For Spec implementation, limit mutation targets to production Server `core/use_cases/**` files
-created or modified by this Spec and
-specify exact application-relative `--files` paths. Select only related use-case
-tests under `tests/<module>/core/use_cases/**` or legacy
-`tests/core/**/use_cases/**`; core mutation runs
-require no Docker or containers. Do not select an entire core package, unrelated
-changes, other layers or `--all` without a separate explicit user request. With no eligible
-Server use-case changes, record Not applicable and its rationale; reconcile an existing
-required check before changing its disposition. Require Evaluation to record
-the exact targets, command, elapsed execution time and mutant outcomes.
-Runner success does not prove all mutants were killed; define survivor handling.
-A required unavailable mutation check remains Blocked and ordinary coverage cannot
-satisfy it; record any deferral explicitly.
+For unbounded domains specify equivalence classes and boundary values. A required check whose tooling is unavailable remains
+Blocked; ordinary coverage cannot satisfy it, and a deferral must be recorded
+explicitly.
 
 Respect test-integrity Rules: forbidden direct tests or excluded/indirect source
 tests are blocking contract defects; use allowed consumer boundaries. Never
@@ -418,6 +397,47 @@ Revision History records meaningful behavior, technical, design or verification
 contract amendments and reasons. Structural cleanup, status changes, reruns,
 publication and conclusion do not increment revision.
 
+### Required interactive Spec companion
+
+Generate `interactive-spec.html` alongside every Spec created or revised by this
+workflow. Use the title **Shifu — Interactive Spec**, followed by the feature name
+when useful. The HTML is a derived reading companion: `spec.md` remains the sole
+local contract authority. It introduces no independent requirements, planning
+ledger, implementation evidence or additional approval gate.
+
+The companion must:
+
+- explain the objective, scope, behavior, architecture/runtime flow, verification,
+  authority alignment and revision history, with the complete seven-section
+  contract available inside the HTML; a summary alone is insufficient;
+- provide chapter navigation, search and expandable detail; make RF/CA/check
+  traceability easy to explore, with workflow/interaction diagrams or step
+  exploration when they clarify the actual contract;
+- identify the source Spec path, revision, status and generation date; clearly
+  distinguish current implementation from planned behavior and required checks
+  from checks actually executed;
+- be a self-contained offline HTML file with embedded content, CSS and JavaScript,
+  without required CDN, API, model or application-service calls; explanatory
+  simulations must be labeled and must not perform product/external actions;
+- support keyboard navigation, visible focus, readable contrast and desktop/mobile
+  layouts, following the repository's visual direction without exposing secrets,
+  private source data or browser storage.
+
+Regenerate or reconcile the companion after changing the Spec's contract,
+revision or status, including corrections from review and amendments. Keep its
+embedded contract and identifiers synchronized with the current `spec.md`;
+revising the HTML alone does not increment the Spec revision. Do not leave a
+second HTML companion under an alternative filename for the same Spec.
+
+Before presenting the written Spec, verify that all seven sections and the
+current identifiers/metadata are represented, and validate navigation, search,
+expansion, keyboard use and narrow-screen layout with Playwright CLI. A temporary
+local static server may serve the file for this check; product services and
+seed/reset are unnecessary for a documentation companion. Save any browser
+artifacts under the existing ignored Playwright directories, and stop only the
+server/browser session started for this check. This validates the explainer,
+not feature implementation or its acceptance criteria.
+
 ## 4. Review and readiness
 
 Perform an independent Spec compatibility pass before `ready`, for compact and
@@ -440,7 +460,8 @@ requirements and scope that needs decomposition; correct those issues before
 presenting it. Verify that new project concepts and their consequential lifecycle
 contracts are explained, rather than only listed in the tree or declarations.
 After the independent review has no blocking findings, give the
-user the Spec path and revision and ask them to review the written contract.
+user the Spec path, revision and `interactive-spec.html` link and ask them to
+review the written contract.
 Wait for explicit approval before marking it `ready` or handing it to
 `implement-spec`. If the user requests changes, amend the Spec, repeat affected
 self-review and independent review, then present the revised contract again.
@@ -449,13 +470,14 @@ Before `ready`, confirm authority/version metadata; scope and traceability;
 observable criteria; resulting declarations, consumer/wiring impact and runtime
 guarantees; the expected file tree and its agreement with approved widget
 composition and checker paths; available required design references; permitted test boundaries; real
-checker commands; documentation links; reproducible setup/fixture feasibility and
+checker commands; documentation links; current validated interactive companion; reproducible setup/fixture feasibility and
 safe cleanup;
 and resolution of verified compatibility findings. Explicit implementation
 dependencies block affected work, not readiness, unless they leave the contract
 materially ambiguous. Report concrete blockers instead of a successful gate.
 
-Report the Spec path/revision/status, bounded outcome, canonical source/version,
+Report the Spec path/revision/status and interactive companion link, bounded
+outcome, canonical source/version,
 consequential decisions, checker coverage and review result. The next step is
 `implement-spec`; the agent decides execution mechanics.
 
@@ -463,7 +485,8 @@ consequential decisions, checker coverage and review result. The next step is
 
 For a material contract change, return the same Spec to `draft`, increment its
 revision, reread affected authority, resolve material decisions and update the
-contract/checker mapping. Preserve historical Evaluation evidence and mark only
+contract/checker mapping, then regenerate `interactive-spec.html` from the updated
+Spec. Preserve historical Evaluation evidence and mark only
 affected results stale. Repeat affected integrity and compatibility checks before
 returning to `ready`. A distinct change after conclusion may receive a new Spec.
 

@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Achievement } from '@/core/gamification/achievement'
@@ -11,6 +12,24 @@ import {
 } from '../use-gamification-page'
 
 vi.mock('../use-gamification-page', () => ({ useGamificationPage: vi.fn() }))
+
+// The calendar panel owns its own query hook; mocking that hook (not the
+// widget) keeps the real tab composition rendering without a QueryClient.
+vi.mock('../calendar-tab-panel/use-calendar-tab-panel', () => ({
+  useCalendarTabPanel: vi.fn(() => ({
+    viewedMonth: { year: 2026, month: 9 },
+    calendar: null,
+    selectedDay: null,
+    state: 'loading',
+    isAtCurrentMonth: true,
+    isAtEarliestMonth: false,
+    isRetrying: false,
+    goToPreviousMonth: vi.fn(),
+    goToNextMonth: vi.fn(),
+    handleSelectDay: vi.fn(),
+    handleRetry: vi.fn(),
+  })),
+}))
 
 const useGamificationPageMock = vi.mocked(useGamificationPage)
 
@@ -66,7 +85,12 @@ function makeController(
     profileSummary: null,
     state: 'loading',
     isRetrying: false,
+    // These cases exercise the achievements surface, which now lives behind
+    // the Conquistas tab. The production default ('calendario') is asserted
+    // in the hook's own test.
+    activeTab: 'conquistas',
     handleRetry: vi.fn(),
+    handleTabChange: vi.fn(),
     ...overrides,
   }
 }
@@ -78,9 +102,7 @@ describe('GamificationPage', () => {
 
   it('keeps the existing header while loading and shows the recoverable error state', () => {
     const { rerender } = render(<GamificationPage />)
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Cada passo merece ser visto.' }),
-    ).toBeVisible()
+    expect(screen.getByRole('heading', { level: 1, name: 'Gamificação' })).toBeVisible()
     expect(screen.getByLabelText('Carregando conquistas')).toBeVisible()
 
     const handleRetry = vi.fn()
@@ -153,5 +175,29 @@ describe('GamificationPage', () => {
     const historicalCard = historicalHeading.closest('article')
     expect(historicalCard).toHaveTextContent('Histórica')
     expect(historicalCard).toHaveTextContent(/em/)
+  })
+
+  it('renders both tabs and switches to the calendar panel', async () => {
+    const handleTabChange = vi.fn()
+    useGamificationPageMock.mockReturnValue(makeController({ handleTabChange }))
+    render(<GamificationPage />)
+
+    const calendarTab = screen.getByRole('tab', { name: 'Calendário' })
+    const achievementsTab = screen.getByRole('tab', { name: 'Conquistas' })
+    expect(calendarTab).toBeVisible()
+    expect(achievementsTab).toHaveAttribute('aria-selected', 'true')
+
+    await userEvent.click(calendarTab)
+    expect(handleTabChange).toHaveBeenCalledWith('calendario')
+  })
+
+  it('keeps the achievements surface inside its own tab panel', () => {
+    useGamificationPageMock.mockReturnValue(
+      makeController({ activeTab: 'calendario', state: 'success' }),
+    )
+    render(<GamificationPage />)
+
+    expect(screen.getByLabelText('Carregando calendário de prática')).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Diagnóstico' })).toBeNull()
   })
 })

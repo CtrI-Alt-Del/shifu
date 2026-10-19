@@ -4,7 +4,11 @@ import {
   ArrowUp,
   BookOpen,
   Brain,
+  Calendar,
+  Check,
+  ChevronLeft,
   ChevronRight,
+  Clock3,
   CircleAlert,
   Circle,
   CircleCheck,
@@ -12,6 +16,11 @@ import {
   CircleUserRound,
   Copy,
   Expand,
+  File,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  FileType,
   History,
   Eye,
   EyeOff,
@@ -47,13 +56,22 @@ export type IconName =
   | 'arrow-up'
   | 'book-open'
   | 'brain'
+  | 'calendar'
+  | 'check'
+  | 'chevron-left'
   | 'chevron-right'
+  | 'clock-3'
   | 'circle-alert'
   | 'circle'
   | 'circle-check'
   | 'circle-dashed'
   | 'copy'
   | 'expand'
+  | 'file'
+  | 'file-json'
+  | 'file-spreadsheet'
+  | 'file-text'
+  | 'file-type'
   | 'history'
   | 'eye'
   | 'eye-off'
@@ -87,13 +105,22 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'arrow-up': ArrowUp,
   'book-open': BookOpen,
   brain: Brain,
+  calendar: Calendar,
+  check: Check,
+  'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
+  'clock-3': Clock3,
   'circle-alert': CircleAlert,
   circle: Circle,
   'circle-check': CircleCheck,
   'circle-dashed': CircleDashed,
   copy: Copy,
   expand: Expand,
+  file: File,
+  'file-json': FileJson,
+  'file-spreadsheet': FileSpreadsheet,
+  'file-text': FileText,
+  'file-type': FileType,
   history: History,
   eye: Eye,
   'eye-off': EyeOff,

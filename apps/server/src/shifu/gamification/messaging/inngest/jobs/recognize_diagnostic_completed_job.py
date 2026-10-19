@@ -27,6 +27,11 @@ class _Payload(BaseModel):
     skill_id: str = Field(min_length=1)
     initial_progress: str = Field(min_length=1)
     completed_at: str = Field(min_length=1)
+    submitted_at: str = Field(min_length=1)
+    # Accepted but unused here: this job rewards the diagnostic milestone,
+    # while practice-day recognition consumes the same event separately.
+    # `extra='forbid'` makes declaring them mandatory, not optional.
+    time_zone: str | None = None
 
     @field_validator('account_id', 'goal_id', 'skill_experience_id', 'skill_id')
     @classmethod

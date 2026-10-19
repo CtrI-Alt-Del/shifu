@@ -1,14 +1,17 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { FormEvent } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Composer } from '..'
 import { useComposer } from '../use-composer'
+import type { MentorDraftAttachment } from '@/ui/intelligence/contexts/mentor-context/types'
 
 vi.mock('../use-composer', () => ({ useComposer: vi.fn() }))
 const useComposerMock = vi.mocked(useComposer)
 const sendFirstMessageMock = vi.fn()
 const setDraftMock = vi.fn()
+const addAttachmentsMock = vi.fn()
+const removeAttachmentMock = vi.fn().mockResolvedValue(undefined)
 
 describe('Composer', () => {
   beforeEach(() => vi.clearAllMocks())
@@ -19,6 +22,10 @@ describe('Composer', () => {
     (surface) => {
       useComposerMock.mockReturnValue({
         canSend: true,
+        canManageAttachments: true,
+        draftAttachments: [],
+        addAttachments: addAttachmentsMock,
+        removeAttachment: removeAttachmentMock,
         draft: 'Dúvida',
         handleSubmit: (event: FormEvent<HTMLFormElement>) => {
           event.preventDefault()
@@ -35,9 +42,9 @@ describe('Composer', () => {
       expect(sendFirstMessageMock).toHaveBeenCalledOnce()
       expect(
         screen.getByRole('button', {
-          name: 'Anexar arquivo ou imagem. Indisponível no momento',
+          name: 'Anexar arquivo ou imagem',
         }),
-      ).toBeDisabled()
+      ).toBeEnabled()
       expect(
         screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
       ).toBeDisabled()
@@ -52,6 +59,10 @@ describe('Composer', () => {
   it('retains the entered text and provides a retry after recoverable failure', () => {
     useComposerMock.mockReturnValue({
       canSend: true,
+      canManageAttachments: true,
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
       draft: 'Mensagem preservada',
       handleSubmit: vi.fn(),
       hasAcceptedSession: false,
@@ -70,6 +81,10 @@ describe('Composer', () => {
   it('locks the draft and announces first-message submission while pending', () => {
     useComposerMock.mockReturnValue({
       canSend: false,
+      canManageAttachments: false,
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
       draft: 'Dúvida preservada',
       handleSubmit: vi.fn(),
       hasAcceptedSession: false,
@@ -95,6 +110,10 @@ describe('Composer dictation', () => {
   function setup(overrides: Record<string, unknown> = {}) {
     useComposerMock.mockReturnValue({
       draft: 'Rascunho preservado',
+      canManageAttachments: false,
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
       canSend: false,
       isDictationBusy: true,
       dictationStatus: 'preparing',
@@ -142,13 +161,13 @@ describe('Composer dictation', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Texto revisado' } })
     expect(setDraftMock).toHaveBeenCalledWith('Texto revisado')
   })
-  it.each(['recording', 'review', 'error'])(
-    'keeps unavailable attachment controls untouched: %s',
+  it.each(['preparing', 'recording', 'transcribing'])(
+    'keeps attachment controls disabled during active dictation: %s',
     (dictationStatus) => {
       setup({ dictationStatus, isDictationBusy: dictationStatus === 'recording' })
       expect(
         screen.getByRole('button', {
-          name: 'Anexar arquivo ou imagem. Indisponível no momento',
+          name: 'Anexar arquivo ou imagem',
         }),
       ).toBeDisabled()
       expect(screen.getByRole('textbox')).toHaveValue('Rascunho preservado')
@@ -162,6 +181,15 @@ describe('Composer dictation', () => {
     })
     expect(screen.getByRole('status')).toHaveTextContent('Instalando pacote de idioma…')
     expect(startDictation).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox')).toBeEnabled()
+  })
+  it('keeps attachment selection available while reviewing the transcript', () => {
+    setup({
+      dictationStatus: 'review',
+      isDictationBusy: false,
+      canManageAttachments: true,
+    })
+    expect(screen.getByRole('button', { name: 'Anexar arquivo ou imagem' })).toBeEnabled()
     expect(screen.getByRole('textbox')).toBeEnabled()
   })
   it('renders accessible keyboard dictation controls', () => {
@@ -206,9 +234,139 @@ describe('Composer dictation', () => {
   })
 })
 
+describe('Composer attachments', () => {
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(cleanup)
+
+  function setup(overrides: Record<string, unknown> = {}) {
+    useComposerMock.mockReturnValue({
+      canSend: false,
+      canManageAttachments: true,
+      draft: 'Dúvida preservada',
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
+      isSubmittingFirstMessage: false,
+      isResponsePending: false,
+      isDictationBusy: false,
+      canStartDictation: false,
+      dictationLanguageAvailability: 'unavailable',
+      dictationInstallationStatus: 'idle',
+      dictationStatus: 'idle',
+      handleSubmit: vi.fn(),
+      setDraft: setDraftMock,
+      textareaRef: { current: null },
+      ...overrides,
+    } as unknown as ReturnType<typeof useComposer>)
+    return render(<Composer surface='page' />)
+  }
+
+  it('announces formats and limits before selection and delegates selected files', () => {
+    setup()
+    const file = new File(['resumo'], 'resumo.txt', { type: 'text/plain' })
+    expect(
+      screen.getByText(/até cinco arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT/),
+    ).toBeVisible()
+    expect(screen.getByText(/até 2 MB/)).toBeVisible()
+    expect(
+      screen.getByText(/A mensagem de texto é opcional ao enviar arquivos/),
+    ).toBeVisible()
+    expect(
+      screen.queryByText(/Escreva uma mensagem para continuar/),
+    ).not.toBeInTheDocument()
+    fireEvent.change(
+      screen.getByLabelText('Selecionar arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT'),
+      { target: { files: [file] } },
+    )
+    expect(addAttachmentsMock).toHaveBeenCalledWith([file])
+  })
+
+  it('renders prepared attachment metadata and image preview, then restores focus after removal', async () => {
+    const file = new File(['pixels'], 'desenho.png', { type: 'image/png' })
+    const draftAttachment: MentorDraftAttachment = {
+      localKey: 'local-1',
+      uploadKey: 'upload-1',
+      file,
+      previewUrl: 'blob:desenho',
+      attachment: {
+        attachmentId: '01J7T8AC91Z5K8M4JQ8C2D6F0B',
+        filename: file.name,
+        mediaType: 'image/png',
+        sizeBytes: file.size,
+        status: 'processing',
+        failureCode: null,
+        analyzedPages: [],
+        illegiblePages: [],
+        uninterpretedPages: [],
+      },
+      error: null,
+    }
+    setup({ draftAttachments: [draftAttachment] })
+    expect(screen.getByText('desenho.png')).toBeVisible()
+    expect(screen.getByText('IMAGE/PNG · 1 KB')).toBeVisible()
+    expect(screen.getByText('Preparando arquivo…')).toHaveAttribute('role', 'status')
+    expect(screen.getByRole('img', { name: 'Prévia de desenho.png' })).toHaveAttribute(
+      'src',
+      'blob:desenho',
+    )
+    const attachButton = screen.getByRole('button', { name: 'Anexar arquivo ou imagem' })
+    fireEvent.click(screen.getByRole('button', { name: 'Remover desenho.png' }))
+    await waitFor(() => expect(attachButton).toHaveFocus())
+    expect(removeAttachmentMock).toHaveBeenCalledWith('local-1')
+  })
+
+  it('keeps optional attachment handlers safe and forwards the composer controls', async () => {
+    const file = new File(['draft'], 'rascunho.txt', { type: 'text/plain' })
+    const draftAttachment: MentorDraftAttachment = {
+      localKey: 'local-default',
+      uploadKey: 'upload-default',
+      file,
+      previewUrl: null,
+      attachment: null,
+      error: null,
+      retryable: true,
+    }
+    const startDictation = vi.fn()
+    const installDictationLanguage = vi.fn()
+    setup({
+      addAttachments: undefined,
+      removeAttachment: undefined,
+      draftAttachments: [draftAttachment],
+      canStartDictation: true,
+      canInstallDictationLanguage: true,
+      dictationLanguageAvailability: 'unavailable',
+      startDictation,
+      installDictationLanguage,
+    })
+
+    const attachButton = screen.getByRole('button', { name: 'Anexar arquivo ou imagem' })
+    const fileInput = screen.getByLabelText(
+      'Selecionar arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT',
+    ) as HTMLInputElement
+    const inputClick = vi.spyOn(fileInput, 'click')
+    fireEvent.click(attachButton)
+    expect(inputClick).toHaveBeenCalledOnce()
+
+    fireEvent.change(fileInput, { target: { files: null } })
+    expect(fileInput.value).toBe('')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remover rascunho.txt' }))
+    await waitFor(() => expect(attachButton).toHaveFocus())
+    fireEvent.click(screen.getByRole('button', { name: 'Instalar pacote de idioma' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar ditado' }))
+    expect(installDictationLanguage).toHaveBeenCalledWith('page')
+    expect(startDictation).toHaveBeenCalledWith('page')
+  })
+})
+
 it('discloses browser-managed recognition before microphone use', () => {
   useComposerMock.mockReturnValue({
     canStartDictation: true,
+    canManageAttachments: true,
+    draftAttachments: [],
+    addAttachments: addAttachmentsMock,
+    removeAttachment: removeAttachmentMock,
     dictationLanguageAvailability: 'available',
     draft: '',
     handleSubmit: vi.fn(),

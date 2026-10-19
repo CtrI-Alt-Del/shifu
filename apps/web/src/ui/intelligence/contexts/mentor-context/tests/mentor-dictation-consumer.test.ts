@@ -10,6 +10,11 @@ const ports = vi.hoisted(() => ({
   reset: vi.fn(),
   navigate: vi.fn(),
   remove: vi.fn(),
+  createAttachmentBatch: vi.fn(),
+  resetAttachmentBatch: vi.fn(),
+  uploadAttachment: vi.fn(),
+  removeAttachment: vi.fn(),
+  refreshAttachmentBatch: vi.fn(),
   location: { pathname: '/intelligence', search: {} },
   submitting: false,
   localRecognition: false,
@@ -33,6 +38,30 @@ vi.mock('@/ui/intelligence/hooks/use-create-mentor-session-action', () => ({
     createMentorSession: ports.create,
     isCreatingMentorSession: ports.submitting,
     resetCreateMentorSession: ports.reset,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-create-mentor-attachment-batch-action', () => ({
+  useCreateMentorAttachmentBatchAction: () => ({
+    createMentorAttachmentBatch: ports.createAttachmentBatch,
+    resetCreateMentorAttachmentBatch: ports.resetAttachmentBatch,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-upload-mentor-attachment-action', () => ({
+  useUploadMentorAttachmentAction: () => ({
+    uploadMentorAttachment: ports.uploadAttachment,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-remove-mentor-attachment-action', () => ({
+  useRemoveMentorAttachmentAction: () => ({
+    removeMentorAttachment: ports.removeAttachment,
+  }),
+}))
+vi.mock('@/ui/intelligence/hooks/use-mentor-attachment-batch-query', () => ({
+  useMentorAttachmentBatchQuery: () => ({
+    mentorAttachmentBatch: null,
+    mentorAttachmentBatchError: null,
+    isReadingMentorAttachmentBatch: false,
+    refreshMentorAttachmentBatch: ports.refreshAttachmentBatch,
   }),
 }))
 vi.mock('@/ui/intelligence/hooks/use-mentor-sessions-query', () => ({
