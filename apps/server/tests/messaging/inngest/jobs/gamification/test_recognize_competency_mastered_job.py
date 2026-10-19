@@ -1,13 +1,27 @@
-"""Real-runtime coverage for CA-05: first mastery grants 50 XP once."""
+"""Real-runtime coverage for CA-05: first mastery grants 50 XP once.
+
+Also covers SHIFU-81 CA-01/CA-02: the stored XP record carries the mastered
+Competência's own name as its readable origin, and a redelivery of the same
+event adds no second record.
+"""
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session as SessionFactory
 
+from shifu.curriculum.database.sqlalchemy.models import (
+    CompetencyModel,
+    CurriculumSequenceModel,
+    SkillModel,
+)
 from shifu.fakers.gamification.entities import GamificationProfileFaker
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
-from shifu.gamification.database.sqlalchemy.models import GamificationProfileModel
+from shifu.gamification.database.sqlalchemy.models import (
+    GamificationProfileModel,
+    XpGrantModel,
+)
 from shifu.learning.core.domain.events import (
     CompetencyMasteredEvent,
     CompetencyMasteredPayload,
@@ -20,6 +34,7 @@ if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
+COMPETENCY_NAME = 'Condicionais'
 
 
 class TestRecognizeCompetencyMasteredJob:
@@ -30,6 +45,7 @@ class TestRecognizeCompetencyMasteredJob:
         ids = SystemIdentifierProvider()
         account_id = ids.generate()
         competency_id = ids.generate()
+        skill_id = ids.generate()
         engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
         try:
             gamification_database = SqlalchemyGamificationDatabase(
@@ -45,6 +61,39 @@ class TestRecognizeCompetencyMasteredJob:
                         updated_at=NOW,
                     )
                 )
+            # Real Curriculum content, so the real content provider resolves
+            # the Competência's own name for the readable origin (SHIFU-81
+            # RF-02) instead of falling back to the generic sentence.
+            with SessionFactory(engine) as session:
+                session.add(
+                    SkillModel(
+                        id=skill_id,
+                        name=f'Habilidade {skill_id[:8]}',
+                        description='Habilidade usada no teste de job.',
+                        initial_diagnostic_activity_ids=[],
+                    )
+                )
+                # The two models carry no ORM relationship, so the unit of
+                # work would not order these inserts against the Competência's
+                # foreign key on its own.
+                session.flush()
+                session.add(
+                    CompetencyModel(
+                        id=competency_id,
+                        skill_id=skill_id,
+                        name=COMPETENCY_NAME,
+                        description='Competência usada no teste de job.',
+                        position=1,
+                    )
+                )
+                session.flush()
+                # `get_skill_content` returns None for any Competência without
+                # a sequence row, which would silently exercise the fallback
+                # label instead of the resolved name.
+                session.add(
+                    CurriculumSequenceModel(competency_id=competency_id, items=[])
+                )
+                session.commit()
         finally:
             engine.dispose()
 
@@ -52,32 +101,42 @@ class TestRecognizeCompetencyMasteredJob:
             account_id=account_id,
             goal_id=ids.generate(),
             skill_experience_id=ids.generate(),
-            skill_id=ids.generate(),
+            skill_id=skill_id,
             competency_id=competency_id,
             progress='100',
             mastered_at=NOW.isoformat().replace('+00:00', 'Z'),
         )
         event = CompetencyMasteredEvent(payload=payload)
+        data: dict[str, object] = {
+            'account_id': payload.account_id,
+            'goal_id': payload.goal_id,
+            'skill_experience_id': payload.skill_experience_id,
+            'skill_id': payload.skill_id,
+            'competency_id': payload.competency_id,
+            'progress': payload.progress,
+            'mastered_at': payload.mastered_at,
+        }
 
-        inngest_fixture.publish(
-            event.name,
-            {
-                'account_id': payload.account_id,
-                'goal_id': payload.goal_id,
-                'skill_experience_id': payload.skill_experience_id,
-                'skill_id': payload.skill_id,
-                'competency_id': payload.competency_id,
-                'progress': payload.progress,
-                'mastered_at': payload.mastered_at,
-            },
-            event_id=ids.generate(),
-        )
+        inngest_fixture.publish(event.name, data, event_id=ids.generate())
 
         # 50 XP base (CA-05) plus the 25 XP "primeiro-dominio" achievement
         # bonus that the GrantXpUseCase cascade also unlocks the first time
         # this account earns a COMPETENCY_MASTERY milestone.
         inngest_fixture.wait_for_database(
             lambda session: _total_xp(session, account_id) == 75
+        )
+        inngest_fixture.wait_for_database(
+            lambda session: _mastery_labels(session, account_id) == [COMPETENCY_NAME]
+        )
+
+        # A redelivery of the same fact must add no second record.
+        inngest_fixture.publish(event.name, data, event_id=ids.generate())
+
+        inngest_fixture.wait_for_database(
+            lambda session: (
+                _total_xp(session, account_id) == 75
+                and _mastery_labels(session, account_id) == [COMPETENCY_NAME]
+            )
         )
 
 
@@ -88,3 +147,19 @@ def _total_xp(session: 'Session', account_id: str) -> int:
         )
     )
     return profile.total_xp if profile is not None else -1
+
+
+def _mastery_labels(session: 'Session', account_id: str) -> list[str]:
+    grants = (
+        session.execute(
+            select(XpGrantModel).where(XpGrantModel.account_id == account_id)
+        )
+        .scalars()
+        .all()
+    )
+    origins = [cast('dict[str, str]', grant.origin) for grant in grants]
+    return [
+        origin['label']
+        for origin in origins
+        if origin['source'] == 'competency-mastery'
+    ]

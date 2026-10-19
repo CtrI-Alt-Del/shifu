@@ -72,7 +72,7 @@ blocking on those tickets or silently assuming their output exists.
 | RP-05 | deferred | `max_streak_days` column exists; no producer populates it in this delivery (`SHIFU-80`) |
 | RP-06 | deferred | Calendar UI not built (`SHIFU-80`) |
 | RP-07 | partial | Catalog, recognition engine, cascade, retroactive reconciliation and Achievements tab delivered for Diagnóstico/Domínio/Conclusão/Nível; Sequência defined but unreachable until `SHIFU-80` |
-| RP-08 | partial | Only the minimal dedup/history facts needed to prevent duplicate recognition (rewarded milestones, achievement unlocks, XP grant rows); the learner-facing History tab is `SHIFU-81` |
+| RP-08 | partial | The minimal dedup/history facts needed to prevent duplicate recognition (rewarded milestones, achievement unlocks, XP grant rows) delivered here; the learner-facing History tab is delivered by `SHIFU-81` |
 | RP-09 | deferred | Explicitly excluded by Jira; tracked by `SHIFU-115` |
 | RP-10 | deferred | Not required by this ticket |
 | RP-11 | full | Recognition survives Gamification downtime and duplicate delivery without blocking Learning or duplicating effects |
@@ -567,5 +567,6 @@ achievement families end-to-end (catalog, cascading recognition with
 retroactive backdating, Achievements tab) plus the minimal profile/XP/level
 foundation. Explicitly deferred per the narrowed-scope decision: Sequência
 achievements (blocked on `SHIFU-80`'s streak data), the practice calendar
-(`SHIFU-80`), activity-score XP and the XP History tab (`SHIFU-84`/`SHIFU-81`),
-and the reward celebration modal (`SHIFU-115`).
+(`SHIFU-80`), and the reward celebration modal (`SHIFU-115`). The XP History
+tab, deferred here, was delivered by `SHIFU-81`; activity-score XP remains
+deferred to `SHIFU-84`.

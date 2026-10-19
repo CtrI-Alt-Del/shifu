@@ -206,6 +206,9 @@ describe('useGamificationPage', () => {
     act(() => result.current.handleTabChange('conquistas'))
     expect(result.current.activeTab).toBe('conquistas')
 
+    act(() => result.current.handleTabChange('historico-xp'))
+    expect(result.current.activeTab).toBe('historico-xp')
+
     act(() => result.current.handleTabChange('calendario'))
     expect(result.current.activeTab).toBe('calendario')
   })

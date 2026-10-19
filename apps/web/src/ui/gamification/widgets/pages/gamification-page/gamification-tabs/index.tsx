@@ -1,10 +1,11 @@
 import { TabsList, TabsTrigger } from '@/ui/shadcn/tabs'
 
-export type GamificationTab = 'calendario' | 'conquistas'
+export type GamificationTab = 'calendario' | 'conquistas' | 'historico-xp'
 
 const TABS: { value: GamificationTab; label: string }[] = [
   { value: 'calendario', label: 'Calendário' },
   { value: 'conquistas', label: 'Conquistas' },
+  { value: 'historico-xp', label: 'Histórico de XP' },
 ]
 
 export const GamificationTabs = () => {

@@ -177,18 +177,46 @@ describe('GamificationPage', () => {
     expect(historicalCard).toHaveTextContent(/em/)
   })
 
-  it('renders both tabs and switches to the calendar panel', async () => {
+  it('renders all three tabs and switches to the calendar panel', async () => {
     const handleTabChange = vi.fn()
     useGamificationPageMock.mockReturnValue(makeController({ handleTabChange }))
     render(<GamificationPage />)
 
     const calendarTab = screen.getByRole('tab', { name: 'Calendário' })
     const achievementsTab = screen.getByRole('tab', { name: 'Conquistas' })
+    const historyTab = screen.getByRole('tab', { name: 'Histórico de XP' })
     expect(calendarTab).toBeVisible()
+    expect(historyTab).toBeVisible()
     expect(achievementsTab).toHaveAttribute('aria-selected', 'true')
+    expect(historyTab).toHaveAttribute('aria-selected', 'false')
 
     await userEvent.click(calendarTab)
     expect(handleTabChange).toHaveBeenCalledWith('calendario')
+  })
+
+  it('switches to the XP history panel on request', async () => {
+    const handleTabChange = vi.fn()
+    useGamificationPageMock.mockReturnValue(makeController({ handleTabChange }))
+    render(<GamificationPage />)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Histórico de XP' }))
+
+    expect(handleTabChange).toHaveBeenCalledWith('historico-xp')
+  })
+
+  it('keeps the header and all three tabs on the loading and error branches', () => {
+    useGamificationPageMock.mockReturnValue(makeController({ state: 'loading' }))
+    const { unmount } = render(<GamificationPage />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Gamificação' })).toBeVisible()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
+    unmount()
+
+    useGamificationPageMock.mockReturnValue(makeController({ state: 'error' }))
+    render(<GamificationPage />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Gamificação' })).toBeVisible()
+    expect(screen.getAllByRole('tab')).toHaveLength(3)
   })
 
   it('keeps the achievements surface inside its own tab panel', () => {

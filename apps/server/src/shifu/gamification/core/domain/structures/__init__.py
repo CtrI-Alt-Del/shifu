@@ -7,4 +7,6 @@ from .achievements_overview import AchievementsOverview as AchievementsOverview
 from .calendar_day import CalendarDay as CalendarDay
 from .practice_calendar import PracticeCalendar as PracticeCalendar
 from .practice_streak import PracticeStreak as PracticeStreak
+from .xp_history import XpHistory as XpHistory
+from .xp_history_entry import XpHistoryEntry as XpHistoryEntry
 from .xp_origin import XpOrigin as XpOrigin

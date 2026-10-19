@@ -7,6 +7,7 @@ from .delete_gamification_profile_use_case import (
 from .get_practice_calendar_use_case import (
     GetPracticeCalendarUseCase as GetPracticeCalendarUseCase,
 )
+from .get_xp_history_use_case import GetXpHistoryUseCase as GetXpHistoryUseCase
 from .grant_xp_use_case import GrantXpUseCase as GrantXpUseCase
 from .list_achievements_use_case import (
     ListAchievementsUseCase as ListAchievementsUseCase,

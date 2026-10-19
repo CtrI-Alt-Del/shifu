@@ -12,3 +12,7 @@ Authorization: Bearer {{accessToken}}
 ### Calendário tab: a future month is rejected with 400
 GET {{baseUrl}}/gamification/calendar?year=2099&month=1
 Authorization: Bearer {{accessToken}}
+
+### Histórico de XP tab: every grant for the account, newest concession first
+GET {{baseUrl}}/gamification/xp-history
+Authorization: Bearer {{accessToken}}

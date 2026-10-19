@@ -2,12 +2,15 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Award,
+  BadgeCheck,
   BookOpen,
   Brain,
   Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   Clock3,
   CircleAlert,
   Circle,
@@ -49,12 +52,15 @@ export type IconName =
   | 'arrow-left'
   | 'arrow-right'
   | 'arrow-up'
+  | 'award'
+  | 'badge-check'
   | 'book-open'
   | 'brain'
   | 'calendar'
   | 'check'
   | 'chevron-left'
   | 'chevron-right'
+  | 'clipboard-check'
   | 'clock-3'
   | 'circle-alert'
   | 'circle'
@@ -93,12 +99,15 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'arrow-left': ArrowLeft,
   'arrow-right': ArrowRight,
   'arrow-up': ArrowUp,
+  award: Award,
+  'badge-check': BadgeCheck,
   'book-open': BookOpen,
   brain: Brain,
   calendar: Calendar,
   check: Check,
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
+  'clipboard-check': ClipboardCheck,
   'clock-3': Clock3,
   'circle-alert': CircleAlert,
   circle: Circle,

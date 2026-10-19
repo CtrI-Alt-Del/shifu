@@ -372,3 +372,85 @@ test('requests the practice calendar for the viewed month and blocks future mont
     await expect(authenticatedPage.getByText(label, { exact: true })).toBeVisible()
   }
 })
+
+test('invokes the XP history server function and renders its records newest first', async ({
+  authenticatedPage,
+}) => {
+  const historyRequests: string[] = []
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getAchievements_')) {
+      // The page hook runs this query on every tab; leaving it live lets a
+      // real auth failure bounce the session to /login mid-test.
+      await route.fulfill({
+        body: JSON.stringify({ result: { kind: 'success', overview } }),
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+    if (!fn?.startsWith('getXpHistory_')) {
+      await route.fallback()
+      return
+    }
+    historyRequests.push(route.request().url())
+    await route.fulfill({
+      body: JSON.stringify({
+        result: {
+          kind: 'success',
+          history: {
+            totalXp: 160,
+            entries: [
+              {
+                id: '01SHF000000000000000GRANTA',
+                amount: 60,
+                source: 'diagnosis',
+                title: 'Lógica de programação',
+                detail: 'Diagnóstico concluído',
+                occurredAt: '2026-09-11T12:00:00Z',
+                grantedAt: '2026-09-13T12:00:00Z',
+              },
+              {
+                id: '01SHF000000000000000GRANTB',
+                amount: 100,
+                source: 'skill-completion',
+                title: 'Estruturas de dados',
+                detail: 'Habilidade concluída',
+                occurredAt: '2026-09-02T12:00:00Z',
+                grantedAt: '2026-09-02T12:00:00Z',
+              },
+            ],
+          },
+        },
+      }),
+      contentType: 'application/json',
+      status: 200,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
+
+  // Keyboard activation, per RP-13.
+  const historyTab = authenticatedPage.getByRole('tab', { name: 'Histórico de XP' })
+  await historyTab.focus()
+  await authenticatedPage.keyboard.press('Enter')
+
+  await expect(historyTab).toHaveAttribute('aria-selected', 'true')
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Histórico de XP' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('160 XP')).toBeVisible()
+
+  const records = authenticatedPage.getByRole('region', { name: 'Registros de XP' })
+  const rows = records.getByRole('listitem')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0)).toContainText('Lógica de programação')
+  await expect(rows.nth(0)).toContainText('+60 XP')
+  await expect(rows.nth(1)).toContainText('Estruturas de dados')
+
+  // The upstream GET /gamification/xp-history is issued inside the SSR
+  // process and is not observable here; the server-function export is.
+  await expect.poll(() => historyRequests.length, { timeout: 10_000 }).toBe(1)
+
+  await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
+})

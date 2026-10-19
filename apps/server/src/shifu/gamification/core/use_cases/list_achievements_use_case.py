@@ -1,4 +1,7 @@
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
+from shifu.gamification.core.domain.achievement_criterion_label import (
+    achievement_criterion_label,
+)
 from shifu.gamification.core.domain.entities import Achievement, EarnedAchievement
 from shifu.gamification.core.domain.enums import (
     AchievementCriterionKind,
@@ -25,21 +28,6 @@ _FAMILY_BY_CRITERION: dict[AchievementCriterionKind, AchievementFamily] = {
     AchievementCriterionKind.LONGEST_STREAK: AchievementFamily.STREAK,
     AchievementCriterionKind.LEVEL: AchievementFamily.LEVEL,
 }
-
-
-def _criterion_label(kind: AchievementCriterionKind, target: int) -> str:
-    if kind is AchievementCriterionKind.DIAGNOSTICS_COMPLETED:
-        noun = 'diagnóstico concluído' if target == 1 else 'diagnósticos concluídos'
-        return f'{target} {noun}'
-    if kind is AchievementCriterionKind.COMPETENCIES_MASTERED:
-        noun = 'Competência dominada' if target == 1 else 'Competências dominadas'
-        return f'{target} {noun}'
-    if kind is AchievementCriterionKind.SKILLS_COMPLETED:
-        noun = 'Habilidade concluída' if target == 1 else 'Habilidades concluídas'
-        return f'{target} {noun}'
-    if kind is AchievementCriterionKind.LONGEST_STREAK:
-        return f'{target} dias consecutivos'
-    return f'nível {target}'
 
 
 class ListAchievementsUseCase:
@@ -125,7 +113,7 @@ class ListAchievementsUseCase:
             family=achievement.family,
             name=achievement.name,
             description=achievement.description,
-            criterion_label=_criterion_label(
+            criterion_label=achievement_criterion_label(
                 achievement.criterion.kind, achievement.criterion.target
             ),
             xp_reward=achievement.xp_reward,
@@ -151,7 +139,7 @@ class ListAchievementsUseCase:
             family=achievement.family,
             name=achievement.name,
             description=achievement.description,
-            criterion_label=_criterion_label(
+            criterion_label=achievement_criterion_label(
                 achievement.criterion.kind, achievement.criterion.target
             ),
             xp_reward=achievement.xp_reward,
@@ -173,7 +161,7 @@ class ListAchievementsUseCase:
             family=family,
             name=earned.achievement_name,
             description=description,
-            criterion_label=_criterion_label(
+            criterion_label=achievement_criterion_label(
                 earned.criterion.kind, earned.criterion.target
             ),
             xp_reward=earned.xp_reward,

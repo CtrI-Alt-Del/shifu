@@ -5,6 +5,7 @@ import { CalendarTabPanel } from './calendar-tab-panel'
 import type { GamificationTab } from './gamification-tabs'
 import { GamificationTabs } from './gamification-tabs'
 import { useGamificationPage } from './use-gamification-page'
+import { XpHistoryTabPanel } from './xp-history-tab-panel'
 
 export const GamificationPage = () => {
   const {
@@ -46,6 +47,10 @@ export const GamificationPage = () => {
             profileSummary={profileSummary}
             state={state}
           />
+        </TabsContent>
+
+        <TabsContent className='pt-8' value='historico-xp'>
+          <XpHistoryTabPanel />
         </TabsContent>
       </Tabs>
     </div>
