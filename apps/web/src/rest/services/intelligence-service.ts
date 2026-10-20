@@ -134,6 +134,7 @@ type MentorSessionSummaryStateDto = {
     boundary_message_id: string
     covered_message_count: number
     completed_at: string
+    after_message_id?: string | null
   } | null
   failure_after_message_id: string | null
 }
@@ -278,6 +279,7 @@ export const IntelligenceService = (
             boundaryMessageId: summary.current.boundary_message_id,
             coveredMessageCount: summary.current.covered_message_count,
             completedAt: summary.current.completed_at,
+            afterMessageId: summary.current.after_message_id ?? null,
           }
         : null,
       failureAfterMessageId: summary?.failure_after_message_id ?? null,

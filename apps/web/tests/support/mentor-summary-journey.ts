@@ -191,6 +191,7 @@ export async function installMentorSummaryBackend(
               boundaryMessageId: BOUNDARY.id,
               coveredMessageCount: 21,
               completedAt: '2026-10-18T14:00:00Z',
+              afterMessageId: PENDING.id,
             },
             failureAfterMessageId: null,
           }
@@ -379,13 +380,12 @@ export async function exerciseSummaryJourney(
     page.getByRole('textbox', { name: 'Escreva sua mensagem para o Mentor' }),
   ).toBeEnabled()
   await expect(trigger).toHaveAttribute('aria-haspopup', 'dialog')
-  // The marker follows its boundary message, or leads the list while that message is
-  // still in an unloaded older page (small viewports may auto-load that page first).
+  // The marker sits right after the learner message that triggered the summary,
+  // where "Resumindo contexto…" was shown, and before that message's answer.
   const loadedTexts = await listTexts(page)
   const markerIndex = loadedTexts.findIndex((text) => text.includes('Contexto resumido'))
-  expect(markerIndex).toBeGreaterThanOrEqual(0)
-  if (markerIndex === 0) expect(loadedTexts[1]).toContain(PENDING.content)
-  else expect(loadedTexts[markerIndex - 1]).toContain(BOUNDARY.content)
+  expect(markerIndex).toBeGreaterThanOrEqual(1)
+  expect(loadedTexts[markerIndex - 1]).toContain(PENDING.content)
   await page.screenshot({
     path: `.playwright-cli/screenshots/shifu-102-${surface}-${width}-summarized.png`,
   })
@@ -448,8 +448,8 @@ export async function exerciseSummaryJourney(
     FIRST_ANSWER.content,
     SECOND.content,
     BOUNDARY.content,
-    'Contexto resumido',
     PENDING.content,
+    'Contexto resumido',
     ANSWER.content,
   ]
   expect(texts).toHaveLength(expectedOrder.length)

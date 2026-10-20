@@ -23,6 +23,7 @@ const MARKER: MentorSummaryMarker = {
   boundaryMessageId: 'boundary',
   coveredMessageCount: 21,
   completedAt: '2026-10-18T14:00:00Z',
+  afterMessageId: null,
 }
 const READY: SummaryMarkerProps = { variant: 'ready', marker: MARKER }
 const CONTENT = {

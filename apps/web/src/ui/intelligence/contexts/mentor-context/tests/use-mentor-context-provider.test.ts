@@ -1703,6 +1703,7 @@ describe('useMentorContextProvider conversation summary', () => {
       boundaryMessageId: 'message-boundary',
       coveredMessageCount: 21,
       completedAt: '2026-10-18T14:00:00Z',
+      afterMessageId: null,
     },
     failureAfterMessageId: null,
   }

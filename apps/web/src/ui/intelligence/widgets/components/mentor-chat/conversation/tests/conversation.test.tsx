@@ -545,6 +545,7 @@ describe('Conversation', () => {
             boundaryMessageId: 'm1',
             coveredMessageCount: 21,
             completedAt: '2026-10-18T14:00:00Z',
+            afterMessageId: null,
           },
         },
         { kind: 'message', message: messages[1] },

@@ -645,6 +645,7 @@ describe('Mentor consumer through authenticated transport', () => {
           boundary_message_id: boundaryMessageId,
           covered_message_count: 21,
           completed_at: '2026-10-18T14:00:00Z',
+          after_message_id: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
         },
         failure_after_message_id: sessionId,
       },
@@ -698,6 +699,7 @@ describe('Mentor consumer through authenticated transport', () => {
           boundaryMessageId,
           coveredMessageCount: 21,
           completedAt: '2026-10-18T14:00:00Z',
+          afterMessageId: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
         },
         failureAfterMessageId: sessionId,
       })

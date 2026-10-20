@@ -17,6 +17,7 @@ const MARKER: MentorSummaryMarker = {
   boundaryMessageId: '01J7T8AC91Z5K8M4JQ8C2D6F0B',
   coveredMessageCount: 21,
   completedAt: '2026-10-18T14:00:00Z',
+  afterMessageId: null,
 }
 const SUMMARY_TEXT =
   'Nesta conversa, os assuntos foram range e lista. Você perguntou: “Meu laço não mostra o último item.”'

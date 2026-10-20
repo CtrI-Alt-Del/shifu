@@ -26,6 +26,7 @@ const MARKER: MentorSummaryMarker = {
   boundaryMessageId: 'm2',
   coveredMessageCount: 21,
   completedAt: '2026-10-18T14:00:00Z',
+  afterMessageId: null,
 }
 
 function buildMessage(id: string): MentorMessage {
@@ -200,6 +201,41 @@ describe('useConversation', () => {
       { kind: 'message', message: messages[1] },
       { kind: 'summary-marker', marker: MARKER },
       { kind: 'message', message: messages[2] },
+    ])
+  })
+
+  it('places the summary marker right after the learner message that triggered it', () => {
+    const marker = { ...MARKER, afterMessageId: 'm4' }
+    const messages = mockSummaryContext({
+      messageIds: ['m1', 'm2', 'm3', 'm4', 'm5'],
+      summary: { current: marker, failureAfterMessageId: null },
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(result.current.conversationItems).toEqual([
+      { kind: 'message', message: messages[0] },
+      { kind: 'message', message: messages[1] },
+      { kind: 'message', message: messages[2] },
+      { kind: 'message', message: messages[3] },
+      { kind: 'summary-marker', marker },
+      { kind: 'message', message: messages[4] },
+    ])
+  })
+
+  it('places the marker at the trigger even when the boundary is in an unloaded older page', () => {
+    const marker = { ...MARKER, boundaryMessageId: 'unloaded', afterMessageId: 'm3' }
+    const messages = mockSummaryContext({
+      messageIds: ['m3', 'm4'],
+      summary: { current: marker, failureAfterMessageId: null },
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(result.current.conversationItems).toEqual([
+      { kind: 'message', message: messages[0] },
+      { kind: 'summary-marker', marker },
+      { kind: 'message', message: messages[1] },
     ])
   })
 

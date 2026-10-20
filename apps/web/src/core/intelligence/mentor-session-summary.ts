@@ -3,6 +3,8 @@ export type MentorSummaryMarker = {
   boundaryMessageId: string
   coveredMessageCount: number
   completedAt: string
+  /** Learner message whose answer run produced the summary; null when unknown. */
+  afterMessageId: string | null
 }
 
 export type MentorSessionSummaryState = {

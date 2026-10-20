@@ -35,12 +35,20 @@ export const useConversation = () => {
   const isBoundaryLoaded = visibleMessages.some(
     (message) => message.id === summaryMarker?.boundaryMessageId,
   )
+  // The marker sits where the summarization happened: right after the learner message
+  // that triggered it. Without a known, loaded trigger it falls back to the boundary.
+  const isTriggerLoaded = visibleMessages.some(
+    (message) => message.id === summaryMarker?.afterMessageId,
+  )
+  const markerAnchorMessageId = isTriggerLoaded
+    ? summaryMarker?.afterMessageId
+    : summaryMarker?.boundaryMessageId
   const conversationItems: ConversationItem[] = []
-  if (summaryMarker && !isBoundaryLoaded)
+  if (summaryMarker && !isBoundaryLoaded && !isTriggerLoaded)
     conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
   for (const message of visibleMessages) {
     conversationItems.push({ kind: 'message', message })
-    if (summaryMarker && message.id === summaryMarker.boundaryMessageId)
+    if (summaryMarker && message.id === markerAnchorMessageId)
       conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
     if (message.id === failureAfterMessageId)
       conversationItems.push({ kind: 'summary-failure', messageId: message.id })
