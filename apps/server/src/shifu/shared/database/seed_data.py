@@ -1186,7 +1186,121 @@ def _build_mentor_seed() -> tuple[tuple[MentorSession, ...], tuple[MentorMessage
                     in_reply_to_message_id=message_id,
                 )
             )
+    summary_session, summary_messages = _build_long_mentor_conversation_seed(
+        len(conversations)
+    )
+    sessions.append(summary_session)
+    messages.extend(summary_messages)
     return tuple(sessions), tuple(messages)
+
+
+def _build_long_mentor_conversation_seed(
+    index: int,
+) -> tuple[MentorSession, tuple[MentorMessage, ...]]:
+    """Create a conversation one learner message short of the summary threshold.
+
+    Thirty messages (fifteen answered pairs) plus the next learner message make 31;
+    excluding the ten most recent leaves 21, which reaches the 20-message threshold,
+    so sending any message in this conversation summarizes its older part first.
+    """
+    pairs = (
+        (
+            'O que é uma lista em Python e para que ela serve?',
+            'Uma lista guarda vários valores em ordem dentro de uma única variável. Use colchetes, como em notas = [7, 9, 10].',
+        ),
+        (
+            'Como eu acesso o primeiro item de uma lista?',
+            'Use o índice zero. Lembre-se de que a contagem dos índices começa em 0, então notas[0] devolve o primeiro item.',
+        ),
+        (
+            'Meu laço não mostra o último item da lista. O que esqueci?',
+            'Veja quais índices range produz e compare com o tamanho da lista. O limite final de range não é incluído.',
+        ),
+        (
+            'Então range(5) vai de 0 até 5 ou até 4?',
+            'Ele vai de 0 até 4. Teste imprimir list(range(5)) para ver os cinco números que range produz.',
+        ),
+        (
+            'Como faço para percorrer todos os itens com for?',
+            'Escreva for nota in notas: e use a variável nota dentro do bloco. Assim você não precisa controlar o índice.',
+        ),
+        (
+            'Qual a diferença entre percorrer pelos itens e percorrer pelos índices?',
+            'Percorrer pelos itens entrega o valor direto. Percorrer pelos índices com range(len(notas)) é útil quando você precisa da posição.',
+        ),
+        (
+            'O que significa um índice negativo em uma lista?',
+            'Índice negativo conta a partir do fim. Observe que notas[-1] devolve o último item da lista.',
+        ),
+        (
+            'Como adiciono um item no final da lista?',
+            'Use o método append. Por exemplo, notas.append(8) coloca o valor 8 depois do último item.',
+        ),
+        (
+            'Como removo um item da lista pelo valor?',
+            'Use o método remove com o valor desejado. Lembre-se de que ele apaga apenas a primeira ocorrência encontrada.',
+        ),
+        (
+            'O que acontece se eu pedir um índice que não existe?',
+            'O Python mostra um IndexError. Verifique o tamanho da lista com len antes de acessar uma posição.',
+        ),
+        (
+            'Qual a diferença entre while e for em um laço?',
+            'O for repete para cada item de uma sequência. O while repete enquanto uma condição for verdadeira, então você controla a parada.',
+        ),
+        (
+            'Como evito um laço while infinito?',
+            'Garanta que a condição mude dentro do bloco. Atualize a variável de controle a cada repetição para o laço terminar.',
+        ),
+        (
+            'Como somo todos os valores de uma lista?',
+            'Crie uma variável total começando em zero e adicione cada item dentro do for. A função sum também faz isso.',
+        ),
+        (
+            'Como encontro o maior valor de uma lista?',
+            'Compare cada item com o maior valor visto até agora. A função max devolve esse valor diretamente.',
+        ),
+        (
+            'Como verifico se um valor está dentro da lista?',
+            'Use o operador in. A expressão 9 in notas devolve True quando o valor existe na lista.',
+        ),
+    )
+    session_id = f'01SHF000000000000000000{800 + index:03d}'
+    created_at = SEED_CREATED_AT + timedelta(days=index, hours=9)
+    messages: list[MentorMessage] = []
+    for position, (question, answer) in enumerate(pairs):
+        learner_id = f'01SHF000000000000000000{820 + position * 2:03d}'
+        asked_at = created_at + timedelta(minutes=position * 3)
+        messages.append(
+            MentorMessage(
+                id=learner_id,
+                session_id=session_id,
+                role=MentorMessageRole.LEARNER,
+                content=question,
+                created_at=asked_at,
+                in_reply_to_message_id=None,
+            )
+        )
+        messages.append(
+            MentorMessage(
+                id=f'01SHF000000000000000000{821 + position * 2:03d}',
+                session_id=session_id,
+                role=MentorMessageRole.MENTOR,
+                content=answer,
+                created_at=asked_at + timedelta(minutes=1),
+                in_reply_to_message_id=learner_id,
+            )
+        )
+    last_activity_at = messages[-1].created_at
+    session = MentorSession(
+        id=session_id,
+        account_id=SEED_ACCOUNT_ID,
+        title='Listas e laços em Python',
+        created_at=created_at,
+        updated_at=last_activity_at,
+        last_activity_at=last_activity_at,
+    )
+    return session, tuple(messages)
 
 
 def _build_logic_learning_records(
