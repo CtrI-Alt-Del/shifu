@@ -148,11 +148,6 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           ) : null}
         </div>
       ) : null}
-      {dictationLanguageAvailability === 'available' ? (
-        <p className='text-xs text-muted-foreground'>
-          O navegador pode usar um serviço na nuvem para reconhecer sua fala.
-        </p>
-      ) : null}
       {submissionError ? (
         <div
           className='mb-2 flex items-center justify-between gap-2 text-sm'

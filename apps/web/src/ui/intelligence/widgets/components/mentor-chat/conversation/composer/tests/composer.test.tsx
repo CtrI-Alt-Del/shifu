@@ -394,7 +394,7 @@ describe('Composer attachments', () => {
   })
 })
 
-it('discloses browser-managed recognition before microphone use', () => {
+it('offers dictation without an install prompt when the language pack is available', () => {
   useComposerMock.mockReturnValue({
     canStartDictation: true,
     canManageAttachments: true,
@@ -408,10 +408,10 @@ it('discloses browser-managed recognition before microphone use', () => {
   } as unknown as ReturnType<typeof useComposer>)
   render(<Composer surface='page' />)
   expect(
-    screen.getByText(
+    screen.queryByText(
       'O navegador pode usar um serviço na nuvem para reconhecer sua fala.',
     ),
-  ).toBeVisible()
+  ).not.toBeInTheDocument()
   expect(
     screen.queryByRole('button', { name: 'Instalar pacote de idioma' }),
   ).not.toBeInTheDocument()
