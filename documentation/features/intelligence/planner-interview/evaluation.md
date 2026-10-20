@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | 24 / 24 frames compared (EV-12) |
 | Independent review | Pending (pull request review) |
 | Blockers | None for the delivery; VM-01 with the real model needs the OpenRouter key |
-| Candidate | Branch `feat/shifu-92` (on top of `feat/shifu-91`), working tree evaluated before the delivery commits |
+| Candidate | Branch `feat/shifu-92` (on top of `feat/shifu-91`), commits `358c6a4` + `263dfee`, PR #34 |
 
 # Progress
 
@@ -86,13 +86,13 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-92` on top of `feat/shifu-91` (`82d29df`), delivery commits recorded in Delivery |
+| Candidate | `feat/shifu-92` on top of `feat/shifu-91` (`1be84ce`): `358c6a4` feature, `263dfee` docs, then `263dfee` |
 | Completed | CA-01 … CA-23 implemented; EV-01 … EV-09, EV-12 passed; EV-11 partial |
 | Unfinished | VM-01 with the real DeepSeek/Jev run (needs `OPENROUTER_API_KEY`); ACH-03 under observation in PR #32 CI |
 | Uncommitted work | None after the delivery commits |
 | Active processes | Local FastAPI (7777) and Vite (7000) started for EV-05 may still be running; stop them when done |
 | Blockers | None |
-| Next action | Open the pull request, move SHIFU-92 to Code Review, watch CI for #31, #32 and the new PR |
+| Next action | Watch CI of #34 (and #32 after the fixture fix); address review; rebase when #31/#32 merge |
 
 # Delivery
 
@@ -105,11 +105,11 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| Pending | — | — | — |
+| https://github.com/CtrI-Alt-Del/shifu/pull/34 | `263dfee` (docs commit that records this state follows) | Pending: CI queued; review pending | https://github.com/CtrI-Alt-Del/shifu/pull/34/checks |
 
 | Field | Result |
 | --- | --- |
-| Publication | Pending pull request |
+| Publication | published: PR #34 opened against `main` on 2026-10-20 (stacked on #32 and #31); SHIFU-92 moved to Code Review |
 | Source verification | SHIFU-92 description (Jira) and PRD Intelligence v4 (Confluence 83099649) read on 2026-10-20; frames read from `design/shifu.pen` through Pencil |
 | Documentation Alignment | `planner-goal-flow/spec.md` revision 3 (operation stage); `design/handoff.md` manifest with 24 pairs; no rule change |
 | Revision History | Spec revision 1; no contract change during implementation |
