@@ -27,6 +27,9 @@ from shifu.intelligence.database.sqlalchemy.models import (
     MentorMessageModel,
     MentorSessionSummaryModel,
 )
+from shifu.intelligence.providers.retrieval.sentence_transformers.sentence_transformers_mentor_faq_reranker_provider import (
+    SentenceTransformersMentorFaqRerankerProvider,
+)
 from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
     TextrankMentorConversationSummarizerProvider,
 )
@@ -1672,7 +1675,25 @@ class TestProcessMentorResponseSummary:
         self,
         agentos_fixture: RegisteredAgentOSFixture,
         postgres_database: PostgresDatabase,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        # CI prepares only the embeddings model, never the cross-encoder, so the
+        # reranker judgement is a content-based double: it accepts only a query that
+        # actually names the tuple topic. Embeddings, retrieval and the router are real.
+        def judge(
+            self: SentenceTransformersMentorFaqRerankerProvider,
+            content: str,
+            documents: tuple[str, ...],
+        ) -> tuple[float, ...]:
+            relevant = 'tupla' in content.casefold()
+            return tuple(
+                10.0 if relevant and 'tupla' in document.casefold() else -10.0
+                for document in documents
+            )
+
+        monkeypatch.setattr(
+            SentenceTransformersMentorFaqRerankerProvider, 'score', judge
+        )
         recorder = _ObservationRecorder()
         self._registry(agentos_fixture).observability.bind(cast('Langfuse', recorder))
         answer = next(

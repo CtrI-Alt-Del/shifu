@@ -414,6 +414,7 @@ class TestAgentMonitoringWorkflow:
                 'matches',
                 'inference_requests',
                 'criteria',
+                'expanded',
             }
         if monitoring_ingestion.mode == 'provider_failure':
             assert any(
