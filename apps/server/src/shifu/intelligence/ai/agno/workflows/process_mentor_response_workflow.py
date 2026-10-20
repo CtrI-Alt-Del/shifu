@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import to_thread
 from contextlib import contextmanager, suppress
 from dataclasses import asdict, dataclass, field, replace
 from datetime import timedelta
@@ -66,6 +67,7 @@ if TYPE_CHECKING:
         RecordMentorResponseProgressUseCase,
         ReleaseMentorResponseClaimUseCase,
         RenewMentorResponseClaimUseCase,
+        SummarizeMentorSessionContextUseCase,
     )
     from shifu.intelligence.core.use_cases.finalize_mentor_response_use_case import (
         FinalizeMentorResponseUseCase,
@@ -114,6 +116,7 @@ class ProcessMentorResponseWorkflow(Workflow):
     def __init__(
         self,
         *,
+        summarize_use_case: SummarizeMentorSessionContextUseCase,
         prepare_use_case: PrepareMentorResponseUseCase,
         publish_block_use_case: PublishMentorResponseBlockUseCase,
         assert_current_use_case: AssertMentorResponseCurrentUseCase,
@@ -130,6 +133,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         handoffs: AgentOSHandoffStore,
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
+        self._summarize = summarize_use_case
         self._prepare = prepare_use_case
         self._publish_block = publish_block_use_case
         self._assert_current = assert_current_use_case
@@ -149,6 +153,11 @@ class ProcessMentorResponseWorkflow(Workflow):
             id='intelligence-process-mentor-response',
             name='Process Mentor Response',
             steps=[
+                Step(
+                    name='summarize-conversation-context',
+                    executor=self._summarize_context,
+                    max_retries=0,
+                ),
                 Step(
                     name='prepare-and-publish-local-response',
                     executor=self._prepare_and_publish,
@@ -184,6 +193,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         self, *, update: dict[str, object] | None = None
     ) -> ProcessMentorResponseWorkflow:
         workflow = ProcessMentorResponseWorkflow(
+            summarize_use_case=self._summarize,
             prepare_use_case=self._prepare,
             publish_block_use_case=self._publish_block,
             assert_current_use_case=self._assert_current,
@@ -205,6 +215,26 @@ class ProcessMentorResponseWorkflow(Workflow):
             for name, value in update.items():
                 setattr(workflow, name, value)
         return workflow
+
+    async def _summarize_context(self, step_input: StepInput) -> StepOutput:
+        """Run the summarization off the event loop so live progress keeps streaming."""
+        return await to_thread(self._summarize_context_blocking, step_input)
+
+    def _summarize_context_blocking(self, step_input: StepInput) -> StepOutput:
+        """Summarize a long conversation first; this step never fails the answer run."""
+        try:
+            raw = step_input.input
+            request = (
+                _Input.model_validate_json(raw, strict=True)
+                if isinstance(raw, str)
+                else _Input.model_validate(raw, strict=True)
+            )
+            self._summarize.execute(
+                request.attempt_id, request.event_id or request.attempt_id
+            )
+        except Exception:  # noqa: BLE001 - prepare validates the input and decides the outcome.
+            return StepOutput(content='summary-skipped')
+        return StepOutput(content='summary-done')
 
     def _prepare_and_publish(self, step_input: StepInput) -> StepOutput:
         try:

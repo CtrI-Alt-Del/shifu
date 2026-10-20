@@ -16,6 +16,9 @@ from .mentor_response_attempts_repository import (
 from .mentor_response_events_repository import (
     SqlalchemyMentorResponseEventsRepository as SqlalchemyMentorResponseEventsRepository,
 )
+from .mentor_session_summaries_repository import (
+    SqlalchemyMentorSessionSummariesRepository as SqlalchemyMentorSessionSummariesRepository,
+)
 from .mentor_sessions_repository import (
     SqlalchemyMentorSessionsRepository as SqlalchemyMentorSessionsRepository,
 )

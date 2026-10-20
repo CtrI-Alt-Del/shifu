@@ -13,4 +13,7 @@ from .mentor_response_event_mapper import (
     MentorResponseEventMapper as MentorResponseEventMapper,
 )
 from .mentor_session_mapper import MentorSessionMapper as MentorSessionMapper
+from .mentor_session_summary_mapper import (
+    MentorSessionSummaryMapper as MentorSessionSummaryMapper,
+)
 from .planning_session_mapper import PlanningSessionMapper as PlanningSessionMapper

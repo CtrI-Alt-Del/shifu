@@ -22,4 +22,7 @@ from .mentor_response_submission_model import (
     MentorResponseSubmissionModel as MentorResponseSubmissionModel,
 )
 from .mentor_session_model import MentorSessionModel as MentorSessionModel
+from .mentor_session_summary_model import (
+    MentorSessionSummaryModel as MentorSessionSummaryModel,
+)
 from .planning_session_model import PlanningSessionModel as PlanningSessionModel

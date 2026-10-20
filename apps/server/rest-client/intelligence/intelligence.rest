@@ -33,8 +33,12 @@ Content-Type: application/json
 GET {{baseUrl}}/intelligence/mentor-sessions?search=python
 Authorization: Bearer {{accessToken}}
 
-### Open a Mentor conversation
+### Open a Mentor conversation (includes summary.current and summary.failure_after_message_id)
 GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
+Authorization: Bearer {{accessToken}}
+
+### Read the current Mentor conversation summary; 404 when absent, foreign or deleted
+GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/summary
 Authorization: Bearer {{accessToken}}
 
 ### Rename a Mentor conversation

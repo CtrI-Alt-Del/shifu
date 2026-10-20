@@ -9,6 +9,9 @@ from shifu.intelligence.rest.controllers.create_mentor_session_controller import
 from shifu.intelligence.rest.controllers.get_mentor_session_controller import (
     GetMentorSessionController,
 )
+from shifu.intelligence.rest.controllers.get_mentor_session_summary_controller import (
+    GetMentorSessionSummaryController,
+)
 from shifu.intelligence.rest.controllers.list_mentor_sessions_controller import (
     ListMentorSessionsController,
 )
@@ -43,6 +46,7 @@ class IntelligenceRouter:
         CreateMentorSessionController.handle(router)
         ListMentorSessionsController.handle(router)
         GetMentorSessionController.handle(router)
+        GetMentorSessionSummaryController.handle(router)
         RenameMentorSessionController.handle(router)
         RemoveMentorSessionController.handle(router)
         SubmitMentorMessageController.handle(router)
