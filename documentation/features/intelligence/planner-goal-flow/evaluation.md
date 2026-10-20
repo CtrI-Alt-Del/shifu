@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | Not applicable: no user interface |
 | Independent review | Pending: PR review by the team |
 | Blockers | None for the deterministic delivery; VM-01 waits for a key |
-| Candidate | branch `feat/shifu-91` on top of `feat/shifu-89` (`6097809`), commit PENDING_SHA |
+| Candidate | branch `feat/shifu-91` on top of `feat/shifu-89` (`6a4bdcb`), commits `0f0be27` and `4481df0`; the evaluated scope is those commits |
 
 # Progress
 
@@ -76,7 +76,7 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-91`, commit PENDING_SHA |
+| Candidate | `feat/shifu-91`, commit `0f0be27`, pull request #32 |
 | Completed | CA-01 to CA-18 implemented; EV-01 to EV-07 passed |
 | Unfinished | EV-08 (real DeepSeek run, needs a key); EV-09 (runs on the PR) |
 | Uncommitted work | None after delivery |
@@ -98,11 +98,11 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| PENDING_PR_URL | PENDING_SHA | Pending | Pending |
+| https://github.com/CtrI-Alt-Del/shifu/pull/32 (base `feat/shifu-89` until #31 merges) | `0f0be27` (feature) and `4481df0` (documentation); this delivery-state note follows as a docs commit | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
 
 | Field | Result |
 | --- | --- |
-| Publication | PENDING_PUBLICATION |
+| Publication | Published: branch `feat/shifu-91` pushed to `CtrI-Alt-Del/shifu`, pull request #32 open against `feat/shifu-89`; Jira SHIFU-91 moved to Code Review |
 | Source verification | SHIFU-91 (Jira, read 2026-10-20) and PRD Intelligence content `83099649` version 4 |
 | Documentation Alignment | Confirmed as listed in the spec; no Confluence write; `documentation/modules.md` unchanged |
 | Revision History | Spec revision 2 (see spec) |
