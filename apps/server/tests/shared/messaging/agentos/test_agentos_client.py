@@ -122,6 +122,22 @@ class TestAgentOSClient:
 
         asyncio.run(exercise())
 
+    def test_planning_tickets_serialize_only_their_allowlisted_identifiers(
+        self,
+    ) -> None:
+        fields = {
+            'planning_id': '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+            'operation_id': '01ARZ3NDEKTSV4RRFFQ69G5FAW',
+            'generation': '2',
+            'event_id': '01ARZ3NDEKTSV4RRFFQ69G5FAX',
+        }
+
+        message = AgentOSClient._serialize_fields(fields)  # noqa: SLF001 # pyright: ignore[reportPrivateUsage] - envelope allowlist under test.
+
+        assert json.loads(message) == fields
+        with pytest.raises(AgentOSClientError, match='envelope is invalid'):
+            AgentOSClient._serialize_fields({**fields, 'intent': 'Quero aprender'})  # noqa: SLF001 # pyright: ignore[reportPrivateUsage] - envelope allowlist under test.
+
     def test_background_submission_requires_durable_admission(self) -> None:
         async def exercise() -> None:
             async def reject_admission(_request: Request) -> JSONResponse:

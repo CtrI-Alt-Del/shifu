@@ -1,0 +1,112 @@
+{
+  "queries": [
+    {
+      "id": "q01",
+      "kind": "clear",
+      "intent": "Quero aprender a programar do zero, sem nunca ter escrito código",
+      "answers": [],
+      "relevant": ["Lógica de programação"]
+    },
+    {
+      "id": "q02",
+      "kind": "clear",
+      "intent": "Quero construir interfaces com componentes e estado usando React",
+      "answers": [],
+      "relevant": ["React"]
+    },
+    {
+      "id": "q03",
+      "kind": "clear",
+      "intent": "Preciso montar páginas e definir a apresentação visual com HTML e CSS",
+      "answers": [],
+      "relevant": ["HTML e CSS"]
+    },
+    {
+      "id": "q04",
+      "kind": "clear",
+      "intent": "Quero conectar dados e regras por interfaces HTTP criando APIs",
+      "answers": [],
+      "relevant": ["APIs web"]
+    },
+    {
+      "id": "q05",
+      "kind": "clear",
+      "intent": "Quero usar JavaScript para dar comportamento a aplicações web",
+      "answers": [],
+      "relevant": ["JavaScript essencial"]
+    },
+    {
+      "id": "q06",
+      "kind": "vague",
+      "intent": "Quero trabalhar com desenvolvimento web",
+      "answers": [],
+      "relevant": ["HTML e CSS", "JavaScript essencial", "React", "APIs web"]
+    },
+    {
+      "id": "q07",
+      "kind": "vague",
+      "intent": "Quero entender como um computador toma decisões em um programa",
+      "answers": [],
+      "relevant": ["Lógica de programação", "Decisões em algoritmos"]
+    },
+    {
+      "id": "q08",
+      "kind": "negation",
+      "intent": "Não quero front-end nem páginas, prefiro APIs e regras de negócio no servidor",
+      "answers": [],
+      "relevant": ["APIs web"]
+    },
+    {
+      "id": "q09",
+      "kind": "refresh",
+      "intent": "Quero aprender a fazer sites",
+      "answers": [
+        "Quero começar pela estrutura e pela aparência das páginas",
+        "Ainda não sei programar"
+      ],
+      "relevant": ["HTML e CSS", "Lógica de programação"]
+    },
+    {
+      "id": "q10",
+      "kind": "refresh",
+      "intent": "Quero aprender a fazer sites",
+      "answers": ["Já sei HTML e CSS", "Quero interatividade e componentes"],
+      "relevant": ["JavaScript essencial", "React"]
+    },
+    {
+      "id": "q11",
+      "kind": "no-coverage",
+      "intent": "Quero aprender a cozinhar pratos da culinária italiana",
+      "answers": [],
+      "relevant": []
+    },
+    {
+      "id": "q12",
+      "kind": "no-coverage",
+      "intent": "Quero aprender a tocar violão clássico",
+      "answers": [],
+      "relevant": []
+    },
+    {
+      "id": "q13",
+      "kind": "clear",
+      "intent": "Quero praticar condições, laços e evidências por conceito com diagnóstico",
+      "answers": [],
+      "relevant": ["Decisões em algoritmos"]
+    },
+    {
+      "id": "q14",
+      "kind": "vague",
+      "intent": "Quero fazer um aplicativo completo, da tela ao servidor",
+      "answers": [],
+      "relevant": ["React", "APIs web", "JavaScript essencial"]
+    },
+    {
+      "id": "q21",
+      "kind": "negation",
+      "intent": "Não quero começar por web nem por interfaces, quero primeiro a base de lógica para programar",
+      "answers": [],
+      "relevant": ["Lógica de programação"]
+    }
+  ]
+}
