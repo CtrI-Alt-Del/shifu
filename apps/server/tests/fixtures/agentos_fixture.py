@@ -30,6 +30,7 @@ from shifu.shared.settings import get_settings
 from shifu.shared.constants import ENVIRONMENT
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Iterator
     from threading import Event
 
@@ -308,18 +309,36 @@ class ControlledMentorModelTransport:
 
 
 class ControlledDecisionsTransport:
-    """Capture Jev decision requests and answer the configured planning kind."""
+    """Answer the planner's Jev classification; other decisions keep their client.
 
-    def __init__(self) -> None:
+    Suites that exercise code assessment patch the registry's rubric client factory
+    with their own transport before the registered app is built; this transport only
+    intercepts `planning_intent` requests and forwards everything else to the client
+    that factory produces, so both kinds of decisions stay controlled.
+    """
+
+    def __init__(
+        self, fallback_factory: Callable[[], httpx.Client] | None = None
+    ) -> None:
         self.kind = 'learning'
         self.fail_next = 0
         self.requests: list[dict[str, object]] = []
+        self._fallback_factory = fallback_factory
+        self._fallback_client: httpx.Client | None = None
 
     def build_client(self) -> httpx.Client:
         return httpx.Client(transport=httpx.MockTransport(self._handle))
 
+    def close(self) -> None:
+        if self._fallback_client is not None:
+            self._fallback_client.close()
+            self._fallback_client = None
+
     def _handle(self, request: httpx.Request) -> httpx.Response:
         payload = cast('dict[str, object]', json.loads(request.content))
+        questions = payload.get('questions')
+        if not isinstance(questions, dict) or 'planning_intent' not in questions:
+            return self._forward(request)
         self.requests.append(payload)
         if self.fail_next > 0:
             self.fail_next -= 1
@@ -340,6 +359,19 @@ class ControlledDecisionsTransport:
                 }
             },
         )
+
+    def _forward(self, request: httpx.Request) -> httpx.Response:
+        if self._fallback_factory is None:
+            return httpx.Response(503, json={'error': 'decisions unavailable'})
+        if self._fallback_client is None:
+            self._fallback_client = self._fallback_factory()
+        forwarded = self._fallback_client.build_request(
+            request.method,
+            str(request.url),
+            headers=request.headers,
+            content=request.content,
+        )
+        return self._fallback_client.send(forwarded)
 
 
 @dataclass(frozen=True, slots=True)
@@ -463,7 +495,8 @@ def agentos_fixture(
         'shifu.intelligence.ai.intelligence_workflows_registry.OpenrouterPlannerModelProvider.build',
         controlled_planner_model,
     )
-    decisions = ControlledDecisionsTransport()
+    rubric_client_factory = IntelligenceWorkflowsRegistry._build_code_rubric_client  # noqa: SLF001 - the fixture seams the private factory on purpose. # pyright: ignore[reportPrivateUsage]
+    decisions = ControlledDecisionsTransport(rubric_client_factory)
     monkeypatch.setattr(
         IntelligenceWorkflowsRegistry,
         '_build_code_rubric_client',
