@@ -9,6 +9,7 @@ from evals.evaluate_code_activity_eval import EvaluateCodeActivityEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
+from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 from evals.synthetic_model import SyntheticEvalModel
 
 
@@ -92,6 +93,27 @@ def build_evaluator(selector: str, *, mode: str) -> Any:
                 'synthetic-jev-rubric-model' if double else 'configured-jev-profile'
             ),
             close_resources=client.close,
+        )
+
+    if selector == SummarizeMentorSessionEval.selector:
+        # Local NLP only: identical in double and real modes, no model calls.
+        from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import (
+            SentenceTransformersEmbeddingsProvider,
+        )
+        from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
+            TextrankMentorConversationSummarizerProvider,
+        )
+        from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
+            SpacyMentorTextPreprocessorProvider,
+        )
+
+        return SummarizeMentorSessionEval(
+            TextrankMentorConversationSummarizerProvider(
+                SpacyMentorTextPreprocessorProvider(),
+                SentenceTransformersEmbeddingsProvider(),
+            ),
+            mode=mode,
+            model_profile='local-textrank',
         )
 
     raise ValueError('Unknown synthetic eval selector')
