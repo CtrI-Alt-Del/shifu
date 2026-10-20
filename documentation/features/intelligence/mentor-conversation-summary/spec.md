@@ -1,6 +1,6 @@
 ---
 title: Mentor — conversation summary and continuity
-status: implemented
+status: completed
 revision: 3
 source:
   type: issue
