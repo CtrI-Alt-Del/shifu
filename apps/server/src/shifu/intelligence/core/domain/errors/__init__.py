@@ -19,6 +19,9 @@ from .mentor_response_conflict_error import (
 from .mentor_session_not_found_error import (
     MentorSessionNotFoundError as MentorSessionNotFoundError,
 )
+from .mentor_session_summary_not_found_error import (
+    MentorSessionSummaryNotFoundError as MentorSessionSummaryNotFoundError,
+)
 from .mentor_submission_conflict_error import (
     MentorSubmissionConflictError as MentorSubmissionConflictError,
 )

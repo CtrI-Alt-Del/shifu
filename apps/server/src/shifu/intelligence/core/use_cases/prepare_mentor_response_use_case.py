@@ -1,18 +1,17 @@
 import re
 import unicodedata
 from dataclasses import asdict, replace
-from datetime import timedelta
 
 from shifu.intelligence.core.domain.entities import MentorMessage, MentorResponseAttempt
 from shifu.intelligence.core.domain.enums import (
     MentorAttachmentStatus,
     MentorIntent,
     MentorMessageRole,
-    MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import (
     MentorAttachmentContext,
+    MentorConversationSummaryContext,
     MentorGenerationRequest,
     MentorResponseBlock,
     MentorRouteResult,
@@ -28,7 +27,7 @@ from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case im
 )
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
-    response_event,
+    start_response_attempt,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorContextSnapshot
@@ -80,9 +79,33 @@ class PrepareMentorResponseUseCase:
             return None
         assert_response_access(self._access_provider, attempt)
         with self._database.transaction() as repositories:
-            history = repositories.mentor_messages.find_all(
+            ready = repositories.mentor_session_summaries.find_ready(
                 attempt.account_id, attempt.session_id
             )
+            if ready is None:
+                history = repositories.mentor_messages.find_all(
+                    attempt.account_id, attempt.session_id
+                )
+                summary = None
+            else:
+                history = repositories.mentor_messages.find_range(
+                    attempt.account_id, attempt.session_id, ready.boundary
+                )
+                try:
+                    summary = MentorConversationSummaryContext.from_summary(
+                        ready,
+                        repositories.mentor_messages.find_by_ids(
+                            attempt.account_id,
+                            attempt.session_id,
+                            tuple(
+                                dict.fromkeys(
+                                    span.message_id for span in ready.excerpts
+                                )
+                            ),
+                        ),
+                    )
+                except ValueError as error:
+                    raise ServiceUnavailableError from error
             snapshot = repositories.mentor_response_events.snapshot(
                 attempt.account_id, attempt.session_id
             )
@@ -127,7 +150,12 @@ class PrepareMentorResponseUseCase:
             or ordinal_clarification
             or named_clarification
         )
-        route = self._route(learner.content, context, clarification)
+        route = self._route(
+            learner.content,
+            context,
+            clarification,
+            summary.topics if summary is not None else (),
+        )
         route = self._propose_catalog(
             attempt, learner.content, context, route, execution_owner
         )
@@ -162,6 +190,7 @@ class PrepareMentorResponseUseCase:
                 approved_blocks=approved,
                 correction=None,
                 attachment_context=attachment_context,
+                summary=summary,
             )
         self._assert_claim_current(attempt, execution_owner)
         return PreparedMentorResponse(
@@ -178,60 +207,13 @@ class PrepareMentorResponseUseCase:
     def _start(
         self, attempt_id: str, execution_owner: str
     ) -> MentorResponseAttempt | None:
-        with self._database.transaction() as repositories:
-            attempt = repositories.mentor_response_attempts.find_by_id_for_update(
-                attempt_id
-            )
-            if attempt is None or attempt.status not in (
-                MentorResponseStatus.QUEUED,
-                MentorResponseStatus.PROCESSING,
-            ):
-                return None
-            session = repositories.mentor_sessions.find_by_id_for_update(
-                attempt.account_id, attempt.session_id
-            )
-            current = repositories.mentor_response_attempts.find_current(
-                attempt.account_id, attempt.session_id
-            )
-            now = self._clock_provider.now()
-            if (
-                session is None
-                or current is None
-                or current.id != attempt.id
-                or not repositories.mentor_response_attempts.claim(
-                    attempt.id,
-                    execution_owner,
-                    now,
-                    now + timedelta(minutes=5),
-                    attempt.access_revision,
-                )
-            ):
-                return None
-        assert_response_access(self._access_provider, attempt)
-        with self._database.transaction() as repositories:
-            self._assert_claim(repositories, attempt, execution_owner)
-            assert_response_access(self._access_provider, attempt)
-            if attempt.status is MentorResponseStatus.QUEUED:
-                if not repositories.mentor_response_attempts.transition(
-                    attempt.id,
-                    MentorResponseStatus.QUEUED,
-                    MentorResponseStatus.PROCESSING,
-                    attempt.access_revision,
-                ):
-                    return None
-                sequence = repositories.mentor_response_events.next_sequence(
-                    attempt.session_id
-                )
-                repositories.mentor_response_events.append(
-                    response_event(
-                        attempt,
-                        self._clock_provider,
-                        sequence,
-                        MentorResponseEventKind.STATUS,
-                        MentorResponseStatus.PROCESSING,
-                    )
-                )
-        return replace(attempt, status=MentorResponseStatus.PROCESSING)
+        return start_response_attempt(
+            self._database,
+            self._clock_provider,
+            self._access_provider,
+            attempt_id,
+            execution_owner,
+        )
 
     def _assert_claim(
         self,
@@ -429,7 +411,11 @@ class PrepareMentorResponseUseCase:
         )
 
     def _route(
-        self, content: str, context: MentorContextSnapshot, clarification: str | None
+        self,
+        content: str,
+        context: MentorContextSnapshot,
+        clarification: str | None,
+        topics: tuple[str, ...],
     ) -> MentorRouteResult:
         if not content.strip():
             return MentorRouteResult(
@@ -442,7 +428,11 @@ class PrepareMentorResponseUseCase:
             (value for key, value in context.facts if key == 'context_clarification'),
             clarification,
         )
-        route = self._route_provider.route(content, context)
+        route = (
+            self._route_provider.route(content, context, topics)
+            if topics
+            else self._route_provider.route(content, context)
+        )
         if clarification is not None:
             return replace(route, clarification=clarification, generation_requests=())
         return route

@@ -7,7 +7,23 @@ import pytest
 
 from shifu.intelligence.core.domain.entities import MentorSession
 from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
-from shifu.intelligence.core.domain.structures import MentorMessagesPage
+from shifu.intelligence.core.domain.entities import (
+    MentorResponseAttempt,
+    MentorSessionSummary,
+)
+from shifu.intelligence.core.domain.enums import (
+    MentorResponseStatus,
+    MentorSummaryExcerptKind,
+    MentorSummaryFailureCode,
+)
+from shifu.intelligence.core.domain.structures import (
+    MentorConversationSummaryDraft,
+    MentorMessagesPage,
+    MentorSessionSummaryState,
+    MentorSummaryBoundary,
+    MentorSummaryExcerptSpan,
+    MentorSummaryMarker,
+)
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -39,6 +55,8 @@ class TestGetMentorSessionUseCase:
             items=[], next_cursor=None
         )
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
+        self.repositories.mentor_session_summaries.find_ready.return_value = None
+        self.repositories.mentor_session_summaries.find_failed.return_value = None
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.subject = GetMentorSessionUseCase(self.database, self.access)
 
@@ -81,3 +99,122 @@ class TestGetMentorSessionUseCase:
         with pytest.raises(ServiceUnavailableError):
             self.subject.execute('account', 'session')
         self.database.transaction.assert_not_called()
+
+    def summary(self, version: int, *, ready: bool) -> MentorSessionSummary:
+        started = MentorSessionSummary.start(
+            id=f'summary-{version}',
+            account_id='account',
+            session_id='session',
+            attempt_id=f'attempt-{version}',
+            version=version,
+            boundary=MentorSummaryBoundary(message_id='boundary', created_at=self.now),
+            covered_message_count=21,
+            first_message_id='first',
+            now=self.now,
+        )
+        if not ready:
+            return started.fail(MentorSummaryFailureCode.NLP_UNAVAILABLE, self.now)
+        return started.complete(
+            MentorConversationSummaryDraft(
+                topics=('range',),
+                excerpts=(
+                    MentorSummaryExcerptSpan(
+                        message_id='boundary',
+                        start=0,
+                        end=4,
+                        kind=MentorSummaryExcerptKind.DOUBT,
+                    ),
+                ),
+                algorithm_version='v1',
+            ),
+            self.now,
+        )
+
+    def failed_attempt(self, version: int) -> MentorResponseAttempt:
+        return MentorResponseAttempt.create(
+            id=f'attempt-{version}',
+            account_id='account',
+            session_id='session',
+            learner_message_id=f'learner-{version}',
+            status=MentorResponseStatus.COMPLETED,
+            context_hint=None,
+            access_revision='revision',
+            operation_key='operation',
+            created_at=self.now,
+            updated_at=self.now,
+        )
+
+    def test_should_return_an_empty_summary_state_without_summaries(self) -> None:
+        assert self.subject.execute('account', 'session').summary == (
+            MentorSessionSummaryState()
+        )
+
+    def test_should_expose_the_ready_marker_without_offsets(self) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state == MentorSessionSummaryState(
+            current=MentorSummaryMarker(
+                version=2,
+                boundary_message_id='boundary',
+                covered_message_count=21,
+                completed_at=self.now,
+            ),
+            failure_after_message_id=None,
+        )
+
+    def test_should_anchor_the_failure_notice_when_only_a_failed_row_exists(
+        self,
+    ) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(3)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is None
+        assert state.failure_after_message_id == 'learner-3'
+        self.repositories.mentor_response_attempts.find_by_id.assert_called_once_with(
+            'attempt-3'
+        )
+
+    def test_should_keep_both_when_the_failed_row_is_newer_than_the_ready_one(
+        self,
+    ) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_ready.return_value = self.summary(2, ready=True)
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(3)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.version == 2
+        assert state.failure_after_message_id == 'learner-3'
+
+    def test_should_ignore_a_failed_row_older_than_the_ready_one(self) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_ready.return_value = self.summary(4, ready=True)
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.failure_after_message_id is None
+        self.repositories.mentor_response_attempts.find_by_id.assert_not_called()
+
+    def test_should_omit_the_notice_when_the_failed_attempt_is_gone(self) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = None
+
+        assert (
+            self.subject.execute('account', 'session').summary.failure_after_message_id
+            is None
+        )

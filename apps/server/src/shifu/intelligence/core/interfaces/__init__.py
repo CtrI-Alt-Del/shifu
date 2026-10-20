@@ -22,6 +22,9 @@ from .mentor_attachment_extractor_provider import (
 from .mentor_attachments_repository import (
     MentorAttachmentsRepository as MentorAttachmentsRepository,
 )
+from .mentor_conversation_summarizer_provider import (
+    MentorConversationSummarizerProvider as MentorConversationSummarizerProvider,
+)
 from .mentor_embeddings_provider import (
     MentorEmbeddingsProvider as MentorEmbeddingsProvider,
 )
@@ -39,6 +42,9 @@ from .mentor_response_events_repository import (
 )
 from .mentor_review_provider import MentorReviewProvider as MentorReviewProvider
 from .mentor_route_provider import MentorRouteProvider as MentorRouteProvider
+from .mentor_session_summaries_repository import (
+    MentorSessionSummariesRepository as MentorSessionSummariesRepository,
+)
 from .mentor_sessions_repository import (
     MentorSessionsRepository as MentorSessionsRepository,
 )
