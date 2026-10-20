@@ -13,6 +13,7 @@ export const ROUTES = {
   learningGoalSkillsAdd: '/learning/goals/$goalId/skills/add',
   gamification: '/gamification',
   intelligence: '/intelligence',
+  intelligencePlanner: '/intelligence/planner/$planningId',
   account: '/account',
   learningActivity:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
@@ -23,7 +24,10 @@ export const ROUTES = {
 
 type StaticRouteName = Exclude<
   keyof typeof ROUTES,
-  'learningActivity' | 'learningAttempt' | 'learningDiagnosticResult'
+  | 'learningActivity'
+  | 'learningAttempt'
+  | 'learningDiagnosticResult'
+  | 'intelligencePlanner'
 >
 
 type LearningActivityRouteIds = {
@@ -71,6 +75,10 @@ export function learningDiagnosticResultPath({
   return ROUTES.learningDiagnosticResult
     .replace('$goalId', encodeURIComponent(goalId))
     .replace('$skillId', encodeURIComponent(skillId))
+}
+
+export function intelligencePlannerPath(planningId: string) {
+  return ROUTES.intelligencePlanner.replace('$planningId', encodeURIComponent(planningId))
 }
 
 export type RouteName = StaticRouteName

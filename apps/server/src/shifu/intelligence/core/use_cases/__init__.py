@@ -111,5 +111,8 @@ from .get_planning_session_use_case import (
 from .prepare_planning_operation_use_case import (
     PreparePlanningOperationUseCase as PreparePlanningOperationUseCase,
 )
+from .report_planning_progress_use_case import (
+    ReportPlanningProgressUseCase as ReportPlanningProgressUseCase,
+)
 from .restart_planning_use_case import RestartPlanningUseCase as RestartPlanningUseCase
 from .retry_planning_use_case import RetryPlanningUseCase as RetryPlanningUseCase

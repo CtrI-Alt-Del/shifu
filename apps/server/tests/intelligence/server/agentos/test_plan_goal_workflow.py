@@ -10,6 +10,10 @@ import pytest
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
 from shifu.intelligence.ai.data.planner_resources import PlannerResources
+from shifu.intelligence.core.domain.enums import (
+    PlanningOperationStage,
+    PlanningSessionStatus,
+)
 from shifu.intelligence.database.planning_embeddings_database_repository import (
     PlanningEmbeddingsDatabaseRepository,
 )
@@ -309,6 +313,13 @@ class TestPlanGoalWorkflow:
         ):
             sleep(0.2)
         assert planner_runtime.model_transport.planner_requests
+        # The workflow reported its stage before blocking on the interview model;
+        # the repository is read directly so the short test timeout cannot expire it.
+        in_flight = _sessions(planner_runtime).find_by_id(planning_id)
+        assert in_flight is not None
+        assert in_flight.status is PlanningSessionStatus.PROCESSING
+        assert in_flight.operation is not None
+        assert in_flight.operation.stage is PlanningOperationStage.INTERVIEWING
 
         cancelled = planner_runtime.client.delete(
             f'/intelligence/planning-sessions/{planning_id}'

@@ -29,6 +29,7 @@ from shifu.intelligence.core.use_cases import (
     ClassifyPlanningIntentUseCase,
     CompletePlanningOperationUseCase,
     PreparePlanningOperationUseCase,
+    ReportPlanningProgressUseCase,
     RetrievePlanningSkillsUseCase,
     CompleteMentorAttachmentUseCase,
     FailMentorAttachmentUseCase,
@@ -440,6 +441,9 @@ class IntelligenceWorkflowsRegistry:
                 self._planning_sessions, access_provider
             ),
             complete_use_case=CompletePlanningOperationUseCase(
+                self._planning_sessions, self._clock_provider
+            ),
+            progress_use_case=ReportPlanningProgressUseCase(
                 self._planning_sessions, self._clock_provider
             ),
             classify_use_case=ClassifyPlanningIntentUseCase(

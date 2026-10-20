@@ -510,6 +510,7 @@ jobs:
             tests/intelligence/core/use_cases/test_cancel_planning_use_case.py \
             tests/intelligence/core/use_cases/test_prepare_planning_operation_use_case.py \
             tests/intelligence/core/use_cases/test_complete_planning_operation_use_case.py \
+            tests/intelligence/core/use_cases/test_report_planning_progress_use_case.py \
             tests/intelligence/server/controllers/test_start_planning_controller.py \
             tests/intelligence/server/controllers/test_get_planning_session_controller.py \
             tests/intelligence/server/controllers/test_answer_planning_questions_controller.py \

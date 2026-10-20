@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
+    PlanningOperationStage,
     PlanningQuestionKind,
     PlanningSessionStatus,
 )
@@ -28,6 +29,7 @@ class PlanningSessionSchemas:
     class Operation(BaseModel):
         kind: PlanningOperationKind
         started_at: datetime
+        stage: PlanningOperationStage | None
 
     class ProposalSkill(BaseModel):
         skill_id: str

@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 from shifu.intelligence.core.domain.enums.planning_intent_kind import (
@@ -5,6 +6,9 @@ from shifu.intelligence.core.domain.enums.planning_intent_kind import (
 )
 from shifu.intelligence.core.domain.enums.planning_operation_kind import (
     PlanningOperationKind,
+)
+from shifu.intelligence.core.domain.enums.planning_operation_stage import (
+    PlanningOperationStage,
 )
 from shifu.intelligence.core.domain.enums.planning_operation_result_kind import (
     PlanningOperationResultKind,
@@ -180,6 +184,26 @@ class PlanningSession:
         self.status = PlanningSessionStatus.FAILED
         self.failure_code = OPERATION_TIMEOUT_CODE
         self.message = FAILED_MESSAGE
+        self.updated_at = now
+        return True
+
+    def report_progress(
+        self,
+        operation_id: str,
+        generation: int,
+        stage: PlanningOperationStage,
+        now: datetime,
+    ) -> bool:
+        operation = self.operation
+        # Progress of a cancelled, restarted or superseded operation is discarded.
+        if (
+            operation is None
+            or operation.id != operation_id
+            or self.generation != generation
+            or self.status is not PlanningSessionStatus.PROCESSING
+        ):
+            return False
+        self.operation = replace(operation, stage=stage)
         self.updated_at = now
         return True
 
