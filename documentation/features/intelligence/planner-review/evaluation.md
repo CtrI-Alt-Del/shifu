@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | 8 / 8 frames compared (EV-09) |
 | Independent review | Pending (pull request review) |
 | Blockers | None for the delivery; VM-01 needs the OpenRouter key |
-| Candidate | Branch `feat/shifu-93` on top of `feat/shifu-92` (PR #34) and `feat/shifu-91` (PR #32); commits recorded in Delivery |
+| Candidate | Branch `feat/shifu-93` on top of `feat/shifu-92` (PR #34) and `feat/shifu-91` (PR #32): `e55b1bc` feature, `228c523` docs; PR #35 |
 
 # Progress
 
@@ -72,13 +72,13 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-93` on top of `feat/shifu-92` (`1180df3`): feature and docs commits recorded in Delivery |
+| Candidate | `feat/shifu-93` on top of `feat/shifu-92` (`1180df3`): `e55b1bc` feature, `228c523` docs, then the delivery-state commit |
 | Completed | CA-01 … CA-11 implemented; EV-01 … EV-07, EV-09 passed |
 | Unfinished | VM-01 with the real model (needs `OPENROUTER_API_KEY`); `Criar objetivo` confirmation belongs to SHIFU-95 |
 | Uncommitted work | None after the delivery commits |
 | Active processes | Local FastAPI (7777) and Vite (7000) started for EV-03 may still be running; stop them when done |
 | Blockers | None |
-| Next action | Watch CI of the SHIFU-93 PR; address review; rebase when #31, #32 and #34 merge; SHIFU-95 consumes `PlannerPage.onCreateGoal` |
+| Next action | Watch CI of #35; address review; rebase when #31, #32 and #34 merge; SHIFU-95 consumes `PlannerPage.onCreateGoal` |
 
 # Delivery
 
@@ -91,11 +91,11 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| Pending | Pending | Pending | Pending |
+| https://github.com/CtrI-Alt-Del/shifu/pull/35 | `228c523` (the docs commit that records this state follows) | Pending: CI queued; review pending | https://github.com/CtrI-Alt-Del/shifu/pull/35/checks |
 
 | Field | Result |
 | --- | --- |
-| Publication | pending |
+| Publication | published: PR #35 opened against `main` on 2026-10-20 (stacked on #34, #32 and #31); SHIFU-93 moved to Code Review |
 | Source verification | SHIFU-93 description (Jira) and PRD Intelligence v4 (Confluence 83099649) read on 2026-10-20; frames read and measured from `design/shifu.pen` through Pencil |
 | Documentation Alignment | `spec.md` revision 2 (D6 … D9); `../planner-interview/spec.md` revision 2 (handoff replaced by the review); `design/handoff.md` manifest with 8 pairs; no rule change |
 | Revision History | Spec revision 2 during implementation (frame measurements) |
