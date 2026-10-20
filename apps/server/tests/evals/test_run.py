@@ -235,3 +235,90 @@ def test_builder_failure_writes_safe_failure_report(tmp_path: Path) -> None:
     assert 'eval_setup_failed' in report_text
     assert 'private prompt' not in report_text + summary_text
     assert 'credential' not in report_text + summary_text
+
+
+def test_summary_eval_with_an_empty_summarizer_fails_every_case_and_exits_one(
+    tmp_path: Path,
+) -> None:
+    from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
+    from shifu.intelligence.core.domain.structures import (
+        MentorConversationSummaryDraft,
+    )
+
+    class _EmptySummarizer:
+        def summarize(
+            self, messages: Any, previous: Any
+        ) -> MentorConversationSummaryDraft:
+            del messages, previous
+            return MentorConversationSummaryDraft(
+                topics=(), excerpts=(), algorithm_version='empty'
+            )
+
+    def builder(selector: str, *, mode: str) -> SummarizeMentorSessionEval:
+        assert selector == 'summarize-mentor-session'
+        return SummarizeMentorSessionEval(
+            _EmptySummarizer(), mode=mode, model_profile='test'
+        )
+
+    status = main(
+        ['--workflow', 'summarize-mentor-session', '--output-dir', str(tmp_path)],
+        evaluator_builder=builder,
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        environ={},
+    )
+
+    assert status == 1
+    report = json.loads(
+        (tmp_path / 'summarize-mentor-session.json').read_text(encoding='utf-8')
+    )
+    assert report['status'] == 'failed'
+    assert report['counts']['passed'] == 0
+    assert report['counts']['failed'] == len(report['cases']) > 0
+
+
+def test_summary_eval_flags_a_summarizer_that_changes_its_output_between_runs(
+    tmp_path: Path,
+) -> None:
+    from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
+    from shifu.intelligence.core.domain.structures import (
+        MentorConversationSummaryDraft,
+    )
+
+    class _DriftingSummarizer:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def summarize(
+            self, messages: Any, previous: Any
+        ) -> MentorConversationSummaryDraft:
+            del messages, previous
+            self.calls += 1
+            return MentorConversationSummaryDraft(
+                topics=('lista',),
+                excerpts=(),
+                algorithm_version=f'drift-{self.calls}',
+            )
+
+    def builder(selector: str, *, mode: str) -> SummarizeMentorSessionEval:
+        assert selector == 'summarize-mentor-session'
+        return SummarizeMentorSessionEval(
+            _DriftingSummarizer(), mode=mode, model_profile='test'
+        )
+
+    status = main(
+        ['--workflow', 'summarize-mentor-session', '--output-dir', str(tmp_path)],
+        evaluator_builder=builder,
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        environ={},
+    )
+
+    assert status == 1
+    report = json.loads(
+        (tmp_path / 'summarize-mentor-session.json').read_text(encoding='utf-8')
+    )
+    assert report['cases']
+    for case in report['cases']:
+        assert case['outcome'] == 'failed'
+        assert case['metrics']['nondeterministic'] == 1

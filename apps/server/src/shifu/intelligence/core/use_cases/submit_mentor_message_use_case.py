@@ -30,6 +30,9 @@ from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     attachment_fingerprint_values,
     selected_attachments,
 )
+from shifu.intelligence.core.use_cases.mentor_detail import (
+    load_mentor_summary_state,
+)
 from shifu.shared.core.interfaces import (
     ClockProvider,
     IdentifierProvider,
@@ -190,6 +193,7 @@ class SubmitMentorMessageUseCase:
                 response=repositories.mentor_response_events.snapshot(
                     account_id, session_id
                 ),
+                summary=load_mentor_summary_state(repositories, account_id, session_id),
             )
 
     @staticmethod

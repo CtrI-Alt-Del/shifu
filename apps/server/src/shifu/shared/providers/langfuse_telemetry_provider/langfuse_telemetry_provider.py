@@ -9,14 +9,29 @@ from uuid import UUID, uuid4, uuid5
 if TYPE_CHECKING:
     from langfuse import Langfuse
 
-SafeOutcome = Literal['passed', 'failed', 'abstained', 'cancelled']
+SafeOutcome = Literal[
+    'passed', 'failed', 'abstained', 'cancelled', 'ready', 'discarded'
+]
 
 
 class LangfuseTelemetryProvider:
     """Export operational metadata with no private inputs or outputs."""
 
     _SAFE_COUNTS: ClassVar[frozenset[str]] = frozenset(
-        {'blocks', 'observations', 'matches', 'inference_requests', 'criteria'}
+        {
+            'blocks',
+            'observations',
+            'matches',
+            'inference_requests',
+            'criteria',
+            'messages',
+            'topics',
+            'excerpts',
+            'expanded',
+        }
+    )
+    _SAFE_FAILURE_CODES: ClassVar[frozenset[str]] = frozenset(
+        {'nlp_unavailable', 'invalid_output', 'exhausted'}
     )
 
     def __init__(
@@ -41,6 +56,7 @@ class LangfuseTelemetryProvider:
         output_tokens: int | None = None,
         cost_usd: float | None = None,
         counts: dict[str, int] | None = None,
+        failure_code: str | None = None,
     ) -> None:
         if self._client is None:
             return
@@ -55,6 +71,7 @@ class LangfuseTelemetryProvider:
                 output_tokens=output_tokens,
                 cost_usd=cost_usd,
                 counts=counts,
+                failure_code=failure_code,
             )
             usage: dict[str, int] = {
                 target: int(attributes[source])
@@ -119,6 +136,7 @@ class LangfuseTelemetryProvider:
         output_tokens: int | None,
         cost_usd: float | None,
         counts: dict[str, int] | None,
+        failure_code: str | None,
     ) -> dict[str, str | int | float]:
         if stage not in {
             'classify',
@@ -131,6 +149,7 @@ class LangfuseTelemetryProvider:
             'publish',
             'evaluate',
             'inference',
+            'summarize',
         }:
             stage = 'workflow'
         if (
@@ -143,7 +162,8 @@ class LangfuseTelemetryProvider:
             'module': self._module,
             'stage': stage,
             'outcome': outcome
-            if outcome in {'passed', 'failed', 'abstained', 'cancelled'}
+            if outcome
+            in {'passed', 'failed', 'abstained', 'cancelled', 'ready', 'discarded'}
             else 'failed',
             'duration_ms': int(duration_ms),
         }
@@ -173,6 +193,8 @@ class LangfuseTelemetryProvider:
             and cost_usd >= 0
         ):
             attributes['cost_usd'] = cost_usd
+        if failure_code in self._SAFE_FAILURE_CODES:
+            attributes['failure_code'] = str(failure_code)
         if counts is not None:
             attributes.update(
                 {

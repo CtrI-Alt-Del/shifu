@@ -5,6 +5,7 @@ import type {
   SubmitMentorMessageInput,
 } from '@/core/intelligence/mentor-response'
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
+import type { MentorSessionSummaryState } from '@/core/intelligence/mentor-session-summary'
 import { NativeMentorEventSource } from '@/provision/realtime/native-mentor-event-source'
 import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-response-stream'
 import { useSubmitMentorMessageAction } from '@/ui/intelligence/hooks/use-submit-mentor-message-action'
@@ -32,9 +33,14 @@ import type { MentorContextValue, MentorDraftAttachment } from './types'
 import { useSpeechRecognition } from '@/ui/shared/hooks/use-speech-recognition'
 
 const SEARCH_DEBOUNCE_MS = 300
+const MAX_REVEAL_PAGE_ATTEMPTS = 3
 const MAX_MENTOR_ATTACHMENTS = 5
 const MAX_MENTOR_ATTACHMENT_BYTES = 2_000_000
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
+const EMPTY_SUMMARY: MentorSessionSummaryState = {
+  current: null,
+  failureAfterMessageId: null,
+}
 
 export function useMentorContextProvider(
   accountEmail: string,
@@ -137,6 +143,9 @@ export function useMentorContextProvider(
   const [scopeError, setScopeError] = useState<string | null>(null)
   const historyGeneration = useRef(0)
   const detailGeneration = useRef(0)
+  const activeSessionIdRef = useRef<string | null>(null)
+  activeSessionIdRef.current = selectedSessionId
+  const isRevealingMessage = useRef(false)
   const submissionMessage = useRef<string | null>(null)
   const submissionRunning = useRef(false)
   const attachmentGeneration = useRef(0)
@@ -316,19 +325,21 @@ export function useMentorContextProvider(
       setConversationError(null)
       try {
         const detail = await readMentorSession(sessionId, cursor)
-        if (generation !== detailGeneration.current) return
-        if (selectedSessionId !== sessionId && cursor) return
+        if (generation !== detailGeneration.current) return null
+        if (selectedSessionId !== sessionId && cursor) return null
         setSessionDetail((current) =>
           mergeSessionDetail(current, detail, Boolean(cursor)),
         )
         setScopeError(null)
+        return detail
       } catch (error) {
-        if (generation !== detailGeneration.current) return
+        if (generation !== detailGeneration.current) return null
         setConversationError('Não foi possível carregar a conversa. Tente novamente.')
         if (isMentorScopeError(error)) {
           clearPrivateState()
           setScopeError('Não foi possível confirmar sua sessão. Atualize a página.')
         }
+        return null
       } finally {
         if (generation === detailGeneration.current) {
           setIsReadingMessages(false)
@@ -782,6 +793,8 @@ export function useMentorContextProvider(
   const response = sessionDetail?.response ?? null
   const isResponseActive =
     response?.status === 'queued' || response?.status === 'processing'
+  const isSummarizingContext =
+    isResponseActive && response?.progress === 'summarize-context'
   const isViewingConversation =
     (location.pathname === ROUTES.intelligence || isPanelOpen) &&
     panelView === 'conversation'
@@ -854,7 +867,9 @@ export function useMentorContextProvider(
           consultations,
           status: event.status,
           progress: ['queued', 'processing'].includes(event.status)
-            ? (event.progress ?? previous.progress ?? null)
+            ? event.kind === 'status'
+              ? (event.progress ?? null)
+              : (event.progress ?? previous.progress ?? null)
             : null,
           lastSequence: event.sequence,
           failureCode: event.failureCode,
@@ -964,10 +979,45 @@ export function useMentorContextProvider(
   }, [debouncedSearch, isReadingHistory, readHistory, sessionsPage.nextCursor])
 
   const loadOlderMessages = useCallback(async () => {
-    if (!selectedSessionId || !sessionDetail?.messages.nextCursor || isReadingMessages)
+    if (
+      !selectedSessionId ||
+      !sessionDetail?.messages.nextCursor ||
+      isReadingMessages ||
+      isRevealingMessage.current
+    )
       return
     await readDetail(selectedSessionId, sessionDetail.messages.nextCursor)
   }, [isReadingMessages, readDetail, selectedSessionId, sessionDetail])
+
+  async function revealMessage(messageId: string) {
+    if (!selectedSessionId || !sessionDetail || isRevealingMessage.current) return false
+    if (sessionDetail.messages.items.some((message) => message.id === messageId))
+      return true
+    isRevealingMessage.current = true
+    const sessionId = selectedSessionId
+    try {
+      let cursor = sessionDetail.messages.nextCursor
+      let failedAttempts = 0
+      while (cursor) {
+        const page = await readDetail(sessionId, cursor)
+        // Only a session change invalidates the reveal; an unrelated concurrent
+        // detail read (e.g. a stream-triggered refresh) supersedes this page
+        // read, so the same cursor is read again a bounded number of times.
+        if (activeSessionIdRef.current !== sessionId) return false
+        if (!page) {
+          failedAttempts += 1
+          if (failedAttempts >= MAX_REVEAL_PAGE_ATTEMPTS) return false
+          continue
+        }
+        failedAttempts = 0
+        if (page.messages.items.some((message) => message.id === messageId)) return true
+        cursor = page.messages.nextCursor
+      }
+      return false
+    } finally {
+      isRevealingMessage.current = false
+    }
+  }
 
   const openRenameDialog = useCallback((sessionId: string) => {
     setDialogSessionId(sessionId)
@@ -1119,6 +1169,8 @@ export function useMentorContextProvider(
     markBlockPresented,
     selectedSessionId,
     sessionDetail,
+    summary: sessionDetail?.summary ?? EMPTY_SUMMARY,
+    isSummarizingContext,
     sessionsPage,
     draft,
     draftAttachments,
@@ -1156,6 +1208,7 @@ export function useMentorContextProvider(
     sendFirstMessage,
     loadMoreSessions,
     loadOlderMessages,
+    revealMessage,
     openRenameDialog,
     openRemoveDialog,
     closeDialog,

@@ -114,6 +114,31 @@ describe('useComposer', () => {
     expect(result.current.canSend).toBe(true)
   })
 
+  it('switches the placeholder and blocks sending while the context is being summarized', () => {
+    const context = {
+      selectedSessionId: 'session-1',
+      draft: 'texto',
+      isSubmittingFirstMessage: false,
+      isSummarizingContext: false,
+      sessionDetail: { pendingLearnerMessageId: null as string | null },
+      sendFirstMessage: vi.fn(),
+      setDraft: vi.fn(),
+      submissionError: null,
+    }
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    const { result, rerender } = renderHook(() => useComposer())
+    expect(result.current.placeholder).toBe('Pergunte ao Mentor…')
+    expect(result.current.canSend).toBe(true)
+
+    context.isSummarizingContext = true
+    context.sessionDetail = { pendingLearnerMessageId: 'learner' }
+    rerender()
+    expect(result.current.placeholder).toBe('Aguarde enquanto o contexto é resumido')
+    expect(result.current.isResponsePending).toBe(true)
+    expect(result.current.canSend).toBe(false)
+    expect(result.current.canManageAttachments).toBe(false)
+  })
+
   it('requires non-whitespace text and blocks sending while submission is pending', () => {
     useMentorContextMock.mockReturnValue({
       selectedSessionId: null,

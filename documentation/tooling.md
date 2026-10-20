@@ -223,6 +223,13 @@ It also provides a ready-to-start adaptive Learning laboratory. See the
 for its curriculum, learner path, and expected progress. A local reseed clears
 pending outbox events along with the previous application data.
 
+The seed also provides three short Mentor conversations and one long conversation,
+"Listas e laços em Python", with 30 messages (15 answered pairs). It is one learner
+message short of the conversation-summary threshold: sending any message in it makes
+the answer run summarize the older messages first ("Resumindo contexto…") and then
+show the "Contexto resumido" marker. Reseeding restores it; the summary itself is
+derived data, so it is created by the first message and removed by the next reseed.
+
 ## Running the applications
 
 Set each application port in its ignored app-local `.env.local` file:

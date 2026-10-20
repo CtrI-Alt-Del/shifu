@@ -78,6 +78,40 @@ describe('Composer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(sendFirstMessageMock).toHaveBeenCalled()
   })
+  it.each([
+    [false, 'Pergunte ao Mentor…'],
+    [true, 'Aguarde enquanto o contexto é resumido'],
+  ] as const)(
+    'shows the placeholder for summarizing=%s and keeps the draft locked while summarizing',
+    (isSummarizingContext, placeholder) => {
+      useComposerMock.mockReturnValue({
+        canSend: false,
+        canManageAttachments: !isSummarizingContext,
+        draftAttachments: [],
+        addAttachments: addAttachmentsMock,
+        removeAttachment: removeAttachmentMock,
+        draft: '',
+        handleSubmit: vi.fn(),
+        hasAcceptedSession: true,
+        isResponsePending: isSummarizingContext,
+        isSubmittingFirstMessage: false,
+        placeholder,
+        sendFirstMessage: sendFirstMessageMock,
+        setDraft: setDraftMock,
+        submissionError: null,
+      } as unknown as ReturnType<typeof useComposer>)
+      render(<Composer surface='page' />)
+      const textbox = screen.getByRole('textbox')
+      expect(textbox).toHaveAttribute('placeholder', placeholder)
+      if (isSummarizingContext) {
+        expect(textbox).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
+        expect(
+          screen.getByRole('button', { name: 'Anexar arquivo ou imagem' }),
+        ).toBeDisabled()
+      } else expect(textbox).toBeEnabled()
+    },
+  )
   it('locks the draft and announces first-message submission while pending', () => {
     useComposerMock.mockReturnValue({
       canSend: false,
@@ -360,7 +394,7 @@ describe('Composer attachments', () => {
   })
 })
 
-it('discloses browser-managed recognition before microphone use', () => {
+it('offers dictation without an install prompt when the language pack is available', () => {
   useComposerMock.mockReturnValue({
     canStartDictation: true,
     canManageAttachments: true,
@@ -374,10 +408,10 @@ it('discloses browser-managed recognition before microphone use', () => {
   } as unknown as ReturnType<typeof useComposer>)
   render(<Composer surface='page' />)
   expect(
-    screen.getByText(
+    screen.queryByText(
       'O navegador pode usar um serviço na nuvem para reconhecer sua fala.',
     ),
-  ).toBeVisible()
+  ).not.toBeInTheDocument()
   expect(
     screen.queryByRole('button', { name: 'Instalar pacote de idioma' }),
   ).not.toBeInTheDocument()

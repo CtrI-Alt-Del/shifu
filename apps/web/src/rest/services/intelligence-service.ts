@@ -11,6 +11,10 @@ import type {
   MentorAttachmentBatch,
   MentorAttachmentSource,
 } from '@/core/intelligence/mentor-attachment'
+import type {
+  MentorSessionSummaryContent,
+  MentorSessionSummaryState,
+} from '@/core/intelligence/mentor-session-summary'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -47,6 +51,7 @@ export type MentorSessionDetail = {
   messages: MentorMessagesPage
   pendingLearnerMessageId: string | null
   response?: MentorResponseSnapshot | null
+  summary: MentorSessionSummaryState
 }
 
 export type CreateMentorSessionInput = {
@@ -120,6 +125,25 @@ type MentorSessionDetailDto = {
   messages: MentorMessagesPageDto
   pending_learner_message_id: string | null
   response?: MentorResponseSnapshotDto | null
+  summary?: MentorSessionSummaryStateDto
+}
+
+type MentorSessionSummaryStateDto = {
+  current: {
+    version: number
+    boundary_message_id: string
+    covered_message_count: number
+    completed_at: string
+    after_message_id?: string | null
+  } | null
+  failure_after_message_id: string | null
+}
+
+type MentorSessionSummaryContentDto = {
+  version: number
+  text: string
+  covered_message_count: number
+  first_message_id: string
 }
 
 type MentorResponseSnapshotDto = {
@@ -242,6 +266,23 @@ export const IntelligenceService = (
       messages: mapMessagesPage(detail.messages),
       pendingLearnerMessageId: detail.pending_learner_message_id,
       response: detail.response ? mapSnapshot(detail.response) : null,
+      summary: mapSummaryState(detail.summary),
+    }
+  }
+  function mapSummaryState(
+    summary: MentorSessionSummaryStateDto | undefined,
+  ): MentorSessionSummaryState {
+    return {
+      current: summary?.current
+        ? {
+            version: summary.current.version,
+            boundaryMessageId: summary.current.boundary_message_id,
+            coveredMessageCount: summary.current.covered_message_count,
+            completedAt: summary.current.completed_at,
+            afterMessageId: summary.current.after_message_id ?? null,
+          }
+        : null,
+      failureAfterMessageId: summary?.failure_after_message_id ?? null,
     }
   }
 
@@ -449,6 +490,23 @@ export const IntelligenceService = (
       )
       if (response.isFailure) response.throwError()
       return mapDetail(response.body)
+    },
+
+    async getMentorSessionSummary(
+      accessToken: string,
+      sessionId: string,
+    ): Promise<MentorSessionSummaryContent> {
+      const response = await restClient.get<MentorSessionSummaryContentDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/summary`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return {
+        version: response.body.version,
+        text: response.body.text,
+        coveredMessageCount: response.body.covered_message_count,
+        firstMessageId: response.body.first_message_id,
+      }
     },
 
     async renameMentorSession(

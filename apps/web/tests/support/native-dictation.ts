@@ -143,7 +143,7 @@ export async function exerciseBrowserManagedControls(
   const form = page.getByRole('form', { name: 'Enviar mensagem ao Mentor' })
   await expect(
     form.getByText('O navegador pode usar um serviço na nuvem para reconhecer sua fala.'),
-  ).toBeVisible()
+  ).toHaveCount(0)
   await expect(
     form.getByRole('button', { name: 'Instalar pacote de idioma' }),
   ).toHaveCount(0)

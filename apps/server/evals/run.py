@@ -15,6 +15,7 @@ from evals.evaluate_code_activity_eval import EvaluateCodeActivityEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
+from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -26,6 +27,7 @@ EVAL_CLASSES = (
     EvaluateCodeActivityEval,
     ProcessMentorResponseEval,
     PrepareMentorAttachmentEval,
+    SummarizeMentorSessionEval,
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')

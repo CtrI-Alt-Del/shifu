@@ -51,6 +51,37 @@ describe('MessageItem', () => {
   })
   afterEach(cleanup)
 
+  it('exposes a stable message id and a programmatically focusable root for reveal', () => {
+    useMessageItemMock.mockReturnValue(
+      makeHookValue({
+        isLearnerMessage: true,
+        isMentorMessage: false,
+        speakerLabel: null,
+      }),
+    )
+    render(
+      <ol>
+        <MessageItem
+          message={{
+            id: '01J7T8AC91Z5K8M4JQ8C2D6F0C',
+            sessionId: 'session',
+            role: 'learner',
+            content: 'Primeira mensagem.',
+            createdAt: '2026-10-14T12:00:00Z',
+            inReplyToMessageId: null,
+            attachments: [],
+          }}
+        />
+      </ol>,
+    )
+    const item = screen.getByRole('listitem')
+    expect(item).toHaveAttribute('data-message-id', '01J7T8AC91Z5K8M4JQ8C2D6F0C')
+    expect(item).toHaveAttribute('id', 'mentor-message-01J7T8AC91Z5K8M4JQ8C2D6F0C')
+    expect(item).toHaveAttribute('tabindex', '-1')
+    item.focus()
+    expect(item).toHaveFocus()
+  })
+
   it('renders historical image previews with filename and partial page coverage', () => {
     useMessageItemMock.mockReturnValue(
       makeHookValue({

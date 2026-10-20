@@ -42,8 +42,20 @@ class MentorSessionSchemas:
         items: list['MentorSessionSchemas.Session']
         next_cursor: str | None
 
+    class SummaryMarker(BaseModel):
+        version: int
+        boundary_message_id: str
+        covered_message_count: int
+        completed_at: datetime
+        after_message_id: str | None = None
+
+    class SummaryState(BaseModel):
+        current: 'MentorSessionSchemas.SummaryMarker | None' = None
+        failure_after_message_id: str | None = None
+
     class Detail(BaseModel):
         session: 'MentorSessionSchemas.Session'
         messages: 'MentorSessionSchemas.MessagesPage'
         pending_learner_message_id: str | None
         response: MentorResponseSnapshot | None = None
+        summary: 'MentorSessionSchemas.SummaryState'

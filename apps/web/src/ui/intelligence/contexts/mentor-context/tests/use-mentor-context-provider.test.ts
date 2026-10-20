@@ -138,6 +138,7 @@ const detail: MentorSessionDetail = {
   },
   messages: { items: [], nextCursor: null },
   pendingLearnerMessageId: null,
+  summary: { current: null, failureAfterMessageId: null },
 }
 const readyAttachment = {
   attachmentId: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
@@ -1692,6 +1693,340 @@ describe('useMentorContextProvider response lifecycle', () => {
     expect(result.current.sessionDetail).toBeNull()
     expect(result.current.scopeError).toContain('Não foi possível confirmar')
     expect(ControlledEventSource.instances).toHaveLength(1)
+  })
+})
+
+describe('useMentorContextProvider conversation summary', () => {
+  const summaryState = {
+    current: {
+      version: 2,
+      boundaryMessageId: 'message-boundary',
+      coveredMessageCount: 21,
+      completedAt: '2026-10-18T14:00:00Z',
+      afterMessageId: null,
+    },
+    failureAfterMessageId: null,
+  }
+  const makeMessage = (id: string, createdAt: string) => ({
+    id,
+    sessionId: detail.session.id,
+    role: 'learner' as const,
+    content: `Mensagem ${id}`,
+    inReplyToMessageId: null,
+    createdAt,
+    attachments: [],
+  })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.list.mockResolvedValue(sessionsPage)
+    mocks.location.pathname = '/intelligence'
+  })
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+
+  it('exposes the empty summary state before a conversation is selected', () => {
+    const { result } = openResponseProvider()
+
+    expect(result.current.summary).toEqual({
+      current: null,
+      failureAfterMessageId: null,
+    })
+    expect(result.current.isSummarizingContext).toBe(false)
+  })
+
+  it('maps the summary state of the selected conversation detail', async () => {
+    const { result } = openResponseProvider()
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      summary: summaryState,
+      pendingLearnerMessageId: null,
+      response: null,
+    })
+
+    await act(() => result.current.selectSession(detail.session.id))
+
+    expect(result.current.summary).toEqual(summaryState)
+  })
+
+  it.each(['queued', 'processing'] as const)(
+    'derives the summarizing state from a %s snapshot replayed with summarize-context progress',
+    async (status) => {
+      const { result } = openResponseProvider({
+        ...initialResponse,
+        status,
+        progress: 'summarize-context',
+      })
+
+      await act(() => result.current.selectSession(detail.session.id))
+
+      expect(result.current.isSummarizingContext).toBe(true)
+    },
+  )
+
+  it('does not report summarizing once the response is no longer active', async () => {
+    const { result } = openResponseProvider({
+      ...initialResponse,
+      status: 'completed',
+      progress: 'summarize-context',
+    })
+
+    await act(() => result.current.selectSession(detail.session.id))
+
+    expect(result.current.isSummarizingContext).toBe(false)
+  })
+
+  it('follows the live progress, keeps it through blocks and clears it on the closing null-progress status event', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    const source = getEventSource(0)
+
+    act(() =>
+      source.emit(
+        responseEvent({ kind: 'status', block: null, progress: 'summarize-context' }),
+      ),
+    )
+    expect(result.current.isSummarizingContext).toBe(true)
+    expect(result.current.response?.progress).toBe('summarize-context')
+
+    act(() =>
+      source.emit(responseEvent({ sequence: 2, kind: 'consultation', block: null })),
+    )
+    expect(result.current.isSummarizingContext).toBe(true)
+
+    act(() =>
+      source.emit(
+        responseEvent({ sequence: 3, kind: 'status', block: null, progress: null }),
+      ),
+    )
+    expect(result.current.isSummarizingContext).toBe(false)
+    expect(result.current.response?.progress).toBeNull()
+
+    act(() =>
+      source.emit(
+        responseEvent({
+          sequence: 4,
+          kind: 'status',
+          block: null,
+          progress: 'write-answer',
+        }),
+      ),
+    )
+    expect(result.current.response?.progress).toBe('write-answer')
+    expect(result.current.isSummarizingContext).toBe(false)
+  })
+
+  it('clears the summarizing state after reconnect when the snapshot replays the closing event', async () => {
+    const { result } = openResponseProvider({
+      ...initialResponse,
+      lastSequence: 1,
+      progress: 'summarize-context',
+    })
+    await act(() => result.current.selectSession(detail.session.id))
+    expect(result.current.isSummarizingContext).toBe(true)
+    const source = getEventSource(0)
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      pendingLearnerMessageId: 'learner-a',
+      response: { ...initialResponse, lastSequence: 4, progress: null },
+    })
+
+    await act(async () => source.dispatchEvent(new Event('error')))
+
+    expect(result.current.isSummarizingContext).toBe(false)
+  })
+
+  describe('revealMessage', () => {
+    const newest = makeMessage('message-newest', '2026-10-08T12:03:00Z')
+    const middle = makeMessage('message-middle', '2026-10-08T12:02:00Z')
+    const oldest = makeMessage('message-oldest', '2026-10-08T12:01:00Z')
+    const pages: Record<string, { items: (typeof newest)[]; nextCursor: string | null }> =
+      {
+        first: { items: [newest], nextCursor: 'page-2' },
+        'page-2': { items: [middle], nextCursor: 'page-3' },
+        'page-3': { items: [oldest], nextCursor: null },
+      }
+    function mockPages() {
+      mocks.detail.mockImplementation(
+        async ({ data }: { data: { cursor?: string } }) => ({
+          ...detail,
+          pendingLearnerMessageId: null,
+          response: null,
+          messages: pages[data.cursor ?? 'first'],
+        }),
+      )
+    }
+
+    it('returns true without reading when the message is already loaded', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+
+      let wasFound = false
+      await act(async () => {
+        wasFound = await result.current.revealMessage(newest.id)
+      })
+
+      expect(wasFound).toBe(true)
+      expect(mocks.detail).not.toHaveBeenCalled()
+    })
+
+    it('pages older messages until the message is present', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+
+      let wasFound = false
+      await act(async () => {
+        wasFound = await result.current.revealMessage(oldest.id)
+      })
+
+      expect(wasFound).toBe(true)
+      expect(mocks.detail.mock.calls.map(([call]) => call.data.cursor)).toEqual([
+        'page-2',
+        'page-3',
+      ])
+      expect(result.current.sessionDetail?.messages.items.map(({ id }) => id)).toEqual([
+        oldest.id,
+        middle.id,
+        newest.id,
+      ])
+    })
+
+    it('stops at the first page that contains the message', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+
+      let wasFound = false
+      await act(async () => {
+        wasFound = await result.current.revealMessage(middle.id)
+      })
+
+      expect(wasFound).toBe(true)
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+    })
+
+    it('returns false when the message is absent from every page', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+
+      let wasFound = true
+      await act(async () => {
+        wasFound = await result.current.revealMessage('message-missing')
+      })
+
+      expect(wasFound).toBe(false)
+      expect(result.current.sessionDetail?.messages.nextCursor).toBeNull()
+    })
+
+    function holdPage(cursor: string) {
+      let release: () => void = () => undefined
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      let isHeld = true
+      mocks.detail.mockImplementation(async ({ data }: { data: { cursor?: string } }) => {
+        if (data.cursor === cursor && isHeld) {
+          isHeld = false
+          await gate
+        }
+        return {
+          ...detail,
+          pendingLearnerMessageId: null,
+          response: null,
+          messages: pages[data.cursor ?? 'first'],
+        }
+      })
+      return release
+    }
+
+    it('keeps revealing when an unrelated detail read overlaps a page read', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+      const release = holdPage('page-2')
+
+      let reveal: Promise<boolean> = Promise.resolve(false)
+      act(() => {
+        reveal = result.current.revealMessage(oldest.id)
+      })
+      await act(async () => window.dispatchEvent(new Event('focus')))
+      let wasFound = false
+      await act(async () => {
+        release()
+        wasFound = await reveal
+      })
+
+      expect(wasFound).toBe(true)
+      expect(result.current.sessionDetail?.messages.items.map(({ id }) => id)).toEqual([
+        oldest.id,
+        middle.id,
+        newest.id,
+      ])
+    })
+
+    it('aborts the reveal when the active conversation changes meanwhile', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+      const release = holdPage('page-2')
+
+      let reveal: Promise<boolean> = Promise.resolve(true)
+      act(() => {
+        reveal = result.current.revealMessage(oldest.id)
+      })
+      await act(async () => result.current.startNewConversation())
+      let wasFound = true
+      await act(async () => {
+        release()
+        wasFound = await reveal
+      })
+
+      expect(wasFound).toBe(false)
+      expect(result.current.sessionDetail).toBeNull()
+    })
+
+    it('gives up after bounded retries when the page never resolves', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockClear()
+      mocks.detail.mockRejectedValue(new Error('indisponível'))
+
+      let wasFound = true
+      await act(async () => {
+        wasFound = await result.current.revealMessage(oldest.id)
+      })
+
+      expect(wasFound).toBe(false)
+      expect(mocks.detail).toHaveBeenCalledTimes(3)
+    })
+
+    it('returns false without a selected conversation and when a page read fails', async () => {
+      const { result } = openResponseProvider()
+      mockPages()
+      let wasFound = true
+      await act(async () => {
+        wasFound = await result.current.revealMessage(oldest.id)
+      })
+      expect(wasFound).toBe(false)
+
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.detail.mockRejectedValue(new Error('indisponível'))
+      await act(async () => {
+        wasFound = await result.current.revealMessage(oldest.id)
+      })
+      expect(wasFound).toBe(false)
+      expect(result.current.conversationError).toContain('Não foi possível carregar')
+    })
   })
 })
 

@@ -25,12 +25,13 @@ def _scorer_run(content: Any) -> Any:
     return cast('Any', SimpleNamespace(content=content))
 
 
-def test_catalog_has_four_workflow_named_eval_classes_and_synthetic_cases() -> None:
+def test_catalog_has_five_workflow_named_eval_classes_and_synthetic_cases() -> None:
     assert {eval_class.selector for eval_class in EVAL_CLASSES} == {
         'generate-mentor-title',
         'evaluate-code-activity',
         'process-mentor-response',
         'prepare-mentor-attachment',
+        'summarize-mentor-session',
     }
     all_names = {
         definition.name

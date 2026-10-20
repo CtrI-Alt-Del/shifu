@@ -488,6 +488,7 @@ jobs:
           uv run coverage erase
           uv run coverage run --branch --source=src/shifu -m pytest \
             tests/intelligence/server/agentos/test_process_mentor_response_workflow.py \
+            tests/intelligence/server/agentos/test_process_mentor_response_summary.py \
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
             tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
             tests/intelligence/server/agentos/test_agentos_runtime_role.py \
@@ -498,6 +499,9 @@ jobs:
             tests/intelligence/adapters/test_mentor_persistence_adapters.py \
             tests/intelligence/core/use_cases/test_process_mentor_response_use_case.py \
             tests/intelligence/core/use_cases/test_get_mentor_session_use_case.py \
+            tests/intelligence/core/use_cases/test_summarize_mentor_session_context_use_case.py \
+            tests/intelligence/core/use_cases/test_get_mentor_session_summary_use_case.py \
+            tests/intelligence/core/use_cases/test_purge_mentor_summaries_for_account_use_case.py \
             tests/intelligence/core/use_cases/test_list_mentor_sessions_use_case.py \
             tests/intelligence/core/use_cases/test_rename_mentor_session_use_case.py \
             tests/intelligence/core/use_cases/test_retry_mentor_response_use_case.py \
@@ -535,6 +539,7 @@ jobs:
             tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_submit_mentor_message_controller.py \
             tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
+            tests/intelligence/server/controllers/test_get_mentor_session_summary_controller.py \
             tests/intelligence/server/controllers/test_list_mentor_sessions_controller.py \
             tests/intelligence/server/controllers/test_mentor_runtime_composition_controller.py \
             tests/intelligence/server/controllers/test_remove_mentor_session_controller.py \
@@ -557,6 +562,7 @@ jobs:
             tests/intelligence/server/controllers/test_mentor_attachment_storage_http_boundary.py \
             tests/intelligence/server/controllers/test_mentor_attachments_controller.py \
             tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
+            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_summaries_on_account_deleted_job.py \
             tests/rest/handlers/test_app_error_handler.py \
             tests/shared/messaging/agentos/test_agentos_client.py \
             tests/shared/messaging/agentos/test_agentos_handoff_store.py \
@@ -625,6 +631,12 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      - name: Prepare pinned local Mentor model
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
+          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
       - name: Run all real evals
         run: uv run python evals/run.py --output-dir test-results/evals

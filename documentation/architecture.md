@@ -430,6 +430,8 @@ Learning or Curriculum entities. Learning owns the grade and effects.
 Code question kinds share this decision implementation; their prompt, project
 files and saved criteria vary, while kind is context rather than provider dispatch.
 This one-step assessment does not construct an Agno Agent, Team, or Workflow.
+The Mentor answer workflow summarizes long conversations locally (extractive,
+no inference, nothing leaves Shifu) in a pre-answer step before preparation.
 
 Agno's `Agent`, `Team`, `Workflow`, and AgentOS primitives are infrastructure details
 behind typed core protocols. Each module registry builds only its own workflows and

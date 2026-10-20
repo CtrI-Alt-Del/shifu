@@ -89675,8 +89675,8 @@
     {
       "type": "frame",
       "id": "n8OPLr",
-      "x": 18603,
-      "y": 4150,
+      "x": 18647,
+      "y": 4067,
       "name": "05.8 Planejador · falha ao criar objetivo · mobile",
       "context": "PRD Intelligence 83099649 v3 · RP-10, RP-12 · JN-13 · Learning falhou ao criar; título, descrição, habilidades e justificativas preservados; nenhum objetivo criado; repetir confirmação é idempotente.",
       "clip": true,
