@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | Not applicable: no user interface |
 | Independent review | Pending: PR review by the team |
 | Blockers | None for the deterministic delivery; the quality confusion matrix of CA-12 needs the opt-in real run (EV-08) |
-| Candidate | branch `feat/shifu-89` on `origin/main` `f8a6158`; evaluated dirty scope = the full working tree of this delivery (server code, tests, migration, CI selection, this documentation); commit SHA recorded in Delivery |
+| Candidate | branch `feat/shifu-89` on `origin/main` `f8a6158`, commit `bffe732`; the evaluated scope is that commit (server code, tests, migration, CI selection, this documentation) |
 
 # Progress
 
@@ -72,7 +72,7 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-89`, working tree of 2026-10-20 (commit SHA in Delivery) |
+| Candidate | `feat/shifu-89`, commit `bffe732`, pull request #31 |
 | Completed | CA-01 to CA-14 implemented; EV-01 to EV-07 passed |
 | Unfinished | EV-08 real-model matrix (needs an OpenRouter key); EV-09 CI coverage gate (runs on the PR) |
 | Uncommitted work | None after delivery |
@@ -92,11 +92,11 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| PENDING_PR_URL | PENDING_SHA | Pending | Pending |
+| https://github.com/CtrI-Alt-Del/shifu/pull/31 | `bffe732` (feature and documentation; this delivery-state note follows as a docs commit) | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
 
 | Field | Result |
 | --- | --- |
-| Publication | PENDING_PUBLICATION |
+| Publication | Published: branch `feat/shifu-89` pushed to `CtrI-Alt-Del/shifu`, pull request #31 open against `main`; Jira SHIFU-89 moved to Code Review |
 | Source verification | SHIFU-89 (Jira, read 2026-10-20) and PRD Intelligence content `83099649` version 4; no change since the spec was written |
 | Documentation Alignment | Confirmed as listed in the spec; no Confluence write; `documentation/modules.md` unchanged |
 | Revision History | Spec revision 2 (see spec) |
