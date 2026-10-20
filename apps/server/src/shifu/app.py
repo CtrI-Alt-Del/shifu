@@ -1,4 +1,5 @@
 from asyncio import to_thread
+from datetime import timedelta
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
@@ -403,6 +404,10 @@ class FastAPIApp:
         )
         app.state.planning_skill_retrieval_provider = (
             intelligence_registry.planning_skill_retrieval
+        )
+        app.state.planning_sessions_repository = intelligence_registry.planning_sessions
+        app.state.planning_operation_timeout = timedelta(
+            seconds=settings.planning_operation_timeout_seconds
         )
         app.state.intelligence_workflows_registry = intelligence_registry
         app.state.learning_workflows_registry = learning_registry

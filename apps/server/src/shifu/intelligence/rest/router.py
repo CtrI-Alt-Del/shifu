@@ -1,5 +1,20 @@
 from fastapi import APIRouter
 
+from shifu.intelligence.rest.controllers.answer_planning_questions_controller import (
+    AnswerPlanningQuestionsController,
+)
+from shifu.intelligence.rest.controllers.cancel_planning_controller import (
+    CancelPlanningController,
+)
+from shifu.intelligence.rest.controllers.get_planning_session_controller import (
+    GetPlanningSessionController,
+)
+from shifu.intelligence.rest.controllers.restart_planning_controller import (
+    RestartPlanningController,
+)
+from shifu.intelligence.rest.controllers.retry_planning_controller import (
+    RetryPlanningController,
+)
 from shifu.intelligence.rest.controllers.cancel_mentor_response_controller import (
     CancelMentorResponseController,
 )
@@ -40,6 +55,11 @@ class IntelligenceRouter:
     def register() -> APIRouter:
         router = APIRouter(prefix='/intelligence', tags=['intelligence'])
         StartPlanningController.handle(router)
+        GetPlanningSessionController.handle(router)
+        AnswerPlanningQuestionsController.handle(router)
+        RestartPlanningController.handle(router)
+        RetryPlanningController.handle(router)
+        CancelPlanningController.handle(router)
         CreateMentorSessionController.handle(router)
         ListMentorSessionsController.handle(router)
         GetMentorSessionController.handle(router)

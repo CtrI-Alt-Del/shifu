@@ -40,6 +40,10 @@ from shifu.intelligence.core.domain.events.mentor_response_requested_event impor
     MentorResponseRequestedEvent,
     MentorResponseRequestedPayload,
 )
+from shifu.intelligence.core.domain.events.planning_operation_requested_event import (
+    PlanningOperationRequestedEvent,
+    PlanningOperationRequestedPayload,
+)
 from shifu.intelligence.core.domain.errors import (
     MentorAttachmentInvalidError,
     MentorTitleOutputInvalidError,
@@ -58,6 +62,9 @@ from shifu.intelligence.providers.planning.intent_classification.openrouter.jev_
 )
 from shifu.intelligence.providers.planning.lazy_planning_skill_retrieval_provider import (
     LazyPlanningSkillRetrievalProvider,
+)
+from shifu.intelligence.providers.planning.redis.redis_planning_sessions_repository import (
+    RedisPlanningSessionsRepository,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces.outbox_event import OutboxEvent
@@ -498,6 +505,41 @@ def test_registry_projects_registered_events_to_id_only_agentos_tickets(
             )
             is None
         )
+
+
+def test_registry_projects_planning_events_and_owns_the_redis_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _registry_harness(monkeypatch, agentos_enabled=True) as harness:
+        registry = harness.registry
+        projector = cast('_RuntimeDouble', harness.runtime).workflow_event_projector
+        requested = PlanningOperationRequestedEvent(
+            payload=PlanningOperationRequestedPayload(
+                planning_id='planning-1', operation_id='operation-1', generation=2
+            )
+        )
+        event = _outbox_event(requested.name, asdict(requested.payload))
+
+        assert registry.destination_for_event(event) == 'agentos:intelligence'
+        assert projector(event) == (
+            'intelligence-plan-goal',
+            {
+                'planning_id': 'planning-1',
+                'operation_id': 'operation-1',
+                'generation': '2',
+                'event_id': event.id,
+            },
+        )
+        malformed = _outbox_event(
+            requested.name,
+            {
+                'planning_id': 'planning-1',
+                'operation_id': 'operation-1',
+                'generation': '2',
+            },
+        )
+        assert projector(malformed) is None
+        assert isinstance(registry.planning_sessions, RedisPlanningSessionsRepository)
 
 
 def test_registry_lifespan_fails_closed_without_runtime_and_close_is_idempotent(

@@ -22,7 +22,6 @@ from .mentor_response_submission_model import (
     MentorResponseSubmissionModel as MentorResponseSubmissionModel,
 )
 from .mentor_session_model import MentorSessionModel as MentorSessionModel
-from .planning_session_model import PlanningSessionModel as PlanningSessionModel
 from .planning_embedding_version_model import (
     PlanningEmbeddingVersionModel as PlanningEmbeddingVersionModel,
 )

@@ -19,9 +19,6 @@ from .mentor_response_events_repository import (
 from .mentor_sessions_repository import (
     SqlalchemyMentorSessionsRepository as SqlalchemyMentorSessionsRepository,
 )
-from .planning_sessions_repository import (
-    SqlalchemyPlanningSessionsRepository as SqlalchemyPlanningSessionsRepository,
-)
 from .planning_embeddings_repository import (
     SqlalchemyPlanningEmbeddingsRepository as SqlalchemyPlanningEmbeddingsRepository,
 )

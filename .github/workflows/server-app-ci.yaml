@@ -501,6 +501,22 @@ jobs:
             tests/intelligence/core/domain/test_planning_domain.py \
             tests/intelligence/core/use_cases/test_classify_planning_intent_use_case.py \
             tests/intelligence/core/use_cases/test_retrieve_planning_skills_use_case.py \
+            tests/intelligence/core/domain/test_planning_session_domain.py \
+            tests/intelligence/core/use_cases/test_start_planning_use_case.py \
+            tests/intelligence/core/use_cases/test_get_planning_session_use_case.py \
+            tests/intelligence/core/use_cases/test_answer_planning_questions_use_case.py \
+            tests/intelligence/core/use_cases/test_restart_planning_use_case.py \
+            tests/intelligence/core/use_cases/test_retry_planning_use_case.py \
+            tests/intelligence/core/use_cases/test_cancel_planning_use_case.py \
+            tests/intelligence/core/use_cases/test_prepare_planning_operation_use_case.py \
+            tests/intelligence/core/use_cases/test_complete_planning_operation_use_case.py \
+            tests/intelligence/server/controllers/test_start_planning_controller.py \
+            tests/intelligence/server/controllers/test_get_planning_session_controller.py \
+            tests/intelligence/server/controllers/test_answer_planning_questions_controller.py \
+            tests/intelligence/server/controllers/test_restart_planning_controller.py \
+            tests/intelligence/server/controllers/test_retry_planning_controller.py \
+            tests/intelligence/server/controllers/test_cancel_planning_controller.py \
+            tests/intelligence/server/agentos/test_plan_goal_workflow.py \
             tests/intelligence/core/use_cases/test_process_mentor_response_use_case.py \
             tests/intelligence/core/use_cases/test_get_mentor_session_use_case.py \
             tests/intelligence/core/use_cases/test_list_mentor_sessions_use_case.py \

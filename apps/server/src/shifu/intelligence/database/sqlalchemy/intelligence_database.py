@@ -13,7 +13,6 @@ from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyMentorResponseAttemptsRepository,
     SqlalchemyMentorResponseEventsRepository,
     SqlalchemyMentorSessionsRepository,
-    SqlalchemyPlanningSessionsRepository,
 )
 from shifu.intelligence.database.sqlalchemy.repositories.planning_embeddings_repository import (
     SqlalchemyPlanningEmbeddingsRepository,
@@ -46,7 +45,6 @@ class SqlalchemyIntelligenceDatabase:
             expire_on_commit=False,
         ) as session:
             repositories = IntelligenceDatabaseRepositories(
-                planning_sessions=SqlalchemyPlanningSessionsRepository(session),
                 planning_embeddings=SqlalchemyPlanningEmbeddingsRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,

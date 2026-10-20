@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
 from unittest.mock import create_autospec
 
+import httpx
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
@@ -30,6 +31,7 @@ from shifu.shared.constants import ENVIRONMENT
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from threading import Event
 
     from fastapi import FastAPI
     from httpx2 import Request
@@ -68,6 +70,13 @@ class ControlledMentorModelTransport:
         self.model_profiles: list[str] = []
         self.reject_attachment_source = False
         self.reported_cost_usd: float | None = None
+        # Planner scenarios: queued outputs are consumed in order, then defaults apply.
+        self.planner_interview_outputs: list[dict[str, object]] = []
+        self.planner_proposal_outputs: list[dict[str, object]] = []
+        self.planner_fail_next = 0
+        self.planner_gate: Event | None = None
+        self.planner_block_first = 0
+        self.planner_requests: list[dict[str, object]] = []
 
     def build_client(self) -> OpenAI:
         client = OpenAI(
@@ -137,6 +146,12 @@ class ControlledMentorModelTransport:
                     'official_action_claims',
                 )
             }
+        elif {'needs_clarification', 'questions'} <= keys:
+            return self._planner_response(payload, self._planner_interview_output())
+        elif {'supported', 'title', 'description', 'skills'} <= keys:
+            return self._planner_response(
+                payload, self._planner_proposal_output(payload)
+            )
         elif {'description', 'legible'} <= keys:
             output = {'description': 'Texto visual analisado.', 'legible': True}
         elif {'block_key', 'ordinal', 'content'} <= keys:
@@ -180,6 +195,73 @@ class ControlledMentorModelTransport:
                 },
             },
         )
+
+    def _planner_response(
+        self, payload: dict[str, object], output: dict[str, object]
+    ) -> httpx2.Response:
+        self.planner_requests.append(self._find_payload(payload, 'intent'))
+        if self.planner_block_first > 0 and self.planner_gate is not None:
+            self.planner_block_first -= 1
+            self.planner_gate.wait(timeout=30)
+        if self.planner_fail_next > 0:
+            self.planner_fail_next -= 1
+            return httpx2.Response(500, json={'error': 'Planner model unavailable'})
+        return httpx2.Response(
+            200,
+            json={
+                'id': 'chatcmpl-agentos-planner',
+                'object': 'chat.completion',
+                'created': 1,
+                'model': payload.get('model', 'local-fixture'),
+                'choices': [
+                    {
+                        'index': 0,
+                        'message': {
+                            'role': 'assistant',
+                            'content': json.dumps(output, ensure_ascii=False),
+                        },
+                        'finish_reason': 'stop',
+                    }
+                ],
+                'usage': {
+                    'prompt_tokens': 21,
+                    'completion_tokens': 11,
+                    'total_tokens': 32,
+                },
+            },
+        )
+
+    def _planner_interview_output(self) -> dict[str, object]:
+        if self.planner_interview_outputs:
+            return self.planner_interview_outputs.pop(0)
+        return {'needs_clarification': False, 'questions': []}
+
+    def _planner_proposal_output(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.planner_proposal_outputs:
+            return self.planner_proposal_outputs.pop(0)
+        candidates = self._find_payload(payload, 'candidates').get('candidates')
+        entries = (
+            cast('list[dict[str, object]]', candidates)
+            if isinstance(candidates, list)
+            else []
+        )
+        preferred = [
+            entry
+            for entry in entries
+            if entry.get('name') in {'React', 'JavaScript essencial', 'HTML e CSS'}
+        ] or entries[:1]
+        return {
+            'supported': True,
+            'title': 'Aprender desenvolvimento web',
+            'description': 'Um caminho do HTML ao React para construir sites interativos.',
+            'skills': [
+                {
+                    'skill_id': entry['skill_id'],
+                    'justification': f'Base para {entry["name"]}.',
+                }
+                for entry in preferred
+            ],
+        }
 
     @staticmethod
     def _response_schema(payload: dict[str, object]) -> dict[str, object]:
@@ -225,12 +307,50 @@ class ControlledMentorModelTransport:
         return {}
 
 
+class ControlledDecisionsTransport:
+    """Capture Jev decision requests and answer the configured planning kind."""
+
+    def __init__(self) -> None:
+        self.kind = 'learning'
+        self.fail_next = 0
+        self.requests: list[dict[str, object]] = []
+
+    def build_client(self) -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(self._handle))
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        payload = cast('dict[str, object]', json.loads(request.content))
+        self.requests.append(payload)
+        if self.fail_next > 0:
+            self.fail_next -= 1
+            return httpx.Response(503, json={'error': 'busy'})
+        kinds = ('learning', 'out-of-scope', 'ambiguous')
+        return httpx.Response(
+            200,
+            json={
+                'answers': {
+                    'planning_intent': {
+                        'type': 'choice',
+                        'choice': self.kind,
+                        'confidence': 0.9,
+                        'probabilities': {
+                            kind: 0.9 if kind == self.kind else 0.05 for kind in kinds
+                        },
+                    }
+                }
+            },
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class RegisteredAgentOSFixture:
     client: TestClient
     model_transport: ControlledMentorModelTransport
     account: AuthenticatedUser
     storage: InMemoryFileStorageProvider
+    decisions: ControlledDecisionsTransport = field(
+        default_factory=ControlledDecisionsTransport
+    )
 
 
 @pytest.fixture
@@ -261,6 +381,7 @@ def agentos_fixture(
     monkeypatch.setenv('OPENROUTER_API_KEY', 'local-agentos-test-key')
     monkeypatch.setenv('OPENROUTER_PROMPT_LOGGING_DISABLED', 'true')
     monkeypatch.setenv('MENTOR_TITLE_PROMPT_LOGGING_DISABLED', 'false')
+    monkeypatch.setenv('PLANNING_OPERATION_TIMEOUT_SECONDS', '10')
     for name, value in agentos_telemetry_environment.items():
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
@@ -270,6 +391,12 @@ def agentos_fixture(
     )
     from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
         OpenrouterMentorAnswerModelProvider,
+    )
+    from shifu.intelligence.ai.intelligence_workflows_registry import (
+        IntelligenceWorkflowsRegistry,
+    )
+    from shifu.intelligence.providers.openrouter.planner_model_provider import (
+        OpenrouterPlannerModelProvider,
     )
     from shifu.curriculum.database.sqlalchemy.curriculum_database import (
         SqlalchemyCurriculumDatabase,
@@ -322,6 +449,27 @@ def agentos_fixture(
         controlled_model,
     )
 
+    original_planner_build = OpenrouterPlannerModelProvider.build
+
+    def controlled_planner_model(settings: Settings) -> MentorOpenAIChat | None:
+        model = original_planner_build(settings)
+        if model is None:
+            raise AssertionError('Registered AgentOS planner model is unavailable')
+        model_transport.model_profiles.append('planner')
+        model.client = model_transport.build_client()
+        return model
+
+    monkeypatch.setattr(
+        'shifu.intelligence.ai.intelligence_workflows_registry.OpenrouterPlannerModelProvider.build',
+        controlled_planner_model,
+    )
+    decisions = ControlledDecisionsTransport()
+    monkeypatch.setattr(
+        IntelligenceWorkflowsRegistry,
+        '_build_code_rubric_client',
+        staticmethod(decisions.build_client),
+    )
+
     def no_title_model(_settings: Settings) -> None:
         return None
 
@@ -366,7 +514,9 @@ def agentos_fixture(
 
     try:
         with TestClient(app, headers=headers) as client:
-            yield RegisteredAgentOSFixture(client, model_transport, account, storage)
+            yield RegisteredAgentOSFixture(
+                client, model_transport, account, storage, decisions
+            )
     finally:
         model_transport.close()
         get_settings.cache_clear()

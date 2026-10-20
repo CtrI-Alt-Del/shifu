@@ -4,3 +4,6 @@ from .mentor_title_model_provider import (
 from .unavailable_generate_mentor_title_workflow import (
     UnavailableGenerateMentorTitleWorkflow as UnavailableGenerateMentorTitleWorkflow,
 )
+from .planner_model_provider import (
+    OpenrouterPlannerModelProvider as OpenrouterPlannerModelProvider,
+)

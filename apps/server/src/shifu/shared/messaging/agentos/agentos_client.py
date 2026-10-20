@@ -37,6 +37,8 @@ _SAFE_FIELD_NAMES = frozenset(
         'account_id',
         'session_id',
         'message_id',
+        'planning_id',
+        'operation_id',
     }
 )
 _SAFE_VALUE = re.compile(r'^[A-Za-z0-9_.:/+-]{1,160}$')

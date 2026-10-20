@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import httpx
+from redis import Redis
 
 from shifu.intelligence.ai.agno.agents import (
     MentorAttachmentAnswerAgent,
@@ -13,15 +14,22 @@ from shifu.intelligence.ai.agno.agents import (
     MentorReviewerAgent,
     MentorTitleAgent,
     MentorWriterAgent,
+    PlanningInterviewAgent,
+    PlanningProposalAgent,
 )
 from shifu.intelligence.ai.agno.workflows import (
     AgnoGenerateMentorTitleWorkflow,
+    PlanGoalWorkflow,
     PrepareMentorAttachmentWorkflow,
     ProcessMentorResponseWorkflow,
     PurgeMentorAttachmentsWorkflow,
 )
 from shifu.intelligence.core.use_cases import (
     AssertMentorResponseCurrentUseCase,
+    ClassifyPlanningIntentUseCase,
+    CompletePlanningOperationUseCase,
+    PreparePlanningOperationUseCase,
+    RetrievePlanningSkillsUseCase,
     CompleteMentorAttachmentUseCase,
     FailMentorAttachmentUseCase,
     FailMentorResponseUseCase,
@@ -51,7 +59,11 @@ from shifu.intelligence.providers.mentor_attachment.local_mentor_attachment_extr
 )
 from shifu.intelligence.providers.openrouter import (
     MentorTitleModelProvider,
+    OpenrouterPlannerModelProvider,
     UnavailableGenerateMentorTitleWorkflow,
+)
+from shifu.intelligence.providers.planning.redis.redis_planning_sessions_repository import (
+    RedisPlanningSessionsRepository,
 )
 from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
     OpenrouterMentorAnswerModelProvider,
@@ -96,7 +108,13 @@ if TYPE_CHECKING:
         MentorRouteProvider,
         MentorTelemetryProvider,
         PlanningIntentClassifierProvider,
+        PlanningSessionsRepository,
         PlanningSkillRetrievalProvider,
+    )
+    from shifu.shared.core.domain.structures import (
+        SkillCatalogEntry,
+        SkillCatalogPage,
+        SkillFoundationEntry,
     )
     from shifu.shared.core.interfaces import (
         CodeRubricAssessorProvider,
@@ -114,6 +132,7 @@ if TYPE_CHECKING:
 _MENTOR_EVENT = 'intelligence/mentor.response.requested'
 _ATTACHMENT_PREPARE_EVENT = 'intelligence/mentor-attachment.preparation.requested'
 _ATTACHMENT_CLEANUP_EVENT = 'intelligence/mentor-attachment.cleanup.requested'
+_PLANNING_EVENT = 'intelligence/planning.operation.requested'
 
 
 class _UnavailableTitleAgent:
@@ -154,6 +173,32 @@ class _UnavailablePlanningSkillRetrievalProvider:
     def retrieve(self, query: PlanningQuery) -> PlanningSkillRanking:
         del query
         raise PlanningIndexUnavailableError
+
+
+class _UnavailablePlanningAgent:
+    def run(self, *_args: object, **_kwargs: object) -> object:
+        raise ServiceUnavailableError('Planner generation is unavailable.')
+
+
+class _UnavailableCurriculumCatalogProvider:
+    def search_skills(
+        self, query: str | None, cursor: str | None, limit: int
+    ) -> SkillCatalogPage:
+        del query, cursor, limit
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def find_skill_by_id(self, skill_id: str) -> SkillCatalogEntry | None:
+        del skill_id
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def list_skills(self) -> tuple[SkillCatalogEntry, ...]:
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def find_direct_foundations_for_many(
+        self, skill_ids: list[str]
+    ) -> dict[str, list[SkillFoundationEntry]]:
+        del skill_ids
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
 
 
 class IntelligenceWorkflowsRegistry:
@@ -371,6 +416,49 @@ class IntelligenceWorkflowsRegistry:
             if curriculum_catalog_provider is not None
             else _UnavailablePlanningSkillRetrievalProvider()
         )
+        self._planning_redis_client: Redis = self._build_planning_redis_client(
+            settings.redis_url
+        )
+        self._planning_sessions: PlanningSessionsRepository = (
+            RedisPlanningSessionsRepository(
+                self._planning_redis_client, settings.planning_session_ttl_seconds
+            )
+        )
+        planner_model = OpenrouterPlannerModelProvider.build(settings)
+        interview_agent = (
+            PlanningInterviewAgent(planner_model)
+            if planner_model is not None
+            else cast('PlanningInterviewAgent', _UnavailablePlanningAgent())
+        )
+        proposal_agent = (
+            PlanningProposalAgent(planner_model)
+            if planner_model is not None
+            else cast('PlanningProposalAgent', _UnavailablePlanningAgent())
+        )
+        plan_goal_workflow = PlanGoalWorkflow(
+            prepare_use_case=PreparePlanningOperationUseCase(
+                self._planning_sessions, access_provider
+            ),
+            complete_use_case=CompletePlanningOperationUseCase(
+                self._planning_sessions, self._clock_provider
+            ),
+            classify_use_case=ClassifyPlanningIntentUseCase(
+                self._planning_intent_classifier
+            ),
+            retrieve_use_case=RetrievePlanningSkillsUseCase(
+                self._planning_skill_retrieval,
+                curriculum_catalog_provider
+                if curriculum_catalog_provider is not None
+                else cast(
+                    'CurriculumCatalogProvider', _UnavailableCurriculumCatalogProvider()
+                ),
+            ),
+            interview_agent=interview_agent,
+            proposal_agent=proposal_agent,
+            identifier_provider=self._identifier_provider,
+            handoffs=self._handoffs,
+        )
+        self._workflows = (*self._workflows, plan_goal_workflow)
         database_url = settings.agentos_database_url
         self._runtime = (
             AgentOSRuntime(
@@ -452,6 +540,10 @@ class IntelligenceWorkflowsRegistry:
         return self._planning_skill_retrieval
 
     @property
+    def planning_sessions(self) -> PlanningSessionsRepository:
+        return self._planning_sessions
+
+    @property
     def observability(self) -> LangfuseTelemetryProvider:
         if self._runtime is not None:
             return self._runtime.observability
@@ -462,6 +554,7 @@ class IntelligenceWorkflowsRegistry:
             _MENTOR_EVENT,
             _ATTACHMENT_PREPARE_EVENT,
             _ATTACHMENT_CLEANUP_EVENT,
+            _PLANNING_EVENT,
         }:
             return None
         return 'agentos:intelligence'
@@ -471,6 +564,8 @@ class IntelligenceWorkflowsRegistry:
         event: OutboxEvent,
     ) -> tuple[str, Mapping[str, str]] | None:
         payload = event.payload
+        if event.name == _PLANNING_EVENT:
+            return IntelligenceWorkflowsRegistry._project_planning_event(event)
         if event.name == _MENTOR_EVENT:
             attempt_id = payload.get('attempt_id')
             if isinstance(attempt_id, str) and attempt_id:
@@ -515,6 +610,31 @@ class IntelligenceWorkflowsRegistry:
                 return 'intelligence-purge-mentor-attachments', fields
         return None
 
+    @staticmethod
+    def _project_planning_event(
+        event: OutboxEvent,
+    ) -> tuple[str, Mapping[str, str]] | None:
+        payload = event.payload
+        planning_id = payload.get('planning_id')
+        operation_id = payload.get('operation_id')
+        generation = payload.get('generation')
+        if (
+            not isinstance(planning_id, str)
+            or not isinstance(operation_id, str)
+            or type(generation) is not int
+            or generation <= 0
+        ):
+            return None
+        return (
+            PlanGoalWorkflow.ID,
+            {
+                'planning_id': planning_id,
+                'operation_id': operation_id,
+                'generation': str(generation),
+                'event_id': event.id,
+            },
+        )
+
     @asynccontextmanager
     async def lifespan(self) -> AsyncGenerator[None]:
         if self._runtime is None:
@@ -538,10 +658,17 @@ class IntelligenceWorkflowsRegistry:
             await self._runtime.close()
         self._storage_provider.close()
         self._code_rubric_http_client.close()
+        self._planning_redis_client.close()
 
     @staticmethod
     def _build_code_rubric_client() -> httpx.Client:
         return httpx.Client()
+
+    @staticmethod
+    def _build_planning_redis_client(redis_url: str) -> Redis:
+        return Redis.from_url(  # pyright: ignore[reportUnknownMemberType] - redis-py defers option typing.
+            redis_url, decode_responses=True
+        )
 
     @staticmethod
     def _build_code_rubric_provider(
