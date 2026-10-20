@@ -4,3 +4,11 @@
 ### Achievements tab: level, XP and the merged achievement catalog
 GET {{baseUrl}}/gamification/achievements
 Authorization: Bearer {{accessToken}}
+
+### Calendário tab: one month of practice-day states and streak context
+GET {{baseUrl}}/gamification/calendar?year=2026&month=9
+Authorization: Bearer {{accessToken}}
+
+### Calendário tab: a future month is rejected with 400
+GET {{baseUrl}}/gamification/calendar?year=2099&month=1
+Authorization: Bearer {{accessToken}}

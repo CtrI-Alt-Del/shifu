@@ -130,6 +130,9 @@ class CompleteDiagnosticUseCase:
                 current_evaluations.append(evaluation)
 
             now = self._clock.now()
+            last_attempt = max(
+                attempt_by_activity.values(), key=lambda item: item.submitted_at
+            )
             self._apply_confirmation(
                 repositories,
                 goal,
@@ -137,6 +140,7 @@ class CompleteDiagnosticUseCase:
                 catalog,
                 current_evaluations,
                 now,
+                last_attempt,
             )
             return experience
 
@@ -148,6 +152,7 @@ class CompleteDiagnosticUseCase:
         catalog: CurriculumSkillSnapshot,
         evaluations: list[ActivityEvaluation],
         now: datetime,
+        last_attempt: ActivityAttempt,
     ) -> None:
         context = AdaptivePolicyContext.from_skill(catalog)
         observations = tuple(
@@ -319,6 +324,10 @@ class CompleteDiagnosticUseCase:
                     skill_id=experience.skill_id,
                     initial_progress=str(initial) if initial is not None else 'unknown',
                     completed_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
+                    submitted_at=last_attempt.submitted_at.astimezone(UTC)
+                    .isoformat()
+                    .replace('+00:00', 'Z'),
+                    time_zone=last_attempt.time_zone,
                 )
             )
         )

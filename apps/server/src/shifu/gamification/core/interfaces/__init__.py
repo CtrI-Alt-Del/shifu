@@ -8,6 +8,9 @@ from .gamification_database import (
 from .gamification_profiles_repository import (
     GamificationProfilesRepository as GamificationProfilesRepository,
 )
+from .practice_days_repository import (
+    PracticeDaysRepository as PracticeDaysRepository,
+)
 from .rewarded_milestones_repository import (
     RewardedMilestonesRepository as RewardedMilestonesRepository,
 )

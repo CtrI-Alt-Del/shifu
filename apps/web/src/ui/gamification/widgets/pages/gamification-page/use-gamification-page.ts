@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { AuthError } from '@/core/errors/auth-error'
 import type { Achievement, AchievementFamily } from '@/core/gamification/achievement'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
+import type { GamificationTab } from './gamification-tabs'
 import { useAchievementsQuery } from './use-achievements-query'
 
 export type GamificationPageState = 'loading' | 'success' | 'empty' | 'error'
@@ -29,6 +30,7 @@ const FAMILY_ORDER: AchievementFamily[] = [
 
 export function useGamificationPage() {
   const { navigateTo } = useNavigation()
+  const [activeTab, setActiveTab] = useState<GamificationTab>('calendario')
   const {
     overview,
     overviewError,
@@ -53,6 +55,10 @@ export function useGamificationPage() {
     void refetchOverview()
   }
 
+  function handleTabChange(tab: GamificationTab) {
+    setActiveTab(tab)
+  }
+
   return {
     familyGroups:
       state === 'success' && overview ? groupByFamily(overview.achievements) : [],
@@ -72,7 +78,9 @@ export function useGamificationPage() {
         : null,
     state,
     isRetrying: isFetchingOverview && !isLoadingOverview,
+    activeTab,
     handleRetry,
+    handleTabChange,
   }
 }
 
