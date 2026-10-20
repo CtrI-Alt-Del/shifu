@@ -334,6 +334,7 @@ class TestPlanGoalWorkflow:
         ]
         planning_id = _start(planner_runtime, 'Quero aprender a fazer sites')
         timed_out = None
+        observed: list[str] = []
         # The 10 s operation timeout is observed through GET; slow runners need slack.
         deadline = monotonic() + 80
         while monotonic() < deadline:
@@ -341,11 +342,17 @@ class TestPlanGoalWorkflow:
                 f'/intelligence/planning-sessions/{planning_id}'
             )
             assert response.status_code == 200
-            if response.json()['status'] == 'failed':
-                timed_out = cast('dict[str, object]', response.json())
+            body = cast('dict[str, object]', response.json())
+            operation = cast('dict[str, object] | None', body.get('operation')) or {}
+            observed.append(f'{body["status"]}:{operation.get("stage")}')
+            if body['status'] == 'failed':
+                timed_out = body
                 break
             sleep(1)
-        assert timed_out is not None
+        # When the expiry is never observed, the failure names what the API answered.
+        assert timed_out is not None, (
+            f'operation never expired; observed {observed[-8:]}'
+        )
         assert timed_out['failure_code'] == 'operation_timeout'
 
         restarted = planner_runtime.client.post(
