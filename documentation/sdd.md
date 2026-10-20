@@ -94,7 +94,6 @@ action request and follow `AGENTS.md`.
 ```text
 documentation/features/<module>/<feature>/
 ├── spec.md                 # contract and checkers
-├── interactive-spec.html   # required offline reading companion, derived from Spec
 ├── evaluation.md           # evidence, findings and current handoff
 └── design/                 # saved references when material
     ├── handoff.md           # or an existing Spec-approved manifest.md
@@ -106,15 +105,6 @@ Use lowercase kebab-case module/feature slugs and the
 templates. A materially different delivery slice gets a feature directory;
 a bounded revision may live under `changes/<change-slug>/` when preserving an
 original concluded contract is useful.
-
-Every Spec created or revised through `create-spec` has an
-`interactive-spec.html` companion in the same directory, including bounded
-`changes/<change-slug>/` revisions. It explains and includes the current contract
-with navigation, search and expandable detail, using embedded offline content.
-`spec.md` remains the sole local contract authority. Keep the HTML aligned with
-Spec revisions/status and validate its interactions with Playwright CLI as
-specified by [create-spec](prompts/create-spec-prompt.md#required-interactive-spec-companion).
-The companion does not claim implementation evidence or introduce another approval gate.
 
 There is no separate `plan.md` or `create-plan` step. The agent handles execution
 order, decomposition, dependencies and delegation in its working context.
