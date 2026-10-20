@@ -506,6 +506,8 @@ jobs:
             tests/intelligence/core/use_cases/test_get_planning_session_use_case.py \
             tests/intelligence/core/use_cases/test_answer_planning_questions_use_case.py \
             tests/intelligence/core/use_cases/test_restart_planning_use_case.py \
+            tests/intelligence/core/use_cases/test_confirm_planning_use_case.py \
+            tests/learning/core/use_cases/test_create_planned_goal_use_case.py \
             tests/intelligence/core/use_cases/test_retry_planning_use_case.py \
             tests/intelligence/core/use_cases/test_cancel_planning_use_case.py \
             tests/intelligence/core/use_cases/test_prepare_planning_operation_use_case.py \
@@ -515,6 +517,7 @@ jobs:
             tests/intelligence/server/controllers/test_get_planning_session_controller.py \
             tests/intelligence/server/controllers/test_answer_planning_questions_controller.py \
             tests/intelligence/server/controllers/test_restart_planning_controller.py \
+            tests/intelligence/server/controllers/test_confirm_planning_controller.py \
             tests/intelligence/server/controllers/test_retry_planning_controller.py \
             tests/intelligence/server/controllers/test_cancel_planning_controller.py \
             tests/intelligence/server/agentos/test_plan_goal_workflow.py \

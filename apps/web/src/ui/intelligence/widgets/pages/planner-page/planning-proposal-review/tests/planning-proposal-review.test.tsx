@@ -93,6 +93,9 @@ function controller(
     relationSummary:
       'As duas habilidades se complementam. Você escolhe por onde começar.',
     isRestartDialogOpen: false,
+    isFrozen: false,
+    createGoalLabel: 'Criar objetivo',
+    goalCreationNotice: null,
     titleRef: { current: null },
     descriptionRef: { current: null },
     restartTriggerRef: { current: null },
@@ -120,7 +123,7 @@ function renderReview(
     isCancelling: false,
     isRestarting: false,
     restartErrorMessage: null,
-    goalCreationNotice: null,
+    goalCreation: { status: 'idle', message: null },
     onCancel: vi.fn(),
     onRestart: vi.fn(async () => true),
     onCreateGoal: vi.fn(),
@@ -276,9 +279,7 @@ describe('PlanningProposalReview', () => {
         titleError: 'Informe um título para o Objetivo.',
         descriptionError: 'Informe uma descrição para o Objetivo.',
       },
-      {
-        goalCreationNotice: 'A criação do Objetivo chega na próxima etapa do Planejador.',
-      },
+      { goalCreation: { status: 'idle', message: null } },
     )
 
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Novo' } })
@@ -289,11 +290,6 @@ describe('PlanningProposalReview', () => {
     const alerts = screen.getAllByRole('alert')
     expect(alerts[0]).toHaveTextContent('Informe um título para o Objetivo.')
     expect(alerts[1]).toHaveTextContent('Informe uma descrição para o Objetivo.')
-    expect(
-      screen
-        .getByText('A criação do Objetivo chega na próxima etapa do Planejador.')
-        .closest('output'),
-    ).toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: 'Criar objetivo' }))
     expect(current.handleCreateGoal).toHaveBeenCalledOnce()
@@ -301,6 +297,70 @@ describe('PlanningProposalReview', () => {
     expect(current.handleOpenRestart).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(props.onCancel).toHaveBeenCalledOnce()
+  })
+
+  it('renders the creation progress, the failure and the uncertain result as the frames draw them', () => {
+    renderReview(
+      {
+        isFrozen: true,
+        createGoalLabel: 'Criando objetivo…',
+        goalCreationNotice: {
+          tone: 'processing',
+          title: 'Criando seu objetivo…',
+          support: 'Estamos salvando o objetivo e as habilidades que você confirmou.',
+        },
+      },
+      { goalCreation: { status: 'creating', message: null } },
+    )
+    expect(screen.getByText('Criando seu objetivo…')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Criando objetivo…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Criando objetivo…' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    )
+    expect(screen.getByLabelText('Título')).toBeDisabled()
+    expect(screen.getByLabelText('Descrição')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeDisabled()
+    cleanup()
+
+    renderReview(
+      {
+        createGoalLabel: 'Tentar criar objetivo',
+        goalCreationNotice: {
+          tone: 'failure',
+          title: 'Não foi possível criar o objetivo',
+          support: 'Sua proposta foi mantida. Tente criar o objetivo novamente.',
+        },
+      },
+      { goalCreation: { status: 'failed', message: null } },
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível criar o objetivo',
+    )
+    expect(screen.getByRole('button', { name: 'Tentar criar objetivo' })).toBeEnabled()
+    expect(screen.getByLabelText('Título')).toBeEnabled()
+    cleanup()
+
+    const { current } = renderReview(
+      {
+        isFrozen: true,
+        createGoalLabel: 'Verificar resultado',
+        goalCreationNotice: {
+          tone: 'uncertain',
+          title: 'Não conseguimos confirmar a criação do objetivo',
+          support: 'A resposta não chegou.',
+        },
+      },
+      { goalCreation: { status: 'uncertain', message: null } },
+    )
+    expect(
+      screen.getByText('Não conseguimos confirmar a criação do objetivo'),
+    ).toBeVisible()
+    expect(screen.getByLabelText('Título')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar resultado' }))
+    expect(current.handleCreateGoal).toHaveBeenCalledOnce()
   })
 
   it('disables every action while a restart or a cancel is in flight', () => {

@@ -9,5 +9,8 @@ from .concept_observation_mapper import (
     ConceptObservationMapper as ConceptObservationMapper,
 )
 from .concept_state_mapper import ConceptStateMapper as ConceptStateMapper
+from .goal_confirmation_mapper import (
+    GoalConfirmationMapper as GoalConfirmationMapper,
+)
 from .goal_mapper import GoalMapper as GoalMapper
 from .skill_experience_mapper import SkillExperienceMapper as SkillExperienceMapper

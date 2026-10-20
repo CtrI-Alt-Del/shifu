@@ -1,7 +1,9 @@
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
+export type PlanningProcessingNoticeTone = 'processing' | 'failure' | 'uncertain'
+
 export type PlanningProcessingNoticeProps = {
-  tone: 'processing' | 'failure'
+  tone: PlanningProcessingNoticeTone
   title: string
   support: string
 }
@@ -23,8 +25,10 @@ export const PlanningProcessingNotice = ({
           name='loader-circle'
           size={20}
         />
-      ) : (
+      ) : tone === 'failure' ? (
         <Icon className='shrink-0 text-selo-text' name='triangle-alert' size={20} />
+      ) : (
+        <Icon className='shrink-0 text-secondary-foreground' name='clock-3' size={20} />
       )}
       <div className='flex min-w-0 flex-col gap-1'>
         <p className='text-[15px] font-semibold leading-[1.45] text-foreground'>

@@ -2,8 +2,10 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { PlanningSessionFaker } from '@/core/intelligence/fakers/planning-session-faker'
+import { CONFIRMATION_KEY_PATTERN } from '@/core/intelligence/planning-session'
 
 import {
+  IDLE_GOAL_CREATION,
   type PlanningProposalReviewProps,
   usePlanningProposalReview,
 } from '../use-planning-proposal-review'
@@ -21,7 +23,7 @@ function renderReview(overrides: Partial<PlanningProposalReviewProps> = {}) {
     isCancelling: false,
     isRestarting: false,
     restartErrorMessage: null,
-    goalCreationNotice: null,
+    goalCreation: IDLE_GOAL_CREATION,
     onCancel: vi.fn(),
     onRestart: vi.fn(async () => true),
     onCreateGoal: vi.fn(),
@@ -111,12 +113,57 @@ describe('usePlanningProposalReview', () => {
 
     expect(props.onCreateGoal).toHaveBeenCalledWith({
       planningId: PLANNING_ID,
+      confirmationKey: expect.stringMatching(CONFIRMATION_KEY_PATTERN),
       title: 'Automatizar planilhas',
       description: 'Scripts que leem planilhas.',
       proposal: props.proposal,
     })
     expect(result.current.titleError).toBeNull()
     expect(result.current.descriptionError).toBeNull()
+
+    // A retry replays the same confirmation key.
+    act(() => result.current.handleCreateGoal())
+    const [first, second] = vi.mocked(props.onCreateGoal).mock.calls
+    expect(second[0].confirmationKey).toBe(first[0].confirmationKey)
+  })
+
+  it('freezes the review while creating or uncertain and words the action per state', () => {
+    const creating = renderReview({ goalCreation: { status: 'creating', message: null } })
+    expect(creating.result.current.isFrozen).toBe(true)
+    expect(creating.result.current.createGoalLabel).toBe('Criando objetivo…')
+    expect(creating.result.current.goalCreationNotice).toMatchObject({
+      tone: 'processing',
+      title: 'Criando seu objetivo…',
+    })
+    act(() => creating.result.current.handleCreateGoal())
+    expect(creating.props.onCreateGoal).not.toHaveBeenCalled()
+
+    const failed = renderReview({
+      goalCreation: { status: 'failed', message: 'Este Skill ainda não está pronto.' },
+    })
+    expect(failed.result.current.isFrozen).toBe(false)
+    expect(failed.result.current.createGoalLabel).toBe('Tentar criar objetivo')
+    expect(failed.result.current.goalCreationNotice).toEqual({
+      tone: 'failure',
+      title: 'Não foi possível criar o objetivo',
+      support: 'Este Skill ainda não está pronto. Sua proposta foi mantida.',
+    })
+
+    const plainFailure = renderReview({
+      goalCreation: { status: 'failed', message: null },
+    })
+    expect(plainFailure.result.current.goalCreationNotice?.support).toBe(
+      'Sua proposta foi mantida. Tente criar o objetivo novamente.',
+    )
+
+    const uncertain = renderReview({
+      goalCreation: { status: 'uncertain', message: null },
+    })
+    expect(uncertain.result.current.isFrozen).toBe(true)
+    expect(uncertain.result.current.createGoalLabel).toBe('Verificar resultado')
+    expect(uncertain.result.current.goalCreationNotice?.tone).toBe('uncertain')
+    act(() => uncertain.result.current.handleCreateGoal())
+    expect(uncertain.props.onCreateGoal).toHaveBeenCalledOnce()
   })
 
   it('opens and closes the restart dialog without touching the edits (CA-06, CA-07)', async () => {

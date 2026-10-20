@@ -11,6 +11,8 @@ import type {
 import { PlanningRequestError } from '@/ui/intelligence/hooks/planning-request-error'
 import { useAnswerPlanningQuestionsAction } from '@/ui/intelligence/hooks/use-answer-planning-questions-action'
 import { useCancelPlanningAction } from '@/ui/intelligence/hooks/use-cancel-planning-action'
+import { useConfirmPlanningAction } from '@/ui/intelligence/hooks/use-confirm-planning-action'
+import { HOME_GOALS_QUERY_KEY } from '@/ui/intelligence/hooks/home-goals-query-key'
 import {
   planningSessionQueryKey,
   usePlanningSessionQuery,
@@ -20,10 +22,13 @@ import { useRetryPlanningAction } from '@/ui/intelligence/hooks/use-retry-planni
 import { consumePlanningEntry } from '@/ui/intelligence/planning-entry'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
+import {
+  type GoalCreationState,
+  IDLE_GOAL_CREATION,
+} from './planning-proposal-review/use-planning-proposal-review'
+
 export type PlannerPageProps = {
   planningId: string
-  /** SHIFU-95 integration boundary: receives the confirmed proposal and its edits. */
-  onCreateGoal?: (request: PlanningGoalCreationRequest) => void | Promise<void>
 }
 
 export type PlannerView =
@@ -93,20 +98,18 @@ const RETRY_ERROR_MESSAGE =
   'Não foi possível tentar novamente agora. Seu planejamento continua nesta página.'
 const RESTART_ERROR_MESSAGE =
   'Não foi possível reiniciar o planejamento agora. Sua proposta continua nesta página; tente novamente.'
-const GOAL_CREATION_PENDING_NOTICE =
-  'A criação do Objetivo chega na próxima etapa do Planejador. Sua proposta e suas edições continuam nesta página.'
 const REVIEW_GUIDANCE =
   'Você pode alterar esta resposta. Use as etapas para revisar as demais e enviar na última pergunta.'
 
-export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
+export function usePlannerPage({ planningId }: PlannerPageProps) {
   const queryClient = useQueryClient()
-  const { navigateTo } = useNavigation()
+  const { navigateTo, navigateToGoalDetail } = useNavigation()
   const [isLeaving, setIsLeaving] = useState(false)
   const [hasEntry] = useState(() => consumePlanningEntry(planningId))
   const [draft, setDraft] = useState<PlannerDraft>(EMPTY_DRAFT)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [restartErrorMessage, setRestartErrorMessage] = useState<string | null>(null)
-  const [goalCreationNotice, setGoalCreationNotice] = useState<string | null>(null)
+  const [goalCreation, setGoalCreation] = useState<GoalCreationState>(IDLE_GOAL_CREATION)
   const questionHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousFocusKeyRef = useRef<string | null>(null)
   const leavingRef = useRef(false)
@@ -126,6 +129,7 @@ export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
   const { retryPlanning, isRetryingPlanning } = useRetryPlanningAction(planningId)
   const { restartPlanning, isRestartingPlanning } = useRestartPlanningAction(planningId)
   const { cancelPlanning, isCancellingPlanning } = useCancelPlanningAction(planningId)
+  const { confirmPlanning, isConfirmingPlanning } = useConfirmPlanningAction(planningId)
 
   const batch = planningSession?.status === 'interview' ? planningSession.batch : null
   const batchId = batch?.id ?? null
@@ -279,7 +283,7 @@ export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
     setRestartErrorMessage(null)
     try {
       const updated = await restartPlanning(initialIntent)
-      setGoalCreationNotice(null)
+      setGoalCreation(IDLE_GOAL_CREATION)
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
       return true
     } catch (error) {
@@ -291,12 +295,47 @@ export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
   }
 
   async function handleCreateGoal(request: PlanningGoalCreationRequest) {
-    if (!onCreateGoal) {
-      setGoalCreationNotice(GOAL_CREATION_PENDING_NOTICE)
-      return
+    if (operationRef.current || view !== 'proposal') return
+    operationRef.current = true
+    setGoalCreation({ status: 'creating', message: null })
+    try {
+      // The backend uses its own proposal; only the edits and the key travel.
+      const creation = await confirmPlanning({
+        confirmationKey: request.confirmationKey,
+        title: request.title,
+        description: request.description,
+      })
+      await leaveToGoal(creation.goalId)
+    } catch (error) {
+      setGoalCreation(resolveGoalCreationFailure(error))
+    } finally {
+      operationRef.current = false
     }
-    setGoalCreationNotice(null)
-    await onCreateGoal(request)
+  }
+
+  function resolveGoalCreationFailure(error: unknown): GoalCreationState {
+    if (error instanceof PlanningRequestError) {
+      if (error.kind === 'unauthorized') {
+        void navigateTo('login')
+        return IDLE_GOAL_CREATION
+      }
+      if (error.kind === 'not-found') {
+        // The planning expired or was discarded elsewhere; the page shows that state.
+        void refetchPlanningSession()
+        return IDLE_GOAL_CREATION
+      }
+      if (error.kind === 'unavailable') return { status: 'uncertain', message: null }
+      return { status: 'failed', message: error.message }
+    }
+    return { status: 'uncertain', message: null }
+  }
+
+  async function leaveToGoal(goalId: string) {
+    leavingRef.current = true
+    setIsLeaving(true)
+    await queryClient.invalidateQueries({ queryKey: HOME_GOALS_QUERY_KEY })
+    queryClient.removeQueries({ queryKey: planningSessionQueryKey(planningId) })
+    await navigateToGoalDetail(goalId)
   }
 
   function resolveOperationFailure(error: unknown, fallbackMessage: string) {
@@ -368,8 +407,9 @@ export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
     proposal: view === 'proposal' ? (planningSession?.proposal ?? null) : null,
     errorMessage,
     restartErrorMessage,
-    goalCreationNotice,
+    goalCreation,
     isSubmitting,
+    isCreatingGoal: isConfirmingPlanning,
     isRetrying,
     isRestarting,
     isCancelling,

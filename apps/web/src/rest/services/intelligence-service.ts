@@ -16,6 +16,7 @@ import type {
   PlanningOperation,
   PlanningQuestion,
   PlanningSession,
+  PlanningGoalCreation,
 } from '@/core/intelligence/planning-session'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
@@ -532,6 +533,23 @@ export const IntelligenceService = (
       )
       if (response.isFailure) response.throwError()
       return mapPlanningSession(response.body)
+    },
+    async confirmPlanning(
+      accessToken: string,
+      planningId: string,
+      input: { confirmationKey: string; title: string; description: string },
+    ): Promise<PlanningGoalCreation> {
+      const response = await restClient.post<{ goal_id: string; replayed: boolean }>(
+        `/intelligence/planning-sessions/${planningId}/confirm`,
+        {
+          confirmation_key: input.confirmationKey,
+          title: input.title,
+          description: input.description,
+        },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return { goalId: response.body.goal_id, replayed: response.body.replayed }
     },
     async retryPlanning(
       accessToken: string,

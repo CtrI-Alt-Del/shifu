@@ -1,6 +1,11 @@
 from .structure import structure as structure
 
 from .authenticated_user import AuthenticatedUser as AuthenticatedUser
+from .planned_goal_confirmation import (
+    PlannedGoalConfirmation as PlannedGoalConfirmation,
+)
+from .planned_goal_creation import PlannedGoalCreation as PlannedGoalCreation
+from .planned_goal_skill import PlannedGoalSkill as PlannedGoalSkill
 from .aware_timestamp import AwareTimestamp as AwareTimestamp
 from .bounded_integer import BoundedInteger as BoundedInteger
 from .chronological_period import ChronologicalPeriod as ChronologicalPeriod

@@ -140,3 +140,14 @@ Authorization: Bearer {{accessToken}}
 ### Cancel and discard the planning (204)
 DELETE {{baseUrl}}/intelligence/planning-sessions/{{planningId}}
 Authorization: Bearer {{accessToken}}
+
+### Confirm the active proposal and create the Goal in Learning (same key replays)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/confirm
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_key": "3f0c2b9e-8d1a-4c57-9b2e-6a1d4f8c0e21",
+  "title": "Automatizar tarefas do dia a dia com Python",
+  "description": "Quero parar de fazer planilha na mão e escrever scripts que resolvam isso por mim."
+}

@@ -34,7 +34,7 @@ export const PlannerPage = (props: PlannerPageProps) => {
     proposal,
     errorMessage,
     restartErrorMessage,
-    goalCreationNotice,
+    goalCreation,
     generation,
     isSubmitting,
     isRetrying,
@@ -340,7 +340,7 @@ export const PlannerPage = (props: PlannerPageProps) => {
 
         {view === 'proposal' && intent && proposal ? (
           <PlanningProposalReview
-            goalCreationNotice={goalCreationNotice}
+            goalCreation={goalCreation}
             intent={intent}
             isCancelling={isCancelling}
             isRestarting={isRestarting}

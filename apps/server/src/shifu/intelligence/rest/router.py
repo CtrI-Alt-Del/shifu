@@ -6,6 +6,9 @@ from shifu.intelligence.rest.controllers.answer_planning_questions_controller im
 from shifu.intelligence.rest.controllers.cancel_planning_controller import (
     CancelPlanningController,
 )
+from shifu.intelligence.rest.controllers.confirm_planning_controller import (
+    ConfirmPlanningController,
+)
 from shifu.intelligence.rest.controllers.get_planning_session_controller import (
     GetPlanningSessionController,
 )
@@ -60,6 +63,7 @@ class IntelligenceRouter:
         RestartPlanningController.handle(router)
         RetryPlanningController.handle(router)
         CancelPlanningController.handle(router)
+        ConfirmPlanningController.handle(router)
         CreateMentorSessionController.handle(router)
         ListMentorSessionsController.handle(router)
         GetMentorSessionController.handle(router)

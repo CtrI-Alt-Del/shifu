@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/ui/shadcn/tabs'
 import { Textarea } from '@/ui/shadcn/textarea'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
+import { PlanningProcessingNotice } from '../planning-processing-notice'
 import { ProposalSkillGraph } from './proposal-skill-graph'
 import { ProposalSkillList } from './proposal-skill-list'
 import { RestartPlanningDialog } from './restart-planning-dialog'
@@ -13,7 +14,11 @@ import {
   usePlanningProposalReview,
 } from './use-planning-proposal-review'
 
-export type { PlanningProposalReviewProps } from './use-planning-proposal-review'
+export type {
+  GoalCreationState,
+  GoalCreationStatus,
+  PlanningProposalReviewProps,
+} from './use-planning-proposal-review'
 
 const COMPACT_ACTION = 'w-full gap-1.5 sm:w-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
 
@@ -24,7 +29,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
     isCancelling,
     isRestarting,
     restartErrorMessage,
-    goalCreationNotice,
+    goalCreation,
     onCancel,
   } = props
   const {
@@ -35,6 +40,9 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
     descriptionError,
     relationSummary,
     isRestartDialogOpen,
+    isFrozen,
+    createGoalLabel,
+    goalCreationNotice,
     titleRef,
     descriptionRef,
     restartTriggerRef,
@@ -46,6 +54,8 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
     handleCloseRestart,
     handleSubmitRestart,
   } = usePlanningProposalReview(props)
+  const isBusy = isCancelling || isRestarting
+  const isCreating = goalCreation.status === 'creating'
 
   return (
     <section aria-labelledby='planning-review-title' className='flex flex-col gap-5'>
@@ -56,6 +66,13 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         >
           Revise seu objetivo
         </h1>
+        {goalCreationNotice ? (
+          <PlanningProcessingNotice
+            support={goalCreationNotice.support}
+            title={goalCreationNotice.title}
+            tone={goalCreationNotice.tone}
+          />
+        ) : null}
         <p className='text-sm leading-[1.45] text-secondary-foreground'>
           Esta proposta considera o que você quer alcançar e as respostas deste
           planejamento.
@@ -73,6 +90,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
           aria-describedby={titleError ? 'planning-review-title-error' : undefined}
           aria-invalid={Boolean(titleError)}
           className='min-h-[52px] px-4 text-[15px]'
+          disabled={isFrozen}
           id='planning-review-title-field'
           onChange={(event) => handleTitleChange(event.target.value)}
           ref={titleRef}
@@ -103,6 +121,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
           }
           aria-invalid={Boolean(descriptionError)}
           className='min-h-[88px] resize-none px-4 py-3.5 text-[15px] leading-[1.45]'
+          disabled={isFrozen}
           id='planning-review-description-field'
           onChange={(event) => handleDescriptionChange(event.target.value)}
           ref={descriptionRef}
@@ -160,19 +179,10 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         intenção.
       </p>
 
-      {goalCreationNotice ? (
-        <output
-          aria-live='polite'
-          className='block rounded-[10px] border border-border bg-surface-alt p-4 text-[13px] leading-[1.45] text-secondary-foreground'
-        >
-          {goalCreationNotice}
-        </output>
-      ) : null}
-
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
         <Button
           className='order-2 self-center sm:order-1 sm:self-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
-          disabled={isCancelling || isRestarting}
+          disabled={isBusy || isFrozen}
           onClick={onCancel}
           type='button'
           variant='ghost'
@@ -182,7 +192,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         <div className='order-1 flex flex-col gap-2 sm:order-2 sm:flex-row sm:items-center sm:gap-2.5'>
           <Button
             className={COMPACT_ACTION}
-            disabled={isCancelling || isRestarting}
+            disabled={isBusy || isFrozen}
             onClick={handleOpenRestart}
             ref={restartTriggerRef}
             type='button'
@@ -191,12 +201,19 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
             Reiniciar planejamento
           </Button>
           <Button
-            className={COMPACT_ACTION}
-            disabled={isCancelling || isRestarting}
+            aria-busy={isCreating}
+            className={`${COMPACT_ACTION} ${
+              // The mobile failure frame leads with the retry; the DOM order stays the same.
+              goalCreation.status === 'failed' ? 'order-first sm:order-none' : ''
+            }`}
+            disabled={isBusy || isCreating}
             onClick={handleCreateGoal}
             type='button'
           >
-            Criar objetivo
+            {isCreating ? (
+              <Icon className='animate-spin' name='loader-circle' size={16} />
+            ) : null}
+            {createGoalLabel}
           </Button>
         </div>
       </div>

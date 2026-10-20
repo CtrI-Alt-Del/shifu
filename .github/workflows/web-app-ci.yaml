@@ -196,6 +196,7 @@ jobs:
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
           src/ui/intelligence/hooks/tests/planning-server-functions.test.ts
+          src/ui/intelligence/hooks/tests/use-home-goals-query.test.ts
           src/ui/intelligence/widgets/pages/planner-page/tests/planner-page.test.tsx
           src/ui/intelligence/widgets/pages/planner-page/tests/use-planner-page.test.ts
           src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/planning-proposal-review.test.tsx

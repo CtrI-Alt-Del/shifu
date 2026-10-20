@@ -10,6 +10,7 @@ import { PlanningRequestError, unwrapPlanningResult } from '../planning-request-
 import { answerPlanningQuestionsServer } from '../use-answer-planning-questions-action'
 import { cancelPlanningServer } from '../use-cancel-planning-action'
 import { getPlanningSessionServer } from '../use-planning-session-query'
+import { confirmPlanningServer } from '../use-confirm-planning-action'
 import { restartPlanningServer } from '../use-restart-planning-action'
 import { retryPlanningServer } from '../use-retry-planning-action'
 
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     answerPlanningQuestions: vi.fn(),
     retryPlanning: vi.fn(),
     restartPlanning: vi.fn(),
+    confirmPlanning: vi.fn(),
     cancelPlanning: vi.fn(),
   },
 }))
@@ -58,6 +60,7 @@ vi.mock('@/rest/services/intelligence-service', () => ({
   IntelligenceService: mocks.intelligenceService,
 }))
 
+const CONFIRMATION_KEY = '3f0c2b9e-8d1a-4c57-9b2e-6a1d4f8c0e21'
 const PLANNING_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 
 describe('Planner server functions', () => {
@@ -76,6 +79,7 @@ describe('Planner server functions', () => {
       status: 'processing',
       generation: 2,
     })
+    mocks.service.confirmPlanning.mockResolvedValue({ goalId: 'goal-1', replayed: false })
     mocks.service.cancelPlanning.mockResolvedValue(undefined)
   })
 
@@ -92,9 +96,17 @@ describe('Planner server functions', () => {
     await restartPlanningServer({
       data: { planningId: PLANNING_ID, initialIntent: '  Quero aprender APIs  ' },
     })
+    await confirmPlanningServer({
+      data: {
+        planningId: PLANNING_ID,
+        confirmationKey: CONFIRMATION_KEY,
+        title: '  Automação  ',
+        description: ' Scripts ',
+      },
+    })
     const cancelled = await cancelPlanningServer({ data: { planningId: PLANNING_ID } })
 
-    expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(5)
+    expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(6)
     expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request)
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
       withCredentials: false,
@@ -116,6 +128,11 @@ describe('Planner server functions', () => {
       'access-token',
       PLANNING_ID,
       'Quero aprender APIs',
+    )
+    expect(mocks.service.confirmPlanning).toHaveBeenCalledWith(
+      'access-token',
+      PLANNING_ID,
+      { confirmationKey: CONFIRMATION_KEY, title: 'Automação', description: 'Scripts' },
     )
     expect(mocks.service.cancelPlanning).toHaveBeenCalledWith('access-token', PLANNING_ID)
     expect(cancelled).toEqual({ cancelled: true })
@@ -151,6 +168,27 @@ describe('Planner server functions', () => {
       }),
     ).rejects.toThrow()
     expect(mocks.service.restartPlanning).not.toHaveBeenCalled()
+    await expect(
+      confirmPlanningServer({
+        data: {
+          planningId: PLANNING_ID,
+          confirmationKey: 'nope',
+          title: 'T',
+          description: 'D',
+        },
+      }),
+    ).rejects.toThrow()
+    await expect(
+      confirmPlanningServer({
+        data: {
+          planningId: PLANNING_ID,
+          confirmationKey: CONFIRMATION_KEY,
+          title: ' ',
+          description: 'D',
+        },
+      }),
+    ).rejects.toThrow()
+    expect(mocks.service.confirmPlanning).not.toHaveBeenCalled()
     expect(mocks.service.getPlanningSession).not.toHaveBeenCalled()
     expect(mocks.service.answerPlanningQuestions).not.toHaveBeenCalled()
     expect(mocks.service.retryPlanning).not.toHaveBeenCalled()
@@ -294,8 +332,12 @@ describe('Planner server functions', () => {
       post: vi.fn(async (url: string, body: unknown) => {
         calls.push({ method: 'POST', url, body })
         return new RestResponse({
-          body: url.endsWith('/retry') ? proposed : processing,
-          statusCode: 202,
+          body: url.endsWith('/confirm')
+            ? { goal_id: 'goal-1', replayed: true }
+            : url.endsWith('/retry')
+              ? proposed
+              : processing,
+          statusCode: url.endsWith('/confirm') ? 200 : 202,
         })
       }),
       delete: vi.fn(async (url: string) => {
@@ -319,6 +361,14 @@ describe('Planner server functions', () => {
     const restarted = await restartPlanningServer({
       data: { planningId: PLANNING_ID, initialIntent: 'Quero aprender APIs' },
     })
+    const confirmed = await confirmPlanningServer({
+      data: {
+        planningId: PLANNING_ID,
+        confirmationKey: CONFIRMATION_KEY,
+        title: 'Automação',
+        description: 'Scripts',
+      },
+    })
     await cancelPlanningServer({ data: { planningId: PLANNING_ID } })
 
     expect(calls).toEqual([
@@ -340,6 +390,15 @@ describe('Planner server functions', () => {
         method: 'POST',
         url: `/intelligence/planning-sessions/${PLANNING_ID}/restart`,
         body: { initial_intent: 'Quero aprender APIs' },
+      },
+      {
+        method: 'POST',
+        url: `/intelligence/planning-sessions/${PLANNING_ID}/confirm`,
+        body: {
+          confirmation_key: CONFIRMATION_KEY,
+          title: 'Automação',
+          description: 'Scripts',
+        },
       },
       { method: 'DELETE', url: `/intelligence/planning-sessions/${PLANNING_ID}` },
     ])
@@ -384,6 +443,7 @@ describe('Planner server functions', () => {
       },
     })
     expect(restarted).toMatchObject({ status: 'processing', batch: null })
+    expect(confirmed).toEqual({ goalId: 'goal-1', replayed: true })
     expect(retried).toMatchObject({
       status: 'proposal',
       operation: { kind: 'start', stage: null },

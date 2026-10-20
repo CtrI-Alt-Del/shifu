@@ -75,6 +75,9 @@ from shifu.learning.messaging.inngest import LearningInngestMessaging
 from shifu.learning.providers.learning_mentor_context_provider import (
     LearningMentorContextProvider,
 )
+from shifu.learning.providers.learning_planned_goal_provider import (
+    LearningPlannedGoalProvider,
+)
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
@@ -406,6 +409,9 @@ class FastAPIApp:
             intelligence_registry.planning_skill_retrieval
         )
         app.state.planning_sessions_repository = intelligence_registry.planning_sessions
+        app.state.planned_goal_provider = LearningPlannedGoalProvider(
+            learning_database, curriculum_content_provider, clock_provider, id_provider
+        )
         app.state.planning_operation_timeout = timedelta(
             seconds=settings.planning_operation_timeout_seconds
         )
