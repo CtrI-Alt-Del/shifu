@@ -98,11 +98,11 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/32 (base `feat/shifu-89` until #31 merges) | `0f0be27` (feature) and `4481df0` (documentation); this delivery-state note follows as a docs commit | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
+| https://github.com/CtrI-Alt-Del/shifu/pull/32 (targets `main`; includes the SHIFU-89 commits until #31 merges) | `0f0be27` (feature) and `4481df0` (documentation); this delivery-state note follows as a docs commit | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
 
 | Field | Result |
 | --- | --- |
-| Publication | Published: branch `feat/shifu-91` pushed to `CtrI-Alt-Del/shifu`, pull request #32 open against `feat/shifu-89`; Jira SHIFU-91 moved to Code Review |
+| Publication | Published: branch `feat/shifu-91` pushed to `CtrI-Alt-Del/shifu`, pull request #32 open against `main` (stacked on #31); Jira SHIFU-91 moved to Code Review |
 | Source verification | SHIFU-91 (Jira, read 2026-10-20) and PRD Intelligence content `83099649` version 4 |
 | Documentation Alignment | Confirmed as listed in the spec; no Confluence write; `documentation/modules.md` unchanged |
 | Revision History | Spec revision 2 (see spec) |
