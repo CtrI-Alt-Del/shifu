@@ -1,7 +1,7 @@
 ---
 title: Goal Planner proposal review with graph and list views, direct edits and restart
 status: draft
-revision: 2
+revision: 3
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-93
@@ -243,3 +243,4 @@ restore control (44 px ghost button with tooltip).
 | --- | --- | --- | --- |
 | 1 | 2026-10-20 | Initial contract | SHIFU-93 ticket, PRD v4, eight approved frames |
 | 2 | 2026-10-20 | Decisions D6 … D9 (zoom control size, review column, graph geometry, restore control); no CSS file for the graph; `git-fork` icon added to the allowlist | Frame measurements taken during implementation (VM-02) |
+| 3 | 2026-10-20 | RF-09 / CA-05 and D5 superseded: `Criar objetivo` now confirms the proposal through `../planner-confirmation/spec.md` (`PlannerPage` owns the creation; the `onCreateGoal` prop and the neutral notice are gone; the request carries a `confirmationKey`) | SHIFU-95 delivery |

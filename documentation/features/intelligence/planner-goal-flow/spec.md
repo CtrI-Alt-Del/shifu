@@ -1,7 +1,7 @@
 ---
 title: Goal Planner backend flow with interview, proposal validation and temporary Redis state
 status: implemented
-revision: 3
+revision: 4
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-91
@@ -484,3 +484,4 @@ Not applicable: this delivery has no user interface.
 | 1 | 2026-10-20 | Initial contract | SHIFU-91 and PRD Intelligence v4; Mentor workflow and registry patterns reused |
 | 3 | 2026-10-20 | `PlanningOperation.stage` (`analyzing`, `retrieving`, `interviewing`, `composing`) reported by the workflow through `ReportPlanningProgressUseCase` under the same operation/generation fence and exposed as `Detail.operation.stage`; `.rest` examples for every planner route | SHIFU-92: the interview page represents the real processing stage of the backend (see `../planner-interview/spec.md`) |
 | 2 | 2026-10-20 | `Detail.answered_batch_count` replaces `answered_batches`; companion structures `PlanningAnsweredQuestion` and `PlanningProposalDraftSkill`; entity read-only views `batch` and `answered_batch_count`; CA-15 restated (a restart is refused while an operation runs, so the generation fence is proven through the timeout path); migration id and test support files recorded | Implementation: the HTTP contract maps entity attributes through `from_attributes`, and RF-07 already forbids a restart during processing |
+| 4 | 2026-10-20 | `POST /intelligence/planning-sessions/{planning_id}/confirm` added by SHIFU-95 (`../planner-confirmation/spec.md`): confirms the active proposal through the Shared `PlannedGoalProvider`, answers `{ goal_id, replayed }` and removes the temporary planning on success; RF-07 cancel and RF-12 (no Learning row from this module) stay as specified | SHIFU-95 delivery |
