@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | 24 / 24 frames compared (EV-12) |
 | Independent review | Pending (pull request review) |
 | Blockers | None for the delivery; VM-01 with the real model needs the OpenRouter key |
-| Candidate | Branch `feat/shifu-92` (on top of `feat/shifu-91`), commits `358c6a4` + `263dfee`, PR #34 |
+| Candidate | Branch `feat/shifu-92` rebased on `feat/shifu-91`, commits `82d76b5` + `d867dd8` + `cb83ea0` + the Home scenario fix, PR #34 |
 
 # Progress
 
@@ -73,6 +73,7 @@ last_updated_at: 2026-10-20
 | ACH-03 | PR #32 coverage job: `test_should_discard_a_late_result_of_a_restarted_generation` did not observe the 10 s timeout within 40 s under the full-suite coverage run | Low | PR #32 coverage job | Open: not reproduced locally (gated scenarios pass); re-evaluated on the next CI run of #32 after ACH-02 |
 | ACH-04 | Playwright could not click the visually hidden radio/checkbox inputs (indicator span intercepts pointer events) | Low | EV-05 | Resolved in the suite: clicks target the option row, matching the learner's gesture |
 | ACH-05 | `Cancelar` stretched to the full mobile width on the interview row (frame draws a centered 84 px button) | Low | EV-05, EV-12 | Resolved: compact classes without `w-full` for that button |
+| ACH-06 | PR #34 CI: the Home suite scenario `submitting a non-empty intent starts a planning session and navigates to the planner (CA-06)` still expected the SHIFU-91 placeholder copy (`Seu planejamento está sendo preparado.`) and a non-ULID planning id, so it failed once the route rendered the real planner page | Medium | Web integration tests | Resolved: the Home suite mocks the planner session query with a `processing` session, uses a ULID and asserts the planner notice `Analisando seu objetivo…`; the placeholder page and its browser test are removed on this branch (SHIFU-91 keeps them) |
 
 # Lessons Learned
 
@@ -86,7 +87,7 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-92` on top of `feat/shifu-91` (`1be84ce`): `358c6a4` feature, `263dfee` docs, then `263dfee` |
+| Candidate | `feat/shifu-92` rebased on `feat/shifu-91` (`c10ec36`): `82d76b5` feature, `d867dd8` docs, `cb83ea0` delivery state, then the ACH-06 fix commit |
 | Completed | CA-01 … CA-23 implemented; EV-01 … EV-09, EV-12 passed; EV-11 partial |
 | Unfinished | VM-01 with the real DeepSeek/Jev run (needs `OPENROUTER_API_KEY`); ACH-03 under observation in PR #32 CI |
 | Uncommitted work | None after the delivery commits |
