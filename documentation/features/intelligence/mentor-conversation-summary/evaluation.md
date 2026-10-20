@@ -136,7 +136,7 @@ Limitations: **L-1** cancel/access-change mid-summarization leaves an invisible 
 | --- | --- | --- | --- |
 | [#33](https://github.com/CtrI-Alt-Del/shifu/pull/33) | `5f715814` | Failed: server integration shard 3/4, shard 4/4, Changed Server file coverage (ACH-11); all other 20 checks passed (including Server real AI evals, unit tests, types, lint, architecture, web checks) | Run 39489979800 |
 | [#33](https://github.com/CtrI-Alt-Del/shifu/pull/33) | `514ade69` | Passed: 25/25 checks, including Server integration shards 1–4, Server integration tests, Changed Server file coverage, Server real AI evals, Server unit/type/lint/architecture/build, Web unit/integration/type/lint/architecture/build/coverage; 0 review threads; `reviewDecision` none; mergeable `clean`; `main` `f8a61581` still an ancestor | Head check-runs queried through `gh api repos/CtrI-Alt-Del/shifu/commits/514ade69…/check-runs` |
-| [#33](https://github.com/CtrI-Alt-Del/shifu/pull/33) | (final head, see `git log`) | Re-run after including the dictation-notice removal, the create-pr prompt update and the final ledger | Recorded after the run |
+| [#33](https://github.com/CtrI-Alt-Del/shifu/pull/33) | `fe38dc05` | Passed: 25/25 checks (same set as `514ade69`, including the web checks over the dictation-notice removal); 0 review threads; mergeable `clean` | Head check-runs queried through `gh api repos/CtrI-Alt-Del/shifu/commits/fe38dc05…/check-runs`. This ledger-only commit adds no code (path-filtered CI is not re-triggered by documentation) |
 
 | Field | Result |
 | --- | --- |
