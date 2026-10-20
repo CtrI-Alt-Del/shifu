@@ -63,6 +63,8 @@ last_updated_at: 2026-10-20
 | ACH-02 | A single-choice question answered with `Não sei` plus another option is rejected by the single-choice rule first, so the exclusive-option message appears only on multiple choice | Low | CI-02, CI-03 | Resolved: EV-02 covers the exclusive message on multiple choice; EV-03 asserts the single-choice message for the HTTP path |
 | ACH-03 | The AgentOS runtime starts its queue workers in every controller test even with the relay neutralized (log noise, ~2 s per test) | Low | CI-03 | Open, inherited from the Mentor controller tests; no functional effect |
 | ACH-04 | The first registered run ended every scenario as `failed` / `operation_timeout`: `AgentOSClient._serialize_fields` allowlists ticket field names and `planning_id` / `operation_id` were missing, so the relay rejected the envelope silently and the run never started (EV-04, first attempt, 9 failed in 259 s) | High | CI-04 | Resolved: the two ID-only names were added to the Shared allowlist with a positive and a negative case in `tests/shared/messaging/agentos/test_agentos_client.py` (10 passed); EV-04 rerun 9 passed |
+| ACH-05 | The fixture commit `1be84ce` (cherry-picked from the SHIFU-92 branch) also deleted `planner-placeholder-page/index.tsx` and its browser test, so PR #32 failed the web type check, build and integration jobs with `Cannot find module '@/ui/intelligence/widgets/pages/planner-placeholder-page'` | High | PR #32 web jobs | Resolved: both files restored from `1be84ce~1`; `tsc` clean and the placeholder suite passes (2) again |
+| ACH-06 | `test_should_discard_a_late_result_of_a_restarted_generation` failed in the CI shard and coverage jobs (`timed_out is None`) while passing locally, also when the shard order was replayed; the logs show Agno keeping the first test's Redis cancellation manager and event stream for the whole process (`Cancellation check unavailable (Redis fault, failing open): Event loop is closed`) | Medium | CI-04 (shard 2/4, coverage job) | Mitigated: the fixture resets Agno's process-wide manager and event stream before and after every registered app, the planner gate waits 90 s and the scenario observes the 10 s timeout for up to 80 s; re-evaluated on the next CI run |
 
 # Lessons Learned
 
@@ -98,7 +100,7 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/32 (targets `main`; includes the SHIFU-89 commits until #31 merges) | `0f0be27` (feature) and `4481df0` (documentation); this delivery-state note follows as a docs commit | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
+| https://github.com/CtrI-Alt-Del/shifu/pull/32 (targets `main`; includes the SHIFU-89 commits until #31 merges) | `0f0be27` (feature), `4481df0` (documentation), `1be84ce` (fixture seam), then the ACH-05/ACH-06 fix commit | Pending: CI running on the PR head; review not started | GitHub Actions `Server application CI` on the PR; the changed-file coverage job (EV-09) is the gate still open |
 
 | Field | Result |
 | --- | --- |

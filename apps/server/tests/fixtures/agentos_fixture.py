@@ -203,7 +203,8 @@ class ControlledMentorModelTransport:
         self.planner_requests.append(self._find_payload(payload, 'intent'))
         if self.planner_block_first > 0 and self.planner_gate is not None:
             self.planner_block_first -= 1
-            self.planner_gate.wait(timeout=30)
+            # Long enough for a slow runner to observe the operation timeout first.
+            self.planner_gate.wait(timeout=90)
         if self.planner_fail_next > 0:
             self.planner_fail_next -= 1
             return httpx2.Response(500, json={'error': 'Planner model unavailable'})
@@ -396,6 +397,27 @@ def agentos_telemetry_environment() -> dict[str, str]:
     }
 
 
+def _reset_agno_process_globals() -> None:
+    """Make the next AgentOS instance wire its own Redis managers.
+
+    Agno installs one cancellation manager and one event stream per process the
+    first time a queue with Redis coordination starts, then keeps them for every
+    later instance. Their async Redis client belongs to the event loop of the
+    test that created them, so a later test in the same process would run with
+    a closed loop (`Cancellation check unavailable ... Event loop is closed`).
+    """
+    from agno.os import event_streams as agno_event_streams
+    from agno.run import cancel as agno_cancel
+    from agno.run.cancellation_management.in_memory_cancellation_manager import (
+        InMemoryRunCancellationManager,
+    )
+
+    agno_cancel._cancellation_manager = InMemoryRunCancellationManager()  # noqa: SLF001 - the fixture resets Agno's process-wide defaults on purpose. # pyright: ignore[reportPrivateUsage]
+    agno_cancel._cancellation_manager_explicitly_set = False  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    agno_event_streams._event_stream = None  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    agno_event_streams._event_stream_explicitly_set = False  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+
+
 @pytest.fixture
 def agentos_fixture(
     monkeypatch: pytest.MonkeyPatch,
@@ -417,6 +439,7 @@ def agentos_fixture(
     for name, value in agentos_telemetry_environment.items():
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
+    _reset_agno_process_globals()
 
     from shifu.intelligence.providers.openrouter import (
         MentorTitleModelProvider,
@@ -553,3 +576,4 @@ def agentos_fixture(
     finally:
         model_transport.close()
         get_settings.cache_clear()
+        _reset_agno_process_globals()

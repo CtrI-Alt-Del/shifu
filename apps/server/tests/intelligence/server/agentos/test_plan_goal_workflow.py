@@ -334,7 +334,8 @@ class TestPlanGoalWorkflow:
         ]
         planning_id = _start(planner_runtime, 'Quero aprender a fazer sites')
         timed_out = None
-        deadline = monotonic() + 40
+        # The 10 s operation timeout is observed through GET; slow runners need slack.
+        deadline = monotonic() + 80
         while monotonic() < deadline:
             response = planner_runtime.client.get(
                 f'/intelligence/planning-sessions/{planning_id}'
