@@ -48,3 +48,15 @@ from .mentor_telemetry_provider import (
 from .planning_sessions_repository import (
     PlanningSessionsRepository as PlanningSessionsRepository,
 )
+from .planning_embeddings_repository import (
+    PlanningEmbeddingsRepository as PlanningEmbeddingsRepository,
+)
+from .planning_intent_classifier_provider import (
+    PlanningIntentClassifierProvider as PlanningIntentClassifierProvider,
+)
+from .planning_skill_retrieval_provider import (
+    PlanningSkillRetrievalProvider as PlanningSkillRetrievalProvider,
+)
+from .planning_text_preprocessor_provider import (
+    PlanningTextPreprocessorProvider as PlanningTextPreprocessorProvider,
+)

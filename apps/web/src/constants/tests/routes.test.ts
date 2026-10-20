@@ -4,6 +4,7 @@ import {
   buildMentorAttachmentFilePath,
   buildMentorAttachmentUploadPath,
   buildMentorResponseEventsPath,
+  intelligencePlannerPath,
   learningActivityPath,
   learningAttemptPath,
   learningAttemptsPath,
@@ -28,6 +29,12 @@ describe('route builders', () => {
     expect(learningAttemptsPath(ids)).toBe(`${activity}/attempts`)
     expect(learningDiagnosticResultPath(ids)).toBe(
       '/learning/goals/goal%2F1/skills/skill%202/diagnostic/result',
+    )
+  })
+
+  it('encodes the planning identifier of the planner route', () => {
+    expect(intelligencePlannerPath('planning/1')).toBe(
+      '/intelligence/planner/planning%2F1',
     )
   })
 

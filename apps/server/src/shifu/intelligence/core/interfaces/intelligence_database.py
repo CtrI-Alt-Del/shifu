@@ -25,8 +25,8 @@ from shifu.intelligence.core.interfaces.mentor_response_events_repository import
 from shifu.intelligence.core.interfaces.mentor_sessions_repository import (
     MentorSessionsRepository,
 )
-from shifu.intelligence.core.interfaces.planning_sessions_repository import (
-    PlanningSessionsRepository,
+from shifu.intelligence.core.interfaces.planning_embeddings_repository import (
+    PlanningEmbeddingsRepository,
 )
 from shifu.shared.core.domain.structures import structure
 from shifu.shared.core.interfaces import EventsRepository
@@ -34,7 +34,7 @@ from shifu.shared.core.interfaces import EventsRepository
 
 @structure
 class IntelligenceDatabaseRepositories:
-    planning_sessions: PlanningSessionsRepository
+    planning_embeddings: PlanningEmbeddingsRepository
     events: EventsRepository
     mentor_sessions: MentorSessionsRepository
     mentor_embeddings: MentorEmbeddingsRepository

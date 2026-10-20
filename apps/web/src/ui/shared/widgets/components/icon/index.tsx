@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Compass,
   CircleAlert,
   Circle,
   CircleCheck,
@@ -24,6 +25,7 @@ import {
   History,
   Eye,
   EyeOff,
+  GitFork,
   GraduationCap,
   House,
   LoaderCircle,
@@ -42,7 +44,9 @@ import {
   Sparkles,
   Target,
   Search,
+  ShieldAlert,
   Trash2,
+  TriangleAlert,
   Trophy,
   UserRound,
   type LucideIcon,
@@ -61,6 +65,7 @@ export type IconName =
   | 'chevron-left'
   | 'chevron-right'
   | 'clock-3'
+  | 'compass'
   | 'circle-alert'
   | 'circle'
   | 'circle-check'
@@ -75,6 +80,7 @@ export type IconName =
   | 'history'
   | 'eye'
   | 'eye-off'
+  | 'git-fork'
   | 'graduation-cap'
   | 'home'
   | 'loader-circle'
@@ -93,7 +99,9 @@ export type IconName =
   | 'sparkles'
   | 'target'
   | 'search'
+  | 'shield-alert'
   | 'trash-2'
+  | 'triangle-alert'
   | 'trophy'
   | 'user-circle'
   | 'user-round'
@@ -110,6 +118,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'chevron-left': ChevronLeft,
   'chevron-right': ChevronRight,
   'clock-3': Clock3,
+  compass: Compass,
   'circle-alert': CircleAlert,
   circle: Circle,
   'circle-check': CircleCheck,
@@ -124,6 +133,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   history: History,
   eye: Eye,
   'eye-off': EyeOff,
+  'git-fork': GitFork,
   'graduation-cap': GraduationCap,
   home: House,
   'loader-circle': LoaderCircle,
@@ -142,7 +152,9 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   sparkles: Sparkles,
   target: Target,
   search: Search,
+  'shield-alert': ShieldAlert,
   'trash-2': Trash2,
+  'triangle-alert': TriangleAlert,
   trophy: Trophy,
   'user-circle': CircleUserRound,
   'user-round': UserRound,

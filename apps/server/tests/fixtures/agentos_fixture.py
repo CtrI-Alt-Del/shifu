@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
 from unittest.mock import create_autospec
 
+import httpx
 import httpx2
 import pytest
 from fastapi.testclient import TestClient
@@ -29,7 +30,9 @@ from shifu.shared.settings import get_settings
 from shifu.shared.constants import ENVIRONMENT
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Iterator
+    from threading import Event
 
     from fastapi import FastAPI
     from httpx2 import Request
@@ -68,6 +71,13 @@ class ControlledMentorModelTransport:
         self.model_profiles: list[str] = []
         self.reject_attachment_source = False
         self.reported_cost_usd: float | None = None
+        # Planner scenarios: queued outputs are consumed in order, then defaults apply.
+        self.planner_interview_outputs: list[dict[str, object]] = []
+        self.planner_proposal_outputs: list[dict[str, object]] = []
+        self.planner_fail_next = 0
+        self.planner_gate: Event | None = None
+        self.planner_block_first = 0
+        self.planner_requests: list[dict[str, object]] = []
 
     def build_client(self) -> OpenAI:
         client = OpenAI(
@@ -137,6 +147,12 @@ class ControlledMentorModelTransport:
                     'official_action_claims',
                 )
             }
+        elif {'needs_clarification', 'questions'} <= keys:
+            return self._planner_response(payload, self._planner_interview_output())
+        elif {'supported', 'title', 'description', 'skills'} <= keys:
+            return self._planner_response(
+                payload, self._planner_proposal_output(payload)
+            )
         elif {'description', 'legible'} <= keys:
             output = {'description': 'Texto visual analisado.', 'legible': True}
         elif {'block_key', 'ordinal', 'content'} <= keys:
@@ -180,6 +196,74 @@ class ControlledMentorModelTransport:
                 },
             },
         )
+
+    def _planner_response(
+        self, payload: dict[str, object], output: dict[str, object]
+    ) -> httpx2.Response:
+        self.planner_requests.append(self._find_payload(payload, 'intent'))
+        if self.planner_block_first > 0 and self.planner_gate is not None:
+            self.planner_block_first -= 1
+            # Long enough for a slow runner to observe the operation timeout first.
+            self.planner_gate.wait(timeout=90)
+        if self.planner_fail_next > 0:
+            self.planner_fail_next -= 1
+            return httpx2.Response(500, json={'error': 'Planner model unavailable'})
+        return httpx2.Response(
+            200,
+            json={
+                'id': 'chatcmpl-agentos-planner',
+                'object': 'chat.completion',
+                'created': 1,
+                'model': payload.get('model', 'local-fixture'),
+                'choices': [
+                    {
+                        'index': 0,
+                        'message': {
+                            'role': 'assistant',
+                            'content': json.dumps(output, ensure_ascii=False),
+                        },
+                        'finish_reason': 'stop',
+                    }
+                ],
+                'usage': {
+                    'prompt_tokens': 21,
+                    'completion_tokens': 11,
+                    'total_tokens': 32,
+                },
+            },
+        )
+
+    def _planner_interview_output(self) -> dict[str, object]:
+        if self.planner_interview_outputs:
+            return self.planner_interview_outputs.pop(0)
+        return {'needs_clarification': False, 'questions': []}
+
+    def _planner_proposal_output(self, payload: dict[str, object]) -> dict[str, object]:
+        if self.planner_proposal_outputs:
+            return self.planner_proposal_outputs.pop(0)
+        candidates = self._find_payload(payload, 'candidates').get('candidates')
+        entries = (
+            cast('list[dict[str, object]]', candidates)
+            if isinstance(candidates, list)
+            else []
+        )
+        preferred = [
+            entry
+            for entry in entries
+            if entry.get('name') in {'React', 'JavaScript essencial', 'HTML e CSS'}
+        ] or entries[:1]
+        return {
+            'supported': True,
+            'title': 'Aprender desenvolvimento web',
+            'description': 'Um caminho do HTML ao React para construir sites interativos.',
+            'skills': [
+                {
+                    'skill_id': entry['skill_id'],
+                    'justification': f'Base para {entry["name"]}.',
+                }
+                for entry in preferred
+            ],
+        }
 
     @staticmethod
     def _response_schema(payload: dict[str, object]) -> dict[str, object]:
@@ -225,12 +309,81 @@ class ControlledMentorModelTransport:
         return {}
 
 
+class ControlledDecisionsTransport:
+    """Answer the planner's Jev classification; other decisions keep their client.
+
+    Suites that exercise code assessment patch the registry's rubric client factory
+    with their own transport before the registered app is built; this transport only
+    intercepts `planning_intent` requests and forwards everything else to the client
+    that factory produces, so both kinds of decisions stay controlled.
+    """
+
+    def __init__(
+        self, fallback_factory: Callable[[], httpx.Client] | None = None
+    ) -> None:
+        self.kind = 'learning'
+        self.fail_next = 0
+        self.requests: list[dict[str, object]] = []
+        self._fallback_factory = fallback_factory
+        self._fallback_client: httpx.Client | None = None
+
+    def build_client(self) -> httpx.Client:
+        return httpx.Client(transport=httpx.MockTransport(self._handle))
+
+    def close(self) -> None:
+        if self._fallback_client is not None:
+            self._fallback_client.close()
+            self._fallback_client = None
+
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        payload = cast('dict[str, object]', json.loads(request.content))
+        questions = payload.get('questions')
+        if not isinstance(questions, dict) or 'planning_intent' not in questions:
+            return self._forward(request)
+        self.requests.append(payload)
+        if self.fail_next > 0:
+            self.fail_next -= 1
+            return httpx.Response(503, json={'error': 'busy'})
+        kinds = ('learning', 'out-of-scope', 'ambiguous')
+        return httpx.Response(
+            200,
+            json={
+                'answers': {
+                    'planning_intent': {
+                        'type': 'choice',
+                        'choice': self.kind,
+                        'confidence': 0.9,
+                        'probabilities': {
+                            kind: 0.9 if kind == self.kind else 0.05 for kind in kinds
+                        },
+                    }
+                }
+            },
+        )
+
+    def _forward(self, request: httpx.Request) -> httpx.Response:
+        if self._fallback_factory is None:
+            return httpx.Response(503, json={'error': 'decisions unavailable'})
+        if self._fallback_client is None:
+            self._fallback_client = self._fallback_factory()
+        forwarded = self._fallback_client.build_request(
+            request.method,
+            str(request.url),
+            headers=request.headers,
+            content=request.content,
+        )
+        return self._fallback_client.send(forwarded)
+
+
 @dataclass(frozen=True, slots=True)
 class RegisteredAgentOSFixture:
     client: TestClient
     model_transport: ControlledMentorModelTransport
     account: AuthenticatedUser
     storage: InMemoryFileStorageProvider
+    decisions: ControlledDecisionsTransport = field(
+        default_factory=ControlledDecisionsTransport
+    )
 
 
 @pytest.fixture
@@ -242,6 +395,27 @@ def agentos_telemetry_environment() -> dict[str, str]:
         'LANGFUSE_SECRET_KEY': '',
         'LANGFUSE_BASE_URL': 'http://127.0.0.1:1',
     }
+
+
+def _reset_agno_process_globals() -> None:
+    """Make the next AgentOS instance wire its own Redis managers.
+
+    Agno installs one cancellation manager and one event stream per process the
+    first time a queue with Redis coordination starts, then keeps them for every
+    later instance. Their async Redis client belongs to the event loop of the
+    test that created them, so a later test in the same process would run with
+    a closed loop (`Cancellation check unavailable ... Event loop is closed`).
+    """
+    from agno.os import event_streams as agno_event_streams
+    from agno.run import cancel as agno_cancel
+    from agno.run.cancellation_management.in_memory_cancellation_manager import (
+        InMemoryRunCancellationManager,
+    )
+
+    agno_cancel._cancellation_manager = InMemoryRunCancellationManager()  # noqa: SLF001 - the fixture resets Agno's process-wide defaults on purpose. # pyright: ignore[reportPrivateUsage]
+    agno_cancel._cancellation_manager_explicitly_set = False  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    agno_event_streams._event_stream = None  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
+    agno_event_streams._event_stream_explicitly_set = False  # noqa: SLF001 # pyright: ignore[reportPrivateUsage]
 
 
 @pytest.fixture
@@ -261,15 +435,23 @@ def agentos_fixture(
     monkeypatch.setenv('OPENROUTER_API_KEY', 'local-agentos-test-key')
     monkeypatch.setenv('OPENROUTER_PROMPT_LOGGING_DISABLED', 'true')
     monkeypatch.setenv('MENTOR_TITLE_PROMPT_LOGGING_DISABLED', 'false')
+    monkeypatch.setenv('PLANNING_OPERATION_TIMEOUT_SECONDS', '10')
     for name, value in agentos_telemetry_environment.items():
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
+    _reset_agno_process_globals()
 
     from shifu.intelligence.providers.openrouter import (
         MentorTitleModelProvider,
     )
     from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
         OpenrouterMentorAnswerModelProvider,
+    )
+    from shifu.intelligence.ai.intelligence_workflows_registry import (
+        IntelligenceWorkflowsRegistry,
+    )
+    from shifu.intelligence.providers.openrouter.planner_model_provider import (
+        OpenrouterPlannerModelProvider,
     )
     from shifu.curriculum.database.sqlalchemy.curriculum_database import (
         SqlalchemyCurriculumDatabase,
@@ -322,6 +504,28 @@ def agentos_fixture(
         controlled_model,
     )
 
+    original_planner_build = OpenrouterPlannerModelProvider.build
+
+    def controlled_planner_model(settings: Settings) -> MentorOpenAIChat | None:
+        model = original_planner_build(settings)
+        if model is None:
+            raise AssertionError('Registered AgentOS planner model is unavailable')
+        model_transport.model_profiles.append('planner')
+        model.client = model_transport.build_client()
+        return model
+
+    monkeypatch.setattr(
+        'shifu.intelligence.ai.intelligence_workflows_registry.OpenrouterPlannerModelProvider.build',
+        controlled_planner_model,
+    )
+    rubric_client_factory = IntelligenceWorkflowsRegistry._build_code_rubric_client  # noqa: SLF001 - the fixture seams the private factory on purpose. # pyright: ignore[reportPrivateUsage]
+    decisions = ControlledDecisionsTransport(rubric_client_factory)
+    monkeypatch.setattr(
+        IntelligenceWorkflowsRegistry,
+        '_build_code_rubric_client',
+        staticmethod(decisions.build_client),
+    )
+
     def no_title_model(_settings: Settings) -> None:
         return None
 
@@ -366,7 +570,10 @@ def agentos_fixture(
 
     try:
         with TestClient(app, headers=headers) as client:
-            yield RegisteredAgentOSFixture(client, model_transport, account, storage)
+            yield RegisteredAgentOSFixture(
+                client, model_transport, account, storage, decisions
+            )
     finally:
         model_transport.close()
         get_settings.cache_clear()
+        _reset_agno_process_globals()
