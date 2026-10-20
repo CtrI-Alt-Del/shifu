@@ -9,6 +9,20 @@ from shifu.intelligence.core.interfaces import (
 )
 
 
+def _trigger_message_id(
+    repositories: IntelligenceDatabaseRepositories,
+    session_id: str,
+    attempt_id: str | None,
+) -> str | None:
+    """The learner message whose answer run produced the summary, when still known."""
+    if attempt_id is None:
+        return None
+    attempt = repositories.mentor_response_attempts.find_by_id(attempt_id)
+    if attempt is None or attempt.session_id != session_id:
+        return None
+    return attempt.learner_message_id
+
+
 def load_mentor_summary_state(
     repositories: IntelligenceDatabaseRepositories, account_id: str, session_id: str
 ) -> MentorSessionSummaryState:
@@ -21,19 +35,18 @@ def load_mentor_summary_state(
             boundary_message_id=ready.boundary.message_id,
             covered_message_count=ready.covered_message_count,
             completed_at=ready.completed_at,
+            after_message_id=_trigger_message_id(
+                repositories, session_id, ready.attempt_id
+            ),
         )
         if ready is not None and ready.completed_at is not None
         else None
     )
-    failure_after_message_id = None
-    if (
-        failed is not None
-        and failed.attempt_id is not None
-        and (ready is None or failed.version > ready.version)
-    ):
-        attempt = repositories.mentor_response_attempts.find_by_id(failed.attempt_id)
-        if attempt is not None and attempt.session_id == session_id:
-            failure_after_message_id = attempt.learner_message_id
+    failure_after_message_id = (
+        _trigger_message_id(repositories, session_id, failed.attempt_id)
+        if failed is not None and (ready is None or failed.version > ready.version)
+        else None
+    )
     return MentorSessionSummaryState(
         current=current, failure_after_message_id=failure_after_message_id
     )

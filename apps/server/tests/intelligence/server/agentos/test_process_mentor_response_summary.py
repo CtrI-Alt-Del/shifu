@@ -641,6 +641,33 @@ class TestProcessMentorResponseSummary:
         opened = progress.index('summarize-context')
         assert progress[opened + 1] is None
 
+    def test_should_anchor_the_marker_after_the_learner_message_that_triggered_it(
+        self,
+        agentos_fixture: RegisteredAgentOSFixture,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        session_id = self._long_session(agentos_fixture, postgres_database, 15)
+        question = 'Como eu percorro a lista inteira?'
+
+        self._send(agentos_fixture, session_id, question)
+
+        current = agentos_fixture.client.get(
+            f'/intelligence/mentor-sessions/{session_id}'
+        ).json()['summary']['current']
+        with Session(postgres_database.engine) as session:
+            messages = {
+                message.id: message
+                for message in session.scalars(
+                    select(MentorMessageModel).where(
+                        MentorMessageModel.session_id == session_id
+                    )
+                )
+            }
+        trigger = messages[current['after_message_id']]
+        boundary = messages[current['boundary_message_id']]
+        assert (trigger.role, trigger.content) == ('learner', question)
+        assert (trigger.created_at, trigger.id) > (boundary.created_at, boundary.id)
+
     def test_should_fold_the_previous_summary_into_the_next_version(
         self,
         agentos_fixture: RegisteredAgentOSFixture,

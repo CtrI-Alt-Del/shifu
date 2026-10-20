@@ -1,5 +1,6 @@
 from shifu.shared.core.interfaces import MentorAccessProvider
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import create_autospec
 
@@ -153,6 +154,9 @@ class TestGetMentorSessionUseCase:
         self.repositories.mentor_session_summaries.find_ready.return_value = (
             self.summary(2, ready=True)
         )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(2)
+        )
 
         state = self.subject.execute('account', 'session').summary
 
@@ -162,9 +166,50 @@ class TestGetMentorSessionUseCase:
                 boundary_message_id='boundary',
                 covered_message_count=21,
                 completed_at=self.now,
+                after_message_id='learner-2',
             ),
             failure_after_message_id=None,
         )
+
+    def test_should_leave_the_trigger_unknown_when_the_attempt_is_gone(self) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = None
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
+
+    def test_should_leave_the_trigger_unknown_when_the_summary_lost_its_attempt(
+        self,
+    ) -> None:
+        ready = self.summary(2, ready=True)
+        self.repositories.mentor_session_summaries.find_ready.return_value = replace(
+            ready, attempt_id=None
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
+        self.repositories.mentor_response_attempts.find_by_id.assert_not_called()
+
+    def test_should_not_expose_a_trigger_that_belongs_to_another_session(
+        self,
+    ) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = replace(
+            self.failed_attempt(2), session_id='other-session'
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
 
     def test_should_anchor_the_failure_notice_when_only_a_failed_row_exists(
         self,
@@ -207,7 +252,10 @@ class TestGetMentorSessionUseCase:
         state = self.subject.execute('account', 'session').summary
 
         assert state.failure_after_message_id is None
-        self.repositories.mentor_response_attempts.find_by_id.assert_not_called()
+        # Only the ready row's trigger is looked up; the older failed row is never read.
+        self.repositories.mentor_response_attempts.find_by_id.assert_called_once_with(
+            'attempt-4'
+        )
 
     def test_should_omit_the_notice_when_the_failed_attempt_is_gone(self) -> None:
         summaries = self.repositories.mentor_session_summaries

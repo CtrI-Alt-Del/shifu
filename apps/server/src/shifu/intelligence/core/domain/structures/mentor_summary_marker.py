@@ -9,3 +9,4 @@ class MentorSummaryMarker:
     boundary_message_id: str
     covered_message_count: int
     completed_at: datetime
+    after_message_id: str | None = None  # learner message that triggered the summary

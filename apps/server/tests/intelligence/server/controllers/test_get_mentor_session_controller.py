@@ -336,7 +336,7 @@ class TestGetMentorSessionControllerSummaryState:
     def test_should_expose_the_ready_marker_without_content_or_offsets(
         self, mentor_client: TestClient, postgres_database: PostgresDatabase
     ) -> None:
-        session_id, attempt_id, _ = create_session(mentor_client)
+        session_id, attempt_id, learner_id = create_session(mentor_client)
         messages = seed_exchanges(postgres_database, session_id, 3)
         summary = seed_summary(
             postgres_database, session_id, attempt_id, messages, version=2
@@ -353,6 +353,7 @@ class TestGetMentorSessionControllerSummaryState:
             'completed_at': summary.completed_at.isoformat().replace('+00:00', 'Z')
             if summary.completed_at
             else None,
+            'after_message_id': learner_id,
         }
         assert response.json()['summary']['failure_after_message_id'] is None
         for hidden in ('excerpts', 'topics', 'start', 'algorithm_version'):

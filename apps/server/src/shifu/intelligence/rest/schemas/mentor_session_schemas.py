@@ -47,6 +47,7 @@ class MentorSessionSchemas:
         boundary_message_id: str
         covered_message_count: int
         completed_at: datetime
+        after_message_id: str | None = None
 
     class SummaryState(BaseModel):
         current: 'MentorSessionSchemas.SummaryMarker | None' = None
