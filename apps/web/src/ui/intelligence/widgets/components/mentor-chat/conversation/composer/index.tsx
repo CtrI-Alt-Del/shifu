@@ -32,6 +32,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
     handleSubmit,
     isResponsePending,
     isSubmittingFirstMessage,
+    placeholder,
     sendFirstMessage,
     setDraft,
     submissionError,
@@ -194,7 +195,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           id={messageId}
           onChange={(event) => setDraft(event.currentTarget.value)}
           onKeyDown={handleKeyDown}
-          placeholder='Pergunte ao Mentor…'
+          placeholder={placeholder}
           ref={textareaRef}
           rows={1}
           value={draft}

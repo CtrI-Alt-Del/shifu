@@ -2,6 +2,10 @@ import {
   exerciseDictationStates,
   exerciseBrowserManagedControls,
 } from '../support/native-dictation'
+import {
+  exerciseSummaryFailure,
+  exerciseSummaryJourney,
+} from '../support/mentor-summary-journey'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
@@ -273,4 +277,20 @@ test('renders native dictation states without a local language pack on fab', asy
   authenticatedPage,
 }) => {
   await exerciseBrowserManagedControls(authenticatedPage, 'fab')
+})
+
+test('summarizes the context, reads the summary and reveals the originals on fab at 1440', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'fab', 1440)
+})
+test('summarizes the context, reads the summary and reveals the originals on fab at 390', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'fab', 390)
+})
+test('shows the summarization failure notice after its learner message on fab', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryFailure(authenticatedPage, 'fab')
 })
