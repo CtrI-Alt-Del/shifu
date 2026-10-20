@@ -1,14 +1,14 @@
 ---
 title: Mentor — conversation summary and continuity
 status: implemented
-revision: 1
+revision: 3
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-102
 scope:
   - intelligence/mentor
   - web/mentor-page-and-fab
-last_updated_at: 2026-10-18
+last_updated_at: 2026-10-20
 ---
 
 # Objective
@@ -98,7 +98,7 @@ Definitions used below:
 | RF-07 | RP-03, RP-11, RP-13 | Only the owner can read a conversation's summary state or content. A foreign session, a tombstoned session and a session without a ready summary are indistinguishable (404). The step re-checks account access before reading messages and again at commit; inactive account or changed access revision discards the result without a notice. |
 | RF-08 | RP-03, RP-11, RP-13, JN-14, JN-16 | Deleting a conversation removes all its summary rows in the deletion transaction; an in-flight step cannot commit afterwards. `identity/account.deleted` purges every summary row of the account immediately (idempotent). Pending or late processing never recreates a summary for a deleted conversation or closed account. |
 | RF-09 | RP-15, JN-19 | Session detail exposes `summary.current` (marker data or null) and `summary.failure_after_message_id` (notice anchor or null). `GET …/summary` returns the rendered summary `text` (deterministic pt-BR template over the verbatim excerpts), `version`, `covered_message_count` and `first_message_id`; it never returns offsets. Responses are private and `no-store`. Response progress is **the progress of the latest status event** (null clears it): the step emits `summarize-context` when it starts summarizing and a closing `status/processing` event with null progress when it ends (ready, failed or discarded), so "Resumindo contexto…" ends live and after reconnect/replay. `write-answer`/`review-answer` keep their meaning. |
-| RF-10 | RP-12, RP-15, JN-19 | Page and FAB: while `progress = summarize-context` the live area shows the processing marker ("Resumindo contexto…", not color-only, reduced-motion safe) after the pending message instead of `ResponseStatus`, with "Cancelar" reachable, and the composer is disabled with placeholder "Aguarde enquanto o contexto é resumido". After completion the ready marker sits right after the boundary message (or at the top of the loaded list when the boundary is in an unloaded older page). "Ver resumo" opens a modal dialog titled "Resumo desta conversa" with the summary text as plain text, "Suas mensagens originais continuam disponíveis.", "Ver mensagens originais" and "Fechar resumo"; focus moves into the dialog and is trapped there. "Ver mensagens originais" closes the dialog, loads older pages until the first summarized message is present, scrolls to it and moves focus to it. "Fechar resumo", the close button and Escape close the dialog and return focus to "Ver resumo". The dialog is centered (`max-w-lg`) on desktop and near full-screen with 16 px margins at 390 px; in the FAB it renders above the panel. Keyboard operable, pt-BR, no horizontal overflow at 390 px. |
+| RF-10 | RP-12, RP-15, JN-19 | Page and FAB: while `progress = summarize-context` the live area shows the processing marker ("Resumindo contexto…", not color-only, reduced-motion safe) after the pending message instead of `ResponseStatus`, with "Cancelar" reachable, and the composer is disabled with placeholder "Aguarde enquanto o contexto é resumido". After completion the ready marker marks where the summarization happened: it sits right after the learner message whose answer run produced the summary (`summary.current.after_message_id`, the same spot where "Resumindo contexto…" was shown) and before that message's answer, and it stays there as the conversation continues until a newer summary replaces it. When that message is unknown (its attempt no longer exists) the marker falls back to right after the boundary message, or to the top of the loaded list when the boundary is in an unloaded older page. The position is presentation only: the summary still covers exactly the messages up to the boundary. "Ver resumo" opens a modal dialog titled "Resumo desta conversa" with the summary text as plain text, "Suas mensagens originais continuam disponíveis.", "Ver mensagens originais" and "Fechar resumo"; focus moves into the dialog and is trapped there. "Ver mensagens originais" closes the dialog, loads older pages until the first summarized message is present, scrolls to it and moves focus to it. "Fechar resumo", the close button and Escape close the dialog and return focus to "Ver resumo". The dialog is centered (`max-w-lg`) on desktop and near full-screen with 16 px margins at 390 px; in the FAB it renders above the panel. Keyboard operable, pt-BR, no horizontal overflow at 390 px. |
 | RF-11 | RP-13 | Summarization sends no data outside Shifu. Telemetry, when enabled, receives one operational span per summarization with only an opaque correlation UUID, duration, outcome (`ready`, `failed`, `discarded`), closed failure code and counts; the router span adds an `expanded` count. No account/session/message IDs or text. Telemetry failure never changes the result. |
 | RF-12 | RP-15; SHIFU-102 validation | A versioned synthetic pt-BR evaluation of long conversations gates quality: per case Dúvida/Orientação recall ≥ 0.80, Assunto recall ≥ 0.70, 100% span fidelity, zero cross-case leakage and zero fenced-code excerpts. |
 
@@ -358,7 +358,7 @@ needs no NLP provider.
 
 **Summary state on detail (`MentorSessionSummaryState`).** What the timeline needs
 without loading content: `current` (version, boundary message, covered count,
-completed_at) and `failure_after_message_id`. "In progress" is **not** part of it; it
+completed_at, after_message_id) and `failure_after_message_id`. "In progress" is **not** part of it; it
 comes from the response snapshot's latest status-event progress, so there is one source
 of truth for in-flight state.
 
@@ -485,6 +485,7 @@ class MentorSummaryMarker:
     boundary_message_id: str
     covered_message_count: int
     completed_at: datetime
+    after_message_id: str | None = None  # learner message that triggered the summary
 
 # core/domain/structures/mentor_session_summary_state.py
 @structure
@@ -644,7 +645,7 @@ gains:
 ```json
 "summary": {
   "current": {"version": 2, "boundary_message_id": "01J…", "covered_message_count": 21,
-              "completed_at": "2026-10-18T14:00:00Z"},
+              "completed_at": "2026-10-18T14:00:00Z", "after_message_id": "01J…"},
   "failure_after_message_id": null
 }
 ```
@@ -674,6 +675,7 @@ export type MentorSummaryMarker = {
   boundaryMessageId: string
   coveredMessageCount: number
   completedAt: string
+  afterMessageId: string | null  // learner message that triggered the summary
 }
 export type MentorSessionSummaryState = {
   current: MentorSummaryMarker | null
@@ -713,8 +715,9 @@ type ConversationItem =
   `revealMessage`, which reuses `readDetail`'s older-page loading and `mergeSessionDetail`.
   No polling or new transport.
 - `Conversation` (`use-conversation.ts`) derives `ConversationItem[]`: the marker goes
-  right after `boundaryMessageId`, or at the top of the loaded list when that message is
-  not loaded (all loaded messages are then after the boundary). When
+  right after `afterMessageId` (the learner message that triggered the summary) when that
+  message is loaded; otherwise right after `boundaryMessageId`; otherwise at the top of the
+  loaded list (the boundary message is then not loaded, and all loaded messages are after it). When
   `isSummarizingContext`, the live area renders `SummaryMarker variant="processing"` in
   place of `ResponseStatus`, keeping the existing cancel action. When
   `failureAfterMessageId` is set and no summarization is in progress, a
@@ -955,8 +958,8 @@ cd apps/server && uv run pytest tests/intelligence/core/use_cases/test_remove_me
 **Expected result:** `GetMentorSessionSummaryUseCase` authorizes, renders the ready row
 via `MentorConversationSummaryContext.from_summary`, and raises `MentorSessionSummaryNotFoundError` for absent,
 foreign and tombstoned sessions alike; `GetMentorSessionUseCase`/`load_mentor_detail`
-return `summary.current` and `failure_after_message_id` correctly (failed newer than
-ready only).
+return `summary.current` (including `after_message_id`, the learner message of the summary's attempt, null when the attempt is gone or belongs to another session) and
+`failure_after_message_id` correctly (failed newer than ready only).
 
 **Proof:** `tests/intelligence/core/use_cases/test_get_mentor_session_summary_use_case.py` [N], `tests/intelligence/core/use_cases/test_get_mentor_session_use_case.py` [M].
 
@@ -999,7 +1002,7 @@ database, not internals.
 
 **Criteria:** CA-09, CA-10, CA-12
 
-**Expected result:** detail includes `summary` with null/ready/failed combinations;
+**Expected result:** detail includes `summary` with null/ready/failed combinations (the ready marker carries `after_message_id`);
 `GET …/summary` 200 body shape, `no-store`, 404 for absent/foreign/tombstoned with the
 same body, no offsets in any response; deletion removes summary rows; SSE replays the
 `summarize-context` progress event and the closing null-progress event after reconnect (`after_sequence`), and the snapshot's `progress` is null after the closing event while `write-answer`/`review-answer` snapshots are unchanged.
@@ -1075,7 +1078,7 @@ cd apps/server && SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest tests/messaging/i
 (`aria-haspopup="dialog"`) opens the dialog by keyboard, focus moves into it and is trapped; Escape, the close button and "Fechar resumo" close it and return focus to "Ver resumo";
 "Ver mensagens originais" closes the dialog and calls `revealMessage(firstMessageId)`; loading and
 error states; plain-text rendering of hostile text (`<script>`, Markdown); `MessageItem` exposes `id`/`data-message-id` and is focusable; `Conversation`
-item positions (boundary loaded / not loaded), processing marker replaces
+item positions (marker after the triggering message when loaded, else after the boundary, else at the top), processing marker replaces
 `ResponseStatus` and keeps cancel, failure notice after its message and hidden while
 summarizing; composer disabled with the placeholder; provider maps `summary`, derives
 `isSummarizingContext` from SSE progress and snapshot replay, clears it on the closing null-progress status event, and `revealMessage` pages
@@ -1224,7 +1227,7 @@ adaptations from the handoff (cancel kept; composer controls kept disabled).
 **Reference / setup:** [RDiWy.png](design/references/RDiWy.png); VM-01 capture after completion.
 
 **Passing condition:** marker anatomy (icon, muted 13 px label, ghost "Ver resumo")
-matches ySE0r; position follows the boundary (accepted adaptation).
+matches ySE0r; position is the learner message that triggered the summary (accepted adaptation).
 
 ### VM-05 — Reading dialog desktop (T4Edi content)
 
@@ -1274,3 +1277,5 @@ unaffected current proof.
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-10-18 | Initial contract | SHIFU-102 against PRD v9; user decisions Q1–Q66: local extractive NLP; pre-answer step in the answer workflow (design KVnFQ/RDiWy); thresholds 20 messages / 16,000 code points with 10 recent; single current version; spans; reading dialog (Q74, approved adaptation of T4Edi/ov9QQ); summaries-only account purge. Spec Reviewer findings B1–B2, H1–H8, M1–M4, L1–L4 and recheck R1–R4 resolved before first presentation (Q67–Q78) |
+| 2 | 2026-10-20 | RF-10 marker placement: below the boundary's Mentor answer when the boundary is a learner question (presentation only; coverage unchanged); Web contracts and VM-04 wording aligned | User feedback on the seeded conversation: the marker appeared between a question and its answer instead of below the old chat. Handoff updated; CI-10, CI-11, VM-01..VM-04 and VM-02 placement reopened |
+| 3 | 2026-10-20 | RF-09/RF-10: `summary.current` gains `after_message_id` (the learner message whose answer run produced the summary, from the summary's attempt; null when the attempt is gone) and the marker is placed right after it; replaces the revision-2 placement rule | User decision (option A) on the seeded conversation: the marker must sit where the summarization happened, after the user's triggering message. Handoff, REST contract, Web contracts, CI-04/CI-06/CI-10/CI-11 and VM-04 placement reopened |

@@ -13,7 +13,7 @@ surfaces listed here only.
 | Reference / Pencil node | Surface / required state | Reference dimensions | Saved image | Criteria / checks |
 | --- | --- | --- | --- | --- |
 | KVnFQ — 15.13 Mentor · resumindo contexto | Page; response in progress with `progress = summarize-context`: processing marker after the pending learner message; composer disabled with "Aguarde enquanto o contexto é resumido" | 1440×1058 | [KVnFQ.png](references/KVnFQ.png) | CA-13; VM-01, VM-03 |
-| RDiWy — 15.12 Mentor · conversa resumida | Page; ready marker "Contexto resumido · Ver resumo" at the boundary; answer below | 1440×1058 | [RDiWy.png](references/RDiWy.png) | CA-13; VM-01, VM-04 |
+| RDiWy — 15.12 Mentor · conversa resumida | Page; ready marker "Contexto resumido · Ver resumo" (runtime: right after the learner message that triggered the summary, before its answer — Spec revision 3); answer below | 1440×1058 | [RDiWy.png](references/RDiWy.png) | CA-13; VM-01, VM-04 |
 | T4Edi — 15.20 Mentor · consultar resumo de contexto | Page; summary content (title "Resumo desta conversa", paragraph, preservation line, two actions) — runtime shows it inside a dialog | 1440×1058 | [T4Edi.png](references/T4Edi.png) | CA-13; VM-01, VM-05 |
 | ov9QQ — 15.34 Mentor · consultar resumo · mobile | 390 px; same content stacked, buttons full row — runtime shows it in a near full-screen dialog | 390×1000 | [ov9QQ.png](references/ov9QQ.png) | CA-13; VM-02, VM-06 |
 | ySE0r — Mentor/CompactionMarker (reusable) | Marker component: icon, label, ghost "Ver resumo" | 640×44 | [ySE0r.png](references/ySE0r.png) | CA-13 |
@@ -50,9 +50,12 @@ Runtime viewports: page 1440×900; FAB 1440×900 with the existing 566×800 pane
   soft `border-border` separator before the body. T4Edi has no icon tile or close button;
   both are required by the rule, not design deviations of choice.
 
-- The frames place the marker directly above the newest question. Runtime places it after
-  the boundary message (the newest message outside the 10-message recent window, Spec
-  RF-01). Position follows the boundary, not the frame sample.
+- The frames place the marker directly above the newest question. Runtime places it right
+  after the learner message that triggered the summarization, where "Resumindo contexto…"
+  was shown, and before that message's answer; it stays there as the conversation continues
+  (Spec revision 3). If that message is unknown it falls back to the boundary message
+  (the newest message outside the 10-message recent window, Spec RF-01). Position follows
+  the summarization event, not the frame sample.
 - The design's summary paragraph is illustrative prose. Runtime text is the server-rendered
   deterministic template built from verbatim extractive excerpts (Spec RF-02/RF-09), shown
   as plain text.
