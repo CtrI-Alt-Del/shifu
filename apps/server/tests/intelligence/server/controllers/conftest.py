@@ -17,6 +17,7 @@ from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import FileStoragePipe
 from shifu.shared.pipes import SharedPipe
 from shifu.shared.messaging.inngest.inngest_broker import InngestBroker
+from shifu.shared.messaging.agentos.agentos_broker import AgentOSBroker
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -130,3 +131,21 @@ def configure_mentor_access(app: FastAPI) -> Mock:
         access
     )
     return access
+
+
+@pytest.fixture
+def planning_client(
+    postgres_database: PostgresDatabase,
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[TestClient]:
+    # Planning HTTP tests assert the outbox rows themselves; the AgentOS relay only
+    # runs in the registered-workflow tests.
+    monkeypatch.setattr(
+        'shifu.shared.messaging.agentos.agentos_runtime.AgentOSBroker',
+        create_autospec(AgentOSBroker),
+    )
+    app: FastAPI = FastAPIApp.register(postgres_database.engine)
+    configure_mentor_access(app)
+    app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: MENTOR_ACCOUNT
+    with TestClient(app, headers={'Authorization': 'Bearer test-token'}) as client:
+        yield client

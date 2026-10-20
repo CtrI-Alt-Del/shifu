@@ -10,3 +10,4 @@ from .process_mentor_response_workflow import (
 from .purge_mentor_attachments_workflow import (
     PurgeMentorAttachmentsWorkflow as PurgeMentorAttachmentsWorkflow,
 )
+from .plan_goal_workflow import PlanGoalWorkflow as PlanGoalWorkflow

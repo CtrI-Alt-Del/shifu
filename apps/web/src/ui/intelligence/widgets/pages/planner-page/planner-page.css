@@ -1,0 +1,67 @@
+.planner-options .planner-option {
+  min-height: 3rem;
+  padding: 0.875rem 1rem;
+  border-color: var(--border);
+  background: var(--surface-alt);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.planner-options .planner-option:hover:not(:has(input:disabled, input:checked)) {
+  border-color: var(--control-border);
+  background: var(--surface-alt);
+}
+
+.planner-options .planner-option:has(input:checked) {
+  border-color: var(--selo-text);
+  background: var(--muted);
+}
+
+.planner-options .planner-option:has(input:focus-visible) {
+  outline: 2px solid var(--selo-text);
+  outline-offset: 2px;
+}
+
+.planner-options .planner-option:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.planner-options .planner-option > input + span {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-color: var(--control-border);
+  background: transparent;
+  color: transparent;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.planner-options .planner-option > input:checked + span {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.planner-options .planner-option > input[type="radio"] + span::after {
+  width: 0.375rem;
+  height: 0.375rem;
+  background: transparent;
+}
+
+.planner-options .planner-option > input[type="radio"]:checked + span::after {
+  background: #ffffff;
+}
+
+.planner-options .planner-option--exclusive > span:last-child {
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planner-options .planner-option {
+    transition-duration: 100ms;
+  }
+}

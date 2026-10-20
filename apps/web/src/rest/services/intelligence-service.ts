@@ -11,6 +11,12 @@ import type {
   MentorAttachmentBatch,
   MentorAttachmentSource,
 } from '@/core/intelligence/mentor-attachment'
+import type {
+  PlanningAnswersSubmission,
+  PlanningOperation,
+  PlanningQuestion,
+  PlanningSession,
+} from '@/core/intelligence/planning-session'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -138,6 +144,38 @@ type MentorResponseSnapshotDto = {
   last_sequence: number
   failure_code: string | null
 }
+type PlanningSessionDto = {
+  id: string
+  status: PlanningSession['status']
+  intent: string
+  generation: number
+  created_at: string
+  updated_at: string
+  operation: {
+    kind: PlanningOperation['kind']
+    started_at: string
+    stage?: PlanningOperation['stage']
+  } | null
+  consulted_curriculum: boolean
+  batch: {
+    id: string
+    questions: {
+      id: string
+      text: string
+      kind: PlanningQuestion['kind']
+      options: { id: string; text: string; exclusive: boolean }[]
+    }[]
+  } | null
+  answered_batch_count: number
+  proposal: {
+    title: string
+    description: string
+    skills: { skill_id: string; name: string; justification: string }[]
+    relations: { skill_id: string; foundation_skill_id: string }[]
+  } | null
+  message: string | null
+  failure_code: string | null
+}
 export type IntelligenceService = ReturnType<typeof IntelligenceService>
 
 export const IntelligenceService = (
@@ -242,6 +280,57 @@ export const IntelligenceService = (
       messages: mapMessagesPage(detail.messages),
       pendingLearnerMessageId: detail.pending_learner_message_id,
       response: detail.response ? mapSnapshot(detail.response) : null,
+    }
+  }
+  function mapPlanningSession(session: PlanningSessionDto): PlanningSession {
+    return {
+      id: session.id,
+      status: session.status,
+      intent: session.intent,
+      generation: session.generation,
+      createdAt: session.created_at,
+      updatedAt: session.updated_at,
+      operation: session.operation
+        ? {
+            kind: session.operation.kind,
+            startedAt: session.operation.started_at,
+            stage: session.operation.stage ?? null,
+          }
+        : null,
+      consultedCurriculum: session.consulted_curriculum,
+      batch: session.batch
+        ? {
+            id: session.batch.id,
+            questions: session.batch.questions.map((question) => ({
+              id: question.id,
+              text: question.text,
+              kind: question.kind,
+              options: question.options.map((option) => ({
+                id: option.id,
+                text: option.text,
+                exclusive: option.exclusive,
+              })),
+            })),
+          }
+        : null,
+      answeredBatchCount: session.answered_batch_count,
+      proposal: session.proposal
+        ? {
+            title: session.proposal.title,
+            description: session.proposal.description,
+            skills: session.proposal.skills.map((skill) => ({
+              skillId: skill.skill_id,
+              name: skill.name,
+              justification: skill.justification,
+            })),
+            relations: session.proposal.relations.map((relation) => ({
+              skillId: relation.skill_id,
+              foundationSkillId: relation.foundation_skill_id,
+            })),
+          }
+        : null,
+      message: session.message,
+      failureCode: session.failure_code,
     }
   }
 
@@ -400,6 +489,56 @@ export const IntelligenceService = (
       if (response.isFailure) response.throwError()
 
       return response.body
+    },
+    async getPlanningSession(
+      accessToken: string,
+      planningId: string,
+    ): Promise<PlanningSession> {
+      const response = await restClient.get<PlanningSessionDto>(
+        `/intelligence/planning-sessions/${planningId}`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapPlanningSession(response.body)
+    },
+    async answerPlanningQuestions(
+      accessToken: string,
+      planningId: string,
+      submission: PlanningAnswersSubmission,
+    ): Promise<PlanningSession> {
+      const response = await restClient.post<PlanningSessionDto>(
+        `/intelligence/planning-sessions/${planningId}/answers`,
+        {
+          batch_id: submission.batchId,
+          answers: submission.answers.map((answer) => ({
+            question_id: answer.questionId,
+            option_ids: answer.optionIds,
+          })),
+        },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapPlanningSession(response.body)
+    },
+    async retryPlanning(
+      accessToken: string,
+      planningId: string,
+    ): Promise<PlanningSession> {
+      const response = await restClient.post<PlanningSessionDto>(
+        `/intelligence/planning-sessions/${planningId}/retry`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapPlanningSession(response.body)
+    },
+    async cancelPlanning(accessToken: string, planningId: string): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/intelligence/planning-sessions/${planningId}`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
     },
 
     async createMentorSession(

@@ -1,0 +1,23 @@
+{
+  "format_version": 1,
+  "model": "intfloat/multilingual-e5-small",
+  "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "dimension": 384,
+  "normalized": true,
+  "query_prefix": "query: ",
+  "passage_prefix": "passage: ",
+  "preprocessor": "pt_core_news_sm",
+  "preprocessor_version": "3.8.0",
+  "negation": ["não", "nao", "nunca", "nem", "sem", "jamais"],
+  "rrf_k": 60,
+  "lexical_limit": 10,
+  "semantic_limit": 10,
+  "candidate_limit": 20,
+  "classifier_model": "typesafe/jev-1.13",
+  "intent_thresholds": {
+    "learning": 0.6,
+    "out-of-scope": 0.7,
+    "ambiguous": 0.0
+  },
+  "calibration_status": "initial"
+}

@@ -40,6 +40,17 @@ class DatabaseCurriculumCatalogProvider(CurriculumCatalogProvider):
                 description=skill.description,
             )
 
+    def list_skills(self) -> tuple[SkillCatalogEntry, ...]:
+        with self._database.transaction() as repositories:
+            return tuple(
+                SkillCatalogEntry(
+                    id=skill.id,
+                    name=skill.name,
+                    description=skill.description,
+                )
+                for skill in repositories.skills.find_all()
+            )
+
     def find_direct_foundations_for_many(
         self, skill_ids: list[str]
     ) -> dict[str, list[SkillFoundationEntry]]:

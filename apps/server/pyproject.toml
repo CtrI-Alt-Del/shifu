@@ -31,6 +31,7 @@ dependencies = [
     "pypdfium2==5.14.0",
     "opentelemetry-sdk>=1.45.1",
     "langfuse>=3,<4",
+    "scikit-learn>=1.7,<2",
 ]
 
 [dependency-groups]

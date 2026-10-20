@@ -40,16 +40,31 @@ from shifu.intelligence.core.domain.events.mentor_response_requested_event impor
     MentorResponseRequestedEvent,
     MentorResponseRequestedPayload,
 )
+from shifu.intelligence.core.domain.events.planning_operation_requested_event import (
+    PlanningOperationRequestedEvent,
+    PlanningOperationRequestedPayload,
+)
 from shifu.intelligence.core.domain.errors import (
     MentorAttachmentInvalidError,
     MentorTitleOutputInvalidError,
     MentorTitleUnavailableError,
+    PlanningIndexUnavailableError,
 )
+from shifu.intelligence.core.domain.structures import PlanningQuery
 from shifu.intelligence.providers.mentor_title.agentos.agentos_mentor_title_provider import (
     AgentOSMentorTitleProvider,
 )
 from shifu.intelligence.providers.routing.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
+)
+from shifu.intelligence.providers.planning.intent_classification.openrouter.jev_planning_intent_classifier_provider import (
+    JevPlanningIntentClassifierProvider,
+)
+from shifu.intelligence.providers.planning.lazy_planning_skill_retrieval_provider import (
+    LazyPlanningSkillRetrievalProvider,
+)
+from shifu.intelligence.providers.planning.redis.redis_planning_sessions_repository import (
+    RedisPlanningSessionsRepository,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces.outbox_event import OutboxEvent
@@ -71,6 +86,7 @@ if TYPE_CHECKING:
     )
     from shifu.shared.core.domain.structures import MentorContextSnapshot
     from shifu.shared.core.interfaces import (
+        CurriculumCatalogProvider,
         MentorAccessProvider,
         MentorCatalogProvider,
         MentorContextProvider,
@@ -278,6 +294,7 @@ def _registry_harness(
     *,
     agentos_enabled: bool = False,
     observability: LangfuseTelemetryProvider | None = None,
+    curriculum_catalog_provider: CurriculumCatalogProvider | None = None,
 ) -> Generator[_RegistryHarness]:
     storage = _StorageProvider()
     client = _TrackedHttpClient()
@@ -325,6 +342,7 @@ def _registry_harness(
         cast('MentorCatalogProvider', object()),
         outbox_engine=engine,
         telemetry=cast('MentorTelemetryProvider', object()),
+        curriculum_catalog_provider=curriculum_catalog_provider,
     )
     harness = _RegistryHarness(
         registry=registry,
@@ -487,6 +505,41 @@ def test_registry_projects_registered_events_to_id_only_agentos_tickets(
             )
             is None
         )
+
+
+def test_registry_projects_planning_events_and_owns_the_redis_repository(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _registry_harness(monkeypatch, agentos_enabled=True) as harness:
+        registry = harness.registry
+        projector = cast('_RuntimeDouble', harness.runtime).workflow_event_projector
+        requested = PlanningOperationRequestedEvent(
+            payload=PlanningOperationRequestedPayload(
+                planning_id='planning-1', operation_id='operation-1', generation=2
+            )
+        )
+        event = _outbox_event(requested.name, asdict(requested.payload))
+
+        assert registry.destination_for_event(event) == 'agentos:intelligence'
+        assert projector(event) == (
+            'intelligence-plan-goal',
+            {
+                'planning_id': 'planning-1',
+                'operation_id': 'operation-1',
+                'generation': '2',
+                'event_id': event.id,
+            },
+        )
+        malformed = _outbox_event(
+            requested.name,
+            {
+                'planning_id': 'planning-1',
+                'operation_id': 'operation-1',
+                'generation': '2',
+            },
+        )
+        assert projector(malformed) is None
+        assert isinstance(registry.planning_sessions, RedisPlanningSessionsRepository)
 
 
 def test_registry_lifespan_fails_closed_without_runtime_and_close_is_idempotent(
@@ -664,6 +717,28 @@ def test_purge_workflow_normalizes_and_validates_targeted_cleanup_requests() -> 
 
     clone = workflow.deep_copy(update={'test_marker': 'copied'})
     assert vars(clone).get('test_marker') == 'copied'
+
+
+def test_registry_exposes_planning_ports_and_fails_closed_without_a_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _registry_harness(monkeypatch) as harness:
+        registry = harness.registry
+        assert isinstance(
+            registry.planning_intent_classifier, JevPlanningIntentClassifierProvider
+        )
+        with pytest.raises(PlanningIndexUnavailableError):
+            registry.planning_skill_retrieval.retrieve(
+                PlanningQuery(intent='Quero aprender React')
+            )
+    with _registry_harness(
+        monkeypatch,
+        curriculum_catalog_provider=cast('CurriculumCatalogProvider', object()),
+    ) as harness:
+        assert isinstance(
+            harness.registry.planning_skill_retrieval,
+            LazyPlanningSkillRetrievalProvider,
+        )
 
 
 def test_lazy_route_provider_fails_closed_when_catalog_version_changes(

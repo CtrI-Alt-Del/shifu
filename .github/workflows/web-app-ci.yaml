@@ -195,6 +195,10 @@ jobs:
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+          src/ui/intelligence/hooks/tests/planning-server-functions.test.ts
+          src/ui/intelligence/widgets/pages/planner-page/tests/planner-page.test.tsx
+          src/ui/intelligence/widgets/pages/planner-page/tests/use-planner-page.test.ts
+          'src/routes/intelligence/planner/$planningId/tests/-planner-route.test.tsx'
 
       - name: Enforce thresholds for every changed production file
         run: >-
