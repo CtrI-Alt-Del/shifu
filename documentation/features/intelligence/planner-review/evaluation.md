@@ -16,7 +16,7 @@ last_updated_at: 2026-10-20
 | Visual checks | 8 / 8 frames compared (EV-09) |
 | Independent review | Pending (pull request review) |
 | Blockers | None for the delivery; VM-01 needs the OpenRouter key |
-| Candidate | Branch `feat/shifu-93` on top of `feat/shifu-92` (PR #34) and `feat/shifu-91` (PR #32): `e55b1bc` feature, `228c523` docs; PR #35 |
+| Candidate | Branch `feat/shifu-93` rebased on `feat/shifu-92` (PR #34, `bd77c69`) and `feat/shifu-91` (PR #32, `c10ec36`): `4ba3fb2` feature, `da7718a` docs, `387ede8` delivery state; PR #35 |
 
 # Progress
 
@@ -72,7 +72,7 @@ last_updated_at: 2026-10-20
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/shifu-93` on top of `feat/shifu-92` (`1180df3`): `e55b1bc` feature, `228c523` docs, then the delivery-state commit |
+| Candidate | `feat/shifu-93` rebased on `feat/shifu-92` (`bd77c69`): `4ba3fb2` feature, `da7718a` docs, `387ede8` delivery state, then this rebase note |
 | Completed | CA-01 … CA-11 implemented; EV-01 … EV-07, EV-09 passed |
 | Unfinished | VM-01 with the real model (needs `OPENROUTER_API_KEY`); `Criar objetivo` confirmation belongs to SHIFU-95 |
 | Uncommitted work | None after the delivery commits |
@@ -91,7 +91,7 @@ last_updated_at: 2026-10-20
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/35 | `228c523` (the docs commit that records this state follows) | Pending: CI queued; review pending | https://github.com/CtrI-Alt-Del/shifu/pull/35/checks |
+| https://github.com/CtrI-Alt-Del/shifu/pull/35 | `387ede8` after the rebase on the SHIFU-91 and SHIFU-92 CI fixes (this rebase note follows) | Pending: CI re-running after the rebase; review pending | https://github.com/CtrI-Alt-Del/shifu/pull/35/checks |
 
 | Field | Result |
 | --- | --- |
