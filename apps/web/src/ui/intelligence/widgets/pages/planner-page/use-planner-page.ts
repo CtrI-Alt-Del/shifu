@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import type {
+  PlanningGoalCreationRequest,
   PlanningOperation,
   PlanningOperationStage,
-  PlanningProposal,
   PlanningQuestion,
   PlanningSession,
 } from '@/core/intelligence/planning-session'
@@ -15,12 +15,15 @@ import {
   planningSessionQueryKey,
   usePlanningSessionQuery,
 } from '@/ui/intelligence/hooks/use-planning-session-query'
+import { useRestartPlanningAction } from '@/ui/intelligence/hooks/use-restart-planning-action'
 import { useRetryPlanningAction } from '@/ui/intelligence/hooks/use-retry-planning-action'
 import { consumePlanningEntry } from '@/ui/intelligence/planning-entry'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
 export type PlannerPageProps = {
   planningId: string
+  /** SHIFU-95 integration boundary: receives the confirmed proposal and its edits. */
+  onCreateGoal?: (request: PlanningGoalCreationRequest) => void | Promise<void>
 }
 
 export type PlannerView =
@@ -88,16 +91,22 @@ const SUBMISSION_ERROR_MESSAGE =
   'Não foi possível enviar suas respostas agora. Suas escolhas continuam nesta página; tente novamente.'
 const RETRY_ERROR_MESSAGE =
   'Não foi possível tentar novamente agora. Seu planejamento continua nesta página.'
+const RESTART_ERROR_MESSAGE =
+  'Não foi possível reiniciar o planejamento agora. Sua proposta continua nesta página; tente novamente.'
+const GOAL_CREATION_PENDING_NOTICE =
+  'A criação do Objetivo chega na próxima etapa do Planejador. Sua proposta e suas edições continuam nesta página.'
 const REVIEW_GUIDANCE =
   'Você pode alterar esta resposta. Use as etapas para revisar as demais e enviar na última pergunta.'
 
-export function usePlannerPage({ planningId }: PlannerPageProps) {
+export function usePlannerPage({ planningId, onCreateGoal }: PlannerPageProps) {
   const queryClient = useQueryClient()
   const { navigateTo } = useNavigation()
   const [isLeaving, setIsLeaving] = useState(false)
   const [hasEntry] = useState(() => consumePlanningEntry(planningId))
   const [draft, setDraft] = useState<PlannerDraft>(EMPTY_DRAFT)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [restartErrorMessage, setRestartErrorMessage] = useState<string | null>(null)
+  const [goalCreationNotice, setGoalCreationNotice] = useState<string | null>(null)
   const questionHeadingRef = useRef<HTMLHeadingElement>(null)
   const previousFocusKeyRef = useRef<string | null>(null)
   const leavingRef = useRef(false)
@@ -115,6 +124,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   const { answerPlanningQuestions, isAnsweringPlanningQuestions } =
     useAnswerPlanningQuestionsAction(planningId)
   const { retryPlanning, isRetryingPlanning } = useRetryPlanningAction(planningId)
+  const { restartPlanning, isRestartingPlanning } = useRestartPlanningAction(planningId)
   const { cancelPlanning, isCancellingPlanning } = useCancelPlanningAction(planningId)
 
   const batch = planningSession?.status === 'interview' ? planningSession.batch : null
@@ -152,6 +162,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   })
   const isSubmitting = isAnsweringPlanningQuestions
   const isRetrying = isRetryingPlanning
+  const isRestarting = isRestartingPlanning
   const isCancelling = isCancellingPlanning
   const canSubmit = view === 'interview' && isLastStep && isBatchComplete && !isSubmitting
   const focusKey = currentQuestion ? `${batchId}:${currentQuestion.id}` : null
@@ -241,7 +252,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
       })
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
     } catch (error) {
-      handleOperationFailure(error, SUBMISSION_ERROR_MESSAGE)
+      setErrorMessage(resolveOperationFailure(error, SUBMISSION_ERROR_MESSAGE))
     } finally {
       operationRef.current = false
     }
@@ -256,31 +267,52 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
       const updated = await retryPlanning()
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
     } catch (error) {
-      handleOperationFailure(error, RETRY_ERROR_MESSAGE)
+      setErrorMessage(resolveOperationFailure(error, RETRY_ERROR_MESSAGE))
     } finally {
       operationRef.current = false
     }
   }
 
-  function handleOperationFailure(error: unknown, fallbackMessage: string) {
+  async function handleRestart(initialIntent: string): Promise<boolean> {
+    if (operationRef.current || isRestarting || view !== 'proposal') return false
+    operationRef.current = true
+    setRestartErrorMessage(null)
+    try {
+      const updated = await restartPlanning(initialIntent)
+      setGoalCreationNotice(null)
+      queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
+      return true
+    } catch (error) {
+      setRestartErrorMessage(resolveOperationFailure(error, RESTART_ERROR_MESSAGE))
+      return false
+    } finally {
+      operationRef.current = false
+    }
+  }
+
+  async function handleCreateGoal(request: PlanningGoalCreationRequest) {
+    if (!onCreateGoal) {
+      setGoalCreationNotice(GOAL_CREATION_PENDING_NOTICE)
+      return
+    }
+    setGoalCreationNotice(null)
+    await onCreateGoal(request)
+  }
+
+  function resolveOperationFailure(error: unknown, fallbackMessage: string) {
     if (error instanceof PlanningRequestError) {
       if (error.kind === 'unauthorized') {
         void navigateTo('login')
-        return
+        return null
       }
       if (error.kind === 'not-found') {
         void refetchPlanningSession()
-        return
+        return null
       }
-      if (error.kind === 'unavailable') {
-        setErrorMessage(fallbackMessage)
-        return
-      }
-      setErrorMessage(error.message)
       if (error.kind === 'conflict') void refetchPlanningSession()
-      return
+      return error.kind === 'unavailable' ? fallbackMessage : error.message
     }
-    setErrorMessage(fallbackMessage)
+    return fallbackMessage
   }
 
   async function leaveTo(route: LeaveRoute, shouldCancel: boolean) {
@@ -319,6 +351,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   return {
     view,
     intent: planningSession?.intent ?? null,
+    generation: planningSession?.generation ?? 0,
     steps,
     stepLabel: stepLabelFor(currentIndex, questions.length, isBatchComplete, isLastStep),
     currentQuestion,
@@ -334,8 +367,11 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
         : null,
     proposal: view === 'proposal' ? (planningSession?.proposal ?? null) : null,
     errorMessage,
+    restartErrorMessage,
+    goalCreationNotice,
     isSubmitting,
     isRetrying,
+    isRestarting,
     isCancelling,
     isAbandoning,
     questionHeadingRef,
@@ -347,6 +383,8 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     handleSubmitAnswers,
     handleCancel,
     handleRetry,
+    handleRestart,
+    handleCreateGoal,
     handleReformulate,
     handleCreateManually,
     handleRetryLoad,
@@ -438,5 +476,3 @@ function guidanceFor(
   }
   return `${prefix} Você poderá revisar as respostas antes de enviar este conjunto.`
 }
-
-export type { PlanningProposal }

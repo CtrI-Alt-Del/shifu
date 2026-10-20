@@ -520,6 +520,19 @@ export const IntelligenceService = (
       if (response.isFailure) response.throwError()
       return mapPlanningSession(response.body)
     },
+    async restartPlanning(
+      accessToken: string,
+      planningId: string,
+      initialIntent: string,
+    ): Promise<PlanningSession> {
+      const response = await restClient.post<PlanningSessionDto>(
+        `/intelligence/planning-sessions/${planningId}/restart`,
+        { initial_intent: initialIntent },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapPlanningSession(response.body)
+    },
     async retryPlanning(
       accessToken: string,
       planningId: string,

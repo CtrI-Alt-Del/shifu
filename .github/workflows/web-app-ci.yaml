@@ -198,6 +198,12 @@ jobs:
           src/ui/intelligence/hooks/tests/planning-server-functions.test.ts
           src/ui/intelligence/widgets/pages/planner-page/tests/planner-page.test.tsx
           src/ui/intelligence/widgets/pages/planner-page/tests/use-planner-page.test.ts
+          src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/planning-proposal-review.test.tsx
+          src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/use-planning-proposal-review.test.ts
+          src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/use-proposal-skill-graph.test.ts
+          src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/use-restart-planning-dialog.test.ts
+          src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/restart-planning-dialog.test.tsx
+          src/ui/learning/widgets/pages/goal-detail-page/goal-skill-graph/tests/goal-skill-graph.test.tsx
           'src/routes/intelligence/planner/$planningId/tests/-planner-route.test.tsx'
 
       - name: Enforce thresholds for every changed production file

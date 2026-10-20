@@ -63,6 +63,12 @@ export type PlanningSession = {
   message: string | null
   failureCode: string | null
 }
+export type PlanningGoalCreationRequest = {
+  planningId: string
+  title: string
+  description: string
+  proposal: PlanningProposal
+}
 export type PlanningAnswer = {
   questionId: string
   optionIds: string[]
@@ -83,6 +89,7 @@ export type PlanningFailure = {
 }
 
 export const PLANNING_ID_PATTERN = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/
+export const PLANNING_INTENT_MAX_LENGTH = 4000
 
 const PLANNING_FAILURE_KINDS: readonly PlanningFailureKind[] = [
   'unauthorized',
