@@ -46,7 +46,13 @@ const getOverview = createServerFn({ method: 'GET' }).handler(
 )
 
 export function useOverviewQuery() {
-  const query = useQuery({
+  const {
+    data: overview = null,
+    error: overviewError,
+    isPending: isLoadingOverview,
+    isFetching: isFetchingOverview,
+    refetch: refetchOverview,
+  } = useQuery({
     queryKey: ['gamification', 'overview'],
     retry: false,
     queryFn: async () => {
@@ -66,10 +72,10 @@ export function useOverviewQuery() {
   })
 
   return {
-    overview: query.data ?? null,
-    overviewError: query.error ?? null,
-    isLoadingOverview: query.isPending,
-    isFetchingOverview: query.isFetching,
-    refetchOverview: query.refetch,
+    overview,
+    overviewError,
+    isLoadingOverview,
+    isFetchingOverview,
+    refetchOverview,
   }
 }

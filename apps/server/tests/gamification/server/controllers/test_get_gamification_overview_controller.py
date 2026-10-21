@@ -16,6 +16,8 @@ from shifu.gamification.core.domain.structures import PracticeStreak
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.pipes import SharedPipe
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
 
@@ -24,11 +26,17 @@ OTHER_ACCOUNT_ID = '01SHF00000000000000OTHERA'
 TIME_ZONE = 'America/Sao_Paulo'
 CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 ACTIVE_CATALOG_SIZE = 12
+_NOW = datetime(2026, 10, 21, 15, 0, tzinfo=UTC)
 
 
 def _today() -> date:
     """The viewer's local date, resolved exactly as the endpoint resolves it."""
-    return datetime.now(UTC).astimezone(ZoneInfo(TIME_ZONE)).date()
+    return _NOW.astimezone(ZoneInfo(TIME_ZONE)).date()
+
+
+class _FixedClockProvider(ClockProvider):
+    def now(self) -> datetime:
+        return _NOW
 
 
 class _TestAuthenticationProvider:
@@ -57,6 +65,9 @@ def application(
     application.state.authentication_provider = _TestAuthenticationProvider()
     application.state.gamification_database = SqlalchemyGamificationDatabase(
         postgres_database.engine
+    )
+    application.dependency_overrides[SharedPipe.get_clock_provider] = lambda: (
+        _FixedClockProvider()
     )
     yield application
     application.dependency_overrides.clear()

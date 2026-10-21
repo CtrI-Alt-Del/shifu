@@ -32,11 +32,15 @@ export function useOverviewTabPanel() {
         ? 'empty'
         : 'success'
 
+  function handleRetry() {
+    void refetchOverview()
+  }
+
   return {
     overview: state === 'success' ? overview : null,
     state,
     isRetrying: isFetchingOverview && !isLoadingOverview,
-    handleRetry: () => void refetchOverview(),
+    handleRetry,
   }
 }
 
