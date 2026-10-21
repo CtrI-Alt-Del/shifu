@@ -165,6 +165,28 @@ describe('OverviewTabPanel', () => {
     ).toBeVisible()
   })
 
+  it('renders the singular streak counts and the achievements empty sub-state', () => {
+    useOverviewTabPanelMock.mockReturnValue(
+      makeController({
+        overview: {
+          ...overview,
+          streak: { ...overview.streak, streak: { current: 1, longest: 1 } },
+          achievements: { ...overview.achievements, recent: [] },
+        },
+      }),
+    )
+    render(<OverviewTabPanel onViewAchievements={vi.fn()} />)
+
+    expect(screen.getByText('dia seguido')).toBeVisible()
+    expect(screen.getByText(/Maior sequência: 1 dia$/)).toBeVisible()
+    expect(
+      screen.getByText(/Você ainda não obteve conquistas\. Continue praticando/),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('list', { name: 'Conquistas recentes' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('announces the loading state', () => {
     useOverviewTabPanelMock.mockReturnValue(
       makeController({ state: 'loading', overview: null }),

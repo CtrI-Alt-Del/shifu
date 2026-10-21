@@ -195,6 +195,17 @@ jobs:
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+          src/rest/services/tests/gamification-service.test.ts
+          src/ui/shared/hooks/tests/use-format-date.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/tests/gamification-page.test.tsx
+          src/ui/gamification/widgets/pages/gamification-page/tests/use-gamification-page.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/tests/gamification-server-functions.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/calendar-tab-panel/tests/calendar-tab-panel.test.tsx
+          src/ui/gamification/widgets/pages/gamification-page/calendar-tab-panel/tests/use-calendar-tab-panel.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/overview-tab-panel/tests/overview-tab-panel.test.tsx
+          src/ui/gamification/widgets/pages/gamification-page/overview-tab-panel/tests/use-overview-tab-panel.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests/xp-history-tab-panel.test.tsx
+          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests/use-xp-history-tab-panel.test.ts
 
       - name: Enforce thresholds for every changed production file
         run: >-

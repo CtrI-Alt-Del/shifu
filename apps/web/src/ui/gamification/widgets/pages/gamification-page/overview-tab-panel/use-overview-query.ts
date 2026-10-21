@@ -15,7 +15,7 @@ type OverviewResult =
   | { kind: 'success'; overview: GamificationOverview }
   | { kind: 'unauthorized' | 'forbidden' | 'unavailable'; statusCode?: number }
 
-const getOverview = createServerFn({ method: 'GET' }).handler(
+export const getOverview = createServerFn({ method: 'GET' }).handler(
   async (): Promise<OverviewResult> => {
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
