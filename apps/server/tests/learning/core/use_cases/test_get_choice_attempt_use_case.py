@@ -160,6 +160,65 @@ class TestGetChoiceAttemptUseCase:
         )
         self.subject = GetChoiceAttemptUseCase(self.database, self.provider, self.clock)
 
+    @pytest.mark.parametrize('missing', ('experience', 'attempt', 'evaluation'))
+    def test_should_hide_missing_owned_history_before_any_mutation(
+        self, missing: str
+    ) -> None:
+        if missing == 'experience':
+            self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = None
+        elif missing == 'attempt':
+            self.repositories.activity_attempts.find_by_id.return_value = None
+        else:
+            self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = None
+
+        with pytest.raises(NotFoundError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                self.attempt.id,
+            )
+
+        self.repositories.activity_evaluations.update.assert_not_called()
+        self.provider.get_skill_content.assert_not_called()
+
+    def test_should_release_frozen_choice_keys_when_competency_is_mastered(
+        self,
+    ) -> None:
+        self.evaluation.status = ActivityEvaluationStatus.COMPLETED
+        self.evaluation.score = Decimal(0)
+        self.evaluation.completed_at = NOW
+        self.evaluation.parts = tuple(
+            ChoiceEvaluationResult(
+                question_key=f'q{index}',
+                score=Decimal(0),
+                is_correct=False,
+                explanation='Revisão',
+            )
+            for index in range(1, 4)
+        )
+        progress = self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value
+        assert isinstance(progress, CompetencyProgress)
+        progress.status = CompetencyProgressStatus.MASTERED
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert tuple(
+            item.disclosed_correct_option_keys
+            for item in detail.questions
+            if isinstance(item, ChoiceResultDetail)
+        ) == (
+            ('a',),
+            ('a', 'c'),
+            ('a', 'c'),
+        )
+        self.repositories.activity_evaluations.update.assert_not_called()
+        self.provider.get_skill_content.assert_not_called()
+
     def test_should_mark_stale_pending_evaluation_failed_without_a_score(self) -> None:
         self.evaluation.started_at = NOW - timedelta(minutes=6)
 

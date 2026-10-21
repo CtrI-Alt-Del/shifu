@@ -20,7 +20,8 @@ import type {
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
-import { ReactQuestionDraftStore } from '@/core/learning/react-question-draft/react-question-draft-store'
+import type { ReactQuestionDraftStore } from '@/core/learning/react-question-draft/react-question-draft-store'
+import { IndexedDbReactQuestionDraftStore } from '@/provision/learning/indexed-db-react-question-draft-store'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
@@ -55,6 +56,7 @@ export type ActivityRouteProps = {
   onSessionExpired: () => void
   runnerFactory?: () => CodePracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  reactDraftStore?: ReactQuestionDraftStore
 }
 
 type InjectedActivityProps = {
@@ -62,6 +64,7 @@ type InjectedActivityProps = {
   onSubmit: (submission: ChoiceSubmission) => Promise<ChoiceSubmissionResult>
   runnerFactory?: () => CodePracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  reactDraftStore?: ReactQuestionDraftStore
   onPreview?: (
     questionKey: string,
     revision: string,
@@ -85,7 +88,7 @@ type ValidatedInput = ActivityRouteIds | { kind: 'invalid-request' }
 type ActionFailure =
   | { kind: 'invalid-request' }
   | { kind: 'unauthorized' }
-  | { kind: 'not-found' }
+  | { kind: 'not-found'; accountId?: string }
   | { kind: 'stale-run' }
   | { kind: 'diagnostic-entry-required' }
   | {
@@ -104,6 +107,11 @@ const HTTP_CONFLICT_STATUS_CODE = 409
 
 class StaleDiagnosticRunError extends RestError {}
 class DiagnosticEntryRequiredError extends RestError {}
+class MissingActivityError extends RestError {
+  constructor(readonly accountId: string) {
+    super('Atividade não encontrada.', HTTP_STATUS_CODE.notFound)
+  }
+}
 
 export const getActivityAction = createServerFn({ method: 'GET' })
   .validator((input: unknown): ValidatedInput => {
@@ -131,9 +139,11 @@ export const getActivityAction = createServerFn({ method: 'GET' })
     }): Promise<(ChoiceActivityDetail & { accountId: string }) | GetActivityFailure> => {
       if ('kind' in data) return data
 
+      let authenticatedAccountId: string | undefined
       try {
         const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
         if (!access) return { kind: 'unauthorized' }
+        authenticatedAccountId = access.accountId
 
         const learningService = LearningService(
           AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
@@ -196,7 +206,8 @@ export const getActivityAction = createServerFn({ method: 'GET' })
         if (error instanceof RestError) {
           if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
             return { kind: 'unauthorized' }
-          if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }
+          if (error.statusCode === HTTP_STATUS_CODE.notFound)
+            return { kind: 'not-found', accountId: authenticatedAccountId }
           if (error.statusCode === HTTP_CONFLICT_STATUS_CODE)
             return { kind: 'unavailable', statusCode: HTTP_CONFLICT_STATUS_CODE }
           if (error.statusCode === HTTP_STATUS_CODE.tooManyRequests) {
@@ -367,6 +378,10 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
   })
 
 export function useActivityPage(props: ActivityPageProps) {
+  const reactDraftStore = useMemo(
+    () => props.reactDraftStore ?? IndexedDbReactQuestionDraftStore(),
+    [props.reactDraftStore],
+  )
   const injected = 'activity' in props
   const goalId = injected ? null : props.goalId
   const skillId = injected ? null : props.skillId
@@ -506,24 +521,25 @@ export function useActivityPage(props: ActivityPageProps) {
         : false,
   })
   const isMixedActivity = Boolean(activity?.activityRevision)
-  const accountId =
-    !injected && activityQuery.isSuccess && !activityQuery.isFetching
-      ? (routeActivity?.accountId ?? null)
-      : null
+  const accountId = !injected ? (routeActivity?.accountId ?? null) : null
   const isOnlineAuthority = Boolean(
-    accountId && isBrowserOnline && !needsAuthorityRefresh,
+    accountId && activityQuery.isSuccess && isBrowserOnline && !needsAuthorityRefresh,
   )
   const isRouteError = activityQuery.isError && !injected
   const isPrivateAbsence =
     activityQuery.error instanceof RestError &&
     activityQuery.error.statusCode === HTTP_STATUS_CODE.notFound
+  const invalidActivityAccountId =
+    activityQuery.error instanceof MissingActivityError
+      ? activityQuery.error.accountId
+      : null
   useEffect(() => {
-    if (!isPrivateAbsence || !routeActivity) return
-    void ReactQuestionDraftStore.tombstoneActivity(
-      routeActivity.accountId,
-      routeActivity.activityId,
-    )
-  }, [isPrivateAbsence, routeActivity])
+    if (!invalidActivityAccountId || !activityId) return
+    // The authoritative 404 already blocks draft restore and submission.
+    void reactDraftStore
+      .tombstoneActivity(invalidActivityAccountId, activityId)
+      .catch(() => undefined)
+  }, [activityId, invalidActivityAccountId, reactDraftStore])
   const isSessionRejected =
     activityQuery.error instanceof AuthError || diagnosticQuery.error instanceof AuthError
   const isInvalidated =
@@ -755,7 +771,8 @@ export function useActivityPage(props: ActivityPageProps) {
       (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react') ||
       isSubmitting ||
       isSubmissionLocked ||
-      isAssessing
+      isAssessing ||
+      (currentQuestion.kind === 'react' && Boolean(feedback || frozenAnswer))
     )
       return
     const answer: CodeAnswer = {
@@ -933,7 +950,10 @@ export function useActivityPage(props: ActivityPageProps) {
       setUnsentAnswers(false)
       onUnsentAnswersChange?.(false)
       if (accountId)
-        void ReactQuestionDraftStore.tombstoneActivity(accountId, activity.activityId)
+        // Cleanup failure must not turn an accepted submission into a failed one.
+        void reactDraftStore
+          .tombstoneActivity(accountId, activity.activityId)
+          .catch(() => undefined)
       if (!injected && routeIds) {
         if (result.isDiagnostic || activity.isDiagnostic) setIsDiagnosticSubmitted(true)
         else onNavigateToAttempt?.(result.attemptId)
@@ -1046,6 +1066,7 @@ export function useActivityPage(props: ActivityPageProps) {
     activity,
     runnerFactory: props.runnerFactory,
     reactRunnerFactory: props.reactRunnerFactory,
+    reactDraftStore,
     accountId,
     isOnlineAuthority,
     handleReactAnswerValidityChange,
@@ -1114,7 +1135,10 @@ function mapActionFailure(failure: ActionFailure): Error {
     return new AuthError('authentication-rejected', 'Sua sessão expirou.', {
       statusCode: 401,
     })
-  if (failure.kind === 'not-found') return new RestError('Atividade não encontrada.', 404)
+  if (failure.kind === 'not-found')
+    return failure.accountId
+      ? new MissingActivityError(failure.accountId)
+      : new RestError('Atividade não encontrada.', 404)
   if (failure.kind === 'unavailable' && failure.diagnosticRunStale)
     return new StaleDiagnosticRunError(
       'Esta execução foi substituída por outra aba.',

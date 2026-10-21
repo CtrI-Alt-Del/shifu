@@ -1,4 +1,5 @@
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
+from decimal import Decimal
 
 import pytest
 
@@ -23,6 +24,9 @@ from shifu.curriculum.core.domain.structures import (
 )
 from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.core.domain.structures import (
+    CurriculumChoicePartSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumLearningActivitySnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactDependencySnapshot,
     CurriculumReactInitialFileSnapshot,
@@ -286,3 +290,89 @@ def test_should_reject_rubric_weight_without_a_required_criterion() -> None:
                 ),
             ),
         )
+
+
+@pytest.mark.parametrize(
+    'invalid', ('empty', 'duplicate', 'missing-rubric', 'duplicate-required')
+)
+def test_should_reject_incomplete_or_ambiguous_react_activity_contract(
+    invalid: str,
+) -> None:
+    question = _question()
+    part = _rubric_part(question.key)
+    with pytest.raises(InvalidActivityError):
+        Activity(
+            id='activity-1',
+            competency_id='competency-1',
+            activity_type=ActivityType.LEARNING,
+            difficulty=ActivityDifficulty.EASY,
+            title='React',
+            objective='Render',
+            questions=()
+            if invalid == 'empty'
+            else (question, question)
+            if invalid == 'duplicate'
+            else (question, replace(question, key='another-react'))
+            if invalid == 'missing-rubric'
+            else (question,),
+            evaluation_rule=EvaluationRule(parts=(part,)),
+            required_concept_ids=('concept-1', 'concept-1')
+            if invalid == 'duplicate-required'
+            else (),
+        )
+
+
+def _learning_react_snapshot() -> CurriculumLearningActivitySnapshot:
+    question = Serialization.deserialize_value(
+        Serialization.serialize_value(_question()),
+        CurriculumReactQuestionSnapshot,
+    )
+    assert isinstance(question, CurriculumReactQuestionSnapshot)
+    part = Serialization.deserialize_value(
+        Serialization.serialize_value(_rubric_part(question.key)),
+        CurriculumCodeRubricPartSnapshot,
+    )
+    assert isinstance(part, CurriculumCodeRubricPartSnapshot)
+    return CurriculumLearningActivitySnapshot(
+        id='activity-1',
+        competency_id='competency-1',
+        difficulty='easy',
+        title='React',
+        questions=tuple(replace(question, key=f'q{index}') for index in range(3)),
+        parts=tuple(
+            replace(part, question_key=f'q{index}', weight_percentage=Decimal(weight))
+            for index, weight in enumerate((34, 33, 33))
+        ),
+        required_concept_ids=(),
+        activity_type='learning',
+        schema_version=1,
+        revision='revision-1',
+    )
+
+
+@pytest.mark.parametrize(
+    'invalid', ('schema', 'questions', 'parts', 'rubric', 'diagnostic-react')
+)
+def test_should_reject_invalid_frozen_react_learning_snapshot(invalid: str) -> None:
+    original = _learning_react_snapshot()
+    with pytest.raises(ValidationError):
+        if invalid == 'schema':
+            replace(original, schema_version=2)
+        elif invalid == 'questions':
+            replace(original, questions=(original.questions[0],) * 3)
+        elif invalid == 'parts':
+            replace(original, parts=original.parts[:-1])
+        elif invalid == 'rubric':
+            replace(
+                original,
+                parts=(
+                    CurriculumChoicePartSnapshot(
+                        question_key='q0', weight_percentage=Decimal(34)
+                    ),
+                    *original.parts[1:],
+                ),
+            )
+        else:
+            replace(
+                original, activity_type='diagnostic', diagnostic_revision='diagnostic-1'
+            )

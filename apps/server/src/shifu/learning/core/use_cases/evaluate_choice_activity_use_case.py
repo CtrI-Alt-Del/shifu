@@ -801,8 +801,8 @@ class EvaluateChoiceActivityUseCase:
             ),
         )
 
-    @staticmethod
     def _score_code_part(
+        self,
         part: CurriculumCodeRubricPartSnapshot,
         question: CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot,
@@ -814,7 +814,7 @@ class EvaluateChoiceActivityUseCase:
         decisions = decisions_by_key[question.key]
         try:
             result = PreviewActivityQuestionFeedbackUseCase.code_result(
-                question, part, answer, decisions
+                question, part, answer, decisions, self._max_code_assessment_input_bytes
             )
         except (ServiceUnavailableError, ValidationError) as error:
             raise EvaluationUnavailableError from error

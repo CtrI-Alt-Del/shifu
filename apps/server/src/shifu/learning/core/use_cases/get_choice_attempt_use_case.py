@@ -1,16 +1,12 @@
 from datetime import timedelta
-from decimal import Decimal
 
 from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
-    ActivityDifficulty,
     ActivityEvaluationStatus,
-    ActivityRecommendationType,
     CompetencyProgressStatus,
 )
 from shifu.learning.core.domain.structures import (
-    ActivityRecommendation,
     ChoiceEvaluationResult,
     ChoiceAttemptDetail,
     ChoiceResultDetail,
@@ -24,11 +20,9 @@ from shifu.learning.core.domain.structures import (
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
-    CurriculumActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
-    CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
@@ -340,77 +334,3 @@ class GetChoiceAttemptUseCase:
                 )
             )
         return tuple(details)
-
-    @staticmethod
-    def _recommendation(
-        skill_content: CurriculumSkillSnapshot | None,
-        competency_id: str,
-        progress: Decimal | None,
-        attempts: tuple[ActivityAttempt, ...],
-        evaluations: tuple[ActivityEvaluation, ...],
-    ) -> ActivityRecommendation | None:
-        if skill_content is None:
-            return None
-
-        competency = next(
-            (item for item in skill_content.competencies if item.id == competency_id),
-            None,
-        )
-        if competency is None:
-            return None
-
-        target_difficulty = (
-            ActivityDifficulty.EASY
-            if (progress or Decimal('0')) < Decimal('40')
-            else ActivityDifficulty.MEDIUM
-            if (progress or Decimal('0')) < Decimal('70')
-            else ActivityDifficulty.HARD
-        )
-        activity_items = tuple(
-            item
-            for item in competency.items
-            if isinstance(item, CurriculumActivitySnapshot)
-            and item.activity_type == 'learning'
-        )
-        evaluation_by_attempt = {item.attempt_id: item for item in evaluations}
-        latest_attempt_by_activity: dict[str, ActivityAttempt] = {}
-        for attempt in attempts:
-            if attempt.competency_id != competency_id:
-                continue
-
-            latest_attempt_by_activity[attempt.activity_id] = attempt
-        scored_activity_ids = {
-            attempt_id
-            for attempt_id, evaluation in evaluation_by_attempt.items()
-            if evaluation.status is ActivityEvaluationStatus.COMPLETED
-            and evaluation.score is not None
-        }
-        candidates = tuple(
-            item
-            for item in activity_items
-            if ActivityDifficulty(item.difficulty) is target_difficulty
-        )
-        if not candidates:
-            return None
-
-        chosen = candidates[0]
-        recent_attempt = attempts[-1] if attempts else None
-        if len(candidates) > 1 and recent_attempt is not None:
-            chosen = next(
-                (item for item in candidates if item.id != recent_attempt.activity_id),
-                chosen,
-            )
-        latest_scored = (
-            latest_attempt_by_activity.get(chosen.id) is not None
-            and latest_attempt_by_activity[chosen.id].id in scored_activity_ids
-        )
-        return ActivityRecommendation(
-            competency_id=competency_id,
-            activity_id=chosen.id,
-            difficulty=target_difficulty,
-            type=(
-                ActivityRecommendationType.REINFORCEMENT
-                if latest_scored
-                else ActivityRecommendationType.NEW_ACTIVITY
-            ),
-        )

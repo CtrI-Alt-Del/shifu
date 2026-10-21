@@ -1,4 +1,5 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
+import { AppError } from '@/core/errors/app-error'
 import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
 import type {
   ChoiceActivityDetail,
@@ -124,7 +125,7 @@ function mapActivityQuestion(
       })),
     }
   }
-  throw new Error('Tipo de questão desconhecido.')
+  throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
 function mapAnswer(answer: ActivityAnswer) {
@@ -258,7 +259,7 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         }
       }
       if (!('selected_option_keys' in question)) {
-        throw new Error('Resposta de questão desconhecida.')
+        throw new AppError('Resposta de questão desconhecida.', 'Resultado inválido')
       }
       return {
         key: question.question_key,

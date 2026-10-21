@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AppError } from '@/core/errors/app-error'
 import type { ActivityDifficulty } from '@/core/learning/competency-detail'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
-import {
+import { validateReactAdditionalFile } from '@/core/learning/react-question-draft/react-question-draft-store'
+import type {
+  ReactQuestionDraftKey,
   ReactQuestionDraftStore,
-  validateReactAdditionalFile,
 } from '@/core/learning/react-question-draft/react-question-draft-store'
-import type { ReactQuestionDraftKey } from '@/core/learning/react-question-draft/react-question-draft-store'
 import type { ReactQuestion as ReactQuestionModel } from '@/core/learning/choice-activity'
 
 export type ReactQuestionProps = {
   question: ReactQuestionModel
+  draftStore: ReactQuestionDraftStore
   accountId: string | null
   goalId?: string
   skillId?: string
@@ -146,23 +148,27 @@ function validRestoredFiles(
 }
 
 export function useReactQuestion(props: ReactQuestionProps) {
+  const questionSignature = JSON.stringify(props.question)
+  const question = useMemo(
+    () => JSON.parse(questionSignature) as ReactQuestionModel,
+    [questionSignature],
+  )
+  const draftStore = props.draftStore
   const editablePaths = useMemo(
     () =>
       new Set(
-        props.question.initialFiles
-          .filter(
-            (file) => file.editable && props.question.editablePaths.includes(file.path),
-          )
+        question.initialFiles
+          .filter((file) => file.editable && question.editablePaths.includes(file.path))
           .map((file) => file.path),
       ),
-    [props.question.editablePaths, props.question.initialFiles],
+    [question.editablePaths, question.initialFiles],
   )
   const initialFiles = useMemo(
     () =>
-      props.question.initialFiles
+      question.initialFiles
         .filter((file) => editablePaths.has(file.path))
         .map(({ path, content }) => ({ path, content })),
-    [editablePaths, props.question.initialFiles],
+    [editablePaths, question.initialFiles],
   )
   const draftKey = useMemo(
     () =>
@@ -173,7 +179,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
         competencyId: props.competencyId,
         goalId: props.goalId,
         isDiagnostic: props.isDiagnostic,
-        questionKey: props.question.key,
+        questionKey: question.key,
         skillId: props.skillId,
       }),
     [
@@ -183,7 +189,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
       props.isDiagnostic,
       props.competencyId,
       props.goalId,
-      props.question.key,
+      question.key,
       props.skillId,
     ],
   )
@@ -191,9 +197,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
   const [files, setFiles] = useState(initialFiles)
   const filesRef = useRef(files)
   filesRef.current = files
-  const [selectedPath, setSelectedPath] = useState(
-    props.question.initialFiles[0]?.path ?? '',
-  )
+  const [selectedPath, setSelectedPath] = useState(question.initialFiles[0]?.path ?? '')
   const [draftLoaded, setDraftLoaded] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [hasSaveError, setHasSaveError] = useState(false)
@@ -207,57 +211,85 @@ export function useReactQuestion(props: ReactQuestionProps) {
   const [newFilePath, setNewFilePath] = useState('')
   const [hasFileError, setHasFileError] = useState(false)
   const [isDraftInvalidated, setIsDraftInvalidated] = useState(false)
+  const [runnerRevision, setRunnerRevision] = useState(0)
   const runnerRef = useRef<ReactPracticeRunner | null>(null)
   const onFilesChangeRef = useRef(props.onFilesChange)
   const onAnswerValidityChangeRef = useRef(props.onAnswerValidityChange)
   onFilesChangeRef.current = props.onFilesChange
   onAnswerValidityChangeRef.current = props.onAnswerValidityChange
   const draftGenerationRef = useRef(0)
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve())
+  const editVersionRef = useRef(0)
+  const scopeVersionRef = useRef(0)
+  const restoredScopeRef = useRef<string | null>(null)
+  const initializedScopeRef = useRef<string | null>(null)
   const saveTimeoutRef = useRef<number | null>(null)
   const isDraftInvalidatedRef = useRef(false)
   const isActivityLocked = props.canSubmit === false
   const isFrozen = Boolean(
     props.readOnly || props.disabled || isAssessing || isActivityLocked,
   )
-  const displayFiles = useMemo(
-    () => getProjectFiles(files, props.question),
-    [files, props.question],
-  )
+  const isFrozenRef = useRef(isFrozen)
+  isFrozenRef.current = isFrozen
+  const scopeKey = JSON.stringify([draftKey, question])
+  const activeScopeRef = useRef(scopeKey)
+  activeScopeRef.current = scopeKey
+  const displayFiles = useMemo(() => getProjectFiles(files, question), [files, question])
   const editorEditablePaths = useMemo(
     () => [
       ...editablePaths,
       ...files
         .filter(
-          (file) =>
-            !props.question.initialFiles.some((initial) => initial.path === file.path),
+          (file) => !question.initialFiles.some((initial) => initial.path === file.path),
         )
         .map(({ path }) => path),
     ],
-    [editablePaths, files, props.question.initialFiles],
+    [editablePaths, files, question.initialFiles],
   )
   const additionalFilesCount = files.filter(
-    (file) => !props.question.initialFiles.some((initial) => initial.path === file.path),
+    (file) => !question.initialFiles.some((initial) => initial.path === file.path),
   ).length
   const totalSourceBytes = sourceSize(displayFiles)
 
+  useEffect(
+    () => () => {
+      scopeVersionRef.current += 1
+    },
+    [],
+  )
+
   useEffect(() => {
     let cancelled = false
-    setDraftLoaded(false)
-    setFiles(initialFiles)
-    setSelectedPath(props.question.initialFiles[0]?.path ?? '')
-    isDraftInvalidatedRef.current = false
-    setIsDraftInvalidated(false)
-    if (!draftKey || !props.isOnlineAuthority || !navigator.onLine || isActivityLocked) {
+    if (initializedScopeRef.current !== scopeKey) {
+      initializedScopeRef.current = scopeKey
+      restoredScopeRef.current = null
+      scopeVersionRef.current += 1
+      setDraftLoaded(false)
+      setFiles(initialFiles)
+      filesRef.current = initialFiles
+      setSelectedPath(question.initialFiles[0]?.path ?? '')
+      draftGenerationRef.current = 0
+      editVersionRef.current = 0
+      isDraftInvalidatedRef.current = false
+      setIsDraftInvalidated(false)
+      setHasSaveError(false)
+    }
+    if (restoredScopeRef.current === scopeKey) return
+    if (!draftKey) {
+      restoredScopeRef.current = scopeKey
       setDraftLoaded(true)
       return
     }
-    void ReactQuestionDraftStore.read(draftKey)
+    if (!props.isOnlineAuthority || !navigator.onLine || isActivityLocked) return
+    const scopeVersion = ++scopeVersionRef.current
+    void draftStore
+      .read(draftKey)
       .then(async (draft) => {
         if (cancelled) return
         if (draft?.tombstone) {
           isDraftInvalidatedRef.current = true
           setIsDraftInvalidated(true)
-          const generation = await ReactQuestionDraftStore.clearTombstone(
+          const generation = await draftStore.clearTombstone(
             draftKey,
             initialFiles,
             draft.generation,
@@ -269,13 +301,13 @@ export function useReactQuestion(props: ReactQuestionProps) {
           setIsDraftInvalidated(false)
           return
         }
-        if (draft && validRestoredFiles(draft.files, props.question)) {
+        if (draft && validRestoredFiles(draft.files, question)) {
           setFiles(copyFiles(draft.files))
           setSelectedPath(draft.files[0]?.path ?? '')
           draftGenerationRef.current = draft.generation
         } else if (draft) {
-          const generation = await ReactQuestionDraftStore.tombstone(draftKey)
-          const freshGeneration = await ReactQuestionDraftStore.clearTombstone(
+          const generation = await draftStore.tombstone(draftKey)
+          const freshGeneration = await draftStore.clearTombstone(
             draftKey,
             initialFiles,
             generation,
@@ -287,12 +319,101 @@ export function useReactQuestion(props: ReactQuestionProps) {
       })
       .catch(() => setHasSaveError(true))
       .finally(() => {
-        if (!cancelled) setDraftLoaded(true)
+        if (!cancelled && scopeVersion === scopeVersionRef.current) {
+          restoredScopeRef.current = scopeKey
+          setDraftLoaded(true)
+        }
       })
     return () => {
       cancelled = true
     }
-  }, [draftKey, initialFiles, isActivityLocked, props.isOnlineAuthority, props.question])
+  }, [
+    draftKey,
+    draftStore,
+    initialFiles,
+    isActivityLocked,
+    props.isOnlineAuthority,
+    question,
+    scopeKey,
+  ])
+
+  const queueSave = useCallback(
+    function queueSave(
+      snapshot: readonly { path: string; content: string }[],
+      version: number,
+      forAssessment = false,
+    ) {
+      const key = draftKey
+      const scopeVersion = scopeVersionRef.current
+      if (!key) return Promise.resolve(true)
+      const operation = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          if (
+            scopeVersion !== scopeVersionRef.current ||
+            activeScopeRef.current !== scopeKey ||
+            isDraftInvalidatedRef.current ||
+            (!forAssessment && version !== editVersionRef.current)
+          )
+            return false
+          const generation = await draftStore.write(
+            key,
+            snapshot,
+            draftGenerationRef.current,
+          )
+          if (
+            scopeVersion !== scopeVersionRef.current ||
+            activeScopeRef.current !== scopeKey ||
+            isDraftInvalidatedRef.current
+          )
+            return false
+          if (generation > 0) {
+            draftGenerationRef.current = Math.max(draftGenerationRef.current, generation)
+            setHasSaveError(false)
+            return true
+          }
+          const latest = await draftStore.read(key)
+          if (
+            scopeVersion !== scopeVersionRef.current ||
+            activeScopeRef.current !== scopeKey
+          )
+            return false
+          if (
+            !latest ||
+            latest.tombstone ||
+            !validRestoredFiles(latest.files, question)
+          ) {
+            isDraftInvalidatedRef.current = true
+            setIsDraftInvalidated(true)
+            onAnswerValidityChangeRef.current?.(false)
+            return false
+          }
+          if (areFilesEqual(latest.files, snapshot)) {
+            draftGenerationRef.current = latest.generation
+            return true
+          }
+          if (forAssessment || isFrozenRef.current) {
+            isDraftInvalidatedRef.current = true
+            setIsDraftInvalidated(true)
+            onAnswerValidityChangeRef.current?.(false)
+            return false
+          }
+          if (version === editVersionRef.current && !isFrozenRef.current) {
+            draftGenerationRef.current = latest.generation
+            editVersionRef.current += 1
+            filesRef.current = copyFiles(latest.files)
+            setFiles(copyFiles(latest.files))
+            setSelectedPath(latest.files[0]?.path ?? '')
+            onFilesChangeRef.current?.(copyFiles(latest.files))
+            setRunnerRevision((revision) => revision + 1)
+          }
+          return false
+        })
+      saveQueueRef.current = operation
+      return operation
+    },
+    [draftKey, draftStore, question, scopeKey],
+  )
 
   useEffect(() => {
     if (
@@ -305,33 +426,14 @@ export function useReactQuestion(props: ReactQuestionProps) {
     )
       return
     setIsSaving(true)
-    const expectedGeneration = draftGenerationRef.current
+    const version = editVersionRef.current
     const timeout = window.setTimeout(() => {
       saveTimeoutRef.current = null
-      void ReactQuestionDraftStore.write(draftKey, files, expectedGeneration)
-        .then((generation) => {
-          if (generation === 0) {
-            return ReactQuestionDraftStore.read(draftKey).then((latest) => {
-              if (!latest || latest.tombstone) {
-                isDraftInvalidatedRef.current = true
-                setIsDraftInvalidated(true)
-                onAnswerValidityChangeRef.current?.(false)
-                return
-              }
-              draftGenerationRef.current = latest.generation
-              if (!areFilesEqual(latest.files, files)) {
-                setFiles(copyFiles(latest.files))
-                setSelectedPath(latest.files[0]?.path ?? '')
-                onFilesChangeRef.current?.(copyFiles(latest.files))
-              }
-              onAnswerValidityChangeRef.current?.(true)
-            })
-          }
-          draftGenerationRef.current = generation
-          setHasSaveError(false)
-        })
+      void queueSave(copyFiles(files), version)
         .catch(() => setHasSaveError(true))
-        .finally(() => setIsSaving(false))
+        .finally(() => {
+          if (version === editVersionRef.current) setIsSaving(false)
+        })
     }, 350)
     saveTimeoutRef.current = timeout
     return () => {
@@ -346,21 +448,25 @@ export function useReactQuestion(props: ReactQuestionProps) {
     isDraftInvalidated,
     isFrozen,
     props.isOnlineAuthority,
+    queueSave,
   ])
 
   useEffect(() => {
     if (!draftKey) return
-    return ReactQuestionDraftStore.subscribe(draftKey, (event) => {
-      void ReactQuestionDraftStore.read(draftKey)
+    let cancelled = false
+    const unsubscribe = draftStore.subscribe(draftKey, (event) => {
+      void draftStore
+        .read(draftKey)
         .then((draft) => {
           if (
+            cancelled ||
             !draft ||
             draft.generation !== event.generation ||
             draft.generation <= draftGenerationRef.current
           )
             return
-          draftGenerationRef.current = draft.generation
           if (event.tombstone || draft.tombstone) {
+            draftGenerationRef.current = draft.generation
             isDraftInvalidatedRef.current = true
             setIsDraftInvalidated(true)
             setFiles(initialFiles)
@@ -368,18 +474,31 @@ export function useReactQuestion(props: ReactQuestionProps) {
             onAnswerValidityChangeRef.current?.(false)
             return
           }
-          if (validRestoredFiles(draft.files, props.question)) {
+          if (isFrozenRef.current) return
+          if (validRestoredFiles(draft.files, question)) {
+            draftGenerationRef.current = draft.generation
+            editVersionRef.current += 1
+            if (saveTimeoutRef.current !== null) {
+              window.clearTimeout(saveTimeoutRef.current)
+              saveTimeoutRef.current = null
+            }
             if (!areFilesEqual(filesRef.current, draft.files)) {
+              filesRef.current = copyFiles(draft.files)
               setFiles(copyFiles(draft.files))
               setSelectedPath(draft.files[0]?.path ?? '')
               onFilesChangeRef.current?.(copyFiles(draft.files))
+              setRunnerRevision((revision) => revision + 1)
             }
             onAnswerValidityChangeRef.current?.(true)
           }
         })
         .catch(() => setHasSaveError(true))
     })
-  }, [draftKey, initialFiles, props.question])
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
+  }, [draftKey, draftStore, initialFiles, question])
 
   useEffect(() => {
     if (isActivityLocked) {
@@ -387,7 +506,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
       return
     }
     if (!draftLoaded || (draftKey && !props.isOnlineAuthority)) return
-    const isValid = !isDraftInvalidated && validRestoredFiles(files, props.question)
+    const isValid = !isDraftInvalidated && validRestoredFiles(files, question)
     onAnswerValidityChangeRef.current?.(isValid)
     if (isValid) onFilesChangeRef.current?.(copyFiles(files))
   }, [
@@ -397,25 +516,34 @@ export function useReactQuestion(props: ReactQuestionProps) {
     isActivityLocked,
     isDraftInvalidated,
     props.isOnlineAuthority,
-    props.question,
+    question,
   ])
 
   useEffect(() => {
     if (!draftKey || !props.isOnlineAuthority || !props.activityRevision) return
-    void ReactQuestionDraftStore.tombstoneStaleActivity(
-      draftKey,
-      props.activityRevision,
-      activeQuestionKeysKey.split('\u001f'),
-    )
-  }, [activeQuestionKeysKey, draftKey, props.activityRevision, props.isOnlineAuthority])
+    void draftStore
+      .tombstoneStaleActivity(
+        draftKey,
+        props.activityRevision,
+        activeQuestionKeysKey.split('\u001f'),
+      )
+      .catch(() => setHasSaveError(true))
+  }, [
+    activeQuestionKeysKey,
+    draftKey,
+    draftStore,
+    props.activityRevision,
+    props.isOnlineAuthority,
+  ])
 
   useEffect(() => {
     if (draftKey && !props.isOnlineAuthority) onAnswerValidityChangeRef.current?.(false)
   }, [draftKey, props.isOnlineAuthority])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Remote adoption restarts the sandbox so removed files cannot remain in the preview.
   useEffect(() => {
     const factory = props.runnerFactory
-    if (!factory || !props.isOnlineAuthority || !draftLoaded) {
+    if (!factory || !props.isOnlineAuthority || !draftLoaded || isDraftInvalidated) {
       setStatus('unavailable')
       return
     }
@@ -427,22 +555,30 @@ export function useReactQuestion(props: ReactQuestionProps) {
       const safePreview = getSafePreviewUrl(event.previewUrl)
       setPreviewUrl(safePreview)
     })
-    const projectFiles = getProjectFiles(filesRef.current, props.question)
+    const projectFiles = getProjectFiles(filesRef.current, question)
     void runner
       .start({
         files: copyFiles(projectFiles),
-        entrypoint: props.question.entrypoint,
-        fixedDependencies: props.question.fixedDependencies,
-        permittedCommands: props.question.permittedCommands,
-        additionalFilePolicy: props.question.additionalFilePolicy ?? undefined,
+        entrypoint: question.entrypoint,
+        fixedDependencies: question.fixedDependencies,
+        permittedCommands: question.permittedCommands,
+        additionalFilePolicy: question.additionalFilePolicy ?? undefined,
       })
       .catch(() => setStatus('unavailable'))
     return () => {
       unsubscribe()
       runner.dispose()
       runnerRef.current = null
+      setPreviewUrl(null)
     }
-  }, [draftLoaded, props.isOnlineAuthority, props.question, props.runnerFactory])
+  }, [
+    draftLoaded,
+    isDraftInvalidated,
+    props.isOnlineAuthority,
+    question,
+    props.runnerFactory,
+    runnerRevision,
+  ])
 
   useEffect(() => {
     if (!draftKey) return
@@ -465,7 +601,7 @@ export function useReactQuestion(props: ReactQuestionProps) {
   function handleFileChange(path: string, content: string) {
     const isAdditionalFile =
       files.some((file) => file.path === path) &&
-      !props.question.initialFiles.some((file) => file.path === path)
+      !question.initialFiles.some((file) => file.path === path)
     if (
       isFrozen ||
       isDraftInvalidated ||
@@ -474,11 +610,13 @@ export function useReactQuestion(props: ReactQuestionProps) {
     )
       return
     const nextFiles = files.map((file) => (file.path === path ? { path, content } : file))
-    if (sourceSize(getProjectFiles(nextFiles, props.question)) > MAX_SOURCE_BYTES) {
+    if (sourceSize(getProjectFiles(nextFiles, question)) > MAX_SOURCE_BYTES) {
       setHasFileError(true)
       return
     }
     setFiles(nextFiles)
+    filesRef.current = nextFiles
+    editVersionRef.current += 1
     props.onFilesChange?.(copyFiles(nextFiles))
     if (draftKey && !props.isOnlineAuthority) onAnswerValidityChangeRef.current?.(false)
     else onAnswerValidityChangeRef.current?.(true)
@@ -494,20 +632,22 @@ export function useReactQuestion(props: ReactQuestionProps) {
       isActivityLocked ||
       !validateReactAdditionalFile(
         path,
-        getProjectFiles(files, props.question),
-        props.question.additionalFilePolicy,
-        props.question.initialFiles.map(({ path: initialPath }) => initialPath),
+        getProjectFiles(files, question),
+        question.additionalFilePolicy,
+        question.initialFiles.map(({ path: initialPath }) => initialPath),
       )
     ) {
       setHasFileError(true)
       return
     }
     const nextFiles = [...files, { path, content: '' }]
-    if (sourceSize(getProjectFiles(nextFiles, props.question)) > MAX_SOURCE_BYTES) {
+    if (sourceSize(getProjectFiles(nextFiles, question)) > MAX_SOURCE_BYTES) {
       setHasFileError(true)
       return
     }
     setFiles(nextFiles)
+    filesRef.current = nextFiles
+    editVersionRef.current += 1
     setSelectedPath(path)
     setNewFilePath('')
     setHasFileError(false)
@@ -526,10 +666,11 @@ export function useReactQuestion(props: ReactQuestionProps) {
       !draftLoaded ||
       !props.isOnlineAuthority ||
       !navigator.onLine ||
-      !validRestoredFiles(files, props.question)
+      !validRestoredFiles(files, question)
     )
       return
     setIsAssessing(true)
+    isFrozenRef.current = true
     setHasAssessError(false)
     const snapshot = copyFiles(files)
     try {
@@ -539,28 +680,16 @@ export function useReactQuestion(props: ReactQuestionProps) {
           saveTimeoutRef.current = null
         }
         setIsSaving(true)
-        let generation: number
+        let saved: boolean
         try {
-          generation = await ReactQuestionDraftStore.write(
-            draftKey,
-            snapshot,
-            draftGenerationRef.current,
-          )
+          saved = await queueSave(snapshot, editVersionRef.current, true)
         } catch (error) {
           setHasSaveError(true)
           throw error
         }
-        if (generation === 0) {
-          const latest = await ReactQuestionDraftStore.read(draftKey)
-          if (!latest || latest.tombstone || !areFilesEqual(latest.files, snapshot)) {
-            isDraftInvalidatedRef.current = true
-            setIsDraftInvalidated(true)
-            setHasSaveError(true)
-            throw new Error('O rascunho mudou ou foi invalidado em outra aba.')
-          }
-          draftGenerationRef.current = latest.generation
-        } else {
-          draftGenerationRef.current = generation
+        if (!saved) {
+          setHasSaveError(true)
+          throw new AppError('O rascunho mudou ou foi invalidado em outra aba.')
         }
         setIsSaving(false)
       }

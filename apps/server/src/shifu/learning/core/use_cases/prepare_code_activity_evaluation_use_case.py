@@ -69,7 +69,7 @@ class PrepareCodeActivityEvaluationUseCase:
                     raise EvaluationUnavailableError
                 try:
                     assessment_input = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
-                        question, part, answer
+                        question, part, answer, self._max_input_bytes
                     )
                 except ValidationError as error:
                     raise EvaluationUnavailableError from error

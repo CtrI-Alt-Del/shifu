@@ -487,6 +487,21 @@ jobs:
         run: |
           uv run coverage erase
           uv run coverage run --branch --source=src/shifu -m pytest \
+            tests/curriculum/core/domain/test_react_question.py \
+            tests/curriculum/core/domain/test_javascript_stdin_question.py \
+            tests/learning/core/use_cases/test_get_choice_activity_use_case.py \
+            tests/learning/core/use_cases/test_get_choice_attempt_use_case.py \
+            tests/learning/core/use_cases/test_preview_activity_question_feedback_use_case.py \
+            tests/learning/server/controllers/test_get_choice_activity_controller.py \
+            tests/learning/server/controllers/test_get_choice_attempt_controller.py \
+            tests/learning/server/controllers/test_preview_activity_question_feedback_controller.py \
+            tests/rest/controllers/learning/test_search_skill_catalog_controller.py \
+            tests/learning/server/controllers/test_get_goal_detail_controller.py \
+            tests/learning/server/controllers/test_get_material_detail_controller.py \
+            tests/learning/server/controllers/test_get_skill_experience_detail_controller.py \
+            tests/learning/server/controllers/test_get_competency_detail_controller.py \
+            tests/learning/server/controllers/test_get_diagnostic_controller.py \
+            tests/learning/server/controllers/test_start_skill_controller.py \
             tests/intelligence/server/agentos/test_process_mentor_response_workflow.py \
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
             tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
@@ -571,6 +586,7 @@ jobs:
         run: uv run coverage json -o coverage.json
 
       - name: Enforce thresholds for every changed production file
+        shell: bash
         run: >-
           uv run python scripts/check_changed_coverage.py
           --base origin/main --report coverage.json --data-file .coverage

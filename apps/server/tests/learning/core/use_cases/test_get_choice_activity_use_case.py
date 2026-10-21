@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
 
@@ -16,7 +17,7 @@ from shifu.learning.core.interfaces import (
     LearningDatabaseRepositories,
 )
 from shifu.learning.core.use_cases import GetChoiceActivityUseCase
-from shifu.shared.core.domain.errors import NotFoundError
+from shifu.shared.core.domain.errors import ConflictError, NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
@@ -243,6 +244,120 @@ class TestGetChoiceActivityUseCase:
             ),
         )
         self.subject = GetChoiceActivityUseCase(self.database, self.provider)
+
+    def _configure_diagnostic(self) -> None:
+        self.experience.status = SkillExperienceStatus.DIAGNOSING
+        self.experience.diagnostic_run_id = 'diagnostic-run'
+        self.progress.content_released = False
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            self.experience
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.return_value = []
+        self.provider.get_diagnostic_activity.return_value = replace(
+            snapshot(),
+            activity_type='diagnostic',
+            diagnostic_revision='diagnostic-revision',
+        )
+        catalog = self.provider.get_skill_content.return_value
+        assert isinstance(catalog, CurriculumSkillSnapshot)
+        competency = catalog.competencies[0]
+        activity = competency.items[0]
+        assert isinstance(activity, CurriculumActivitySnapshot)
+        self.provider.get_skill_content.return_value = replace(
+            catalog,
+            competencies=(
+                replace(
+                    competency,
+                    diagnostic_activities=(
+                        replace(activity, activity_type='diagnostic'),
+                    ),
+                ),
+            ),
+        )
+
+    @pytest.mark.parametrize('run_id', (None, 'previous-run'))
+    def test_should_reject_diagnostic_question_without_matching_active_run(
+        self, run_id: str | None
+    ) -> None:
+        self._configure_diagnostic()
+
+        with pytest.raises(ConflictError):
+            self.subject.execute(
+                ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, run_id
+            )
+
+        self.provider.get_diagnostic_activity.assert_not_called()
+
+    def test_should_project_ordered_active_diagnostic_question_with_opaque_revision(
+        self,
+    ) -> None:
+        self._configure_diagnostic()
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, 'diagnostic-run'
+        )
+
+        assert detail.is_diagnostic is True
+        assert detail.activity_revision == 'diagnostic-revision'
+        assert detail.can_submit is True
+        assert tuple(question.key for question in detail.questions) == (
+            'q1',
+            'q2',
+            'q3',
+        )
+        self.provider.get_learning_activity.assert_not_called()
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.assert_called_with(
+            EXPERIENCE_ID, 'diagnostic-run'
+        )
+
+    @pytest.mark.parametrize(
+        'missing', (True, False), ids=('removed-lock', 'changed-run')
+    )
+    def test_should_reject_diagnostic_changed_while_curriculum_was_read(
+        self, missing: bool
+    ) -> None:
+        self._configure_diagnostic()
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            None
+            if missing
+            else SkillExperienceFaker.fake(
+                id=EXPERIENCE_ID,
+                goal_id=GOAL_ID,
+                skill_id=SKILL_ID,
+                status=SkillExperienceStatus.LEARNING,
+            )
+        )
+
+        with pytest.raises(ConflictError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'diagnostic-run',
+            )
+
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.assert_not_called()
+
+    def test_should_reject_diagnostic_after_catalog_is_removed(self) -> None:
+        self._configure_diagnostic()
+        self.provider.get_skill_content.side_effect = (
+            self.provider.get_skill_content.return_value,
+            None,
+        )
+
+        with pytest.raises(NotFoundError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'diagnostic-run',
+            )
+
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_diagnostic_run_id.assert_not_called()
 
     def test_should_return_only_safe_ordered_question_projection(self) -> None:
         detail = self.subject.execute(

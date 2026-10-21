@@ -111,6 +111,9 @@ class SubmitChoiceActivityController:
                 IdentifierProvider,
                 Depends(LearningPipe.get_identifier_provider),
             ],
+            max_assessment_bytes: Annotated[
+                int, Depends(LearningPipe.get_max_code_assessment_input_bytes)
+            ],
             diagnostic_run_id: Annotated[
                 UUID | None,
                 Header(alias='X-Diagnostic-Run-Id'),
@@ -122,6 +125,7 @@ class SubmitChoiceActivityController:
                     provider,
                     clock,
                     identifiers,
+                    max_assessment_bytes,
                 ).execute(
                     user.account_id,
                     goal_id,

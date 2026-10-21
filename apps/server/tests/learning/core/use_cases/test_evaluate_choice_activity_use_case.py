@@ -53,6 +53,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
     CurriculumSkillSnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -60,6 +62,7 @@ from shifu.shared.core.interfaces import (
 )
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
+    code_answer_at_size,
 )
 
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
@@ -712,6 +715,65 @@ class TestEvaluateChoiceActivityUseCase:
             self.evaluation
         )
         self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
+    )
+    @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
+    def test_should_apply_configured_utf8_project_limit_when_grading_saved_code(
+        self, react: bool, limit: int, extra_byte: int
+    ) -> None:
+        self._set_mixed_attempt(react=react)
+        snapshot = mixed_snapshot(react=react)
+        question = snapshot.questions[-1]
+        assert isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        )
+        self.attempt = replace(
+            self.attempt,
+            answers=(
+                *self.attempt.answers[:-1],
+                code_answer_at_size(question, limit + extra_byte),
+            ),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        subject = EvaluateChoiceActivityUseCase(
+            self.database,
+            self.clock,
+            self.curriculum,
+            max_code_assessment_input_bytes=limit,
+        )
+        decisions = (
+            CodeQuestionAssessmentDecisions(
+                question_key='q3',
+                decisions=CodeRubricDecisions(
+                    criterion_levels=(
+                        CodeCriterionDecision(key='correctness', level=75),
+                    ),
+                    concept_levels=(),
+                ),
+            ),
+        )
+
+        if extra_byte:
+            with pytest.raises(EvaluationUnavailableError):
+                subject.execute(self.attempt.id, 'run-1', decisions)
+            assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+            self.repositories.activity_evaluations.update.assert_not_called()
+            self.repositories.events.add.assert_not_called()
+        else:
+            subject.execute(self.attempt.id, 'run-1', decisions)
+            assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+            assert self.evaluation.score == Decimal(90)
+            self.repositories.activity_evaluations.update.assert_called_once()
 
     def test_should_reject_existing_observations_without_writing_duplicates(
         self,

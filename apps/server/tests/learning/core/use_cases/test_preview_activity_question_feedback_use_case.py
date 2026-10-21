@@ -145,6 +145,29 @@ def mixed_snapshot(*, react: bool = False) -> CurriculumLearningActivitySnapshot
     )
 
 
+def code_answer_at_size(
+    question: CurriculumJavascriptStdinQuestionSnapshot
+    | CurriculumReactQuestionSnapshot,
+    size: int,
+) -> CodeAnswer:
+    overhead = len(question.entrypoint.encode('utf-8')) + sum(
+        len(item.path.encode('utf-8')) + len(item.content.encode('utf-8'))
+        for item in question.initial_files
+        if not item.editable
+    )
+    content_bytes = size - overhead
+    return CodeAnswer(
+        question_key=question.key,
+        kind=question.kind,
+        files=(
+            CodeSubmittedFile(
+                path=question.entrypoint,
+                content='é' * (content_bytes // 2) + 'x' * (content_bytes % 2),
+            ),
+        ),
+    )
+
+
 class TestPreviewActivityQuestionFeedbackUseCase:
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
@@ -194,6 +217,80 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             answer,
         )
 
+    @pytest.mark.parametrize('missing', (True, False), ids=('removed', 'revised'))
+    def test_should_reject_curriculum_changed_between_projection_and_assessment(
+        self, missing: bool
+    ) -> None:
+        original = mixed_snapshot(react=True)
+        self.provider.get_learning_activity.side_effect = (
+            original,
+            None if missing else replace(original, revision='new-revision'),
+        )
+
+        with pytest.raises(ConflictError):
+            self._execute(
+                CodeAnswer(
+                    question_key='q3',
+                    kind='react',
+                    files=(CodeSubmittedFile(path='src/main.tsx', content='new'),),
+                )
+            )
+
+        self.assessor.assess.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ('question_key', 'answer'),
+        (
+            (
+                'missing',
+                ChoiceAnswerSubmission(
+                    question_key='missing', selected_option_keys=('a',)
+                ),
+            ),
+            (
+                'q1',
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+            ),
+            (
+                'q3',
+                ChoiceAnswerSubmission(question_key='q3', selected_option_keys=('a',)),
+            ),
+            (
+                'q1',
+                CodeAnswer(
+                    question_key='q1',
+                    files=(CodeSubmittedFile(path='src/main.js', content='new'),),
+                ),
+            ),
+        ),
+        ids=(
+            'unknown-question',
+            'mismatched-key',
+            'choice-for-code',
+            'code-for-choice',
+        ),
+    )
+    def test_should_reject_answer_not_matching_projected_question_without_effects(
+        self, question_key: str, answer: ChoiceAnswerSubmission | CodeAnswer
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                question_key,
+                'revision-1',
+                answer,
+            )
+
+        self.assessor.assess.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
     def test_normalizes_complete_project_and_never_writes(self) -> None:
         result = self._execute(
             CodeAnswer(
@@ -213,6 +310,43 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         assert request.submitted_paths == ('src/main.js',)
         self.repositories.activity_attempts.add.assert_not_called()
+
+    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
+    )
+    @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
+    def test_should_apply_configured_utf8_project_limit_before_assessment(
+        self, react: bool, limit: int, extra_byte: int
+    ) -> None:
+        snapshot = mixed_snapshot(react=react)
+        question = snapshot.questions[-1]
+        assert isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+        self.subject = PreviewActivityQuestionFeedbackUseCase(
+            self.database, self.provider, self.assessor, limit
+        )
+        answer = code_answer_at_size(question, limit + extra_byte)
+
+        if extra_byte:
+            with pytest.raises(ValidationError):
+                self._execute(answer)
+            self.assessor.assess.assert_not_called()
+        else:
+            result = self._execute(answer)
+            assert result.status == 'conclusive'
+            assert result.score == Decimal(75)
+            assert result.submitted_files[-1].content == answer.files[0].content
+            self.assessor.assess.assert_called_once()
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_assess_react_initial_and_permitted_additional_files(self) -> None:
         self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)

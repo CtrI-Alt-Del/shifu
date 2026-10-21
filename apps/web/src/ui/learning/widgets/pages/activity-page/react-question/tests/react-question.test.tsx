@@ -1,29 +1,26 @@
-import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactQuestion as ReactQuestionModel } from '@/core/learning/choice-activity'
-
+import type { CodeEditorProps } from '@/ui/learning/widgets/components/code-editor'
 import { ReactQuestion } from '..'
-import {
-  ReactQuestionDraftStore,
-  isValidReactQuestionDraft,
-  nextReactQuestionDraftGeneration,
-  validateReactAdditionalFile,
-  type ReactQuestionDraftKey,
-} from '@/core/learning/react-question-draft/react-question-draft-store'
-import { useReactQuestion } from '../use-react-question'
+import { type ReactQuestionProps, useReactQuestion } from '../use-react-question'
 
-vi.mock('../use-react-question', () => ({
-  useReactQuestion: vi.fn(),
-}))
+vi.mock('../use-react-question', () => ({ useReactQuestion: vi.fn() }))
 vi.mock('@/ui/learning/widgets/components/code-editor', () => ({
-  CodeEditor: () => <div>Editor</div>,
+  CodeEditor: ({ files, selectedPath, readOnly, onFileChange }: CodeEditorProps) => {
+    const file = files.find(({ path }) => path === selectedPath) ?? files[0]
+    return (
+      <textarea
+        aria-label='Código do arquivo'
+        value={file?.content ?? ''}
+        readOnly={readOnly}
+        onChange={(event) => file && onFileChange?.(file.path, event.target.value)}
+      />
+    )
+  },
 }))
-vi.mock('@/ui/learning/widgets/components/code-file-tree', () => ({
-  CodeFileTree: () => <div>Arquivos</div>,
-}))
-
-const question: ReactQuestionModel = {
+const useReactQuestionMock = vi.mocked(useReactQuestion)
+const QUESTION: ReactQuestionModel = {
   key: 'react-1',
   kind: 'react',
   prompt: 'Monte uma tela de boas-vindas.',
@@ -41,305 +38,158 @@ const question: ReactQuestionModel = {
   },
   criteria: [{ key: 'complete', name: 'Completude', weightPercentage: 100 }],
 }
-
-const hookState = {
-  files: [{ path: 'src/App.tsx', content: 'export default function App() {}' }],
-  displayFiles: question.initialFiles.map(({ path, content }) => ({ path, content })),
-  selectedPath: 'src/App.tsx',
-  editablePaths: ['src/App.tsx'],
-  editorEditablePaths: ['src/App.tsx'],
-  additionalFilesCount: 0,
-  draftLoaded: true,
-  draftGeneration: 1,
-  isSaving: false,
-  hasSaveError: false,
-  isAssessing: false,
-  hasAssessError: false,
-  status: 'ready' as const,
-  previewUrl: 'https://preview-abc.webcontainer.io/',
-  terminalText: '',
-  newFilePath: '',
-  hasFileError: false,
-  isDraftInvalidated: false,
-  isActivityLocked: false,
-  totalSourceBytes: 32,
-  isFrozen: false,
-  handleAddFile: vi.fn(),
-  handleAssess: vi.fn(),
-  handleFileChange: vi.fn(),
-  handleSelectFile: vi.fn(),
-  handleNewFilePathChange: vi.fn(),
-}
-
-const draftRecords = new Map<IDBValidKey, unknown>()
-type FakeRequest = {
-  result: unknown
-  error: DOMException | null
-  onsuccess: ((event: Event) => void) | null
-  onerror: ((event: Event) => void) | null
-  onupgradeneeded: ((event: IDBVersionChangeEvent) => void) | null
-}
-
-function fakeRequest(): FakeRequest {
+type Controller = ReturnType<typeof useReactQuestion>
+function createController(overrides: Partial<Controller> = {}): Controller {
   return {
-    result: undefined,
-    error: null,
-    onsuccess: null,
-    onerror: null,
-    onupgradeneeded: null,
+    files: [{ path: 'src/App.tsx', content: 'edited' }],
+    displayFiles: [{ path: 'src/App.tsx', content: 'edited' }],
+    selectedPath: 'src/App.tsx',
+    editablePaths: ['src/App.tsx'],
+    editorEditablePaths: ['src/App.tsx'],
+    additionalFilesCount: 0,
+    draftLoaded: true,
+    draftGeneration: 1,
+    isSaving: false,
+    hasSaveError: false,
+    isAssessing: false,
+    hasAssessError: false,
+    status: 'ready',
+    previewUrl: 'https://preview-abc.local-corp.webcontainer-api.io/',
+    terminalText: 'Prática pronta',
+    newFilePath: '',
+    hasFileError: false,
+    isDraftInvalidated: false,
+    isActivityLocked: false,
+    totalSourceBytes: 32,
+    isFrozen: false,
+    handleAddFile: vi.fn(),
+    handleAssess: vi.fn(async () => undefined),
+    handleFileChange: vi.fn(),
+    handleSelectFile: vi.fn(),
+    handleNewFilePathChange: vi.fn(),
+    ...overrides,
   }
 }
-
-class FakeBroadcastChannel {
-  static channels = new Set<FakeBroadcastChannel>()
-  onmessage: ((event: MessageEvent<unknown>) => void) | null = null
-
-  constructor(_name: string) {
-    FakeBroadcastChannel.channels.add(this)
-  }
-
-  postMessage(data: unknown) {
-    const crossTabMessage =
-      data && typeof data === 'object' ? { ...data, sender: 'other-tab' } : data
-    for (const channel of FakeBroadcastChannel.channels) {
-      if (channel !== this)
-        queueMicrotask(() =>
-          channel.onmessage?.({ data: crossTabMessage } as MessageEvent<unknown>),
-        )
-    }
-  }
-
-  close() {
-    FakeBroadcastChannel.channels.delete(this)
+function createProps(overrides: Partial<ReactQuestionProps> = {}): ReactQuestionProps {
+  return {
+    question: QUESTION,
+    draftStore: {
+      read: vi.fn(async () => null),
+      write: vi.fn(async () => 1),
+      tombstone: vi.fn(async () => 1),
+      clearTombstone: vi.fn(async () => 2),
+      tombstoneActivity: vi.fn(async () => undefined),
+      tombstoneStaleActivity: vi.fn(async () => undefined),
+      subscribe: vi.fn(() => () => undefined),
+    },
+    accountId: 'account-1',
+    goalId: 'goal-1',
+    skillId: 'skill-1',
+    competencyId: 'competency-1',
+    activityId: 'activity-1',
+    activityRevision: 'revision-1',
+    activeQuestionKeys: ['react-1'],
+    isOnlineAuthority: true,
+    questionNumber: 1,
+    totalQuestions: 1,
+    onAssess: vi.fn(),
+    ...overrides,
   }
 }
-
-function installDraftStorage() {
-  draftRecords.clear()
-  FakeBroadcastChannel.channels.clear()
-  const database = {
-    createObjectStore: vi.fn(),
-    close: vi.fn(),
-    transaction: vi.fn(() => {
-      const transaction = {
-        oncomplete: null as ((event: Event) => void) | null,
-        onerror: null as ((event: Event) => void) | null,
-        onabort: null as ((event: Event) => void) | null,
-        error: null as DOMException | null,
-        objectStore: vi.fn(() => ({
-          get(key: IDBValidKey) {
-            const request = fakeRequest()
-            queueMicrotask(() => {
-              request.result = draftRecords.get(key)
-              request.onsuccess?.(new Event('success'))
-              setTimeout(() => transaction.oncomplete?.(new Event('complete')), 0)
-            })
-            return request
-          },
-          put(value: unknown, key: IDBValidKey) {
-            draftRecords.set(key, value)
-            setTimeout(() => transaction.oncomplete?.(new Event('complete')), 0)
-            return {}
-          },
-        })),
-      }
-      return transaction
-    }),
-  }
-  const indexedDBMock = {
-    open: vi.fn(() => {
-      const request = fakeRequest()
-      request.result = database
-      queueMicrotask(() => {
-        request.onupgradeneeded?.(new Event('upgradeneeded') as IDBVersionChangeEvent)
-        request.onsuccess?.(new Event('success'))
-      })
-      return request
-    }),
-  }
-  vi.stubGlobal('indexedDB', indexedDBMock)
-  vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
-}
-
-const draftKey: ReactQuestionDraftKey = {
-  accountId: 'account-1',
-  goalId: 'goal-1',
-  skillId: 'skill-1',
-  competencyId: 'competency-1',
-  activityId: 'activity-1',
-  questionKey: 'react-1',
-  activityRevision: 'revision-1',
-}
-
 describe('ReactQuestion', () => {
-  afterEach(() => {
-    cleanup()
-    vi.clearAllMocks()
+  beforeEach(() => {
+    useReactQuestionMock.mockReset()
+    useReactQuestionMock.mockReturnValue(createController())
   })
-
-  it('isolates the preview in a distinct HTTPS WebContainer origin', () => {
-    vi.mocked(useReactQuestion).mockReturnValue({
-      ...hookState,
-      previewUrl: 'https://preview-abc.local-corp.webcontainer-api.io/',
-    })
-    render(
-      <ReactQuestion
-        question={question}
-        accountId='account-1'
-        goalId='goal-1'
-        skillId='skill-1'
-        competencyId='competency-1'
-        activityId='activity-1'
-        activityRevision='revision-1'
-        activeQuestionKeys={['react-1']}
-        isOnlineAuthority
-        questionNumber={1}
-        totalQuestions={1}
-      />,
-    )
-
+  afterEach(cleanup)
+  it('shows the curricular policy and isolates the preview in a distinct HTTPS origin', () => {
+    render(<ReactQuestion {...createProps()} />)
+    expect(screen.getByText('Completude')).toBeVisible()
+    expect(screen.getByText(/Pastas: src · extensões: .tsx · 0\/2/)).toBeVisible()
     const preview = screen.getByTitle('Prévia isolada da aplicação React')
-    const previewUrl = new URL(preview.getAttribute('src') ?? '')
-    expect(preview.getAttribute('sandbox')).toBe('allow-scripts')
-    expect(previewUrl.protocol).toBe('https:')
-    expect(previewUrl.hostname).toMatch(/\.webcontainer-api\.io$/)
-    expect(previewUrl.origin).not.toBe(window.location.origin)
+    const url = new URL(preview.getAttribute('src') ?? '')
+    expect(preview).toHaveAttribute('sandbox', 'allow-scripts')
+    expect(url.protocol).toBe('https:')
+    expect(url.hostname).toMatch(/\.webcontainer-api\.io$/)
+    expect(url.origin).not.toBe(window.location.origin)
+    expect(screen.getByRole('log')).toHaveTextContent('Prática pronta')
   })
-
-  it('enforces allowed paths, extensions, file counts, and collision rules', () => {
-    const policy = question.additionalFilePolicy
-    const currentFiles = [{ path: 'src/App.tsx' }]
-    const initialPaths = ['src/App.tsx']
-    expect(
-      validateReactAdditionalFile(
-        'src/components/Header.tsx',
-        currentFiles,
-        policy,
-        initialPaths,
-      ),
-    ).toBe(true)
-    expect(
-      validateReactAdditionalFile('src/package.json', currentFiles, policy, initialPaths),
-    ).toBe(false)
-    expect(
-      validateReactAdditionalFile(
-        'src/../Escape.tsx',
-        currentFiles,
-        policy,
-        initialPaths,
-      ),
-    ).toBe(false)
-    expect(
-      validateReactAdditionalFile(
-        'src/App.tsx/Child.tsx',
-        currentFiles,
-        policy,
-        initialPaths,
-      ),
-    ).toBe(false)
-    expect(
-      validateReactAdditionalFile(
-        'src/components/Readme.md',
-        currentFiles,
-        policy,
-        initialPaths,
-      ),
-    ).toBe(false)
-    expect(
-      validateReactAdditionalFile(
-        'src/components/Second.tsx',
-        [...currentFiles, { path: 'src/Header.tsx' }, { path: 'src/Footer.tsx' }],
-        policy,
-        initialPaths,
-      ),
-    ).toBe(false)
-  })
-
-  it('accepts only versioned drafts that match the account and activity key', () => {
-    const key = {
-      accountId: 'account-1',
-      goalId: 'goal-1',
-      skillId: 'skill-1',
-      competencyId: 'competency-1',
-      activityId: 'activity-1',
-      questionKey: 'react-1',
-      activityRevision: 'revision-1',
-    }
-    const draft = {
-      ...key,
-      schemaVersion: 1,
-      files: [{ path: 'src/App.tsx', content: 'export default function App() {}' }],
-      generation: 2,
-      savedAt: Date.now(),
-      tombstone: false,
-    }
-    expect(isValidReactQuestionDraft(draft, key)).toBe(true)
-    expect(isValidReactQuestionDraft({ ...draft, schemaVersion: 2 }, key)).toBe(false)
-    expect(isValidReactQuestionDraft(draft, { ...key, accountId: 'other-account' })).toBe(
-      false,
+  it('delegates editing, file creation and assessment through the widget controls', () => {
+    const controller = createController()
+    useReactQuestionMock.mockReturnValue(controller)
+    render(<ReactQuestion {...createProps()} />)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Código do arquivo' }), {
+      target: { value: 'new source' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Caminho do novo arquivo' }), {
+      target: { value: 'src/Badge.tsx' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Criar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Avaliar questão' }))
+    expect(controller.handleFileChange).toHaveBeenCalledWith('src/App.tsx', 'new source')
+    expect(controller.handleNewFilePathChange).toHaveBeenCalledWith('src/Badge.tsx')
+    expect(controller.handleAddFile).toHaveBeenCalledOnce()
+    expect(controller.handleAssess).toHaveBeenCalledOnce()
+    expect(screen.getByRole('textbox', { name: 'Código do arquivo' })).toHaveValue(
+      'edited',
     )
-    expect(isValidReactQuestionDraft({ ...draft, generation: 0 }, key)).toBe(false)
-    expect(
-      isValidReactQuestionDraft(
-        { ...draft, files: [{ path: '../secret', content: 3 }] },
-        key,
-      ),
-    ).toBe(false)
   })
-
-  it('recovers from corrupt stored generation values when creating a tombstone', () => {
-    expect(nextReactQuestionDraftGeneration(4)).toBe(5)
-    expect(nextReactQuestionDraftGeneration('corrupt')).toBe(1)
-    expect(nextReactQuestionDraftGeneration(Number.MAX_SAFE_INTEGER + 1)).toBe(1)
-  })
-
-  it('orders local writes, isolates accounts, and broadcasts invalidation tombstones', async () => {
-    installDraftStorage()
-    const changes: { generation: number; tombstone: boolean }[] = []
-    const unsubscribe = ReactQuestionDraftStore.subscribe(draftKey, (change) =>
-      changes.push(change),
+  it('shows authority validation and disables assessment until restoration completes', () => {
+    useReactQuestionMock.mockReturnValue(
+      createController({ draftLoaded: false, status: 'booting', previewUrl: null }),
     )
-    const first = [{ path: 'src/App.tsx', content: 'first' }]
-    const second = [{ path: 'src/App.tsx', content: 'second' }]
-    expect(await ReactQuestionDraftStore.write(draftKey, first, 0)).toBe(1)
-    expect(await ReactQuestionDraftStore.write(draftKey, second, 0)).toBe(0)
-    expect((await ReactQuestionDraftStore.read(draftKey))?.files).toEqual(first)
-    expect(
-      await ReactQuestionDraftStore.read({ ...draftKey, accountId: 'other' }),
-    ).toBeNull()
-
-    const tombstoneGeneration = await ReactQuestionDraftStore.tombstone(draftKey)
-    expect(tombstoneGeneration).toBe(2)
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(changes).toContainEqual({ generation: 2, tombstone: true })
-    expect((await ReactQuestionDraftStore.read(draftKey))?.tombstone).toBe(true)
-    expect(
-      await ReactQuestionDraftStore.write(draftKey, second, tombstoneGeneration),
-    ).toBe(0)
-    const restoredGeneration = await ReactQuestionDraftStore.clearTombstone(
-      draftKey,
-      first,
-      tombstoneGeneration,
+    render(<ReactQuestion {...createProps()} />)
+    expect(screen.getByText('Validando a Atividade…')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeDisabled()
+    expect(screen.getByRole('textbox', { name: 'Código do arquivo' })).toHaveAttribute(
+      'readonly',
     )
-    expect(restoredGeneration).toBe(3)
-    expect((await ReactQuestionDraftStore.read(draftKey))?.files).toEqual(first)
-    unsubscribe()
+    expect(screen.getByText('Iniciando a prévia…')).toBeVisible()
   })
-
-  it('surfaces IndexedDB failures so the widget can keep the answer unsaved', async () => {
-    const failingIndexedDB = {
-      open: vi.fn(() => {
-        const request = fakeRequest()
-        queueMicrotask(() => {
-          request.error = new DOMException('storage unavailable')
-          request.onerror?.(new Event('error'))
-        })
-        return request
+  it('preserves editing and assessment when the runtime is unavailable', () => {
+    useReactQuestionMock.mockReturnValue(
+      createController({
+        status: 'unavailable',
+        previewUrl: null,
+        hasSaveError: true,
+        hasAssessError: true,
+        hasFileError: true,
       }),
-    }
-    vi.stubGlobal('indexedDB', failingIndexedDB)
-    await expect(ReactQuestionDraftStore.read(draftKey)).rejects.toThrow(
-      'storage unavailable',
     )
+    render(<ReactQuestion {...createProps()} />)
+    expect(screen.getByText(/Não foi possível salvar localmente/)).toBeVisible()
+    expect(screen.getByText(/A prévia não está disponível/)).toBeVisible()
+    expect(
+      screen.getByText('Não foi possível avaliar a questão. Tente novamente.'),
+    ).toBeVisible()
+    expect(screen.getByText(/Arquivo fora da política permitida/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeEnabled()
+    expect(
+      screen.getByRole('textbox', { name: 'Código do arquivo' }),
+    ).not.toHaveAttribute('readonly')
+  })
+  it('freezes preliminary files and disables controls while assessment is pending', () => {
+    useReactQuestionMock.mockReturnValue(
+      createController({ isFrozen: true, isAssessing: true }),
+    )
+    render(<ReactQuestion {...createProps()} />)
+    expect(screen.getByRole('button', { name: 'Avaliando…' })).toBeDisabled()
+    expect(
+      screen.queryByRole('textbox', { name: 'Caminho do novo arquivo' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Código do arquivo' })).toHaveAttribute(
+      'readonly',
+    )
+    expect(screen.getByRole('textbox', { name: 'Código do arquivo' })).toHaveValue(
+      'edited',
+    )
+  })
+  it('blocks invalidated drafts and explains diagnostic draft exclusion', () => {
+    useReactQuestionMock.mockReturnValue(createController({ isDraftInvalidated: true }))
+    const { rerender } = render(<ReactQuestion {...createProps()} />)
+    expect(screen.getByText(/Rascunho invalidado/)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeDisabled()
+    rerender(<ReactQuestion {...createProps({ isDiagnostic: true })} />)
+    expect(screen.getByText('Diagnóstico não salva rascunhos.')).toBeVisible()
   })
 })

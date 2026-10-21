@@ -1,7 +1,7 @@
 ---
 title: React code questions in learning activities
 status: draft
-revision: 2
+revision: 3
 mode: complete
 ---
 
@@ -103,7 +103,7 @@ File-level details may vary only within the named ownership boundaries; no new R
 5. Final full-activity submission is validated against the same policy and question revision, snapshots project/rubric and submitted files, then commits the attempt with its evaluation/outbox record using existing idempotency guarantees. The existing Inngest job invokes the existing assessment port, guards obsolete/deleted contexts and applies effects once.
 6. Results and retries hydrate from the persisted snapshot. Historical UI is read-only and does not start WebContainers. Compatibility decoders continue reading existing choice/stdin attempts.
 
-**Trust and bounds:** Server validation is authoritative. Additional directory prefixes, suffixes and count come from the Curricular policy and are schema-bounded (`max_files` 1–32); absent policy disallows all additional files. The full editable project source (initial and additional) is capped at 256 KiB across Web and Server. Paths use the canonical grammar and limits in CA-02. Reject collisions, config/lock/dependency files, disallowed extensions/directories/count, altered commands and over-limit requests. Policy data is curricular; no client field may broaden it. No arbitrary shell, user-controlled install, API-side code execution or preview from the app origin.
+**Trust and bounds:** Server validation is authoritative. Additional directory prefixes, suffixes and count come from the Curricular policy and are schema-bounded (`max_files` 1–32); absent policy disallows all additional files. The browser project/draft/practice cap remains 256 KiB. The server's existing `max_code_assessment_input_bytes` setting defaults to 256 KiB and is bounded by its settings schema at 4 MiB; preview, initial/replayed submission, workflow preparation and official evaluation must consistently honor that configured value for both JavaScript and React. CA-02's 256-KiB examples describe the default configuration; tests also distinguish a smaller and a larger configured bound, exact and one-byte-above UTF-8 totals. Paths use the canonical grammar and limits in CA-02. Reject collisions, config/lock/dependency files, disallowed extensions/directories/count, altered commands and over-limit requests. Policy data is curricular; no client field may broaden it. No arbitrary shell, user-controlled install, API-side code execution or preview from the app origin.
 
 **Consistency:** A draft write is accepted only for its current generation/revision and without a deletion tombstone. Cross-tab messaging is an invalidation/update hint; storage and successful authoritative Learning reads are source of truth. A disconnected browser cannot receive remote deletion; it cannot restore or submit until reconnect validation and then purges a removed/closed context. Preliminary response is immutable for its retry lifecycle. Attempt + snapshot + outbox retain existing transaction boundary, submission idempotency and same-attempt retry semantics.
 
@@ -222,3 +222,4 @@ Add widget coverage for draft restore/storage/ordering/deletion inside the exist
 | --- | --- | --- | --- |
 | 1 | 2026-10-14 | Initial complete contract for React activity questions, authorized by the user in chat. | SHIFU-88, current Learning/Curriculum PRDs, repo rules, and approved design discussion. |
 | 2 | 2026-10-15 | Made the expected file tree exact and separated iframe DOM assertions from browser-only credential and origin-isolation evidence. | Integrated candidate paths and executable boundaries of jsdom versus real-browser security checks. |
+| 3 | 2026-10-20 | Clarified compatibility with the existing configurable server assessment bound; retained the browser's 256-KiB cap and default boundary examples. | User-authorized PR review fixes require consistent setting propagation through preview, submit/replay, preparation and evaluation, preserving both JavaScript and React. No PRD or product journey change. |

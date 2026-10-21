@@ -51,6 +51,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
     handleCodeFilesChange,
     runnerFactory,
     reactRunnerFactory,
+    reactDraftStore,
     accountId,
     isOnlineAuthority,
     handleReactAnswerValidityChange,
@@ -301,6 +302,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
           question={currentQuestion}
           questionNumber={currentQuestionNumber}
           runnerFactory={reactRunnerFactory}
+          draftStore={reactDraftStore}
           readOnly={Boolean(feedback || frozenAnswer)}
           skillId={'skillId' in props ? props.skillId : undefined}
           totalQuestions={totalQuestions}
