@@ -1,3 +1,6 @@
+from .get_gamification_overview_controller import (
+    GetGamificationOverviewController as GetGamificationOverviewController,
+)
 from .get_practice_calendar_controller import (
     GetPracticeCalendarController as GetPracticeCalendarController,
 )

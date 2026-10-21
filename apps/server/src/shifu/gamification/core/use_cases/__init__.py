@@ -4,6 +4,9 @@ from .create_gamification_profile_use_case import (
 from .delete_gamification_profile_use_case import (
     DeleteGamificationProfileUseCase as DeleteGamificationProfileUseCase,
 )
+from .get_gamification_overview_use_case import (
+    GetGamificationOverviewUseCase as GetGamificationOverviewUseCase,
+)
 from .get_practice_calendar_use_case import (
     GetPracticeCalendarUseCase as GetPracticeCalendarUseCase,
 )
