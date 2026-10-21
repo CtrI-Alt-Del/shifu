@@ -1,7 +1,7 @@
 ---
 title: SHIFU-96 Public privacy policy page
-status: completed
-revision: 1
+status: implemented
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-96 (issue 12606)
@@ -202,3 +202,4 @@ pnpm --filter web exec vitest run src/ui/shared/widgets/layouts/root-layout/test
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-10-21 | Initial contract for the public privacy notice and current Identity entrypoints | SHIFU-96, user-approved scope and Q9=A |
+| 2 | 2026-10-21 | Identify Gabriela da Silva as the fictional Encarregada in the public notice | User-provided change explicitly included in the SHIFU-96 delivery |

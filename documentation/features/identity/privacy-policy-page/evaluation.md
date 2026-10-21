@@ -1,6 +1,6 @@
 ---
 title: SHIFU-96 Public privacy policy page evaluation
-status: completed
+status: ready
 spec: ./spec.md
 last_updated_at: 2026-10-21
 ---
@@ -16,7 +16,7 @@ last_updated_at: 2026-10-21
 | Visual checks | VM-02 passed against both required captures |
 | Independent review | Spec revision 1 approved by user; implementation and visual reviews passed after corrections |
 | Blockers | None for local implementation; an initial combined browser invocation could not resolve Chromium under the restricted profile, and the focused selection later passed with installed Chromium |
-| Candidate | `feat/web/SHIFU-96-public-privacy-policy`; implementation commit `52ff818` on base `f5291078ad56911dc44e4215aee6abcd771a8da2`; repository-root guides remain unstaged |
+| Candidate | `feat/web/SHIFU-96-public-privacy-policy`; commits `52ff818`, `dab1cdd` and `da37622` on base `f5291078ad56911dc44e4215aee6abcd771a8da2`; repository-root guides remain untracked and excluded |
 
 # Progress
 
@@ -38,6 +38,7 @@ last_updated_at: 2026-10-21
 | EV-04 | CI-04 / Automated / CA-01–05 | Passed | Task candidate; Web package; 2026-10-21 | `tsc --noEmit`; scoped root Biome over 13 changed paths; `depcruise --config dependency-cruiser.config.cjs src`; `vite build` from `apps/web` | Typecheck, Biome (13 files), architecture (504 modules / 1768 dependencies; no violations), and client+SSR production build passed. Build emitted existing chunk-size advisories for large application bundles. Route generation is current. No dedicated quantitative complexity command is configured; manual review and configured Biome complexity lint are not a metrics pass. |
 | EV-05 | VM-01 / Manual / CA-01–04 | Passed | User-started API at 7777; task-started Web at 7000; real Chromium; 2026-10-21 | Anonymous journey, index/contact, and entrypoint navigation in scoped browser flows per Spec | Direct public route reached; all policy assertions and all three entrypoint journeys passed; exact contact URI shown; no delivery claim; page console/page errors and requests to Identity API were absent on the public page. API health was 200. |
 | EV-06 | VM-02 / Visual / CA-05 | Passed | Final captures at 1440px and 390px; 2026-10-21 | Visual comparison against Pencil references per `design/handoff.md`; independent Visual Reviewer inspected updated pair | Desktop/mobile composition matches the handoff; no material difference, clipping or horizontal overflow. Updated mobile capture visibly shows the focused section outline. Captures: `apps/web/.playwright-cli/screenshots/privacy-policy-desktop-1440.png`, `privacy-policy-mobile-390.png`. References are layout/style only because their copy is stale. |
+| EV-07 | CI-01 / Automated / CA-01–03, CA-05; Spec revision 2 | Passed | Candidate after user-requested Encarregada name change; local Web at `http://127.0.0.1:7000`; 2026-10-21 | `node .\\node_modules\\@playwright\\test\\cli.js test --config=.playwright-cli/playwright.shifu.config.cjs tests/identity/privacy-policy-page.test.ts` from `apps/web` | Final focused run passed 4/4 after changing the public contact name to Gabriela da Silva. The initial attempt timed out during first navigation; the remaining three tests passed, then the complete focused selection passed on retry. |
 
 # Findings
 
@@ -59,13 +60,13 @@ last_updated_at: 2026-10-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; implementation commit `52ff818`. |
-| Completed | Approved Spec revision 1; public route/widget; route and entrypoint links; generated route tree; focused test coverage; type/lint/architecture/build; desktop/mobile captures; independent implementation and visual reviews. |
-| Unfinished | None. |
+| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; commits `52ff818`, `dab1cdd`, `da37622`. |
+| Completed | Approved Spec revision 2; public route/widget; route and entrypoint links; generated route tree; focused test coverage; type/lint/architecture/build; desktop/mobile captures; independent implementation and visual reviews. |
+| Unfinished | Push and PR publication; current-head CI checks. |
 | Uncommitted work | Only user-provided root guides: `shifu-96-contexto-politica-privacidade.md`, `shifu-96-plano-implementacao.md`, and `repostas shifu-96.txt`; they remain unstaged/uncommitted. |
 | Active processes | None started by this task; user-owned API was left running. |
 | Blockers | None. |
-| Next action | None; local delivery is committed and verified. |
+| Next action | Publish the reviewed branch as a PR, then record current-head CI status. |
 
 # Delivery
 
@@ -76,12 +77,12 @@ last_updated_at: 2026-10-21
 | `RP-10` | RF-05 / CA-05 | EV-01, EV-06 | Implemented responsive accessible reading/index structure; two viewport captures reviewed. |
 | `RP-11`, `JN-11` | RF-01–03 / CA-01–03 | EV-01 | Partial scope: public contact remains available after account closure; request processing workflow is outside this delivery. |
 
-No PR was requested; delivery is local-only. Commit `52ff818` contains the implementation and its approved Spec, Evaluation, design handoff, and Pencil references.
+The user requested PR publication and authorized committing the SHIFU-96 changes. Commits `52ff818`, `dab1cdd` and `da37622` contain the implementation, SDD evidence, design handoff, Pencil references and updated fictional contact identity. PR publication is pending.
 
 | Field | Result |
 | --- | --- |
-| Publication | Not requested; local implementation only. |
+| Publication | Requested; pending push and PR creation. |
 | Source verification | Identity PRD `83001345` v2 and common privacy policy `100106241` v4 read completely in task context on 2026-10-21; sources unchanged. |
 | Documentation Alignment | User Q9=A resolves task public retention wording; source discrepancy remains recorded and no external Atlassian write was authorized. |
-| Revision History | Spec revision 1 approved by the user and implemented without contract amendments; evaluation completed after reviews and final focused evidence. |
+| Revision History | Spec revision 2 records the user's explicit fictional contact-name update; PR publication and current-head CI remain pending. |
 | Limitations | User-authorized academic demonstration permits fictional public facts. The public page uses a normal product voice. The fictional Encarregada Gabriela da Silva, SMTP provider operating in Brazil and assumed ANPD contractual safeguards are user-approved demonstration assumptions; these facts are not operationally verified. Repository configuration supports SMTP or Resend and documents local Mailpit. AI provider geography is described as variable because the global endpoint is not pinned by current code. No claim of operational/legal verification is made. |
