@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 if __package__ in {None, ''}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
 from evals.common import CaseDefinition, failed_setup_report
 from evals.evaluate_code_activity_eval import EvaluateCodeActivityEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
@@ -28,6 +29,7 @@ EVAL_CLASSES = (
     ProcessMentorResponseEval,
     PrepareMentorAttachmentEval,
     SummarizeMentorSessionEval,
+    ClassifyLearnerMemoryEval,
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')

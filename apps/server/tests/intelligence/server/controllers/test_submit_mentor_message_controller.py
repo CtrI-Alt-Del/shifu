@@ -165,7 +165,9 @@ class TestSubmitMentorMessageController:
             'pending_learner_message_id',
             'response',
             'summary',
+            'memory_items',
         }
+        assert accepted_body['memory_items'] == []
         assert accepted_body['summary'] == {
             'current': None,
             'failure_after_message_id': None,

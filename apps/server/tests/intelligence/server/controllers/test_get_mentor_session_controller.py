@@ -29,8 +29,17 @@ from tests.intelligence.server.controllers.mentor_summary_scenarios import (
     seed_summary,
 )
 from shifu.intelligence.core.domain.enums import (
+    LearnerMemoryChangeKind,
     MentorSummaryFailureCode,
     MentorWorkflowStep,
+)
+from tests.intelligence.server.controllers.learner_memory_scenarios import (
+    BASE_TIME,
+    OTHER_ACCOUNT,
+    iso,
+    seed_change,
+    seed_conversation,
+    seed_memory,
 )
 
 if TYPE_CHECKING:
@@ -395,3 +404,116 @@ class TestGetMentorSessionControllerSummaryState:
         for step, progress in expected:
             append_status(postgres_database, session_id, attempt_id, step)
             assert mentor_client.get(path).json()['response']['progress'] == progress
+
+
+class TestGetMentorSessionControllerMemoryItems:
+    def test_should_expose_an_empty_memory_item_list_without_changes(
+        self, mentor_client: TestClient
+    ) -> None:
+        session_id, _, _ = create_session(mentor_client)
+
+        body = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}').json()
+
+        assert body['memory_items'] == []
+
+    def test_should_expose_every_change_record_of_the_whole_conversation_in_order(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, message_id = seed_conversation(postgres_database)
+        created = seed_memory(
+            postgres_database,
+            1,
+            content='Prefiro exemplos em Python.',
+            origins=((session_id, message_id),),
+        )
+        updated = seed_memory(
+            postgres_database,
+            2,
+            content='Agora prefiro JavaScript.',
+            origins=((session_id, message_id),),
+        )
+        first = seed_change(
+            postgres_database,
+            created,
+            session_id,
+            message_id,
+            created_at=BASE_TIME,
+        )
+        second = seed_change(
+            postgres_database,
+            updated,
+            session_id,
+            message_id,
+            kind=LearnerMemoryChangeKind.UPDATED,
+            previous_content='Prefiro Python.',
+            created_at=BASE_TIME + timedelta(minutes=1),
+        )
+
+        response = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
+
+        assert response.status_code == 200
+        assert response.headers['cache-control'] == 'private, no-store'
+        assert response.json()['memory_items'] == [
+            {
+                'id': first,
+                'source_message_id': message_id,
+                'kind': 'created',
+                'category': 'explanation_preference',
+                'memory_id': created.id,
+                'content': 'Prefiro exemplos em Python.',
+                'previous_content': None,
+                'created_at': iso(BASE_TIME),
+            },
+            {
+                'id': second,
+                'source_message_id': message_id,
+                'kind': 'updated',
+                'category': 'explanation_preference',
+                'memory_id': updated.id,
+                'content': 'Agora prefiro JavaScript.',
+                'previous_content': 'Prefiro Python.',
+                'created_at': iso(BASE_TIME + timedelta(minutes=1)),
+            },
+        ]
+
+    def test_should_show_deleted_memory_items_without_text_or_memory_reference(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, message_id = seed_conversation(postgres_database)
+        memory = seed_memory(postgres_database, 1, origins=((session_id, message_id),))
+        change_id = seed_change(postgres_database, memory, session_id, message_id)
+
+        mentor_client.delete(f'/intelligence/learner-memories/{memory.id}')
+        body = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}').json()
+
+        assert body['memory_items'] == [
+            {
+                'id': change_id,
+                'source_message_id': message_id,
+                'kind': 'created',
+                'category': 'explanation_preference',
+                'memory_id': None,
+                'content': None,
+                'previous_content': None,
+                'created_at': iso(BASE_TIME),
+            }
+        ]
+
+    def test_should_not_expose_the_change_records_of_another_accounts_conversation(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, message_id = seed_conversation(
+            postgres_database, OTHER_ACCOUNT.account_id
+        )
+        memory = seed_memory(
+            postgres_database,
+            1,
+            account_id=OTHER_ACCOUNT.account_id,
+            origins=((session_id, message_id),),
+        )
+        seed_change(postgres_database, memory, session_id, message_id)
+
+        response = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
+
+        assert response.status_code == 404
+        assert 'memory_items' not in response.json()

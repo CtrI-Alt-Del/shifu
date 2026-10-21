@@ -1,3 +1,13 @@
+from .learner_memory_change_mapper import (
+    LearnerMemoryChangeMapper as LearnerMemoryChangeMapper,
+)
+from .learner_memory_concept_mapper import (
+    LearnerMemoryConceptMapper as LearnerMemoryConceptMapper,
+)
+from .learner_memory_mapper import LearnerMemoryMapper as LearnerMemoryMapper
+from .learner_memory_origin_mapper import (
+    LearnerMemoryOriginMapper as LearnerMemoryOriginMapper,
+)
 from .mentor_attachment_batch_mapper import (
     MentorAttachmentBatchMapper as MentorAttachmentBatchMapper,
 )

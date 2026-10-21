@@ -13,11 +13,14 @@ from shifu.intelligence.core.domain.entities import (
     MentorSessionSummary,
 )
 from shifu.intelligence.core.domain.enums import (
+    LearnerMemoryCategory,
+    LearnerMemoryChangeKind,
     MentorResponseStatus,
     MentorSummaryExcerptKind,
     MentorSummaryFailureCode,
 )
 from shifu.intelligence.core.domain.structures import (
+    MentorConversationMemoryItem,
     MentorConversationSummaryDraft,
     MentorMessagesPage,
     MentorSessionSummaryState,
@@ -58,6 +61,7 @@ class TestGetMentorSessionUseCase:
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
         self.repositories.mentor_session_summaries.find_ready.return_value = None
         self.repositories.mentor_session_summaries.find_failed.return_value = None
+        self.repositories.learner_memory_changes.find_items_by_session.return_value = ()
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.subject = GetMentorSessionUseCase(self.database, self.access)
 
@@ -79,6 +83,45 @@ class TestGetMentorSessionUseCase:
         self.repositories.mentor_messages.find_many.assert_called_once_with(
             'account', 'session', 'older-cursor'
         )
+
+    def test_should_return_the_memory_items_of_the_whole_conversation(self) -> None:
+        items = (
+            MentorConversationMemoryItem(
+                change_id='change-1',
+                source_message_id='learner-1',
+                kind=LearnerMemoryChangeKind.CREATED,
+                category=LearnerMemoryCategory.EXPLANATION_PREFERENCE,
+                memory_id='memory',
+                content='Prefiro exemplos em Python.',
+                previous_content=None,
+                created_at=self.now,
+            ),
+            MentorConversationMemoryItem(
+                change_id='change-2',
+                source_message_id='learner-2',
+                kind=LearnerMemoryChangeKind.UPDATED,
+                category=LearnerMemoryCategory.EXPLANATION_PREFERENCE,
+                memory_id=None,
+                content=None,
+                previous_content=None,
+                created_at=self.now,
+            ),
+        )
+        changes = self.repositories.learner_memory_changes
+        changes.find_items_by_session.return_value = items
+
+        result = self.subject.execute('account', 'session', 'older-cursor')
+
+        assert result.memory_items == items
+        changes.find_items_by_session.assert_called_once_with('account', 'session')
+
+    def test_should_not_read_memory_items_for_unowned_session(self) -> None:
+        self.repositories.mentor_sessions.find_by_id.return_value = None
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+
+        self.repositories.learner_memory_changes.find_items_by_session.assert_not_called()
 
     def test_should_return_private_not_found_for_unowned_session(self) -> None:
         self.repositories.mentor_sessions.find_by_id.return_value = None

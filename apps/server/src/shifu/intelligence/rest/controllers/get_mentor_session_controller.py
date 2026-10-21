@@ -24,6 +24,7 @@ class Response(BaseModel):
     pending_learner_message_id: str | None
     response: MentorResponseSnapshot | None = None
     summary: MentorSessionSchemas.SummaryState
+    memory_items: list[MentorSessionSchemas.MemoryItem] = []
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

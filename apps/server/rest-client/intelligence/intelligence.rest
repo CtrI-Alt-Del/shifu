@@ -33,7 +33,7 @@ Content-Type: application/json
 GET {{baseUrl}}/intelligence/mentor-sessions?search=python
 Authorization: Bearer {{accessToken}}
 
-### Open a Mentor conversation (includes summary.current with after_message_id, the learner message that triggered the summary, and summary.failure_after_message_id)
+### Open a Mentor conversation (includes summary.current with after_message_id, the learner message that triggered the summary, summary.failure_after_message_id, and memory_items: one item per memory creation or update, anchored to source_message_id; content and previous_content are null after the memory is deleted)
 GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
 Authorization: Bearer {{accessToken}}
 

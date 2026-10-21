@@ -54,3 +54,15 @@ from .mentor_telemetry_provider import (
 from .planning_sessions_repository import (
     PlanningSessionsRepository as PlanningSessionsRepository,
 )
+from .learner_memories_repository import (
+    LearnerMemoriesRepository as LearnerMemoriesRepository,
+)
+from .learner_memory_analyzer_provider import (
+    LearnerMemoryAnalyzerProvider as LearnerMemoryAnalyzerProvider,
+)
+from .learner_memory_changes_repository import (
+    LearnerMemoryChangesRepository as LearnerMemoryChangesRepository,
+)
+from .learner_memory_similarity_provider import (
+    LearnerMemorySimilarityProvider as LearnerMemorySimilarityProvider,
+)

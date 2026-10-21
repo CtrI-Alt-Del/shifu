@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
 from evals.evaluate_code_activity_eval import EvaluateCodeActivityEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
@@ -114,6 +115,26 @@ def build_evaluator(selector: str, *, mode: str) -> Any:
             ),
             mode=mode,
             model_profile='local-textrank',
+        )
+
+    if selector == ClassifyLearnerMemoryEval.selector:
+        # Local NLP only: identical in double and real modes, no model calls.
+        from shifu.intelligence.ai.data.learner_memory_resources import (
+            LearnerMemoryResources,
+        )
+        from shifu.intelligence.providers.memory_classification.tfidf.tfidf_learner_memory_analyzer_provider import (
+            TfidfLearnerMemoryAnalyzerProvider,
+        )
+        from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
+            SpacyMentorTextPreprocessorProvider,
+        )
+
+        return ClassifyLearnerMemoryEval(
+            TfidfLearnerMemoryAnalyzerProvider(
+                SpacyMentorTextPreprocessorProvider(), LearnerMemoryResources()
+            ),
+            mode=mode,
+            model_profile='local-tfidf-3nn',
         )
 
     raise ValueError('Unknown synthetic eval selector')

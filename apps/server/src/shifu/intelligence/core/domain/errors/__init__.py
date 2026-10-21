@@ -31,3 +31,12 @@ from .mentor_title_output_invalid_error import (
 from .mentor_title_unavailable_error import (
     MentorTitleUnavailableError as MentorTitleUnavailableError,
 )
+from .learner_memory_not_found_error import (
+    LearnerMemoryNotFoundError as LearnerMemoryNotFoundError,
+)
+from .learner_memory_conflict_error import (
+    LearnerMemoryConflictError as LearnerMemoryConflictError,
+)
+from .learner_memory_content_invalid_error import (
+    LearnerMemoryContentInvalidError as LearnerMemoryContentInvalidError,
+)

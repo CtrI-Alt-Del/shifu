@@ -682,7 +682,7 @@ def test_process_workflow_writes_and_reviews_attachment_answer() -> None:
     assert stored_state.candidate is not None
     assert stored_state.candidate.content == 'A list stores items.'
     workflow._attachment_answer.answer.assert_called_once_with(
-        request.requested_part, context
+        request.requested_part, context, request.memories
     )
     workflow._reviewer.review.assert_called_once()
     workflow._record_progress.execute.assert_any_call(

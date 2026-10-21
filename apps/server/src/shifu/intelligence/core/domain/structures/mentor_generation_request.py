@@ -1,4 +1,7 @@
 from shifu.intelligence.core.domain.entities.mentor_message import MentorMessage
+from shifu.intelligence.core.domain.structures.learner_memory_context import (
+    LearnerMemoryContext,
+)
 from shifu.intelligence.core.domain.structures.mentor_attachment_context import (
     MentorAttachmentContext,
 )
@@ -26,3 +29,6 @@ class MentorGenerationRequest:
     correction: str | None
     attachment_context: MentorAttachmentContext | None = None
     summary: MentorConversationSummaryContext | None = None  # read by the reviewer only
+    memories: tuple[
+        LearnerMemoryContext, ...
+    ] = ()  # learner declarations, answer/reviewer only

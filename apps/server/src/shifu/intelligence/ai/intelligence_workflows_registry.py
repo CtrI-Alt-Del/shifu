@@ -21,6 +21,7 @@ from shifu.intelligence.ai.agno.workflows import (
     ProcessMentorResponseWorkflow,
     PurgeMentorAttachmentsWorkflow,
 )
+from shifu.intelligence.ai.data.learner_memory_resources import LearnerMemoryResources
 from shifu.intelligence.core.use_cases import (
     AssertMentorResponseCurrentUseCase,
     CompleteMentorAttachmentUseCase,
@@ -29,6 +30,7 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorAttachmentUseCase,
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
+    PurgeLearnerMemoriesForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
     RecordMentorInferenceUsageUseCase,
@@ -38,6 +40,7 @@ from shifu.intelligence.core.use_cases import (
     RenewMentorAttachmentClaimUseCase,
     RenewMentorResponseClaimUseCase,
     SummarizeMentorSessionContextUseCase,
+    UpdateLearnerMemoriesUseCase,
 )
 from shifu.intelligence.core.use_cases.finalize_mentor_response_use_case import (
     FinalizeMentorResponseUseCase,
@@ -51,6 +54,9 @@ from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_
 )
 from shifu.intelligence.providers.mentor_attachment.local_mentor_attachment_extractor_provider import (
     LocalMentorAttachmentExtractorProvider,
+)
+from shifu.intelligence.providers.memory_classification.tfidf.tfidf_learner_memory_analyzer_provider import (
+    TfidfLearnerMemoryAnalyzerProvider,
 )
 from shifu.intelligence.providers.openrouter import (
     MentorTitleModelProvider,
@@ -71,6 +77,9 @@ from shifu.intelligence.providers.summarization.textrank.textrank_mentor_convers
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
 )
+from shifu.intelligence.providers.text_similarity.bag_of_words.bag_of_words_learner_memory_similarity_provider import (
+    BagOfWordsLearnerMemorySimilarityProvider,
+)
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
@@ -90,6 +99,8 @@ if TYPE_CHECKING:
     from shifu.intelligence.core.interfaces import (
         GenerateMentorTitleWorkflow,
         IntelligenceDatabase,
+        LearnerMemoryAnalyzerProvider,
+        LearnerMemorySimilarityProvider,
         MentorConversationSummarizerProvider,
         MentorEmbeddingsProvider,
         MentorRouteProvider,
@@ -193,6 +204,7 @@ class IntelligenceWorkflowsRegistry:
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
         summarizer: MentorConversationSummarizerProvider | None = None,
+        learner_memory_analyzer: LearnerMemoryAnalyzerProvider | None = None,
     ) -> None:
         observability = observability or LangfuseTelemetryProvider(
             'intelligence', telemetry_client
@@ -230,6 +242,21 @@ class IntelligenceWorkflowsRegistry:
             if summarizer is not None
             else TextrankMentorConversationSummarizerProvider(
                 self._shared_preprocessor, self._shared_embeddings
+            )
+        )
+        # The classifier fits lazily on its first analysis, inside the AgentOS step;
+        # building the registry reads only the small versioned JSON resources.
+        self._memory_resources = LearnerMemoryResources()
+        self._learner_memory_analyzer: LearnerMemoryAnalyzerProvider = (
+            learner_memory_analyzer
+            if learner_memory_analyzer is not None
+            else TfidfLearnerMemoryAnalyzerProvider(
+                self._shared_preprocessor, self._memory_resources
+            )
+        )
+        self._learner_memory_similarity: LearnerMemorySimilarityProvider = (
+            BagOfWordsLearnerMemorySimilarityProvider(
+                self._shared_preprocessor, self._memory_resources
             )
         )
         self._handoffs = AgentOSHandoffStore()
@@ -304,6 +331,8 @@ class IntelligenceWorkflowsRegistry:
             self._route_provider,
             catalog_provider,
             attachment_context_use_case,
+            self._learner_memory_similarity,
+            self._memory_resources.manifest.relevance_threshold,
         )
         publish_response_block = PublishMentorResponseBlockUseCase(
             self._database, self._clock_provider, access_provider, context_provider
@@ -337,7 +366,19 @@ class IntelligenceWorkflowsRegistry:
             renew_response_claim,
             self._telemetry,
         )
+        update_memories = UpdateLearnerMemoriesUseCase(
+            self._database,
+            self._learner_memory_analyzer,
+            self._learner_memory_similarity,
+            access_provider,
+            self._clock_provider,
+            self._identifier_provider,
+            self._memory_resources.manifest.update_threshold,
+        )
         self._purge_mentor_summaries_use_case = PurgeMentorSummariesForAccountUseCase(
+            self._database
+        )
+        self._purge_learner_memories_use_case = PurgeLearnerMemoriesForAccountUseCase(
             self._database
         )
         writer_model = OpenrouterMentorAnswerModelProvider.build(
@@ -368,6 +409,7 @@ class IntelligenceWorkflowsRegistry:
         )
         process_workflow = ProcessMentorResponseWorkflow(
             summarize_use_case=summarize_context,
+            update_memories_use_case=update_memories,
             prepare_use_case=prepare_response,
             publish_block_use_case=publish_response_block,
             assert_current_use_case=assert_response_current,
@@ -471,6 +513,18 @@ class IntelligenceWorkflowsRegistry:
     @property
     def purge_mentor_summaries_use_case(self) -> PurgeMentorSummariesForAccountUseCase:
         return self._purge_mentor_summaries_use_case
+
+    @property
+    def purge_learner_memories_use_case(self) -> PurgeLearnerMemoriesForAccountUseCase:
+        return self._purge_learner_memories_use_case
+
+    @property
+    def learner_memory_analyzer(self) -> LearnerMemoryAnalyzerProvider:
+        return self._learner_memory_analyzer
+
+    @property
+    def learner_memory_similarity(self) -> LearnerMemorySimilarityProvider:
+        return self._learner_memory_similarity
 
     @property
     def summarizer(self) -> MentorConversationSummarizerProvider:

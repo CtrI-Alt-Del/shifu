@@ -1,8 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from shifu.intelligence.core.domain.enums import MentorAttachmentStatus
+from shifu.intelligence.core.domain.enums import (
+    LearnerMemoryCategory,
+    LearnerMemoryChangeKind,
+    MentorAttachmentStatus,
+)
 from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
 
 
@@ -53,9 +57,20 @@ class MentorSessionSchemas:
         current: 'MentorSessionSchemas.SummaryMarker | None' = None
         failure_after_message_id: str | None = None
 
+    class MemoryItem(BaseModel):
+        id: str = Field(validation_alias='change_id')
+        source_message_id: str
+        kind: LearnerMemoryChangeKind
+        category: LearnerMemoryCategory
+        memory_id: str | None
+        content: str | None
+        previous_content: str | None
+        created_at: datetime
+
     class Detail(BaseModel):
         session: 'MentorSessionSchemas.Session'
         messages: 'MentorSessionSchemas.MessagesPage'
         pending_learner_message_id: str | None
         response: MentorResponseSnapshot | None = None
         summary: 'MentorSessionSchemas.SummaryState'
+        memory_items: list['MentorSessionSchemas.MemoryItem'] = []

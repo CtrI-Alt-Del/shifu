@@ -45,8 +45,15 @@ from shifu.intelligence.core.domain.errors import (
     MentorTitleOutputInvalidError,
     MentorTitleUnavailableError,
 )
+from shifu.intelligence.core.use_cases import PurgeLearnerMemoriesForAccountUseCase
+from shifu.intelligence.providers.memory_classification.tfidf.tfidf_learner_memory_analyzer_provider import (
+    TfidfLearnerMemoryAnalyzerProvider,
+)
 from shifu.intelligence.providers.mentor_title.agentos.agentos_mentor_title_provider import (
     AgentOSMentorTitleProvider,
+)
+from shifu.intelligence.providers.text_similarity.bag_of_words.bag_of_words_learner_memory_similarity_provider import (
+    BagOfWordsLearnerMemorySimilarityProvider,
 )
 from shifu.intelligence.providers.routing.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
@@ -60,6 +67,7 @@ from shifu.shared.messaging.agentos.agentos_client import (
 from shifu.shared.settings import Settings
 
 if TYPE_CHECKING:
+    from shifu.intelligence.core.interfaces import LearnerMemoryAnalyzerProvider
     from agno.models.base import Model
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
@@ -278,6 +286,7 @@ def _registry_harness(
     *,
     agentos_enabled: bool = False,
     observability: LangfuseTelemetryProvider | None = None,
+    learner_memory_analyzer: LearnerMemoryAnalyzerProvider | None = None,
 ) -> Generator[_RegistryHarness]:
     storage = _StorageProvider()
     client = _TrackedHttpClient()
@@ -325,6 +334,7 @@ def _registry_harness(
         cast('MentorCatalogProvider', object()),
         outbox_engine=engine,
         telemetry=cast('MentorTelemetryProvider', object()),
+        learner_memory_analyzer=learner_memory_analyzer,
     )
     harness = _RegistryHarness(
         registry=registry,
@@ -366,6 +376,47 @@ def _to_outbox(
     ),
 ) -> OutboxEvent:
     return _outbox_event(event.name, asdict(event.payload))
+
+
+def test_registry_exposes_lazy_learner_memory_collaborators(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_fit(*_args: object) -> None:
+        raise AssertionError('the TF-IDF fit must wait for the first analysis')
+
+    monkeypatch.setattr(TfidfLearnerMemoryAnalyzerProvider, '_fit', fail_fit)
+
+    with _registry_harness(monkeypatch) as harness:
+        registry = harness.registry
+
+        assert isinstance(
+            registry.learner_memory_analyzer, TfidfLearnerMemoryAnalyzerProvider
+        )
+        assert isinstance(
+            registry.learner_memory_similarity,
+            BagOfWordsLearnerMemorySimilarityProvider,
+        )
+        assert isinstance(
+            registry.purge_learner_memories_use_case,
+            PurgeLearnerMemoriesForAccountUseCase,
+        )
+        # The edit path extracts concepts with spaCy only and never fits the classifier.
+        concepts = registry.learner_memory_analyzer.concepts(
+            'Prefiro exemplos em Python.'
+        )
+        assert [concept.key for concept in concepts] == ['exemplo', 'python']
+        assert registry.learner_memory_similarity.similarity(
+            'Prefiro exemplos em Python.', 'Agora prefiro exemplos em JavaScript.'
+        ) == pytest.approx(0.5)
+
+
+def test_registry_accepts_a_learner_memory_analyzer_seam(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    analyzer = cast('LearnerMemoryAnalyzerProvider', object())
+
+    with _registry_harness(monkeypatch, learner_memory_analyzer=analyzer) as harness:
+        assert harness.registry.learner_memory_analyzer is analyzer
 
 
 def test_registry_projects_registered_events_to_id_only_agentos_tickets(

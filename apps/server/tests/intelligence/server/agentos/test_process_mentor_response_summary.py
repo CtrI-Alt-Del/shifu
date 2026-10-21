@@ -982,7 +982,13 @@ class TestProcessMentorResponseSummary:
                 summary.excerpts or []
             )
         for attachment_request in attachment_requests:
-            assert set(attachment_request) == {'question', 'allowed_sources', 'chunks'}
+            # The typed statement of this message is a preference memory, so the
+            # request may also carry the labeled declarations (and nothing else new).
+            assert set(attachment_request) - {'learner_memories'} == {
+                'question',
+                'allowed_sources',
+                'chunks',
+            }
 
     def test_should_retry_routing_only_for_an_elliptical_unmatched_part(
         self,

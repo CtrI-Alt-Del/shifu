@@ -27,6 +27,8 @@ from shifu.identity.database.sqlalchemy.repositories import (
 )
 from shifu.intelligence.database import IntelligenceSeeder
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyLearnerMemoriesRepository,
+    SqlalchemyLearnerMemoryChangesRepository,
     SqlalchemyMentorMessagesRepository,
     SqlalchemyMentorSessionsRepository,
 )
@@ -96,6 +98,8 @@ class SeedOrchestrator:
         self._intelligence_seeder.run(
             list(development_seed.mentor_sessions),
             list(development_seed.mentor_messages),
+            list(development_seed.learner_memories),
+            list(development_seed.tombstoned_mentor_session_ids),
         )
         self._communication_seeder.run(
             list(development_seed.communications),
@@ -162,6 +166,8 @@ def seed() -> None:
             IntelligenceSeeder(
                 SqlalchemyMentorSessionsRepository(session),
                 SqlalchemyMentorMessagesRepository(session),
+                SqlalchemyLearnerMemoriesRepository(session),
+                SqlalchemyLearnerMemoryChangesRepository(session),
             ),
         )
         orchestrator.run()

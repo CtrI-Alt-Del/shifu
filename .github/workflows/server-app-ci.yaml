@@ -503,6 +503,12 @@ jobs:
             tests/intelligence/core/use_cases/test_get_mentor_session_summary_use_case.py \
             tests/intelligence/core/use_cases/test_purge_mentor_summaries_for_account_use_case.py \
             tests/intelligence/core/use_cases/test_list_mentor_sessions_use_case.py \
+            tests/intelligence/core/use_cases/test_update_learner_memories_use_case.py \
+            tests/intelligence/core/use_cases/test_list_learner_memories_use_case.py \
+            tests/intelligence/core/use_cases/test_get_learner_memory_use_case.py \
+            tests/intelligence/core/use_cases/test_edit_learner_memory_use_case.py \
+            tests/intelligence/core/use_cases/test_remove_learner_memory_use_case.py \
+            tests/intelligence/core/use_cases/test_purge_learner_memories_for_account_use_case.py \
             tests/intelligence/core/use_cases/test_rename_mentor_session_use_case.py \
             tests/intelligence/core/use_cases/test_retry_mentor_response_use_case.py \
             tests/intelligence/core/use_cases/test_cancel_mentor_response_use_case.py \
@@ -541,6 +547,11 @@ jobs:
             tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_get_mentor_session_summary_controller.py \
             tests/intelligence/server/controllers/test_list_mentor_sessions_controller.py \
+            tests/intelligence/server/controllers/test_list_learner_memories_controller.py \
+            tests/intelligence/server/controllers/test_get_learner_memory_controller.py \
+            tests/intelligence/server/controllers/test_edit_learner_memory_controller.py \
+            tests/intelligence/server/controllers/test_remove_learner_memory_controller.py \
+            tests/intelligence/server/agentos/test_process_mentor_response_memories.py \
             tests/intelligence/server/controllers/test_mentor_runtime_composition_controller.py \
             tests/intelligence/server/controllers/test_remove_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_rename_mentor_session_controller.py \
@@ -563,6 +574,7 @@ jobs:
             tests/intelligence/server/controllers/test_mentor_attachments_controller.py \
             tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
             tests/messaging/inngest/jobs/intelligence/test_purge_mentor_summaries_on_account_deleted_job.py \
+            tests/messaging/inngest/jobs/intelligence/test_purge_learner_memories_on_account_deleted_job.py \
             tests/rest/handlers/test_app_error_handler.py \
             tests/shared/messaging/agentos/test_agentos_client.py \
             tests/shared/messaging/agentos/test_agentos_handoff_store.py \

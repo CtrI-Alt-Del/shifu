@@ -2,7 +2,7 @@ from asyncio import to_thread
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
-from typing import cast
+from typing import ClassVar, cast
 
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
@@ -140,14 +140,17 @@ class ActivityPayloadLimitMiddleware:
 
 
 class PrivateMentorNoStoreMiddleware:
+    _PRIVATE_PATH_PREFIXES: ClassVar[tuple[str, ...]] = (
+        '/intelligence/mentor-sessions',
+        '/intelligence/learner-memories',
+    )
+
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get('path', ''))
-        if scope['type'] != 'http' or not path.startswith(
-            '/intelligence/mentor-sessions'
-        ):
+        if scope['type'] != 'http' or not path.startswith(self._PRIVATE_PATH_PREFIXES):
             await self._app(scope, receive, send)
             return
 
@@ -340,6 +343,9 @@ class FastAPIApp:
                     purge_mentor_summaries_use_case=(
                         intelligence_registry.purge_mentor_summaries_use_case
                     ),
+                    purge_learner_memories_use_case=(
+                        intelligence_registry.purge_learner_memories_use_case
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                 ),
                 lambda inngest: CommunicationInngestMessaging.register_jobs(
@@ -404,6 +410,9 @@ class FastAPIApp:
         app.state.learning_workflows_registry = learning_registry
         app.state.generate_mentor_title_workflow = (
             intelligence_registry.mentor_title_provider
+        )
+        app.state.learner_memory_analyzer = (
+            intelligence_registry.learner_memory_analyzer
         )
         app.state.file_storage_provider = intelligence_registry.file_storage_provider
         app.state.mentor_attachment_extractor_provider = (

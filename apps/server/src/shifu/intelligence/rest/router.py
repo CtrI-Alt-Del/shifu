@@ -6,17 +6,29 @@ from shifu.intelligence.rest.controllers.cancel_mentor_response_controller impor
 from shifu.intelligence.rest.controllers.create_mentor_session_controller import (
     CreateMentorSessionController,
 )
+from shifu.intelligence.rest.controllers.edit_learner_memory_controller import (
+    EditLearnerMemoryController,
+)
+from shifu.intelligence.rest.controllers.get_learner_memory_controller import (
+    GetLearnerMemoryController,
+)
 from shifu.intelligence.rest.controllers.get_mentor_session_controller import (
     GetMentorSessionController,
 )
 from shifu.intelligence.rest.controllers.get_mentor_session_summary_controller import (
     GetMentorSessionSummaryController,
 )
+from shifu.intelligence.rest.controllers.list_learner_memories_controller import (
+    ListLearnerMemoriesController,
+)
 from shifu.intelligence.rest.controllers.list_mentor_sessions_controller import (
     ListMentorSessionsController,
 )
 from shifu.intelligence.rest.controllers.mentor_attachments_controller import (
     MentorAttachmentsController,
+)
+from shifu.intelligence.rest.controllers.remove_learner_memory_controller import (
+    RemoveLearnerMemoryController,
 )
 from shifu.intelligence.rest.controllers.remove_mentor_session_controller import (
     RemoveMentorSessionController,
@@ -54,4 +66,8 @@ class IntelligenceRouter:
         RetryMentorResponseController.handle(router)
         StreamMentorResponseController.handle(router)
         MentorAttachmentsController.handle(router)
+        ListLearnerMemoriesController.handle(router)
+        GetLearnerMemoryController.handle(router)
+        EditLearnerMemoryController.handle(router)
+        RemoveLearnerMemoryController.handle(router)
         return router

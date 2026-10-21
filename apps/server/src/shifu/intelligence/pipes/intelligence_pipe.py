@@ -4,6 +4,7 @@ from sqlalchemy.engine import Engine
 from shifu.intelligence.core.interfaces import (
     GenerateMentorTitleWorkflow,
     IntelligenceDatabase,
+    LearnerMemoryAnalyzerProvider,
     MentorAttachmentExtractorProvider,
 )
 from shifu.shared.core.interfaces import (
@@ -43,6 +44,12 @@ class IntelligencePipe:
         request: Request,
     ) -> MentorAttachmentExtractorProvider:
         return request.app.state.mentor_attachment_extractor_provider
+
+    @staticmethod
+    def get_learner_memory_analyzer_provider(
+        request: Request,
+    ) -> LearnerMemoryAnalyzerProvider:
+        return request.app.state.learner_memory_analyzer
 
     @staticmethod
     def get_identifier_provider() -> IdentifierProvider:

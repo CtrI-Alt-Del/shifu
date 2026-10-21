@@ -14,6 +14,8 @@ from shifu.intelligence.core.domain.structures import (
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
+    LearnerMemoriesRepository,
+    LearnerMemoryChangesRepository,
     MentorMessagesRepository,
     MentorResponseAttemptsRepository,
     MentorResponseEventsRepository,
@@ -55,6 +57,8 @@ class MentorResponseTestSetup:
             ('mentor_messages', MentorMessagesRepository),
             ('mentor_sessions', MentorSessionsRepository),
             ('mentor_session_summaries', MentorSessionSummariesRepository),
+            ('learner_memories', LearnerMemoriesRepository),
+            ('learner_memory_changes', LearnerMemoryChangesRepository),
             ('events', EventsRepository),
         ]:
             setattr(self.repositories, name, create_autospec(port, instance=True))

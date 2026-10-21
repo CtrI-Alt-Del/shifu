@@ -68,6 +68,7 @@ if TYPE_CHECKING:
         ReleaseMentorResponseClaimUseCase,
         RenewMentorResponseClaimUseCase,
         SummarizeMentorSessionContextUseCase,
+        UpdateLearnerMemoriesUseCase,
     )
     from shifu.intelligence.core.use_cases.finalize_mentor_response_use_case import (
         FinalizeMentorResponseUseCase,
@@ -117,6 +118,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         self,
         *,
         summarize_use_case: SummarizeMentorSessionContextUseCase,
+        update_memories_use_case: UpdateLearnerMemoriesUseCase,
         prepare_use_case: PrepareMentorResponseUseCase,
         publish_block_use_case: PublishMentorResponseBlockUseCase,
         assert_current_use_case: AssertMentorResponseCurrentUseCase,
@@ -134,6 +136,7 @@ class ProcessMentorResponseWorkflow(Workflow):
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
         self._summarize = summarize_use_case
+        self._update_memories = update_memories_use_case
         self._prepare = prepare_use_case
         self._publish_block = publish_block_use_case
         self._assert_current = assert_current_use_case
@@ -156,6 +159,11 @@ class ProcessMentorResponseWorkflow(Workflow):
                 Step(
                     name='summarize-conversation-context',
                     executor=self._summarize_context,
+                    max_retries=0,
+                ),
+                Step(
+                    name='update-learner-memories',
+                    executor=self._update_learner_memories,
                     max_retries=0,
                 ),
                 Step(
@@ -194,6 +202,7 @@ class ProcessMentorResponseWorkflow(Workflow):
     ) -> ProcessMentorResponseWorkflow:
         workflow = ProcessMentorResponseWorkflow(
             summarize_use_case=self._summarize,
+            update_memories_use_case=self._update_memories,
             prepare_use_case=self._prepare,
             publish_block_use_case=self._publish_block,
             assert_current_use_case=self._assert_current,
@@ -235,6 +244,26 @@ class ProcessMentorResponseWorkflow(Workflow):
         except Exception:  # noqa: BLE001 - prepare validates the input and decides the outcome.
             return StepOutput(content='summary-skipped')
         return StepOutput(content='summary-done')
+
+    async def _update_learner_memories(self, step_input: StepInput) -> StepOutput:
+        """Analyze the learner's statements off the event loop (spaCy and scikit-learn)."""
+        return await to_thread(self._update_learner_memories_blocking, step_input)
+
+    def _update_learner_memories_blocking(self, step_input: StepInput) -> StepOutput:
+        """Create or update learner memories; this step never fails the answer run."""
+        try:
+            raw = step_input.input
+            request = (
+                _Input.model_validate_json(raw, strict=True)
+                if isinstance(raw, str)
+                else _Input.model_validate(raw, strict=True)
+            )
+            self._update_memories.execute(
+                request.attempt_id, request.event_id or request.attempt_id
+            )
+        except Exception:  # noqa: BLE001 - prepare validates the input and decides the outcome.
+            return StepOutput(content='memories-skipped')
+        return StepOutput(content='memories-done')
 
     def _prepare_and_publish(self, step_input: StepInput) -> StepOutput:
         try:
@@ -339,6 +368,7 @@ class ProcessMentorResponseWorkflow(Workflow):
                         answer = self._attachment_answer.answer(
                             request.requested_part,
                             request.attachment_context,
+                            request.memories,
                         )
                     candidate = MentorResponseBlock(
                         block_key='generated-0',

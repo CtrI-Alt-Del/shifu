@@ -9,6 +9,8 @@ from evals.run import EVAL_CLASSES, main
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from shifu.intelligence.core.domain.structures import LearnerMemoryAnalysis
+
 
 class _FakeEvaluator:
     def __init__(self, selector: str, *, status: str = 'passed') -> None:
@@ -322,3 +324,94 @@ def test_summary_eval_flags_a_summarizer_that_changes_its_output_between_runs(
     for case in report['cases']:
         assert case['outcome'] == 'failed'
         assert case['metrics']['nondeterministic'] == 1
+
+
+def test_classification_eval_with_a_silent_analyzer_fails_every_case_and_exits_one(
+    tmp_path: Path,
+) -> None:
+    from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
+    from shifu.intelligence.core.domain.structures import LearnerMemoryAnalysis
+
+    class _SilentAnalyzer:
+        def analyze(self, text: str) -> LearnerMemoryAnalysis:
+            del text
+            return LearnerMemoryAnalysis(statements=(), sentence_count=1)
+
+    def builder(selector: str, *, mode: str) -> ClassifyLearnerMemoryEval:
+        assert selector == 'classify-learner-memory'
+        return ClassifyLearnerMemoryEval(
+            _SilentAnalyzer(), mode=mode, model_profile='test'
+        )
+
+    status = main(
+        ['--workflow', 'classify-learner-memory', '--output-dir', str(tmp_path)],
+        evaluator_builder=builder,
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+        environ={},
+    )
+
+    assert status == 1
+    report = json.loads(
+        (tmp_path / 'classify-learner-memory.json').read_text(encoding='utf-8')
+    )
+    assert report['status'] == 'failed'
+    categories = [case for case in report['cases'] if case['metrics']['recall'] == 0.0]
+    assert len(categories) == 4
+    assert report['counts']['passed'] == 1
+    assert report['per_class']['explanation_preference']['recall'] == 0.0
+    assert report['misclassified']
+
+
+def test_classification_eval_with_an_always_memory_analyzer_fails_the_false_positive_gate(
+    tmp_path: Path,
+) -> None:
+    from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
+    from shifu.intelligence.core.domain.enums import LearnerMemoryCategory
+    from shifu.intelligence.core.domain.structures import (
+        LearnerMemoryAnalysis,
+        LearnerMemoryStatement,
+    )
+
+    class _EagerAnalyzer:
+        def analyze(self, text: str) -> LearnerMemoryAnalysis:
+            return LearnerMemoryAnalysis(
+                statements=(
+                    LearnerMemoryStatement(
+                        category=LearnerMemoryCategory.DECLARED_KNOWLEDGE,
+                        content=text,
+                        concepts=(),
+                    ),
+                ),
+                sentence_count=1,
+            )
+
+    evaluator = ClassifyLearnerMemoryEval(
+        _EagerAnalyzer(), mode='double', model_profile='test'
+    )
+    report = evaluator.run(name='no_memory_false_positive_rate')
+
+    assert report['status'] == 'failed'
+    assert report['cases'][0]['metrics']['false_positive_rate'] == 1.0
+    assert report['cases'][0]['failure_code'] == 'classification_gate_not_met'
+
+
+def test_classification_eval_reports_an_unavailable_analyzer_without_text(
+    tmp_path: Path,
+) -> None:
+    from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
+
+    class _BrokenAnalyzer:
+        def analyze(self, text: str) -> LearnerMemoryAnalysis:
+            raise RuntimeError(text)
+
+    report = ClassifyLearnerMemoryEval(
+        _BrokenAnalyzer(), mode='double', model_profile='test'
+    ).run()
+
+    assert report['status'] == 'failed'
+    assert {case['failure_code'] for case in report['cases']} == {
+        'analyzer_unavailable'
+    }
+    assert 'misclassified' not in report
+    assert tmp_path.exists()
