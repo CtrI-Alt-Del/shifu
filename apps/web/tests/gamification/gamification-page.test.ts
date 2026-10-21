@@ -393,6 +393,10 @@ test('invokes the XP history server function and renders its records newest firs
       await route.fallback()
       return
     }
+    // The upstream GET /gamification/xp-history runs inside the SSR process
+    // and isn't observable here, but the server-function call itself is:
+    // pin its method so a regression to POST/PUT would fail this suite.
+    expect(route.request().method()).toBe('GET')
     historyRequests.push(route.request().url())
     await route.fulfill({
       body: JSON.stringify({
