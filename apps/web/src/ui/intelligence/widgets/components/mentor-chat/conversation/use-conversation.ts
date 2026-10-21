@@ -1,6 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
+import type { MentorSummaryMarker } from '@/core/intelligence/mentor-session-summary'
+import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+
+export type ConversationItem =
+  | { kind: 'message'; message: MentorMessage }
+  | { kind: 'summary-marker'; marker: MentorSummaryMarker }
+  | { kind: 'summary-failure'; messageId: string }
 
 export const useConversation = () => {
   const mentor = useMentorContext()
@@ -21,6 +28,31 @@ export const useConversation = () => {
           message.inReplyToMessageId !== response.learnerMessageId,
       )
     : messages
+  const summaryMarker = mentor.summary.current
+  const failureAfterMessageId = mentor.isSummarizingContext
+    ? null
+    : mentor.summary.failureAfterMessageId
+  const isBoundaryLoaded = visibleMessages.some(
+    (message) => message.id === summaryMarker?.boundaryMessageId,
+  )
+  // The marker sits where the summarization happened: right after the learner message
+  // that triggered it. Without a known, loaded trigger it falls back to the boundary.
+  const isTriggerLoaded = visibleMessages.some(
+    (message) => message.id === summaryMarker?.afterMessageId,
+  )
+  const markerAnchorMessageId = isTriggerLoaded
+    ? summaryMarker?.afterMessageId
+    : summaryMarker?.boundaryMessageId
+  const conversationItems: ConversationItem[] = []
+  if (summaryMarker && !isBoundaryLoaded && !isTriggerLoaded)
+    conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
+  for (const message of visibleMessages) {
+    conversationItems.push({ kind: 'message', message })
+    if (summaryMarker && message.id === markerAnchorMessageId)
+      conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
+    if (message.id === failureAfterMessageId)
+      conversationItems.push({ kind: 'summary-failure', messageId: message.id })
+  }
   const responseContent = mentor.response
     ? `${mentor.response.attemptId}:${mentor.response.blocks.map((block) => `${block.blockKey}:${block.content}`).join('|')}`
     : null
@@ -85,5 +117,5 @@ export const useConversation = () => {
     }
   }, [mentor.selectedSessionId])
 
-  return { ...mentor, handleScroll, scrollRef, visibleMessages }
+  return { ...mentor, handleScroll, scrollRef, visibleMessages, conversationItems }
 }

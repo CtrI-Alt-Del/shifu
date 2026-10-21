@@ -7,8 +7,10 @@ from shifu.shared.core.domain.errors import ServiceUnavailableError
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.intelligence.server.controllers.conftest import configure_mentor_access
 from tests.intelligence.server.controllers.mentor_response_scenarios import (
+    append_status,
     create_session,
     complete_response,
+    start_processing,
 )
 
 
@@ -184,3 +186,57 @@ class TestStreamMentorResponseController:
         assert [event['status'] for event in events] == ['queued', 'cancelled']
         assert all(event['block'] is None for event in events)
         assert 'Resposta sintética aprovada.' not in streamed.text
+
+
+class TestStreamMentorResponseControllerSummaryProgress:
+    def test_should_replay_summarize_context_then_the_closing_null_progress_event(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session, attempt, learner = create_session(mentor_client)
+        complete_response(
+            postgres_database,
+            session,
+            attempt,
+            learner,
+            progress=(
+                MentorWorkflowStep.SUMMARIZE_CONTEXT,
+                None,
+                MentorWorkflowStep.WRITE_ANSWER,
+            ),
+        )
+        response = mentor_client.get(
+            f'/intelligence/mentor-sessions/{session}/events',
+            headers={'Last-Event-ID': '1'},
+        )
+
+        events = [
+            json.loads(line.removeprefix('data:'))
+            for line in response.text.splitlines()
+            if line.startswith('data:')
+        ]
+
+        assert [event['progress'] for event in events[:3]] == [
+            'summarize-context',
+            None,
+            'write-answer',
+        ]
+        assert all(event['kind'] == 'status' for event in events[:3])
+        assert [event['sequence'] for event in events[:3]] == [2, 3, 4]
+
+    def test_should_resume_after_the_summarize_event_and_clear_progress_in_the_snapshot(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session, attempt, _ = create_session(mentor_client)
+        start_processing(postgres_database, attempt)
+        append_status(
+            postgres_database, session, attempt, MentorWorkflowStep.SUMMARIZE_CONTEXT
+        )
+        path = f'/intelligence/mentor-sessions/{session}'
+        assert mentor_client.get(path).json()['response']['progress'] == (
+            'summarize-context'
+        )
+        append_status(postgres_database, session, attempt, None)
+        snapshot = mentor_client.get(path).json()['response']
+
+        assert snapshot['progress'] is None
+        assert snapshot['last_sequence'] == 3

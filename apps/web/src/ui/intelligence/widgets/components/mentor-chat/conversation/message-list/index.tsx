@@ -1,15 +1,26 @@
-import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { AnimatePresence } from 'motion/react'
 import { MessageItem } from './message-item'
+import { SummaryMarker } from '../summary-marker'
+import type { ConversationItem } from '../use-conversation'
 
-export type MessageListProps = { messages: MentorMessage[]; surface?: 'page' | 'fab' }
+export type MessageListProps = { items: ConversationItem[]; surface?: 'page' | 'fab' }
 
-export const MessageList = ({ messages, surface = 'page' }: MessageListProps) => (
+export const MessageList = ({ items, surface = 'page' }: MessageListProps) => (
   <ol aria-label='Mensagens da conversa' className='space-y-4'>
     <AnimatePresence initial={false}>
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} surface={surface} />
-      ))}
+      {items.map((item) =>
+        item.kind === 'message' ? (
+          <MessageItem key={item.message.id} message={item.message} surface={surface} />
+        ) : item.kind === 'summary-marker' ? (
+          <li key={`summary-marker-${item.marker.version}`}>
+            <SummaryMarker marker={item.marker} variant='ready' />
+          </li>
+        ) : (
+          <li key={`summary-failure-${item.messageId}`}>
+            <SummaryMarker variant='failed' />
+          </li>
+        ),
+      )}
     </AnimatePresence>
   </ol>
 )

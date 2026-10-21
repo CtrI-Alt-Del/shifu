@@ -2,13 +2,21 @@ from dataclasses import replace
 from datetime import timedelta
 
 import pytest
+from datetime import UTC, datetime
+
+from shifu.intelligence.core.domain.entities import MentorMessage, MentorSessionSummary
 from shifu.intelligence.core.domain.enums import (
+    MentorSummaryExcerptKind,
     MentorAttachmentStatus,
     MentorIntent,
     MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import (
+    MentorConversationSummaryContext,
+    MentorConversationSummaryDraft,
+    MentorSummaryBoundary,
+    MentorSummaryExcerptSpan,
     MentorAttachmentView,
     MentorRouteResult,
 )
@@ -611,3 +619,156 @@ class TestPrepareMentorResponseUseCase(MentorResponsePhaseTestSetup):
 
         assert prepared is not None
         assert self.context_provider.read.call_count == 1
+
+    def ready_summary(self) -> tuple[MentorSessionSummary, MentorMessage]:
+        source = replace(
+            self.message,
+            id='old-learner',
+            content='Meu laço não mostra o último item.',
+            created_at=datetime(2026, 10, 1, tzinfo=UTC),
+        )
+        started = MentorSessionSummary.start(
+            id='summary',
+            account_id='account',
+            session_id='session',
+            attempt_id='old-attempt',
+            version=2,
+            boundary=MentorSummaryBoundary(
+                message_id='old-boundary', created_at=datetime(2026, 10, 2, tzinfo=UTC)
+            ),
+            covered_message_count=21,
+            first_message_id='old-learner',
+            now=self.now,
+        )
+        ready = started.complete(
+            MentorConversationSummaryDraft(
+                topics=('range', 'listas'),
+                excerpts=(
+                    MentorSummaryExcerptSpan(
+                        message_id='old-learner',
+                        start=0,
+                        end=34,
+                        kind=MentorSummaryExcerptKind.DOUBT,
+                    ),
+                ),
+                algorithm_version='v1',
+            ),
+            self.now,
+        )
+        return ready, source
+
+    def attachment_message(self) -> MentorMessage:
+        attachment = MentorAttachmentView(
+            attachment_id='ready',
+            filename='material.pdf',
+            media_type='application/pdf',
+            size_bytes=20,
+            status=MentorAttachmentStatus.READY,
+            failure_code=None,
+            analyzed_pages=(1,),
+            illegible_pages=(),
+            uninterpreted_pages=(),
+        )
+        return replace(
+            self.message,
+            content='Explique este trecho do documento.',
+            attachments=(attachment,),
+        )
+
+    def test_should_read_only_messages_after_the_boundary_and_render_the_summary(
+        self,
+    ) -> None:
+        ready, source = self.ready_summary()
+        message = self.attachment_message()
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_ready.return_value = ready
+        self.repositories.mentor_messages.find_range.return_value = (message,)
+        self.repositories.mentor_messages.find_by_ids.return_value = (source,)
+        self.route_provider.route.return_value = MentorRouteResult(
+            intents=(),
+            local_blocks=(self.block,),
+            generation_requests=('Explicar a próxima etapa.',),
+            clarification=None,
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        self.repositories.mentor_messages.find_all.assert_not_called()
+        self.repositories.mentor_messages.find_range.assert_called_once_with(
+            'account', 'session', ready.boundary
+        )
+        self.repositories.mentor_messages.find_by_ids.assert_called_once_with(
+            'account', 'session', ('old-learner',)
+        )
+        assert prepared is not None and prepared.attachment_request is not None
+        request = prepared.attachment_request
+        assert request.history == (message,)
+        assert request.summary == MentorConversationSummaryContext.from_summary(
+            ready, (source,)
+        )
+        assert request.summary is not None
+        assert request.summary.topics == ('range', 'listas')
+        assert request.context == self.context
+        assert request.requested_part == 'Explicar a próxima etapa.'
+        assert request.attachment_context == self.attachment_context
+
+    def test_should_pass_the_summary_topics_to_the_router(self) -> None:
+        ready, source = self.ready_summary()
+        self.repositories.mentor_session_summaries.find_ready.return_value = ready
+        self.repositories.mentor_messages.find_range.return_value = (self.message,)
+        self.repositories.mentor_messages.find_by_ids.return_value = (source,)
+
+        self.subject.execute('attempt', 'owner')
+
+        self.route_provider.route.assert_called_once_with(
+            self.message.content, self.context, ('range', 'listas')
+        )
+
+    def test_should_read_fresh_context_with_the_same_hints_and_references(self) -> None:
+        ready, source = self.ready_summary()
+        self.repositories.mentor_session_summaries.find_ready.return_value = ready
+        self.repositories.mentor_messages.find_range.return_value = (self.message,)
+        self.repositories.mentor_messages.find_by_ids.return_value = (source,)
+
+        self.subject.execute('attempt', 'owner')
+
+        self.context_provider.read.assert_called_once_with('account', ())
+
+    def test_should_keep_todays_inputs_without_a_ready_summary(self) -> None:
+        message = self.attachment_message()
+        self.repositories.mentor_messages.find_all.return_value = (message,)
+        self.route_provider.route.return_value = MentorRouteResult(
+            intents=(),
+            local_blocks=(self.block,),
+            generation_requests=('Explicar.',),
+            clarification=None,
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        self.repositories.mentor_messages.find_range.assert_not_called()
+        self.repositories.mentor_messages.find_by_ids.assert_not_called()
+        self.route_provider.route.assert_called_once_with(message.content, self.context)
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.history == (message,)
+        assert prepared.attachment_request.summary is None
+
+    def test_should_fail_closed_when_the_pending_message_is_not_after_the_boundary(
+        self,
+    ) -> None:
+        ready, source = self.ready_summary()
+        self.repositories.mentor_session_summaries.find_ready.return_value = ready
+        self.repositories.mentor_messages.find_range.return_value = ()
+        self.repositories.mentor_messages.find_by_ids.return_value = (source,)
+
+        with pytest.raises(ServiceUnavailableError):
+            self.subject.execute('attempt', 'owner')
+
+    def test_should_fail_closed_when_a_summary_source_message_is_missing(self) -> None:
+        ready, _ = self.ready_summary()
+        self.repositories.mentor_session_summaries.find_ready.return_value = ready
+        self.repositories.mentor_messages.find_range.return_value = (self.message,)
+        self.repositories.mentor_messages.find_by_ids.return_value = ()
+
+        with pytest.raises(ServiceUnavailableError):
+            self.subject.execute('attempt', 'owner')

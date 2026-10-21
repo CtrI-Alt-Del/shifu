@@ -41,6 +41,9 @@ export const MessageItem = ({
 
   return (
     <motion.li
+      data-message-id={message.id}
+      id={`mentor-message-${message.id}`}
+      tabIndex={-1}
       initial={
         shouldAnimateEntrance && !shouldReduceMotion ? { opacity: 0.6, y: 6 } : false
       }

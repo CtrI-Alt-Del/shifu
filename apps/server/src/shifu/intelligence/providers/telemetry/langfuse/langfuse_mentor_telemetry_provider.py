@@ -6,6 +6,7 @@ from time import perf_counter
 from typing import Literal
 from uuid import uuid4
 
+from shifu.intelligence.core.domain.enums import MentorSummaryFailureCode
 from shifu.intelligence.core.domain.structures import MentorReviewResult
 from shifu.intelligence.core.interfaces import MentorTelemetryProvider
 from shifu.intelligence.providers.telemetry.mentor_telemetry_correlation import (
@@ -91,7 +92,10 @@ class LangfuseMentorTelemetryProvider(MentorTelemetryProvider):
         profile: str,
         duration_ms: float,
         counts: Mapping[str, int],
-        outcome: Literal['passed', 'failed', 'abstained', 'cancelled'],
+        outcome: Literal[
+            'passed', 'failed', 'abstained', 'cancelled', 'ready', 'discarded'
+        ],
+        failure_code: MentorSummaryFailureCode | None = None,
     ) -> None:
         if self._observability is None:
             return
@@ -118,6 +122,11 @@ class LangfuseMentorTelemetryProvider(MentorTelemetryProvider):
             correlation_id=correlation_id,
             model_profile=safe_profile,
             counts=dict(counts),
+            failure_code=(
+                failure_code.value
+                if isinstance(failure_code, MentorSummaryFailureCode)
+                else None
+            ),
         )
 
     def record_answer(

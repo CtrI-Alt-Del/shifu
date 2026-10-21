@@ -42,6 +42,7 @@ class RemoveMentorSessionUseCase:
             if session is None:
                 raise MentorSessionNotFoundError
 
+            repositories.mentor_session_summaries.remove_by_session_id(session.id)
             revoke_session_attachments(
                 repositories,
                 self._access_provider,

@@ -22,6 +22,9 @@ from shifu.intelligence.core.interfaces.mentor_response_attempts_repository impo
 from shifu.intelligence.core.interfaces.mentor_response_events_repository import (
     MentorResponseEventsRepository,
 )
+from shifu.intelligence.core.interfaces.mentor_session_summaries_repository import (
+    MentorSessionSummariesRepository,
+)
 from shifu.intelligence.core.interfaces.mentor_sessions_repository import (
     MentorSessionsRepository,
 )
@@ -44,6 +47,7 @@ class IntelligenceDatabaseRepositories:
     mentor_attachment_batches: MentorAttachmentBatchesRepository
     mentor_attachments: MentorAttachmentsRepository
     mentor_attachment_chunks: MentorAttachmentChunksRepository
+    mentor_session_summaries: MentorSessionSummariesRepository
 
 
 class IntelligenceDatabase(Protocol):

@@ -18,6 +18,7 @@ from shifu.intelligence.core.interfaces import (
     MentorResponseAttemptsRepository,
     MentorResponseEventsRepository,
     MentorSessionsRepository,
+    MentorSessionSummariesRepository,
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
@@ -53,6 +54,7 @@ class MentorResponseTestSetup:
             ('mentor_response_events', MentorResponseEventsRepository),
             ('mentor_messages', MentorMessagesRepository),
             ('mentor_sessions', MentorSessionsRepository),
+            ('mentor_session_summaries', MentorSessionSummariesRepository),
             ('events', EventsRepository),
         ]:
             setattr(self.repositories, name, create_autospec(port, instance=True))
@@ -139,3 +141,6 @@ class MentorResponseTestSetup:
             items=[self.message], next_cursor=None
         )
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
+        self.repositories.mentor_session_summaries.find_ready.return_value = None
+        self.repositories.mentor_session_summaries.find_failed.return_value = None
+        self.repositories.mentor_session_summaries.find_processing_for_update.return_value = None

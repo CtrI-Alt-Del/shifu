@@ -164,6 +164,11 @@ class TestSubmitMentorMessageController:
             'messages',
             'pending_learner_message_id',
             'response',
+            'summary',
+        }
+        assert accepted_body['summary'] == {
+            'current': None,
+            'failure_after_message_id': None,
         }
         response_snapshot = accepted_body['response']
         assert {
