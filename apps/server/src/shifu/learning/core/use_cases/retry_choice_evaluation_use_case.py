@@ -41,6 +41,7 @@ class RetryChoiceEvaluationUseCase:
             goal = repositories.goals.find_by_id(goal_id)
             if goal is None or goal.id != goal_id or goal.account_id != account_id:
                 raise NotFoundError
+
             experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
                 goal_id, skill_id
             )
@@ -50,6 +51,7 @@ class RetryChoiceEvaluationUseCase:
                 or experience.skill_id != skill_id
             ):
                 raise NotFoundError
+
             locked_experience = repositories.skill_experiences.find_by_id_for_update(
                 experience.id
             )
@@ -64,6 +66,7 @@ class RetryChoiceEvaluationUseCase:
                 or attempt.grading_snapshot is None
             ):
                 raise NotFoundError
+
             if attempt.kind is ActivityAttemptKind.DIAGNOSTIC and (
                 locked_experience.status is not SkillExperienceStatus.DIAGNOSING
                 or diagnostic_run_id is None
@@ -71,8 +74,10 @@ class RetryChoiceEvaluationUseCase:
                 or attempt.diagnostic_run_id != diagnostic_run_id
             ):
                 raise ConflictError
+
             if attempt.kind is not ActivityAttemptKind.DIAGNOSTIC and diagnostic_run_id:
                 raise ConflictError
+
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
                     attempt_id
@@ -80,6 +85,7 @@ class RetryChoiceEvaluationUseCase:
             )
             if evaluation is None:
                 raise NotFoundError
+
             if evaluation.status is not ActivityEvaluationStatus.FAILED:
                 raise ConflictError
 

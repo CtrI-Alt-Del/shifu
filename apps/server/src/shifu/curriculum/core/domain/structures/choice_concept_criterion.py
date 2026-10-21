@@ -20,6 +20,7 @@ class ChoiceConceptCriterion:
                     getattr(self, name), error_type=InvalidActivityError
                 ).value,
             )
+
         for score in (self.correct_score, self.incorrect_score):
             if score is not None and not 0 <= score <= 100:
                 raise InvalidActivityError

@@ -17,6 +17,7 @@ class GetGoalUseCase:
             goal = repositories.goals.find_by_id(goal_id)
             if goal is None or goal.account_id != account_id:
                 raise NotFoundError
+
             experiences = tuple(
                 repositories.skill_experiences.find_many_by_goal_id(goal_id)
             )

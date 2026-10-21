@@ -35,6 +35,7 @@ class QueueCommunicationUseCase:
     def execute(self, request: CommunicationRequest) -> Communication:
         with self._communication_database.transaction() as repositories:
             existing = repositories.communications.find_by_id(request.communication_id)
+
             if existing is None:
                 existing = repositories.communications.find_by_idempotency_key(
                     request.idempotency_key
@@ -82,7 +83,9 @@ class QueueCommunicationUseCase:
     ) -> None:
         if existing.id != request.communication_id:
             raise InvalidCommunicationError
+
         if existing.identity_action_token_id != request.identity_action_token_id:
             raise InvalidCommunicationError
+
         if existing.idempotency_key != request.idempotency_key:
             raise InvalidCommunicationError

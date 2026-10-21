@@ -1,4 +1,5 @@
 import type { CompetencyDetail } from '@/core/learning/competency-detail'
+import { AppError } from '@/core/errors/app-error'
 import type { SkillExperienceDetail } from '@/core/learning/skill-experience'
 import type {
   ChoiceActivityDetail,
@@ -54,6 +55,22 @@ type ActivityWire = {
         permitted_commands: { id: string; executable: string; arguments: string[] }[]
         criteria: { key: string; name: string; weight_percentage: number }[]
       }
+    | {
+        key: string
+        kind: 'react'
+        prompt: string
+        initial_files: { path: string; content: string; editable: boolean }[]
+        entrypoint: string
+        editable_paths: string[]
+        fixed_dependencies: { name: string; version: string }[]
+        permitted_commands: { id: string; executable: string; arguments: string[] }[]
+        additional_file_policy: {
+          allowed_directories: string[]
+          allowed_extensions: string[]
+          max_files: number
+        } | null
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
   >
   can_submit: boolean
   latest_attempt_id?: string | null
@@ -64,27 +81,60 @@ type ActivityWire = {
 function mapActivityQuestion(
   question: ActivityWire['questions'][number],
 ): ActivityQuestion {
-  if (question.kind !== 'javascript_stdin') return question
-  return {
-    key: question.key,
-    kind: question.kind,
-    prompt: question.prompt,
-    initialFiles: question.initial_files,
-    entrypoint: question.entrypoint,
-    editablePaths: question.editable_paths,
-    fixedDependencies: question.fixed_dependencies,
-    permittedCommands: question.permitted_commands,
-    criteria: question.criteria.map((criterion) => ({
-      key: criterion.key,
-      name: criterion.name,
-      weightPercentage: criterion.weight_percentage,
-    })),
+  if (question.kind === 'single_choice' || question.kind === 'multiple_selection') {
+    return question
   }
+  if (question.kind === 'javascript_stdin') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      initialFiles: question.initial_files,
+      entrypoint: question.entrypoint,
+      editablePaths: question.editable_paths,
+      fixedDependencies: question.fixed_dependencies,
+      permittedCommands: question.permitted_commands,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
+  if (question.kind === 'react') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      initialFiles: question.initial_files,
+      entrypoint: question.entrypoint,
+      editablePaths: question.editable_paths,
+      fixedDependencies: question.fixed_dependencies,
+      permittedCommands: question.permitted_commands,
+      additionalFilePolicy: question.additional_file_policy
+        ? {
+            allowedDirectories: question.additional_file_policy.allowed_directories,
+            allowedExtensions: question.additional_file_policy.allowed_extensions,
+            maxFiles: question.additional_file_policy.max_files,
+          }
+        : null,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
+  throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
 function mapAnswer(answer: ActivityAnswer) {
-  if (answer.kind === 'javascript_stdin') {
-    return { kind: answer.kind, question_key: answer.questionKey, files: answer.files }
+  if (!('selectedOptionKeys' in answer)) {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      files: answer.files,
+    }
   }
   return {
     kind: answer.kind ?? 'single_choice',
@@ -140,6 +190,25 @@ type AttemptWire = {
           observation_id: string
         }[]
       }
+    | {
+        question_key: string
+        kind: 'react'
+        prompt: string
+        submitted_files: { path: string; content: string }[]
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
   >
 }
 
@@ -165,7 +234,10 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         }
       : wire.next_action,
     questions: wire.questions?.map((question): ActivityResultQuestion => {
-      if ('kind' in question && question.kind === 'javascript_stdin') {
+      if (
+        'kind' in question &&
+        (question.kind === 'javascript_stdin' || question.kind === 'react')
+      ) {
         return {
           key: question.question_key,
           kind: question.kind,
@@ -187,7 +259,7 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         }
       }
       if (!('selected_option_keys' in question)) {
-        throw new Error('Resposta de questão desconhecida.')
+        throw new AppError('Resposta de questão desconhecida.', 'Resultado inválido')
       }
       return {
         key: question.question_key,
@@ -212,6 +284,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body.skills
     },
 
@@ -230,6 +303,7 @@ export const LearningService = (restClient: RestClient) => {
         throw new CurriculumGapError()
       }
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -239,6 +313,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -261,6 +336,7 @@ export const LearningService = (restClient: RestClient) => {
         throw new CurriculumGapError()
       }
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -302,6 +378,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -321,6 +398,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return {
         ...response.body,
         activitySequence: response.body.activitySequence ?? [],
@@ -358,6 +436,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -385,6 +464,7 @@ export const LearningService = (restClient: RestClient) => {
       })
 
       if (response.isFailure) response.throwError()
+
       return response.body.goals
     },
 
@@ -398,6 +478,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -427,6 +508,7 @@ export const LearningService = (restClient: RestClient) => {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -442,6 +524,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       })
       if (response.isFailure) response.throwError()
+
       const body = response.body
 
       return {
@@ -483,6 +566,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       const body = response.body
       return {
         status: body.status,
@@ -536,6 +620,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return {
         attemptId: response.body.attempt_id,
         status: response.body.status,
@@ -553,6 +638,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return mapAttempt(response.body)
     },
 
@@ -581,6 +667,7 @@ export const LearningService = (restClient: RestClient) => {
         },
       )
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -596,6 +683,7 @@ export const LearningService = (restClient: RestClient) => {
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
+
       return response.body.created
     },
 

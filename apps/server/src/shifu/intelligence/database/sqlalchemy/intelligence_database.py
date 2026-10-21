@@ -6,7 +6,18 @@ from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyMentorAttachmentBatchesRepository,
+    SqlalchemyMentorAttachmentChunksRepository,
+    SqlalchemyMentorAttachmentsRepository,
+    SqlalchemyMentorMessagesRepository,
+    SqlalchemyMentorResponseAttemptsRepository,
+    SqlalchemyMentorResponseEventsRepository,
+    SqlalchemyMentorSessionsRepository,
+    SqlalchemyMentorSessionSummariesRepository,
     SqlalchemyPlanningSessionsRepository,
+)
+from shifu.intelligence.database.sqlalchemy.repositories.mentor_embeddings_repository import (
+    SqlalchemyMentorEmbeddingsRepository,
 )
 from shifu.shared.core.interfaces import IdentifierProvider
 from shifu.shared.database.sqlalchemy.repositories import SqlalchemyEventsRepository
@@ -38,6 +49,25 @@ class SqlalchemyIntelligenceDatabase:
                     session,
                     self._engine,
                     id_provider=self._id_provider,
+                ),
+                mentor_sessions=SqlalchemyMentorSessionsRepository(session),
+                mentor_embeddings=SqlalchemyMentorEmbeddingsRepository(session),
+                mentor_messages=SqlalchemyMentorMessagesRepository(session),
+                mentor_response_attempts=SqlalchemyMentorResponseAttemptsRepository(
+                    session
+                ),
+                mentor_response_events=SqlalchemyMentorResponseEventsRepository(
+                    session
+                ),
+                mentor_attachment_batches=SqlalchemyMentorAttachmentBatchesRepository(
+                    session
+                ),
+                mentor_attachments=SqlalchemyMentorAttachmentsRepository(session),
+                mentor_attachment_chunks=SqlalchemyMentorAttachmentChunksRepository(
+                    session
+                ),
+                mentor_session_summaries=SqlalchemyMentorSessionSummariesRepository(
+                    session
                 ),
             )
             try:

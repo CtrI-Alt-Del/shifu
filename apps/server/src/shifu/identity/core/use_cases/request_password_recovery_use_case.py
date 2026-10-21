@@ -108,6 +108,7 @@ class RequestPasswordRecoveryUseCase:
     def queue_and_record(self, snapshot: PasswordRecoveryDeliverySnapshot) -> None:
         if self._delivery_gateway is None:
             return
+
         status = ActionTokenDeliveryQueueStatus.DELIVERY_UNAVAILABLE
         try:
             result = self._delivery_gateway.queue(
@@ -123,6 +124,7 @@ class RequestPasswordRecoveryUseCase:
             status = result.status
         except Exception:  # noqa: BLE001 - queue failure is a safe delivery state.
             status = ActionTokenDeliveryQueueStatus.DELIVERY_UNAVAILABLE
+
         self._record_queue_status(snapshot.identity_action_token_id, status)
 
     def _record_queue_status(
@@ -135,6 +137,7 @@ class RequestPasswordRecoveryUseCase:
             token = token_repository.find_by_id(identity_action_token_id)
             if token is None:
                 return
+
             if token.record_delivery_status(
                 AccountActionTokenDeliveryStatus(status.value),
                 self._clock_provider.now(),
@@ -200,6 +203,7 @@ class RequestPasswordRecoveryUseCase:
     ) -> None:
         if token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

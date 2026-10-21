@@ -25,6 +25,11 @@ from shifu.identity.database.sqlalchemy.repositories import (
     SqlalchemyAccountActionTokensRepository,
     SqlalchemyAccountsRepository,
 )
+from shifu.intelligence.database import IntelligenceSeeder
+from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyMentorMessagesRepository,
+    SqlalchemyMentorSessionsRepository,
+)
 from shifu.learning.database import LearningSeeder
 from shifu.learning.database.sqlalchemy.repositories import (
     SqlalchemyActivityAttemptsRepository,
@@ -47,17 +52,20 @@ class SeedOrchestrator:
         learning_seeder: LearningSeeder,
         communication_seeder: CommunicationSeeder,
         events_repository: SqlalchemyEventsRepository,
+        intelligence_seeder: IntelligenceSeeder,
     ) -> None:
         self._identity_seeder = identity_seeder
         self._curriculum_seeder = curriculum_seeder
         self._learning_seeder = learning_seeder
         self._communication_seeder = communication_seeder
         self._events_repository = events_repository
+        self._intelligence_seeder: IntelligenceSeeder = intelligence_seeder
 
     def clear(self) -> None:
         self._events_repository.remove_all()
         self._communication_seeder.clear()
         self._learning_seeder.clear()
+        self._intelligence_seeder.clear()
         self._identity_seeder.clear()
         self._curriculum_seeder.clear()
 
@@ -84,6 +92,10 @@ class SeedOrchestrator:
             list(development_seed.competency_progresses),
             list(development_seed.activity_attempts),
             list(development_seed.activity_evaluations),
+        )
+        self._intelligence_seeder.run(
+            list(development_seed.mentor_sessions),
+            list(development_seed.mentor_messages),
         )
         self._communication_seeder.run(
             list(development_seed.communications),
@@ -147,6 +159,10 @@ def seed() -> None:
                 SqlalchemyDeliveryAttemptsRepository(session),
             ),
             SqlalchemyEventsRepository(session),
+            IntelligenceSeeder(
+                SqlalchemyMentorSessionsRepository(session),
+                SqlalchemyMentorMessagesRepository(session),
+            ),
         )
         orchestrator.run()
 

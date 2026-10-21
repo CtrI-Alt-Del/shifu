@@ -29,5 +29,6 @@ class Concept:
         ).value
         if self.position < 1 or self.id in self.prerequisite_ids:
             raise InvalidCompetencyError
+
         if len(self.prerequisite_ids) != len(set(self.prerequisite_ids)):
             raise InvalidCompetencyError

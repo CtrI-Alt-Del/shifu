@@ -107,8 +107,11 @@ class CompetencyProgress:
             self.hard_activity_score or Decimal('0')
         ) >= Decimal('80'):
             return CompetencyProgressStatus.MASTERED
+
         if progress >= Decimal('70'):
             return CompetencyProgressStatus.PROFICIENT
+
         if progress >= Decimal('40'):
             return CompetencyProgressStatus.DEVELOPING
+
         return CompetencyProgressStatus.LEARNING

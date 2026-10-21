@@ -12,6 +12,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
@@ -20,6 +21,8 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_MATERIAL_PYTHON_ID,
     SEED_SKILL_PYTHON_ID,
@@ -69,6 +72,36 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetMaterialDetailController:
+    def test_released_material_returns_curricular_content_without_writing_events(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            progress = repositories.competency_progresses.find_by_id(
+                SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+            )
+            assert experience is not None and progress is not None
+            experience.status = SkillExperienceStatus.LEARNING
+            repositories.skill_experiences.update(experience)
+            progress.content_released = True
+            repositories.competency_progresses.update(progress)
+        before_events = _event_count(postgres_database)
+
+        response = _get(client, material_id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID)
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body['availability'] == 'available'
+        assert body['materialId'] == SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID
+        assert body['materialTitle']
+        assert body['content']
+        assert _event_count(postgres_database) == before_events
+
     def test_unreleased_material_does_not_disclose_content_or_write_events(
         self,
         client: TestClient,
@@ -80,6 +113,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
@@ -98,6 +132,7 @@ class TestGetMaterialDetailController:
         material_response = _get(
             client, material_id=SEED_ADAPTIVE_LAB_CONDITIONS_MATERIAL_ID
         ).json()
+
         assert material_response['availability'] == 'unavailable'
         assert 'recommendation' not in material_response
 
@@ -109,6 +144,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert body['competencyId'] == SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID
         assert 'materialTitle' not in body
@@ -122,6 +158,7 @@ class TestGetMaterialDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert 'materialTitle' not in body
         assert 'content' not in body
@@ -143,6 +180,7 @@ class TestGetMaterialDetailController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert response.status_code == 404
 
     def test_removed_incompatible_skill_is_a_private_absence(

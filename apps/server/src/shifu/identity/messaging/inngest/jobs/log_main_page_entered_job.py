@@ -33,10 +33,12 @@ class _Payload(BaseModel):
             raise ValueError(
                 'Main-page event time must be an ISO-8601 string'
             ) from error
+
         if parsed_time.tzinfo is None or parsed_time.utcoffset() != UTC.utcoffset(
             parsed_time
         ):
             raise ValueError('Main-page event time must be UTC')
+
         return value
 
 

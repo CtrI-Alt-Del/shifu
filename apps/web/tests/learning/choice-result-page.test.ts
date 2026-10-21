@@ -105,6 +105,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   bff,
 }) => {
   const calls: Array<{ url: string; body: string }> = []
+
   await bff.route(async (route) => {
     const url = route.request().url()
     const body = route.request().postData() ?? ''
@@ -138,11 +139,12 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   })
 
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
   await expect(
     authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
   ).toBeVisible()
   const progressHeading = authenticatedPage.getByRole('heading', {
-    name: 'Progresso da Competência',
+    name: 'Progresso demonstrado da Habilidade',
   })
   await expect(progressHeading).toBeVisible()
   await expect(
@@ -196,7 +198,7 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
 test('renders mixed official details as independent keyboard-accessible disclosures', async ({
   authenticatedPage,
   bff,
-}) => {
+}, testInfo) => {
   await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
   const mixedActivity = {
     ...activity,
@@ -280,6 +282,10 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   })
   const choiceDisclosure = choiceSummary.locator('..')
   const codeDisclosure = codeSummary.locator('..')
+  const resultContent = authenticatedPage
+    .getByRole('main')
+    .filter({ has: choiceSummary })
+    .last()
 
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
   await expect(
@@ -287,7 +293,7 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   ).toBeVisible()
   await expect(
     authenticatedPage.getByRole('heading', {
-      name: 'Progresso da Competência',
+      name: 'Progresso demonstrado da Habilidade',
     }),
   ).toBeVisible()
   await expect(
@@ -298,14 +304,17 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   await expect(
     authenticatedPage.getByText('console.log(Number(input) * 2)'),
   ).not.toBeVisible()
-  await authenticatedPage.getByRole('main').nth(2).screenshot({
-    path: '/tmp/shifu-choice-result-default-desktop.png',
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-default-desktop.png'),
   })
 
   await codeSummary.focus()
   await authenticatedPage.keyboard.press('Space')
+
   await expect(codeDisclosure).toHaveAttribute('open', '')
+
   await choiceSummary.click()
+
   await expect(choiceDisclosure).toHaveAttribute('open', '')
   await expect(codeDisclosure).toHaveAttribute('open', '')
   await expect(
@@ -317,12 +326,13 @@ test('renders mixed official details as independent keyboard-accessible disclosu
   await expect(authenticatedPage.getByText('stdin · nível 75')).toBeVisible()
   await expect(authenticatedPage.getByText('Somente leitura')).toBeVisible()
   await expect(authenticatedPage.getByText('Terminal')).toHaveCount(0)
-  await authenticatedPage.getByRole('main').nth(2).screenshot({
-    path: '/tmp/shifu-choice-result-expanded-desktop.png',
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-expanded-desktop.png'),
   })
 
   await codeSummary.focus()
   await authenticatedPage.keyboard.press('Enter')
+
   await expect(codeDisclosure).not.toHaveAttribute('open', '')
   await expect(choiceDisclosure).toHaveAttribute('open', '')
   await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
@@ -346,9 +356,9 @@ test('renders mixed official details as independent keyboard-accessible disclosu
     if (bounds === null) throw new Error('A result summary score must be rendered')
     expect(bounds.labelBottom).toBeLessThanOrEqual(bounds.scoreTop)
   }
-  await authenticatedPage
-    .locator('main > main')
-    .screenshot({ path: '/tmp/shifu-choice-result-expanded-mobile-current.png' })
+  await resultContent.screenshot({
+    path: testInfo.outputPath('choice-result-expanded-mobile.png'),
+  })
 })
 
 test.describe('ChoiceResultPage route coverage', () => {
@@ -401,6 +411,7 @@ test.describe('ChoiceResultPage route coverage', () => {
     }) => {
       let attemptReads = 0
       const requestUrls: string[] = []
+
       await bff.route(async (route) => {
         const body = route.request().postData() ?? ''
         const payload = decodeURIComponent(`${route.request().url()} ${body}`)
@@ -424,6 +435,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Avaliação em andamento' }),
@@ -463,6 +475,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       let attemptUrl = ''
       let retryUrl = ''
       let attemptReads = 0
+
       await bff.route(async (route) => {
         const requestUrl = route.request().url()
         const body = route.request().postData() ?? ''
@@ -505,16 +518,19 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(
         authenticatedPage.getByRole('heading', {
           name: 'A avaliação não pôde ser concluída',
         }),
       ).toBeVisible()
       await authenticatedPage.getByRole('button', { name: 'Tentar novamente' }).click()
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
       ).toBeVisible()
       await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+
       await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
       expect(retryUrl).not.toBe('')
       expect(attemptReads).toBeGreaterThanOrEqual(2)
@@ -545,6 +561,7 @@ test.describe('ChoiceResultPage route coverage', () => {
       })
 
       await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
       await expect(
         authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
       ).toBeVisible()
@@ -552,6 +569,7 @@ test.describe('ChoiceResultPage route coverage', () => {
         authenticatedPage.getByLabel('Nota da Atividade 100 de 100'),
       ).toBeVisible()
       await authenticatedPage.getByText(/Questão 1 · escolha única/).click()
+
       await expect(authenticatedPage.getByText('A soma é 4.')).toBeVisible()
       await expect(
         authenticatedPage.getByRole('button', { name: 'Voltar para Atividade' }),

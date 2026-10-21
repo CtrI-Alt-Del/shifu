@@ -25,6 +25,7 @@ class ConceptObservation:
             or self.submitted_at > self.completed_at
         ):
             raise InvalidAttemptError
+
         for score in self.question_scores:
             if score is not None:
                 Percentage.create(score, error_type=InvalidAttemptError)
@@ -33,6 +34,7 @@ class ConceptObservation:
     def value(self) -> Decimal | None:
         if any(score is None for score in self.question_scores):
             return None
+
         return sum(
             (score for score in self.question_scores if score is not None),
             Decimal('0'),

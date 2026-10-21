@@ -115,6 +115,7 @@ class TestDeliverCommunicationJob:
         inngest_fixture.clear_mailpit()
         _request_password_recovery(inngest_fixture)
         messages = inngest_fixture.wait_for_mail()
+
         assert len(messages) == 1
         _assert_password_recovery_email(inngest_fixture, messages[0])
 

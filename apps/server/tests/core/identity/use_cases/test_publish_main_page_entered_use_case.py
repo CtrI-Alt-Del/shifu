@@ -54,6 +54,7 @@ class TestPublishMainPageEnteredUseCase:
         event = cast(
             'MainPageEnteredEvent', self.events_repository.add.call_args.args[0]
         )
+
         assert event.name == 'app/main-page.entered'
         assert event.payload.event_id == '01JEVENT000000000000000001'
         assert event.payload.account_id == '01JACCOUNT000000000000000001'

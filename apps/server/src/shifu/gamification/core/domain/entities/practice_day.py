@@ -28,6 +28,7 @@ class PracticeDay:
         ChronologicalPeriod.create(
             self.practiced_at, self.recognized_at, error_type=InvalidGamificationError
         )
+
         if self.practice_date != _local_date(self.practiced_at, self.time_zone):
             raise InvalidGamificationError
 
@@ -44,6 +45,7 @@ class PracticeDay:
         ChronologicalPeriod.create(
             practiced_at, recognized_at, error_type=InvalidGamificationError
         )
+
         zone = NonEmptyText.create(time_zone, error_type=InvalidGamificationError).value
         return cls(
             id=NonEmptyText.create(id, error_type=InvalidGamificationError).value,

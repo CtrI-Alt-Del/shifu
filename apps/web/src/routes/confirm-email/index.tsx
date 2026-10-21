@@ -11,5 +11,6 @@ export const Route = createFileRoute('/confirm-email/')({
 
 function ConfirmEmailRoute() {
   const { token } = Route.useSearch()
+
   return <ConfirmEmailPage token={token} />
 }

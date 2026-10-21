@@ -84,6 +84,7 @@ class ConfirmAccountUseCase:
             return AccountConfirmationResult(
                 result=AccountConfirmationResultStatus.INVALID
             )
+
         results = {
             AccountActionTokenStatus.USED: AccountConfirmationResultStatus.USED,
             AccountActionTokenStatus.INVALIDATED: (
@@ -117,6 +118,7 @@ class ConfirmAccountUseCase:
         for sibling_token in all_confirmation_tokens:
             if sibling_token.id in seen_token_ids:
                 continue
+
             seen_token_ids.add(sibling_token.id)
             if sibling_token.status is AccountActionTokenStatus.PENDING:
                 sibling_token.invalidate(confirmed_at)
@@ -152,6 +154,7 @@ class ConfirmAccountUseCase:
     ) -> None:
         if confirmation_token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

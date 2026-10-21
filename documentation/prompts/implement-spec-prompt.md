@@ -10,7 +10,55 @@ contracts, exclusions and checkers. Organize execution directly in the current
 task. Use focused delegation when scopes are independent; there is no Plan
 artifact, phase/task approval sequence or `create-plan` transition.
 
+## Persistence and stopping rule
+
+Own implementation and verification until Evaluation is `ready`. Do not stop
+when one named check passes, code is complete or a reviewer responds while other
+required obligations remain actionable. A follow-up about one check steers the
+ongoing Spec unless the user explicitly narrows or cancels the objective.
+
+1. Reconcile all CI/VM and baseline checks, CA mappings, open ACH findings and
+   independent review against Evaluation before selecting the next action.
+2. Execute outstanding checks, diagnose failures, fix authorized in-contract
+   causes and rerun affected verification. After each correction inspect the
+   entire remaining obligation set; retain unaffected current passing proof.
+3. Investigate local setup failures within existing authorization: health and
+   configuration, expired browser state, source-defined accounts/data and stale
+   fixtures/seed definitions. Use isolated fixtures or task-owned environments.
+   A first failed attempt or missing setup needs diagnosis, not immediate handoff.
+4. Obtain required review/rechecks, resolve blocking findings and reconcile
+   Documentation Alignment. Never remove checks or weaken assertions/thresholds
+   merely to pass; material changes go through contract reconciliation.
+5. Before yielding, audit every remaining check/finding and continue whenever a
+   safe authorized action can advance it. Handoff describes an interruption or
+   genuine blocker; it does not replace executable work.
+
+A stale fixture/seed source is actionable when intended data is defined by the
+contract. Inspect its consumers and applicable Rules, correct source definitions,
+validate them and rerun the originally blocked check. Distinguish source correction
+from applying a seed: inspect the real command/reset behavior and use disposable
+or isolated targets. Never reset/reseed shared data without explicit authorization.
+Ask only for materially ambiguous intended data or a required shared operation
+that lacks authorization after isolated alternatives have been investigated.
+
+Stop unfinished work only for an explicit stop/scope restriction, a genuinely
+missing material decision/authorization, or an external dependency unavailable
+after relevant diagnosis and permitted recovery. Finish independent work first;
+record affected IDs, attempted recovery/proof, why outside action is needed and
+the precise required input/change. Do not invent non-applicability or mark missing
+proof Passed. Resume when the blocker clears without asking again for authority.
+
 ## Establish or resume the contract
+
+Read the complete canonical templates in `documentation/templates/sdd/`:
+
+- [`documentation/templates/sdd/spec.md`](../templates/sdd/spec.md) for contract structure;
+- [`documentation/templates/sdd/evaluation.md`](../templates/sdd/evaluation.md) for progress, evidence and continuation.
+
+Use the Evaluation template as the starting structure at kickoff. On resume,
+reconcile active artifacts with these templates while preserving historical
+requirements, identifiers and observed results; never overwrite existing evidence
+with template placeholders.
 
 Read the current Spec and Evaluation, applicable module/architecture/Rule
 sources, relevant tooling/manifests and saved design references. Follow the SDD
@@ -24,16 +72,23 @@ Do not activate the Spec Reviewer for implementation evidence. A material
 contract change routes through `create-spec`; preserve history, reconcile
 source/design/checkers, increment the revision and invalidate affected proof.
 
-Create or reconcile `evaluation.md` before editing. Record the Spec revision,
-current branch/candidate and known baseline facts. Initialize acceptance rows
-and the small handoff using the [Evaluation template](../templates/sdd/evaluation.md).
+Create or reconcile `evaluation.md` before editing. Record the current contract,
+branch/candidate and known baseline facts. The Spec owns its revision; do not
+duplicate `spec_revision` in Evaluation metadata. Identify evaluated revisions
+in result details where material. Initialize per-CA Progress rows separating
+implementation from verification, plus Current State, Check Results, Findings,
+Lessons Learned, Handoff and Delivery using the
+[Evaluation template](../templates/sdd/evaluation.md).
 Read existing failure reports; do not launch integration suites for a baseline
 or to complete kickoff paperwork. Environmental availability can be inspected
 without starting a behavioral suite.
 
 On continuation, compare recorded progress/evidence with the current tree.
 Completed criteria stay completed only when their covered behavior and
-proofs remain unchanged. Recover unfinished work from the diff and findings;
+proofs remain unchanged. Inspect recorded active process sessions/ports before
+starting services. Reconcile active legacy sections without rewriting historical
+IDs/results; remove duplicated revision metadata only after verifying its claims.
+Recover unfinished work from the diff and findings;
 choose the next implementation action without reconstructing a task ledger.
 
 ## Autonomous execution and bounded ownership
@@ -45,15 +100,16 @@ product behavior, scope, ownership, public/persistent contracts or a
 consequential technical commitment. Existing internal file trees guide
 placement; they do not require an amendment for every helper or widget.
 
-For independent streams, assign specifically named Builders with:
+Implement directly for cohesive work; for independent streams, assign specifically
+named sibling Builders with:
 
 - Spec path/revision and relevant RF/CA outcomes;
 - exact allowed/prohibited ownership boundaries and shared dependencies;
 - applicable Rule Pack, design references and existing findings;
 - unit/component/static feedback commands and expected implementation result.
 
-Keep concurrent ownership disjoint; tell Builders they are not alone and must
-preserve others' edits. Coordinate shared contracts, generated artifacts,
+Builders do not create further subagents. Keep concurrent ownership disjoint;
+tell Builders they are not alone and must preserve others' edits. Coordinate shared contracts, generated artifacts,
 migrations and cross-boundary changes in the main task. Inspect every returned
 diff and incorporate only contract-conforming work. Delegate by coherent
 ownership/outcome, not one agent per file or ceremonial phase.
@@ -90,7 +146,31 @@ the last affected UI edit, with route/state/viewport/fixture and artifact path.
 An earlier capture of unchanged UI may remain valid when its dependencies and
 rendered state are unchanged; explain retained evidence in Evaluation.
 
+### Required manual and visual evidence inventory
+
+Before executing or delegating verification, enumerate every Manual and Visual
+obligation from the Spec and design handoff in Evaluation. Use one row per
+required journey or rendered state/viewport, with its VM/CA IDs, surface/route,
+state, viewport, reference node/export, candidate, artifact path, observed result
+and review disposition. Keep this inventory within Evaluation; do not create a
+separate planning artifact or add scenarios beyond the contract.
+
+Page, FAB, dialog and mobile states are distinct obligations when required.
+Evidence for one surface cannot establish another surface's result, even when
+they share components. A captured state remains Pending until inspected against
+its specific reference. Record concrete observations about the required visual
+properties and any approved deviation; image existence alone is not proof.
+Manual behavior and visual appearance have separate results: a working journey
+does not establish a design match, and a matching image does not establish real
+authentication or persistence.
+
 ## Integrated verification and failure loop
+
+Execute the Verification Contract's Automated, Manual and Visual checks and all
+applicable Rule/Tooling baseline gates. For finite contracted input sets verify
+defined combinations; for unbounded inputs use the contracted equivalence classes
+and boundaries. If required tooling is unavailable the check is Blocked; coverage is no substitute.
+Do not install a runner as an incidental implementation or documentation action.
 
 After all implementation streams and generated artifacts are integrated:
 
@@ -100,15 +180,27 @@ After all implementation streams and generated artifacts are integrated:
    already authorized under `conclude-spec`. Read its Git safety procedure;
    record the resulting candidate and preserve unrelated work. An unsafe merge
    or unresolved contract blocks only the work that depends on it.
-3. Run applicable final static, unit/component and build gates. One designated
-   verification runner in the main task owns the integration commands/results.
-4. Run every applicable integration suite once against the integrated
-   candidate. Batch tests using actual repository commands and show that the
-   intended tests ran, including registered Inngest functions where required.
+3. Run applicable type, lint, complexity, architecture, unit/component and build
+   checks under [Tooling](../tooling.md#scoped-type-lint-and-complexity-checks).
+   Lint selects changed paths; types retain affected app/project configuration
+   and affected consumer scope. Record each static category explicitly, even
+   when lint and configured complexity rules share a command. Missing required
+   quantitative complexity tooling is Blocked, never inferred passing from lint.
+   One designated runner in the main task owns integration commands/results.
+4. Run the contracted affected integration files/scenarios against the integrated
+   candidate. Use actual commands with exact selections and show intended tests
+   ran, including registered Inngest functions where required. Select tests only
+   for scoped changes and directly affected consumers under
+   [Tooling's selection policy](../tooling.md#selecting-unit-and-integration-tests).
+   Broaden only for demonstrated dependency impact or a gap in that scope's proof;
+   full local suites require scope spanning that suite or an explicit user request.
 5. On failure, record the command/result and mapped finding, fix within the
    contract and rerun the failed and affected integration checks. Continue until
-   all applicable suites pass. Passed unaffected suites retain their evidence;
+   all required selections pass. Passed unaffected selections retain their evidence;
    broader reruns require a concrete changed shared dependency or coverage gap.
+   Retain historical full-run failures; focused corrections establish their scoped
+   current results, not an inferred full-suite pass or new coverage measurement.
+   Avoid duplicate unchanged full tests when an actual coverage command runs them.
 6. Execute the Spec-required concise happy-path manual journeys with Playwright
    CLI or their real runtime boundary. Check final URL, requests, persistence,
    keyboard/focus, narrow viewport and console/network findings as applicable.
@@ -143,6 +235,14 @@ merely to occupy a different role. Missing, stale or unsupported proof yields
 a concrete finding and the specific needed checker. The Orchestrator reconciles
 reports, verifies findings and records ACH IDs and their disposition.
 
+Give the Visual Reviewer the complete required-state inventory, including missing
+captures, and request a disposition for each row. Reconcile the returned review
+scope with that inventory yourself. A blanket PASS or a review of only some
+captures cannot close the remaining rows. Missing, uninspected, stale or mismatched
+required states remain Pending, Stale or Failed as appropriate and prevent the
+overall visual checker from passing. Complete the missing authorized work and
+request the affected review before claiming completion.
+
 Fix in-contract findings autonomously. Rerun only invalidated checkers and
 visual comparisons, and resume only the affected review scope. A correction
 that crosses both code and visuals reactivates both reviewers in parallel.
@@ -151,9 +251,16 @@ this correction loop. Do not silently reduce acceptance or update external PRDs.
 
 ## Evidence and readiness
 
-Evaluation holds one acceptance matrix and checker results, manual/visual
-observations, findings and evidence log. Use stable CA/CI/VM/EV/ACH IDs; retain
-failed attempts. Record meaningful checkpoints such as accepted Builder work,
+Follow the seven-section [Evaluation template](../templates/sdd/evaluation.md).
+Progress has one row per CA with separate Implementation (Pending/Partial/Complete)
+and Verification (Pending/Partial/Passed/Failed/Blocked/Stale), mapped checks/evidence
+and remaining work. Check Results includes baseline checks and uses Pending,
+Passed, Failed, Blocked, Stale or Not applicable, with
+EV IDs, exact procedures,
+actual test selection/counts, expected/observed outcomes, candidate/date,
+environment/fixtures, artifact paths and limits. Record explicit Manual/Visual
+types for VM checks. Preserve failed/interrupted attempts and limitations.
+Use stable CA/CI/VM/EV/ACH IDs. Record meaningful checkpoints such as accepted Builder work,
 checker runs and resolved findings, rather than a ledger update per file edit.
 
 Invalidate evidence by affected claim/dependencies, not by commit age alone.
@@ -161,16 +268,34 @@ A change in implementation, fixtures, environment or contract reopens the checks
 it affects. Unchanged passed evidence remains valid across role transitions,
 ledger edits, review and conclusion. Record the retained evidence and reason.
 
-Keep a small factual current handoff: Spec revision, branch/candidate, completed
-and unfinished criteria, interrupted/uncommitted work, latest check results,
-blockers and next action. Keep blockers specific; do not convert this section
+Keep a small factual Handoff: contract revision, branch/candidate, completed and
+unfinished criteria, interrupted/uncommitted paths and ownership, latest results,
+task-started process sessions/ports and cleanup, blockers and next action. Keep
+blockers specific; do not convert this section
 into phases, task trees, estimates or a second contract.
 
-When all criteria have accepted current dispositions, applicable checkers pass
-and blocking findings are resolved, set Spec to `implemented`, Evaluation to
+Record reusable lessons with supporting ACH/EV references and their documentation
+action or reason no change is warranted. A trivial correction need not become a
+lesson or global policy. Keep Delivery source verification, documentation alignment,
+publication/CI state and limitations factual.
+
+When all criteria have current passing proof or justified non-applicability,
+applicable checkers pass and blocking findings are resolved, set Spec to `implemented`, Evaluation to
 `ready` and continue directly into `conclude-spec`. Conclusion reuses these
 results; it does not start another broad integration run. The exact automated,
 manual, review, waiver and limitation records must support every readiness claim.
+A waiver cannot turn a required Failed/Blocked/Stale check into a pass or readiness.
+Continue local conclusion directly; publication still requires existing authority,
+and published completion waits for current-head CI and blocking review resolution.
+
+Before changing readiness status or reporting that all manual/visual validations
+passed, reconcile the Spec's complete required set with the inventory, actual
+artifacts, observed results and reviewer dispositions. Every required row must
+have supported current passing evidence or contract-authorized non-applicability.
+Do not silently exclude a page, viewport or state, infer full coverage from a
+reviewer's summary, or present partial verification as complete. If an earlier
+completion claim was unsupported, preserve and correct that claim in Evaluation,
+reopen the affected checker and report the correction explicitly.
 
 ## Report
 

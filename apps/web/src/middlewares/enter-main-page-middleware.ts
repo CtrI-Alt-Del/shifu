@@ -16,6 +16,7 @@ export const enterMainPageMiddleware = createServerFn({ method: 'GET' }).handler
     if (!access) throw redirect({ to: ROUTES.login })
 
     await provider.publishMainPageEntered(access)
+
     return {
       displayName: access.displayName,
       email: access.email,

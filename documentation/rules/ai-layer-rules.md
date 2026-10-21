@@ -1,37 +1,58 @@
 ---
-description: Intelligence-owned Agno workflows and typed AI decision providers, including model resolution, structured output, and module boundaries.
+description: Module-owned Agno workflows and typed AI decision providers, including model resolution, structured output, and module boundaries.
 ---
 
 # AI Layer Rules
 
-These rules apply to AI orchestration under
-`apps/server/src/shifu/intelligence/ai`, typed decision adapters under
+These rules apply to AI orchestration under active business-module AI packages
+(`apps/server/src/shifu/intelligence/ai` and
+`apps/server/src/shifu/learning/ai`), typed decision adapters under
 `apps/server/src/shifu/intelligence/providers`, and shared model infrastructure
-used by Intelligence.
+used by those modules.
 
-## Intelligence owns its AI orchestration
+## The originating module owns its AI orchestration
 
-AI is a technical layer inside Intelligence, not a separate business module. Mentor
-and Goal Planner own their agents, tools, output schemas, prompts, and workflows:
+AI is a technical layer inside its business module, not a separate business module.
+Intelligence owns Mentor and Goal Planner agents, tools, output schemas, prompts, and
+workflows. Learning owns its official code-evaluation workflow and must not import
+Intelligence implementation classes; it receives provider-neutral Shared ports from
+application composition.
 
 ```text
 apps/server/src/shifu/intelligence/ai/
-├── classical/
-│   └── sklearn/
-└── generative/
-    └── agno/
-        ├── agents/
-        ├── outputs/
-        ├── tools/
-        └── workflows/
+├── agno/
+│   ├── agents/
+│   ├── outputs/
+│   ├── tools/                 only when model-directed tools are required
+│   └── workflows/
+└── data/                      capability-owned curated corpora/manifests
 ```
+
+Do not introduce `classical` or `generative` directory levels in new AI code.
+Technology-specific NLP adapters belong under Intelligence `providers`, for example:
+
+```text
+intelligence/providers/
+├── text_preprocessing/spacy/
+├── retrieval/bm25/
+├── intent_classification/embeddings/
+├── embeddings/sentence_transformers/
+└── mentor_review_provider/openrouter/
+```
+
+Each adapter implements a narrow Core port and translates technology-specific behavior.
+Routing and application policy remain owned by Core, even when a routing provider
+supplies a typed decision. Existing implementations in the previous layout remain
+compatible; migrating them is a separately scoped refactor, not an incidental change.
+Tools are optional: prepared authorized context may be sufficient for an agent.
+Introduce tools only for an approved capability needing model-directed operations.
 
 Shared model selection, credentials, and reusable provider construction belong to the
 provider or composition boundary. Feature prompts and capability-specific orchestration
-remain in Intelligence and must not move into `shared`.
+remain in the owning module and must not move into `shared`.
 
-Other modules consume an Intelligence core contract, a genuinely shared technical
-port, or a documented event. They must not import concrete Agno agents, tools,
+Other modules consume their own Core contracts, a genuinely shared technical port, or
+a documented event. They must not import another module's concrete Agno agents, tools,
 workflows, prompts, provider implementations, or output models.
 
 The Agno-specific rules below apply to workflows that use Agno. A bounded,
@@ -206,8 +227,8 @@ Use the smallest Agno primitive that represents the flow:
 
 Loops have an explicit maximum and terminal condition. Parallel steps must be
 independent and define their merge behavior. Let workflow and agent failures propagate
-to the controller or Inngest job so the owning boundary can map or retry them. Do not
-catch and rethrow without adding a meaningful recovery or error translation.
+to the controller or owning AgentOS boundary so the owning module can map or retry
+them. Do not catch and rethrow without adding a meaningful recovery or error translation.
 
 ### Example: single-agent workflow
 
@@ -261,8 +282,8 @@ does not authorize access, determine Learning state, or persist the answer.
 
 ## Workflow contracts are exported through core interfaces
 
-Every AI workflow consumed outside the AI package implements a `Protocol` under
-`intelligence/core/interfaces`. Its inputs and outputs are domain primitives,
+Every AI workflow consumed outside its AI package implements a `Protocol` under its
+owning module's `core/interfaces`. Its inputs and outputs are domain primitives,
 structures, or DTOs; Agno-specific schemas remain internal when callers do not need
 them.
 
@@ -274,17 +295,20 @@ class PlanLearningGoalWorkflow(Protocol):
     def run(self, request: GoalPlanningRequest) -> GoalPlan: ...
 ```
 
-Dependency pipes construct the concrete workflow and return the core protocol.
-Controllers inject the protocol and do not import the Agno implementation. An Inngest
-job may compose the concrete adapter at its outer boundary, but the use case still
-receives only the protocol.
+Dependency pipes or the owning module's workflow registry construct the concrete
+workflow and expose the module's core protocol to consumers. Controllers inject the
+protocol and do not import the Agno implementation. Registered durable workflows run
+through the owning module's native AgentOS queue; tests must enter through that module
+boundary rather than compose a workflow in an Inngest job.
 
 ```text
-intelligence/core/interfaces/                  public workflow contracts
-intelligence/ai/generative/agno/               private implementations
-intelligence/pipes/                            FastAPI dependency composition
-intelligence/rest/controllers/                 protocol consumers
-intelligence/messaging/jobs/                   durable protocol consumers
+<module>/core/interfaces/                 public workflow contracts
+<module>/ai/agno/                          private implementations
+intelligence/ai/intelligence_workflows_registry.py  Intelligence runtime composition
+learning/ai/learning_workflows_registry.py          Learning runtime composition
+<module>/pipes/                            FastAPI dependency composition
+<module>/rest/controllers/                 protocol consumers
+<module>/messaging/jobs/                   non-AI durable consumers
 ```
 
 Agents and tools remain internal implementation details unless an explicitly documented
@@ -378,59 +402,89 @@ validations happen after the workflow returns.
 Reject malformed or semantically invalid output with a typed error. Streaming endpoints
 emit stable user-facing Shifu events and never raw Agno or provider events.
 
-## FastAPI and Inngest own execution lifecycles
+## FastAPI, AgentOS, and Inngest own distinct execution lifecycles
 
-FastAPI owns AI work that participates in the current request or SSE stream. Disconnects
-and cancellation should stop unnecessary model work when safe.
+FastAPI owns request and SSE transport. When an AI result must return in the same
+request, the consumer adapter may invoke the registered operation through its owning
+module's internal AgentOS client. Private input/results travel through a trusted,
+single-use in-memory handoff; native run records contain only its opaque reference and
+safe status. Disconnects and cancellation should stop unnecessary model work when safe.
 
-Inngest owns durable, scheduled, retryable, fan-out, or long-running AI work. Events
-carry stable identifiers or immutable snapshots, and effects use idempotency keys. A
-workflow does not implement its own scheduler, background task runner, or durable retry
-loop.
+The owning module's native AgentOS runtime owns durable AI workflow admission, runs,
+queues, and shutdown. Intelligence and Learning each construct only their own module
+registry, AgentOS, app/client, and workflow set. Shared may supply module-neutral queue
+transport, destination-aware outbox admission, and sanitized observability, but never a
+global workflow catalogue or business registration. Inngest remains responsible for
+durable non-AI work. Queued tickets use stable source identifiers; they do not depend
+on transient handoffs for restart recovery. Events and tickets carry stable identifiers
+or opaque one-shot references, and effects use idempotency fences. A workflow does not
+implement its own scheduler, background task runner, or durable retry loop.
 
 ## Privacy and observability
 
 Record workflow identity, run identity, model profile, duration, token usage, tool name,
 outcome category, and typed failure class when operationally useful. Correlate FastAPI,
-Inngest, and provider runs without placing prompt content in correlation metadata.
+AgentOS, Inngest, and provider runs without placing prompt content in correlation
+metadata.
 
 Do not log or persist credentials, tokens, full prompts, hidden answers, chain-of-thought,
 private tool arguments, unrelated learner context, or unrestricted model responses.
 Evaluation datasets and traces follow the source data's access, retention, and deletion
 requirements.
 
-## Classical NLP remains reproducible
+## NLP and semantic indexes remain reproducible
 
-TF-IDF, cosine similarity, and scikit-learn classifiers live under
-`intelligence/ai/classical/sklearn`. Persist or version the vocabulary, preprocessing,
-model artifact, thresholds, and training-data identity required to reproduce results.
+Text preprocessing, embeddings, lexical/semantic retrieval, and intent classifiers
+are technology-named providers implementing typed Core contracts. This applies to
+spaCy, Sentence Transformers, BM25, TF-IDF and scikit-learn; no particular library
+is mandatory for every capability. Version the corpus, preprocessing, model revision,
+dimensions, vocabulary/artifact where relevant, and calibrated thresholds needed to
+reproduce results. Similarity and ranking are not authorization or calibrated
+probabilities by themselves.
 
-Training and reindexing run asynchronously. Request handlers may query a ready artifact
-but never train a model or rebuild an index synchronously. Agno workflows consume
-classical NLP results only through typed contracts.
+Embedding generation belongs to a provider. Persistent embedding records and index
+version queries belong to an owning Core repository port and its database adapter;
+SQL/pgvector must not move into a provider or Agno workflow. A shared index capability
+may use one typed repository across indexed entity kinds when operations/lifecycle
+are shared. Records reference source IDs, kinds and compatible versions; source
+entities remain authoritative in their own modules. Separate repositories require
+distinct persistence contracts, not merely a different source entity name. Eligibility
+must be enforced before ranked result limits when the capability requires it.
 
-## Tests follow the AI boundary
+Training and corpus reindexing use a dedicated background or preparation path outside
+request handling. Requests may generate query embeddings and search a ready index;
+they never train or rebuild the corpus synchronously. Agno consumes NLP results only
+through typed contracts. An incompatible index must not silently match new source
+content against stale vectors.
 
-The agent/tool/workflow test requirements below apply when a feature uses
-Agno. For a typed Jev provider, validate question construction, response
-mapping and failure translation through its consuming use case and composed
-job/controller boundaries, following the Provider Layer prohibition on
-provider-owned test files.
+## Tests follow the consuming execution boundary
 
-Keep focused agent, tool, output-schema, and workflow tests below the Intelligence AI
-package. Use-case tests mock core workflow protocols. Tool tests mock injected use cases
-or read contracts. Workflow tests use deterministic model and tool doubles to verify:
+Use-case unit tests mock Core workflow/provider/repository protocols and verify
+business decisions. Provider and persistence adapters never own dedicated test files.
+For asynchronous AI/NLP capabilities, prove concrete agents, structured outputs,
+workflows and local NLP adapters through the owning module's registered AgentOS
+integration boundary, following Job Testing Rules. Non-AI asynchronous effects remain
+covered through registered Inngest jobs. Do not add parallel agent/output/workflow/NLP
+suites or call workflow/agent internals directly to duplicate that proof. Synchronous
+capabilities use their composed controller boundary instead. Existing dedicated AI
+suites are legacy evidence; changing them requires a scoped migration.
 
-- structured input and output contracts;
-- agent instructions and allowed tools;
-- step order, branches, parallel joins, and review-loop limits;
-- authorization-context minimization and user isolation;
-- timeout, cancellation, quota, retry, and typed error behavior;
-- suppression of prompts, tool traces, and hidden reasoning from public output.
+Consumer integration tests retain the relevant matrices:
 
-Provider behavior remains covered through the consuming workflow or use-case boundary;
-providers do not own dedicated test files. Real-model tests are opt-in, never the only
-coverage, and never use production data.
+- structured input/output, malformed outputs, and allowed tools;
+- step order, branches, parallel joins, and bounded review loops;
+- authorized context minimization and account isolation;
+- timeout, cancellation, quota, retry and typed failures;
+- suppression of prompts, hidden reasoning and raw tool/provider output;
+- for retrieval: paraphrases, negatives, multiple/unknown intents, eligibility,
+  duplicate candidates, incompatible versions and calibrated acceptance/abstention.
+
+Use real local NLP models/indexes and database adapters where they are under test.
+Control external inference/review through endpoint doubles or emulators at the
+transport boundary; do not replace the workflow with a pre-approved result and claim
+its behavior was verified. Observe persisted/public effects and captured external
+interactions through the consumer boundary. Real remote-model checks are opt-in,
+never the only proof, and never use production data.
 
 ## Review checklist
 
@@ -439,7 +493,7 @@ decision-provider path follows the Shared core-port and Intelligence provider
 rules above. The first checklist item applies to AI orchestration ownership,
 not the location of a provider-neutral Shared contract.
 
-- [ ] The AI implementation is owned by Intelligence, not a generic shared feature.
+- [ ] AI implementation and workflow registration are owned by the originating business module; Shared contains transport only.
 - [ ] Each agent subclasses `Agent`, has one responsibility, and configures `super()`.
 - [ ] Instructions remain with the agent unless a prompt fragment is genuinely shared.
 - [ ] Each toolkit subclasses `Toolkit` and wraps narrow use cases or read contracts.
@@ -451,4 +505,4 @@ not the location of a provider-neutral Shared contract.
 - [ ] Source context is authorized, immutable, normalized, and minimal.
 - [ ] Machine-consumed output is structured and validated.
 - [ ] Review loops and retries are bounded and owned by the correct layer.
-- [ ] No AI code imports FastAPI, SQLAlchemy, REST controllers, or messaging transports.
+- [ ] Agent/Workflow code imports no FastAPI, SQLAlchemy, REST controller, or messaging transport; only its owning module registry composes local dependencies and Shared runtime resources.

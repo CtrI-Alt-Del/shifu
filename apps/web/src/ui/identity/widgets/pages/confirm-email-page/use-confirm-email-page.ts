@@ -35,6 +35,7 @@ export function useConfirmEmailPage(token: string | undefined) {
     void confirmEmail(initialToken)
       .then((response) => {
         if (!isCurrent) return
+
         setResult(response.result)
         setRedirectTo(response.redirectTo === 'root' ? 'root' : 'login')
       })

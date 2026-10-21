@@ -41,6 +41,7 @@ class CreateGoalUseCase:
         description = description.strip()
         if not title or not description or len(set(skill_ids)) != len(skill_ids):
             raise ValidationError
+
         catalogs = tuple(
             self._curriculum.get_skill_content(skill_id) for skill_id in skill_ids
         )
@@ -49,6 +50,7 @@ class CreateGoalUseCase:
             for skill_id, catalog in zip(skill_ids, catalogs, strict=True)
         ):
             raise CurriculumGapError
+
         now = self._clock.now()
         goal = Goal(
             id=self._identifiers.generate(),
@@ -63,6 +65,7 @@ class CreateGoalUseCase:
             for skill_id, catalog in zip(skill_ids, catalogs, strict=True):
                 if catalog is None:
                     raise ValidationError
+
                 experience = SkillExperience.create(
                     id=self._identifiers.generate(),
                     goal_id=goal.id,

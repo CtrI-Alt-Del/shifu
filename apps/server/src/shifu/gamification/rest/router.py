@@ -1,7 +1,15 @@
 from fastapi import APIRouter
 
+from shifu.gamification.rest.controllers import (
+    GetPracticeCalendarController,
+    ListAchievementsController,
+)
+
 
 class GamificationRouter:
     @staticmethod
     def register() -> APIRouter:
-        return APIRouter(prefix='/gamification', tags=['gamification'])
+        router = APIRouter(prefix='/gamification', tags=['gamification'])
+        ListAchievementsController.handle(router)
+        GetPracticeCalendarController.handle(router)
+        return router

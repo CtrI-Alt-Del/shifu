@@ -92,6 +92,7 @@ class CommunicationInngestMessaging:
         if settings.email_provider == 'resend':
             if settings.resend_api_key is None or settings.resend_from is None:
                 raise ValueError('Resend configuration is incomplete')
+
             return ResendEmailDeliveryProvider(
                 api_key=settings.resend_api_key,
                 sender=settings.resend_from,

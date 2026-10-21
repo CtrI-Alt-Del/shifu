@@ -12,5 +12,6 @@ export const Route = createFileRoute(
 
 function DiagnosticResultRoute() {
   const ids = Route.useParams()
+
   return <DiagnosticResultPage {...ids} />
 }

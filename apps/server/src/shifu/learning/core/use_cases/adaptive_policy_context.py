@@ -43,6 +43,7 @@ class AdaptivePolicyContext:
                 if isinstance(item, CurriculumActivitySnapshot):
                     if item.activity_type != 'learning':
                         continue
+
                     activities.append(
                         AdaptiveActivity(
                             id=item.id,

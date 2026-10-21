@@ -84,6 +84,7 @@ class TestRetryPasswordRecoveryUseCase:
         assert result.is_decoy is False
         assert failed.status is AccountActionTokenStatus.INVALIDATED
         replacement = self.repositories.account_action_tokens.add.call_args.args[0]
+
         assert replacement.id == 'replacement-id'
         assert replacement.pending_handle_hash == 'opaque-handle-hash'
         self.delivery_gateway.queue.assert_called_once()

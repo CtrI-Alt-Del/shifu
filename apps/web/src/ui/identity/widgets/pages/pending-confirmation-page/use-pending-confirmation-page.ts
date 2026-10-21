@@ -56,6 +56,7 @@ export function usePendingConfirmationPage() {
 
   useEffect(() => {
     if (remainingSeconds <= 0) return
+
     const timeout = window.setTimeout(
       () => setRemainingSeconds((seconds) => seconds - 1),
       1_000,
@@ -69,6 +70,7 @@ export function usePendingConfirmationPage() {
 
   async function handleResend() {
     if (isResending || remainingSeconds > 0) return
+
     setIsResending(true)
     setMessage(null)
     try {
@@ -87,6 +89,7 @@ export function usePendingConfirmationPage() {
 
   async function handleExit() {
     if (isExiting) return
+
     setIsExiting(true)
     setExitErrorMessage(null)
     try {

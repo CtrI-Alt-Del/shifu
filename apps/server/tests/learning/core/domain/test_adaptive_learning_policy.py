@@ -107,6 +107,7 @@ class TestAdaptiveLearningPolicy:
         )
         first = _observation('practice', ActivityDifficulty.EASY, Decimal('100'), 3)
         _, after_first = _evaluate((*diagnostic, first))
+
         assert after_first.concept_states[0].initial_progress == Decimal('50')
         assert after_first.concept_states[0].progress == Decimal('65.0')
 
@@ -114,6 +115,7 @@ class TestAdaptiveLearningPolicy:
             'practice', ActivityDifficulty.EASY, Decimal('100'), 4, first_day=3
         )
         _, after_retry = _evaluate((*diagnostic, first, retry))
+
         assert after_retry.concept_states[0].progress == Decimal('65.0')
         assert after_retry.concept_states[0].current_contributions == (
             ('practice', Decimal('100')),
@@ -123,6 +125,7 @@ class TestAdaptiveLearningPolicy:
             'transfer', ActivityDifficulty.MEDIUM, Decimal('0'), 5
         )
         _, after_transfer = _evaluate((*diagnostic, first, retry, new_activity))
+
         assert after_transfer.concept_states[0].progress == Decimal('45.50')
         assert after_transfer.concept_states[0].current_contributions == (
             ('practice', Decimal('100')),
@@ -147,6 +150,7 @@ class TestAdaptiveLearningPolicy:
             question_scores=(Decimal('0'), Decimal('100')),
         )
         _, result = _evaluate((observation,))
+
         assert observation.value == Decimal('50')
         assert result.concept_states[0].progress == Decimal('50')
         assert result.concept_states[0].distinct_activity_ids == frozenset({'a'})
@@ -155,18 +159,21 @@ class TestAdaptiveLearningPolicy:
         self,
     ) -> None:
         _, unknown = _evaluate()
+
         assert unknown.concept_states[0].progress is None
         assert unknown.concept_states[0].observed_difficulties == frozenset()
 
         _, inconclusive = _evaluate(
             (_observation('a', ActivityDifficulty.EASY, None, 1),)
         )
+
         assert inconclusive.concept_states[0].progress is None
         assert inconclusive.concept_states[0].evidence_verification
 
         _, zero = _evaluate(
             (_observation('a', ActivityDifficulty.EASY, Decimal('0'), 1),)
         )
+
         assert zero.concept_states[0].progress == Decimal('0')
         assert not zero.concept_states[0].evidence_verification
 
@@ -188,6 +195,7 @@ class TestAdaptiveLearningPolicy:
             _observation('b', ActivityDifficulty.MEDIUM, Decimal('100'), 3),
         )
         _, first = _evaluate(observations)
+
         assert first.concept_states[0].initial_progress == Decimal('50')
         assert first.concept_states[0].progress == Decimal('54.5')
 
@@ -199,6 +207,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             )
         )
+
         assert improved.concept_states[0].progress == Decimal('56.6')
         assert len(improved.concept_states[0].distinct_activity_ids) == 4
 
@@ -213,6 +222,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             )
         )
+
         assert worse.concept_states[0].progress == Decimal('24.5')
 
     def test_should_preserve_valid_contribution_when_retake_is_inconclusive(
@@ -230,6 +240,7 @@ class TestAdaptiveLearningPolicy:
             question_scores=(Decimal('100'), None),
         )
         _, result = _evaluate((first, partial))
+
         assert result.concept_states[0].progress == Decimal('70')
         assert result.concept_states[0].current_contributions == (('a', Decimal('70')),)
         assert result.concept_states[0].evidence_verification
@@ -257,6 +268,7 @@ class TestAdaptiveLearningPolicy:
             _activity('medium', ActivityDifficulty.MEDIUM),
         )
         progress, before = _evaluate(observations, activities=activities)
+
         assert progress == Decimal('19.9920')
         assert before.recommendation is not None
         assert before.recommendation.activity_id == 'medium'
@@ -265,6 +277,7 @@ class TestAdaptiveLearningPolicy:
         after_progress, pending = _evaluate(
             (*observations, inconclusive), activities=activities
         )
+
         assert after_progress == progress
         assert pending.concept_states[0].evidence_verification
         assert pending.recommendation is not None
@@ -281,6 +294,7 @@ class TestAdaptiveLearningPolicy:
             ),
             activities=activities,
         )
+
         assert not recovered.concept_states[0].evidence_verification
         assert recovered.recommendation is not None
         assert recovered.recommendation.activity_id == 'medium'
@@ -300,6 +314,7 @@ class TestAdaptiveLearningPolicy:
             ),
         )
         _, result = _evaluate(observations)
+
         assert result.competency_states[0].status is CompetencyProgressStatus.MASTERED
         assert result.competency_states[0].progress == Decimal(
             '93.33333333333333333333333333'
@@ -319,6 +334,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             )
         )
+
         assert (
             no_hard_confirmation.competency_states[0].status
             is not CompetencyProgressStatus.MASTERED
@@ -334,6 +350,7 @@ class TestAdaptiveLearningPolicy:
         )
         _, result = _evaluate(observations)
         state = result.competency_states[0]
+
         assert state.progress == just_below
         assert state.coverage_complete
         assert state.status is not CompetencyProgressStatus.MASTERED
@@ -347,6 +364,7 @@ class TestAdaptiveLearningPolicy:
                 AdaptiveMaterial(id='intro', position=1, concept_ids=('concept',)),
             ),
         )
+
         assert result.recommendation is not None
         assert result.recommendation.activity_id == 'easy'
         assert result.recommendation.material_id == 'intro'
@@ -377,6 +395,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             ),
         )
+
         assert result.recommendation is not None
         assert result.recommendation.target_concept_id == 'base'
         assert result.concept_states[1].progress is None
@@ -428,6 +447,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             ),
         )
+
         assert result.concept_states[0].progress == Decimal(
             '73.33333333333333333333333333'
         )
@@ -438,6 +458,7 @@ class TestAdaptiveLearningPolicy:
 
     def test_should_report_gap_when_no_evaluable_activity_exists(self) -> None:
         _, result = _evaluate()
+
         assert result.recommendation is not None
         assert result.recommendation.activity_id is None
         assert result.recommendation.gap == 'curriculum_or_assessment_unavailable'
@@ -512,6 +533,7 @@ class TestAdaptiveLearningPolicy:
             activities=(_activity('viable-easy', concept_ids=('viable',)),),
             previous_target_id='unusable',
         )
+
         assert result.recommendation is not None
         assert result.recommendation.target_concept_id == 'viable'
         assert result.recommendation.activity_id == 'viable-easy'
@@ -538,6 +560,7 @@ class TestAdaptiveLearningPolicy:
                 ),
             ),
         )
+
         assert result.recommendation is not None
         assert result.recommendation.original_target_concept_id == 'target'
         assert result.recommendation.target_concept_id == 'base'
@@ -553,6 +576,7 @@ class TestAdaptiveLearningPolicy:
             ),
             activities=(_activity('c'),),
         )
+
         assert result.recommendation is not None
         assert result.recommendation.gap == 'assessment_unavailable'
 
@@ -583,6 +607,7 @@ class TestAdaptiveLearningPolicy:
         )
         first = _observation('a', ActivityDifficulty.EASY, Decimal('0'), 4)
         _, pending = _evaluate((*diagnostic, first), memories=memory)
+
         assert pending.competency_states[0].status is CompetencyProgressStatus.MASTERED
         assert pending.competency_states[0].verification_cause == 'mean'
 
@@ -596,6 +621,7 @@ class TestAdaptiveLearningPolicy:
             ),
             memories=memory,
         )
+
         assert repeat.competency_states[0].status is CompetencyProgressStatus.MASTERED
 
         _, confirmed = _evaluate(
@@ -606,6 +632,7 @@ class TestAdaptiveLearningPolicy:
             ),
             memories=memory,
         )
+
         assert (
             confirmed.competency_states[0].status
             is not CompetencyProgressStatus.MASTERED
@@ -653,6 +680,7 @@ class TestAdaptiveLearningPolicy:
             ),
             memories=memory,
         )
+
         assert result.competency_states[0].verification_cause == 'mean'
         assert result.recommendation is not None
         assert result.recommendation.reason == 'regression'

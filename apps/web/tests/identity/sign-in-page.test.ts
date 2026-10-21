@@ -7,6 +7,7 @@ test.describe('SignInPage', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 })
+
     await page.goto('/login/')
 
     await expect(page.getByRole('heading', { level: 1, name: 'Entrar' })).toBeVisible()
@@ -35,27 +36,45 @@ test.describe('SignInPage', () => {
       'href',
       '/forgot-password',
     )
+    await expect(
+      page.getByRole('link', { name: 'Política de privacidade' }),
+    ).toHaveAttribute('href', '/privacy')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    await page.getByRole('link', { name: 'Política de privacidade' }).click()
+    await expect(page).toHaveURL(/\/privacy\/?$/)
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'Política de privacidade',
+      }),
+    ).toBeVisible()
   })
 
   test('maps a rejected auth-handler response to the generic alert and clears the password', async ({
     page,
   }) => {
     const email = IdentityEmailFaker.fake()
+    let requestBody: unknown
+
     await page.route('**/api/auth/sign-in/identity', async (route) => {
+      requestBody = route.request().postDataJSON()
       await route.fulfill({
         body: JSON.stringify({ message: 'invalid credentials' }),
         contentType: 'application/json',
         status: 401,
       })
     })
+
     await page.goto('/login/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('textbox', { name: 'Senha' }).fill('wrong-password')
     await page.getByRole('button', { name: 'Entrar' }).click()
 
     await expect(page.getByRole('alert')).toHaveText('E-mail ou senha inválidos.')
+    expect(requestBody).toEqual({ email, password: 'wrong-password' })
     await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email)
     await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue('')
   })
@@ -64,15 +83,21 @@ test.describe('SignInPage', () => {
     page,
   }) => {
     const email = IdentityEmailFaker.fake()
+    let requestBody: unknown
+
     await page.route('**/api/auth/sign-in/identity', async (route) => {
+      requestBody = route.request().postDataJSON()
       await route.fulfill({
         body: JSON.stringify({ message: 'service unavailable' }),
         contentType: 'application/json',
         status: 503,
       })
     })
+
     await page.goto('/login/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('textbox', { name: 'Senha' }).fill('correct-password')
     await page.getByRole('button', { name: 'Entrar' }).click()
@@ -80,6 +105,7 @@ test.describe('SignInPage', () => {
     await expect(page.getByRole('alert')).toHaveText(
       'Não foi possível entrar agora. Tente novamente.',
     )
+    expect(requestBody).toEqual({ email, password: 'correct-password' })
     await expect(page.getByRole('textbox', { name: 'E-mail' })).toHaveValue(email)
     await expect(page.getByRole('textbox', { name: 'Senha' })).toHaveValue(
       'correct-password',

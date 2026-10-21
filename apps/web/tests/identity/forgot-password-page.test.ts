@@ -8,6 +8,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     page,
   }) => {
     await page.setViewportSize({ height: 812, width: 375 })
+
     await page.goto(`${ROUTES.forgotPassword}/`)
 
     await expect(
@@ -24,12 +25,16 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     page,
   }) => {
     let didCallBff = false
+
     await page.route('**/api/auth/password-recovery', async (route) => {
       didCallBff = true
       await route.abort()
     })
+
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill('invalid-email')
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
 
@@ -46,6 +51,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
   }) => {
     const email = IdentityEmailFaker.fake()
     let requestBody: unknown
+
     await page.route('**/api/auth/password-recovery', async (route) => {
       requestBody = route.request().postDataJSON()
       await route.fulfill({
@@ -54,6 +60,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/password-recovery/status', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ retryAfterSeconds: null, state: 'ready' }),
@@ -63,7 +70,9 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
 
@@ -77,6 +86,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
   test('offers a generic retry after a terminal delivery issue', async ({ page }) => {
     const email = IdentityEmailFaker.fake()
     let statusCalls = 0
+
     await page.route('**/api/auth/password-recovery', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ accepted: true }),
@@ -84,6 +94,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/password-recovery/status', async (route) => {
       statusCalls += 1
       await route.fulfill({
@@ -96,6 +107,7 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.route('**/api/auth/password-recovery/retry', async (route) => {
       await route.fulfill({
         body: JSON.stringify({ retryAfterSeconds: null, state: 'ready' }),
@@ -105,7 +117,9 @@ test.describe('ForgotPasswordPage route with mocked transport', () => {
     })
 
     await page.goto(`${ROUTES.forgotPassword}/`)
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'E-mail' }).fill(email)
     await page.getByRole('button', { name: 'Enviar link de recuperação' }).click()
     await page.getByRole('button', { name: 'Tentar novamente' }).click()

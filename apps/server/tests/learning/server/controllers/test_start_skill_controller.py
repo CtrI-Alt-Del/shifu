@@ -102,10 +102,12 @@ class TestStartSkillController:
             'diagnosticRunId': str(entry_key),
         }
         status, diagnostic_run_id, started_at = _experience(postgres_database, goal_id)
+
         assert status == 'diagnosing'
         assert diagnostic_run_id == str(entry_key)
 
         replay = _post(client, path, _AUTHORIZATION, {'entry_key': str(entry_key)})
+
         assert replay.status_code == 200, replay.text
         assert replay.json() == started.json()
         assert _experience(postgres_database, goal_id)[2] == started_at
@@ -114,6 +116,7 @@ class TestStartSkillController:
         replacement = _post(
             client, path, _AUTHORIZATION, {'entry_key': str(replacement_key)}
         )
+
         assert replacement.status_code == 200, replacement.text
         assert replacement.json()['diagnosticRunId'] == str(replacement_key)
         assert _experience(postgres_database, goal_id)[1] == str(replacement_key)

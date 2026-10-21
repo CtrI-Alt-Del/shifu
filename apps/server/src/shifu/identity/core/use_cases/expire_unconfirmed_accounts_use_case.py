@@ -40,6 +40,7 @@ class ExpireUnconfirmedAccountsUseCase:
         now = self._clock_provider.now()
         if account_id is None:
             return self._claim_expiry_batch(now)
+
         return self._expire_account(account_id, now)
 
     def _claim_expiry_batch(self, now: datetime) -> tuple[str, ...]:
@@ -57,14 +58,17 @@ class ExpireUnconfirmedAccountsUseCase:
             for account in candidates[: self.MAX_BATCH_SIZE]:
                 if account.status is not AccountStatus.PENDING_CONFIRMATION:
                     continue
+
                 if account.created_at + self.ACCOUNT_LIFETIME > now:
                     continue
+
                 account_ids.append(account.id)
                 repositories.events.add(
                     AccountExpiryRequestedEvent(
                         payload=AccountExpiryRequestedPayload(account_id=account.id)
                     )
                 )
+
             return tuple(account_ids)
 
     def _expire_account(self, account_id: str, now: datetime) -> tuple[str, ...]:
@@ -72,8 +76,10 @@ class ExpireUnconfirmedAccountsUseCase:
             account = repositories.accounts.find_by_id(account_id)
             if account is None:
                 return ()
+
             if account.status is not AccountStatus.PENDING_CONFIRMATION:
                 return ()
+
             if account.created_at + self.ACCOUNT_LIFETIME > now:
                 return ()
 
@@ -107,6 +113,7 @@ class ExpireUnconfirmedAccountsUseCase:
     ) -> None:
         if confirmation_token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

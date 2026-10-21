@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from shifu.communication.database.sqlalchemy import models as communication_models
 from shifu.curriculum.database.sqlalchemy import models as curriculum_models
+from shifu.gamification.database.sqlalchemy import models as gamification_models
 from shifu.identity.database.sqlalchemy import models as identity_models
 from shifu.intelligence.database.sqlalchemy import models as intelligence_models
 from shifu.learning.database.sqlalchemy import models as learning_models
@@ -16,6 +17,7 @@ from shifu.shared.database.sqlalchemy.settings import DatabaseSettings
 _MODEL_MODULES = (
     communication_models,
     curriculum_models,
+    gamification_models,
     identity_models,
     intelligence_models,
     learning_models,

@@ -46,6 +46,7 @@ class AppErrorHandler:
                 code='invalid_credentials',
                 message='O e-mail ou a senha são inválidos.',
             )
+
         return AppErrorHandler._build_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             code='internal_error',
@@ -62,6 +63,7 @@ class AppErrorHandler:
                 code='identity_unavailable',
                 message='O serviço de identidade está temporariamente indisponível.',
             )
+
         return AppErrorHandler._build_response(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             code='service_unavailable',
@@ -144,6 +146,7 @@ class AppErrorHandler:
                 code='invalid_input',
                 message='Os dados enviados são inválidos.',
             )
+
         return AppErrorHandler._build_response(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             code='validation_error',
@@ -235,6 +238,7 @@ class AppErrorHandler:
                 code='identity_unavailable',
                 message='O serviço de identidade está temporariamente indisponível.',
             )
+
         return AppErrorHandler._build_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             code='internal_error',

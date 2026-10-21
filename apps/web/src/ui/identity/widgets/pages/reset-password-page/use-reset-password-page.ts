@@ -110,6 +110,7 @@ export function useResetPasswordPage(token: string | undefined) {
   function handleRetry() {
     setMessage(null)
     if (!isRecoveryToken(initialToken)) return
+
     setResult('resolving')
     void getPasswordResetLinkStatus(initialToken)
       .then((response) =>

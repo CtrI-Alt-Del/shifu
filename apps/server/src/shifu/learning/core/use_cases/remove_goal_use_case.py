@@ -18,4 +18,5 @@ class RemoveGoalUseCase:
             goal = repos.goals.find_by_id(goal_id)
             if goal is None or goal.account_id != account_id:
                 raise GoalNotFoundError
+
             repos.goals.remove(goal)

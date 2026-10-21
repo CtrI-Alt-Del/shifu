@@ -93,6 +93,7 @@ class CancelCommunicationUseCase:
             CommunicationStatus.PENDING,
             CommunicationStatus.PROCESSING,
         }
+
         if cancellation_reason is CommunicationCancellationReason.EXPIRED:
             if should_cancel:
                 communication.cancel(now)
@@ -109,6 +110,7 @@ class CancelCommunicationUseCase:
 
         if not should_cancel:
             return False
+
         communication.cancel(now)
         repositories.communications.update(communication)
         self._add_cancelled_event(

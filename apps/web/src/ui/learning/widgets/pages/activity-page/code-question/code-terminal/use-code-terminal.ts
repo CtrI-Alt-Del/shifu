@@ -36,6 +36,7 @@ export function useCodeTerminal(props: CodeTerminalProps) {
     void Promise.all([import('@xterm/xterm'), import('@xterm/addon-fit')]).then(
       ([{ Terminal }, { FitAddon }]) => {
         if (cancelled || !terminalElementRef.current) return
+
         const terminal = new Terminal({
           convertEol: true,
           cursorBlink: true,

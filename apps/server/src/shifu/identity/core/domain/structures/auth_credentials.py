@@ -14,4 +14,5 @@ class AuthCredentials:
     def create(cls, *, email: str, password: str) -> 'AuthCredentials':
         if len(password) < 8:
             raise InvalidPasswordError
+
         return cls(email=email, password=password)

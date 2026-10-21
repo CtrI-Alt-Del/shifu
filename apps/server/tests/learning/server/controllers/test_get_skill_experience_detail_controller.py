@@ -96,6 +96,7 @@ class TestGetSkillExperienceDetailController:
         client: TestClient,
     ) -> None:
         response = _get(client, goal_id=SEED_GOAL_ID, skill_id=LOGIC_SKILL_ID)
+
         assert response.status_code == 200, response.text
 
         bundle = build_logic_programming_seed()
@@ -111,6 +112,7 @@ class TestGetSkillExperienceDetailController:
                 item.position,
             ),
         )
+
         assert len(concepts) == 15
         assert len({concept.id for concept in concepts}) == 15
         assert [concept.name for concept in concepts] == [
@@ -201,7 +203,7 @@ class TestGetSkillExperienceDetailController:
                     >= 2
                 ), (concept.name, difficulty)
 
-    def test_seeded_logic_skill_starts_fresh_with_five_ordered_competencies(
+    def test_seeded_logic_skill_exposes_learning_progress_across_ordered_competencies(
         self,
         client: TestClient,
     ) -> None:
@@ -221,11 +223,12 @@ class TestGetSkillExperienceDetailController:
         )
         assert response.status_code == 200, response.text
         body = response.json()
+
         assert body['goalId'] == SEED_GOAL_ID
         assert body['skillId'] == LOGIC_SKILL_ID
         assert body['skillName'] == 'Lógica de programação'
-        assert body['skillStatus'] == 'not-started'
-        assert body['overallResult'] is None
+        assert body['skillStatus'] == 'learning'
+        assert body['overallResult'] == pytest.approx(100.0)
         assert [item['competencyName'] for item in body['competencies']] == [
             'Sequência de instruções',
             'Variáveis e expressões',
@@ -234,7 +237,7 @@ class TestGetSkillExperienceDetailController:
             'Decomposição em funções',
         ]
         assert [item['position'] for item in body['competencies']] == [1, 2, 3, 4, 5]
-        assert all(item['progress'] is None for item in body['competencies'])
+        assert [item['progress'] for item in body['competencies']] == [100.0] * 5
 
     def test_owner_reads_the_experience_without_writing_events(
         self,
@@ -247,6 +250,7 @@ class TestGetSkillExperienceDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
         assert body['skillName'] == 'Laboratório de decisões adaptativas'
@@ -261,6 +265,7 @@ class TestGetSkillExperienceDetailController:
         body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
         competencies = body['competencies']
+
         assert [item['position'] for item in competencies] == sorted(
             item['position'] for item in competencies
         )
@@ -280,6 +285,7 @@ class TestGetSkillExperienceDetailController:
         body = _get(client, skill_id=SEED_ADAPTIVE_LAB_SKILL_ID).json()
 
         focused = [item for item in body['competencies'] if item['isFocus']]
+
         assert len(focused) <= 1
         assert body['focusCompetencyId'] == (
             focused[0]['competencyId'] if focused else None
@@ -327,6 +333,7 @@ class TestGetSkillExperienceDetailController:
         ).json()
 
         recommendation = skill_body['recommendation']
+
         assert recommendation == competency_body.get('recommendation')
         if recommendation is None:
             return
@@ -338,6 +345,7 @@ class TestGetSkillExperienceDetailController:
         client: TestClient,
     ) -> None:
         response = _get(client, skill_id=SEED_SKILL_PYTHON_ID)
+
         assert response.status_code == 404
 
     def test_skill_outside_the_goal_is_a_private_absence(

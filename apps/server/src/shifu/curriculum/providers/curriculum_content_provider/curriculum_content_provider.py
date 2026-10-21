@@ -11,6 +11,7 @@ from shifu.curriculum.core.domain.structures import (
     MaterialSequenceItem,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
+    ReactQuestion,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
@@ -29,6 +30,11 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptInitialFileSnapshot,
     CurriculumJavascriptDependencySnapshot,
     CurriculumJavascriptPermittedCommandSnapshot,
+    CurriculumReactQuestionSnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactDependencySnapshot,
+    CurriculumReactPermittedCommandSnapshot,
+    CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumCodeRubricCriterionSnapshot,
     CurriculumCodeRubricCommentSnapshot,
@@ -60,6 +66,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             and len(diagnostic_revision_hmac_key) < 32
         ):
             raise ValueError('Diagnostic revision key must be at least 32 bytes')
+
         self._database: CurriculumDatabase = database
         self._diagnostic_revision_hmac_key: bytes | None = (
             diagnostic_revision_hmac_key or None
@@ -69,6 +76,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
         key = self._diagnostic_revision_hmac_key
         if key is None:
             return None
+
         payload = Serialization.serialize_value(evaluator_content)
         canonical = json.dumps(
             payload, sort_keys=True, ensure_ascii=False, separators=(',', ':')
@@ -99,6 +107,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     key=lambda skill: (skill.name.casefold(), skill.id),
                 )
             )
+
         return tuple(
             self.get_skill_content(skill.id)
             or CurriculumSkillSnapshot(
@@ -184,6 +193,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
 
                 if not isinstance(activity, Activity):
                     raise TypeError('Expected Curriculum Activity')
+
                 counts: dict[str, int] = {}
                 possible_scores: dict[str, list[int]] = {}
                 for question in activity.questions:
@@ -193,7 +203,9 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         )
                         possible = (
                             (100,)
-                            if isinstance(question, JavascriptStdinQuestion)
+                            if isinstance(
+                                question, (JavascriptStdinQuestion, ReactQuestion)
+                            )
                             else tuple(
                                 score
                                 for score in (
@@ -214,7 +226,9 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 has_executable_evidence = (
                     all(
                         (
-                            isinstance(question, JavascriptStdinQuestion)
+                            isinstance(
+                                question, (JavascriptStdinQuestion, ReactQuestion)
+                            )
                             or (
                                 isinstance(
                                     question,
@@ -263,12 +277,14 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 sequence = sequences[competency.id]
                 if sequence is None:
                     return None
+
                 items: list[CurriculumContentItem] = []
                 for sequence_item in sequence.items:
                     if isinstance(sequence_item, MaterialSequenceItem):
                         material = materials_by_id.get(sequence_item.material_id)
                         if material is None or material.skill_id != skill_id:
                             return None
+
                         items.append(
                             CurriculumMaterialSnapshot(
                                 id=material.id,
@@ -284,6 +300,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     activity = activities_by_id.get(sequence_item.activity_id)
                     if activity is None or activity.competency_id != competency.id:
                         return None
+
                     items.append(activity_snapshot(activity, sequence_item.position))
 
                 snapshot_competencies.append(
@@ -318,6 +335,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 competency.id for competency in snapshot_competencies
             }:
                 return None
+
             snapshot = CurriculumSkillSnapshot(
                 id=skill.id,
                 name=skill.name,
@@ -359,6 +377,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     question, (SingleChoiceQuestion, MultipleSelectionQuestion)
                 ):
                     return None
+
                 if (
                     not question.correct_explanation
                     or not question.incorrect_explanation
@@ -367,6 +386,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     != len(question.options)
                 ):
                     return None
+
                 keys.add(question.key)
                 questions.append(
                     CurriculumChoiceQuestionSnapshot(
@@ -423,6 +443,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 or {part.question_key for part in parts} != keys
             ):
                 return None
+
             snapshot = CurriculumChoiceActivitySnapshot(
                 id=activity.id,
                 competency_id=activity.competency_id,
@@ -435,6 +456,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             )
             if activity.activity_type.value != 'diagnostic':
                 return snapshot
+
             revision = self._diagnostic_revision(
                 (
                     activity.id,
@@ -450,6 +472,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             )
             if revision is None:
                 return None
+
             return replace(snapshot, diagnostic_revision=revision)
 
     def get_learning_activity(
@@ -465,6 +488,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
     ) -> CurriculumLearningActivitySnapshot | None:
         if self._diagnostic_revision_hmac_key is None:
             return None
+
         try:
             return self._get_activity(activity_id, 'diagnostic')
         except (ValidationError, TypeError, KeyError, ValueError):
@@ -486,9 +510,11 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 )
             ):
                 return None
+
             competency = repositories.competencies.find_by_id(activity.competency_id)
             if competency is None or competency.id != activity.competency_id:
                 return None
+
             concept_ids = {
                 concept.id
                 for concept in repositories.concepts.find_many_by_skill_id(
@@ -499,6 +525,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             questions: list[
                 CurriculumChoiceQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
+                | CurriculumReactQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
@@ -514,6 +541,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         != len(question.options)
                     ):
                         return None
+
                     questions.append(
                         CurriculumChoiceQuestionSnapshot(
                             key=question.key,
@@ -553,6 +581,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         criterion.concept_id for criterion in question.concept_criteria
                     }.issubset(concept_ids):
                         return None
+
                     questions.append(
                         CurriculumJavascriptStdinQuestionSnapshot(
                             key=question.key,
@@ -602,8 +631,74 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             ),
                         )
                     )
+                elif isinstance(question, ReactQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    policy = question.additional_file_policy
+                    questions.append(
+                        CurriculumReactQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            initial_files=tuple(
+                                CurriculumReactInitialFileSnapshot(
+                                    path=item.path,
+                                    content=item.content,
+                                    editable=item.editable,
+                                )
+                                for item in question.initial_files
+                            ),
+                            entrypoint=question.entrypoint,
+                            fixed_dependencies=tuple(
+                                CurriculumReactDependencySnapshot(
+                                    name=item.name, version=item.version
+                                )
+                                for item in question.fixed_dependencies
+                            ),
+                            permitted_commands=tuple(
+                                CurriculumReactPermittedCommandSnapshot(
+                                    id=item.id,
+                                    executable=item.executable,
+                                    arguments=item.arguments,
+                                )
+                                for item in question.permitted_commands
+                            ),
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                            additional_file_policy=(
+                                CurriculumReactAdditionalFilePolicySnapshot(
+                                    allowed_directories=policy.allowed_directories,
+                                    allowed_extensions=policy.allowed_extensions,
+                                    max_files=policy.max_files,
+                                )
+                                if policy is not None
+                                else None
+                            ),
+                        )
+                    )
                 else:
                     return None
+
             for part in activity.evaluation_rule.parts:
                 if isinstance(part, CorrectnessEvaluationPart):
                     parts.append(
@@ -645,6 +740,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     return None
             if len(questions) != len(parts):
                 return None
+
             payload = Serialization.serialize_value(
                 (
                     activity.id,
@@ -693,6 +789,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
     ) -> tuple[CurriculumSkillOverview, ...]:
         if not skill_ids:
             return ()
+
         requested_skill_ids = tuple(dict.fromkeys(skill_ids))
         with self._database.transaction() as repositories:
             overviews: list[CurriculumSkillOverview] = []
@@ -700,6 +797,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 skill = repositories.skills.find_by_id(skill_id)
                 if skill is None or skill.id != skill_id:
                     continue
+
                 competencies = repositories.competencies.find_many_by_skill_id(skill_id)
                 foundations = repositories.skill_foundations.find_many_by_skill_id(
                     skill_id
@@ -716,4 +814,5 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         ),
                     )
                 )
+
             return tuple(overviews)

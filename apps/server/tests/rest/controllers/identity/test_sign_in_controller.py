@@ -90,6 +90,7 @@ class TestSignInController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['profile']['account_id'] == account.id
         assert body['profile']['email'] == account.email
         assert body['access'] == 'protected'

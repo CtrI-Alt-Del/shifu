@@ -96,6 +96,7 @@ class IdentityPipe:
     ) -> AuthenticatedUser:
         if credentials is None or credentials.scheme.lower() != 'bearer':
             raise IdentityPipe._unauthorized()
+
         try:
             return provider.authenticate(credentials.credentials)
         except AuthorizationError as error:

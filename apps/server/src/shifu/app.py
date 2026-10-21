@@ -1,10 +1,9 @@
-import asyncio
+from asyncio import to_thread
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
 from typing import cast
 
-import httpx
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 from starlette.responses import JSONResponse
@@ -19,6 +18,10 @@ from shifu.composition import (
     build_message_renderer,
     build_secret_envelope_provider,
 )
+from shifu.composition.agent_monitoring import (
+    build_agent_monitoring_client,
+    close_agent_monitoring_client,
+)
 from shifu.curriculum.database.sqlalchemy import (
     SqlalchemyCurriculumDatabase,
 )
@@ -26,33 +29,63 @@ from shifu.curriculum.providers import DatabaseCurriculumCatalogProvider
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
+from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
+    CurriculumMentorCatalogProvider,
+)
 from shifu.curriculum.rest.router import CurriculumRouter
+from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.gamification.messaging.inngest import GamificationInngestMessaging
 from shifu.gamification.rest.router import GamificationRouter
+from shifu.identity.core.domain.events import AccountDeletedEvent
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
     JwksJwtAuthenticationProvider,
 )
+from shifu.identity.providers.identity_mentor_access_provider import (
+    IdentityMentorAccessProvider,
+)
 from shifu.identity.rest.router import IdentityRouter
-from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
-from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
-    JevCodeRubricAssessorProvider,
+from shifu.intelligence.ai.intelligence_workflows_registry import (
+    IntelligenceWorkflowsRegistry,
+)
+from shifu.intelligence.core.interfaces import (
+    MentorRouteProvider,
+    MentorTelemetryProvider,
 )
 from shifu.intelligence.rest.router import IntelligenceRouter
+from shifu.intelligence.rest.mentor_attachment_body_limit_middleware import (
+    MentorAttachmentBodyLimitMiddleware,
+)
+from shifu.intelligence.rest.mentor_attachment_error_handler import (
+    MentorAttachmentErrorHandler,
+)
+from shifu.intelligence.messaging.inngest.intelligence_inngest_messaging import (
+    IntelligenceInngestMessaging,
+)
+from shifu.learning.ai.learning_workflows_registry import (
+    LearningWorkflowsRegistry,
+)
+from shifu.learning.core.use_cases.get_competency_detail_use_case import (
+    GetCompetencyDetailUseCase,
+)
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.messaging.inngest import LearningInngestMessaging
+from shifu.learning.providers.learning_mentor_context_provider import (
+    LearningMentorContextProvider,
+)
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
-from shifu.shared.core.interfaces import CodeRubricAssessorProvider
+from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
     RedisCacheProvider,
 )
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
+from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
@@ -80,8 +113,10 @@ class ActivityPayloadLimitMiddleware:
             message = await receive()
             if message['type'] == 'http.disconnect':
                 return
+
             if message['type'] != 'http.request':
                 continue
+
             size += len(message.get('body', b''))
             if size > self._max_body_bytes:
                 response = JSONResponse(
@@ -90,6 +125,7 @@ class ActivityPayloadLimitMiddleware:
                 )
                 await response(scope, receive, send)
                 return
+
             buffered.append(message)
             if not message.get('more_body', False):
                 break
@@ -97,9 +133,36 @@ class ActivityPayloadLimitMiddleware:
         async def replay_receive() -> Message:
             if buffered:
                 return buffered.pop(0)
+
             return await receive()
 
         await self._app(scope, replay_receive, send)
+
+
+class PrivateMentorNoStoreMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = str(scope.get('path', ''))
+        if scope['type'] != 'http' or not path.startswith(
+            '/intelligence/mentor-sessions'
+        ):
+            await self._app(scope, receive, send)
+            return
+
+        async def send_private(message: Message) -> None:
+            if message['type'] == 'http.response.start':
+                headers = [
+                    (name, value)
+                    for name, value in message.get('headers', [])
+                    if name.lower() != b'cache-control'
+                ]
+                headers.append((b'cache-control', b'private, no-store'))
+                message['headers'] = headers
+            await send(message)
+
+        await self._app(scope, receive, send_private)
 
 
 class FastAPIApp:
@@ -115,7 +178,14 @@ class FastAPIApp:
         app.include_router(router)
 
     @staticmethod
-    def register(database_engine: Engine | None = None) -> FastAPI:
+    def register(
+        database_engine: Engine | None = None,
+        *,
+        mentor_access_provider: MentorAccessProvider | None = None,
+        mentor_context_provider: MentorContextProvider | None = None,
+        mentor_route_provider: MentorRouteProvider | None = None,
+        mentor_telemetry_provider: MentorTelemetryProvider | None = None,
+    ) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
         id_provider = SystemIdentifierProvider()
         clock_provider = SystemClockProvider()
@@ -150,6 +220,10 @@ class FastAPIApp:
             engine=database_engine,
             id_provider=id_provider,
         )
+        gamification_database = SqlalchemyGamificationDatabase(
+            engine=database_engine,
+            id_provider=id_provider,
+        )
         curriculum_content_provider = DatabaseCurriculumContentProvider(
             curriculum_database,
             diagnostic_revision_hmac_key=(
@@ -161,20 +235,44 @@ class FastAPIApp:
         curriculum_catalog_provider = DatabaseCurriculumCatalogProvider(
             curriculum_database
         )
+        mentor_catalog_provider = CurriculumMentorCatalogProvider(curriculum_database)
+        mentor_access_provider = mentor_access_provider or IdentityMentorAccessProvider(
+            identity_database
+        )
+        mentor_context_provider = (
+            mentor_context_provider
+            or LearningMentorContextProvider(
+                learning_database,
+                mentor_catalog_provider,
+                GetCompetencyDetailUseCase(
+                    learning_database, curriculum_content_provider
+                ),
+            )
+        )
+        intelligence_registry = IntelligenceWorkflowsRegistry(
+            settings,
+            None,
+            mentor_access_provider,
+            mentor_context_provider,
+            mentor_catalog_provider,
+            outbox_engine=database_engine,
+            route_provider=mentor_route_provider,
+            telemetry=mentor_telemetry_provider,
+        )
+        learning_registry = LearningWorkflowsRegistry(
+            settings,
+            None,
+            intelligence_registry.code_rubric_assessor,
+            mentor_access_provider,
+            curriculum_content_provider,
+            outbox_engine=database_engine,
+        )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
             jwks_url=ENVIRONMENT.auth_jwks_url,
             issuer=ENVIRONMENT.auth_issuer,
             audience=ENVIRONMENT.auth_audience,
         )
-
-        def code_rubric_assessor_provider_factory() -> CodeRubricAssessorProvider:
-            assessor = getattr(app.state, 'code_rubric_assessor_provider', None)
-            if assessor is None:
-                raise ServiceUnavailableError(
-                    message='A avaliação de código está indisponível.'
-                )
-            return cast('CodeRubricAssessorProvider', assessor)
 
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
@@ -183,32 +281,47 @@ class FastAPIApp:
                 await cache_provider.ping()
             except Exception as error:
                 await cache_provider.close()
+                await intelligence_registry.close()
+                await learning_registry.close()
                 database_engine.dispose()
                 raise ServiceUnavailableError(
                     message='O Redis está indisponível; o servidor não pode iniciar.'
                 ) from error
 
-            code_assessor_client = httpx.Client()
-            app.state.code_rubric_assessor_provider = JevCodeRubricAssessorProvider(
-                api_key=settings.openrouter_api_key,
-                client=code_assessor_client,
-                decisions_url=str(settings.openrouter_decisions_url),
-                model=settings.jev_model,
+            monitoring = build_agent_monitoring_client(settings)
+            monitoring_client = monitoring.client if monitoring is not None else None
+            app.state.agent_monitoring_client = monitoring_client
+            app.state.agent_monitoring_tracer_provider = (
+                monitoring.tracer_provider if monitoring is not None else None
             )
+            intelligence_registry.observability.bind(monitoring_client)
+            learning_registry.observability.bind(monitoring_client)
             app.state.max_activity_payload_bytes = settings.max_activity_payload_bytes
             app.state.max_code_assessment_input_bytes = (
                 settings.max_code_assessment_input_bytes
             )
             app.state.cache_provider = cache_provider
             broker = cast('InngestBroker', app.state.inngest_broker)
-            broker.start()
             try:
-                yield
+                async with AsyncExitStack() as stack:
+                    await stack.enter_async_context(intelligence_registry.lifespan())
+                    await stack.enter_async_context(learning_registry.lifespan())
+                    app.state.code_rubric_assessor_provider = (
+                        learning_registry.code_rubric_assessor
+                    )
+                    broker.start()
+                    try:
+                        yield
+                    finally:
+                        broker.stop()
             finally:
-                broker.stop()
-                await asyncio.to_thread(code_assessor_client.close)
-                await cache_provider.close()
-                database_engine.dispose()
+                intelligence_registry.observability.bind(None)
+                learning_registry.observability.bind(None)
+                try:
+                    await to_thread(close_agent_monitoring_client, monitoring)
+                finally:
+                    await cache_provider.close()
+                    database_engine.dispose()
 
         app = FastAPI(title='Shifu API', version='0.1.0', lifespan=lifespan)
         inngest_client = InngestMessaging.register(
@@ -218,6 +331,16 @@ class FastAPIApp:
                     inngest,
                     identity_database=identity_database,
                     clock_provider=clock_provider,
+                ),
+                lambda inngest: IntelligenceInngestMessaging.register_jobs(
+                    inngest,
+                    purge_mentor_attachments_use_case=(
+                        intelligence_registry.purge_mentor_attachments_use_case
+                    ),
+                    purge_mentor_summaries_use_case=(
+                        intelligence_registry.purge_mentor_summaries_use_case
+                    ),
+                    account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                 ),
                 lambda inngest: CommunicationInngestMessaging.register_jobs(
                     inngest,
@@ -233,19 +356,30 @@ class FastAPIApp:
                     learning_database=learning_database,
                     clock_provider=clock_provider,
                     curriculum_content_provider=curriculum_content_provider,
-                    code_rubric_assessor_provider_factory=code_rubric_assessor_provider_factory,
                     max_code_assessment_input_bytes=(
                         settings.max_code_assessment_input_bytes
                     ),
+                ),
+                partial(
+                    GamificationInngestMessaging.register_jobs,
+                    gamification_database=gamification_database,
+                    curriculum_content_provider=curriculum_content_provider,
+                    clock_provider=clock_provider,
                 ),
             ],
         )
         app.state.inngest_broker = InngestBroker(
             inngest_client,
             engine=database_engine,
+            destination_resolver=lambda event: (
+                intelligence_registry.destination_for_event(event)
+                or learning_registry.destination_for_event(event)
+                or 'inngest'
+            ),
             id_provider=id_provider,
         )
         AppErrorHandler.register(app)
+        MentorAttachmentErrorHandler.register(app)
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
@@ -255,14 +389,25 @@ class FastAPIApp:
         app.state.email_delivery_provider = email_delivery_provider
         app.state.authentication_provider = authentication_provider
         app.state.identifier_provider = id_provider
-        app.state.learning_database = learning_database
+        app.state.learning_database = learning_registry.database
+        app.state.gamification_database = gamification_database
         app.state.clock_provider = clock_provider
         app.state.curriculum_database = curriculum_database
         app.state.curriculum_content_provider = curriculum_content_provider
         app.state.curriculum_catalog_provider = curriculum_catalog_provider
-        app.state.intelligence_database = SqlalchemyIntelligenceDatabase(
-            engine=database_engine,
-            id_provider=id_provider,
+        app.state.intelligence_database = intelligence_registry.database
+        app.state.mentor_access_provider = mentor_access_provider
+        app.state.mentor_context_provider = mentor_context_provider
+        app.state.mentor_route_provider = intelligence_registry.route_provider
+        app.state.mentor_catalog_provider = mentor_catalog_provider
+        app.state.intelligence_workflows_registry = intelligence_registry
+        app.state.learning_workflows_registry = learning_registry
+        app.state.generate_mentor_title_workflow = (
+            intelligence_registry.mentor_title_provider
+        )
+        app.state.file_storage_provider = intelligence_registry.file_storage_provider
+        app.state.mentor_attachment_extractor_provider = (
+            intelligence_registry.attachment_extractor_provider
         )
         FastAPIApp._register_routers(app)
         app.add_middleware(
@@ -274,6 +419,8 @@ class FastAPIApp:
             ActivityPayloadLimitMiddleware,
             max_body_bytes=settings.max_activity_payload_bytes,
         )
+        app.add_middleware(PrivateMentorNoStoreMiddleware)
+        app.add_middleware(MentorAttachmentBodyLimitMiddleware)
         return app
 
 

@@ -18,6 +18,7 @@ export type ConfirmationDialogProps = {
   description: string
   confirmLabel: string
   cancelLabel: string
+  actionClassName?: string
   icon: IconName
   isOpen: boolean
   isSubmitting: boolean
@@ -34,6 +35,7 @@ export const ConfirmationDialog = ({
   description,
   confirmLabel,
   cancelLabel,
+  actionClassName,
   icon,
   isOpen,
   isSubmitting,
@@ -48,6 +50,7 @@ export const ConfirmationDialog = ({
       <AlertDialogContent
         onCloseAutoFocus={(event) => {
           if (!restoreFocusRef?.current) return
+
           event.preventDefault()
           restoreFocusRef.current.focus()
         }}
@@ -93,10 +96,16 @@ export const ConfirmationDialog = ({
             </div>
           )}
         </AlertDialogHeader>
-        <div className='border-t border-border' />
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isSubmitting}>{cancelLabel}</AlertDialogCancel>
-          <Button variant='danger' onClick={onConfirm} disabled={isSubmitting}>
+          <AlertDialogCancel className={actionClassName} disabled={isSubmitting}>
+            {cancelLabel}
+          </AlertDialogCancel>
+          <Button
+            className={actionClassName}
+            variant='danger'
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
             {confirmLabel}
           </Button>
         </AlertDialogFooter>

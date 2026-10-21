@@ -6,6 +6,7 @@ export function getErrorMessage(data: unknown, fallback: string): string {
     const message = responseData.message ?? responseData.error
 
     if (typeof message === 'string') return message
+
     if (Array.isArray(message)) return message.join(', ')
   }
 

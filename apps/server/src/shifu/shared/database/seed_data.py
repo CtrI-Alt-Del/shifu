@@ -1,5 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
+from shifu.intelligence.core.domain.entities import MentorMessage, MentorSession
+from shifu.intelligence.core.domain.enums import MentorMessageRole
 
 from shifu.communication.core.domain.entities import Communication, DeliveryAttempt
 from shifu.communication.core.domain.enums import (
@@ -41,9 +44,9 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptPermittedCommand,
     JavascriptStdinQuestion,
     MaterialSequenceItem,
+    SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
-    SkillFoundation,
 )
 from shifu.curriculum.core.domain.enums import (
     ActivityDifficulty,
@@ -51,6 +54,7 @@ from shifu.curriculum.core.domain.enums import (
     MaterialType,
 )
 from shifu.curriculum.database.logic_programming_seed import (
+    LogicProgrammingSeed,
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
@@ -66,6 +70,12 @@ from shifu.learning.core.domain.entities import (
     Goal,
     SkillExperience,
 )
+from shifu.learning.core.domain.structures import (
+    ActivityAnswer,
+    ChoiceEvaluationResult,
+    MultipleSelectionAnswer,
+    SingleChoiceAnswer,
+)
 from shifu.fakers.learning.entities import (
     ActivityAttemptFaker,
     ActivityEvaluationFaker,
@@ -80,6 +90,13 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.shared.core.domain.structures import structure
+from shifu.shared.core.domain.structures import (
+    CurriculumChoiceActivitySnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
+    CurriculumChoiceOptionSnapshot,
+    CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
+)
 
 
 SEED_ACCOUNT_ID = '01SHF000000000000000000001'
@@ -174,6 +191,8 @@ SEED_ACCOUNT_PASSWORD: str = 'ShifuSeed123!'
 
 @structure
 class DevelopmentSeed:
+    mentor_sessions: tuple[MentorSession, ...]
+    mentor_messages: tuple[MentorMessage, ...]
     accounts: tuple[Account, ...]
     account_action_tokens: tuple[AccountActionToken, ...]
     skills: tuple[Skill, ...]
@@ -1110,8 +1129,337 @@ def _adaptive_lab_activities() -> tuple[Activity, ...]:
     return tuple(result)
 
 
+def _build_mentor_seed() -> tuple[tuple[MentorSession, ...], tuple[MentorMessage, ...]]:
+    conversations = (
+        (
+            'Organização dos estudos',
+            'Como posso organizar meus estudos de programação durante a semana?',
+            'Separe pequenos blocos de estudo e alterne teoria com exercícios. Comece por uma meta concreta para cada dia.',
+        ),
+        (
+            'Dúvidas sobre variáveis',
+            'Qual é a diferença entre declarar uma variável e atribuir um valor?',
+            'Declarar apresenta a variável; atribuir define seu valor. Em JavaScript, let pontos = 10 faz as duas coisas.',
+        ),
+        (
+            'Prática de lógica',
+            'Quero praticar condições booleanas. Por onde devo começar?',
+            None,
+        ),
+    )
+    sessions: list[MentorSession] = []
+    messages: list[MentorMessage] = []
+    for index, (title, prompt, response) in enumerate(conversations):
+        session_id = f'01SHF000000000000000000{800 + index:03d}'
+        message_id = f'01SHF000000000000000000{810 + index * 2:03d}'
+        created_at = SEED_CREATED_AT + timedelta(days=index)
+        replied_at = created_at + timedelta(minutes=1)
+        activity_at = replied_at if response else created_at
+        sessions.append(
+            MentorSession(
+                id=session_id,
+                account_id=SEED_ACCOUNT_ID,
+                title=title,
+                created_at=created_at,
+                updated_at=activity_at,
+                last_activity_at=activity_at,
+            )
+        )
+        messages.append(
+            MentorMessage(
+                id=message_id,
+                session_id=session_id,
+                role=MentorMessageRole.LEARNER,
+                content=prompt,
+                created_at=created_at,
+                in_reply_to_message_id=None,
+            )
+        )
+        if response:
+            messages.append(
+                MentorMessage(
+                    id=f'01SHF000000000000000000{811 + index * 2:03d}',
+                    session_id=session_id,
+                    role=MentorMessageRole.MENTOR,
+                    content=response,
+                    created_at=replied_at,
+                    in_reply_to_message_id=message_id,
+                )
+            )
+    summary_session, summary_messages = _build_long_mentor_conversation_seed(
+        len(conversations)
+    )
+    sessions.append(summary_session)
+    messages.extend(summary_messages)
+    return tuple(sessions), tuple(messages)
+
+
+def _build_long_mentor_conversation_seed(
+    index: int,
+) -> tuple[MentorSession, tuple[MentorMessage, ...]]:
+    """Create a conversation one learner message short of the summary threshold.
+
+    Thirty messages (fifteen answered pairs) plus the next learner message make 31;
+    excluding the ten most recent leaves 21, which reaches the 20-message threshold,
+    so sending any message in this conversation summarizes its older part first.
+    """
+    pairs = (
+        (
+            'O que é uma lista em Python e para que ela serve?',
+            'Uma lista guarda vários valores em ordem dentro de uma única variável. Use colchetes, como em notas = [7, 9, 10].',
+        ),
+        (
+            'Como eu acesso o primeiro item de uma lista?',
+            'Use o índice zero. Lembre-se de que a contagem dos índices começa em 0, então notas[0] devolve o primeiro item.',
+        ),
+        (
+            'Meu laço não mostra o último item da lista. O que esqueci?',
+            'Veja quais índices range produz e compare com o tamanho da lista. O limite final de range não é incluído.',
+        ),
+        (
+            'Então range(5) vai de 0 até 5 ou até 4?',
+            'Ele vai de 0 até 4. Teste imprimir list(range(5)) para ver os cinco números que range produz.',
+        ),
+        (
+            'Como faço para percorrer todos os itens com for?',
+            'Escreva for nota in notas: e use a variável nota dentro do bloco. Assim você não precisa controlar o índice.',
+        ),
+        (
+            'Qual a diferença entre percorrer pelos itens e percorrer pelos índices?',
+            'Percorrer pelos itens entrega o valor direto. Percorrer pelos índices com range(len(notas)) é útil quando você precisa da posição.',
+        ),
+        (
+            'O que significa um índice negativo em uma lista?',
+            'Índice negativo conta a partir do fim. Observe que notas[-1] devolve o último item da lista.',
+        ),
+        (
+            'Como adiciono um item no final da lista?',
+            'Use o método append. Por exemplo, notas.append(8) coloca o valor 8 depois do último item.',
+        ),
+        (
+            'Como removo um item da lista pelo valor?',
+            'Use o método remove com o valor desejado. Lembre-se de que ele apaga apenas a primeira ocorrência encontrada.',
+        ),
+        (
+            'O que acontece se eu pedir um índice que não existe?',
+            'O Python mostra um IndexError. Verifique o tamanho da lista com len antes de acessar uma posição.',
+        ),
+        (
+            'Qual a diferença entre while e for em um laço?',
+            'O for repete para cada item de uma sequência. O while repete enquanto uma condição for verdadeira, então você controla a parada.',
+        ),
+        (
+            'Como evito um laço while infinito?',
+            'Garanta que a condição mude dentro do bloco. Atualize a variável de controle a cada repetição para o laço terminar.',
+        ),
+        (
+            'Como somo todos os valores de uma lista?',
+            'Crie uma variável total começando em zero e adicione cada item dentro do for. A função sum também faz isso.',
+        ),
+        (
+            'Como encontro o maior valor de uma lista?',
+            'Compare cada item com o maior valor visto até agora. A função max devolve esse valor diretamente.',
+        ),
+        (
+            'Como verifico se um valor está dentro da lista?',
+            'Use o operador in. A expressão 9 in notas devolve True quando o valor existe na lista.',
+        ),
+    )
+    session_id = f'01SHF000000000000000000{800 + index:03d}'
+    created_at = SEED_CREATED_AT + timedelta(days=index, hours=9)
+    messages: list[MentorMessage] = []
+    for position, (question, answer) in enumerate(pairs):
+        learner_id = f'01SHF000000000000000000{820 + position * 2:03d}'
+        asked_at = created_at + timedelta(minutes=position * 3)
+        messages.append(
+            MentorMessage(
+                id=learner_id,
+                session_id=session_id,
+                role=MentorMessageRole.LEARNER,
+                content=question,
+                created_at=asked_at,
+                in_reply_to_message_id=None,
+            )
+        )
+        messages.append(
+            MentorMessage(
+                id=f'01SHF000000000000000000{821 + position * 2:03d}',
+                session_id=session_id,
+                role=MentorMessageRole.MENTOR,
+                content=answer,
+                created_at=asked_at + timedelta(minutes=1),
+                in_reply_to_message_id=learner_id,
+            )
+        )
+    last_activity_at = messages[-1].created_at
+    session = MentorSession(
+        id=session_id,
+        account_id=SEED_ACCOUNT_ID,
+        title='Listas e laços em Python',
+        created_at=created_at,
+        updated_at=last_activity_at,
+        last_activity_at=last_activity_at,
+    )
+    return session, tuple(messages)
+
+
+def _build_logic_learning_records(
+    curriculum: LogicProgrammingSeed,
+) -> tuple[tuple[ActivityAttempt, ...], tuple[ActivityEvaluation, ...]]:
+    """Create reproducible completed diagnostic and learning activity records."""
+    activities = curriculum.activities
+    diagnostic_ids = set(curriculum.skill.initial_diagnostic_activity_ids)
+    diagnostic_activities = tuple(
+        activity for activity in activities if activity.id in diagnostic_ids
+    )
+    learning_activities = tuple(
+        activity
+        for activity in activities
+        if activity.activity_type is ActivityType.LEARNING
+        and all(
+            isinstance(question, (SingleChoiceQuestion, MultipleSelectionQuestion))
+            for question in activity.questions
+        )
+    )[:2]
+    completed_activities = (*diagnostic_activities, *learning_activities)
+
+    attempts: list[ActivityAttempt] = []
+    evaluations: list[ActivityEvaluation] = []
+    for index, activity in enumerate(completed_activities):
+        submitted_at = SEED_CREATED_AT + timedelta(days=1, minutes=index * 5)
+        answers: list[ActivityAnswer] = []
+        snapshot_questions: list[CurriculumChoiceQuestionSnapshot] = []
+        result_parts: list[ChoiceEvaluationResult] = []
+        for question in activity.questions:
+            if isinstance(question, SingleChoiceQuestion):
+                correct_keys = tuple(
+                    option.key for option in question.options if option.is_correct
+                )
+                answers.append(
+                    SingleChoiceAnswer(
+                        question_key=question.key,
+                        selected_option_key=correct_keys[0],
+                    )
+                )
+                kind = 'single_choice'
+            elif isinstance(question, MultipleSelectionQuestion):
+                correct_keys = tuple(
+                    option.key for option in question.options if option.is_correct
+                )
+                answers.append(
+                    MultipleSelectionAnswer(
+                        question_key=question.key,
+                        selected_option_keys=correct_keys,
+                    )
+                )
+                kind = 'multiple_selection'
+            else:
+                raise TypeError('Seeded logic records require choice activities.')
+
+            result_parts.append(
+                ChoiceEvaluationResult(
+                    question_key=question.key,
+                    score=Decimal('100'),
+                    is_correct=True,
+                    explanation=question.correct_explanation or 'Resposta correta.',
+                )
+            )
+            snapshot_questions.append(
+                CurriculumChoiceQuestionSnapshot(
+                    key=question.key,
+                    kind=kind,
+                    prompt=question.prompt,
+                    options=tuple(
+                        CurriculumChoiceOptionSnapshot(
+                            key=option.key,
+                            text=option.text,
+                            is_correct=option.is_correct,
+                        )
+                        for option in question.options
+                    ),
+                    correct_explanation=question.correct_explanation
+                    or 'Resposta correta.',
+                    incorrect_explanation=question.incorrect_explanation
+                    or 'Revise o conceito e tente novamente.',
+                    concept_criteria=tuple(
+                        CurriculumChoiceConceptCriterionSnapshot(
+                            concept_id=criterion.concept_id,
+                            criterion=criterion.criterion,
+                            examples=criterion.examples,
+                            limits=criterion.limits,
+                            correct_score=(
+                                Decimal(criterion.correct_score)
+                                if criterion.correct_score is not None
+                                else None
+                            ),
+                            incorrect_score=(
+                                Decimal(criterion.incorrect_score)
+                                if criterion.incorrect_score is not None
+                                else None
+                            ),
+                        )
+                        for criterion in question.concept_criteria
+                    ),
+                )
+            )
+
+        attempt_id = f'01SHF000000000000000000{600 + index:03d}'
+        attempt_kind = (
+            ActivityAttemptKind.DIAGNOSTIC
+            if activity.id in diagnostic_ids
+            else ActivityAttemptKind.LEARNING
+        )
+        attempts.append(
+            ActivityAttempt(
+                id=attempt_id,
+                skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
+                competency_id=activity.competency_id,
+                activity_id=activity.id,
+                kind=attempt_kind,
+                answers=tuple(answers),
+                submitted_at=submitted_at,
+                grading_snapshot=CurriculumChoiceActivitySnapshot(
+                    id=activity.id,
+                    competency_id=activity.competency_id,
+                    difficulty=activity.difficulty.value,
+                    title=activity.title,
+                    questions=tuple(snapshot_questions),
+                    parts=tuple(
+                        CurriculumChoicePartSnapshot(
+                            question_key=part.question_key,
+                            weight_percentage=Decimal(part.weight_percentage),
+                        )
+                        for part in activity.evaluation_rule.parts
+                    ),
+                    required_concept_ids=activity.required_concept_ids,
+                    activity_type=activity.activity_type.value,
+                ),
+                diagnostic_run_id=(
+                    'seed-logic-initial-diagnostic'
+                    if attempt_kind is ActivityAttemptKind.DIAGNOSTIC
+                    else None
+                ),
+            )
+        )
+        evaluations.append(
+            ActivityEvaluation(
+                id=f'01SHF000000000000000000{700 + index:03d}',
+                attempt_id=attempt_id,
+                status=ActivityEvaluationStatus.COMPLETED,
+                parts=tuple(result_parts),
+                started_at=submitted_at - timedelta(minutes=2),
+                score=Decimal('100'),
+                completed_at=submitted_at,
+                effect_applied_at=submitted_at,
+            )
+        )
+
+    return tuple(attempts), tuple(evaluations)
+
+
 def build_development_seed() -> DevelopmentSeed:
     logic_curriculum = build_logic_programming_seed()
+    logic_attempts, logic_evaluations = _build_logic_learning_records(logic_curriculum)
     account = AccountFaker.fake(
         id=SEED_ACCOUNT_ID,
         display_name='Pessoa Estudante',
@@ -1733,14 +2081,16 @@ def build_development_seed() -> DevelopmentSeed:
         ),
     )
     skill_experiences = (
-        SkillExperienceFaker.fake(
+        SkillExperience(
             id=SEED_LOGIC_EXPERIENCE_ID,
             goal_id=SEED_GOAL_ID,
             skill_id=SEED_SKILL_LOGIC_ID,
             inclusion_reason='Fundamento para todo o restante do percurso.',
-            status=SkillExperienceStatus.NOT_STARTED,
+            status=SkillExperienceStatus.LEARNING,
             created_at=SEED_CREATED_AT,
-            updated_at=SEED_CREATED_AT,
+            updated_at=SEED_CREATED_AT + timedelta(days=1),
+            started_at=SEED_CREATED_AT,
+            diagnostic_run_id='seed-logic-initial-diagnostic',
         ),
         SkillExperienceFaker.fake(
             id=SEED_PYTHON_EXPERIENCE_ID,
@@ -1973,7 +2323,10 @@ def build_development_seed() -> DevelopmentSeed:
         and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
+    mentor_sessions, mentor_messages = _build_mentor_seed()
     return DevelopmentSeed(
+        mentor_sessions=mentor_sessions,
+        mentor_messages=mentor_messages,
         accounts=(account,),
         account_action_tokens=(),
         skills=tuple(skill for skill in skills if skill.id in retained_skill_ids),
@@ -2031,10 +2384,12 @@ def build_development_seed() -> DevelopmentSeed:
                 id=f'01SHF000000000000000000{500 + index:03d}',
                 skill_experience_id=SEED_LOGIC_EXPERIENCE_ID,
                 competency_id=competency.id,
-                content_released=False,
+                content_released=True,
                 created_at=SEED_CREATED_AT,
-                updated_at=SEED_CREATED_AT,
-                status=CompetencyProgressStatus.LEARNING,
+                updated_at=SEED_CREATED_AT + timedelta(days=1),
+                initial_progress=Decimal('100'),
+                current_progress=Decimal('100'),
+                status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
         ),
@@ -2042,12 +2397,14 @@ def build_development_seed() -> DevelopmentSeed:
             attempt
             for attempt in activity_attempts
             if attempt.id in retained_attempt_ids
-        ),
+        )
+        + logic_attempts,
         activity_evaluations=tuple(
             evaluation
             for evaluation in activity_evaluations
             if evaluation.attempt_id in retained_attempt_ids
-        ),
+        )
+        + logic_evaluations,
         communications=communications,
         delivery_attempts=delivery_attempts,
     )

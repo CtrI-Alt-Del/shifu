@@ -70,6 +70,7 @@ class GetGoalDetailUseCase:
             goal = repositories.goals.find_by_id(goal_id)
             if goal is None or goal.account_id != account_id:
                 raise GoalNotFoundError
+
             experiences = tuple(
                 repositories.skill_experiences.find_many_by_goal_id(goal_id)
             )
@@ -90,6 +91,7 @@ class GetGoalDetailUseCase:
     ) -> tuple[CurriculumSkillOverview, ...]:
         if not skill_ids:
             return ()
+
         return self._curriculum_content_provider.get_skill_overviews(skill_ids)
 
     @staticmethod
@@ -101,6 +103,7 @@ class GetGoalDetailUseCase:
         for experience in experiences:
             if experience.goal_id != goal_id or experience.skill_id in skill_ids:
                 raise ServiceUnavailableError
+
             skill_ids.add(experience.skill_id)
 
     @staticmethod
@@ -119,9 +122,11 @@ class GetGoalDetailUseCase:
                 != len(overview.foundation_skill_ids)
             ):
                 raise ServiceUnavailableError
+
             indexed[overview.skill_id] = overview
         if set(indexed) != requested_skill_ids:
             raise ServiceUnavailableError
+
         return indexed
 
     @classmethod
@@ -155,6 +160,7 @@ class GetGoalDetailUseCase:
         competency_ids = set(overview.competency_ids)
         if not competency_ids:
             raise ServiceUnavailableError
+
         progress_by_competency_id: dict[str, CompetencyProgress] = {}
         for progress in progresses:
             if (
@@ -167,14 +173,17 @@ class GetGoalDetailUseCase:
                 or progress.current_progress > Decimal('100')
             ):
                 raise ServiceUnavailableError
+
             progress_by_competency_id[progress.competency_id] = progress
         if set(progress_by_competency_id) != competency_ids:
             raise ServiceUnavailableError
+
         total = Decimal('0')
         for competency_id in overview.competency_ids:
             current_progress = progress_by_competency_id[competency_id].current_progress
             if current_progress is None:
                 raise ServiceUnavailableError
+
             total += current_progress
         return total / Decimal(len(overview.competency_ids))
 

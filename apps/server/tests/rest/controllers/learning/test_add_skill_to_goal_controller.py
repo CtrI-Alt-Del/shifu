@@ -89,6 +89,7 @@ class TestAddSkillToGoalController:
         assert response.status_code == 201
         body = response.json()
         created_skill_ids = {item['skillId'] for item in body['created']}
+
         assert created_skill_ids == {skill.id, foundation_skill.id}
         assert all(item['status'] == 'not-started' for item in body['created'])
 

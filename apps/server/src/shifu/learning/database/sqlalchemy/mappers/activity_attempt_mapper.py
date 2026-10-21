@@ -16,6 +16,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -41,6 +42,7 @@ class ActivityAttemptMapper:
             submission_key=model.submission_key,
             grading_snapshot=grading_snapshot,
             diagnostic_run_id=model.diagnostic_run_id,
+            time_zone=model.time_zone,
         )
 
     @staticmethod
@@ -49,6 +51,7 @@ class ActivityAttemptMapper:
     ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if value is None:
             return None
+
         data = cast('dict[str, object]', value)
         normalized = {**data}
         normalized.setdefault('required_concept_ids', [])
@@ -68,6 +71,8 @@ class ActivityAttemptMapper:
                     question,
                     CurriculumJavascriptStdinQuestionSnapshot
                     if question.get('kind') == 'javascript_stdin'
+                    else CurriculumReactQuestionSnapshot
+                    if question.get('kind') == 'react'
                     else CurriculumChoiceQuestionSnapshot,
                 )
                 for question in normalized['questions']
@@ -87,7 +92,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -104,6 +109,7 @@ class ActivityAttemptMapper:
                     'str | None', normalized['diagnostic_revision']
                 ),
             )
+
         return cast(
             'CurriculumChoiceActivitySnapshot',
             Serialization.deserialize_value(
@@ -139,9 +145,11 @@ class ActivityAttemptMapper:
                             )
                             for file in serialized_files
                         ),
+                        kind=cast('str | None', item.get('kind')),
                     )
                 )
                 continue
+
             if question is not None and question.kind == 'single_choice':
                 answers.append(
                     SingleChoiceAnswer(
@@ -163,6 +171,7 @@ class ActivityAttemptMapper:
                     CodeAnswer(
                         question_key=question_key,
                         source_code=cast('str', item['source_code']),
+                        kind=cast('str | None', item.get('kind')),
                     )
                 )
             elif 'selected_option_key' in item:
@@ -193,4 +202,5 @@ class ActivityAttemptMapper:
                 else None
             ),
             diagnostic_run_id=attempt.diagnostic_run_id,
+            time_zone=attempt.time_zone,
         )

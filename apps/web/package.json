@@ -8,9 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "check:types": "tsc --noEmit",
-    "check:lint": "biome check src tests vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
+    "check:lint": "biome check src tests scripts vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
     "check:architecture": "depcruise --config dependency-cruiser.config.cjs src",
     "test:unit": "vitest run --passWithNoTests",
+    "test:coverage": "vitest run --coverage",
     "test:integration": "playwright test"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
     "@headless-tree/react": "^1.7.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-alert-dialog": "^1.1.23",
+    "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
     "@radix-ui/react-tabs": "^1.1.21",
     "@tailwindcss/vite": "^4.1.18",
@@ -60,6 +62,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "4.1.6",
     "dependency-cruiser": "18.2.0",
     "jsdom": "30.0.1",
     "typescript": "^6.0.2",

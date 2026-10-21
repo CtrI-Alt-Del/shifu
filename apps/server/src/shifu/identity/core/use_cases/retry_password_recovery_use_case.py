@@ -57,6 +57,7 @@ class RetryPasswordRecoveryUseCase:
                     recovery_handle=recovery_handle,
                     is_decoy=True,
                 )
+
             account = repositories.accounts.find_by_id(token.account_id)
             if account is None or account.status not in {
                 AccountStatus.ACTIVE,
@@ -66,11 +67,13 @@ class RetryPasswordRecoveryUseCase:
                     recovery_handle=recovery_handle,
                     is_decoy=True,
                 )
+
             if token.status is not AccountActionTokenStatus.PENDING:
                 return PasswordRecoveryRequestResult(
                     recovery_handle=recovery_handle,
                     is_decoy=True,
                 )
+
             if now >= token.expires_at:
                 token.expire(now)
                 token_repository.update(token)
@@ -83,6 +86,7 @@ class RetryPasswordRecoveryUseCase:
                     recovery_handle=recovery_handle,
                     is_decoy=True,
                 )
+
             if token.delivery_status not in {
                 AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
                 AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE,
@@ -131,6 +135,7 @@ class RetryPasswordRecoveryUseCase:
     ) -> None:
         if token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

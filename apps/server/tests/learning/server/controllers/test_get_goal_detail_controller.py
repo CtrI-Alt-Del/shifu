@@ -13,6 +13,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.database.sqlalchemy.models import GoalModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
@@ -73,6 +74,34 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetGoalDetailController:
+    def test_create_goal_rejects_unknown_curriculum_skill(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with postgres_database.engine.connect() as connection:
+            before = connection.scalar(select(func.count()).select_from(GoalModel))
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals',
+                json={
+                    'title': 'Novo objetivo',
+                    'description': 'Estudar uma habilidade desconhecida',
+                    'skillIds': ['01SHF000000000000000000099'],
+                },
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
+        assert response.json()['code'] == 'curriculum_gap'
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(select(func.count()).select_from(GoalModel)) == before
+            )
+
     def test_programming_goal_exposes_graph_only_skills_without_competencies(
         self,
         client: TestClient,
@@ -88,6 +117,7 @@ class TestGetGoalDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert {skill['skillId'] for skill in body['skills']} == {
             SEED_SKILL_LOGIC_ID,
             *SEED_GRAPH_SKILL_IDS,
@@ -102,7 +132,10 @@ class TestGetGoalDetailController:
             (SEED_GRAPH_HTML_CSS_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
             (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_APIS_SKILL_ID),
         }
-        assert all(skill['status'] == 'not-started' for skill in body['skills'])
+        assert {skill['skillId']: skill['status'] for skill in body['skills']} == {
+            SEED_SKILL_LOGIC_ID: 'learning',
+            **dict.fromkeys(SEED_GRAPH_SKILL_IDS, 'not-started'),
+        }
         with postgres_database.engine.connect() as connection:
             assert (
                 connection.scalar(
@@ -153,6 +186,7 @@ class TestGetGoalDetailController:
         assert response.status_code == 200
         assert response.headers['cache-control'] == 'private, no-store'
         body = response.json()
+
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['title'] == 'Laboratório de progresso adaptativo'
         assert body['skills']

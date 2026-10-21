@@ -10,5 +10,6 @@ export const Route = createFileRoute('/learning/goals/$goalId/skills/$skillId/')
 
 function SkillRoute() {
   const ids = Route.useParams()
+
   return <SkillPage {...ids} />
 }

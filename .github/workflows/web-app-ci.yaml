@@ -22,8 +22,83 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: Verify web application
+  type-check:
+    name: Web type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check types
+        run: pnpm --filter web check:types
+
+  lint-check:
+    name: Web lint check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check lint
+        run: pnpm --filter web check:lint
+
+  architecture-check:
+    name: Web architecture check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check architecture
+        run: pnpm --filter web check:architecture
+
+  unit-tests:
+    name: Web unit tests
     runs-on: ubuntu-latest
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
@@ -39,9 +114,148 @@ jobs:
       SHIFU_WEB_APP_PORT: '7000'
       SHIFU_WEB_APP_URL: http://127.0.0.1:7000
       VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm --filter web test:unit
+
+  changed-file-coverage:
+    name: Changed Web file coverage
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run scoped tests with V8 coverage
+        run: >-
+          pnpm --filter web exec vitest run --coverage
+          src/constants/tests/routes.test.ts
+          src/routes/privacy/tests/privacy-route.test.ts
+          src/rest/axios/tests/axios-rest-client.test.ts
+          tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
+          tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
+          src/ui/intelligence/hooks/tests/mentor-server-functions.test.ts
+          src/ui/intelligence/hooks/tests/use-mentor-response-stream.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/use-mentor-context-provider.test.ts
+          src/ui/intelligence/contexts/mentor-context/tests/mentor-transport-consumer.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/attachment-list.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/use-composer.test.ts
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/use-message-item.test.ts
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/message-item.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/sources.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
+          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
+          src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+          src/ui/learning/widgets/pages/activity-page/tests
+          src/ui/learning/widgets/pages/activity-page/react-question/tests
+          src/ui/learning/widgets/pages/activity-page/code-question/tests
+          src/ui/learning/widgets/pages/choice-result-page/tests
+          src/ui/learning/widgets/pages/choice-result-page/choice-result-detail/tests
+          src/ui/learning/widgets/components/code-editor/tests
+          src/ui/learning/widgets/components/code-file-tree/tests
+          src/ui/learning/widgets/pages/goal-create-page/tests
+          src/ui/learning/widgets/pages/goal-detail-page/tests
+          src/ui/learning/widgets/pages/skill-page/tests
+          src/ui/learning/widgets/pages/material-page/tests
+          src/ui/learning/widgets/pages/competency-detail-page/tests
+          src/ui/learning/widgets/layouts/goals-list-section/tests
+          src/ui/learning/widgets/sections/add-skill-catalog-section/tests
+          src/ui/identity/widgets/pages/account-page/tests
+          src/ui/identity/widgets/pages/privacy-policy-page/tests
+          src/ui/identity/widgets/pages/sign-in-page/tests/sign-in-page.test.tsx
+          src/ui/identity/widgets/pages/register-page/tests/register-page.test.tsx
+          src/ui/shared/widgets/layouts/root-layout/tests
+
+      - name: Enforce thresholds for every changed production file
+        shell: bash
+        run: >-
+          node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts
+          --base origin/main
+          | tee apps/web/coverage/changed-coverage-summary.txt
+
+      - name: Upload changed-file coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: web-changed-file-coverage
+          path: |
+            apps/web/coverage/coverage-summary.json
+            apps/web/coverage/changed-coverage-summary.txt
+          if-no-files-found: warn
+
+  integration-tests:
+    name: Web integration tests
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
+      AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_MENTOR_STREAM_TEST_PROXY_PORT: '7788'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
     services:
       postgres:
-        image: postgres:17-alpine
+        image: pgvector/pgvector:0.8.1-pg17
         env:
           POSTGRES_DB: shifu
           POSTGRES_PASSWORD: shifu-local
@@ -82,6 +296,16 @@ jobs:
         working-directory: apps/server
         run: uv sync --frozen
 
+      - name: Create restricted AgentOS role
+        working-directory: apps/server
+        env:
+          PGPASSWORD: shifu-local
+        run: >-
+          psql "postgresql://shifu:shifu-local@127.0.0.1:54344/shifu"
+          -v runtime_password="${AGENTOS_RUNTIME_ROLE_PASSWORD}"
+          -v database_name=shifu
+          -f scripts/create_agentos_runtime_role.sql
+
       - name: Prepare server database
         working-directory: apps/server
         run: uv run poe db:upgrade
@@ -104,21 +328,6 @@ jobs:
       - name: Install Playwright browser
         run: pnpm --filter web exec playwright install --with-deps chromium
 
-      - name: Check types
-        run: pnpm --filter web check:types
-
-      - name: Check lint
-        run: pnpm --filter web check:lint
-
-      - name: Check architecture
-        run: pnpm --filter web check:architecture
-
-      - name: Run unit tests
-        run: pnpm --filter web test:unit
-
-      - name: Build application
-        run: pnpm --filter web build
-
       - name: Run integration tests
         run: pnpm --filter web test:integration
 
@@ -127,5 +336,46 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: playwright-report
-          path: apps/web/playwright-report
+          path: |
+            apps/web/.playwright-cli/logs/html-report
+            apps/web/.playwright-cli/logs/test-results
           if-no-files-found: ignore
+
+  build:
+    name: Web build
+    runs-on: ubuntu-latest
+    env:
+      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
+      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
+      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      REDIS_URL: redis://127.0.0.1:6379/0
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_SERVER_APP_PORT: '7777'
+      SHIFU_WEB_APP_PORT: '7000'
+      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
+      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.20.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm --filter web build

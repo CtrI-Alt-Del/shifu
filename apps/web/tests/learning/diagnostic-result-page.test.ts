@@ -166,6 +166,7 @@ test('shows the authenticated consolidated diagnostic result without answer deta
   })
 
   await skillLink.click()
+
   await expect(authenticatedPage).toHaveURL(
     new RegExp(`/learning/goals/${ids.goalId}/skills/${ids.skillId}/?$`),
   )

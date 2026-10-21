@@ -91,6 +91,7 @@ class TestQueueCommunicationUseCase:
         self.repositories.communications.add.assert_called_once_with(result)
 
         event = self.repositories.events.add.call_args.args[0]
+
         assert isinstance(event, CommunicationQueuedEvent)
         assert event.payload.communication_id == result.id
         assert not hasattr(event.payload, 'account_id')

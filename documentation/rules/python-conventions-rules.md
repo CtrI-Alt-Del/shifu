@@ -92,6 +92,12 @@ Use early returns for missing or terminal states. Prefer guard clauses over deep
 nested branches. Do not hide business logic in decorators, framework callbacks,
 properties, or generic utility modules.
 
+Use a single blank line within a function to separate distinct logical steps, such as
+after a guard clause before the next processing phase, between loading and transforming
+data, or between setup, action, and assertion groups in a test. Keep tightly related
+statements and assertions together, and do not add blank lines mechanically between
+every statement or guard.
+
 Use `async def` only when the implementation awaits non-blocking work. Synchronous
 SQLAlchemy sessions and blocking SDK calls must not run directly on the event loop;
 keep the endpoint synchronous or move the blocking operation to a worker thread.

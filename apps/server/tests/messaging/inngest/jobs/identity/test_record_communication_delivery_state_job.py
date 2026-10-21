@@ -114,6 +114,7 @@ class TestRecordCommunicationDeliveryStateJob:
 
         with inngest_fixture.inspection_session() as session:
             token = session.get(AccountActionTokenModel, identity_action_token_id)
+
         assert token is not None
         assert token.delivery_status is None
 

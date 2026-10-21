@@ -55,11 +55,13 @@ case that emits an event calls `repositories.events.add(event)` inside the same 
 transaction as its business mutation. An event-only operation still uses that module
 transaction as the sole owner of the outbox insert.
 
-The shared SQLAlchemy adapter persists canonical events in the shared `events` outbox
-table. Its insert participates in the caller's transaction and emits a PostgreSQL
-notification that becomes visible only after commit. The repository does not call
-Inngest. Shared messaging owns the long-lived database listener that reserves eligible
-rows, sends them with their stable IDs, and marks them published after acknowledgement.
+The shared SQLAlchemy adapter persists canonical events and a delivery destination in
+the shared `events` outbox table. Its insert participates in the caller's transaction
+and emits a PostgreSQL notification that becomes visible only after commit. The
+repository does not call Inngest or AgentOS. Shared messaging owns the long-lived
+database listener that reserves eligible rows for the matching destination, sends
+ID-only tickets to its durable transport, and marks only that delivery complete after
+acknowledgement.
 Startup and reconnect draining must recover committed rows whose notifications were
 missed. The repository exposes the earliest event-availability or reservation-expiry
 deadline so the listener can wake for retries without depending on a later database
@@ -141,6 +143,11 @@ coverage is being established. The production-like integration path runs Alembic
 Migration upgrade, applicable downgrade, constraint, index, and data-preflight checks
 are recorded as disposable-environment delivery evidence; do not create a dedicated
 migration test module.
+
+Native AgentOS run/session/queue schemas are part of the reviewed static Alembic
+history. Each owning module uses its dedicated schema and independent runtime settings
+while sharing the PostgreSQL service. Registry startup never creates schemas or runs
+migrations; registered-boundary tests apply Alembic head before starting workers.
 
 ## Seeders use application adapters
 

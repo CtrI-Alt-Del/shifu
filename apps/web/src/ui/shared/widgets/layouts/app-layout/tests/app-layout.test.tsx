@@ -29,6 +29,24 @@ vi.mock('@/ui/shared/widgets/components/icon', () => ({
   Icon: ({ name }: IconProps) => <span aria-hidden='true'>{name}</span>,
 }))
 
+vi.mock('@/ui/intelligence/contexts/mentor-context', () => ({
+  MentorContextProvider: ({
+    accountEmail,
+    children,
+  }: {
+    accountEmail: string
+    children: React.ReactNode
+  }) => (
+    <div data-account-email={accountEmail} data-testid='mentor-context-provider'>
+      {children}
+    </div>
+  ),
+}))
+
+vi.mock('@/ui/intelligence/widgets/components/mentor-fab', () => ({
+  MentorFab: () => <button type='button'>Mentor FAB</button>,
+}))
+
 vi.mock('../mobile-header/use-mobile-header', () => ({
   useMobileHeader: vi.fn(),
 }))
@@ -89,6 +107,23 @@ describe('AppLayout', () => {
 
     expect(screen.getAllByRole('button', { name: 'Conta compartilhada' })).toHaveLength(2)
     expect(screen.queryByRole('button', { name: 'Abrir menu da conta' })).toBeNull()
+  })
+
+  it('mounts the account-scoped Mentor context and FAB in the authenticated shell', () => {
+    render(
+      <AppLayout
+        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        accountMenu={<button type='button'>Conta</button>}
+      >
+        <p>Protected content</p>
+      </AppLayout>,
+    )
+
+    expect(screen.getByTestId('mentor-context-provider')).toHaveAttribute(
+      'data-account-email',
+      'ana@example.com',
+    )
+    expect(screen.getByRole('button', { name: 'Mentor FAB' })).toBeVisible()
   })
 
   it('renders the open mobile navigation and delegates destination selection', () => {

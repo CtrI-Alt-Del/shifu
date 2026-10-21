@@ -66,6 +66,7 @@ export const startSkillAction = createServerFn({ method: 'POST' })
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       const response = await LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       ).startSkill(access.accessToken, data.goalId, data.skillId, data.entryKey)
@@ -86,6 +87,7 @@ export const completeDiagnosticAction = createServerFn({ method: 'POST' })
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       await LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       ).completeDiagnostic(
@@ -129,6 +131,7 @@ export const retryDiagnosticAction = createServerFn({ method: 'POST' })
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       await LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       ).retryDiagnosticEvaluation(access.accessToken, data, data.diagnosticRunId)
@@ -272,6 +275,7 @@ export function useSkillPage(props: SkillPageProps) {
 
     const navigationKey = `${run.diagnosticRunId}:${diagnostic.nextCompetencyId}:${diagnostic.nextActivityId}`
     if (activityNavigationRef.current === navigationKey) return
+
     activityNavigationRef.current = navigationKey
     window.scrollTo(0, 0)
     void navigateTo('learningActivity', {
@@ -364,12 +368,14 @@ export function useSkillPage(props: SkillPageProps) {
 
   function handleCancelRemoval() {
     if (isRemovingSkill) return
+
     setIsRemovalDialogOpen(false)
     resetRemoveSkill()
   }
 
   async function handleConfirmRemoval() {
     if (isRemovingSkill || isRemovalSubmittingRef.current) return
+
     isRemovalSubmittingRef.current = true
     try {
       await removeSkill()

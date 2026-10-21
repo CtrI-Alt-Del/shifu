@@ -28,11 +28,16 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.core.domain.structures import CodeAnswer
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
+    SkillExperienceStatus,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
+from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.errors import AuthorizationError
-from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.core.domain.structures import (
+    AuthenticatedUser,
+    CurriculumReactQuestionSnapshot,
+)
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
@@ -43,6 +48,9 @@ from shifu.shared.database.seed_data import (
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
+from tests.learning.server.controllers.react_controller_fixture import (
+    ReactControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -79,6 +87,8 @@ def application(
     seed = build_development_seed()
     learning_started_at = datetime(2026, 1, 1, tzinfo=UTC)
     for experience in seed.skill_experiences:
+        if experience.status is not SkillExperienceStatus.NOT_STARTED:
+            continue
         experience.start_diagnosis(learning_started_at)
         experience.start_learning(learning_started_at)
     for progress in seed.competency_progresses:
@@ -117,6 +127,236 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestSubmitChoiceActivityController:
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            {'kind': 'react', 'question_key': 'q3'},
+            {
+                'kind': 'react',
+                'question_key': 'q3',
+                'files': [],
+                'selected_option_keys': ['a'],
+            },
+            {'kind': 'single_choice', 'question_key': 'q1'},
+            {
+                'kind': 'single_choice',
+                'question_key': 'q1',
+                'files': [],
+                'selected_option_keys': ['a'],
+            },
+        ),
+        ids=(
+            'code-without-files',
+            'mixed-code-shape',
+            'choice-without-options',
+            'mixed-choice-shape',
+        ),
+    )
+    def test_should_reject_malformed_answer_shape_before_persistence(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+    ) -> None:
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/attempts',
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={
+                    'submission_key': 'e9aa7b85-c95b-4319-b98e-5ca293c09f61',
+                    'answers': [answer],
+                },
+            ),
+        )
+
+        assert response.status_code == 422, response.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize('with_policy', [True, False])
+    def test_react_submission_round_trips_files_policy_and_same_key_replay(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+    ) -> None:
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many(
+                [ReactControllerFixture.activity(with_policy=with_policy)]
+            )
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        body = ReactControllerFixture.submission(revision)
+        answers = cast('list[dict[str, object]]', body['answers'])
+        if not with_policy:
+            answers[2]['files'] = ReactControllerFixture.answer_files()[:1]
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/attempts',
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+        assert created.json()['status'] == 'pending'
+        assert created.json()['result_url'].endswith(f'/attempts/{attempt_id}')
+        database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert attempt is not None
+        snapshot = attempt.grading_snapshot
+        assert snapshot is not None
+        assert snapshot.revision == revision
+        question = snapshot.questions[2]
+        assert isinstance(question, CurriculumReactQuestionSnapshot)
+        assert question.kind == 'react'
+        assert question.prompt == ReactControllerFixture.PROMPT
+        assert (
+            question.initial_files[0].content == ReactControllerFixture.INITIAL_SOURCE
+        )
+        assert question.initial_files[1].content == ReactControllerFixture.FIXED_HTML
+        assert (question.additional_file_policy is not None) is with_policy
+        if question.additional_file_policy is not None:
+            assert question.additional_file_policy.allowed_directories == (
+                'src/components',
+            )
+            assert question.additional_file_policy.allowed_extensions == ('.jsx', '.js')
+            assert question.additional_file_policy.max_files == 2
+        answer = attempt.answers[2]
+        assert isinstance(answer, CodeAnswer)
+        assert answer.kind == 'react'
+        assert [
+            {'path': file.path, 'content': file.content} for file in answer.files
+        ] == (
+            ReactControllerFixture.answer_files()
+            if with_policy
+            else ReactControllerFixture.answer_files()[:1]
+        )
+        assert evaluation is not None and evaluation.status.value == 'pending'
+        assert evaluation.run_id is not None
+        after_created = ReactControllerFixture.write_counts(postgres_database)
+        assert after_created == (before[0] + 1, before[1] + 1, before[2], before[3] + 1)
+
+        replay = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/attempts',
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert replay.status_code == 200, replay.json()
+        assert replay.json() == created.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == after_created
+
+    def test_react_submit_uses_configured_assessment_size_limit(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many([ReactControllerFixture.activity()])
+        application.dependency_overrides[
+            LearningPipe.get_max_code_assessment_input_bytes
+        ] = lambda: 512 * 1024
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        body = ReactControllerFixture.submission(
+            cast('str', detail.json()['activity_revision'])
+        )
+        answers = cast('list[dict[str, object]]', body['answers'])
+        large_source = 'x' * (300 * 1024)
+        answers[2]['files'] = [{'path': 'src/App.jsx', 'content': large_source}]
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/attempts',
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert response.status_code == 201, response.json()
+        database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(
+                cast('str', response.json()['attempt_id'])
+            )
+        assert attempt is not None
+        answer = attempt.answers[2]
+        assert isinstance(answer, CodeAnswer)
+        assert answer.files[0].content == large_source
+
+    @pytest.mark.parametrize('with_policy', [True, False])
+    def test_react_submit_rejects_forbidden_extra_files_without_persistence(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+    ) -> None:
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many(
+                [ReactControllerFixture.activity(with_policy=with_policy)]
+            )
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        body = ReactControllerFixture.submission(
+            cast('str', detail.json()['activity_revision'])
+        )
+        answers = cast('list[dict[str, object]]', body['answers'])
+        files = cast('list[dict[str, str]]', answers[2]['files'])
+        if with_policy:
+            files[1]['path'] = 'src/unauthorized.jsx'
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/attempts',
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert response.status_code == 400, response.json()
+        assert response.json()['code'] == 'validation_error'
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
     def test_creates_attempt_and_same_key_replay_returns_the_same_attempt(
         self,
         client: TestClient,
@@ -130,6 +370,7 @@ class TestSubmitChoiceActivityController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert first.status_code == 201, first.json()
         attempt_id = cast('str', first.json()['attempt_id'])
         learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
@@ -237,6 +478,7 @@ class TestSubmitChoiceActivityController:
                 headers=headers,
             ),
         )
+
         assert detail.status_code == 200, detail.json()
         revision = cast('str', detail.json()['activity_revision'])
         body: dict[str, object] = {
@@ -278,10 +520,12 @@ class TestSubmitChoiceActivityController:
             evaluation = repositories.activity_evaluations.find_by_attempt_id(
                 attempt_id
             )
+
         assert attempt is not None
         assert attempt.grading_snapshot is not None
         assert attempt.grading_snapshot.id == activity.id
         code_answer = attempt.answers[2]
+
         assert isinstance(code_answer, CodeAnswer)
         assert code_answer.files[0].content == 'console.log(7)'
         assert evaluation is not None
@@ -296,6 +540,7 @@ class TestSubmitChoiceActivityController:
                 headers=headers,
             ),
         )
+
         assert replay.status_code == 200
         assert replay.json()['attempt_id'] == attempt_id
 

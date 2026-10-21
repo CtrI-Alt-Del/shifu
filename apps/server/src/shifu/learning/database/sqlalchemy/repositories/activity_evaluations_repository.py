@@ -112,6 +112,7 @@ class SqlalchemyActivityEvaluationsRepository:
     ) -> list[ActivityEvaluation]:
         if not attempt_ids:
             return []
+
         models = self._session.scalars(
             select(ActivityEvaluationModel).where(
                 ActivityEvaluationModel.attempt_id.in_(attempt_ids)

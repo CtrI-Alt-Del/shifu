@@ -200,4 +200,43 @@ describe('ChoiceResultDetail', () => {
     expect(screen.getByText('Lê a entrada corretamente.')).toBeVisible()
     expect(screen.getByText('Evidências de Conceito')).toBeVisible()
   })
+  it('reveals the saved React files and rubric without running the project', () => {
+    const question = {
+      ...CODE_QUESTION,
+      kind: 'react' as const,
+      additionalFilePolicy: null,
+    }
+    const result: CodeResultQuestion = {
+      key: question.key,
+      kind: 'react',
+      prompt: 'Tela React histórica',
+      score: 50,
+      submittedFiles: [
+        { path: 'src/App.tsx', content: 'saved React source' },
+        { path: 'src/extra.css', content: 'saved styles' },
+      ],
+      criterionResults: [
+        {
+          key: 'input-handling',
+          weightPercentage: 60,
+          level: 50,
+          commentId: 'partial',
+          comment: 'Comportamento parcial.',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(<ChoiceResultDetail question={question} questionNumber={3} result={result} />)
+    fireEvent.click(screen.getByText(/Questão 3 · React/))
+    expect(screen.getByText('saved React source')).toBeVisible()
+    expect(screen.getByText('saved styles')).toBeVisible()
+    expect(screen.getByText('Somente leitura')).toBeVisible()
+    expect(screen.getByText('Leitura da entrada · peso 60% · nível 50')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: /Executar|Avaliar/ }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByTitle('Prévia isolada da aplicação React'),
+    ).not.toBeInTheDocument()
+  })
 })

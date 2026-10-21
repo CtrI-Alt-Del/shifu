@@ -303,6 +303,7 @@ class TestGetSkillExperienceDetailUseCase:
             state('concept-2', None),
         ]
         baseline = self.execute()
+
         assert baseline.overall_result == Decimal('50')
         assert baseline.competencies[0].progress == Decimal('50')
 
@@ -311,6 +312,7 @@ class TestGetSkillExperienceDetailUseCase:
             state('concept-2', Decimal('50')),
         ]
         after_practice = self.execute()
+
         assert after_practice.overall_result == Decimal('75')
         assert after_practice.competencies[0].progress == Decimal('75')
 
@@ -394,6 +396,7 @@ class TestGetSkillExperienceDetailUseCase:
         detail = self.execute()
 
         first, second = detail.competencies
+
         assert first.progress == Decimal('92')
         assert first.status is CompetencyProgressStatus.MASTERED
         assert first.availability is CompetencyAvailability.AVAILABLE
@@ -409,6 +412,7 @@ class TestGetSkillExperienceDetailUseCase:
         detail = self.execute()
 
         summary = detail.competencies[0]
+
         assert summary.progress is None
         assert summary.availability is CompetencyAvailability.UNAVAILABLE
         assert summary.status is None

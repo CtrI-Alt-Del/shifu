@@ -84,12 +84,14 @@ class TestRequestPasswordRecoveryUseCase:
         assert result.recovery_handle == 'opaque-handle'
         assert result.is_decoy is False
         token = self.repositories.account_action_tokens.add.call_args.args[0]
+
         assert token.account_id == account.id
         assert token.type is AccountActionTokenType.PASSWORD_RECOVERY
         assert token.token_hash == 'recovery-token-hash'
         assert token.pending_handle_hash == 'opaque-handle-hash'
         assert token.expires_at == self.now + timedelta(hours=1)
         queued_request = self.delivery_gateway.queue.call_args.args[0]
+
         assert queued_request.recipient_email == 'learner@example.com'
         assert queued_request.recovery_token == 'raw-recovery-token'
         self.repositories.accounts.find_non_deleted_by_email.assert_called_once_with(
@@ -165,6 +167,7 @@ class TestRequestPasswordRecoveryUseCase:
             is sibling
         )
         cancellation = self.repositories.events.add.call_args.args[0]
+
         assert cancellation.payload.identity_action_token_id == sibling.id
         assert cancellation.payload.communication_id == sibling.communication_id
         assert cancellation.payload.reason.value == 'reissued'

@@ -5,7 +5,9 @@ description: Pytest integration rules for Inngest functions, durable execution, 
 # Job Testing Rules
 
 These rules apply to Inngest integration tests under
-`apps/server/tests/messaging/inngest/jobs` and their shared runtime fixtures.
+`apps/server/tests/messaging/inngest/jobs`, registered module AgentOS integration
+tests under `apps/server/tests/<module>/server/agentos`, and their separate runtime
+fixtures.
 
 ## Test jobs through a real Inngest runtime
 
@@ -104,3 +106,37 @@ any order.
 Use a separate, Docker-capable pytest selection for Inngest integration tests. CI must
 run it; local Docker unavailability may produce an explicit skip but does not count as
 passing integration evidence.
+
+## AI/NLP jobs and subprocess behavior
+
+When a job owns an AI/NLP capability, its integration scenarios also verify the
+concrete local adapters and Agno composition under AI Layer Rules. Controlled
+external inference/review endpoints may supply deterministic outputs and failures;
+assert call counts, bounded retries/review, and persisted/public effects. Do not
+invoke workflow internals or replace the composition with an approved-output mock
+for scenarios intended to prove that composition.
+
+## Registered AgentOS workflow integration
+
+An AgentOS integration test enters through the actual owning module registry, internal
+HTTP admission, and native queue. It does not invoke a `Workflow`, `Step`, `Agent`, or
+SDK callback directly. Use `tests/fixtures/agentos_fixture.py` and a class named
+`Test<Action>Workflow` under the owning module's
+`tests/<module>/server/agentos/` path.
+
+The fixture provides disposable PostgreSQL and Redis, applies the current Alembic
+head, starts the real composed app and both independently managed registries, and
+waits for explicit readiness. Each scenario uses isolated IDs and waits with a
+bounded deadline for the persisted or externally visible effect. Tests prove queue
+registration, destination isolation, run completion, privacy-safe run/trace data,
+restart behavior, cancellation/late-result fences, and persisted effects through a
+fresh database session. Stop/restart only the registry under test; the other registry
+and its work must remain available. Never use the developer's Compose database or
+Inngest instance.
+
+Set `SHIFU_RUN_REAL_AGENTOS_TESTS=1` for the required real-runtime selection. If the
+flag is absent, Docker is unavailable, or the callback port cannot be bound, a local
+skip must give the specific reason; CI must run the same selection with disposable
+services. Controlled remote inference uses endpoint doubles that capture the actual
+registered workflow's request. It never replaces the workflow with an approved-output
+mock.

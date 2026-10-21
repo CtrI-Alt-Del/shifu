@@ -23,6 +23,7 @@ class AvailableMaterialDetail:
     def __post_init__(self) -> None:
         if not self.content.strip():
             raise ValueError('Material content cannot be empty.')
+
         if (
             self.recommendation is not None
             and self.recommendation.competency_id != self.competency_id

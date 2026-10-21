@@ -75,6 +75,7 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
             required = set(activity.required_concept_ids)
             if not assessed:
                 gaps.append(f'activity:{activity.id}:no_concepts')
+
             if assessed & required:
                 gaps.append(f'activity:{activity.id}:requires_evaluated_concept')
             for prerequisite_id in required:
@@ -87,12 +88,14 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
                     gaps.append(
                         f'activity:{activity.id}:future_prerequisite:{prerequisite_id}'
                     )
+
             for concept_id in assessed & concepts.keys():
                 edges[concept_id].update(required)
             if not activity.executable_concept_evidence:
                 if activity.activity_type == 'diagnostic':
                     gaps.append(f'activity:{activity.id}:no_trusted_evaluator')
                 continue
+
             for concept_id in assessed:
                 if (
                     concept_id not in concepts
@@ -102,18 +105,21 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
                         f'activity:{activity.id}:foreign_evaluated_concept:{concept_id}'
                     )
                     continue
+
                 if activity.activity_type == 'diagnostic':
                     diagnostic_counts[(concept_id, activity.difficulty)].add(
                         activity.id
                     )
                 else:
                     counts[(concept_id, activity.difficulty)].add(activity.id)
+
         for concept in competency.concepts:
             for difficulty in ('easy', 'medium', 'hard'):
                 if len(counts[(concept.id, difficulty)]) < 2:
                     gaps.append(
                         f'concept:{concept.id}:{difficulty}:insufficient_learning'
                     )
+
                 if not diagnostic_counts[(concept.id, difficulty)]:
                     gaps.append(f'concept:{concept.id}:{difficulty}:missing_diagnostic')
             hard = [
@@ -134,8 +140,10 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
         if concept_id in visiting:
             gaps.append(f'concept:{concept_id}:prerequisite_cycle')
             return
+
         if concept_id in visited:
             return
+
         visiting.add(concept_id)
         for prerequisite_id in sorted(edges[concept_id]):
             if prerequisite_id in concepts:
@@ -145,4 +153,5 @@ def v2_coverage_gaps(skill: CurriculumSkillSnapshot) -> tuple[str, ...]:  # noqa
 
     for concept_id in sorted(concepts):
         visit(concept_id)
+
     return tuple(dict.fromkeys(gaps))

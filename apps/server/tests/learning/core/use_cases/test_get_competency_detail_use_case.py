@@ -355,6 +355,7 @@ class TestGetCompetencyDetailUseCase:
         activities = [
             item for item in result.items if isinstance(item, CompetencyActivityDetail)
         ]
+
         assert [(item.id, item.latest_score) for item in activities] == [
             ('activity-1', Decimal('80')),
             ('activity-2', None),

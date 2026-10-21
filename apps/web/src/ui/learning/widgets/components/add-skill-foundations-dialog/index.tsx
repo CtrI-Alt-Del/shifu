@@ -68,7 +68,7 @@ export function AddSkillFoundationsDialog({
           </p>
         </div>
 
-        <div className='p-6 max-h-96 overflow-y-auto'>
+        <div className='p-6 pb-8 max-h-96 overflow-y-auto'>
           {isLoading ? (
             <div className='text-center py-8'>
               <div className='inline-block animate-spin'>⚙️</div>

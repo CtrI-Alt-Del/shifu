@@ -1,7 +1,49 @@
+import {
+  exerciseDictationStates,
+  exerciseBrowserManagedControls,
+} from '../support/native-dictation'
+import {
+  exerciseSummaryFailure,
+  exerciseSummaryJourney,
+} from '../support/mentor-summary-journey'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
+function serverFnExport(url: string): string | null {
+  const segment = new URL(url).pathname.split('/_serverFn/')[1]
+  if (!segment) return null
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64').toString('utf-8')).export
+  } catch {
+    return null
+  }
+}
+
 test.describe('AppLayout', () => {
+  test.beforeEach(async ({ authenticatedPage }) => {
+    // The gamification page stands in here as a generic, already-authenticated
+    // destination for layout/navigation assertions unrelated to Gamification
+    // itself; its own achievements fetch is mocked so a real unauthorized
+    // response never fires the page's unrelated redirect-to-login effect.
+    await authenticatedPage.route('**/_serverFn/**', async (route) => {
+      const fn = serverFnExport(route.request().url())
+      if (fn?.startsWith('getAchievements_')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              kind: 'success',
+              overview: { level: 1, totalXp: 0, xpForNextLevel: 100, achievements: [] },
+            },
+          }),
+          contentType: 'application/json',
+          status: 200,
+        })
+        return
+      }
+      await route.fallback()
+    })
+  })
+
   test('navigates between the shared desktop destinations', async ({
     authenticatedPage,
   }) => {
@@ -17,15 +59,17 @@ test.describe('AppLayout', () => {
     )
 
     await navigation.getByRole('link', { name: 'Mentor' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/intelligence\/?$/)
     await expect(
       authenticatedPage.getByRole('heading', {
         level: 1,
-        name: 'Mais clareza para continuar.',
+        name: 'Nova conversa',
       }),
     ).toBeVisible()
 
     await navigation.getByRole('link', { name: 'Objetivos' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/$/)
     await expect(
       authenticatedPage.getByRole('heading', {
@@ -56,10 +100,12 @@ test.describe('AppLayout', () => {
     )
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(navigation).not.toBeVisible()
 
     await menuButton.click()
     await authenticatedPage.mouse.click(20, 200)
+
     await expect(navigation).not.toBeVisible()
   })
 
@@ -80,15 +126,18 @@ test.describe('AppLayout', () => {
     await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeEnabled()
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(menu).not.toBeVisible()
     await expect(trigger).toBeFocused()
 
     await trigger.click()
     const gamificationMain = authenticatedPage
       .getByRole('main')
-      .filter({ hasText: 'Cada passo merece ser visto.' })
+      .filter({ hasText: 'Gamificação' })
     await expect(gamificationMain).toBeVisible()
+
     await gamificationMain.click({ position: { x: 20, y: 20 } })
+
     await expect(menu).not.toBeVisible()
   })
 
@@ -172,12 +221,13 @@ test.describe('AppLayout', () => {
     await expect.poll(() => requestCount).toBe(1)
     releaseFirstResponse()
 
-    await expect(authenticatedPage.getByRole('alert')).toHaveText(
-      /Não foi possível sair agora\. Tente novamente\./,
-    )
+    await expect(
+      authenticatedPage.getByRole('menu', { name: 'Menu da conta' }).getByRole('alert'),
+    ).toHaveText(/Não foi possível sair agora\. Tente novamente\./)
     await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 
     await authenticatedPage.getByRole('menuitem', { name: 'Sair' }).click()
+
     await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
     expect(requestCount).toBe(2)
     expect(requests).toEqual([
@@ -196,6 +246,7 @@ test.describe('AppLayout', () => {
       name: 'Abrir menu da conta',
     })
     await accountTrigger.click()
+
     await expect(
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }),
     ).toBeVisible()
@@ -207,9 +258,39 @@ test.describe('AppLayout', () => {
     ).toBeVisible()
 
     await authenticatedPage.keyboard.press('Escape')
+
     await expect(
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }),
     ).not.toBeVisible()
     await expect(accountTrigger).toBeFocused()
   })
+})
+
+test('renders native dictation states on fab at 1440', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'fab', 1440)
+})
+test('renders native dictation states on fab at 390', async ({ authenticatedPage }) => {
+  await exerciseDictationStates(authenticatedPage, 'fab', 390)
+})
+
+test('renders native dictation states without a local language pack on fab', async ({
+  authenticatedPage,
+}) => {
+  await exerciseBrowserManagedControls(authenticatedPage, 'fab')
+})
+
+test('summarizes the context, reads the summary and reveals the originals on fab at 1440', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'fab', 1440)
+})
+test('summarizes the context, reads the summary and reveals the originals on fab at 390', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'fab', 390)
+})
+test('shows the summarization failure notice after its learner message on fab', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryFailure(authenticatedPage, 'fab')
 })

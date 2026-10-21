@@ -23,6 +23,7 @@ test('redirects an anonymous visitor before the placeholder renders', async ({
   page,
 }) => {
   const { planningId } = PlanningFaker.fake()
+
   await page.goto(`/intelligence/planner/${planningId}/`)
 
   await expect(page).toHaveURL(/\/login\/?$/)

@@ -34,17 +34,22 @@ class StartSkillUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             catalog = self._curriculum.get_skill_content(skill_id)
             if catalog is None or catalog.id != skill_id:
                 raise NotFoundError
+
             if not catalog.v2_eligible:
                 raise CurriculumGapError
+
             locked = repositories.skill_experiences.find_by_id_for_update(experience.id)
             if locked is None:
                 raise NotFoundError
+
             if locked.status is SkillExperienceStatus.DIAGNOSING:
                 if locked.diagnostic_run_id == entry_key:
                     return locked
+
                 repositories.activity_attempts.remove_diagnostic_by_experience(
                     locked.id
                 )
@@ -52,8 +57,10 @@ class StartSkillUseCase:
                 locked.updated_at = self._clock.now()
                 repositories.skill_experiences.update(locked)
                 return locked
+
             if locked.status is not SkillExperienceStatus.NOT_STARTED:
                 raise ConflictError
+
             now = self._clock.now()
             locked.start_diagnosis(now)
             locked.diagnostic_run_id = entry_key

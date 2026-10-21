@@ -91,6 +91,7 @@ class TestRegisterAccountUseCase:
         assert result.confirmation_expires_at == self.now + timedelta(hours=24)
 
         account = self.repositories.accounts.add.call_args.args[0]
+
         assert account.id == result.account_id
         assert account.display_name == 'Pessoa Aprendente'
         assert account.email == 'learner@example.com'
@@ -102,6 +103,7 @@ class TestRegisterAccountUseCase:
         confirmation_token = self.repositories.account_action_tokens.add.call_args.args[
             0
         ]
+
         assert confirmation_token.id == result.identity_action_token_id
         assert confirmation_token.account_id == result.account_id
         assert confirmation_token.token_hash == 'confirmation-token-hash'
@@ -113,6 +115,7 @@ class TestRegisterAccountUseCase:
             'AccountCreatedEvent',
             self.repositories.events.add.call_args.args[0],
         )
+
         assert event.name == 'identity/account.created'
         assert event.payload.account_id == result.account_id
         assert event.payload.status is AccountStatus.PENDING_CONFIRMATION

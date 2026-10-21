@@ -125,6 +125,7 @@ class TestGetCompetencyDetailController:
             application.state.curriculum_content_provider,
         )
         skill = original_provider.get_skill_content(SEED_ADAPTIVE_LAB_SKILL_ID)
+
         assert skill is not None
         competency = next(
             item
@@ -175,6 +176,7 @@ class TestGetCompetencyDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'available'
         assert body['items']
         assert all('concepts' in item for item in body['items'])
@@ -224,6 +226,7 @@ class TestGetCompetencyDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
         assert body['skillId'] == SEED_ADAPTIVE_LAB_SKILL_ID
@@ -245,6 +248,7 @@ class TestGetCompetencyDetailController:
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
         )
+
         assert second_response.status_code == 200
         assert _event_count(postgres_database) == before_events
 
@@ -450,6 +454,7 @@ class TestGetCompetencyDetailController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['availability'] == 'unavailable'
         assert 'progress' not in body
         assert 'status' not in body
@@ -585,6 +590,8 @@ def _current_migration_revision(database: PostgresDatabase) -> str:
 def _reset_database_to_revision(database: PostgresDatabase, revision: str) -> None:
     database.engine.dispose()
     with database.engine.begin() as connection:
+        connection.execute(text('DROP SCHEMA IF EXISTS agentos_learning CASCADE'))
+        connection.execute(text('DROP SCHEMA IF EXISTS agentos_intelligence CASCADE'))
         connection.execute(text('DROP SCHEMA public CASCADE'))
         connection.execute(text('CREATE SCHEMA public'))
     _run_alembic(database.url, 'upgrade', revision)

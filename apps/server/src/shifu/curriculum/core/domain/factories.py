@@ -11,4 +11,5 @@ def create_competencies(
     keys = tuple((competency.skill_id, competency.position) for competency in result)
     if len(keys) != len(set(keys)):
         raise InvalidCompetencyError
+
     return result

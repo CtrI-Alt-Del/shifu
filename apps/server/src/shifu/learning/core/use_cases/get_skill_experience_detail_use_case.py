@@ -165,6 +165,7 @@ class GetSkillExperienceDetailUseCase:
         if adaptive is not None:
             if adaptive.activity_id is None or adaptive.difficulty is None:
                 return None
+
             return SkillRecommendation(
                 competency_id=focus.id,
                 competency_name=focus.name,
@@ -177,6 +178,7 @@ class GetSkillExperienceDetailUseCase:
                 material_id=adaptive.material_id,
                 gap=adaptive.gap,
             )
+
         if recommendation is None:
             return None
 
@@ -256,9 +258,11 @@ class GetSkillExperienceDetailUseCase:
     ) -> Decimal | None:
         if not summaries:
             return None
+
         known = tuple(item.progress for item in summaries if item.progress is not None)
         if not known:
             return None
+
         total = sum(
             known,
             start=Decimal('0'),

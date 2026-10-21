@@ -90,6 +90,7 @@ export const IdentityService = (restClient: RestClient) => {
       })
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -119,6 +120,7 @@ export const IdentityService = (restClient: RestClient) => {
       })
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -129,6 +131,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -139,6 +142,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -149,6 +153,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -159,6 +164,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -169,6 +175,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -179,6 +186,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -193,6 +201,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -203,6 +212,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body
     },
 
@@ -216,6 +226,7 @@ export const IdentityService = (restClient: RestClient) => {
       )
 
       if (response.isFailure) response.throwError()
+
       return response.body.valid
     },
   }

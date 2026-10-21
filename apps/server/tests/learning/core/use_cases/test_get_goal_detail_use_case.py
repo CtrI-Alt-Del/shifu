@@ -128,6 +128,7 @@ class TestGetGoalDetailUseCase:
         learning_skill = next(
             skill for skill in detail.skills if skill.skill_id == 'skill-a'
         )
+
         assert learning_skill.progress == Decimal('60')
         assert learning_skill.inclusion_reason == 'Fundamento necessário.'
         assert all(
@@ -142,6 +143,7 @@ class TestGetGoalDetailUseCase:
         self.curriculum_content_provider.get_skill_overviews.assert_called_once_with(
             ('skill-c', 'skill-a', 'skill-b')
         )
+
         assert (
             self.repositories.competency_progresses.find_many_by_skill_experience_id.call_count
             == 1

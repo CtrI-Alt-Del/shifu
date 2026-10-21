@@ -18,6 +18,7 @@ test('redirects authenticated learning visitors to Home and protects anonymous v
   authenticatedPage,
 }) => {
   await navigateAuthenticatedPage(authenticatedPage, '/learning/')
+
   await expect(authenticatedPage).toHaveURL(/\/$/)
   await expect(
     authenticatedPage.getByRole('heading', {
@@ -28,6 +29,7 @@ test('redirects authenticated learning visitors to Home and protects anonymous v
 
   await authenticatedPage.context().clearCookies()
   await authenticatedPage.goto('/learning/')
+
   await expect(authenticatedPage).toHaveURL(/\/login\/?$/)
 })
 
@@ -39,6 +41,7 @@ test('starts an interrupted diagnostic and opens its next Activity', async ({
   let diagnosticRequests = 0
   let startRequests = 0
   let activityRequestPayload = ''
+
   await bff.route(async (route) => {
     const fn = serverFnExport(route.request().url())
     if (fn?.startsWith('getGoalDetail_')) {

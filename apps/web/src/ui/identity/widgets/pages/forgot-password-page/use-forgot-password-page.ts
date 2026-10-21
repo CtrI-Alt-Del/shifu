@@ -57,6 +57,7 @@ export function useForgotPasswordPage() {
 
   async function handleRetry() {
     if (isSubmitting) return
+
     setIsRetrying(true)
     setMessage(null)
     try {

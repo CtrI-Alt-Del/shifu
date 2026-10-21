@@ -59,14 +59,19 @@ class ResetPasswordUseCase:
             action_token = token_repository.find_by_hash(token_hash)
             if action_token is None:
                 return PasswordResetResult(result='invalid')
+
             if action_token.type is not AccountActionTokenType.PASSWORD_RECOVERY:
                 return PasswordResetResult(result='invalid')
+
             if action_token.status is AccountActionTokenStatus.USED:
                 return PasswordResetResult(result='used')
+
             if action_token.status is AccountActionTokenStatus.EXPIRED:
                 return PasswordResetResult(result='expired')
+
             if action_token.status is AccountActionTokenStatus.INVALIDATED:
                 return PasswordResetResult(result='invalid')
+
             if now >= action_token.expires_at:
                 action_token.expire(now)
                 token_repository.update(action_token)
@@ -97,6 +102,7 @@ class ResetPasswordUseCase:
             ):
                 if sibling.id == action_token.id:
                     continue
+
                 sibling.invalidate(now)
                 token_repository.update(sibling)
                 self._add_cancellation_event(
@@ -141,6 +147,7 @@ class ResetPasswordUseCase:
     ) -> None:
         if token.communication_id is None:
             return
+
         repositories.events.add(
             AccountActionTokenCancelledEvent(
                 payload=AccountActionTokenCancelledPayload(

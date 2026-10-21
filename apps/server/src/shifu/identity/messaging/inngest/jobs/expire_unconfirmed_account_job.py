@@ -35,6 +35,7 @@ class _Payload(BaseModel):
     def validate_account_id(cls, value: str) -> str:
         if not value.strip():
             raise ValueError('Account ID must not be empty')
+
         return value
 
 

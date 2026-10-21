@@ -191,6 +191,7 @@ class AdaptiveLearningPolicy:
             value = item.value
             if value is None:
                 continue
+
             progress = (
                 value
                 if progress is None
@@ -200,6 +201,7 @@ class AdaptiveLearningPolicy:
         for item in reversed(items):
             if item.value is not None:
                 break
+
             if item.activity_id not in inconclusive_ids:
                 inconclusive_ids.append(item.activity_id)
         return AdaptiveConceptState(
@@ -322,6 +324,7 @@ class AdaptiveLearningPolicy:
     ) -> tuple[tuple[str, str | None], ...]:
         if acquired_at is None:
             return ()
+
         causes: list[tuple[str, str | None]] = []
         for state in states:
             if state.progress is not None and state.progress < Decimal('60'):
@@ -428,6 +431,7 @@ class AdaptiveLearningPolicy:
         )
         if not focus_concepts:
             return None
+
         competency = competencies[focus]
         activities = tuple(
             item
@@ -463,6 +467,7 @@ class AdaptiveLearningPolicy:
             )
             if not weak:
                 break
+
             target = weak[0]
             reason = 'prerequisite'
         else:
@@ -505,6 +510,7 @@ class AdaptiveLearningPolicy:
             )
             if not blocked:
                 break
+
             target = min(
                 blocked,
                 key=lambda item: (
@@ -538,6 +544,7 @@ class AdaptiveLearningPolicy:
                 gap='assessment_unavailable',
                 recommended_competency_id=target.competency_id,
             )
+
         if selected is None:
             return AdaptiveRecommendation(
                 competency_id=focus,
@@ -549,6 +556,7 @@ class AdaptiveLearningPolicy:
                 gap='curriculum_or_assessment_unavailable',
                 recommended_competency_id=target.competency_id,
             )
+
         material = self._select_material(
             target.id, states[target.id], materials, observations
         )
@@ -605,6 +613,7 @@ class AdaptiveLearningPolicy:
                 ),
                 best,
             )
+
         if (
             previous_target_id is not None
             and rank(best)[0] != 4
@@ -667,22 +676,27 @@ class AdaptiveLearningPolicy:
             or state.evidence_verification
         ):
             return 0
+
         if (
             limited_diagnostic
             and state.progress is not None
             and state.progress < _SEVENTY
         ):
             return 1
+
         if (
             state.progress is None
             or not state.coverage_complete
             or len(state.distinct_activity_ids) < 2
         ):
             return 2 if limited_diagnostic else 1
+
         if state.progress < _SEVENTY:
             return 2
+
         if not state.hard_confirmation:
             return 3
+
         return 4
 
     def _has_viable_action(
@@ -697,6 +711,7 @@ class AdaptiveLearningPolicy:
     ) -> bool:
         if concept_id in seen or concept_id not in concepts:
             return False
+
         seen = seen | {concept_id}
         concept = concepts[concept_id]
         weak = self._weak_prerequisites(
@@ -715,6 +730,7 @@ class AdaptiveLearningPolicy:
                 )
                 for item in weak
             )
+
         preferred = self._preferred_difficulty(states[concept_id], observations)
         if (
             self._select_activity(
@@ -730,6 +746,7 @@ class AdaptiveLearningPolicy:
             is not None
         ):
             return True
+
         return any(
             self._has_viable_action(
                 required.id,
@@ -929,6 +946,7 @@ class AdaptiveLearningPolicy:
         )
         if useful:
             return min(useful, key=rank)
+
         ordered_levels = _DIFFICULTIES[: _DIFFICULTIES.index(preferred) + 1]
         consolidation = tuple(
             item
@@ -952,6 +970,7 @@ class AdaptiveLearningPolicy:
                 ),
                 default=None,
             )
+
         return min(consolidation, key=rank) if consolidation else None
 
     def _potential_gain(
@@ -1014,6 +1033,7 @@ class AdaptiveLearningPolicy:
             or two_failures
         ):
             return None
+
         candidates = tuple(
             item
             for item in materials

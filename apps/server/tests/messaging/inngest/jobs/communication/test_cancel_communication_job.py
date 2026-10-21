@@ -98,6 +98,7 @@ class TestCancelCommunicationJob:
 
         with inngest_fixture.inspection_session() as session:
             unchanged = session.get(CommunicationModel, communication_id)
+
         assert unchanged is not None
         assert unchanged.recipient_email is not None
         assert unchanged.identity_action_token_id == identity_action_token_id

@@ -17,12 +17,28 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",
     "httpx>=0.28.1",
+    "agno>=3.1.2",
+    "openai>=3.26.1",
+    "spacy>=3.8,<4",
+    "sentence-transformers>=5,<6",
+    "rank-bm25>=0.2.2,<0.3",
+    "pgvector>=0.4,<0.5",
+    "torch>=2.8",
+    "pt-core-news-sm",
+    "boto3==1.43.114",
+    "Pillow==12.3.0",
+    "pypdf==6.20.1",
+    "pypdfium2==5.14.0",
+    "opentelemetry-sdk>=1.45.1",
+    "langfuse>=3,<4",
 ]
 
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
+    "coverage>=7.16.2",
     "faker>=40.39.0",
+    "httpx2>=2.13.1",
     "poethepoet>=0.41.0",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
@@ -115,6 +131,10 @@ filterwarnings = [
     "ignore::pydantic.warnings.PydanticDeprecatedSince20:inngest.*",
 ]
 
+[tool.coverage.run]
+patch = ["subprocess"]
+sigterm = true
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -126,4 +146,14 @@ where = ["src"]
 package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
+"shifu.intelligence.ai.data" = ["*.json"]
 "shifu.communication.providers.email.template.generated" = ["*.html", "*.json"]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+pt-core-news-sm = { url = "https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

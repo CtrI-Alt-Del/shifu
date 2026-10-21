@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import signal
 import sys
 import time
 from threading import Thread
@@ -18,10 +19,15 @@ from urllib.request import Request, urlopen
 
 import pytest
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session as SqlalchemySession
 from testcontainers.core.container import DockerContainer
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
+
+
+# Native NLP imports and model initialization may exceed 30s during test startup.
+_APPLICATION_STARTUP_TIMEOUT: int = 90
 
 
 @dataclass
@@ -35,10 +41,72 @@ class InngestFixture:
     output: list[str]
     inngest_container: DockerContainer | None = None
     output_reader: Thread | None = None
+    runtime_environment: dict[str, str] | None = None
+    runtime_directory: Path | None = None
+
+    def restart_application(self) -> None:
+        """Gracefully restart the owned worker while preserving its runtime."""
+        self._require_restart_configuration()
+        self.process.terminate()
+        try:
+            exit_code = self.process.wait(timeout=30)
+        except subprocess.TimeoutExpired as error:
+            self.process.kill()
+            self.process.wait(timeout=5)
+            if self.output_reader is not None:
+                self.output_reader.join(timeout=5)
+            raise AssertionError(
+                'The owned application required a forced kill; graceful restart failed'
+            ) from error
+        if exit_code not in {0, -signal.SIGTERM}:
+            raise AssertionError(
+                f'The owned application exited with {exit_code}; graceful restart failed'
+            )
+        self._restart_application()
+
+    def crash_and_restart_application(self) -> None:
+        """Crash only the owned worker and reconnect it to the same durable runtime."""
+        self._require_restart_configuration()
+        self.process.kill()
+        self.process.wait(timeout=5)
+        self._restart_application()
+
+    def _require_restart_configuration(self) -> None:
+        if self.runtime_environment is None or self.runtime_directory is None:
+            raise AssertionError(
+                'The fixture has no owned application restart configuration'
+            )
+
+    def _restart_application(self) -> None:
+        if self.runtime_environment is None or self.runtime_directory is None:
+            raise AssertionError(
+                'The fixture has no owned application restart configuration'
+            )
+        if self.output_reader is not None:
+            self.output_reader.join(timeout=5)
+            if self.output_reader.is_alive():
+                raise AssertionError('The owned application output reader did not stop')
+        self.output_reader = None
+        self.process = subprocess.Popen(  # noqa: S603 - reuse the fixture-owned command
+            self.process.args,
+            cwd=self.runtime_directory,
+            env=self.runtime_environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        self.start_output_reader()
+        _wait_for_url(f'{self.server_url}/health', timeout=_APPLICATION_STARTUP_TIMEOUT)
+        _wait_for_url(f'{self.server_url}/api/inngest', timeout=30)
+        _wait_for_inngest_app(
+            self.inngest_url,
+            app_id=self.runtime_environment.get('INNGEST_APP_ID', 'shifu'),
+            timeout=30,
+        )
 
     def publish(
         self, event_name: str, payload: dict[str, object], event_id: str
-    ) -> None:
+    ) -> tuple[str, ...]:
         body = json.dumps(
             {
                 'name': event_name,
@@ -58,6 +126,37 @@ class InngestFixture:
                 raise AssertionError(
                     f'Inngest event submission returned {response.status}'
                 )
+            result: object = json.load(response)
+        if not isinstance(result, dict):
+            raise TypeError('Inngest event submission did not return an object')
+        ids: object = cast('dict[str, object]', result).get('ids')
+        if not isinstance(ids, list) or not all(
+            isinstance(value, str) for value in cast('list[object]', ids)
+        ):
+            raise AssertionError('Inngest event submission did not return event IDs')
+        return tuple(cast('list[str]', ids))
+
+    def query_inngest(
+        self, query: str, variables: dict[str, object]
+    ) -> dict[str, object]:
+        """Inspect durable execution on this fixture's isolated Dev Server."""
+        request = Request(  # noqa: S310 - fixture-owned local GraphQL endpoint
+            f'{self.inngest_url}/v0/gql',
+            data=json.dumps({'query': query, 'variables': variables}).encode(),
+            headers={'content-type': 'application/json'},
+            method='POST',
+        )
+        with urlopen(request, timeout=10) as response:  # noqa: S310
+            result: object = json.load(response)
+        if not isinstance(result, dict):
+            raise TypeError('Inngest inspection did not return an object')
+        result_mapping = cast('dict[str, object]', result)
+        if result_mapping.get('errors'):
+            raise AssertionError('The isolated Inngest inspection query failed')
+        data: object = result_mapping.get('data')
+        if not isinstance(data, dict):
+            raise TypeError('Inngest inspection did not return an object')
+        return cast('dict[str, object]', data)
 
     def invoke_function(
         self,
@@ -222,7 +321,7 @@ class InngestFixture:
         if self.process.poll() is None:
             self.process.terminate()
             try:
-                self.process.wait(timeout=5)
+                self.process.wait(timeout=30)
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 self.process.wait(timeout=5)
@@ -260,7 +359,12 @@ class InngestFixture:
 
 
 @pytest.fixture(scope='session')
-def _inngest_runtime() -> Iterator[InngestFixture]:
+def inngest_app_target() -> tuple[str, bool]:
+    return 'main:app', False
+
+
+@pytest.fixture(scope='module')
+def _inngest_runtime(inngest_app_target: tuple[str, bool]) -> Iterator[InngestFixture]:
     if os.environ.get('SHIFU_RUN_REAL_INNGEST_TESTS') != '1':
         pytest.skip('set SHIFU_RUN_REAL_INNGEST_TESTS=1 to run Docker-backed job tests')
 
@@ -279,7 +383,7 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
         try:
             postgres = stack.enter_context(
                 PostgresContainer(
-                    'postgres:17-alpine',
+                    'pgvector/pgvector:0.8.1-pg17',
                     username='shifu',
                     password='change-me',  # noqa: S106 - disposable test credential
                     dbname='shifu',
@@ -317,10 +421,35 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
         bff_shared_secret = 'shifu-inngest-test-bff-secret'
         redis_host = redis.get_container_host_ip()
         redis_port = redis.get_exposed_port(6379)
+        database_url = postgres.get_connection_url()
+        agentos_password = 'agentos-test-password'
+        agentos_url = (
+            make_url(database_url)
+            .set(
+                username='shifu_agentos_runtime',
+                password=agentos_password,
+            )
+            .render_as_string(hide_password=False)
+        )
+        admin_engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            with admin_engine.begin() as connection:
+                connection.exec_driver_sql(
+                    'CREATE ROLE shifu_agentos_runtime LOGIN '
+                    "PASSWORD 'agentos-test-password' NOSUPERUSER NOCREATEDB "
+                    'NOCREATEROLE INHERIT'
+                )
+                connection.execute(
+                    text('GRANT CONNECT ON DATABASE shifu TO shifu_agentos_runtime')
+                )
+        finally:
+            admin_engine.dispose()
         environment = os.environ.copy()
         environment.update(
             {
-                'DATABASE_URL': postgres.get_connection_url(),
+                'DATABASE_URL': database_url,
+                'AGENTOS_DATABASE_URL': agentos_url,
+                'AGENTOS_RUNTIME_ROLE_PASSWORD': agentos_password,
                 'SHIFU_SERVER_APP_PORT': str(server_port),
                 'INNGEST_BASE_URL': inngest_url,
                 'INNGEST_DEV': '1',
@@ -344,9 +473,10 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
                 sys.executable,
                 '-m',
                 'uvicorn',
-                'main:app',
+                inngest_app_target[0],
+                *(['--factory'] if inngest_app_target[1] else []),
                 '--app-dir',
-                'src',
+                str(server_directory),
                 '--host',
                 '0.0.0.0',  # noqa: S104 - the Docker runtime must reach this host process.
                 '--port',
@@ -367,9 +497,16 @@ def _inngest_runtime() -> Iterator[InngestFixture]:
             bff_shared_secret=bff_shared_secret,
             output=[],
             inngest_container=inngest,
+            runtime_environment=environment,
+            runtime_directory=server_directory,
         )
         fixture.start_output_reader()
-        _wait_for_url(f'{server_url}/health', timeout=30)
+        try:
+            _wait_for_url(f'{server_url}/health', timeout=_APPLICATION_STARTUP_TIMEOUT)
+        except AssertionError as error:
+            raise AssertionError(
+                f'{error}; FastAPI startup output: {fixture.output[-60:]!r}'
+            ) from error
         _wait_for_url(f'{server_url}/api/inngest', timeout=30)
         _wait_for_url(f'{mailpit_url}/api/v1/messages', timeout=30)
         _wait_for_inngest_app(

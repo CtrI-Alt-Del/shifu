@@ -36,13 +36,17 @@ class AccountActionToken:
     def use(self, used_at: datetime) -> None:
         if self.status is AccountActionTokenStatus.USED:
             raise AccountActionTokenAlreadyUsedError
+
         if self.status is AccountActionTokenStatus.INVALIDATED:
             raise AccountActionTokenInvalidatedError
+
         if self.status is AccountActionTokenStatus.EXPIRED:
             raise AccountActionTokenExpiredError
+
         if used_at >= self.expires_at:
             self.expire(used_at)
             raise AccountActionTokenExpiredError
+
         self.status = AccountActionTokenStatus.USED
         self.used_at = used_at
         self.updated_at = used_at
@@ -50,8 +54,10 @@ class AccountActionToken:
     def expire(self, expired_at: datetime) -> bool:
         if self.status is AccountActionTokenStatus.EXPIRED:
             return False
+
         if self.status is not AccountActionTokenStatus.PENDING:
             raise AccountActionTokenInvalidatedError
+
         self.status = AccountActionTokenStatus.EXPIRED
         self.updated_at = expired_at
         return True
@@ -59,6 +65,7 @@ class AccountActionToken:
     def invalidate(self, invalidated_at: datetime) -> None:
         if self.status is not AccountActionTokenStatus.PENDING:
             raise AccountActionTokenInvalidatedError
+
         self.status = AccountActionTokenStatus.INVALIDATED
         self.invalidated_at = invalidated_at
         self.updated_at = invalidated_at
@@ -70,6 +77,7 @@ class AccountActionToken:
     ) -> bool:
         if self.delivery_status is status:
             return False
+
         if self.delivery_status in {
             AccountActionTokenDeliveryStatus.DELIVERED,
             AccountActionTokenDeliveryStatus.PERMANENT_FAILURE,
@@ -78,6 +86,7 @@ class AccountActionToken:
             AccountActionTokenDeliveryStatus.EXPIRED,
         }:
             return False
+
         self.delivery_status = status
         self.updated_at = recorded_at
         return True
@@ -89,5 +98,6 @@ class AccountActionToken:
     ) -> None:
         if self.status is not AccountActionTokenStatus.PENDING:
             raise AccountActionTokenInvalidatedError
+
         self.pending_handle_hash = pending_handle_hash
         self.updated_at = updated_at

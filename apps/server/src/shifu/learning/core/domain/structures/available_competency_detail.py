@@ -43,10 +43,13 @@ class AvailableCompetencyDetail:
     def __post_init__(self) -> None:
         if self.progress is not None:
             Percentage.create(self.progress)
+
         if self.focus_returned and not self.is_focus:
             raise ValueError('Only the current focus can be returned.')
+
         if self.recommendation is not None:
             if not self.is_focus:
                 raise ValueError('Only the current focus can be recommended.')
+
             if self.recommendation.competency_id != self.competency_id:
                 raise ValueError('Recommendation must belong to the detail.')

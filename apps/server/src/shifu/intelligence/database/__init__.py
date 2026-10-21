@@ -1,1 +1,1 @@
-
+from .intelligence_seeder import IntelligenceSeeder as IntelligenceSeeder

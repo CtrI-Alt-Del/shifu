@@ -28,6 +28,7 @@ class MultipleSelectionQuestion:
         correct_count = sum(option.is_correct for option in self.options)
         if correct_count < 2 or correct_count == len(self.options):
             raise InvalidActivityError
+
         for name in ('correct_explanation', 'incorrect_explanation'):
             explanation = getattr(self, name)
             if explanation is not None:

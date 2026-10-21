@@ -72,6 +72,7 @@ class TestGetHomeGoalsController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert [goal['id'] for goal in body['goals']] == [
             newer_goal.id,
             older_goal.id,

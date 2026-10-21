@@ -142,6 +142,7 @@ class TestGetDiagnosticController:
 
         assert response.status_code == 200, response.text
         body = response.json()
+
         assert body['initialRecommendation'] is None
         assert body['initialRecommendationGap'] == (
             'curriculum_or_assessment_unavailable'
@@ -159,6 +160,7 @@ class TestGetDiagnosticController:
             _AUTHORIZATION,
             {'entry_key': str(run_id)},
         )
+
         assert start.status_code == 200, start.text
 
         current = _get(
@@ -166,8 +168,10 @@ class TestGetDiagnosticController:
             path,
             headers={**_AUTHORIZATION, 'X-Diagnostic-Run-Id': str(run_id)},
         )
+
         assert current.status_code == 200, current.text
         body = current.json()
+
         assert body['runState'] == 'active'
         assert body['readyToComplete'] is False
         assert body['nextActivityId'] is not None
@@ -178,4 +182,5 @@ class TestGetDiagnosticController:
             path,
             headers={**_AUTHORIZATION, 'X-Diagnostic-Run-Id': str(uuid4())},
         )
+
         assert stale.status_code == 409, stale.text

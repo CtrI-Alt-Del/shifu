@@ -33,6 +33,7 @@ class _Payload(BaseModel):
     def validate_identifier(cls, value: str) -> str:
         if not value.strip():
             raise ValueError('Identifier must not be empty')
+
         return value
 
 

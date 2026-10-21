@@ -23,6 +23,7 @@ class AbandonDiagnosticUseCase:
             )
             if goal is None or goal.account_id != account_id or experience is None:
                 raise NotFoundError
+
             locked = repositories.skill_experiences.find_by_id_for_update(experience.id)
             if (
                 locked is None
@@ -30,11 +31,13 @@ class AbandonDiagnosticUseCase:
                 or locked.skill_id != skill_id
             ):
                 raise NotFoundError
+
             if (
                 locked.status is not SkillExperienceStatus.DIAGNOSING
                 or locked.diagnostic_run_id != diagnostic_run_id
             ):
                 raise ConflictError
+
             repositories.activity_attempts.remove_diagnostic_by_experience(locked.id)
             locked.diagnostic_run_id = None
             locked.status = SkillExperienceStatus.NOT_STARTED

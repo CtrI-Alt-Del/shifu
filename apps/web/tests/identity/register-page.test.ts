@@ -10,6 +10,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 })
+
     await page.goto('/register/')
 
     await expect(
@@ -23,15 +24,28 @@ test.describe('RegisterPage route with mocked transport', () => {
       'href',
       '/login',
     )
+    const privacyLink = page.getByRole('link', { name: 'Política de privacidade' })
+    await expect(privacyLink).toHaveAttribute('href', '/privacy')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    await privacyLink.click()
+    await expect(page).toHaveURL(/\/privacy\/?$/)
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'Política de privacidade',
+      }),
+    ).toBeVisible()
   })
 
   test('preserves valid input and announces client validation failures', async ({
     page,
   }) => {
     const displayName = IdentityDisplayNameFaker.fake()
+
     await page.goto('/register/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page.getByRole('textbox', { name: 'Nome de exibição' }).fill(displayName)
     await page.getByRole('textbox', { name: 'E-mail' }).fill('invalid-email')
     await page.getByRole('button', { name: 'Criar conta' }).click()
@@ -52,6 +66,7 @@ test.describe('RegisterPage route with mocked transport', () => {
     const registration = IdentityRegistrationDataFaker.fake()
     const password = 'password-123'
     let requestBody: unknown
+
     await page.route('**/api/auth/register/identity', async (route) => {
       requestBody = route.request().postDataJSON()
       await route.fulfill({
@@ -60,8 +75,11 @@ test.describe('RegisterPage route with mocked transport', () => {
         status: 200,
       })
     })
+
     await page.goto('/register/')
-    await page.waitForLoadState('networkidle')
+    await expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true', {
+      timeout: 30_000,
+    })
     await page
       .getByRole('textbox', { name: 'Nome de exibição' })
       .fill(registration.displayName)

@@ -34,5 +34,26 @@ class SqlalchemyActivitiesRepository:
         )
         self._session.flush()
 
+    def find_learning_by_competency_id(self, competency_id: str) -> list[Activity]:
+        models = self._session.scalars(
+            select(ActivityModel).where(
+                ActivityModel.competency_id == competency_id,
+                ActivityModel.activity_type == 'learning',
+            )
+        ).all()
+        return [ActivityMapper.to_domain(model) for model in models]
+
+    def has_diagnostic_activity(self, competency_id: str, activity_id: str) -> bool:
+        return (
+            self._session.scalar(
+                select(ActivityModel.id).where(
+                    ActivityModel.id == activity_id,
+                    ActivityModel.competency_id == competency_id,
+                    ActivityModel.activity_type == 'diagnostic',
+                )
+            )
+            is not None
+        )
+
     def remove_all(self) -> None:
         self._session.execute(delete(ActivityModel))

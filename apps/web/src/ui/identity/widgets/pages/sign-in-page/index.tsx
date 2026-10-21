@@ -102,7 +102,7 @@ export const SignInPage = () => {
 
           <Button aria-busy={isSubmitting} disabled={isSubmitting} type='submit'>
             {isSubmitting && (
-              <Icon className='animate-spin' name='loader-circle' size={16} />
+              <Icon className='animate-spin mr-2' name='loader-circle' size={16} />
             )}
             {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>
@@ -125,6 +125,16 @@ export const SignInPage = () => {
             Criar conta
           </Anchor>
         </nav>
+        <p className='mt-5 text-center text-sm text-muted-foreground'>
+          Ao usar o Shifu, consulte nossa{' '}
+          <Anchor
+            className='min-h-11 rounded-md px-1 py-3 text-jade-text underline decoration-jade-text/60 underline-offset-4 hover:decoration-jade-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-selo-text'
+            route='privacy'
+          >
+            Política de privacidade
+          </Anchor>
+          .
+        </p>
       </main>
     </div>
   )

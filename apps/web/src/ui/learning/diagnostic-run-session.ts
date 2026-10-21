@@ -25,6 +25,7 @@ export function setDiagnosticRun(
 ): DiagnosticRun {
   const current = getDiagnosticRun(goalId, skillId)
   if (current?.diagnosticRunId === diagnosticRunId) return current
+
   const run = {
     diagnosticRunId,
     answers: new Map<string, DiagnosticSubmissionItem>(),
@@ -54,6 +55,7 @@ export function stageDiagnosticActivity(
 ): void {
   const run = getDiagnosticRun(goalId, skillId)
   if (!run || run.diagnosticRunId !== diagnosticRunId || run.submitted) return
+
   run.answers.set(`${item.competencyId}:${item.activityId}`, item)
 }
 
@@ -65,10 +67,12 @@ export function prepareDiagnosticSubmission(
 ): { submissionKey: string; items: DiagnosticSubmissionItem[] } | null {
   const run = getDiagnosticRun(goalId, skillId)
   if (!run || run.diagnosticRunId !== diagnosticRunId || !sequence.length) return null
+
   const items = sequence.map((entry) =>
     run.answers.get(`${entry.competencyId}:${entry.activityId}`),
   )
   if (items.some((item) => !item)) return null
+
   run.submissionKey ??= globalThis.crypto.randomUUID()
   return { submissionKey: run.submissionKey, items: items as DiagnosticSubmissionItem[] }
 }

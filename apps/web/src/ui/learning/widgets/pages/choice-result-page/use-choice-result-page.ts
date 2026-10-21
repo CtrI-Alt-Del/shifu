@@ -68,6 +68,7 @@ export const getChoiceAttemptAction = createServerFn({ method: 'GET' })
   )
   .handler(async ({ data }): Promise<ChoiceAttemptDetail | ActionFailure> => {
     if ('kind' in data) return data
+
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
@@ -86,9 +87,11 @@ export const retryChoiceEvaluationAction = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<{ ok: true } | ActionFailure> => {
     if ('kind' in data) return data
+
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
       if (!access) return { kind: 'unauthorized' }
+
       await LearningService(
         AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
       ).retryChoiceEvaluation(access.accessToken, data)
@@ -115,6 +118,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     enabled: routeMode,
     queryFn: async () => {
       if (!routeProps) throw new Error('Missing route IDs')
+
       const result = await getActivityAction({
         data: {
           goalId: routeProps.goalId,
@@ -138,6 +142,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     enabled: routeMode,
     queryFn: async () => {
       if (!routeProps) throw new Error('Missing route IDs')
+
       const result = await getChoiceAttemptAction({
         data: routeIdsForAttempt(routeProps),
       })
@@ -159,6 +164,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
     enabled: routeMode && attemptQuery.data?.status === 'completed',
     queryFn: async (): Promise<AvailableCompetencyDetail | null> => {
       if (!routeProps) return null
+
       const result = await getCompetencyDetailAction({
         data: {
           goalId: routeProps.goalId,
@@ -179,6 +185,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
 
   useEffect(() => {
     if (!routeMode) return
+
     function refreshWhenVisible() {
       if (
         document.visibilityState === 'visible' &&
@@ -218,6 +225,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
 
   async function handleRetryEvaluation() {
     if (!canRetry || !attempt) return
+
     setIsRetrying(true)
     setHasRetryError(false)
     try {
@@ -226,6 +234,7 @@ export function useChoiceResultPage(props: ChoiceResultPageProps) {
           data: routeIdsForAttempt(routeProps),
         })
         if (isActionFailure(result)) throw mapFailure(result)
+
         await attemptQuery.refetch()
       } else if (legacyProps?.state === 'result') {
         await legacyProps.onRetryEvaluation()

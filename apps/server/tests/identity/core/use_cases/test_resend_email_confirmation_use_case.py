@@ -106,6 +106,7 @@ class TestResendEmailConfirmationUseCase:
         replacement_token = self.repositories.account_action_tokens.add.call_args.args[
             0
         ]
+
         assert replacement_token.account_id == account.id
         assert replacement_token.pending_handle_hash == 'pending-handle-hash'
         assert replacement_token.token_hash == 'replacement-token-hash'
@@ -116,6 +117,7 @@ class TestResendEmailConfirmationUseCase:
             'AccountActionTokenCancelledEvent',
             self.repositories.events.add.call_args.args[0],
         )
+
         assert cancellation_event.payload.communication_id == old_token.communication_id
         assert cancellation_event.payload.identity_action_token_id == old_token.id
         assert (

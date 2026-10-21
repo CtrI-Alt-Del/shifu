@@ -21,6 +21,7 @@ class Request(BaseModel):
         stripped_value = value.strip()
         if not stripped_value:
             raise ValueError('initial_intent must not be empty or whitespace-only')
+
         return stripped_value
 
 

@@ -103,6 +103,7 @@ class TestResetPasswordUseCase:
             for event in events
             if isinstance(event, AccountPasswordRecoveredEvent)
         )
+
         assert recovered.payload.account_id == account.id
         assert recovered.payload.access_version == 5
 

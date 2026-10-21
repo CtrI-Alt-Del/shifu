@@ -23,6 +23,7 @@ class TestSignInController:
                 },
             ),
         )
+
         assert registration.status_code == 202
 
         response = cast(
@@ -38,6 +39,7 @@ class TestSignInController:
 
         assert response.status_code == 200
         body = response.json()
+
         assert body['access'] == 'activation-only'
         assert len(body['pending_handle']) == 43
         assert body['pending_handle'] != registration.json()['pending_handle']
@@ -49,5 +51,6 @@ class TestSignInController:
                 json={'pending_handle': body['pending_handle']},
             ),
         )
+
         assert pending_status.status_code == 200
         assert pending_status.json()['state'] in {'cooldown', 'ready'}

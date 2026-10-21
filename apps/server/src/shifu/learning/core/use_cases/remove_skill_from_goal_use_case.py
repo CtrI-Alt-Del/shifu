@@ -16,7 +16,9 @@ class RemoveSkillFromGoalUseCase:
             )
             if experience is None:
                 raise SkillExperienceNotFoundError
+
             goal = repositories.goals.find_by_id(goal_id)
             if goal is None or goal.account_id != account_id:
                 raise SkillExperienceNotFoundError
+
             repositories.skill_experiences.remove(experience)

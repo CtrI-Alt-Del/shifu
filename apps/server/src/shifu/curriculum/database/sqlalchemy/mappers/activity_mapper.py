@@ -2,6 +2,7 @@ from typing import cast
 
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
+from shifu.curriculum.core.domain.errors import InvalidActivityError
 from shifu.curriculum.core.domain.structures import (
     CodeQuestion,
     CodeRubricEvaluationPart,
@@ -10,6 +11,7 @@ from shifu.curriculum.core.domain.structures import (
     CorrectnessEvaluationPart,
     EvaluationRule,
     JavascriptStdinQuestion,
+    ReactQuestion,
     MultipleSelectionQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
@@ -54,12 +56,23 @@ class ActivityMapper:
         | MultipleSelectionQuestion
         | CodeQuestion
         | JavascriptStdinQuestion
+        | ReactQuestion
     ):
         if data.get('kind') == 'javascript_stdin':
             return cast(
                 'JavascriptStdinQuestion',
                 Serialization.deserialize_value(data, JavascriptStdinQuestion),
             )
+
+        if data.get('kind') == 'react':
+            return cast(
+                'ReactQuestion',
+                Serialization.deserialize_value(data, ReactQuestion),
+            )
+
+        if 'kind' in data:
+            raise InvalidActivityError
+
         if 'options' not in data:
             return cast(
                 'CodeQuestion',
@@ -89,6 +102,7 @@ class ActivityMapper:
                 incorrect_explanation=incorrect_explanation,
                 concept_criteria=concept_criteria,
             )
+
         return MultipleSelectionQuestion(
             key=key,
             prompt=prompt,
@@ -105,7 +119,8 @@ class ActivityMapper:
             SingleChoiceQuestion
             | MultipleSelectionQuestion
             | CodeQuestion
-            | JavascriptStdinQuestion,
+            | JavascriptStdinQuestion
+            | ReactQuestion,
             ...,
         ],
     ) -> (

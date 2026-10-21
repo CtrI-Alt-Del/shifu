@@ -452,7 +452,7 @@ class TestEvaluateChoiceActivityJob:
         try:
             database, provider, ids, activity, experience = _seed_mixed(engine)
             now = SystemClockProvider().now()
-            attempt, evaluation, event = _add_mixed_attempt(
+            attempt, _, event = _add_mixed_attempt(
                 database,
                 provider,
                 ids,
@@ -462,29 +462,19 @@ class TestEvaluateChoiceActivityJob:
                 source_code='console.log("official source")',
                 publish_to_outbox=True,
             )
-            try:
-                inngest_fixture.wait_for_log(
-                    f'choice_activity_job_completed attempt_id={attempt.id} '
-                    f'run_id={evaluation.run_id}',
-                    timeout=30,
-                )
-            except AssertionError as error:
-                failure_log = (
-                    f'choice_activity_job_failure_handled attempt_id={attempt.id} '
-                    f'run_id={evaluation.run_id}'
-                )
-                try:
-                    inngest_fixture.wait_for_log(failure_log, timeout=2)
-                except AssertionError:
-                    raise error from None
-                failed = _evaluation(database, attempt.id)
-                raise AssertionError(
-                    'Mixed official evaluation failed: '
-                    f'failure_code={failed.failure_code!r}; '
-                    f'controlled_decisions_requests={_DecisionsHandler.requests!r}'
-                ) from error
-
+            inngest_fixture.wait_for_log(
+                'Workflow queued: learning-evaluate-code-activity', timeout=10
+            )
+            assert _outbox_destination(engine, event.name) == 'agentos:learning'
+            deadline = time.monotonic() + 30
             completed = _evaluation(database, attempt.id)
+            while (
+                completed.status is ActivityEvaluationStatus.PENDING
+                and time.monotonic() < deadline
+            ):
+                time.sleep(0.1)
+                completed = _evaluation(database, attempt.id)
+
             assert completed.status is ActivityEvaluationStatus.COMPLETED
             assert completed.score == Decimal('90')
             assert completed.effect_applied_at is not None
@@ -502,23 +492,21 @@ class TestEvaluateChoiceActivityJob:
 
             progress_after_completion = _progress_current(engine)
             duplicate = ActivitySubmissionRequestedEvent(payload=event.payload)
-            inngest_fixture.publish(
-                duplicate.name,
-                cast(
-                    'dict[str, object]',
-                    Serialization.serialize_value(duplicate.payload),
-                ),
-                event_id=ids.generate(),
-            )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_stale_run attempt_id={attempt.id} '
-                f'run_id={evaluation.run_id}'
-            )
+            with database.transaction() as repositories:
+                repositories.events.add(duplicate)
+            duplicate_deadline = time.monotonic() + 10
+            while (
+                _outbox_status(engine, duplicate.name) != 'published'
+                and time.monotonic() < duplicate_deadline
+            ):
+                time.sleep(0.1)
+            assert _outbox_status(engine, duplicate.name) == 'published'
+            assert _outbox_destination(engine, duplicate.name) == 'agentos:learning'
             assert _evaluated_event_count(engine) == 1
             assert _evaluation(database, attempt.id).score == Decimal('90')
             assert _progress_current(engine) == progress_after_completion
 
-            failed_attempt, failed_evaluation, _ = _add_mixed_attempt(
+            failed_attempt, _, _ = _add_mixed_attempt(
                 database,
                 provider,
                 ids,
@@ -528,18 +516,31 @@ class TestEvaluateChoiceActivityJob:
                 source_code='// request-failure',
                 publish_to_outbox=True,
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_failure_handled attempt_id={failed_attempt.id} '
-                f'run_id={failed_evaluation.run_id}',
-                timeout=30,
-            )
             failed = _evaluation(database, failed_attempt.id)
+            failure_deadline = time.monotonic() + 30
+            while (
+                failed.status is not ActivityEvaluationStatus.FAILED
+                and time.monotonic() < failure_deadline
+            ):
+                time.sleep(0.1)
+                failed = _evaluation(database, failed_attempt.id)
             assert failed.status is ActivityEvaluationStatus.FAILED
             assert failed.score is None
             assert failed.effect_applied_at is None
             assert _evaluated_event_count(engine) == 1
             assert _progress_current(engine) == progress_after_completion
-            assert len(_DecisionsHandler.requests) == 2
+            assert len(_DecisionsHandler.requests) == 3
+            failed_requests = _DecisionsHandler.requests[1:]
+            assert failed_requests[0] == failed_requests[1]
+            failed_request_state = cast(
+                'dict[str, object]', failed_requests[0]['state']
+            )
+            failed_request_files = cast(
+                'list[dict[str, object]]', failed_request_state['project_files']
+            )
+            assert failed_request_files == [
+                {'path': 'src/main.js', 'content': '// request-failure'}
+            ]
             request_state = cast(
                 'dict[str, object]', _DecisionsHandler.requests[0]['state']
             )
@@ -960,6 +961,16 @@ def _outbox_status(engine: Engine, event_name: str) -> str | None:
     with engine.connect() as connection:
         return connection.scalar(
             select(EventModel.status)
+            .where(EventModel.name == event_name)
+            .order_by(EventModel.created_at.desc())
+            .limit(1)
+        )
+
+
+def _outbox_destination(engine: Engine, event_name: str) -> str | None:
+    with engine.connect() as connection:
+        return connection.scalar(
+            select(EventModel.destination)
             .where(EventModel.name == event_name)
             .order_by(EventModel.created_at.desc())
             .limit(1)

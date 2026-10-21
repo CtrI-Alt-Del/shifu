@@ -259,19 +259,23 @@ test.describe('Home page', () => {
     await navigateAuthenticatedPage(authenticatedPage, '/')
 
     await authenticatedPage.getByLabel('O que você quer aprender?').focus()
+
     await expect(authenticatedPage.getByLabel('O que você quer aprender?')).toBeFocused()
 
     await authenticatedPage.keyboard.press('Tab')
+
     await expect(
       authenticatedPage.getByRole('link', { name: 'Criar manualmente' }),
     ).toBeFocused()
 
     await authenticatedPage.keyboard.press('Tab')
+
     await expect(
       authenticatedPage.getByRole('button', { name: 'Planejar com IA' }),
     ).toBeFocused()
 
     await authenticatedPage.keyboard.press('Tab')
+
     await expect(
       authenticatedPage.getByRole('link', { name: /Lógica de programação/ }),
     ).toBeFocused()

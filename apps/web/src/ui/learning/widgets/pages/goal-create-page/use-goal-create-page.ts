@@ -79,6 +79,7 @@ export function useGoalCreatePage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!title.trim() || !description.trim() || isSubmitting) return
+
     setIsSubmitting(true)
     setSubmissionError(null)
     const result = await createGoalAction({

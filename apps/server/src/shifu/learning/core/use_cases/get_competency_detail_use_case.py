@@ -185,6 +185,7 @@ class GetCompetencyDetailUseCase:
                 if focus_competency
                 else None,
             )
+
         attempts = tuple(
             repositories.activity_attempts.find_many_by_skill_experience_id(
                 experience.id
@@ -284,8 +285,10 @@ class GetCompetencyDetailUseCase:
     def display_progress(progress: CompetencyProgress) -> Decimal:
         if progress.current_progress is not None:
             return progress.current_progress
+
         if progress.initial_progress is not None:
             return progress.initial_progress
+
         return Decimal('0')
 
     @staticmethod
@@ -306,6 +309,7 @@ class GetCompetencyDetailUseCase:
                 or evaluation.completed_at is None
             ):
                 continue
+
             latest_results[attempt.activity_id] = OfficialActivityResult(
                 activity_id=attempt.activity_id,
                 attempt_id=attempt.id,
@@ -364,6 +368,7 @@ class GetCompetencyDetailUseCase:
                     )
                 )
                 continue
+
             items.append(
                 CompetencyMaterialDetail(
                     id=item.id,
@@ -450,6 +455,7 @@ class GetCompetencyDetailUseCase:
     ) -> CompetencyActivityDetail:
         if not candidates:
             raise ValueError('Recommendation candidates cannot be empty.')
+
         if len(candidates) > 1 and previous_activity_id is not None:
             for candidate in candidates:
                 if candidate.id != previous_activity_id:
@@ -460,6 +466,8 @@ class GetCompetencyDetailUseCase:
     def _target_difficulty(progress: Decimal) -> ActivityDifficulty:
         if progress < Decimal('40'):
             return ActivityDifficulty.EASY
+
         if progress < Decimal('70'):
             return ActivityDifficulty.MEDIUM
+
         return ActivityDifficulty.HARD

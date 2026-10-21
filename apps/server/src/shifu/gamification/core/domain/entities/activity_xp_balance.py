@@ -28,6 +28,7 @@ class ActivityXpBalance:
         )
         BoundedInteger.create(self.granted_xp, error_type=InvalidGamificationError)
         AwareTimestamp.create(self.updated_at, error_type=InvalidGamificationError)
+
         if self.maximum_xp not in {10, 20, 30} or self.granted_xp > self.maximum_xp:
             raise InvalidGamificationError
 
@@ -61,6 +62,7 @@ class ActivityXpBalance:
             or not Decimal(0) <= score <= Decimal(100)
         ):
             raise InvalidGamificationError
+
         numerator, denominator = score.as_integer_ratio()
         corresponding = self.maximum_xp * numerator // (100 * denominator)
         return max(0, corresponding - self.granted_xp)

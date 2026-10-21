@@ -1,5 +1,5 @@
 {
-  "version": "2.20",
+  "version": "2.21",
   "children": [
     {
       "type": "frame",
@@ -71882,47 +71882,6 @@
             },
             {
               "type": "frame",
-              "id": "SFkKF",
-              "x": 24,
-              "y": 122,
-              "name": "Contexto da página",
-              "width": 518,
-              "height": 70,
-              "fill": "$jade-tint",
-              "cornerRadius": "$radius-control",
-              "stroke": "$jade-fill",
-              "strokeWidth": 1,
-              "layout": "vertical",
-              "gap": 6,
-              "padding": [
-                11,
-                14
-              ],
-              "children": [
-                {
-                  "type": "text",
-                  "id": "OA6J3",
-                  "name": "Rótulo do contexto",
-                  "fill": "$jade-text",
-                  "content": "CONTEXTO DA PÁGINA",
-                  "fontFamily": "$font-mono",
-                  "fontSize": 10,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "text",
-                  "id": "kVDP5",
-                  "name": "Habilidade atual",
-                  "fill": "$text-primary",
-                  "content": "Lógica de programação",
-                  "fontFamily": "$font-ui",
-                  "fontSize": 15,
-                  "fontWeight": "600"
-                }
-              ]
-            },
-            {
-              "type": "frame",
               "id": "oEepw",
               "x": 44,
               "y": 286,
@@ -74438,47 +74397,6 @@
               "width": 566,
               "height": 1,
               "fill": "$divider"
-            },
-            {
-              "type": "frame",
-              "id": "joLWA",
-              "x": 24,
-              "y": 96,
-              "name": "Contexto desta conversa",
-              "width": 518,
-              "height": 56,
-              "fill": "$jade-tint",
-              "cornerRadius": "$radius-control",
-              "stroke": "$jade-fill",
-              "strokeWidth": 1,
-              "layout": "vertical",
-              "gap": 4,
-              "padding": [
-                8,
-                12
-              ],
-              "children": [
-                {
-                  "type": "text",
-                  "id": "DP4Ix",
-                  "name": "Rótulo do contexto",
-                  "fill": "$jade-text",
-                  "content": "CONTEXTO DA CONVERSA",
-                  "fontFamily": "$font-mono",
-                  "fontSize": 10,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "text",
-                  "id": "pFw7f",
-                  "name": "Habilidade relacionada",
-                  "fill": "$text-primary",
-                  "content": "Lógica de programação · Repetição",
-                  "fontFamily": "$font-ui",
-                  "fontSize": 13,
-                  "fontWeight": "600"
-                }
-              ]
             },
             {
               "type": "frame",
@@ -89757,8 +89675,8 @@
     {
       "type": "frame",
       "id": "n8OPLr",
-      "x": 18603,
-      "y": 4150,
+      "x": 18647,
+      "y": 4067,
       "name": "05.8 Planejador · falha ao criar objetivo · mobile",
       "context": "PRD Intelligence 83099649 v3 · RP-10, RP-12 · JN-13 · Learning falhou ao criar; título, descrição, habilidades e justificativas preservados; nenhum objetivo criado; repetir confirmação é idempotente.",
       "clip": true,
@@ -99071,8 +98989,8 @@
     {
       "type": "frame",
       "id": "LbeWb",
-      "x": 29085,
-      "y": 6675,
+      "x": 29114,
+      "y": 5575,
       "name": "modal",
       "width": 686,
       "fill": "$surface",
