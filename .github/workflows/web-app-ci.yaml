@@ -178,6 +178,7 @@ jobs:
         run: >-
           pnpm --filter web exec vitest run --coverage
           src/constants/tests/routes.test.ts
+          src/routes/privacy/tests/privacy-route.test.ts
           src/rest/axios/tests/axios-rest-client.test.ts
           tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
           tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
@@ -209,6 +210,11 @@ jobs:
           src/ui/learning/widgets/pages/competency-detail-page/tests
           src/ui/learning/widgets/layouts/goals-list-section/tests
           src/ui/learning/widgets/sections/add-skill-catalog-section/tests
+          src/ui/identity/widgets/pages/account-page/tests
+          src/ui/identity/widgets/pages/privacy-policy-page/tests
+          src/ui/identity/widgets/pages/sign-in-page/tests/sign-in-page.test.tsx
+          src/ui/identity/widgets/pages/register-page/tests/register-page.test.tsx
+          src/ui/shared/widgets/layouts/root-layout/tests
 
       - name: Enforce thresholds for every changed production file
         shell: bash
