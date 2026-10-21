@@ -432,6 +432,12 @@ files and saved criteria vary, while kind is context rather than provider dispat
 This one-step assessment does not construct an Agno Agent, Team, or Workflow.
 The Mentor answer workflow summarizes long conversations locally (extractive,
 no inference, nothing leaves Shifu) in a pre-answer step before preparation.
+A second local pre-answer step analyzes the learner's typed message for explicit
+statements and keeps them as private learner memories: spaCy filters first-person,
+non-question sentences, a count bag-of-words with TF-IDF and a nearest-example vote
+classifies them, and count bag-of-words cosine decides between creating and updating
+a memory. This step uses scikit-learn as an explicit server dependency, calls no AI
+provider and records no usage.
 
 Agno's `Agent`, `Team`, `Workflow`, and AgentOS primitives are infrastructure details
 behind typed core protocols. Each module registry builds only its own workflows and
