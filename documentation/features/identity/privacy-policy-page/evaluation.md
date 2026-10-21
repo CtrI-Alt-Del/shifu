@@ -16,7 +16,7 @@ last_updated_at: 2026-10-21
 | Visual checks | VM-02 passed against both required captures |
 | Independent review | Spec revision 1 approved by user; implementation and visual reviews passed after corrections |
 | Blockers | None for local implementation; an initial combined browser invocation could not resolve Chromium under the restricted profile, and the focused selection later passed with installed Chromium |
-| Candidate | `feat/web/SHIFU-96-public-privacy-policy`, base `f5291078ad56911dc44e4215aee6abcd771a8da2`; guide files at repository root remain unstaged |
+| Candidate | `feat/web/SHIFU-96-public-privacy-policy`; implementation commit `52ff818` on base `f5291078ad56911dc44e4215aee6abcd771a8da2`; repository-root guides remain unstaged |
 
 # Progress
 
@@ -59,13 +59,13 @@ last_updated_at: 2026-10-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; implementation is integrated in the current working tree. |
+| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; implementation commit `52ff818`. |
 | Completed | Approved Spec revision 1; public route/widget; route and entrypoint links; generated route tree; focused test coverage; type/lint/architecture/build; desktop/mobile captures; independent implementation and visual reviews. |
-| Unfinished | Commit only. |
-| Uncommitted work | Task-owned code and `documentation/features/identity/privacy-policy-page/` artifacts; root `shifu-96-contexto-politica-privacidade.md`, `shifu-96-plano-implementacao.md`, and `repostas shifu-96.txt` are user guides and must remain unstaged/uncommitted. |
-| Active processes | Task-started Vite Web process on 7000 must be stopped after the final browser run; user-owned API on 7777 must be left running. |
+| Unfinished | None. |
+| Uncommitted work | Only user-provided root guides: `shifu-96-contexto-politica-privacidade.md`, `shifu-96-plano-implementacao.md`, and `repostas shifu-96.txt`; they remain unstaged/uncommitted. |
+| Active processes | None started by this task; user-owned API was left running. |
 | Blockers | None. |
-| Next action | Stop only the Web process started by this task, stage task-owned paths explicitly and commit with repository convention. |
+| Next action | None; local delivery is committed and verified. |
 
 # Delivery
 
@@ -76,9 +76,7 @@ last_updated_at: 2026-10-21
 | `RP-10` | RF-05 / CA-05 | EV-01, EV-06 | Implemented responsive accessible reading/index structure; two viewport captures reviewed. |
 | `RP-11`, `JN-11` | RF-01–03 / CA-01–03 | EV-01 | Partial scope: public contact remains available after account closure; request processing workflow is outside this delivery. |
 
-| PR | Current head SHA | CI / review state | Run / artifacts |
-| --- | --- | --- | --- |
-| Not created | Local candidate; no commit yet | Local required checks passed; implementation and visual reviews passed | Desktop/mobile captures in ignored `.playwright-cli/screenshots/`; browser logs in ignored `.playwright-cli/logs/` |
+No PR was requested; delivery is local-only. Commit `52ff818` contains the implementation and its approved Spec, Evaluation, design handoff, and Pencil references.
 
 | Field | Result |
 | --- | --- |
