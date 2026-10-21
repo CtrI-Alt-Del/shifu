@@ -16,7 +16,7 @@ last_updated_at: 2026-10-21
 | Visual checks | VM-02 passed against both required captures |
 | Independent review | Spec revision 1 approved by user; implementation and visual reviews passed after corrections |
 | Blockers | None for local implementation; an initial combined browser invocation could not resolve Chromium under the restricted profile, and the focused selection later passed with installed Chromium |
-| Candidate | `feat/web/SHIFU-96-public-privacy-policy`; commits `52ff818`, `dab1cdd` and `da37622` on base `f5291078ad56911dc44e4215aee6abcd771a8da2`; repository-root guides remain untracked and excluded |
+| Candidate | `feat/web/SHIFU-96-public-privacy-policy`; commits `52ff818`, `dab1cdd`, `da37622`, `c3a8b33` on base `f5291078ad56911dc44e4215aee6abcd771a8da2`; repository-root guides remain untracked and excluded |
 
 # Progress
 
@@ -62,13 +62,13 @@ last_updated_at: 2026-10-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; commits `52ff818`, `dab1cdd`, `da37622` plus pending coverage correction commit. |
+| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; commits `52ff818`, `dab1cdd`, `da37622`, `c3a8b33`. |
 | Completed | Approved Spec revision 2; public route/widget; route and entrypoint links; generated route tree; focused test coverage; type/lint/architecture/build; desktop/mobile captures; independent implementation and visual reviews. |
-| Unfinished | Push coverage correction and confirm its current-head CI coverage result on PR #38. |
+| Unfinished | Current-head CI coverage result on PR #38; run `39681803464` is queued. |
 | Uncommitted work | Only user-provided root guides: `shifu-96-contexto-politica-privacidade.md`, `shifu-96-plano-implementacao.md`, and `repostas shifu-96.txt`; they remain unstaged/uncommitted. |
 | Active processes | None started by this task; user-owned API was left running. |
 | Blockers | None. |
-| Next action | Push the coverage correction, update PR #38 description with focused validation and inspect the new head check snapshot. |
+| Next action | No local action. User asked not to monitor CI; corrected coverage is verified locally and the PR workflow is queued. |
 
 # Delivery
 
@@ -79,12 +79,12 @@ last_updated_at: 2026-10-21
 | `RP-10` | RF-05 / CA-05 | EV-01, EV-06 | Implemented responsive accessible reading/index structure; two viewport captures reviewed. |
 | `RP-11`, `JN-11` | RF-01–03 / CA-01–03 | EV-01 | Partial scope: public contact remains available after account closure; request processing workflow is outside this delivery. |
 
-The user requested PR publication and authorized committing the SHIFU-96 changes. Commits `52ff818`, `dab1cdd` and `da37622` contain the implementation, SDD evidence, design handoff, Pencil references and updated fictional contact identity. PR publication is pending.
+The user requested PR publication and authorized committing the SHIFU-96 changes. Commits `52ff818`, `dab1cdd`, `da37622` and `c3a8b33` contain the implementation, SDD evidence, design handoff, Pencil references, updated fictional contact identity and coverage correction. PR #38 is open at https://github.com/CtrI-Alt-Del/shifu/pull/38.
 
 | Field | Result |
 | --- | --- |
-| Publication | Requested; pending push and PR creation. |
+| Publication | PR #38 opened and updated; current head `c3a8b332fba528609ec0de9b93f6230d35f0f690`. |
 | Source verification | Identity PRD `83001345` v2 and common privacy policy `100106241` v4 read completely in task context on 2026-10-21; sources unchanged. |
 | Documentation Alignment | User Q9=A resolves task public retention wording; source discrepancy remains recorded and no external Atlassian write was authorized. |
-| Revision History | Spec revision 2 records the user's explicit fictional contact-name update; PR publication and current-head CI remain pending. |
+| Revision History | Spec revision 2 records the user's explicit fictional contact-name update; revision 3 adds the changed-file coverage gate. PR #38 is published; its current-head workflow is queued. |
 | Limitations | User-authorized academic demonstration permits fictional public facts. The public page uses a normal product voice. The fictional Encarregada Gabriela da Silva, SMTP provider operating in Brazil and assumed ANPD contractual safeguards are user-approved demonstration assumptions; these facts are not operationally verified. Repository configuration supports SMTP or Resend and documents local Mailpit. AI provider geography is described as variable because the global endpoint is not pinned by current code. No claim of operational/legal verification is made. |
