@@ -195,8 +195,23 @@ jobs:
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+          src/ui/learning/widgets/pages/activity-page/tests
+          src/ui/learning/widgets/pages/activity-page/react-question/tests
+          src/ui/learning/widgets/pages/activity-page/code-question/tests
+          src/ui/learning/widgets/pages/choice-result-page/tests
+          src/ui/learning/widgets/pages/choice-result-page/choice-result-detail/tests
+          src/ui/learning/widgets/components/code-editor/tests
+          src/ui/learning/widgets/components/code-file-tree/tests
+          src/ui/learning/widgets/pages/goal-create-page/tests
+          src/ui/learning/widgets/pages/goal-detail-page/tests
+          src/ui/learning/widgets/pages/skill-page/tests
+          src/ui/learning/widgets/pages/material-page/tests
+          src/ui/learning/widgets/pages/competency-detail-page/tests
+          src/ui/learning/widgets/layouts/goals-list-section/tests
+          src/ui/learning/widgets/sections/add-skill-catalog-section/tests
 
       - name: Enforce thresholds for every changed production file
+        shell: bash
         run: >-
           node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts
           --base origin/main
