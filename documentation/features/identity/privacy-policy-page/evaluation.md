@@ -10,7 +10,7 @@ last_updated_at: 2026-10-21
 | Field | State |
 | --- | --- |
 | Implementation | Complete for CA-01–CA-05; independent review passed |
-| Automated checks | CI-01–CI-04 passed; 4 required check groups |
+| Automated checks | CI-01–CI-05 pass locally; previous PR run failed CI-05 selection and the corrected head run is pending |
 | Type / lint / complexity | TypeScript, scoped Biome, architecture and production build passed; no quantitative complexity tool configured |
 | Manual checks | VM-01 pass: anonymous browser journey and entrypoint navigation exercised in real Chromium; console errors, page errors and Identity API requests asserted absent on the public route |
 | Visual checks | VM-02 passed against both required captures |
@@ -39,6 +39,7 @@ last_updated_at: 2026-10-21
 | EV-05 | VM-01 / Manual / CA-01–04 | Passed | User-started API at 7777; task-started Web at 7000; real Chromium; 2026-10-21 | Anonymous journey, index/contact, and entrypoint navigation in scoped browser flows per Spec | Direct public route reached; all policy assertions and all three entrypoint journeys passed; exact contact URI shown; no delivery claim; page console/page errors and requests to Identity API were absent on the public page. API health was 200. |
 | EV-06 | VM-02 / Visual / CA-05 | Passed | Final captures at 1440px and 390px; 2026-10-21 | Visual comparison against Pencil references per `design/handoff.md`; independent Visual Reviewer inspected updated pair | Desktop/mobile composition matches the handoff; no material difference, clipping or horizontal overflow. Updated mobile capture visibly shows the focused section outline. Captures: `apps/web/.playwright-cli/screenshots/privacy-policy-desktop-1440.png`, `privacy-policy-mobile-390.png`. References are layout/style only because their copy is stale. |
 | EV-07 | CI-01 / Automated / CA-01–03, CA-05; Spec revision 2 | Passed | Candidate after user-requested Encarregada name change; local Web at `http://127.0.0.1:7000`; 2026-10-21 | `node .\\node_modules\\@playwright\\test\\cli.js test --config=.playwright-cli/playwright.shifu.config.cjs tests/identity/privacy-policy-page.test.ts` from `apps/web` | Final focused run passed 4/4 after changing the public contact name to Gabriela da Silva. The initial attempt timed out during first navigation; the remaining three tests passed, then the complete focused selection passed on retry. |
+| EV-08 | CI-05 / Automated / CA-01–CA-04; Spec revision 3 | Passed locally | Corrected coverage selection; Windows local environment; 2026-10-21 | `vitest run --coverage --pool=forks --maxWorkers=2` with the 8 focused route, Identity page and root-layout test files from `apps/web`; then `node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts --files <seven changed production files>` from repository root | 8 test files and 17 tests passed. All seven changed production files passed thresholds: route 100%; public route 100%; account 100%; policy 100%; registration 100%; sign-in 100%; root layout 100% lines/statements/functions and 95.8% branches. The first PR #38 CI coverage attempt failed because its curated Vitest selection omitted these affected tests; `.github/workflows/web-app-ci.yaml` now includes them. Corrected CI head run remains pending. |
 
 # Findings
 
@@ -48,6 +49,7 @@ last_updated_at: 2026-10-21
 | ACH-02 | Pencil copy describes older route `/privacidade`, old dates, a free platform/team, and 30-day logs; its context identifies earlier PRD/policy versions. | Medium | CA-02, CA-05; VM-02 | Resolved by user-approved visual-only use: retain layout, typography, spacing and colors; replace all copy and date. |
 | ACH-03 | The combined browser invocation could not use the POSIX `exec` webServer prefix under Windows and the restricted profile initially resolved a nonexistent sandbox Chromium path. | Low | CI-01, CI-02 | Resolved for this task by reusing the local Web service and running the focused browser command with the already installed Chromium. Final privacy selection passed 4/4; entrypoint selection had passed previously. No browser package was downloaded. |
 | ACH-04 | Independent implementation review found missing right-to-petition wording, no visible focus treatment on section targets, and incomplete index-anchor coverage. | Medium | CA-02, CA-05; CI-01; VM-02 | Resolved: rights copy now reflects LGPD art. 18, §1º and VIII; section targets have a visible outline; browser test exercises all eight anchors and asserts focus/outline. Focused CI-01 passed 4/4 afterward; implementation reviewer rechecked and passed. |
+| ACH-05 | PR #38 `Changed Web file coverage` failed because the curated test selection did not run the tests covering the changed SHIFU-96 route, Identity pages and root layout, leaving eligible files at 0% coverage. | Medium | CA-01–CA-04; CI-05 | Resolved locally: expanded the CI selection, added focused route/account/policy tests, and strengthened sign-in/registration tests to exercise changed branches and handlers. The scoped 8-file/17-test run passed and all seven eligible changed files met thresholds. New PR-head CI execution is pending publication. |
 
 # Lessons Learned
 
@@ -60,13 +62,13 @@ last_updated_at: 2026-10-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; commits `52ff818`, `dab1cdd`, `da37622`. |
+| Candidate | Branch `feat/web/SHIFU-96-public-privacy-policy`, base SHA `f5291078ad56911dc44e4215aee6abcd771a8da2`; commits `52ff818`, `dab1cdd`, `da37622` plus pending coverage correction commit. |
 | Completed | Approved Spec revision 2; public route/widget; route and entrypoint links; generated route tree; focused test coverage; type/lint/architecture/build; desktop/mobile captures; independent implementation and visual reviews. |
-| Unfinished | Push and PR publication; current-head CI checks. |
+| Unfinished | Push coverage correction and confirm its current-head CI coverage result on PR #38. |
 | Uncommitted work | Only user-provided root guides: `shifu-96-contexto-politica-privacidade.md`, `shifu-96-plano-implementacao.md`, and `repostas shifu-96.txt`; they remain unstaged/uncommitted. |
 | Active processes | None started by this task; user-owned API was left running. |
 | Blockers | None. |
-| Next action | Publish the reviewed branch as a PR, then record current-head CI status. |
+| Next action | Push the coverage correction, update PR #38 description with focused validation and inspect the new head check snapshot. |
 
 # Delivery
 

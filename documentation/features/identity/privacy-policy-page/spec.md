@@ -1,7 +1,7 @@
 ---
 title: SHIFU-96 Public privacy policy page
 status: implemented
-revision: 2
+revision: 3
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-96 (issue 12606)
@@ -157,6 +157,16 @@ pnpm --filter web exec vitest run src/ui/shared/widgets/layouts/root-layout/test
 
 **Passing condition:** Route generation is current; each applicable command exits successfully; scoped Biome paths equal changed source/test paths; build and architecture validate the generated route and page imports.
 
+### CI-05 — Changed-file coverage
+
+**Criteria:** CA-01–CA-04
+
+**Scope:** Every changed production Web file selected by `apps/web/scripts/check-changed-coverage.ts` and its focused Vitest tests, including the public route, Identity entrypoints, privacy page, and public-route layout.
+
+**Checks:** The `Changed Web file coverage` workflow step runs the route and affected widget/layout test directories before enforcing per-file coverage thresholds of 85% lines/statements/functions and 80% branches.
+
+**Passing condition:** Each eligible changed production file is present in `coverage/coverage-summary.json` and meets all configured thresholds; tests are selected explicitly in `.github/workflows/web-app-ci.yaml`.
+
 ## Manual
 
 ### VM-01 — Anonymous public journey and contact
@@ -203,3 +213,4 @@ pnpm --filter web exec vitest run src/ui/shared/widgets/layouts/root-layout/test
 | --- | --- | --- | --- |
 | 1 | 2026-10-21 | Initial contract for the public privacy notice and current Identity entrypoints | SHIFU-96, user-approved scope and Q9=A |
 | 2 | 2026-10-21 | Identify Gabriela da Silva as the fictional Encarregada in the public notice | User-provided change explicitly included in the SHIFU-96 delivery |
+| 3 | 2026-10-21 | Make changed-file Web coverage a named verification gate and include SHIFU-96 route/Identity/layout tests in its selection | PR #38 coverage job omitted the changed component tests, resulting in zero coverage for affected files; the gate selection is corrected and verified locally |
