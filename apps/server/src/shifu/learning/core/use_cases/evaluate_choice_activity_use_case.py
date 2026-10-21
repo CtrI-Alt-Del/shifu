@@ -68,6 +68,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -358,7 +359,8 @@ class EvaluateChoiceActivityUseCase:
     def _v2_observation_scores(
         questions: tuple[
             CurriculumChoiceQuestionSnapshot
-            | CurriculumJavascriptStdinQuestionSnapshot,
+            | CurriculumJavascriptStdinQuestionSnapshot
+            | CurriculumReactQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -375,7 +377,13 @@ class EvaluateChoiceActivityUseCase:
             if isinstance(item, CodeRubricResult)
         }
         for question in questions:
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 code_result = code_results.get(question.key)
                 if code_result is None:
                     raise InvalidAttemptError
@@ -726,7 +734,13 @@ class EvaluateChoiceActivityUseCase:
         code_keys = {
             question.key
             for question in snapshot.questions
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot)
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
         }
         decisions_by_key = {
             item.question_key: item.decisions for item in code_decisions
@@ -751,11 +765,18 @@ class EvaluateChoiceActivityUseCase:
         self,
         part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
         question: CurriculumChoiceQuestionSnapshot
-        | CurriculumJavascriptStdinQuestionSnapshot,
+        | CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
-        if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+        if isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        ):
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
                 raise EvaluationUnavailableError
             return self._score_code_part(part, question, answer, decisions_by_key)
@@ -780,10 +801,11 @@ class EvaluateChoiceActivityUseCase:
             ),
         )
 
-    @staticmethod
     def _score_code_part(
+        self,
         part: CurriculumCodeRubricPartSnapshot,
-        question: CurriculumJavascriptStdinQuestionSnapshot,
+        question: CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> CodeRubricResult:
@@ -792,7 +814,7 @@ class EvaluateChoiceActivityUseCase:
         decisions = decisions_by_key[question.key]
         try:
             result = PreviewActivityQuestionFeedbackUseCase.code_result(
-                question, part, answer, decisions
+                question, part, answer, decisions, self._max_code_assessment_input_bytes
             )
         except (ServiceUnavailableError, ValidationError) as error:
             raise EvaluationUnavailableError from error

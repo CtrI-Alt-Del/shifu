@@ -10,6 +10,21 @@ from scripts.check_changed_coverage import (
 )
 
 
+@pytest.mark.parametrize('workflow_name', ('web-app-ci.yaml', 'server-app-ci.yaml'))
+def test_coverage_workflow_propagates_checker_failure(workflow_name: str) -> None:
+    repository_root = Path(__file__).resolve().parents[4]
+    workflow = (repository_root / '.github' / 'workflows' / workflow_name).read_text(
+        encoding='utf-8'
+    )
+    gate = workflow.split(
+        '      - name: Enforce thresholds for every changed production file\n', 1
+    )[1].split('      - name:', 1)[0]
+
+    # GitHub's explicit bash shell enables pipefail, preserving a failed checker
+    # status when its report is also piped into tee.
+    assert '\n        shell: bash\n' in f'\n{gate}'
+
+
 def test_normalize_source_path_accepts_git_repository_root_paths(
     tmp_path: Path,
 ) -> None:
