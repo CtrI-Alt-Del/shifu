@@ -15,8 +15,8 @@ last_updated_at: 2026-10-21
 | Manual checks | Isolated authenticated browser completed the choice/React journey and reopened persisted results. A later native browser check saved/restored an IndexedDB draft, handled two tabs and preserved frozen retry bytes (EV-26). WebContainer started Vite, but the Playwright browser blocked the preview iframe Service Worker with “Enable Storage Partitioning”; live rendered preview remains unverified. |
 | Visual checks | Result captures at 1440×900 and 390×844 and fresh review activity/frozen captures under `apps/web/.playwright-cli/screenshots/` were inspected. The user observed and accepted the candidate; the independent visual reviewer found no new review-fix regression, with baseline composition differences documented. |
 | Independent review | Latest implementation review found no remaining blocker in the nine review-fix scopes. Visual review found no new regression from these fixes; existing composition differences and mobile Mentor overlap remain documented. |
-| Blockers | Both changed-file coverage gates pass locally with explicit bash and unchanged 85%/80% thresholds (EV-30–EV-31). Current-head CI still needs publication and verification. Earlier browser Service Worker restriction still prevents claiming the live preview security gate passed. |
-| Candidate | PR #28, branch `feat/server/SHIFU-88-react-questions`, published head `960ca53` plus local review fixes. |
+| Blockers | Both changed-file coverage gates pass locally with explicit bash and unchanged 85%/80% thresholds (EV-30–EV-31). The user asked to conclude after publishing and replying to review, without monitoring current-head CI; its result remains unverified here. Earlier browser Service Worker restriction still prevents claiming the live preview security gate passed. |
+| Candidate | PR #28, branch `feat/server/SHIFU-88-react-questions`, published head `83327ad` including review fixes and main `b731aed`. |
 
 # Progress
 
@@ -87,15 +87,15 @@ None recorded yet.
 
 | Field | Detail |
 | --- | --- |
-| Candidate | PR #28, branch `feat/server/SHIFU-88-react-questions`, published `960ca53`; local unstaged review fixes. Local `origin/main` and remote main both point to `b731aed`; read-only `git merge-tree` succeeds for the published HEAD. Final proof including uncommitted fixes remains pending. |
-| Completed | Nine review-fix scopes repaired and independently reviewed. Latest focused proof: 168 core tests, 70 integrated Web tests, plus retained 26 AgentOS / strengthened registered case and 25 controller cases. Types, scoped lint and architecture passed. Real browser IDB save/restore, cross-tab update, frozen response/refetch and byte-identical retries passed; fresh desktop/mobile captures inspected. User migration succeeded and shared API/Web health were 200. |
-| Unfinished | Synchronize delivery branch with current main and renew affected checks. Publish review fixes and verify current-head CI. Six inline review threads remain unresolved; no external comment or resolution sent. Full live-preview/security proof remains limited by browser storage partitioning; user previously accepted publication with that limitation. |
-| Uncommitted work | Only review-fix source/tests and this feature's Spec/Evaluation, listed below. No staged changes. Ignored user environment files and runtime artifacts must stay local. |
+| Candidate | PR #28, branch `feat/server/SHIFU-88-react-questions`, published `83327ad`. Fix commit `7fc1ef0` and clean merge commit `83327ad` include main `b731aed`; GitHub reports the PR mergeable. |
+| Completed | Nine review-fix scopes repaired and independently reviewed. Web integrated selection passed 519/519 tests and 15/15 changed production files; Server changed-file gate passed 23/23, including 26 real AgentOS and 2 real Inngest tests. Ruff, Biome, Web TypeScript, architecture and diff checks passed. Real browser IDB save/restore, cross-tab update, frozen response/refetch and byte-identical retries passed; fresh desktop/mobile captures inspected. User API/Web processes and shared Docker data were preserved. |
+| Unfinished | No further work requested in this handoff. Current-head CI runs 39656913782 (Server), 39656913822 (Web), and 39656913813 (Email) were running when the user asked to stop monitoring; their outcomes remain unverified. Six inline review threads received specific replies and remain for reviewer resolution. Full live-preview/security proof remains limited by browser storage partitioning; user previously accepted publication with that limitation. |
+| Uncommitted work | None at this handoff. Historical pre-publication paths are listed below for traceability. Ignored user environment files and runtime artifacts remain local. |
 | Active processes | Task CLI browser `shifu88-review` closed. Task coverage processes and disposable test fixtures may be active while builders run; their owners must report final cleanup. User API `7777`, Web `localhost:7000` and shared Docker services are untouched. |
-| Blocker / stop reason | No current external stop. Historical CI masking is locally fixed; quantitative coverage gaps are being corrected. The complete candidate is not yet ready for publication. |
-| Next action | Review the integrated diff, merge current main, renew affected checks, commit and push the authorized fixes, then verify current-head CI and review conversations. |
+| Blocker / stop reason | No local blocker. Local coverage gaps and masked CI checker are fixed; the candidate was published. The user directed conclusion without CI monitoring after review replies. |
+| Next action | None authorized in this handoff. A later CI failure or reviewer follow-up can be handled as subsequent work. |
 
-Dirty paths at this handoff (all task-owned; no broad staging authorized by this inventory):
+Historical pre-publication dirty paths (all task-owned and included in the published fix commit):
 
 - `apps/server/src/shifu/learning/ai/learning_workflows_registry.py`
 - `apps/server/src/shifu/learning/core/use_cases/evaluate_choice_activity_use_case.py`
@@ -133,11 +133,11 @@ Dirty paths at this handoff (all task-owned; no broad staging authorized by this
 
 | RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
 | --- | --- | --- | --- |
-| RP-03/JN-03, RP-09/11/12/13/14/18/25/27/29; JN-07/08 | RF-01–RF-10 / CA-01–CA-10 | EV-03–EV-08, EV-11–EV-16; VM-01/VM-02 remain partial | Review fixes implemented and locally tested (EV-20–EV-26). Current coverage gate remains failed/masked on the published head (ACH-13); full rendered preview/security remains partial. No PRD/Jira external writes. Publication waits for the diagnosed CI/coverage correction. |
+| RP-03/JN-03, RP-09/11/12/13/14/18/25/27/29; JN-07/08 | RF-01–RF-10 / CA-01–CA-10 | EV-03–EV-08, EV-11–EV-16, EV-20–EV-31; VM-01/VM-02 remain partial | Review fixes, coverage gate correction and tests were published to PR #28. Local changed-file coverage passes; six review threads received replies. Current-head CI remains unverified at the user's request. Full rendered preview/security remains partial. No PRD/Jira external writes. |
 
 | Field | Result |
 | --- | --- |
-| Publication | PR #28 already exists; latest published head is 960ca53. Current review fixes are unstaged/uncommitted and not pushed. User previously authorized commit/PR publication; no new approval is needed for that already requested action once the candidate is ready. |
+| Publication | PR #28 exists; review fixes `7fc1ef0` and main merge `83327ad` were pushed. Six review threads were answered with concrete corrections. Current-head CI was running when the user asked to conclude without monitoring it; no passing result or thread resolution is claimed. |
 | Source verification | Learning content 83066881 v26; Curriculum content 83034113 v13; reread before conclusion. |
 | Documentation Alignment | Feature artifacts created; no Confluence/Jira writes. |
 | Revision History | Spec revision 3 clarifies the existing configurable server bound; default browser limit is unchanged. Earlier revisions retain file-tree and browser-only security distinctions. |
