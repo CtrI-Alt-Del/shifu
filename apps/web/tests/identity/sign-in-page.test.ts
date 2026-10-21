@@ -36,7 +36,18 @@ test.describe('SignInPage', () => {
       'href',
       '/forgot-password',
     )
+    await expect(
+      page.getByRole('link', { name: 'Política de privacidade' }),
+    ).toHaveAttribute('href', '/privacy')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    await page.getByRole('link', { name: 'Política de privacidade' }).click()
+    await expect(page).toHaveURL(/\/privacy\/?$/)
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'Política de privacidade',
+      }),
+    ).toBeVisible()
   })
 
   test('maps a rejected auth-handler response to the generic alert and clears the password', async ({
