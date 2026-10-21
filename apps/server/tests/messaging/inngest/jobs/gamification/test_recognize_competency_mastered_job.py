@@ -35,9 +35,61 @@ if TYPE_CHECKING:
 
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
 COMPETENCY_NAME = 'Condicionais'
+_EVENT_NAME = 'learning/competency-mastered'
 
 
 class TestRecognizeCompetencyMasteredJob:
+    def test_should_reject_a_malformed_event_without_crashing_the_worker(
+        self,
+        inngest_fixture: 'InngestFixture',
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        base_data: dict[str, object] = {
+            'account_id': ids.generate(),
+            'goal_id': ids.generate(),
+            'skill_experience_id': ids.generate(),
+            'skill_id': ids.generate(),
+            'competency_id': ids.generate(),
+            'progress': '100',
+            'mastered_at': NOW.isoformat().replace('+00:00', 'Z'),
+        }
+
+        # An empty identifier fails `_Payload.validate_identifier`.
+        inngest_fixture.publish(
+            _EVENT_NAME,
+            {**base_data, 'account_id': '   '},
+            event_id=ids.generate(),
+        )
+        inngest_fixture.wait_for_log(
+            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
+            ' HTTP/1.1" 500',
+            timeout=30,
+        )
+
+        # An unparseable instant fails `_parse_utc_iso`'s format check.
+        inngest_fixture.publish(
+            _EVENT_NAME,
+            {**base_data, 'mastered_at': 'not-a-date'},
+            event_id=ids.generate(),
+        )
+        inngest_fixture.wait_for_log(
+            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
+            ' HTTP/1.1" 500',
+            timeout=30,
+        )
+
+        # A syntactically valid but non-UTC instant fails the UTC check.
+        inngest_fixture.publish(
+            _EVENT_NAME,
+            {**base_data, 'mastered_at': '2026-01-01T00:00:00+02:00'},
+            event_id=ids.generate(),
+        )
+        inngest_fixture.wait_for_log(
+            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
+            ' HTTP/1.1" 500',
+            timeout=30,
+        )
+
     def test_should_grant_fifty_xp_once_on_first_mastery(
         self,
         inngest_fixture: 'InngestFixture',

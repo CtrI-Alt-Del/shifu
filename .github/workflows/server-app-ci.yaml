@@ -584,7 +584,9 @@ jobs:
             tests/intelligence/server/agentos/test_agent_monitoring_workflow.py \
             tests/shared/messaging/test_outbox_brokers.py \
             tests/shared/test_settings.py \
-            tests/shared/providers/test_s3_file_storage_provider.py
+            tests/shared/providers/test_s3_file_storage_provider.py \
+            tests/gamification \
+            tests/messaging/inngest/jobs/gamification
 
           uv run coverage combine
 
