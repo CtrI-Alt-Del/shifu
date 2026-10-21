@@ -1,3 +1,4 @@
+import { MemoryChangeMarker } from './memory-change-marker'
 import { MessageItem } from './message-list/message-item'
 import { ResponseStatus } from './response-status'
 import { SummaryMarker } from './summary-marker'
@@ -28,6 +29,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     selectedSessionId,
     sessionDetail,
     conversationItems,
+    trailingMemoryItems,
   } = useConversation()
   const messages = sessionDetail?.messages.items ?? []
 
@@ -98,6 +100,15 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             onCancel={cancelResponse}
             onRetry={retryResponse}
           />
+        ) : null}
+        {trailingMemoryItems.length > 0 ? (
+          <ul aria-label='Memórias desta resposta'>
+            {trailingMemoryItems.map((item) => (
+              <li key={item.id}>
+                <MemoryChangeMarker item={item} />
+              </li>
+            ))}
+          </ul>
         ) : null}
         {isReadingOlderMessages && messages.length > 0 ? (
           <p aria-live='polite' className='py-2 text-center text-sm'>

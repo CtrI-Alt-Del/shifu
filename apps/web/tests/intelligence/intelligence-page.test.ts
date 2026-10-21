@@ -8,6 +8,18 @@ import {
 } from '../support/mentor-summary-journey'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
+import {
+  CONVERSATION_TEXTS,
+  expectNoHorizontalOverflow,
+  installMentorMemoriesBackend,
+  MEMORY_IDS,
+  MESSAGE_IDS,
+  openMemoriesPage,
+  openMentorPage,
+  searchOf,
+  SESSION_ID,
+  SESSION_TITLE,
+} from '../support/mentor-memories-backend'
 
 type MentorSessionFixture = {
   id: string
@@ -32,6 +44,7 @@ type MentorDetailFixture = {
     nextCursor: string | null
   }
   pendingLearnerMessageId: string | null
+  memoryItems?: unknown[]
 }
 
 type MentorServerFunctionCall = {
@@ -186,6 +199,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
           nextCursor: null,
         },
         pendingLearnerMessageId: `mentor-message-${index + 1}`,
+        memoryItems: [],
       },
     ]),
   )
@@ -261,6 +275,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
         session,
         messages: { items: [], nextCursor: null },
         pendingLearnerMessageId: null,
+        memoryItems: [],
       }
       details.set(session.id, detail)
       await route.fulfill({
@@ -524,4 +539,191 @@ test('shows the summarization failure notice after its learner message on page',
   authenticatedPage,
 }) => {
   await exerciseSummaryFailure(authenticatedPage, 'page')
+})
+
+// SHIFU-101: memory markers, the Memórias entry and the origin deep link. Browser
+// integration with mocked transport; it does not prove real persistence.
+test.describe('Mentor page memories', () => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`opens the Memórias page from the header link at ${viewport.width}`, async ({
+      authenticatedPage: page,
+    }) => {
+      await page.setViewportSize(viewport)
+      await installMentorMemoriesBackend(page)
+      await openMentorPage(page)
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Nova conversa' }),
+      ).toBeVisible()
+
+      const link = page.getByRole('link', { name: 'Memórias' })
+      await expect(link).toBeVisible()
+      expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await link.click()
+
+      await expect(page).toHaveURL(/\/intelligence\/memories\/?(\?.*)?$/)
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Memórias' }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('list', { name: 'Lista de memórias' }).getByRole('button'),
+      ).toHaveCount(8)
+      await expectNoHorizontalOverflow(page)
+    })
+  }
+
+  test('places the markers after the answer of their turn and links to the memory', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await installMentorMemoriesBackend(page)
+    await openMentorPage(page, { session: SESSION_ID })
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+
+    const answer = page.getByRole('list', { name: 'Resposta do Mentor' })
+    const trailing = page.getByRole('list', { name: 'Memórias desta resposta' })
+    await expect(answer).toContainText(CONVERSATION_TEXTS.answer)
+    await expect(trailing).toContainText('Memória atualizada')
+    await expect(trailing).toContainText('Antes: Prefiro exemplos curtos em JavaScript.')
+    await expect(trailing).toContainText('Agora: Agora prefiro exemplos em Python.')
+    expect(
+      await trailing.evaluate(
+        (element, other) =>
+          Boolean(
+            element.compareDocumentPosition(document.querySelector(other) as Element) &
+              Node.DOCUMENT_POSITION_PRECEDING,
+          ),
+        '[aria-label="Resposta do Mentor"]',
+      ),
+    ).toBe(true)
+    // Items whose source message is in an older, unloaded page are not shown yet.
+    await expect(page.getByText('Memória criada')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Carregar mensagens anteriores' }).click()
+    await expect(
+      page.locator(`[data-message-id="${MESSAGE_IDS.unansweredQuestion}"]`),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Carregar mensagens anteriores' }).click()
+    await expect(
+      page.locator(`[data-message-id="${MESSAGE_IDS.firstQuestion}"]`),
+    ).toBeVisible()
+
+    const items = page
+      .getByRole('list', { name: 'Mensagens da conversa' })
+      .getByRole('listitem')
+    await expect(items).toHaveCount(9)
+    const texts = await items.allInnerTexts()
+    const order = [
+      CONVERSATION_TEXTS.firstQuestion,
+      CONVERSATION_TEXTS.answer,
+      'Memória criada',
+      CONVERSATION_TEXTS.knowledgeQuestion,
+      CONVERSATION_TEXTS.answer,
+      'Memória excluída',
+      CONVERSATION_TEXTS.unansweredQuestion,
+      'Memória criada',
+      CONVERSATION_TEXTS.latestQuestion,
+    ]
+    order.forEach((content, index) => {
+      expect(texts[index]).toContain(content)
+    })
+    expect(texts[2]).toContain(
+      'Preferência de explicação: Prefiro exemplos curtos em JavaScript.',
+    )
+    expect(texts[7]).toContain('Interesse ou intenção: Quero criar aplicações web.')
+    expect(texts[5]).not.toContain('Sei Python.')
+    await expect(items.nth(5).getByRole('link')).toHaveCount(0)
+    await expect(items.nth(2).getByRole('link', { name: 'Ver memória' })).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+
+    await trailing.getByRole('link', { name: 'Ver memória' }).click()
+
+    await expect(page).toHaveURL(/\/intelligence\/memories\/?\?/)
+    expect(searchOf(page).get('memory')).toBe(MEMORY_IDS.preference)
+    await expect(
+      page
+        .getByRole('region', { name: 'Detalhes da memória' })
+        .getByRole('heading', { level: 2, name: 'Agora prefiro exemplos em Python.' }),
+    ).toBeVisible()
+  })
+
+  test('follows an origin link, loads older pages until the message appears and clears the URL', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+    await openMemoriesPage(page, { memory: MEMORY_IDS.preference })
+
+    await page
+      .getByRole('region', { name: 'Detalhes da memória' })
+      .getByRole('link', { name: SESSION_TITLE })
+      .first()
+      .click()
+
+    const origin = page.locator(`[data-message-id="${MESSAGE_IDS.firstQuestion}"]`)
+    await expect(origin).toBeVisible()
+    await expect(origin).toBeFocused()
+    await expect.poll(() => searchOf(page).get('message')).toBeNull()
+    expect(searchOf(page).get('session')).toBe(SESSION_ID)
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual(['older-1', 'older-2'])
+    await expect(origin).toContainText(CONVERSATION_TEXTS.firstQuestion)
+  })
+
+  test('opens the conversation normally when the origin message no longer exists', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+    await openMemoriesPage(page, { memory: MEMORY_IDS.missingOrigin })
+
+    await page
+      .getByRole('region', { name: 'Detalhes da memória' })
+      .getByRole('link', { name: SESSION_TITLE })
+      .click()
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+    await expect.poll(() => searchOf(page).get('message')).toBeNull()
+    expect(searchOf(page).get('session')).toBe(SESSION_ID)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.locator(`[data-message-id="${MESSAGE_IDS.deleted}"]`)).toHaveCount(
+      0,
+    )
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual(['older-1', 'older-2'])
+  })
+
+  test('ignores an invalid message search value without paging', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+
+    await openMentorPage(page, { session: SESSION_ID, message: 'not-a-ulid' })
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+    expect(searchOf(page).get('message')).toBeNull()
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual([])
+  })
 })

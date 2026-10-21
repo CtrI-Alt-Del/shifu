@@ -22,6 +22,7 @@ import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-c
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as IntelligenceMemoriesIndexRouteImport } from './routes/intelligence/memories/index'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
 import { Route as LearningGoalsNewIndexRouteImport } from './routes/learning/goals/new/index'
@@ -103,6 +104,12 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntelligenceMemoriesIndexRoute =
+  IntelligenceMemoriesIndexRouteImport.update({
+    id: '/intelligence/memories/',
+    path: '/intelligence/memories/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const IntelligencePlannerPlanningIdIndexRoute =
   IntelligencePlannerPlanningIdIndexRouteImport.update({
     id: '/intelligence/planner/$planningId/',
@@ -217,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
@@ -246,6 +254,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterIndexRoute
   '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/memories': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new': typeof LearningGoalsNewIndexRoute
@@ -275,6 +284,7 @@ export interface FileRoutesById {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
   '/learning/goals/new/': typeof LearningGoalsNewIndexRoute
@@ -306,6 +316,7 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/intelligence/memories/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/api/auth/$'
+    | '/intelligence/memories'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
     | '/learning/goals/new'
@@ -363,6 +375,7 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/intelligence/memories/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
     | '/learning/goals/new/'
@@ -393,6 +406,7 @@ export interface RootRouteChildren {
   RegisterIndexRoute: typeof RegisterIndexRoute
   ResetPasswordIndexRoute: typeof ResetPasswordIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  IntelligenceMemoriesIndexRoute: typeof IntelligenceMemoriesIndexRoute
   IntelligencePlannerPlanningIdIndexRoute: typeof IntelligencePlannerPlanningIdIndexRoute
   LearningGoalsGoalIdIndexRoute: typeof LearningGoalsGoalIdIndexRoute
   LearningGoalsNewIndexRoute: typeof LearningGoalsNewIndexRoute
@@ -496,6 +510,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intelligence/memories/': {
+      id: '/intelligence/memories/'
+      path: '/intelligence/memories'
+      fullPath: '/intelligence/memories/'
+      preLoaderRoute: typeof IntelligenceMemoriesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/intelligence/planner/$planningId/': {
@@ -649,6 +670,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterIndexRoute: RegisterIndexRoute,
   ResetPasswordIndexRoute: ResetPasswordIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  IntelligenceMemoriesIndexRoute: IntelligenceMemoriesIndexRoute,
   IntelligencePlannerPlanningIdIndexRoute:
     IntelligencePlannerPlanningIdIndexRoute,
   LearningGoalsGoalIdIndexRoute: LearningGoalsGoalIdIndexRoute,

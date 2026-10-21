@@ -1,5 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import { MessageItem } from './message-item'
+import { MemoryChangeMarker } from '../memory-change-marker'
 import { SummaryMarker } from '../summary-marker'
 import type { ConversationItem } from '../use-conversation'
 
@@ -14,6 +15,10 @@ export const MessageList = ({ items, surface = 'page' }: MessageListProps) => (
         ) : item.kind === 'summary-marker' ? (
           <li key={`summary-marker-${item.marker.version}`}>
             <SummaryMarker marker={item.marker} variant='ready' />
+          </li>
+        ) : item.kind === 'memory-change' ? (
+          <li key={`memory-change-${item.item.id}`}>
+            <MemoryChangeMarker item={item.item} />
           </li>
         ) : (
           <li key={`summary-failure-${item.messageId}`}>

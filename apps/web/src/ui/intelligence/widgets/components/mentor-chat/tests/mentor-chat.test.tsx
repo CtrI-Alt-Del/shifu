@@ -1,12 +1,21 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { MentorChat } from '..'
 import { useMentorChat } from '../use-mentor-chat'
 
 vi.mock('../use-mentor-chat', () => ({ useMentorChat: vi.fn() }))
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, search: _search, ...props }: AnchorProps) => (
+    <a href={ROUTES[route]} {...props}>
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
@@ -111,7 +120,7 @@ describe('MentorChat', () => {
     },
   )
 
-  it('renders real history and composer children with unavailable future actions disabled', () => {
+  it('renders real history and composer children with the Memórias link and unavailable actions disabled', () => {
     useMentorContextMock.mockReturnValue(contextValue)
     useMentorChatMock.mockReturnValue({
       ...contextValue,
@@ -131,9 +140,10 @@ describe('MentorChat', () => {
     expect(
       screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
     ).toBeDisabled()
-    expect(
-      screen.getByRole('button', { name: 'Memórias. Indisponível no momento' }),
-    ).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Memórias' })).toHaveAttribute(
+      'href',
+      ROUTES.intelligenceMemories,
+    )
     expect(
       screen.getByRole('button', { name: 'Cota de uso. Indisponível no momento' }),
     ).toBeDisabled()
@@ -303,9 +313,7 @@ describe('MentorChat', () => {
       screen.getByRole('heading', { name: 'Conversa salva', level: 1 }),
     ).toBeVisible()
     expect(screen.queryByText('Ajuda para continuar aprendendo')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Memórias. Indisponível no momento' }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Memórias' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Histórico de conversas' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expandir conversa' }))
     fireEvent.click(screen.getByRole('button', { name: 'Fechar painel do Mentor' }))

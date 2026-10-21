@@ -195,6 +195,25 @@ jobs:
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
           src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
+          src/rest/services/tests/intelligence-service.test.ts
+          src/routes/intelligence/tests/-intelligence-route.test.ts
+          src/routes/intelligence/memories/tests/-memories-route.test.ts
+          src/ui/shared/widgets/components/anchor/tests/anchor.test.tsx
+          src/ui/shared/widgets/components/icon/tests/icon.test.tsx
+          src/ui/shared/widgets/layouts/app-layout/tests/app-layout.test.tsx
+          src/ui/learning/widgets/components/skill-actions-menu/tests/skill-actions-menu.test.tsx
+          src/ui/intelligence/widgets/components/mentor-fab/tests/mentor-fab.test.tsx
+          src/ui/intelligence/widgets/components/mentor-fab/tests/use-mentor-fab.test.ts
+          src/ui/intelligence/widgets/components/mentor-chat/tests/mentor-chat.test.tsx
+          src/ui/intelligence/widgets/pages/intelligence-page/tests/use-intelligence-page.test.ts
+          src/ui/intelligence/widgets/pages/memories-page/tests/memories-page.test.tsx
+          src/ui/intelligence/widgets/pages/memories-page/tests/use-memories-page.test.ts
+          src/ui/intelligence/widgets/pages/memories-page/memory-filters/tests/memory-filters.test.tsx
+          src/ui/intelligence/widgets/pages/memories-page/memory-filters/tests/use-memory-filters.test.ts
+          src/ui/intelligence/widgets/pages/memories-page/memory-map/tests/memory-map.test.tsx
+          src/ui/intelligence/widgets/pages/memories-page/memory-map/tests/use-memory-map.test.ts
+          src/ui/intelligence/widgets/pages/memories-page/memory-edit-form/tests/memory-edit-form.test.tsx
+          src/ui/intelligence/widgets/pages/memories-page/memory-edit-form/tests/use-memory-edit-form.test.ts
 
       - name: Enforce thresholds for every changed production file
         run: >-

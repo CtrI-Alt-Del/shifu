@@ -211,6 +211,7 @@ export async function installMentorSummaryBackend(
       session,
       messages: pages[typeof cursor === 'string' ? cursor : 'first'],
       pendingLearnerMessageId: phase === 'summarizing' ? PENDING.id : null,
+      memoryItems: [],
       response:
         phase === 'summarizing'
           ? {
