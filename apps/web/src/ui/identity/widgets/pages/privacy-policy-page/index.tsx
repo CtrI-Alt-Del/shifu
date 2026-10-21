@@ -92,8 +92,8 @@ export const PrivacyPolicyPage = () => {
                   descritos nesta política.
                 </p>
                 <p>
-                  A Encarregada pelo tratamento de dados pessoais é Marina Costa. Você
-                  pode falar com ela pelo canal de privacidade:{' '}
+                  A Encarregada pelo tratamento de dados pessoais é Gabriela da Silva.
+                  Você pode falar com ela pelo canal de privacidade:{' '}
                   <a
                     className='break-all text-jade-text underline decoration-jade-text/60 underline-offset-4 hover:decoration-jade-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-selo-text'
                     href={PRIVACY_CONTACT_MAILTO}

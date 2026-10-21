@@ -47,7 +47,7 @@ See [`design/handoff.md`](design/handoff.md). It identifies both required Pencil
 | CA-04 | RF-04 | Account, Sign in or Register | A learner activates its privacy link | Navigation reaches `/privacy` and the page renders | CI-02 |
 | CA-05 | RF-05 | Desktop 1440 px and mobile 390 px; keyboard only | A learner uses the index, sections and contact | The layout follows the handoff, anchor targets are focusable/readable, contrast/focus remain usable, and document width does not exceed viewport | CI-01, VM-02 |
 
-Public disclosure decisions for this academic demonstration: GSW is the controller; the privacy contact is the named Encarregada Marina Costa, reached at `shifu.ctrlaltdel@gmail.com`. Her identity is fictional by the user's explicit authorization. The public page identifies GSW and the Encarregada, gives the contact, and does not identify the product as an academic demonstration.
+Public disclosure decisions for this academic demonstration: GSW is the controller; the privacy contact is the named Encarregada Gabriela da Silva, reached at `shifu.ctrlaltdel@gmail.com`. Her identity is fictional by the user's explicit authorization. The public page identifies GSW and the Encarregada, gives the contact, and does not identify the product as an academic demonstration.
 
 The public data-purpose/legal-basis matrix is:
 
