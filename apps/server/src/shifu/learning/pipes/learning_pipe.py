@@ -1,4 +1,5 @@
 from fastapi import Request
+from sqlalchemy.engine import Engine
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.interfaces import (
@@ -11,6 +12,12 @@ from shifu.shared.core.interfaces import (
 
 
 class LearningPipe:
+    @staticmethod
+    def create_database(engine: Engine | None = None) -> LearningDatabase:
+        from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+
+        return SqlalchemyLearningDatabase(engine=engine)
+
     @staticmethod
     def get_code_rubric_assessor_provider(
         request: Request,

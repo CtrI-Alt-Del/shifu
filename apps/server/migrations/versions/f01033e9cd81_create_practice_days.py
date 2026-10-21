@@ -1,7 +1,7 @@
 """create practice days
 
 Revision ID: f01033e9cd81
-Revises: 341cb645e630
+Revises: b2e4c7a91f63
 Create Date: 2026-10-15 00:59:15.749191
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = 'f01033e9cd81'
-down_revision: str | None = '341cb645e630'
+down_revision: str | None = 'b2e4c7a91f63'
 branch_labels: str | None = None
 depends_on: str | None = None
 

@@ -33,6 +33,7 @@ adapters. It registers:
 - middleware in deliberate order;
 - shared lifecycle hooks;
 - the single Inngest endpoint;
+- the Intelligence and Learning AgentOS registry lifecycles;
 - environment-specific infrastructure.
 
 The local FastAPI application uses the explicit `SHIFU_SERVER_APP_PORT` setting;
@@ -45,9 +46,14 @@ Business modules must not import the application factory or another module's
 composition code.
 
 The application class is also the composition boundary for the shared Inngest
-endpoint, database relay lifecycle, and module-owned job functions. Keep those
-registrations explicit and idempotent; importing a module must not start a listener,
-open a connection, or register a route.
+endpoint, destination-aware outbox relay, module-owned non-AI job functions, and the
+two active module AgentOS registries. It enters Intelligence then Learning and exits
+in reverse order. It exposes existing Core consumer ports and shared technical
+providers, but does not import individual Workflow classes or assemble module
+business dependencies. Each registry registers only its own native workflows and
+owns its queue, schemas, pools, clients, and shutdown. Keep registration explicit and
+idempotent; importing a module must not start a listener, open a connection, run a
+migration, or register a route.
 
 ## Routers group controllers
 
@@ -69,6 +75,15 @@ Dependency factories belong in the owning module's `pipes` package or in
 - invoke the shared `AuthenticationProvider` and return `AuthenticatedUser`;
 - load and authorize a resource reused by several controllers;
 - construct an AI workflow or external provider.
+
+Owning modules may also expose ordinary request-independent `create_*` factories for
+their workflow registry to assemble providers and Core use cases. Such factories
+return typed Core ports/actions and accept explicit dependencies; they do not accept
+FastAPI `Request`, use `Depends` outside HTTP getters, or capture a request session.
+Only each active module's named workflow registry may compose its own providers,
+Core operations, native AgentOS runtime, and registrations. This narrow exception
+does not permit generic workflow catalogues, cross-module concrete imports, or AI
+code to own authorization and persistence policy.
 
 Use `typing.Annotated` with `fastapi.Depends` at controller boundaries. Dependency
 return types are core interfaces or domain values whenever possible.
@@ -104,10 +119,11 @@ background relays. Request-owned resources belong in dependencies or middleware.
 Importing a module must not open network connections, run migrations, seed data, or
 start workers.
 
-The shared Inngest broker is a process-owned resource: composition creates one broker,
-the lifespan starts and stops it, and application shutdown releases its listener and
-database resources. Module messaging registrars return functions to composition; they
-do not start listeners or serve HTTP during import.
+The shared outbox broker and both module AgentOS registries are process-owned
+resources. Application lifespan starts them in dependency order and shuts them down
+in reverse order; each registry closes only its own queues, schemas/pools, clients,
+and workers. A Learning provider borrowed from Intelligence remains alive until
+Learning has stopped. Module registrars do not start resources during import.
 
 Application bootstrap never resets or seeds a database. Migrations and seed commands
 remain explicit operational commands.

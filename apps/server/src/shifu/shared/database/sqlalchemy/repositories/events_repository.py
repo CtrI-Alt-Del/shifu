@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, cast
 
 import psycopg
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.engine import CursorResult, Engine
 from sqlalchemy.orm import Session
 
@@ -13,16 +13,18 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     OutboxEvent,
 )
-from shifu.shared.database.sqlalchemy.serialization import Serialization
 from shifu.shared.database.sqlalchemy.models import EventModel
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.database.sqlalchemy.repositories.listeners import (
     PostgresListenerConnection,
     SqlalchemyEventsRepositoryListener,
 )
+from shifu.shared.database.sqlalchemy.serialization import Serialization
+from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
 
 class SqlalchemyEventsRepository:
+    _UNROUTED: str = 'unrouted'
+
     def __init__(
         self,
         session: Session,
@@ -36,7 +38,9 @@ class SqlalchemyEventsRepository:
             id_provider or SystemIdentifierProvider()
         )
 
-    def add[Payload](self, event: Event[Payload]) -> None:
+    def add[Payload](
+        self, event: Event[Payload], *, available_at: datetime | None = None
+    ) -> None:
         payload = Serialization.serialize_value(event.payload)
         if not isinstance(payload, dict):
             raise TypeError('Event payload must serialize to a JSON object')
@@ -48,13 +52,15 @@ class SqlalchemyEventsRepository:
             else self._id_provider.generate()
         )
 
-        self._session.add(
-            EventModel(
-                id=row_id,
-                name=event.name,
-                payload=payload,
-            )
+        model = EventModel(
+            id=row_id,
+            name=event.name,
+            payload=payload,
+            destination=SqlalchemyEventsRepository._UNROUTED,
         )
+        if available_at is not None:
+            model.available_at = available_at
+        self._session.add(model)
         self._session.flush()
 
     def remove_all(self) -> None:
@@ -79,13 +85,51 @@ class SqlalchemyEventsRepository:
             on_event,
         )
 
-    def release_expired_reservations(self, *, now: datetime) -> int:
+    def find_unrouted(self, *, now: datetime, limit: int) -> list[OutboxEvent]:
+        models = self._session.scalars(
+            select(EventModel)
+            .where(
+                EventModel.destination == SqlalchemyEventsRepository._UNROUTED,
+                EventModel.status.in_(['pending', 'failed']),
+                EventModel.available_at <= now,
+            )
+            .order_by(EventModel.available_at, EventModel.created_at)
+            .limit(limit)
+        ).all()
+        return [self._to_outbox_event(model) for model in models]
+
+    def assign_destination(self, *, event_id: str, destination: str) -> bool:
+        if not destination or destination == SqlalchemyEventsRepository._UNROUTED:
+            raise ValueError('A routed event must have a non-empty destination')
+        result = cast(
+            'CursorResult[Any]',
+            self._session.execute(
+                update(EventModel)
+                .where(
+                    EventModel.id == event_id,
+                    EventModel.destination == SqlalchemyEventsRepository._UNROUTED,
+                    EventModel.status.in_(['pending', 'failed']),
+                )
+                .values(destination=destination)
+            ),
+        )
+        if result.rowcount != 1:
+            return False
+        self._session.execute(
+            text("SELECT pg_notify('shifu_events', :event_id)"),
+            {'event_id': event_id},
+        )
+        self._session.flush()
+        return True
+
+    def release_expired_reservations(self, *, destination: str, now: datetime) -> int:
         result = cast(
             'CursorResult[Any]',
             self._session.execute(
                 update(EventModel)
                 .where(
                     EventModel.status == 'publishing',
+                    EventModel.destination == destination,
                     EventModel.reservation_expires_at <= now,
                 )
                 .values(
@@ -103,6 +147,7 @@ class SqlalchemyEventsRepository:
     def reserve_available(
         self,
         *,
+        destination: str,
         now: datetime,
         reserved_by: str,
         reservation_expires_at: datetime,
@@ -112,6 +157,7 @@ class SqlalchemyEventsRepository:
             select(EventModel)
             .where(
                 EventModel.status.in_(['pending', 'failed']),
+                EventModel.destination == destination,
                 EventModel.available_at <= now,
             )
             .order_by(EventModel.available_at, EventModel.created_at)
@@ -127,16 +173,20 @@ class SqlalchemyEventsRepository:
         self._session.flush()
         return [self._to_outbox_event(model) for model in models]
 
-    def find_earliest_wakeup(self, *, now: datetime) -> datetime | None:
+    def find_earliest_wakeup(
+        self, *, destination: str, now: datetime
+    ) -> datetime | None:
         available_at = self._session.scalar(
             select(func.min(EventModel.available_at)).where(
                 EventModel.status.in_(['pending', 'failed']),
+                EventModel.destination.in_([destination, 'unrouted']),
                 EventModel.available_at > now,
             )
         )
         reservation_expires_at = self._session.scalar(
             select(func.min(EventModel.reservation_expires_at)).where(
                 EventModel.status == 'publishing',
+                EventModel.destination == destination,
                 EventModel.reservation_expires_at > now,
             )
         )
@@ -151,6 +201,7 @@ class SqlalchemyEventsRepository:
         self,
         *,
         event_id: str,
+        destination: str,
         reserved_by: str,
         published_at: datetime,
     ) -> bool:
@@ -161,6 +212,7 @@ class SqlalchemyEventsRepository:
                 .where(
                     EventModel.id == event_id,
                     EventModel.status == 'publishing',
+                    EventModel.destination == destination,
                     EventModel.reserved_by == reserved_by,
                 )
                 .values(
@@ -179,6 +231,7 @@ class SqlalchemyEventsRepository:
         self,
         *,
         event_id: str,
+        destination: str,
         reserved_by: str,
         available_at: datetime,
         error_code: str,
@@ -191,6 +244,7 @@ class SqlalchemyEventsRepository:
                 .where(
                     EventModel.id == event_id,
                     EventModel.status == 'publishing',
+                    EventModel.destination == destination,
                     EventModel.reserved_by == reserved_by,
                 )
                 .values(
@@ -213,6 +267,7 @@ class SqlalchemyEventsRepository:
             id=model.id,
             name=model.name,
             payload=payload,
+            destination=model.destination,
             status=model.status,
             attempts=model.attempts,
             available_at=model.available_at,

@@ -4,6 +4,9 @@ import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import type { IconName } from '@/ui/shared/widgets/components/icon'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+import { useMentorAttachmentFileQuery } from '@/ui/intelligence/hooks/use-mentor-attachment-file-query'
+import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
+import type { MentorAttachmentSourceView } from './sources'
 
 const MESSAGE_TIME_FORMATTER = new Intl.DateTimeFormat('pt-BR', {
   hour: '2-digit',
@@ -16,6 +19,63 @@ export function useMessageItem(
   response?: MentorResponseSnapshot | null,
 ) {
   const mentor = useMentorContext()
+  const [requestedSource, setRequestedSource] = useState<{
+    messageId: string
+    attachmentIds: string[]
+  } | null>(null)
+  const currentSession = mentor.selectedSessionId === message.sessionId
+  const imageAttachments = currentSession
+    ? message.attachments.filter(
+        (attachment) =>
+          attachment.mediaType.startsWith('image/') &&
+          ['ready', 'partial'].includes(attachment.status),
+      )
+    : []
+  const requestedAttachmentIds =
+    requestedSource?.messageId === message.id ? requestedSource.attachmentIds : []
+  const sourceLearnerMessage =
+    currentSession && response
+      ? mentor.sessionDetail?.messages.items.find(
+          (candidate) =>
+            candidate.id === response.learnerMessageId &&
+            candidate.sessionId === message.sessionId &&
+            candidate.role === 'learner',
+        )
+      : null
+  const sourceAttachments = new Map(
+    (sourceLearnerMessage?.attachments ?? []).map((attachment) => [
+      attachment.attachmentId,
+      attachment,
+    ]),
+  )
+  const sourceViewsByBlock = new Map<string, MentorAttachmentSourceView[]>()
+  for (const block of response?.blocks ?? []) {
+    for (const source of block.sources ?? []) {
+      const attachment = sourceAttachments.get(source.attachmentId)
+      if (!attachment || !['ready', 'partial'].includes(attachment.status)) continue
+      const existing = sourceViewsByBlock.get(block.blockKey) ?? []
+      existing.push({ source, attachment, url: null, error: null })
+      sourceViewsByBlock.set(block.blockKey, existing)
+    }
+  }
+  const requestedSourceAttachments = [...sourceAttachments.values()].filter(
+    (attachment) => requestedAttachmentIds.includes(attachment.attachmentId),
+  )
+  const { mentorAttachmentFiles, mentorAttachmentFileErrors } =
+    useMentorAttachmentFileQuery({
+      sessionId: currentSession ? message.sessionId : null,
+      attachmentIds: [
+        ...imageAttachments.map((attachment) => attachment.attachmentId),
+        ...requestedSourceAttachments.map((attachment) => attachment.attachmentId),
+      ],
+      previewAttachmentIds: [
+        ...imageAttachments.map((attachment) => attachment.attachmentId),
+        ...requestedSourceAttachments
+          .filter((attachment) => attachment.mediaType.startsWith('image/'))
+          .map((attachment) => attachment.attachmentId),
+      ],
+    })
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({})
   const shouldReduceMotion = useReducedMotion()
   const [initialBlockAnimations] = useState(
     () =>
@@ -58,6 +118,16 @@ export function useMessageItem(
     },
     [],
   )
+  useEffect(() => {
+    const nextUrls: Record<string, string> = {}
+    for (const [attachmentId, blob] of Object.entries(mentorAttachmentFiles)) {
+      nextUrls[attachmentId] = URL.createObjectURL(blob)
+    }
+    setAttachmentUrls(nextUrls)
+    return () => {
+      for (const url of Object.values(nextUrls)) URL.revokeObjectURL(url)
+    }
+  }, [mentorAttachmentFiles])
   useEffect(() => {
     if (!response) return
     const reducedMotion =
@@ -102,8 +172,25 @@ export function useMessageItem(
         isTyping: length !== undefined && length < block.content.length,
         displayedContent:
           length === undefined ? block.content : block.content.slice(0, length),
+        sources: (sourceViewsByBlock.get(block.blockKey) ?? []).map((item) => ({
+          ...item,
+          url: valueOrNull(attachmentUrls, item.attachment.attachmentId),
+          error: errorMessageOrNull(
+            mentorAttachmentFileErrors[item.attachment.attachmentId],
+          ),
+        })),
       }
     }) ?? []
+  const attachments = currentSession
+    ? message.attachments.map((attachment: MentorAttachment) => ({
+        attachment,
+        url: valueOrNull(attachmentUrls, attachment.attachmentId),
+        error: errorMessageOrNull(mentorAttachmentFileErrors[attachment.attachmentId]),
+      }))
+    : []
+  function handleOpenAttachment(attachmentId: string) {
+    setRequestedSource({ messageId: message.id, attachmentIds: [attachmentId] })
+  }
   async function handleCopyMessage() {
     setCopyError(false)
     try {
@@ -119,6 +206,8 @@ export function useMessageItem(
 
   return {
     blocks,
+    attachments,
+    handleOpenAttachment,
     shouldAnimateEntrance,
     shouldReduceMotion,
     copyAccessibleLabel,
@@ -135,4 +224,10 @@ export function useMessageItem(
     visibleLength,
     handleCopyMessage,
   }
+}
+function valueOrNull(values: Record<string, string>, key: string): string | null {
+  return values[key] || null
+}
+function errorMessageOrNull(error: { message: string } | undefined): string | null {
+  return error?.message || null
 }

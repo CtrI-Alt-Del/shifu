@@ -15,7 +15,7 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
 
   return (
     <section
-      className={`flex min-h-0 flex-col ${surface === 'page' ? 'min-h-[calc(100vh-12rem)] lg:-mt-2 lg:mx-2 lg:h-[calc(100dvh-8rem)] lg:min-h-0' : 'h-full bg-surface-alt'}`}
+      className={`flex min-h-0 flex-col ${surface === 'page' ? 'h-[calc(100dvh-12rem)] lg:-mt-2 lg:mx-2 lg:h-[calc(100dvh-8rem)]' : 'h-full bg-surface-alt'}`}
     >
       {mentor.isValidatingScope ? (
         <LoadingSkeleton surface={surface} />

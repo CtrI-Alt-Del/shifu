@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
@@ -6,25 +6,57 @@ import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { Conversation } from '..'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
-import { useConversation } from '../use-conversation'
+import { type ConversationItem, useConversation } from '../use-conversation'
 
 vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
+vi.mock('@/ui/intelligence/hooks/use-mentor-attachment-file-query', () => {
+  const emptyAttachmentQuery = {
+    mentorAttachmentFiles: {},
+    mentorAttachmentFileErrors: {},
+    mentorAttachmentFilesError: undefined,
+    isReadingMentorAttachmentFiles: false,
+  }
+  return { useMentorAttachmentFileQuery: () => emptyAttachmentQuery }
+})
+vi.mock('../summary-marker/use-mentor-session-summary-query', () => ({
+  useMentorSessionSummaryQuery: () => ({
+    summaryContent: null,
+    summaryError: null,
+    isLoadingSummary: false,
+    refetchSummary: vi.fn(),
+  }),
+}))
 const useConversationMock = vi.mocked(useConversation)
 const useMentorContextMock = vi.mocked(useMentorContext)
-const mockConversationValue = (value: object) =>
+const mockConversationValue = (value: object) => {
+  const { visibleMessages, sessionDetail, conversationItems } = value as {
+    visibleMessages?: MentorMessage[]
+    sessionDetail?: { messages: { items: MentorMessage[] } } | null
+    conversationItems?: ConversationItem[]
+  }
   useConversationMock.mockReturnValue({
     visibleMessages: undefined,
+    conversationItems: (visibleMessages ?? sessionDetail?.messages.items ?? []).map(
+      (message) => ({ kind: 'message' as const, message }),
+    ),
     ...value,
+    ...(conversationItems ? { conversationItems } : {}),
   } as unknown as ReturnType<typeof useConversation>)
+}
 
 const mentorValue = {
   selectedSessionId: null,
   sessionDetail: null,
+  summary: { current: null, failureAfterMessageId: null },
+  isSummarizingContext: false,
+  revealMessage: vi.fn(),
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
+  draftAttachments: [],
+  isPreparingAttachments: false,
   search: '',
   isPanelOpen: false,
   panelView: 'conversation',
@@ -33,6 +65,7 @@ const mentorValue = {
   isValidatingScope: false,
   isReadingHistory: false,
   isReadingMessages: false,
+  isReadingOlderMessages: false,
   isSubmittingFirstMessage: false,
   isRenamingSession: false,
   isRemovingSession: false,
@@ -50,6 +83,8 @@ const mentorValue = {
   startNewConversation: vi.fn(),
   selectSession: vi.fn(),
   setDraft: vi.fn(),
+  addAttachments: vi.fn(),
+  removeAttachment: vi.fn(),
   setSearch: vi.fn(),
   sendFirstMessage: vi.fn(),
   loadMoreSessions: vi.fn(),
@@ -97,9 +132,9 @@ describe('Conversation', () => {
     expect(screen.getByLabelText('Escreva sua mensagem para o Mentor')).toBeEnabled()
     expect(
       screen.getByRole('button', {
-        name: 'Anexar arquivo ou imagem. Indisponível no momento',
+        name: 'Anexar arquivo ou imagem',
       }),
-    ).toBeDisabled()
+    ).toBeEnabled()
   })
 
   it('renders older-page, loading and recoverable conversation states', () => {
@@ -112,6 +147,7 @@ describe('Conversation', () => {
         content: 'Pergunta salva',
         inReplyToMessageId: null,
         createdAt: '2026-10-08T12:00:00Z',
+        attachments: [],
       },
       {
         id: 'mentor-reply',
@@ -120,6 +156,7 @@ describe('Conversation', () => {
         content: 'Resposta',
         inReplyToMessageId: 'learner-pending',
         createdAt: '2026-10-08T12:01:00Z',
+        attachments: [],
       },
     ]
     const loadOlderMessages = vi.fn()
@@ -153,6 +190,17 @@ describe('Conversation', () => {
     expect(loadOlderMessages).toHaveBeenCalledOnce()
     mockConversationValue({ ...conversationState, isReadingMessages: true })
     rerender(<Conversation />)
+    expect(screen.queryByText('Carregando mensagens anteriores…')).toBeNull()
+    expect(screen.getByText('Pergunta salva')).toBeVisible()
+    mockConversationValue({
+      ...conversationState,
+      isReadingMessages: true,
+      isReadingOlderMessages: true,
+    })
+    rerender(<Conversation />)
+    expect(
+      screen.getByRole('button', { name: 'Carregar mensagens anteriores' }),
+    ).toBeDisabled()
     expect(screen.getByText('Carregando mensagens anteriores…')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(refresh).toHaveBeenCalledOnce()
@@ -169,6 +217,7 @@ describe('Conversation', () => {
           intent: null,
           content:
             '**Explicação**\n\n<script>alert(1)</script>\n\n[perigoso](javascript:alert(1))\n\n```js\nconst result = 42\n```',
+          sources: [],
         },
       ],
       consultations: ['learning'],
@@ -200,12 +249,14 @@ describe('Conversation', () => {
               content: '  Mensagem preservada  ',
               createdAt: '',
               inReplyToMessageId: null,
+              attachments: [],
             },
           ],
           nextCursor: null,
         },
         pendingLearnerMessageId: 'learner',
         response,
+        summary: { current: null, failureAfterMessageId: null },
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -236,6 +287,7 @@ describe('Conversation', () => {
           ordinal: 0,
           intent: null,
           content: 'Resposta local persistida.',
+          sources: [],
         },
       ],
       consultations: [],
@@ -249,6 +301,7 @@ describe('Conversation', () => {
       content: 'Pergunta local',
       inReplyToMessageId: null,
       createdAt: '',
+      attachments: [],
     }
     const mentorReply: MentorMessage = {
       id: 'reply',
@@ -257,6 +310,7 @@ describe('Conversation', () => {
       content: 'Resposta local persistida.',
       inReplyToMessageId: 'learner',
       createdAt: '',
+      attachments: [],
     }
     const shouldAnimateBlock = vi.fn(() => true)
     const markBlockPresented = vi.fn()
@@ -395,5 +449,130 @@ describe('Conversation', () => {
     rerender(<Conversation />)
     expect(screen.getByRole('status')).toHaveTextContent('Não foi possível concluir')
     expect(screen.queryByText('Revisando resposta')).toBeNull()
+  })
+  it('replaces the response status with the processing marker while summarizing and keeps cancel reachable', () => {
+    const cancelResponse = vi.fn()
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Pergunta pendente',
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }
+    const response: MentorResponseSnapshot = {
+      attemptId: 'attempt',
+      learnerMessageId: 'learner',
+      status: 'processing',
+      blocks: [],
+      consultations: [],
+      lastSequence: 3,
+      failureCode: null,
+      progress: 'summarize-context',
+    }
+    const value = {
+      ...mentorValue,
+      cancelResponse,
+      isSummarizingContext: true,
+      response,
+      selectedSessionId: 'session',
+      sessionDetail: {
+        session: {
+          id: 'session',
+          title: 'Conversa',
+          createdAt: '',
+          updatedAt: '',
+          lastActivityAt: '',
+        },
+        messages: { items: [learnerMessage], nextCursor: null },
+        pendingLearnerMessageId: 'learner',
+        response,
+        summary: { current: null, failureAfterMessageId: null },
+      },
+      handleScroll: vi.fn(),
+      scrollRef: { current: null },
+    }
+    useMentorContextMock.mockReturnValue(value)
+    mockConversationValue(value)
+    render(<Conversation surface='page' />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Resumindo contexto…')
+    expect(screen.queryByText('Preparando resposta')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ver resumo' })).toBeNull()
+    const textbox = screen.getByRole('textbox')
+    expect(textbox).toBeDisabled()
+    expect(textbox).toHaveAttribute(
+      'placeholder',
+      'Aguarde enquanto o contexto é resumido',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar resposta' }))
+    expect(cancelResponse).toHaveBeenCalledOnce()
+  })
+
+  it('renders the ready marker right after the boundary and the failure notice after its message', () => {
+    const messages: MentorMessage[] = ['m1', 'm2', 'm3'].map((id) => ({
+      id,
+      sessionId: 'session',
+      role: 'learner',
+      content: `Mensagem ${id}`,
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }))
+    const value = {
+      ...mentorValue,
+      selectedSessionId: 'session',
+      sessionDetail: {
+        session: {
+          id: 'session',
+          title: 'Conversa',
+          createdAt: '',
+          updatedAt: '',
+          lastActivityAt: '',
+        },
+        messages: { items: messages, nextCursor: null },
+        pendingLearnerMessageId: null,
+        response: null,
+        summary: { current: null, failureAfterMessageId: null },
+      },
+      conversationItems: [
+        { kind: 'message', message: messages[0] },
+        {
+          kind: 'summary-marker',
+          marker: {
+            version: 2,
+            boundaryMessageId: 'm1',
+            coveredMessageCount: 21,
+            completedAt: '2026-10-18T14:00:00Z',
+            afterMessageId: null,
+          },
+        },
+        { kind: 'message', message: messages[1] },
+        { kind: 'summary-failure', messageId: 'm2' },
+        { kind: 'message', message: messages[2] },
+      ] satisfies ConversationItem[],
+      handleScroll: vi.fn(),
+      scrollRef: { current: null },
+    }
+    useMentorContextMock.mockReturnValue(value)
+    mockConversationValue(value)
+    render(<Conversation surface='page' />)
+
+    const list = screen.getByRole('list', { name: 'Mensagens da conversa' })
+    const entries = within(list)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent ?? '')
+    expect(entries[0]).toContain('Mensagem m1')
+    expect(entries[1]).toContain('Contexto resumido')
+    expect(entries[1]).toContain('Ver resumo')
+    expect(entries[2]).toContain('Mensagem m2')
+    expect(entries[3]).toContain('Não foi possível resumir o contexto.')
+    expect(entries[3]).toContain('O histórico completo continua disponível.')
+    expect(entries[4]).toContain('Mensagem m3')
+    expect(screen.getByRole('button', { name: 'Ver resumo' })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    )
   })
 })

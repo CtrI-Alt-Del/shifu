@@ -63,8 +63,8 @@ Use the architectural path of Superpowers brainstorming for a feature Spec: expl
 context, resolve material questions, compare viable approaches, present the design
 in chat for review, then write the approved Spec. Announce this path and its
 expected artifact before the first question. `compact` and `complete` control the
-Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact;
-do not create a second design document or a `plan.md`.
+Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact.
+Do not create a second authoritative design document or a `plan.md`.
 
 ### Grilling protocol
 
@@ -80,20 +80,39 @@ permissions, scope, destructive behavior, ownership, public compatibility,
 irreversible persistence and required verification. Ordinary reversible
 implementation choices belong to the agent.
 
-Ask **one question per message**, choosing a material question whose prerequisites
-are settled. Prefer concise multiple-choice options when useful, while allowing
-an open answer. Explain relevant evidence and how materially different answers
-affect the contract; give a recommendation with its reason. Number questions
-monotonically across the conversation. Ask directly in the conversation, without
-a question tool:
+Ask questions in **batches of related decisions** whose prerequisites are settled;
+a batch may hold one question or several, and a later batch may depend on earlier
+answers. Give each question as many concise options as the real alternatives need
+(commonly two to four), allowing an open answer. For each option state its concrete
+mechanism and the consequence of choosing it; ground options in inspected source,
+authority and design evidence, and never invent alternatives. End every question
+with one recommendation and its reason. Number questions monotonically across the
+conversation; a revised question keeps its number or names the question it revisits.
+Ask directly in the conversation, without a question tool, and do not use tables
+in questions or in-chat design sections; use short paragraphs and bullet lists.
+
+Use this format for every question, including when re-asking an unanswered one:
 
 ```text
-❓ Q1 — <title>: <question, evidence and consequences of materially different choices>
+❓ Q7 — <title>
+<question with the relevant evidence>
+- A: <mechanism> — <consequence>
+- B: <mechanism> — <consequence>
+- C: <mechanism> — <consequence>
 
-➡️ Recommended: <answer and its consequence>
+➡️ Recommended: <option> — <reason and consequence>
 ```
 
-Wait for the answer before asking the next question. A request for more context is
+Record each answer explicitly ("Q7 = A") with its consequence before continuing.
+Answers may arrive individually or as quoted replies to parts of a batch; record
+only what was chosen and re-ask every still-open question in the same full format,
+never as a compressed reminder list. A quoted question without a selected option
+is not an answer. When the user replies with a generic acknowledgement such as "ok"
+to a batch whose questions all carry recommendations, state the interpretation
+explicitly (which recommended options are being recorded) and invite correction;
+never apply such an acknowledgement to questions outside the batch it answers.
+
+Wait for the answer before acting on a decision. A request for more context is
 not an answer; explain the current choice and keep it open. Silence never approves
 a recommendation. Continue independent research while waiting. Challenge
 contradictions respectfully and resolve consequential ambiguity before presenting
@@ -105,6 +124,13 @@ If authority and authorization already settle material choices, skip invented
 questions and proceed to design review. Do not use that absence of questions to
 skip the design and written-Spec review gates. Honor an explicit user request to
 approve every technical decision when present.
+Under that request, also ask about naming, file placement, constants, contracts and
+verification boundaries, and treat rule-mandated corrections as items to report
+with their rule rather than as choices.
+
+When later evidence (a design frame, review finding or source fact) contradicts an
+accepted decision, present the conflict with its evidence and ask a question that
+names the decision it revisits; do not silently reverse or keep it.
 
 Screenshots establish visual intent, not new permissions/actions/workflows.
 Resolve design-derived behavioral ambiguity against the canonical PRD. Visual
@@ -114,15 +140,19 @@ reread before Spec reconciliation; preparing a Spec never authorizes that write.
 
 ### Compare approaches and review the design
 
-For consequential architectural choices, present 2–3 viable approaches grounded
-in Shifu, leading with a recommendation and explaining compatibility, ownership,
-consistency and recovery tradeoffs. Do not invent alternatives when existing
+For consequential architectural choices, present the viable approaches grounded
+in Shifu (usually two to four) in the question format above, with a recommendation
+and the compatibility, ownership, consistency and recovery tradeoffs. Do not invent alternatives when existing
 authority settles the choice or add speculative capabilities/refactoring.
 
 Present the proposed design in short chat sections scaled to its risk: outcome and
-scope; ownership, components and public contracts; runtime flow, persistence and
-failure handling; and verification. Ask whether each section looks right before
-continuing. Revise a section when the user identifies a gap. Explicit approval of
+scope; ownership, components and public contracts, including the expected file tree
+for the affected server and web boundaries; runtime flow, persistence and failure
+handling; UI composition and design references when applicable; and verification.
+Use bullets and code blocks, not tables. Decisions a section raises may be asked as a
+batch at its end. Ask explicitly whether each section looks right before continuing;
+answering that section's questions does not approve the section unless the user
+says so, and a section reopened by a later decision is presented again as a delta. Revise a section when the user identifies a gap. Explicit approval of
 the complete in-chat design permits writing the Spec; it does not approve the
 written Spec or authorize implementation. Record the selected approach and
 rationale in the existing Technical Contract.
@@ -138,7 +168,8 @@ the abbreviated examples below do not replace the complete template.
 
 Use `documentation/features/<module>/<feature>/spec.md` with lowercase kebab-case
 slugs. A distinct change to a concluded feature may use
-`changes/<change-name>/spec.md` beneath that feature. Use the contract structure below and omit empty optional fields.
+`changes/<change-name>/spec.md` beneath that feature. Use the contract structure
+below and omit empty optional fields.
 
 ```yaml
 ---
@@ -349,33 +380,9 @@ isolated/disposable setup. Missing executable setup is a contract gap.
 
 Automated checks cover authorization, isolation, persistence, finite contracted
 combinations, bounds, failure/recovery and concurrency at permitted boundaries.
-For unbounded domains specify equivalence classes and boundary values. Assess
-targeted mutation testing for changed Server business rules/correctness-critical logic:
-record whether it is required and why, the concrete risk, target scope, verified
-runner, mutation classes, pass condition and survivor/equivalence disposition.
-It is not a universal gate for every business-rule edit. When not required,
-identify the assertions that address the risk and why mutation adds insufficient
-value for this slice. Tool availability alone is not a reason to omit necessary
-proof; never downgrade an already-required check just to obtain readiness.
-Use the Server mutmut script and scoped selection documented in
-[Tooling](../tooling.md#mutation-testing). Web has no mutation runner; record Web
-mutation checks as Not applicable and verify correctness through applicable
-unit/component, browser and static checks. Server CI explicitly uses 12 balanced
-`--all --core --shard N/12` jobs to mutate every eligible Server
-`core/use_cases/**` file using only use-case tests without containers.
-For Spec implementation, limit mutation targets to production Server `core/use_cases/**` files
-created or modified by this Spec and
-specify exact application-relative `--files` paths. Select only related use-case
-tests under `tests/<module>/core/use_cases/**` or legacy
-`tests/core/**/use_cases/**`; core mutation runs
-require no Docker or containers. Do not select an entire core package, unrelated
-changes, other layers or `--all` without a separate explicit user request. With no eligible
-Server use-case changes, record Not applicable and its rationale; reconcile an existing
-required check before changing its disposition. Require Evaluation to record
-the exact targets, command, elapsed execution time and mutant outcomes.
-Runner success does not prove all mutants were killed; define survivor handling.
-A required unavailable mutation check remains Blocked and ordinary coverage cannot
-satisfy it; record any deferral explicitly.
+For unbounded domains specify equivalence classes and boundary values. A required check whose tooling is unavailable remains
+Blocked; ordinary coverage cannot satisfy it, and a deferral must be recorded
+explicitly.
 
 Respect test-integrity Rules: forbidden direct tests or excluded/indirect source
 tests are blocking contract defects; use allowed consumer boundaries. Never
@@ -455,7 +462,8 @@ and resolution of verified compatibility findings. Explicit implementation
 dependencies block affected work, not readiness, unless they leave the contract
 materially ambiguous. Report concrete blockers instead of a successful gate.
 
-Report the Spec path/revision/status, bounded outcome, canonical source/version,
+Report the Spec path/revision/status, bounded
+outcome, canonical source/version,
 consequential decisions, checker coverage and review result. The next step is
 `implement-spec`; the agent decides execution mechanics.
 

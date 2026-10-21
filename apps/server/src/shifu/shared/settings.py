@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator, Field, HttpUrl, SecretStr
+from pydantic import BeforeValidator, Field, HttpUrl, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -24,6 +24,38 @@ class Settings(BaseSettings):
     langfuse_public_key: SecretStr | None = None
     langfuse_secret_key: SecretStr | None = None
     langfuse_base_url: HttpUrl = HttpUrl('http://localhost:7003')
+    agentos_database_url: PostgresDsn | None = None
+    agentos_intelligence_queue_max_concurrency: int = Field(default=4, ge=1, le=128)
+    agentos_intelligence_queue_max_depth: int = Field(default=1000, ge=1, le=100_000)
+    agentos_intelligence_queue_timeout_seconds: int = Field(
+        default=600, ge=1, le=86_400
+    )
+    agentos_learning_queue_max_concurrency: int = Field(default=4, ge=1, le=128)
+    agentos_learning_queue_max_depth: int = Field(default=1000, ge=1, le=100_000)
+    agentos_learning_queue_timeout_seconds: int = Field(default=600, ge=1, le=86_400)
+    mentor_attachment_storage_bucket: str = Field(
+        default='shifu-mentor-attachments', min_length=3, max_length=63
+    )
+    mentor_attachment_storage_region: str = Field(default='us-east-1', min_length=1)
+    mentor_attachment_storage_endpoint_url: HttpUrl | None = None
+    mentor_attachment_storage_addressing_style: Literal['auto', 'path', 'virtual'] = (
+        'auto'
+    )
+    mentor_attachment_storage_access_key: SecretStr | None = None
+    mentor_attachment_storage_secret_key: SecretStr | None = None
+    mentor_attachment_max_image_pixels: int = Field(
+        default=20_000_000, ge=1, le=100_000_000
+    )
+    mentor_attachment_max_pdf_pages: int = Field(default=40, ge=1, le=1000)
+    mentor_attachment_max_extracted_chars: int = Field(
+        default=200_000, ge=1, le=1_000_000
+    )
+    mentor_attachment_pdf_processing_timeout_seconds: int = Field(
+        default=10, ge=1, le=120
+    )
+    mentor_attachment_max_pdf_rendered_bytes: int = Field(
+        default=20_000_000, ge=1, le=100_000_000
+    )
     openrouter_decisions_url: HttpUrl = HttpUrl(
         'https://openrouter.ai/api/alpha/decisions'
     )

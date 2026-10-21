@@ -6,12 +6,24 @@ import type {
   MentorSessionDetail,
   MentorSessionsPage,
 } from '@/rest/services/intelligence-service'
+import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
+import type { MentorSessionSummaryState } from '@/core/intelligence/mentor-session-summary'
 
 import type {
   SpeechRecognitionStatus,
   SpeechLanguageAvailability,
   SpeechInstallationStatus,
 } from '@/ui/shared/hooks/use-speech-recognition'
+
+export type MentorDraftAttachment = {
+  localKey: string
+  uploadKey: string
+  file: File
+  previewUrl: string | null
+  attachment: MentorAttachment | null
+  error: string | null
+  retryable?: boolean
+}
 
 export type MentorContextValue = {
   dictationStatus: SpeechRecognitionStatus
@@ -38,8 +50,12 @@ export type MentorContextValue = {
   markBlockPresented(attemptId: string, blockKey: string): void
   selectedSessionId: string | null
   sessionDetail: MentorSessionDetail | null
+  summary: MentorSessionSummaryState
+  isSummarizingContext: boolean
   sessionsPage: MentorSessionsPage
   draft: string
+  draftAttachments: MentorDraftAttachment[]
+  isPreparingAttachments: boolean
   search: string
   isPanelOpen: boolean
   panelView: 'conversation' | 'history'
@@ -48,6 +64,7 @@ export type MentorContextValue = {
   isValidatingScope: boolean
   isReadingHistory: boolean
   isReadingMessages: boolean
+  isReadingOlderMessages: boolean
   isSubmittingFirstMessage: boolean
   isRenamingSession: boolean
   isRemovingSession: boolean
@@ -65,10 +82,14 @@ export type MentorContextValue = {
   startNewConversation(): void
   selectSession(sessionId: string): Promise<void>
   setDraft(value: string): void
+  addAttachments(files: File[]): Promise<void>
+  retryAttachment(localKey: string): Promise<void>
+  removeAttachment(localKey: string): Promise<void>
   setSearch(value: string): void
   sendFirstMessage(surface?: 'page' | 'fab'): Promise<void>
   loadMoreSessions(): Promise<void>
   loadOlderMessages(): Promise<void>
+  revealMessage(messageId: string): Promise<boolean>
   openRenameDialog(sessionId: string): void
   openRemoveDialog(sessionId: string): void
   closeDialog(): void

@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from shifu.shared.database.sqlalchemy.model import Model
 
@@ -35,7 +36,7 @@ class MentorResponseEventModel(Model):
             name='ck_mentor_event_status',
         ),
         CheckConstraint(
-            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('write-answer','review-answer'))",
+            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('summarize-context','write-answer','review-answer'))",
             name='ck_mentor_event_progress',
         ),
         CheckConstraint('sequence > 0', name='ck_mentor_event_sequence'),
@@ -46,6 +47,10 @@ class MentorResponseEventModel(Model):
         CheckConstraint(
             "(kind = 'block' AND block_key IS NOT NULL AND ordinal >= 0 AND content IS NOT NULL) OR (kind <> 'block' AND block_key IS NULL AND ordinal IS NULL AND content IS NULL)",
             name='ck_mentor_event_block_shape',
+        ),
+        CheckConstraint(
+            "jsonb_typeof(sources) = 'array' AND (kind = 'block' OR sources = '[]'::jsonb)",
+            name='ck_mentor_event_sources_shape',
         ),
         UniqueConstraint('attempt_id', 'block_key', name='uq_mentor_attempt_block'),
         Index(
@@ -73,6 +78,11 @@ class MentorResponseEventModel(Model):
     ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True)
     intent: Mapped[str | None] = mapped_column(String(64), nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sources: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB,
+        nullable=False,
+        server_default=text("'[]'::jsonb"),
+    )
     progress: Mapped[str | None] = mapped_column(String(32), nullable=True)
     consultation: Mapped[str | None] = mapped_column(String(32), nullable=True)
     failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)

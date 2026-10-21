@@ -10,7 +10,12 @@ class MentorTitleModelProvider:
     _TIMEOUT_SECONDS = 3.0
 
     @classmethod
-    def build(cls, settings: Settings) -> Model | None:
+    def build(
+        cls,
+        settings: Settings,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> Model | None:
         if (
             not settings.openrouter_api_key
             or not settings.mentor_title_prompt_logging_disabled
@@ -21,7 +26,9 @@ class MentorTitleModelProvider:
             id=cls._MODEL_ID,
             api_key=settings.openrouter_api_key,
             base_url=cls._BASE_URL,
-            timeout=cls._TIMEOUT_SECONDS,
+            timeout=(
+                cls._TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
+            ),
             max_retries=0,
             retries=0,
             retry_with_guidance=False,

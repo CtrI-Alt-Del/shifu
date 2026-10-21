@@ -1,3 +1,5 @@
+import type { MentorAttachmentSource } from './mentor-attachment'
+
 export type MentorContextHint = {
   goalId: string | null
   skillId: string | null
@@ -11,12 +13,13 @@ export type MentorResponseStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
-export type MentorWorkflowStep = 'write-answer' | 'review-answer'
+export type MentorWorkflowStep = 'summarize-context' | 'write-answer' | 'review-answer'
 export type MentorResponseBlock = {
   blockKey: string
   ordinal: number
   intent: string | null
   content: string
+  sources: MentorAttachmentSource[]
 }
 export type MentorResponseSnapshot = {
   progress?: MentorWorkflowStep | null
@@ -44,4 +47,6 @@ export type SubmitMentorMessageInput = {
   submissionKey: string
   content: string
   contextHint: MentorContextHint | null
+  attachmentBatchId?: string
+  attachmentIds?: string[]
 }
