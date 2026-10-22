@@ -7,6 +7,9 @@ from .create_mentor_session_controller import (
 from .get_mentor_session_controller import (
     GetMentorSessionController as GetMentorSessionController,
 )
+from .get_mentor_session_summary_controller import (
+    GetMentorSessionSummaryController as GetMentorSessionSummaryController,
+)
 from .list_mentor_sessions_controller import (
     ListMentorSessionsController as ListMentorSessionsController,
 )

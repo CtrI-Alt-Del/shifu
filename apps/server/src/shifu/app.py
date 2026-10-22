@@ -411,6 +411,9 @@ class FastAPIApp:
                     purge_mentor_attachments_use_case=(
                         intelligence_registry.purge_mentor_attachments_use_case
                     ),
+                    purge_mentor_summaries_use_case=(
+                        intelligence_registry.purge_mentor_summaries_use_case
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                     telemetry_provider=telemetry,
                 ),

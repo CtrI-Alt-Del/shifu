@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from threading import Lock
 from typing import TYPE_CHECKING, Literal, cast
 from unittest.mock import create_autospec
 
@@ -24,6 +26,7 @@ from shifu.shared.providers.s3_file_storage_provider import (
     S3FileStorageProvider,
     S3FileStorageSettings,
 )
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.settings import get_settings
 from shifu.shared.constants import ENVIRONMENT
@@ -233,6 +236,31 @@ class RegisteredAgentOSFixture:
     storage: InMemoryFileStorageProvider
 
 
+def _keep_system_clock_monotonic(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never let ``SystemClockProvider`` read earlier than its previous reading.
+
+    Mentor attempts are ordered by ``created_at``: the newest one is the current
+    attempt, and an older one is superseded and never processed. A host whose wall
+    clock steps backwards while a test runs (for example WSL2 under Hyper-V time
+    synchronisation, which steps it back by about two seconds every ~30 seconds)
+    would make a message submitted after a previous answer look older than that
+    answer. The new attempt then stays queued forever, the submission response
+    echoes the previous attempt, and the test stalls on an answer that never starts.
+    Time is held at the last reading, one microsecond apart, until the host catches up.
+    """
+    original_now = SystemClockProvider.now
+    lock = Lock()
+    latest = datetime.min.replace(tzinfo=UTC)
+
+    def monotonic_now(self: SystemClockProvider) -> datetime:
+        nonlocal latest
+        with lock:
+            latest = max(original_now(self), latest + timedelta(microseconds=1))
+            return latest
+
+    monkeypatch.setattr(SystemClockProvider, 'now', monotonic_now)
+
+
 @pytest.fixture
 def agentos_telemetry_environment() -> dict[str, str]:
     """Keep ordinary runtime tests isolated from developer monitoring credentials."""
@@ -264,6 +292,7 @@ def agentos_fixture(
     for name, value in agentos_telemetry_environment.items():
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
+    _keep_system_clock_monotonic(monkeypatch)
 
     from shifu.intelligence.providers.openrouter import (
         MentorTitleModelProvider,

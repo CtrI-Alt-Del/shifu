@@ -23,6 +23,7 @@ class Response(BaseModel):
     messages: MentorSessionSchemas.MessagesPage
     pending_learner_message_id: str | None
     response: MentorResponseSnapshot | None = None
+    summary: MentorSessionSchemas.SummaryState
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

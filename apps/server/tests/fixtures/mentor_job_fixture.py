@@ -673,7 +673,10 @@ def create_mentor_test_app() -> FastAPI:
 
     class _CurrentTestRoute:
         def route(
-            self, content: str, context: MentorContextSnapshot
+            self,
+            content: str,
+            context: MentorContextSnapshot,
+            topics: tuple[str, ...] = (),
         ) -> MentorRouteResult:
             current_resources = MentorResources()
             projection = catalog.read_projection()
@@ -682,7 +685,7 @@ def create_mentor_test_app() -> FastAPI:
             if (not projection and not failure_mode) or configuration[
                 'mode'
             ] == 'lazy_catalog':
-                return stable_route.route(content, context)
+                return stable_route.route(content, context, topics)
             current_resources.bind_catalog_version(projection)
             return LocalMentorRouteProvider(
                 embeddings,
@@ -692,7 +695,7 @@ def create_mentor_test_app() -> FastAPI:
                 telemetry=telemetry,
                 catalog_provider=catalog,
                 reranker_provider=reranker,
-            ).route(content, context)
+            ).route(content, context, topics)
 
     route: MentorRouteProvider = _CurrentTestRoute()
     return FastAPIApp.register(

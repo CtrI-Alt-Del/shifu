@@ -1,4 +1,5 @@
 import { ModulePageHeader } from '@/ui/shared/widgets/components/module-page-header'
+import { Anchor } from '@/ui/shared/widgets/components/anchor'
 
 const accountSections = [
   {
@@ -13,7 +14,7 @@ const accountSections = [
   },
   {
     description: 'Entenda como seus dados participam da experiência.',
-    status: 'Disponível na próxima etapa',
+    route: 'privacy',
     title: 'Privacidade',
   },
 ] as const
@@ -57,9 +58,18 @@ export const AccountPage = () => {
               <p className='mt-3 text-sm leading-6 text-muted-foreground'>
                 {section.description}
               </p>
-              <p className='mt-6 text-xs font-bold uppercase tracking-[0.1em] text-primary'>
-                {section.status}
-              </p>
+              {'route' in section ? (
+                <Anchor
+                  className='mt-6 inline-flex min-h-11 items-center rounded-md text-sm text-jade-text underline decoration-jade-text/60 underline-offset-4 hover:decoration-jade-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-selo-text'
+                  route={section.route}
+                >
+                  Ler política de privacidade
+                </Anchor>
+              ) : (
+                <p className='mt-6 text-xs font-bold uppercase tracking-[0.1em] text-primary'>
+                  {section.status}
+                </p>
+              )}
             </article>
           ))}
         </div>

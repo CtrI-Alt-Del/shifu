@@ -20,6 +20,7 @@ vi.mock('@/ui/shared/widgets/components/anchor', () => ({
 }))
 
 const useRegisterPageMock = vi.mocked(useRegisterPage)
+const fieldChangeMocks = new Map<string, ReturnType<typeof vi.fn>>()
 
 function createPageState(overrides: Record<string, unknown> = {}) {
   return {
@@ -36,13 +37,16 @@ function createPageState(overrides: Record<string, unknown> = {}) {
           state: { meta: { errors: unknown[] }; value: string }
         }) => ReactNode
         name: string
-      }) =>
-        children({
+      }) => {
+        const handleChange = vi.fn()
+        fieldChangeMocks.set(name, handleChange)
+        return children({
           handleBlur: vi.fn(),
-          handleChange: vi.fn(),
+          handleChange,
           name,
           state: { meta: { errors: [] }, value: '' },
-        }),
+        })
+      },
     },
     isSubmitting: false,
     message: null,
@@ -55,11 +59,24 @@ describe('RegisterPage', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
+    fieldChangeMocks.clear()
     useRegisterPageMock.mockReturnValue(createPageState())
   })
 
   it('renders public fields, password guidance, and the canonical login link', () => {
     render(<RegisterPage />)
+
+    const fieldInputs = [
+      { label: 'Nome de exibição', name: 'displayName', value: 'Ana' },
+      { label: 'E-mail', name: 'email', value: 'ana@example.com' },
+      { label: 'Senha', name: 'password', value: 'senha-segura' },
+    ]
+    for (const field of fieldInputs) {
+      fireEvent.change(screen.getByLabelText(field.label), {
+        target: { value: field.value },
+      })
+      expect(fieldChangeMocks.get(field.name)).toHaveBeenCalledWith(field.value)
+    }
 
     expect(screen.getByRole('heading', { name: 'Criar conta' })).toBeVisible()
     expect(screen.getByRole('textbox', { name: 'Nome de exibição' })).toBeEnabled()
@@ -72,6 +89,10 @@ describe('RegisterPage', () => {
     expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute(
       'href',
       ROUTES.login,
+    )
+    expect(screen.getByRole('link', { name: 'Política de privacidade' })).toHaveAttribute(
+      'href',
+      ROUTES.privacy,
     )
   })
 
@@ -96,7 +117,16 @@ describe('RegisterPage', () => {
               handleChange: vi.fn(),
               name,
               state: {
-                meta: { errors: name === 'email' ? ['Informe um e-mail válido.'] : [] },
+                meta: {
+                  errors:
+                    name === 'displayName'
+                      ? ['Informe seu nome.']
+                      : name === 'email'
+                        ? ['Informe um e-mail válido.']
+                        : name === 'password'
+                          ? ['A senha não atende aos requisitos.']
+                          : [],
+                },
                 value: '',
               },
             }),
@@ -108,7 +138,9 @@ describe('RegisterPage', () => {
     render(<RegisterPage />)
 
     expect(screen.getByRole('alert')).toHaveTextContent('Revise os campos destacados')
+    expect(screen.getByText('Informe seu nome.')).toBeVisible()
     expect(screen.getByText('Informe um e-mail válido.')).toBeVisible()
+    expect(screen.getByText('A senha não atende aos requisitos.')).toBeVisible()
   })
 
   it('disables fields and delegates submission while registration is pending', () => {

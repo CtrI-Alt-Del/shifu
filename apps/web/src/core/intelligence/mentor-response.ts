@@ -13,7 +13,7 @@ export type MentorResponseStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
-export type MentorWorkflowStep = 'write-answer' | 'review-answer'
+export type MentorWorkflowStep = 'summarize-context' | 'write-answer' | 'review-answer'
 export type MentorResponseBlock = {
   blockKey: string
   ordinal: number

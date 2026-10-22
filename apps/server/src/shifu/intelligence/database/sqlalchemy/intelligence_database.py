@@ -13,6 +13,7 @@ from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyMentorResponseAttemptsRepository,
     SqlalchemyMentorResponseEventsRepository,
     SqlalchemyMentorSessionsRepository,
+    SqlalchemyMentorSessionSummariesRepository,
     SqlalchemyPlanningSessionsRepository,
 )
 from shifu.intelligence.database.sqlalchemy.repositories.mentor_embeddings_repository import (
@@ -63,6 +64,9 @@ class SqlalchemyIntelligenceDatabase:
                 ),
                 mentor_attachments=SqlalchemyMentorAttachmentsRepository(session),
                 mentor_attachment_chunks=SqlalchemyMentorAttachmentChunksRepository(
+                    session
+                ),
+                mentor_session_summaries=SqlalchemyMentorSessionSummariesRepository(
                     session
                 ),
             )

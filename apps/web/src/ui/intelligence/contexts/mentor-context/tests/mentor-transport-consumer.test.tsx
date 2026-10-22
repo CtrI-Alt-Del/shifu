@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, type PropsWithChildren } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RestResponse } from '@/core/shared/responses/rest-response'
+import { getMentorSessionSummaryServer } from '@/ui/intelligence/widgets/components/mentor-chat/conversation/summary-marker/use-mentor-session-summary-query'
 import { useMentorContextProvider } from '../use-mentor-context-provider'
 
 const ports = vi.hoisted(() => ({
@@ -639,4 +640,148 @@ describe('Mentor consumer through authenticated transport', () => {
       ).toBeTruthy()
     },
   )
+  describe('conversation summary', () => {
+    const boundaryMessageId = '01J7T8AC91Z5K8M4JQ8C2D6F0G'
+    const summaryDetail = {
+      ...detail,
+      summary: {
+        current: {
+          version: 2,
+          boundary_message_id: boundaryMessageId,
+          covered_message_count: 21,
+          completed_at: '2026-10-18T14:00:00Z',
+          after_message_id: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
+        },
+        failure_after_message_id: sessionId,
+      },
+    }
+    class ControlledEventSource extends EventTarget {
+      static instances: ControlledEventSource[] = []
+      close = vi.fn()
+      constructor() {
+        super()
+        ControlledEventSource.instances.push(this)
+      }
+      emit(data: Record<string, unknown>) {
+        this.dispatchEvent(
+          new MessageEvent('mentor.response', { data: JSON.stringify(data) }),
+        )
+      }
+    }
+    const statusEvent = (sequence: number, progress: string | null) => ({
+      session_id: sessionId,
+      attempt_id: attemptId,
+      sequence,
+      kind: 'status',
+      status: 'processing',
+      block: null,
+      consultation: null,
+      progress,
+      failure_code: null,
+      created_at: '2026-10-18T14:00:00Z',
+    })
+
+    it('maps the authenticated detail summary and a replayed summarize-context snapshot', async () => {
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: {
+            ...summaryDetail,
+            response: { ...snapshot, blocks: [], progress: 'summarize-context' },
+          },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.summary).toEqual({
+        current: {
+          version: 2,
+          boundaryMessageId,
+          coveredMessageCount: 21,
+          completedAt: '2026-10-18T14:00:00Z',
+          afterMessageId: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
+        },
+        failureAfterMessageId: sessionId,
+      })
+      expect(result.current.response?.progress).toBe('summarize-context')
+      expect(result.current.isSummarizingContext).toBe(true)
+    })
+
+    it('keeps an empty summary when the detail carries none', async () => {
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.summary).toEqual({
+        current: null,
+        failureAfterMessageId: null,
+      })
+      expect(result.current.isSummarizingContext).toBe(false)
+    })
+
+    it('accepts summarize-context and the closing null progress from the response stream', async () => {
+      ControlledEventSource.instances = []
+      vi.stubGlobal('EventSource', ControlledEventSource)
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...detail, response: { ...snapshot, blocks: [], progress: null } },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+      const source = ControlledEventSource.instances[0]
+      if (!source) throw new Error('The response stream was not opened')
+
+      act(() => source.emit(statusEvent(3, 'summarize-context')))
+      expect(result.current.isSummarizingContext).toBe(true)
+      expect(ControlledEventSource.instances).toHaveLength(1)
+
+      act(() => source.emit(statusEvent(4, null)))
+      expect(result.current.isSummarizingContext).toBe(false)
+      expect(result.current.response?.progress).toBeNull()
+      expect(ControlledEventSource.instances).toHaveLength(1)
+    })
+
+    it('reads the summary content through an authenticated GET server function', async () => {
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: {
+            version: 2,
+            text: 'Nesta conversa, os assuntos foram range.',
+            covered_message_count: 21,
+            first_message_id: boundaryMessageId,
+          },
+        }),
+      )
+
+      const content = await getMentorSessionSummaryServer({ data: { sessionId } })
+
+      expect(ports.get).toHaveBeenCalledWith(
+        `/intelligence/mentor-sessions/${sessionId}/summary`,
+        {
+          headers: { Authorization: 'Bearer test-access', 'Cache-Control': 'no-store' },
+        },
+      )
+      expect(content).toEqual({
+        version: 2,
+        text: 'Nesta conversa, os assuntos foram range.',
+        coveredMessageCount: 21,
+        firstMessageId: boundaryMessageId,
+      })
+    })
+  })
 })

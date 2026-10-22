@@ -3,6 +3,7 @@ export const ROUTES = {
   dashboard: '/',
   login: '/login',
   register: '/register',
+  privacy: '/privacy',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
   pendingConfirmation: '/pending-confirmation',

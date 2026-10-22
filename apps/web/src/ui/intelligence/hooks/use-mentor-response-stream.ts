@@ -35,7 +35,7 @@ const EVENT = z
       })
       .nullable(),
     consultation: z.enum(['learning', 'curriculum', 'gamification']).nullable(),
-    progress: z.enum(['write-answer', 'review-answer']).nullish(),
+    progress: z.enum(['summarize-context', 'write-answer', 'review-answer']).nullish(),
     failure_code: z.string().nullable(),
     created_at: z.string(),
   })

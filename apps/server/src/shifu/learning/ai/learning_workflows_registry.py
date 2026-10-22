@@ -22,6 +22,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
@@ -85,6 +86,7 @@ class LearningWorkflowsRegistry:
             self._database,
             self._clock_provider,
             curriculum_content_provider,
+            max_code_assessment_input_bytes=settings.max_code_assessment_input_bytes,
         )
         workflow = EvaluateCodeActivityWorkflow(
             prepare,
@@ -153,7 +155,13 @@ class LearningWorkflowsRegistry:
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
             return None
         is_code = any(
-            isinstance(question, CurriculumJavascriptStdinQuestionSnapshot)
+            isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
             for question in snapshot.questions
         )
         return 'agentos:learning' if is_code else 'inngest'

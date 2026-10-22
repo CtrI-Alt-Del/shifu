@@ -1,5 +1,6 @@
-from sqlalchemy import delete, select
+from sqlalchemy import ColumnElement, delete, func, select
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql import Select
 
 from shifu.intelligence.core.domain.entities import MentorMessage
 from shifu.intelligence.core.domain.enums import (
@@ -9,6 +10,8 @@ from shifu.intelligence.core.domain.enums import (
 from shifu.intelligence.core.domain.structures import (
     MentorAttachmentView,
     MentorMessagesPage,
+    MentorMessageVolume,
+    MentorSummaryBoundary,
 )
 from shifu.intelligence.database.sqlalchemy.mappers import MentorMessageMapper
 from shifu.intelligence.database.sqlalchemy.models import (
@@ -159,6 +162,109 @@ class SqlalchemyMentorMessagesRepository:
             .order_by(MentorMessageModel.created_at, MentorMessageModel.id)
         )
         return tuple(self._to_domain(model) for model in models)
+
+    def measure_unsummarized(
+        self,
+        account_id: str,
+        session_id: str,
+        after: MentorSummaryBoundary | None,
+        keep_recent: int,
+    ) -> MentorMessageVolume:
+        recent = (
+            self._scoped(select(MentorMessageModel.id), account_id, session_id)
+            .order_by(
+                MentorMessageModel.created_at.desc(), MentorMessageModel.id.desc()
+            )
+            .limit(keep_recent)
+            .correlate(None)
+        )
+        older = self._scoped(
+            select(MentorMessageModel.id), account_id, session_id
+        ).where(MentorMessageModel.id.not_in(recent))
+        if after is not None:
+            older = older.where(self._is_after(after))
+        subquery = older.add_columns(
+            MentorMessageModel.created_at,
+            func.char_length(MentorMessageModel.content).label('characters'),
+        ).subquery()
+        count, characters = self._session.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(subquery.c.characters), 0),
+            ).select_from(subquery)
+        ).one()
+        newest = self._session.execute(
+            older.add_columns(MentorMessageModel.created_at)
+            .order_by(
+                MentorMessageModel.created_at.desc(), MentorMessageModel.id.desc()
+            )
+            .limit(1)
+        ).first()
+        return MentorMessageVolume(
+            count=int(count),
+            characters=int(characters),
+            last_message=(
+                MentorSummaryBoundary(message_id=newest[0], created_at=newest[1])
+                if newest is not None
+                else None
+            ),
+        )
+
+    def find_first_message_id(self, account_id: str, session_id: str) -> str | None:
+        return self._session.scalar(
+            self._scoped(select(MentorMessageModel.id), account_id, session_id)
+            .order_by(MentorMessageModel.created_at, MentorMessageModel.id)
+            .limit(1)
+        )
+
+    def find_range(
+        self,
+        account_id: str,
+        session_id: str,
+        after: MentorSummaryBoundary | None,
+        until: MentorSummaryBoundary | None = None,
+    ) -> tuple[MentorMessage, ...]:
+        query = self._scoped(select(MentorMessageModel), account_id, session_id)
+        if after is not None:
+            query = query.where(self._is_after(after))
+        if until is not None:
+            query = query.where(~self._is_after(until))
+        models = self._session.scalars(
+            query.order_by(MentorMessageModel.created_at, MentorMessageModel.id)
+        )
+        return tuple(self._to_domain(model) for model in models)
+
+    def find_by_ids(
+        self, account_id: str, session_id: str, message_ids: tuple[str, ...]
+    ) -> tuple[MentorMessage, ...]:
+        if not message_ids:
+            return ()
+        models = self._session.scalars(
+            self._scoped(select(MentorMessageModel), account_id, session_id)
+            .where(MentorMessageModel.id.in_(message_ids))
+            .order_by(MentorMessageModel.created_at, MentorMessageModel.id)
+        )
+        return tuple(self._to_domain(model) for model in models)
+
+    @staticmethod
+    def _scoped[Row: tuple[object, ...]](
+        query: Select[Row], account_id: str, session_id: str
+    ) -> Select[Row]:
+        return query.join(
+            MentorSessionModel,
+            MentorSessionModel.id == MentorMessageModel.session_id,
+        ).where(
+            MentorSessionModel.account_id == account_id,
+            MentorSessionModel.id == session_id,
+            MentorSessionModel.deleted_at.is_(None),
+        )
+
+    @staticmethod
+    def _is_after(boundary: MentorSummaryBoundary) -> ColumnElement[bool]:
+        return (MentorMessageModel.created_at > boundary.created_at) | (
+            (MentorMessageModel.created_at == boundary.created_at)
+            & (MentorMessageModel.id > boundary.message_id)
+        )
 
     def _to_domain(self, model: MentorMessageModel) -> MentorMessage:
         message = MentorMessageMapper.to_domain(model)

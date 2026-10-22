@@ -3,7 +3,7 @@ import asyncio
 import json
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
@@ -21,8 +21,18 @@ from shifu.learning.ai.agno.workflows.evaluate_code_activity_workflow import (
     AgentOSCodeRubricAssessorProvider,
     EvaluateCodeActivityWorkflow,
 )
-from shifu.learning.core.domain.entities import ActivityAttempt
-from shifu.learning.core.domain.enums import ActivityAttemptKind
+from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+    SkillExperienceStatus,
+)
+from shifu.learning.core.domain.structures import (
+    CodeAnswer,
+    CodeSubmittedFile,
+    SingleChoiceAnswer,
+)
 from shifu.shared.core.domain.structures import (
     CodeRubricDecisions,
     CodeRubricAssessmentInput,
@@ -33,11 +43,26 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeInconclusiveCommentSnapshot,
     CurriculumCodeRubricCommentSnapshot,
     CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces import OutboxEvent
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from tests.fixtures.agentos_fixture import RegisteredAgentOSFixture
+from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    mixed_snapshot,
+)
+from shifu.shared.database.seed_data import (
+    SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
+    SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+    build_development_seed,
+)
+from shifu.shared.settings import get_settings
 
 _NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
 
@@ -92,7 +117,9 @@ def _assessment_request() -> CodeRubricAssessmentInput:
 
 def _attempt(
     attempt_id: str,
-    snapshot: CurriculumChoiceActivitySnapshot | None,
+    snapshot: CurriculumChoiceActivitySnapshot
+    | CurriculumLearningActivitySnapshot
+    | None,
 ) -> ActivityAttempt:
     return ActivityAttempt.create(
         id=attempt_id,
@@ -198,7 +225,183 @@ def controlled_jev_endpoint(
     yield endpoint
 
 
+@pytest.fixture
+def large_project_agentos_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> RegisteredAgentOSFixture:
+    monkeypatch.setenv('MAX_CODE_ASSESSMENT_INPUT_BYTES', str(512 * 1024))
+    get_settings.cache_clear()
+    return cast('RegisteredAgentOSFixture', request.getfixturevalue('agentos_fixture'))
+
+
 class TestLearningCodeEvaluationWorkflow:
+    @pytest.mark.parametrize(
+        'kinds',
+        ((), ('javascript_stdin',), ('react',), ('javascript_stdin', 'react')),
+        ids=('choice-only', 'javascript', 'react', 'javascript-and-react'),
+    )
+    def test_should_route_code_snapshots_to_the_learning_agentos(
+        self, kinds: tuple[str, ...]
+    ) -> None:
+        snapshot = mixed_snapshot(react='react' in kinds)
+        choice = snapshot.questions[0]
+        choice_part = snapshot.parts[0]
+        questions = list(snapshot.questions[:2])
+        parts = list(snapshot.parts[:2])
+        if not kinds:
+            questions.append(replace(choice, key='q3'))
+            parts.append(
+                replace(choice_part, question_key='q3', weight_percentage=Decimal(40))
+            )
+        elif len(kinds) == 2:
+            javascript = mixed_snapshot().questions[-1]
+            react = snapshot.questions[-1]
+            assert isinstance(javascript, CurriculumJavascriptStdinQuestionSnapshot)
+            assert isinstance(react, CurriculumReactQuestionSnapshot)
+            rubric = snapshot.parts[-1]
+            assert isinstance(rubric, CurriculumCodeRubricPartSnapshot)
+            questions = [choice, replace(javascript, key='q2'), react]
+            parts = [
+                choice_part,
+                replace(rubric, question_key='q2', weight_percentage=Decimal(30)),
+                rubric,
+            ]
+        else:
+            questions.append(snapshot.questions[-1])
+            parts.append(snapshot.parts[-1])
+        snapshot = replace(snapshot, questions=tuple(questions), parts=tuple(parts))
+        attempt = _attempt('code-routing-attempt', snapshot)
+        registry = _registry_with_attempts({attempt.id: attempt})
+
+        destination = registry.destination_for_event(
+            _event('learning/activity-submission.requested', {'attempt_id': attempt.id})
+        )
+
+        assert destination == ('agentos:learning' if kinds else 'inngest')
+
+    def test_should_evaluate_a_persisted_react_attempt_through_registered_agentos(
+        self,
+        controlled_jev_endpoint: _ControlledJevEndpoint,
+        large_project_agentos_fixture: RegisteredAgentOSFixture,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        application = cast('FastAPI', large_project_agentos_fixture.client.app)
+        registry: LearningWorkflowsRegistry = (
+            application.state.learning_workflows_registry
+        )
+        seed = build_development_seed()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.skills.add_many(list(seed.skills))
+            repositories.skill_foundations.add_many(list(seed.skill_foundations))
+            repositories.competencies.add_many(list(seed.competencies))
+            repositories.concepts.add_many(list(seed.concepts))
+            repositories.materials.add_many(list(seed.materials))
+            repositories.activities.add_many(list(seed.activities))
+            repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
+        snapshot = replace(
+            mixed_snapshot(react=True),
+            id=SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS[4],
+            competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+        )
+        files = (
+            CodeSubmittedFile(
+                path='src/main.tsx',
+                content='export const App = () => <div>React marker</div>;'
+                + 'é' * 140_000,
+            ),
+            CodeSubmittedFile(
+                path='src/components/Extra.tsx',
+                content='export const Extra = () => <span>Extra marker</span>',
+            ),
+        )
+        attempt = ActivityAttempt.create(
+            id='01SHF000000000000000000921',
+            skill_experience_id=SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
+            competency_id=snapshot.competency_id,
+            activity_id=snapshot.id,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                CodeAnswer(question_key='q3', kind='react', files=files),
+            ),
+            submitted_at=_NOW,
+            grading_snapshot=snapshot,
+        )
+        evaluation = ActivityEvaluation.create(
+            id='01SHF000000000000000000922',
+            attempt_id=attempt.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=_NOW,
+            run_id='react-agentos-run',
+        )
+        with registry.database.transaction() as repositories:
+            repositories.goals.add_many(list(seed.goals))
+            repositories.skill_experiences.add_many(list(seed.skill_experiences))
+            repositories.competency_progresses.add_many(
+                list(seed.competency_progresses)
+            )
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            assert experience is not None
+            experience.status = SkillExperienceStatus.LEARNING
+            repositories.skill_experiences.update(experience)
+            repositories.activity_attempts.add(attempt)
+            repositories.activity_evaluations.add(evaluation)
+        assert (
+            registry.destination_for_event(
+                _event(
+                    'learning/activity-submission.requested', {'attempt_id': attempt.id}
+                )
+            )
+            == 'agentos:learning'
+        )
+
+        registry.client.submit_workflow(
+            workflow_id='learning-evaluate-code-activity',
+            fields={'attempt_id': attempt.id, 'run_id': 'react-agentos-run'},
+            background=False,
+            session_id='learning-react-persisted-attempt',
+        )
+
+        with registry.database.transaction() as repositories:
+            completed = repositories.activity_evaluations.find_by_attempt_id(attempt.id)
+            saved = repositories.activity_attempts.find_by_id(attempt.id)
+        assert completed is not None
+        assert completed.status is ActivityEvaluationStatus.COMPLETED
+        assert completed.score == Decimal(60)
+        assert completed.effect_applied_at is not None
+        assert saved is not None and saved.grading_snapshot == snapshot
+        assert saved.answers[-1] == CodeAnswer(
+            question_key='q3', kind='react', files=files
+        )
+        assert len(controlled_jev_endpoint.requests) == 1
+        assessed_project = json.dumps(controlled_jev_endpoint.requests[0])
+        assert 'React marker' in assessed_project
+        assert 'Extra marker' in assessed_project
+        assert 'src/fixed.css' in assessed_project
+
+        registry.client.submit_workflow(
+            workflow_id='learning-evaluate-code-activity',
+            fields={'attempt_id': attempt.id, 'run_id': 'react-agentos-run'},
+            background=False,
+            session_id='learning-react-persisted-attempt-replay',
+        )
+
+        with registry.database.transaction() as repositories:
+            replayed = repositories.activity_evaluations.find_by_attempt_id(attempt.id)
+        assert replayed is not None
+        assert replayed.status is ActivityEvaluationStatus.COMPLETED
+        assert replayed.score == completed.score
+        assert replayed.parts == completed.parts
+        assert replayed.effect_applied_at == completed.effect_applied_at
+        assert len(controlled_jev_endpoint.requests) == 1
+
     def test_workflow_deep_copy_preserves_dependencies_and_applies_updates(
         self,
     ) -> None:

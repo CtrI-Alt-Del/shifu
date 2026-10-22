@@ -12,3 +12,4 @@ class CodeAnswer:
     question_key: str
     source_code: str | None = None
     files: tuple[CodeSubmittedFile, ...] = ()
+    kind: str | None = None

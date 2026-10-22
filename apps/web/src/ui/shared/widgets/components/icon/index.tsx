@@ -39,6 +39,7 @@ import {
   Pencil,
   Plus,
   RotateCcw,
+  ScrollText,
   Sparkles,
   Target,
   Search,
@@ -90,6 +91,7 @@ export type IconName =
   | 'pencil'
   | 'plus'
   | 'rotate-ccw'
+  | 'scroll-text'
   | 'sparkles'
   | 'target'
   | 'search'
@@ -139,6 +141,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   pencil: Pencil,
   plus: Plus,
   'rotate-ccw': RotateCcw,
+  'scroll-text': ScrollText,
   sparkles: Sparkles,
   target: Target,
   search: Search,

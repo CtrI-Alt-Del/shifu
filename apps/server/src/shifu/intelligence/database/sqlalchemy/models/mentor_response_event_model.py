@@ -36,7 +36,7 @@ class MentorResponseEventModel(Model):
             name='ck_mentor_event_status',
         ),
         CheckConstraint(
-            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('write-answer','review-answer'))",
+            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('summarize-context','write-answer','review-answer'))",
             name='ck_mentor_event_progress',
         ),
         CheckConstraint('sequence > 0', name='ck_mentor_event_sequence'),

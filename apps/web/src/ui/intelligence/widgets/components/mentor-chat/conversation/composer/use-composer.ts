@@ -10,11 +10,14 @@ import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
 export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   const mentor = useMentorContext()
+  const placeholder = mentor.isSummarizingContext
+    ? 'Aguarde enquanto o contexto é resumido'
+    : 'Pergunte ao Mentor…'
   const previousDictationStatus = useRef(mentor.dictationStatus)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
-  // The controlled draft changes scrollHeight after React updates the textarea.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: resize on every draft update, including clears.
+  // The controlled draft and a wrapping placeholder change scrollHeight after React updates the textarea.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resize on every draft or placeholder update, including clears.
   useLayoutEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
@@ -34,7 +37,7 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
     })
     observer.observe(textarea)
     return () => observer.disconnect()
-  }, [mentor.draft])
+  }, [mentor.draft, placeholder])
   const { releaseDictationSurface, dictationStatus, draft } = mentor
   const draftAttachments = mentor.draftAttachments ?? []
   useEffect(
@@ -83,6 +86,7 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
     isResponsePending,
     handleSubmit,
     hasAcceptedSession,
+    placeholder,
     textareaRef,
   }
 }

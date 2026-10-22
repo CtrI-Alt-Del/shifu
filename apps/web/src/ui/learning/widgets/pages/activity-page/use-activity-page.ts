@@ -21,6 +21,9 @@ import type {
   ChoiceSubmissionResult,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
+import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
+import type { ReactQuestionDraftStore } from '@/core/learning/react-question-draft/react-question-draft-store'
+import { IndexedDbReactQuestionDraftStore } from '@/provision/learning/indexed-db-react-question-draft-store'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { createServerRequestClient } from '@/rest/axios/server-request-client'
@@ -54,12 +57,16 @@ export type ActivityRouteProps = {
   onUnsentAnswersChange: (hasUnsentAnswers: boolean) => void
   onSessionExpired: () => void
   runnerFactory?: () => CodePracticeRunner
+  reactRunnerFactory?: () => ReactPracticeRunner
+  reactDraftStore?: ReactQuestionDraftStore
 }
 
 type InjectedActivityProps = {
   activity: ChoiceActivityDetail
   onSubmit: (submission: ChoiceSubmission) => Promise<ChoiceSubmissionResult>
   runnerFactory?: () => CodePracticeRunner
+  reactRunnerFactory?: () => ReactPracticeRunner
+  reactDraftStore?: ReactQuestionDraftStore
   onPreview?: (
     questionKey: string,
     revision: string,
@@ -83,7 +90,7 @@ type ValidatedInput = ActivityRouteIds | { kind: 'invalid-request' }
 type ActionFailure =
   | { kind: 'invalid-request' }
   | { kind: 'unauthorized' }
-  | { kind: 'not-found' }
+  | { kind: 'not-found'; accountId?: string }
   | { kind: 'stale-run' }
   | { kind: 'diagnostic-entry-required' }
   | {
@@ -102,6 +109,11 @@ const HTTP_CONFLICT_STATUS_CODE = 409
 
 class StaleDiagnosticRunError extends RestError {}
 class DiagnosticEntryRequiredError extends RestError {}
+class MissingActivityError extends RestError {
+  constructor(readonly accountId: string) {
+    super('Atividade não encontrada.', HTTP_STATUS_CODE.notFound)
+  }
+}
 
 export const getActivityAction = createServerFn({ method: 'GET' })
   .middleware([serverFunctionTelemetryMiddleware])
@@ -131,25 +143,28 @@ export const getActivityAction = createServerFn({ method: 'GET' })
     }: {
       data: ValidatedInput
       context: RequestTelemetryContext
-    }): Promise<ChoiceActivityDetail | GetActivityFailure> => {
+    }): Promise<(ChoiceActivityDetail & { accountId: string }) | GetActivityFailure> => {
       if ('kind' in data) return data
 
+      let authenticatedAccountId: string | undefined
       try {
         const access = await getBetterAuthProvider().getCurrentAccess(
           getRequest(),
           context.requestId,
         )
         if (!access) return { kind: 'unauthorized' }
+        authenticatedAccountId = access.accountId
 
         const learningService = LearningService(
           createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         )
         try {
-          return await learningService.getChoiceActivity(
+          const activity = await learningService.getChoiceActivity(
             access.accessToken,
             data,
             data.diagnosticRunId,
           )
+          return { ...activity, accountId: access.accountId }
         } catch (error) {
           if (
             !(error instanceof RestError) ||
@@ -201,7 +216,8 @@ export const getActivityAction = createServerFn({ method: 'GET' })
         if (error instanceof RestError) {
           if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
             return { kind: 'unauthorized' }
-          if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }
+          if (error.statusCode === HTTP_STATUS_CODE.notFound)
+            return { kind: 'not-found', accountId: authenticatedAccountId }
           if (error.statusCode === HTTP_CONFLICT_STATUS_CODE)
             return { kind: 'unavailable', statusCode: HTTP_CONFLICT_STATUS_CODE }
           if (error.statusCode === HTTP_STATUS_CODE.tooManyRequests) {
@@ -420,6 +436,10 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
   )
 
 export function useActivityPage(props: ActivityPageProps) {
+  const reactDraftStore = useMemo(
+    () => props.reactDraftStore ?? IndexedDbReactQuestionDraftStore(),
+    [props.reactDraftStore],
+  )
   const injected = 'activity' in props
   const goalId = injected ? null : props.goalId
   const skillId = injected ? null : props.skillId
@@ -445,6 +465,9 @@ export function useActivityPage(props: ActivityPageProps) {
   const onNavigateToResult = injected ? undefined : props.onNavigateToResult
   const onSessionExpired = injected ? undefined : props.onSessionExpired
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [isReactAnswerValid, setIsReactAnswerValid] = useState(false)
+  const [isBrowserOnline, setIsBrowserOnline] = useState(true)
+  const [needsAuthorityRefresh, setNeedsAuthorityRefresh] = useState(false)
   const [answers, setAnswers] = useState<readonly ActivityAnswer[]>([])
   const [feedback, setFeedback] = useState<PreliminaryQuestionResult | null>(null)
   const [isAssessing, setIsAssessing] = useState(false)
@@ -483,11 +506,37 @@ export function useActivityPage(props: ActivityPageProps) {
     refetchOnWindowFocus: true,
     staleTime: 0,
   })
+  useEffect(() => {
+    function handleOnlineChange() {
+      const online = navigator.onLine
+      setIsBrowserOnline(online)
+      if (!online) {
+        setNeedsAuthorityRefresh(true)
+        return
+      }
+      if (needsAuthorityRefresh) {
+        void activityQuery.refetch().then((result) => {
+          if (result.isSuccess) setNeedsAuthorityRefresh(false)
+        })
+      }
+    }
+    handleOnlineChange()
+    window.addEventListener('online', handleOnlineChange)
+    window.addEventListener('offline', handleOnlineChange)
+    return () => {
+      window.removeEventListener('online', handleOnlineChange)
+      window.removeEventListener('offline', handleOnlineChange)
+    }
+  }, [activityQuery, needsAuthorityRefresh])
   const isDiagnosticProcessing =
     !injected && activityQuery.data !== undefined && 'kind' in activityQuery.data
   const activity = injected
     ? props.activity
     : activityQuery.data && !('kind' in activityQuery.data)
+      ? activityQuery.data
+      : null
+  const routeActivity =
+    !injected && activityQuery.data && !('kind' in activityQuery.data)
       ? activityQuery.data
       : null
   const shouldWatchDiagnostic = Boolean(!injected && diagnosticRunId)
@@ -530,10 +579,25 @@ export function useActivityPage(props: ActivityPageProps) {
         : false,
   })
   const isMixedActivity = Boolean(activity?.activityRevision)
+  const accountId = !injected ? (routeActivity?.accountId ?? null) : null
+  const isOnlineAuthority = Boolean(
+    accountId && activityQuery.isSuccess && isBrowserOnline && !needsAuthorityRefresh,
+  )
   const isRouteError = activityQuery.isError && !injected
   const isPrivateAbsence =
     activityQuery.error instanceof RestError &&
     activityQuery.error.statusCode === HTTP_STATUS_CODE.notFound
+  const invalidActivityAccountId =
+    activityQuery.error instanceof MissingActivityError
+      ? activityQuery.error.accountId
+      : null
+  useEffect(() => {
+    if (!invalidActivityAccountId || !activityId) return
+    // The authoritative 404 already blocks draft restore and submission.
+    void reactDraftStore
+      .tombstoneActivity(invalidActivityAccountId, activityId)
+      .catch(() => undefined)
+  }, [activityId, invalidActivityAccountId, reactDraftStore])
   const isSessionRejected =
     activityQuery.error instanceof AuthError || diagnosticQuery.error instanceof AuthError
   const isInvalidated =
@@ -678,7 +742,8 @@ export function useActivityPage(props: ActivityPageProps) {
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
-      currentQuestion.kind !== 'javascript_stdin' &&
+      (currentQuestion.kind === 'single_choice' ||
+        currentQuestion.kind === 'multiple_selection') &&
       selectedOptionKeys.length > 0 &&
       selectedOptionKeys.every((key) =>
         currentQuestion.options.some((option) => option.key === key),
@@ -687,7 +752,7 @@ export function useActivityPage(props: ActivityPageProps) {
   )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
-      (currentAnswer.kind === 'javascript_stdin'
+      ('files' in currentAnswer
         ? currentAnswer.files.length > 0
         : currentAnswer.selectedOptionKeys.length > 0),
   )
@@ -726,7 +791,8 @@ export function useActivityPage(props: ActivityPageProps) {
     if (
       !activity ||
       !currentQuestion ||
-      currentQuestion.kind === 'javascript_stdin' ||
+      (currentQuestion.kind !== 'single_choice' &&
+        currentQuestion.kind !== 'multiple_selection') ||
       isSubmitting ||
       isAssessing ||
       feedback ||
@@ -760,14 +826,15 @@ export function useActivityPage(props: ActivityPageProps) {
   function handleCodeFilesChange(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
-      currentQuestion.kind !== 'javascript_stdin' ||
+      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react') ||
       isSubmitting ||
       isSubmissionLocked ||
-      isAssessing
+      isAssessing ||
+      (currentQuestion.kind === 'react' && Boolean(feedback || frozenAnswer))
     )
       return
     const answer: CodeAnswer = {
-      kind: 'javascript_stdin',
+      kind: currentQuestion.kind,
       questionKey: currentQuestion.key,
       files: files.map((file) => ({ ...file })),
     }
@@ -776,16 +843,25 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
+    if (currentQuestion.kind === 'react') setIsReactAnswerValid(files.length > 0)
     setFeedback(null)
     setFrozenAnswer(null)
     setHasFeedbackError(false)
   }
 
+  function handleReactAnswerValidityChange(isValid: boolean) {
+    setIsReactAnswerValid(isValid)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
-    if (!currentQuestion || currentQuestion.kind !== 'javascript_stdin') return
+    if (
+      !currentQuestion ||
+      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react')
+    )
+      return
 
     const answer: CodeAnswer = {
-      kind: 'javascript_stdin',
+      kind: currentQuestion.kind,
       questionKey: currentQuestion.key,
       files: files.map((file) => ({ ...file })),
     }
@@ -797,13 +873,16 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       !currentQuestion ||
       isAssessing ||
-      (feedback && !reevaluate && currentQuestion.kind !== 'javascript_stdin') ||
+      (feedback &&
+        !reevaluate &&
+        currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react') ||
       !activity.activityRevision
     )
       return
     const request = ++feedbackRequestRef.current
     const snapshot: ActivityAnswer =
-      answer.kind === 'javascript_stdin'
+      'files' in answer
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
         : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     setFrozenAnswer(snapshot)
@@ -845,7 +924,10 @@ export function useActivityPage(props: ActivityPageProps) {
     if (
       didSubmitRef.current ||
       !activity ||
+      (!activity.isDiagnostic && !activity.canSubmit) ||
       !isLastQuestion ||
+      (currentQuestion?.kind === 'react' && !isReactAnswerValid) ||
+      (currentQuestion?.kind === 'react' && !injected && !isOnlineAuthority) ||
       (!activity.isDiagnostic &&
         isMixedActivity &&
         (!feedback || feedback.status !== 'conclusive')) ||
@@ -925,6 +1007,11 @@ export function useActivityPage(props: ActivityPageProps) {
       didSubmitRef.current = true
       setUnsentAnswers(false)
       onUnsentAnswersChange?.(false)
+      if (accountId)
+        // Cleanup failure must not turn an accepted submission into a failed one.
+        void reactDraftStore
+          .tombstoneActivity(accountId, activity.activityId)
+          .catch(() => undefined)
       if (!injected && routeIds) {
         if (result.isDiagnostic || activity.isDiagnostic) setIsDiagnosticSubmitted(true)
         else onNavigateToAttempt?.(result.attemptId)
@@ -985,10 +1072,12 @@ export function useActivityPage(props: ActivityPageProps) {
     if (!isMixedActivity) {
       if (!hasValidSelection) return
       if (isLastQuestion) void handleSubmit()
-      else
+      else {
+        setIsReactAnswerValid(false)
         setCurrentQuestionIndex((index) =>
           Math.min(index + 1, activity.questions.length - 1),
         )
+      }
       return
     }
     if (!feedback) {
@@ -996,7 +1085,11 @@ export function useActivityPage(props: ActivityPageProps) {
         void assess(frozenAnswer, true)
         return
       }
-      if (currentQuestion.kind !== 'javascript_stdin' && hasValidSelection) {
+      if (
+        currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react' &&
+        hasValidSelection
+      ) {
         void assess({
           kind: currentQuestion.kind,
           questionKey: currentQuestion.key,
@@ -1017,6 +1110,7 @@ export function useActivityPage(props: ActivityPageProps) {
     feedbackRequestRef.current += 1
     setFeedback(null)
     setFrozenAnswer(null)
+    setIsReactAnswerValid(false)
     setCurrentQuestionIndex((index) => Math.min(index + 1, activity.questions.length - 1))
   }
 
@@ -1029,6 +1123,11 @@ export function useActivityPage(props: ActivityPageProps) {
   return {
     activity,
     runnerFactory: props.runnerFactory,
+    reactRunnerFactory: props.reactRunnerFactory,
+    reactDraftStore,
+    accountId,
+    isOnlineAuthority,
+    handleReactAnswerValidityChange,
     isMixedActivity,
     canContinue:
       !isSubmitting &&
@@ -1038,10 +1137,13 @@ export function useActivityPage(props: ActivityPageProps) {
         ? (!injected && diagnosticPosition < 0) ||
           (!injected && !activity.activityRevision)
           ? false
-          : currentQuestion?.kind === 'javascript_stdin'
+          : currentQuestion?.kind === 'javascript_stdin' ||
+              currentQuestion?.kind === 'react'
             ? hasDiagnosticAnswer
             : hasValidSelection
-        : feedback !== null || frozenAnswer !== null || hasValidSelection),
+        : currentQuestion?.kind === 'react'
+          ? isReactAnswerValid && (injected || isOnlineAuthority)
+          : feedback !== null || frozenAnswer !== null || hasValidSelection),
     feedback,
     frozenAnswer,
     isAssessing,
@@ -1091,7 +1193,10 @@ function mapActionFailure(failure: ActionFailure): Error {
     return new AuthError('authentication-rejected', 'Sua sessão expirou.', {
       statusCode: 401,
     })
-  if (failure.kind === 'not-found') return new RestError('Atividade não encontrada.', 404)
+  if (failure.kind === 'not-found')
+    return failure.accountId
+      ? new MissingActivityError(failure.accountId)
+      : new RestError('Atividade não encontrada.', 404)
   if (failure.kind === 'unavailable' && failure.diagnosticRunStale)
     return new StaleDiagnosticRunError(
       'Esta execução foi substituída por outra aba.',
@@ -1187,7 +1292,7 @@ function isLegacyChoiceAnswer(
 
 function isActivityAnswer(value: unknown, questionKey: string): value is ActivityAnswer {
   if (!isRecord(value) || value.questionKey !== questionKey) return false
-  if (value.kind === 'javascript_stdin') {
+  if (value.kind === 'javascript_stdin' || value.kind === 'react') {
     return (
       Array.isArray(value.files) &&
       value.files.every(
