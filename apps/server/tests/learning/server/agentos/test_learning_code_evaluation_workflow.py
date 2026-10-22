@@ -490,6 +490,44 @@ class TestLearningCodeEvaluationWorkflow:
         evaluate.execute.assert_called_once()
         fail.execute.assert_not_called()
 
+    def test_direct_workflow_emits_completion_only_after_commit(self) -> None:
+        assessment = _assessment_request()
+        prepare = Mock()
+        prepare.execute.return_value = SimpleNamespace(
+            attempt_id='attempt-1',
+            run_id='run-1',
+            questions=(
+                SimpleNamespace(question_key='question-1', assessment_input=assessment),
+            ),
+        )
+        evaluate = Mock()
+        evaluate.execute.side_effect = [False, True]
+        telemetry = Mock()
+        assessor = Mock()
+        assessor.assess.return_value = object()
+        workflow = EvaluateCodeActivityWorkflow(
+            prepare,
+            evaluate,
+            Mock(),
+            assessor,
+            AgentOSHandoffStore(),
+            telemetry_provider=telemetry,
+        )
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+        telemetry.emit.assert_not_called()
+
+        workflow.run(input={'attempt_id': 'attempt-1', 'run_id': 'run-1'})
+        telemetry.emit.assert_called_once_with(
+            {
+                'level': 'INFO',
+                'event': 'learning.evaluation.completed',
+                'run_id': 'run-1',
+                'operation': 'evaluation.complete',
+                'result': 'success',
+            }
+        )
+
     def test_direct_workflow_run_fails_closed_when_assessment_fails(self) -> None:
         assessment = _assessment_request()
         prepare = Mock()

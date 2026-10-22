@@ -6,6 +6,7 @@ from fastapi import (
     Depends,
     Header,
     Path,
+    Request as FastAPIRequest,
     Response as FastAPIResponse,
     status,
 )
@@ -26,7 +27,12 @@ from shifu.shared.core.interfaces import (
     CurriculumContentProvider,
     IdentifierProvider,
 )
+from shifu.shared.core.interfaces.telemetry_provider import (
+    TelemetryEventInput,
+    TelemetryProvider,
+)
 from shifu.shared.pipes import AuthenticationPipe
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 
 _ULID_PATTERN = r'^[0-9A-Z]{26}$'
@@ -87,6 +93,7 @@ class SubmitChoiceActivityController:
             status_code=status.HTTP_201_CREATED,
         )
         def _(
+            http_request: FastAPIRequest,
             request: Request,
             response: FastAPIResponse,
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],
@@ -109,6 +116,10 @@ class SubmitChoiceActivityController:
             identifiers: Annotated[
                 IdentifierProvider,
                 Depends(LearningPipe.get_identifier_provider),
+            ],
+            telemetry_provider: Annotated[
+                TelemetryProvider | None,
+                Depends(TelemetryPipe.get_telemetry_provider),
             ],
             diagnostic_run_id: Annotated[
                 UUID | None,
@@ -152,6 +163,17 @@ class SubmitChoiceActivityController:
             response.status_code = (
                 status.HTTP_200_OK if outcome.replayed else status.HTTP_201_CREATED
             )
+            if not outcome.replayed:
+                event: TelemetryEventInput = {
+                    'level': 'INFO',
+                    'event': 'learning.attempt.submitted',
+                    'operation': 'attempt.submit',
+                    'result': 'success',
+                }
+                request_id = TelemetryPipe.get_request_id(http_request)
+                if request_id is not None:
+                    event['request_id'] = request_id
+                TelemetryPipe.emit(telemetry_provider, event)
             return Response(
                 attempt_id=outcome.attempt.attempt_id,
                 status='pending',

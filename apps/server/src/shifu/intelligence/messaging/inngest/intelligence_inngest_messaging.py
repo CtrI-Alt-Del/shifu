@@ -6,6 +6,7 @@ from shifu.intelligence.core.use_cases import PurgeMentorAttachmentsUseCase
 from shifu.intelligence.messaging.inngest.jobs import (
     PurgeMentorAttachmentsOnAccountDeletedJob,
 )
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 
 class IntelligenceInngestMessaging:
@@ -15,6 +16,7 @@ class IntelligenceInngestMessaging:
         *,
         purge_mentor_attachments_use_case: PurgeMentorAttachmentsUseCase,
         account_deleted_event_name: str,
+        telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         return [
             cast(
@@ -23,6 +25,7 @@ class IntelligenceInngestMessaging:
                     inngest,
                     purge_mentor_attachments_use_case,
                     account_deleted_event_name=account_deleted_event_name,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
         ]

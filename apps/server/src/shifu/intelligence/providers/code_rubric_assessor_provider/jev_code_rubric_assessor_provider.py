@@ -1,19 +1,27 @@
-from time import sleep
-from typing import ClassVar, Literal
+from __future__ import annotations
+
+from time import perf_counter, sleep
+from typing import TYPE_CHECKING, ClassVar, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError as TransportValidationError
 
-from shifu.shared.core.domain.errors import ServiceUnavailableError
-from shifu.shared.core.domain.structures.code_rubric_assessment_input import (
-    CodeRubricAssessmentInput,
+from shifu.intelligence.providers.openrouter.openrouter_telemetry import (
+    emit_openrouter_event,
 )
+from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures.code_rubric_decisions import (
     CodeConceptDecision,
     CodeCriterionDecision,
     CodeRubricDecisions,
     CodeRubricLevel,
 )
+
+if TYPE_CHECKING:
+    from shifu.shared.core.domain.structures.code_rubric_assessment_input import (
+        CodeRubricAssessmentInput,
+    )
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 _UNAVAILABLE_MESSAGE = 'Avaliação de código temporariamente indisponível.'
 
@@ -96,13 +104,45 @@ class JevCodeRubricAssessorProvider:
         client: httpx.Client,
         decisions_url: str,
         model: Literal['typesafe/jev-1.13'],
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         self._api_key = api_key
         self._client = client
         self._decisions_url = decisions_url
         self._model: Literal['typesafe/jev-1.13'] = model
+        self._telemetry_provider = telemetry_provider
 
     def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
+        started_at = perf_counter()
+        emit_openrouter_event(
+            self._telemetry_provider,
+            event='integration.operation.started',
+        )
+        try:
+            result = self._assess(request)
+        except Exception as error:
+            emit_openrouter_event(
+                self._telemetry_provider,
+                event='integration.operation.failed',
+                result='failure',
+                duration_ms=max((perf_counter() - started_at) * 1000, 0.0),
+                error_code=(
+                    'integration_unavailable'
+                    if isinstance(error, ServiceUnavailableError)
+                    else 'integration_failed'
+                ),
+                exception_type=type(error).__name__,
+            )
+            raise
+        emit_openrouter_event(
+            self._telemetry_provider,
+            event='integration.operation.completed',
+            result='success',
+            duration_ms=max((perf_counter() - started_at) * 1000, 0.0),
+        )
+        return result
+
+    def _assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
         if not self._api_key:
             raise ServiceUnavailableError(self._UNAVAILABLE)
 
@@ -212,6 +252,12 @@ class JevCodeRubricAssessorProvider:
                     attempt == 0
                     and response.status_code in self._RETRYABLE_STATUS_CODES
                 ):
+                    emit_openrouter_event(
+                        self._telemetry_provider,
+                        event='integration.operation.retrying',
+                        result='retry',
+                        error_code='integration_unavailable',
+                    )
                     sleep(self._RETRY_DELAY_SECONDS)
                     continue
 
@@ -219,6 +265,12 @@ class JevCodeRubricAssessorProvider:
                 return _DecisionsResponse.model_validate(response.json())
             except httpx.TransportError:
                 if attempt == 0:
+                    emit_openrouter_event(
+                        self._telemetry_provider,
+                        event='integration.operation.retrying',
+                        result='retry',
+                        error_code='integration_unavailable',
+                    )
                     sleep(self._RETRY_DELAY_SECONDS)
                     continue
             except (httpx.HTTPError, ValueError, TransportValidationError):

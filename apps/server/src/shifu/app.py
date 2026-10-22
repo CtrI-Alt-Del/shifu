@@ -1,7 +1,6 @@
 from asyncio import to_thread
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
-from functools import partial
 from typing import cast
 
 from fastapi import APIRouter, FastAPI
@@ -79,16 +78,35 @@ from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
+from shifu.shared.core.interfaces.telemetry_provider import (
+    TelemetryEventInput,
+    TelemetryProvider,
+)
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
     RedisCacheProvider,
 )
+from shifu.shared.providers.console_telemetry_provider import (
+    ConsoleTelemetryProvider,
+    configure_telemetry_logging,
+)
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.shared.rest.middlewares.rate_limit_middleware import RateLimitMiddleware
+from shifu.shared.rest.middlewares.telemetry_middleware import TelemetryMiddleware
 from shifu.shared.rest.router import SharedRouter
 from shifu.shared.settings import get_settings
+
+
+def _emit_telemetry(
+    telemetry_provider: TelemetryProvider,
+    event: TelemetryEventInput,
+) -> None:
+    try:
+        telemetry_provider.emit(event)
+    except Exception:  # noqa: BLE001 - telemetry must never change lifecycle behavior.
+        return
 
 
 class ActivityPayloadLimitMiddleware:
@@ -185,11 +203,22 @@ class FastAPIApp:
         mentor_context_provider: MentorContextProvider | None = None,
         mentor_route_provider: MentorRouteProvider | None = None,
         mentor_telemetry_provider: MentorTelemetryProvider | None = None,
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> FastAPI:
         database_engine = database_engine or Session.create_database_engine()
         id_provider = SystemIdentifierProvider()
         clock_provider = SystemClockProvider()
         settings = get_settings()
+        telemetry_provider = telemetry_provider or ConsoleTelemetryProvider(
+            service='shifu-api',
+            environment=ENVIRONMENT.server_app_mode,
+            version=ENVIRONMENT.release_version,
+            log_level=ENVIRONMENT.server_log_level,
+        )
+        configure_telemetry_logging(
+            telemetry_provider,
+            log_level=ENVIRONMENT.server_log_level,
+        )
         identity_database = SqlalchemyIdentityDatabase(
             engine=database_engine,
             id_provider=id_provider,
@@ -214,7 +243,10 @@ class FastAPIApp:
             action_origin=ENVIRONMENT.confirmation_action_origin,
         )
         message_renderer_provider = build_message_renderer()
-        email_delivery_provider = build_email_delivery_provider(ENVIRONMENT)
+        email_delivery_provider = build_email_delivery_provider(
+            ENVIRONMENT,
+            telemetry_provider=telemetry_provider,
+        )
         curriculum_database = SqlalchemyCurriculumDatabase(engine=database_engine)
         learning_database = SqlalchemyLearningDatabase(
             engine=database_engine,
@@ -258,6 +290,7 @@ class FastAPIApp:
             outbox_engine=database_engine,
             route_provider=mentor_route_provider,
             telemetry=mentor_telemetry_provider,
+            telemetry_provider=telemetry_provider,
         )
         learning_registry = LearningWorkflowsRegistry(
             settings,
@@ -266,6 +299,7 @@ class FastAPIApp:
             mentor_access_provider,
             curriculum_content_provider,
             outbox_engine=database_engine,
+            telemetry_provider=telemetry_provider,
         )
         authentication_provider = JwksJwtAuthenticationProvider(
             identity_database=identity_database,
@@ -280,6 +314,14 @@ class FastAPIApp:
             try:
                 await cache_provider.ping()
             except Exception as error:
+                dependency_event: TelemetryEventInput = {
+                    'level': 'ERROR',
+                    'event': 'dependency.unavailable',
+                    'operation': 'dependency.check',
+                    'result': 'unavailable',
+                    'error_code': 'service_unavailable',
+                }
+                _emit_telemetry(telemetry_provider, dependency_event)
                 await cache_provider.close()
                 await intelligence_registry.close()
                 await learning_registry.close()
@@ -310,6 +352,24 @@ class FastAPIApp:
                         learning_registry.code_rubric_assessor
                     )
                     broker.start()
+                    _emit_telemetry(
+                        telemetry_provider,
+                        {
+                            'level': 'INFO',
+                            'event': 'app.version.reported',
+                            'operation': 'app.startup',
+                            'result': 'success',
+                        },
+                    )
+                    _emit_telemetry(
+                        telemetry_provider,
+                        {
+                            'level': 'INFO',
+                            'event': 'app.startup.completed',
+                            'operation': 'app.startup',
+                            'result': 'success',
+                        },
+                    )
                     try:
                         yield
                     finally:
@@ -320,26 +380,41 @@ class FastAPIApp:
                 try:
                     await to_thread(close_agent_monitoring_client, monitoring)
                 finally:
-                    await cache_provider.close()
-                    database_engine.dispose()
+                    try:
+                        await cache_provider.close()
+                    finally:
+                        database_engine.dispose()
+                        _emit_telemetry(
+                            telemetry_provider,
+                            {
+                                'level': 'INFO',
+                                'event': 'app.shutdown.completed',
+                                'operation': 'app.shutdown',
+                                'result': 'success',
+                            },
+                        )
 
         app = FastAPI(title='Shifu API', version='0.1.0', lifespan=lifespan)
+        app.state.telemetry_provider = telemetry_provider
         inngest_client = InngestMessaging.register(
             app,
+            telemetry_provider,
             job_group_registrars=[
-                lambda inngest: IdentityInngestMessaging.register_jobs(
+                lambda inngest, telemetry: IdentityInngestMessaging.register_jobs(
                     inngest,
                     identity_database=identity_database,
                     clock_provider=clock_provider,
+                    telemetry_provider=telemetry,
                 ),
-                lambda inngest: IntelligenceInngestMessaging.register_jobs(
+                lambda inngest, telemetry: IntelligenceInngestMessaging.register_jobs(
                     inngest,
                     purge_mentor_attachments_use_case=(
                         intelligence_registry.purge_mentor_attachments_use_case
                     ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
+                    telemetry_provider=telemetry,
                 ),
-                lambda inngest: CommunicationInngestMessaging.register_jobs(
+                lambda inngest, telemetry: CommunicationInngestMessaging.register_jobs(
                     inngest,
                     communication_database=communication_database,
                     id_provider=id_provider,
@@ -347,21 +422,24 @@ class FastAPIApp:
                     secret_envelope_provider=secret_envelope_provider,
                     message_renderer_provider=message_renderer_provider,
                     email_delivery_provider=email_delivery_provider,
+                    telemetry_provider=telemetry,
                 ),
-                partial(
-                    LearningInngestMessaging.register_jobs,
+                lambda inngest, telemetry: LearningInngestMessaging.register_jobs(
+                    inngest,
                     learning_database=learning_database,
                     clock_provider=clock_provider,
                     curriculum_content_provider=curriculum_content_provider,
                     max_code_assessment_input_bytes=(
                         settings.max_code_assessment_input_bytes
                     ),
+                    telemetry_provider=telemetry,
                 ),
-                partial(
-                    GamificationInngestMessaging.register_jobs,
+                lambda inngest, telemetry: GamificationInngestMessaging.register_jobs(
+                    inngest,
                     gamification_database=gamification_database,
                     curriculum_content_provider=curriculum_content_provider,
                     clock_provider=clock_provider,
+                    telemetry_provider=telemetry,
                 ),
             ],
         )
@@ -418,6 +496,7 @@ class FastAPIApp:
         )
         app.add_middleware(PrivateMentorNoStoreMiddleware)
         app.add_middleware(MentorAttachmentBodyLimitMiddleware)
+        app.add_middleware(TelemetryMiddleware)
         return app
 
 

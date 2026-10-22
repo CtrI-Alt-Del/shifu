@@ -2,15 +2,15 @@
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-import json
-import logging
 from typing import ClassVar, cast
 
 from inngest import Context, Function, Inngest, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-
-LOGGER = logging.getLogger(__name__)
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class _Payload(BaseModel):
@@ -51,11 +51,20 @@ class LogMainPageEnteredJob:
     _EVENT_NAME: ClassVar[str] = 'app/main-page.entered'
 
     @staticmethod
-    def handle(inngest: Inngest) -> Function[None]:
+    def handle(
+        inngest: Inngest,
+        *,
+        telemetry_provider: TelemetryProvider,
+    ) -> Function[None]:
         @inngest.create_function(
             fn_id=LogMainPageEnteredJob.FUNCTION_ID,
             trigger=TriggerEvent(event=LogMainPageEnteredJob._EVENT_NAME),
             retries=0,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=LogMainPageEnteredJob.FUNCTION_ID,
+            max_attempts=1,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
@@ -64,10 +73,7 @@ class LogMainPageEnteredJob:
                 LogMainPageEnteredJob._normalize_payload,
                 data,
             )
-            await context.step.run(
-                'log_main_page_entered',
-                lambda: LogMainPageEnteredJob._log_payload(normalized_data),
-            )
+            del normalized_data
 
         return _
 
@@ -79,16 +85,3 @@ class LogMainPageEnteredJob:
             'account_id': payload.account_id,
             'occurred_at': payload.occurred_at,
         }
-
-    @staticmethod
-    async def _log_payload(payload: Mapping[str, str]) -> None:
-        log_data = {
-            'event': 'identity.main_page_entered',
-            'event_id': payload['event_id'],
-            'account_id': payload['account_id'],
-            'occurred_at': payload['occurred_at'],
-        }
-        LOGGER.info(
-            json.dumps(log_data, sort_keys=True),
-            extra=log_data,
-        )

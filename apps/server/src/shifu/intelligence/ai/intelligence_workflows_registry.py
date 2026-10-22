@@ -92,6 +92,7 @@ if TYPE_CHECKING:
         MentorContextProvider,
         OutboxEvent,
     )
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
 
@@ -152,6 +153,7 @@ class IntelligenceWorkflowsRegistry:
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         observability = observability or LangfuseTelemetryProvider(
             'intelligence', telemetry_client
@@ -184,7 +186,10 @@ class IntelligenceWorkflowsRegistry:
             settings, self._identifier_provider
         )
 
-        title_model = MentorTitleModelProvider.build(settings)
+        title_model = MentorTitleModelProvider.build(
+            settings,
+            telemetry_provider=telemetry_provider,
+        )
         title_agent = (
             MentorTitleAgent(title_model)
             if title_model is not None
@@ -195,7 +200,9 @@ class IntelligenceWorkflowsRegistry:
         )
 
         vision_model = OpenrouterMentorAnswerModelProvider.build(
-            settings, profile='vision'
+            settings,
+            profile='vision',
+            telemetry_provider=telemetry_provider,
         )
         vision_agent = (
             MentorAttachmentVisionAgent(vision_model)
@@ -274,13 +281,19 @@ class IntelligenceWorkflowsRegistry:
             self._database, self._clock_provider, access_provider
         )
         writer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings, profile='primary'
+            settings,
+            profile='primary',
+            telemetry_provider=telemetry_provider,
         )
         attachment_answer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings, profile='primary'
+            settings,
+            profile='primary',
+            telemetry_provider=telemetry_provider,
         )
         reviewer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings, profile='reviewer'
+            settings,
+            profile='reviewer',
+            telemetry_provider=telemetry_provider,
         )
         writer_agent = (
             MentorWriterAgent(writer_model)
@@ -330,7 +343,9 @@ class IntelligenceWorkflowsRegistry:
 
         self._code_rubric_http_client = self._build_code_rubric_client()
         self._code_rubric_client = self._build_code_rubric_provider(
-            settings, self._code_rubric_http_client
+            settings,
+            self._code_rubric_http_client,
+            telemetry_provider,
         )
         database_url = settings.agentos_database_url
         self._runtime = (
@@ -498,13 +513,16 @@ class IntelligenceWorkflowsRegistry:
 
     @staticmethod
     def _build_code_rubric_provider(
-        settings: Settings, client: httpx.Client
+        settings: Settings,
+        client: httpx.Client,
+        telemetry_provider: TelemetryProvider | None,
     ) -> JevCodeRubricAssessorProvider:
         return JevCodeRubricAssessorProvider(
             api_key=settings.openrouter_api_key,
             client=client,
             decisions_url=str(settings.openrouter_decisions_url),
             model=settings.jev_model,
+            telemetry_provider=telemetry_provider,
         )
 
     def _record_attachment_usage(self, usage: MentorInferenceUsage) -> None:

@@ -1,6 +1,8 @@
-from time import sleep
+from __future__ import annotations
+
 from math import isfinite
-from typing import ClassVar, Literal, cast
+from time import perf_counter, sleep
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 import httpx
 from pydantic import (
@@ -23,11 +25,17 @@ from shifu.intelligence.core.domain.structures.mentor_response_block import (
 from shifu.intelligence.core.domain.structures.mentor_review_result import (
     MentorReviewResult,
 )
+from shifu.intelligence.providers.openrouter.openrouter_telemetry import (
+    emit_openrouter_event,
+)
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.intelligence.ai.data.mentor_inference_usage import (
     assert_inference_ready,
     report_inference_usage,
 )
+
+if TYPE_CHECKING:
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 
 class _ChoiceAnswer(BaseModel):
@@ -92,6 +100,7 @@ class OpenrouterJevMentorReviewProvider:
         api_key: str | None,
         decisions_url: str,
         thresholds: dict[str, float],
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         if set(thresholds) != set(self._CRITERIA) or any(
             not 0 < v <= 1 for v in thresholds.values()
@@ -101,8 +110,41 @@ class OpenrouterJevMentorReviewProvider:
         self._api_key = api_key
         self._url = decisions_url
         self._thresholds = dict(thresholds)
+        self._telemetry_provider = telemetry_provider
 
     def review(
+        self, request: MentorGenerationRequest, candidate: MentorResponseBlock
+    ) -> MentorReviewResult:
+        started_at = perf_counter()
+        emit_openrouter_event(
+            self._telemetry_provider,
+            event='integration.operation.started',
+        )
+        try:
+            result = self._review(request, candidate)
+        except Exception as error:
+            emit_openrouter_event(
+                self._telemetry_provider,
+                event='integration.operation.failed',
+                result='failure',
+                duration_ms=max((perf_counter() - started_at) * 1000, 0.0),
+                error_code=(
+                    'integration_unavailable'
+                    if isinstance(error, ServiceUnavailableError)
+                    else 'integration_failed'
+                ),
+                exception_type=type(error).__name__,
+            )
+            raise
+        emit_openrouter_event(
+            self._telemetry_provider,
+            event='integration.operation.completed',
+            result='success',
+            duration_ms=max((perf_counter() - started_at) * 1000, 0.0),
+        )
+        return result
+
+    def _review(
         self, request: MentorGenerationRequest, candidate: MentorResponseBlock
     ) -> MentorReviewResult:
         if not self._api_key:
@@ -225,6 +267,12 @@ class OpenrouterJevMentorReviewProvider:
                     cost_usd=cost_usd,
                 )
                 if response.status_code in self._RETRYABLE and attempt < 2:
+                    emit_openrouter_event(
+                        self._telemetry_provider,
+                        event='integration.operation.retrying',
+                        result='retry',
+                        error_code='integration_unavailable',
+                    )
                     sleep(0.5 * (2**attempt))
                     continue
                 response.raise_for_status()
@@ -232,6 +280,12 @@ class OpenrouterJevMentorReviewProvider:
             except httpx.TransportError:
                 report_inference_usage(f'review:{attempt}', 'jev', None)
                 if attempt < 2:
+                    emit_openrouter_event(
+                        self._telemetry_provider,
+                        event='integration.operation.retrying',
+                        result='retry',
+                        error_code='integration_unavailable',
+                    )
                     sleep(0.5 * (2**attempt))
                     continue
             except (httpx.HTTPStatusError, ValidationError, ValueError):
