@@ -487,13 +487,30 @@ jobs:
         run: |
           uv run coverage erase
           uv run coverage run --branch --source=src/shifu -m pytest \
+            tests/shared/server/middlewares/test_telemetry_middleware.py \
+            tests/shared/server/handlers/test_app_error_telemetry.py \
+            tests/shared/server/lifecycle/test_app_lifecycle_telemetry.py \
+            tests/shared/server/messaging/test_job_lifecycle_telemetry.py \
+            tests/shared/server/controllers/test_business_event_telemetry.py \
+            tests/identity/server/controllers/test_sign_in_controller.py \
+            tests/identity/server/controllers/test_get_current_session_controller.py \
+            tests/learning/server/controllers/test_create_goal_controller.py \
+            tests/learning/server/controllers/test_remove_goal_controller.py \
+            tests/learning/server/controllers/test_submit_choice_activity_controller.py \
+            tests/identity/server/controllers/test_resend_email_confirmation_controller.py \
+            tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
+            tests/learning/server/agentos/test_learning_code_evaluation_workflow.py \
+            tests/messaging/inngest/jobs/identity/test_log_main_page_entered_job.py \
+            tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
+            tests/messaging/inngest/jobs/communication/test_deliver_communication_job.py \
+            tests/messaging/inngest/jobs/gamification/test_recognize_skill_completed_job.py \
+            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
             tests/intelligence/server/agentos/test_process_mentor_response_workflow.py \
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
             tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
             tests/intelligence/server/agentos/test_agentos_runtime_role.py \
             tests/intelligence/ai/agno/agents/test_mentor_agent_contract_coverage.py \
             tests/intelligence/ai/agno/workflows/test_mentor_workflow_branches.py \
-            tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
             tests/intelligence/ai/generative/agno/workflows/test_agno_generate_mentor_title_workflow.py \
             tests/intelligence/adapters/test_mentor_persistence_adapters.py \
             tests/intelligence/core/use_cases/test_process_mentor_response_use_case.py \
@@ -515,7 +532,6 @@ jobs:
             tests/learning/core/use_cases/test_fail_code_activity_evaluation_use_case.py \
             tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py \
             tests/learning/messaging/test_learning_inngest_messaging.py \
-            tests/learning/server/agentos/test_learning_code_evaluation_workflow.py \
             tests/learning/server/controllers/test_adaptive_journey_controller.py::TestAdaptiveLabSeed::test_should_exercise_two_competencies_and_persist_progress \
             tests/learning/server/controllers/test_activity_payload_limit_middleware.py \
             tests/learning/server/controllers/test_learning_pipe_dependencies.py \
@@ -532,7 +548,6 @@ jobs:
             tests/intelligence/core/use_cases/test_remove_mentor_session_use_case.py \
             tests/intelligence/rest/controllers/test_mentor_attachments_controller.py \
             tests/intelligence/rest/controllers/test_mentor_session_routes_coverage.py \
-            tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_submit_mentor_message_controller.py \
             tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
             tests/intelligence/server/controllers/test_list_mentor_sessions_controller.py \
@@ -550,13 +565,11 @@ jobs:
             tests/shared/database/sqlalchemy/repositories/test_events_repository.py \
             tests/shared/messaging/agentos/test_agentos_runtime.py \
             tests/learning/core/use_cases/test_submit_choice_activity_use_case.py \
-            tests/learning/server/controllers/test_submit_choice_activity_controller.py \
             tests/intelligence/core/use_cases/test_record_mentor_response_progress_use_case.py \
             tests/intelligence/core/use_cases/test_remove_mentor_attachment_use_case.py \
             tests/intelligence/rest/test_attachment_request_boundaries.py \
             tests/intelligence/server/controllers/test_mentor_attachment_storage_http_boundary.py \
             tests/intelligence/server/controllers/test_mentor_attachments_controller.py \
-            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
             tests/rest/handlers/test_app_error_handler.py \
             tests/shared/messaging/agentos/test_agentos_client.py \
             tests/shared/messaging/agentos/test_agentos_handoff_store.py \

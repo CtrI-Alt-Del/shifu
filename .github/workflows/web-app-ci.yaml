@@ -179,6 +179,11 @@ jobs:
           pnpm --filter web exec vitest run --coverage
           src/constants/tests/routes.test.ts
           src/rest/axios/tests/axios-rest-client.test.ts
+          src/rest/fetch/tests/fetch-rest-stream-client.test.ts
+          tests/unit/identity/auth-route-handler.test.ts
+          tests/unit/shared/console-telemetry-provider.test.ts
+          tests/unit/shared/start-telemetry.test.ts
+          tests/unit/shared/telemetry-transport.test.ts
           tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
           tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
           src/ui/intelligence/hooks/tests/mentor-server-functions.test.ts
@@ -309,6 +314,11 @@ jobs:
 
       - name: Run integration tests
         run: pnpm --filter web test:integration
+
+      - name: Run structured telemetry integration boundary
+        run: >-
+          pnpm --filter web exec playwright test
+          tests/shared/structured-telemetry-api.test.ts
 
       - name: Upload Playwright report
         if: always()
