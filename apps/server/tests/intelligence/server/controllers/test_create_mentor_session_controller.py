@@ -137,7 +137,11 @@ class TestCreateMentorSessionController:
         monkeypatch: pytest.MonkeyPatch,
         postgres_database: PostgresDatabase,
     ) -> None:
-        def provide_no_title_model(_settings: Settings) -> None:
+        def provide_no_title_model(
+            _settings: Settings,
+            *,
+            telemetry_provider: TelemetryProvider | None = None,
+        ) -> None:
             return None
 
         monkeypatch.setattr(
