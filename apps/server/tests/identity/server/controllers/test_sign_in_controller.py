@@ -10,6 +10,7 @@ from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 if TYPE_CHECKING:
     import pytest
 
+    from fastapi import Request as FastAPIRequest
     from fastapi.testclient import TestClient
     from httpx import Response
 
@@ -23,8 +24,11 @@ class TestSignInController:
         def refuse(_self: SignInUseCase, _credentials: object) -> object:
             raise InvalidCredentialsError
 
+        def missing_request_id(_request: FastAPIRequest) -> None:
+            pass
+
         monkeypatch.setattr(SignInUseCase, 'execute', refuse)
-        monkeypatch.setattr(TelemetryPipe, 'get_request_id', lambda _request: None)
+        monkeypatch.setattr(TelemetryPipe, 'get_request_id', missing_request_id)
 
         response = cast(
             'Response',
