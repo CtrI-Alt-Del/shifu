@@ -59,6 +59,7 @@ class GamificationInngestMessaging:
         )
         recognize_competency_use_case = RecognizeCompetencyMasteredUseCase(
             gamification_database,
+            curriculum_content_provider,
             id_provider,
             grant_xp_use_case,
         )
@@ -67,6 +68,7 @@ class GamificationInngestMessaging:
         )
         recognize_skill_use_case = RecognizeSkillCompletedUseCase(
             gamification_database,
+            curriculum_content_provider,
             id_provider,
             grant_xp_use_case,
         )
