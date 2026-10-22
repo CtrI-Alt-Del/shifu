@@ -34,6 +34,8 @@ if TYPE_CHECKING:
     from httpx import Response
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+
 
 class TestCreateMentorSessionController:
     @pytest.mark.parametrize('content', ['', ' \n\t '])
@@ -177,7 +179,11 @@ class TestCreateMentorSessionController:
         )
         model_client = model.client
 
-        def provide_title_model(_settings: Settings) -> OpenAIChat:
+        def provide_title_model(
+            _settings: Settings,
+            *,
+            telemetry_provider: TelemetryProvider | None = None,
+        ) -> OpenAIChat:
             return model
 
         monkeypatch.setattr(
