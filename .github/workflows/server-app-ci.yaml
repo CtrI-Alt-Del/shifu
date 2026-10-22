@@ -585,18 +585,8 @@ jobs:
             tests/shared/messaging/test_outbox_brokers.py \
             tests/shared/test_settings.py \
             tests/shared/providers/test_s3_file_storage_provider.py \
-            tests/gamification/core/domain/test_achievement_criterion_label.py \
-            tests/gamification/core/use_cases/test_get_xp_history_use_case.py \
-            tests/gamification/core/use_cases/test_grant_xp_use_case.py \
-            tests/gamification/core/use_cases/test_list_achievements_use_case.py \
-            tests/gamification/core/use_cases/test_recognize_competency_mastered_use_case.py \
-            tests/gamification/core/use_cases/test_recognize_diagnostic_completed_use_case.py \
-            tests/gamification/core/use_cases/test_recognize_skill_completed_use_case.py \
-            tests/gamification/server/controllers/test_get_xp_history_controller.py \
-            tests/gamification/database/sqlalchemy/repositories/test_xp_grants_repository.py \
-            tests/messaging/inngest/jobs/gamification/test_recognize_competency_mastered_job.py \
-            tests/messaging/inngest/jobs/gamification/test_recognize_competency_mastered_job_unit.py \
-            tests/messaging/inngest/jobs/gamification/test_purge_profile_on_account_deleted_job.py
+            tests/gamification \
+            tests/messaging/inngest/jobs/gamification
 
           uv run coverage combine
 

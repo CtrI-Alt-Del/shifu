@@ -1,4 +1,5 @@
 import type { AchievementsOverview } from '@/core/gamification/achievements-overview'
+import type { GamificationOverview } from '@/core/gamification/overview'
 import type { PracticeCalendar } from '@/core/gamification/practice-calendar'
 import type { XpHistory } from '@/core/gamification/xp-history'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
@@ -7,6 +8,15 @@ export type GamificationService = ReturnType<typeof GamificationService>
 
 export const GamificationService = (restClient: RestClient) => {
   return {
+    async getOverview(accessToken: string): Promise<GamificationOverview> {
+      const response = await restClient.get<GamificationOverview>(
+        '/gamification/overview',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
     async listAchievements(accessToken: string): Promise<AchievementsOverview> {
       const response = await restClient.get<AchievementsOverview>(
         '/gamification/achievements',

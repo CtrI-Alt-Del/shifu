@@ -15,7 +15,7 @@ type XpHistoryResult =
   | { kind: 'success'; history: XpHistory }
   | { kind: 'unauthorized' | 'forbidden' | 'unavailable'; statusCode?: number }
 
-const getXpHistory = createServerFn({ method: 'GET' }).handler(
+export const getXpHistory = createServerFn({ method: 'GET' }).handler(
   async (): Promise<XpHistoryResult> => {
     try {
       const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
