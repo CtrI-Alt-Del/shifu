@@ -41,7 +41,7 @@ def complete_response(
     session_id: str,
     attempt_id: str,
     message_id: str,
-    progress: tuple[MentorWorkflowStep, ...] = (),
+    progress: tuple[MentorWorkflowStep | None, ...] = (),
 ) -> None:
     intelligence = SqlalchemyIntelligenceDatabase(database.engine)
     now = datetime.now(UTC)
@@ -112,3 +112,52 @@ def complete_response(
         attempt_id,
         'test-owner',
     )
+
+
+def start_processing(database: PostgresDatabase, attempt_id: str) -> None:
+    """Claim and move a queued attempt to processing like the answer workflow."""
+    intelligence = SqlalchemyIntelligenceDatabase(database.engine)
+    now = datetime.now(UTC)
+    with intelligence.transaction() as repositories:
+        attempt = repositories.mentor_response_attempts.find_by_id_for_update(
+            attempt_id
+        )
+        assert attempt is not None
+        assert repositories.mentor_response_attempts.claim(
+            attempt_id,
+            'test-owner',
+            now,
+            now + timedelta(minutes=5),
+            attempt.access_revision,
+        )
+        assert repositories.mentor_response_attempts.transition(
+            attempt_id,
+            MentorResponseStatus.QUEUED,
+            MentorResponseStatus.PROCESSING,
+            attempt.access_revision,
+        )
+
+
+def append_status(
+    database: PostgresDatabase,
+    session_id: str,
+    attempt_id: str,
+    progress: MentorWorkflowStep | None,
+) -> None:
+    """Append a processing status event; ``None`` is the closing null-progress event."""
+    intelligence = SqlalchemyIntelligenceDatabase(database.engine)
+    with intelligence.transaction() as repositories:
+        repositories.mentor_response_events.append(
+            MentorResponseEvent(
+                session_id=session_id,
+                attempt_id=attempt_id,
+                sequence=repositories.mentor_response_events.next_sequence(session_id),
+                kind=MentorResponseEventKind.STATUS,
+                status=MentorResponseStatus.PROCESSING,
+                block=None,
+                consultation=None,
+                failure_code=None,
+                created_at=datetime.now(UTC),
+                progress=progress,
+            )
+        )

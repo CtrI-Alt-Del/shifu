@@ -19,6 +19,7 @@ from urllib.request import Request, urlopen
 
 import pytest
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session as SqlalchemySession
 from testcontainers.core.container import DockerContainer
 from testcontainers.community.postgres import PostgresContainer
@@ -420,10 +421,35 @@ def _inngest_runtime(inngest_app_target: tuple[str, bool]) -> Iterator[InngestFi
         bff_shared_secret = 'shifu-inngest-test-bff-secret'
         redis_host = redis.get_container_host_ip()
         redis_port = redis.get_exposed_port(6379)
+        database_url = postgres.get_connection_url()
+        agentos_password = 'agentos-test-password'
+        agentos_url = (
+            make_url(database_url)
+            .set(
+                username='shifu_agentos_runtime',
+                password=agentos_password,
+            )
+            .render_as_string(hide_password=False)
+        )
+        admin_engine = create_engine(database_url, pool_pre_ping=True)
+        try:
+            with admin_engine.begin() as connection:
+                connection.exec_driver_sql(
+                    'CREATE ROLE shifu_agentos_runtime LOGIN '
+                    "PASSWORD 'agentos-test-password' NOSUPERUSER NOCREATEDB "
+                    'NOCREATEROLE INHERIT'
+                )
+                connection.execute(
+                    text('GRANT CONNECT ON DATABASE shifu TO shifu_agentos_runtime')
+                )
+        finally:
+            admin_engine.dispose()
         environment = os.environ.copy()
         environment.update(
             {
-                'DATABASE_URL': postgres.get_connection_url(),
+                'DATABASE_URL': database_url,
+                'AGENTOS_DATABASE_URL': agentos_url,
+                'AGENTOS_RUNTIME_ROLE_PASSWORD': agentos_password,
                 'SHIFU_SERVER_APP_PORT': str(server_port),
                 'INNGEST_BASE_URL': inngest_url,
                 'INNGEST_DEV': '1',

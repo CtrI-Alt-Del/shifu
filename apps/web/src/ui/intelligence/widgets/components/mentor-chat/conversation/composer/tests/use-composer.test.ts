@@ -13,6 +13,37 @@ const useMentorContextMock = vi.mocked(useMentorContext)
 describe('useComposer', () => {
   afterEach(cleanup)
 
+  it.each(['page', 'fab'] as const)(
+    'allows prepared attachment-only submissions on %s and blocks incomplete drafts',
+    (surface) => {
+      const sendFirstMessage = vi.fn()
+      const context = {
+        draft: '',
+        draftAttachments: [{ attachment: { status: 'ready' }, error: null }],
+        sendFirstMessage,
+      }
+      useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+      const { result, rerender } = renderHook(() => useComposer(surface))
+      expect(result.current.canSend).toBe(true)
+      result.current.handleSubmit({
+        preventDefault: vi.fn(),
+      } as unknown as React.FormEvent<HTMLFormElement>)
+      expect(sendFirstMessage).toHaveBeenCalledWith(surface)
+      context.draft = '   '
+      context.draftAttachments[0].attachment.status = 'partial'
+      rerender()
+      expect(result.current.canSend).toBe(true)
+      for (const status of ['uploading', 'processing', 'failed', 'removed']) {
+        context.draftAttachments[0].attachment.status = status
+        rerender()
+        expect(result.current.canSend).toBe(false)
+      }
+      context.draftAttachments = []
+      rerender()
+      expect(result.current.canSend).toBe(false)
+    },
+  )
+
   it('grows, wraps on width changes, and shrinks when the draft clears', () => {
     let notify = () => {}
     const disconnect = vi.fn()
@@ -81,6 +112,31 @@ describe('useComposer', () => {
     const { result } = renderHook(() => useComposer())
     expect(result.current.hasAcceptedSession).toBe(true)
     expect(result.current.canSend).toBe(true)
+  })
+
+  it('switches the placeholder and blocks sending while the context is being summarized', () => {
+    const context = {
+      selectedSessionId: 'session-1',
+      draft: 'texto',
+      isSubmittingFirstMessage: false,
+      isSummarizingContext: false,
+      sessionDetail: { pendingLearnerMessageId: null as string | null },
+      sendFirstMessage: vi.fn(),
+      setDraft: vi.fn(),
+      submissionError: null,
+    }
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    const { result, rerender } = renderHook(() => useComposer())
+    expect(result.current.placeholder).toBe('Pergunte ao Mentor…')
+    expect(result.current.canSend).toBe(true)
+
+    context.isSummarizingContext = true
+    context.sessionDetail = { pendingLearnerMessageId: 'learner' }
+    rerender()
+    expect(result.current.placeholder).toBe('Aguarde enquanto o contexto é resumido')
+    expect(result.current.isResponsePending).toBe(true)
+    expect(result.current.canSend).toBe(false)
+    expect(result.current.canManageAttachments).toBe(false)
   })
 
   it('requires non-whitespace text and blocks sending while submission is pending', () => {

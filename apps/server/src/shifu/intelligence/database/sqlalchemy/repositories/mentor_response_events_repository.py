@@ -6,7 +6,10 @@ from shifu.intelligence.core.domain.structures import (
     MentorResponseEvent,
     MentorResponseSnapshot,
 )
-from shifu.intelligence.core.domain.enums import MentorResponseStatus
+from shifu.intelligence.core.domain.enums import (
+    MentorResponseEventKind,
+    MentorResponseStatus,
+)
 from shifu.intelligence.database.sqlalchemy.models import (
     MentorResponseEventModel,
     MentorResponseAttemptModel,
@@ -96,9 +99,14 @@ class SqlalchemyMentorResponseEventsRepository:
             (event.failure_code for event in reversed(events) if event.failure_code),
             None,
         )
+        status_events = tuple(
+            event for event in events if event.kind is MentorResponseEventKind.STATUS
+        )
+        # The progress of a response is the progress of its latest status event;
+        # a status event without progress clears it.
         progress = (
-            next((event.progress for event in reversed(events) if event.progress), None)
-            if attempt.status == MentorResponseStatus.PROCESSING
+            status_events[-1].progress
+            if status_events and attempt.status == MentorResponseStatus.PROCESSING
             else None
         )
         return MentorResponseSnapshot(

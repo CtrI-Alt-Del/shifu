@@ -21,6 +21,31 @@ services:
       retries: 10
       start_period: 5s
 
+  agentos-role-init:
+    image: pgvector/pgvector:0.8.1-pg17
+    pull_policy: missing
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:-shifu}
+      PGUSER: ${POSTGRES_USER:-shifu}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-shifu-local}
+      AGENTOS_RUNTIME_ROLE_PASSWORD: ${AGENTOS_RUNTIME_ROLE_PASSWORD:-change-me}
+    volumes:
+      - ./apps/server/scripts/create_agentos_runtime_role.sql:/sql/create_agentos_runtime_role.sql:ro
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        psql -v ON_ERROR_STOP=1
+        -v runtime_password="$${AGENTOS_RUNTIME_ROLE_PASSWORD}"
+        -v database_name="$${PGDATABASE}"
+        -f /sql/create_agentos_runtime_role.sql
+
   redis:
     image: redis:8-alpine
     container_name: shifu-redis
@@ -115,6 +140,48 @@ services:
     ports:
       - "${MAILPIT_SMTP_PORT:-1026}:1025"
       - "${MAILPIT_UI_PORT:-54326}:8025"
+
+  # Private Mentor attachment storage; kept separate from Langfuse's MinIO.
+  minio:
+    image: cgr.dev/chainguard/minio
+    container_name: shifu-minio
+    pull_policy: missing
+    restart: unless-stopped
+    entrypoint: sh
+    command: ["-c", "minio server --address ':9000' --console-address ':9001' /data"]
+    environment:
+      MINIO_ROOT_USER: ${MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY:-shifu-local}
+      MINIO_ROOT_PASSWORD: ${MENTOR_ATTACHMENT_STORAGE_SECRET_KEY:-change-me}
+    ports:
+      - "127.0.0.1:${MENTOR_ATTACHMENT_STORAGE_PORT:-9000}:9000"
+    volumes:
+      - shifu-mentor-attachments-minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  minio-init:
+    image: cgr.dev/chainguard/minio
+    container_name: shifu-minio-init
+    pull_policy: missing
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: sh
+    command:
+      - -c
+      - >-
+        mc alias set shifu http://minio:9000
+        "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}";
+        mc mb --ignore-existing "shifu/$${MENTOR_ATTACHMENT_STORAGE_BUCKET}"
+    environment:
+      MINIO_ROOT_USER: ${MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY:-shifu-local}
+      MINIO_ROOT_PASSWORD: ${MENTOR_ATTACHMENT_STORAGE_SECRET_KEY:-change-me}
+      MENTOR_ATTACHMENT_STORAGE_BUCKET: ${MENTOR_ATTACHMENT_STORAGE_BUCKET:-shifu-mentor-attachments}
+    restart: "no"
 
   # Optional local observability stack: docker compose --profile langfuse up -d
   # Credential defaults below are local development placeholders.
@@ -272,3 +339,4 @@ volumes:
   shifu-langfuse-clickhouse-data:
   shifu-langfuse-clickhouse-logs:
   shifu-langfuse-minio-data:
+  shifu-mentor-attachments-minio-data:

@@ -2,6 +2,10 @@ import {
   exerciseDictationStates,
   exerciseBrowserManagedControls,
 } from '../support/native-dictation'
+import {
+  exerciseSummaryFailure,
+  exerciseSummaryJourney,
+} from '../support/mentor-summary-journey'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
 
@@ -23,6 +27,7 @@ type MentorDetailFixture = {
       content: string
       createdAt: string
       inReplyToMessageId: string | null
+      attachments: []
     }>
     nextCursor: string | null
   }
@@ -175,6 +180,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
                 index === 0 ? 'Quero organizar meu estudo.' : 'Como começo álgebra?',
               createdAt: session.createdAt,
               inReplyToMessageId: null,
+              attachments: [],
             },
           ],
           nextCursor: null,
@@ -502,4 +508,20 @@ test('renders native dictation states without a local language pack on page', as
   authenticatedPage,
 }) => {
   await exerciseBrowserManagedControls(authenticatedPage, 'page')
+})
+
+test('summarizes the context, reads the summary and reveals the originals on page at 1440', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'page', 1440)
+})
+test('summarizes the context, reads the summary and reveals the originals on page at 390', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'page', 390)
+})
+test('shows the summarization failure notice after its learner message on page', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryFailure(authenticatedPage, 'page')
 })

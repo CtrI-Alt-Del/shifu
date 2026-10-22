@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, call, create_autospec
 
 import pytest
-
 from shifu.intelligence.core.domain.entities import MentorSession
 from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
 from shifu.intelligence.core.domain.structures import MentorSubmissionRecord
@@ -11,7 +10,7 @@ from shifu.intelligence.core.interfaces import (
     IntelligenceDatabaseRepositories,
 )
 from shifu.intelligence.core.use_cases import RemoveMentorSessionUseCase
-from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
 
 
 class TestRemoveMentorSessionUseCase:
@@ -45,7 +44,10 @@ class TestRemoveMentorSessionUseCase:
         )
         self.clock = create_autospec(ClockProvider, instance=True)
         self.clock.now.return_value = self.now
-        self.subject = RemoveMentorSessionUseCase(self.database, self.clock)
+        self.access_provider = create_autospec(MentorAccessProvider, instance=True)
+        self.subject = RemoveMentorSessionUseCase(
+            self.database, self.clock, self.access_provider
+        )
 
     def test_should_purge_messages_then_tombstone_session_in_one_transaction(
         self,
@@ -62,6 +64,23 @@ class TestRemoveMentorSessionUseCase:
             'account', 'session'
         )
         self.database.transaction.assert_called_once()
+
+    def test_should_remove_summaries_in_the_deletion_transaction(self) -> None:
+        self.subject.execute('account', 'session')
+
+        summaries = self.repositories.mentor_session_summaries
+        summaries.remove_by_session_id.assert_called_once_with('session')
+        self.database.transaction.assert_called_once()
+
+    def test_should_not_touch_summaries_for_an_unknown_or_already_deleted_session(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission_by_session_id.return_value = (
+            None
+        )
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+        self.repositories.mentor_session_summaries.remove_by_session_id.assert_not_called()
 
     def test_should_make_owned_tombstone_repeat_successful(self) -> None:
         self.repositories.mentor_sessions.find_by_id_for_update.return_value = None
@@ -133,6 +152,10 @@ class TestRemoveMentorSessionUseCase:
 
     def test_should_purge_stream_attempts_messages_before_tombstone(self) -> None:
         effects = Mock()
+        effects.attach_mock(self.repositories.mentor_sessions.lock_session, 'lock')
+        effects.attach_mock(
+            self.repositories.mentor_session_summaries.remove_by_session_id, 'summaries'
+        )
         effects.attach_mock(
             self.repositories.mentor_response_events.remove_by_session_id, 'events'
         )
@@ -145,6 +168,8 @@ class TestRemoveMentorSessionUseCase:
         effects.attach_mock(self.repositories.mentor_sessions.remove, 'session')
         self.subject.execute('account', 'session')
         assert effects.mock_calls == [
+            call.lock('account', 'session'),
+            call.summaries('session'),
             call.events('session'),
             call.attempts('session'),
             call.messages('session'),

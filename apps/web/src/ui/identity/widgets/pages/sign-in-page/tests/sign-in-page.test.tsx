@@ -26,7 +26,10 @@ const state = {
     }) =>
       children({
         handleBlur: vi.fn(),
-        handleChange: vi.fn(),
+        handleChange: (value) => {
+          if (name === 'email') state.setEmail(value)
+          else state.setPassword(value)
+        },
         name,
         state: { value: '' },
       }),
@@ -71,6 +74,13 @@ describe('SignInPage', () => {
   it('renders the accessible public form and canonical adjacent links', () => {
     render(<SignInPage />)
 
+    fireEvent.change(screen.getByLabelText('E-mail'), {
+      target: { value: 'aluna@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Senha'), {
+      target: { value: 'senha-segura' },
+    })
+
     expect(screen.getByRole('heading', { name: 'Entrar' })).toBeVisible()
     expect(screen.getByRole('textbox', { name: 'E-mail' })).toHaveAttribute(
       'type',
@@ -93,6 +103,12 @@ describe('SignInPage', () => {
       'href',
       ROUTES.register,
     )
+    expect(screen.getByRole('link', { name: 'Política de privacidade' })).toHaveAttribute(
+      'href',
+      ROUTES.privacy,
+    )
+    expect(state.setEmail).toHaveBeenCalledWith('aluna@example.com')
+    expect(state.setPassword).toHaveBeenCalledWith('senha-segura')
   })
 
   it('renders the submitting and error contracts without removing navigation', () => {
@@ -114,5 +130,18 @@ describe('SignInPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar senha' }))
     expect(state.setPasswordVisible).toHaveBeenCalledOnce()
+    const updater = state.setPasswordVisible.mock.calls[0][0] as (
+      visible: boolean,
+    ) => boolean
+    expect(updater(false)).toBe(true)
+    expect(updater(true)).toBe(false)
+  })
+
+  it('renders the password as visible when the page state enables it', () => {
+    state.isPasswordVisible = true
+    render(<SignInPage />)
+
+    expect(screen.getByLabelText('Senha')).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Ocultar senha' })).toBeEnabled()
   })
 })

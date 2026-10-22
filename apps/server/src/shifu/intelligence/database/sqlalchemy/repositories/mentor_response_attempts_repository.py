@@ -154,6 +154,7 @@ class SqlalchemyMentorResponseAttemptsRepository:
                 (
                     MentorResponseAttemptModel.execution_owner.is_(None)
                     | (MentorResponseAttemptModel.execution_until <= now)
+                    | (MentorResponseAttemptModel.execution_owner == owner)
                 ),
             )
             .values(execution_owner=owner, execution_until=expires_at)

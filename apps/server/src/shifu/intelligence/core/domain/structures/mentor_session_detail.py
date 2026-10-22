@@ -5,6 +5,9 @@ from shifu.intelligence.core.domain.structures.mentor_messages_page import (
 from shifu.intelligence.core.domain.structures.mentor_response_snapshot import (
     MentorResponseSnapshot,
 )
+from shifu.intelligence.core.domain.structures.mentor_session_summary_state import (
+    MentorSessionSummaryState,
+)
 from shifu.shared.core.domain.structures import structure
 
 
@@ -14,3 +17,4 @@ class MentorSessionDetail:
     messages: MentorMessagesPage
     pending_learner_message_id: str | None
     response: MentorResponseSnapshot | None = None
+    summary: MentorSessionSummaryState = MentorSessionSummaryState()

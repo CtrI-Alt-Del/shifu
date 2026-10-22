@@ -1,16 +1,41 @@
+from typing import cast
+
 from inngest import Function, Inngest
 
-from shifu.intelligence.core.use_cases.process_mentor_response_use_case import (
-    ProcessMentorResponseUseCase,
+from shifu.intelligence.core.use_cases import (
+    PurgeMentorAttachmentsUseCase,
+    PurgeMentorSummariesForAccountUseCase,
 )
-from shifu.intelligence.messaging.inngest.jobs.answer_mentor_message_job import (
-    AnswerMentorMessageJob,
+from shifu.intelligence.messaging.inngest.jobs import (
+    PurgeMentorAttachmentsOnAccountDeletedJob,
+    PurgeMentorSummariesOnAccountDeletedJob,
 )
 
 
 class IntelligenceInngestMessaging:
     @staticmethod
-    def register(
-        inngest: Inngest, use_case: ProcessMentorResponseUseCase
-    ) -> list[Function[None]]:
-        return [AnswerMentorMessageJob.handle(inngest, use_case)]
+    def register_jobs(
+        inngest: Inngest,
+        *,
+        purge_mentor_attachments_use_case: PurgeMentorAttachmentsUseCase,
+        purge_mentor_summaries_use_case: PurgeMentorSummariesForAccountUseCase,
+        account_deleted_event_name: str,
+    ) -> list[Function[object]]:
+        return [
+            cast(
+                'Function[object]',
+                PurgeMentorAttachmentsOnAccountDeletedJob.handle(
+                    inngest,
+                    purge_mentor_attachments_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgeMentorSummariesOnAccountDeletedJob.handle(
+                    inngest,
+                    purge_mentor_summaries_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
+                ),
+            ),
+        ]

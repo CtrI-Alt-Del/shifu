@@ -1,7 +1,11 @@
 from fastapi import Request
+from sqlalchemy.engine import Engine
 
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
-from shifu.intelligence.core.interfaces import GenerateMentorTitleWorkflow
+from shifu.intelligence.core.interfaces import (
+    GenerateMentorTitleWorkflow,
+    IntelligenceDatabase,
+    MentorAttachmentExtractorProvider,
+)
 from shifu.shared.core.interfaces import (
     ClockProvider,
     IdentifierProvider,
@@ -12,6 +16,14 @@ from shifu.shared.providers.system_identifier_provider import SystemIdentifierPr
 
 
 class IntelligencePipe:
+    @staticmethod
+    def create_database(engine: Engine | None = None) -> IntelligenceDatabase:
+        from shifu.intelligence.database.sqlalchemy import (
+            SqlalchemyIntelligenceDatabase,
+        )
+
+        return SqlalchemyIntelligenceDatabase(engine=engine)
+
     @staticmethod
     def get_mentor_access_provider(request: Request) -> MentorAccessProvider:
         return request.app.state.mentor_access_provider
@@ -25,6 +37,12 @@ class IntelligencePipe:
         request: Request,
     ) -> GenerateMentorTitleWorkflow:
         return request.app.state.generate_mentor_title_workflow
+
+    @staticmethod
+    def get_mentor_attachment_extractor_provider(
+        request: Request,
+    ) -> MentorAttachmentExtractorProvider:
+        return request.app.state.mentor_attachment_extractor_provider
 
     @staticmethod
     def get_identifier_provider() -> IdentifierProvider:

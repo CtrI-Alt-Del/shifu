@@ -3,8 +3,8 @@ from unittest.mock import Mock, create_autospec
 
 from shifu.intelligence.core.domain.entities import (
     MentorMessage,
-    MentorSession,
     MentorResponseAttempt,
+    MentorSession,
 )
 from shifu.intelligence.core.domain.enums import MentorMessageRole, MentorResponseStatus
 from shifu.intelligence.core.domain.structures import (
@@ -14,17 +14,18 @@ from shifu.intelligence.core.domain.structures import (
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
+    MentorMessagesRepository,
     MentorResponseAttemptsRepository,
     MentorResponseEventsRepository,
-    MentorMessagesRepository,
     MentorSessionsRepository,
+    MentorSessionSummariesRepository,
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
     ClockProvider,
+    EventsRepository,
     IdentifierProvider,
     MentorAccessProvider,
-    EventsRepository,
 )
 
 
@@ -53,6 +54,7 @@ class MentorResponseTestSetup:
             ('mentor_response_events', MentorResponseEventsRepository),
             ('mentor_messages', MentorMessagesRepository),
             ('mentor_sessions', MentorSessionsRepository),
+            ('mentor_session_summaries', MentorSessionSummariesRepository),
             ('events', EventsRepository),
         ]:
             setattr(self.repositories, name, create_autospec(port, instance=True))
@@ -133,8 +135,12 @@ class MentorResponseTestSetup:
         self.repositories.mentor_response_events.next_sequence.return_value = 2
         self.repositories.mentor_messages.find_all.return_value = (self.message,)
         self.repositories.mentor_messages.find_by_id.return_value = self.message
+        self.repositories.mentor_attachments.find_by_message_id.return_value = ()
         self.repositories.mentor_messages.find_response.return_value = None
         self.repositories.mentor_messages.find_many.return_value = MentorMessagesPage(
             items=[self.message], next_cursor=None
         )
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
+        self.repositories.mentor_session_summaries.find_ready.return_value = None
+        self.repositories.mentor_session_summaries.find_failed.return_value = None
+        self.repositories.mentor_session_summaries.find_processing_for_update.return_value = None

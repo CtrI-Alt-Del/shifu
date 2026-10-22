@@ -11,6 +11,7 @@ from shifu.curriculum.core.domain.structures import (
     MaterialSequenceItem,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
+    ReactQuestion,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
@@ -29,6 +30,11 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptInitialFileSnapshot,
     CurriculumJavascriptDependencySnapshot,
     CurriculumJavascriptPermittedCommandSnapshot,
+    CurriculumReactQuestionSnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactDependencySnapshot,
+    CurriculumReactPermittedCommandSnapshot,
+    CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumCodeRubricCriterionSnapshot,
     CurriculumCodeRubricCommentSnapshot,
@@ -197,7 +203,9 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         )
                         possible = (
                             (100,)
-                            if isinstance(question, JavascriptStdinQuestion)
+                            if isinstance(
+                                question, (JavascriptStdinQuestion, ReactQuestion)
+                            )
                             else tuple(
                                 score
                                 for score in (
@@ -218,7 +226,9 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 has_executable_evidence = (
                     all(
                         (
-                            isinstance(question, JavascriptStdinQuestion)
+                            isinstance(
+                                question, (JavascriptStdinQuestion, ReactQuestion)
+                            )
                             or (
                                 isinstance(
                                     question,
@@ -515,6 +525,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             questions: list[
                 CurriculumChoiceQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
+                | CurriculumReactQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
@@ -617,6 +628,71 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                     ),
                                 )
                                 for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                elif isinstance(question, ReactQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    policy = question.additional_file_policy
+                    questions.append(
+                        CurriculumReactQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            initial_files=tuple(
+                                CurriculumReactInitialFileSnapshot(
+                                    path=item.path,
+                                    content=item.content,
+                                    editable=item.editable,
+                                )
+                                for item in question.initial_files
+                            ),
+                            entrypoint=question.entrypoint,
+                            fixed_dependencies=tuple(
+                                CurriculumReactDependencySnapshot(
+                                    name=item.name, version=item.version
+                                )
+                                for item in question.fixed_dependencies
+                            ),
+                            permitted_commands=tuple(
+                                CurriculumReactPermittedCommandSnapshot(
+                                    id=item.id,
+                                    executable=item.executable,
+                                    arguments=item.arguments,
+                                )
+                                for item in question.permitted_commands
+                            ),
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                            additional_file_policy=(
+                                CurriculumReactAdditionalFilePolicySnapshot(
+                                    allowed_directories=policy.allowed_directories,
+                                    allowed_extensions=policy.allowed_extensions,
+                                    max_files=policy.max_files,
+                                )
+                                if policy is not None
+                                else None
                             ),
                         )
                     )

@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths:
-      - 'apps/server/**'
-      - '.github/workflows/server-app-ci.yaml'
-      - '.python-version'
-      - 'pyproject.toml'
+      - "apps/server/**"
+      - ".github/workflows/server-app-ci.yaml"
+      - ".python-version"
+      - "pyproject.toml"
 
 permissions:
   contents: read
@@ -46,7 +46,7 @@ jobs:
       - name: Check types
         run: uv run poe check:types
 
-  lint:
+  lint-check:
     name: Server lint check
     runs-on: ubuntu-latest
     defaults:
@@ -74,7 +74,7 @@ jobs:
       - name: Check lint
         run: uv run poe check:lint
 
-  architecture:
+  architecture-check:
     name: Server architecture check
     runs-on: ubuntu-latest
     defaults:
@@ -101,6 +101,39 @@ jobs:
 
       - name: Check architecture
         run: uv run poe check:architecture
+
+  build:
+    name: Server build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Verify distributions
+        run: |
+          test -f dist/*.tar.gz
+          test -f dist/*.whl
 
   unit-tests:
     name: Server unit tests
@@ -139,49 +172,20 @@ jobs:
       - name: Run unit tests
         run: uv run poe test:unit
 
-  mutation-tooling:
-    name: Server mutation tooling checks
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/server
-    env:
-      REDIS_URL: redis://localhost:6379/0
-      SHIFU_AUTH_AUDIENCE: shifu-api
-      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
-      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
-      SHIFU_EMAIL_FROM: no-reply@shifu.local
-      SHIFU_EMAIL_PROVIDER: smtp
-      SHIFU_SERVER_APP_MODE: local
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          version: 0.11.26
-          enable-cache: true
-          cache-dependency-glob: apps/server/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Check mutation tooling
+      - name: Check coverage tooling
+        if: ${{ !cancelled() }}
         run: >-
           uv run pytest --confcutdir=tests/tooling
-          tests/tooling/test_mutation_launcher.py
-          tests/tooling/test_mutation_report.py
+          tests/tooling/test_check_changed_coverage.py
 
-  integration:
-    name: Server integration checks
+  integration-tests:
+    name: Server integration shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
     services:
       postgres:
         image: pgvector/pgvector:0.8.1-pg17
@@ -205,12 +209,28 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      minio:
+        image: cgr.dev/chainguard/minio
+        command: server --address ":9000" --console-address ":9001" /data
+        env:
+          MINIO_ROOT_USER: shifu-ci
+          MINIO_ROOT_PASSWORD: shifu-ci-secret
+        ports:
+          - 9000:9000
     defaults:
       run:
         working-directory: apps/server
     env:
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
+      AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
       REDIS_URL: redis://localhost:6379/0
+      MENTOR_ATTACHMENT_STORAGE_BUCKET: shifu-mentor-attachments
+      MENTOR_ATTACHMENT_STORAGE_REGION: us-east-1
+      MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL: http://127.0.0.1:9000
+      MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE: path
+      MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY: shifu-ci
+      MENTOR_ATTACHMENT_STORAGE_SECRET_KEY: shifu-ci-secret
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
       SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -218,6 +238,8 @@ jobs:
       SHIFU_EMAIL_FROM: no-reply@shifu.local
       SHIFU_EMAIL_PROVIDER: smtp
       SHIFU_SERVER_APP_MODE: local
+      SHIFU_RUN_REAL_INNGEST_TESTS: "1"
+      SHIFU_RUN_REAL_AGENTOS_TESTS: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -236,6 +258,15 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      - name: Create restricted AgentOS role
+        env:
+          PGPASSWORD: shifu-local
+        run: >-
+          psql "postgresql://shifu:shifu-local@127.0.0.1:54344/shifu"
+          -v runtime_password="${AGENTOS_RUNTIME_ROLE_PASSWORD}"
+          -v database_name=shifu
+          -f scripts/create_agentos_runtime_role.sql
 
       - name: Prepare integration database
         run: uv run poe db:upgrade
@@ -243,11 +274,113 @@ jobs:
       - name: Check Alembic migration drift
         run: uv run alembic check
 
-      - name: Run integration tests
-        run: uv run poe test:integration
+      - name: Prepare pinned local Mentor model
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
+          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
-  inngest-jobs:
-    name: Server real Inngest job tests
+      - name: Wait for private attachment storage
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready" >&2
+          exit 1
+
+      - name: Run integration test shard
+        env:
+          INTEGRATION_SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          mkdir -p test-results/integration
+          mapfile -d '' controller_files < <(
+            find tests -type f \
+              \( -path 'tests/*/server/test_*.py' \
+              -o -path 'tests/*/server/*/test_*.py' \
+              -o -path 'tests/rest/test_*.py' \
+              -o -path 'tests/rest/*/test_*.py' \) -print0 | sort -zu
+          )
+          mapfile -d '' job_files < <(
+            find tests/messaging/inngest/jobs -type f -name 'test_*.py' -print0 \
+              | sort -zu
+          )
+          shard="$INTEGRATION_SHARD"
+          if (( shard < 1 || shard > 4 )); then
+            echo "Invalid integration shard: $shard" >&2
+            exit 2
+          fi
+          if (( ${#controller_files[@]} == 0 || ${#job_files[@]} == 0 )); then
+            echo "Controller/workflow and Inngest job test selections must both be non-empty" >&2
+            exit 1
+          fi
+          controller_report="test-results/integration/controller-collection-${shard}.txt"
+          jobs_report="test-results/integration/jobs-collection-${shard}.txt"
+          uv run pytest --collect-only -q --color=no "${controller_files[@]}" \
+            > "$controller_report"
+          SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest --collect-only -q --color=no "${job_files[@]}" \
+            > "$jobs_report"
+          mapfile -t controller_items < <(
+            grep -E '^tests/.*::' "$controller_report" | sort -u
+          )
+          mapfile -t job_items < <(
+            grep -E '^tests/.*::' "$jobs_report" | sort -u
+          )
+          if (( ${#controller_items[@]} < 4 || ${#job_items[@]} < 4 )); then
+            cat "$controller_report" "$jobs_report"
+            echo "Each integration selection needs at least four collected tests" >&2
+            exit 1
+          fi
+          controller_shard_items=()
+          for index in "${!controller_items[@]}"; do
+            if (( index % 4 == shard - 1 )); then
+              controller_shard_items+=("${controller_items[index]}")
+            fi
+          done
+          job_shard_items=()
+          for index in "${!job_items[@]}"; do
+            if (( index % 4 == shard - 1 )); then
+              job_shard_items+=("${job_items[index]}")
+            fi
+          done
+          printf 'Shard %s/4: %s controller/workflow tests; %s Inngest job tests\n' \
+            "$shard" "${#controller_shard_items[@]}" "${#job_shard_items[@]}"
+          controller_exit=0
+          uv run pytest -s -x -vv \
+            --junitxml="test-results/integration/controllers-shard-${shard}-of-4.xml" \
+            "${controller_shard_items[@]}" || controller_exit=$?
+          jobs_exit=0
+          SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest -s -x -vv \
+            --junitxml="test-results/integration/jobs-shard-${shard}-of-4.xml" \
+            "${job_shard_items[@]}" || jobs_exit=$?
+          if (( controller_exit != 0 || jobs_exit != 0 )); then
+            exit 1
+          fi
+
+      - name: Upload integration reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-integration-shard-${{ matrix.shard }}-of-4
+          path: apps/server/test-results/integration
+          if-no-files-found: warn
+
+  integration-summary:
+    name: Server integration tests
+    if: always()
+    needs: integration-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all four integration shards
+        env:
+          SHARD_RESULT: ${{ needs.integration-tests.result }}
+        run: test "$SHARD_RESULT" = success
+
+  changed-file-coverage:
+    name: Changed Server file coverage
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -272,11 +405,222 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      minio:
+        image: cgr.dev/chainguard/minio
+        command: server --address ":9000" --console-address ":9001" /data
+        env:
+          MINIO_ROOT_USER: shifu-ci
+          MINIO_ROOT_PASSWORD: shifu-ci-secret
+        ports:
+          - 9000:9000
     defaults:
       run:
         working-directory: apps/server
     env:
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
+      AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
+      AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
+      REDIS_URL: redis://localhost:6379/0
+      MENTOR_ATTACHMENT_STORAGE_BUCKET: shifu-mentor-attachments
+      MENTOR_ATTACHMENT_STORAGE_REGION: us-east-1
+      MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL: http://127.0.0.1:9000
+      MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE: path
+      MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY: shifu-ci
+      MENTOR_ATTACHMENT_STORAGE_SECRET_KEY: shifu-ci-secret
+      SHIFU_AUTH_AUDIENCE: shifu-api
+      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
+      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
+      SHIFU_EMAIL_FROM: no-reply@shifu.local
+      SHIFU_EMAIL_PROVIDER: smtp
+      SHIFU_SERVER_APP_MODE: local
+      SHIFU_RUN_REAL_AGENTOS_TESTS: "1"
+      SHIFU_RUN_REAL_INNGEST_TESTS: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.13.5
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          version: 0.11.26
+          enable-cache: true
+          cache-dependency-glob: apps/server/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Create restricted AgentOS role
+        env:
+          PGPASSWORD: shifu-local
+        run: >-
+          psql "postgresql://shifu:shifu-local@127.0.0.1:54344/shifu"
+          -v runtime_password="${AGENTOS_RUNTIME_ROLE_PASSWORD}"
+          -v database_name=shifu
+          -f scripts/create_agentos_runtime_role.sql
+
+      - name: Wait for private attachment storage
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MinIO did not become ready" >&2
+          exit 1
+
+      - name: Prepare pinned local Mentor model
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
+          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
+
+      - name: Run scoped consumer selections with branch coverage
+        run: |
+          uv run coverage erase
+          uv run coverage run --branch --source=src/shifu -m pytest \
+            tests/curriculum/core/domain/test_react_question.py \
+            tests/curriculum/core/domain/test_javascript_stdin_question.py \
+            tests/learning/core/use_cases/test_get_choice_activity_use_case.py \
+            tests/learning/core/use_cases/test_get_choice_attempt_use_case.py \
+            tests/learning/core/use_cases/test_preview_activity_question_feedback_use_case.py \
+            tests/learning/server/controllers/test_get_choice_activity_controller.py \
+            tests/learning/server/controllers/test_get_choice_attempt_controller.py \
+            tests/learning/server/controllers/test_preview_activity_question_feedback_controller.py \
+            tests/rest/controllers/learning/test_search_skill_catalog_controller.py \
+            tests/learning/server/controllers/test_get_goal_detail_controller.py \
+            tests/learning/server/controllers/test_get_material_detail_controller.py \
+            tests/learning/server/controllers/test_get_skill_experience_detail_controller.py \
+            tests/learning/server/controllers/test_get_competency_detail_controller.py \
+            tests/learning/server/controllers/test_get_diagnostic_controller.py \
+            tests/learning/server/controllers/test_start_skill_controller.py \
+            tests/intelligence/server/agentos/test_process_mentor_response_workflow.py \
+            tests/intelligence/server/agentos/test_process_mentor_response_summary.py \
+            tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
+            tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
+            tests/intelligence/server/agentos/test_agentos_runtime_role.py \
+            tests/intelligence/ai/agno/agents/test_mentor_agent_contract_coverage.py \
+            tests/intelligence/ai/agno/workflows/test_mentor_workflow_branches.py \
+            tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
+            tests/intelligence/ai/generative/agno/workflows/test_agno_generate_mentor_title_workflow.py \
+            tests/intelligence/adapters/test_mentor_persistence_adapters.py \
+            tests/intelligence/core/use_cases/test_process_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_get_mentor_session_use_case.py \
+            tests/intelligence/core/use_cases/test_summarize_mentor_session_context_use_case.py \
+            tests/intelligence/core/use_cases/test_get_mentor_session_summary_use_case.py \
+            tests/intelligence/core/use_cases/test_purge_mentor_summaries_for_account_use_case.py \
+            tests/intelligence/core/use_cases/test_list_mentor_sessions_use_case.py \
+            tests/intelligence/core/use_cases/test_rename_mentor_session_use_case.py \
+            tests/intelligence/core/use_cases/test_retry_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_cancel_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_read_mentor_response_events_use_case.py \
+            tests/intelligence/core/use_cases/test_prepare_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_publish_mentor_response_block_use_case.py \
+            tests/intelligence/core/use_cases/test_finalize_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_assert_mentor_response_current_use_case.py \
+            tests/intelligence/core/use_cases/test_renew_mentor_response_claim_use_case.py \
+            tests/intelligence/core/use_cases/test_release_mentor_response_claim_use_case.py \
+            tests/intelligence/core/use_cases/test_fail_mentor_response_use_case.py \
+            tests/intelligence/core/use_cases/test_record_mentor_inference_usage_use_case.py \
+            tests/learning/core/use_cases/test_prepare_code_activity_evaluation_use_case.py \
+            tests/learning/core/use_cases/test_fail_code_activity_evaluation_use_case.py \
+            tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py \
+            tests/learning/messaging/test_learning_inngest_messaging.py \
+            tests/learning/server/agentos/test_learning_code_evaluation_workflow.py \
+            tests/learning/server/controllers/test_adaptive_journey_controller.py::TestAdaptiveLabSeed::test_should_exercise_two_competencies_and_persist_progress \
+            tests/learning/server/controllers/test_activity_payload_limit_middleware.py \
+            tests/learning/server/controllers/test_learning_pipe_dependencies.py \
+            tests/intelligence/core/use_cases/test_upload_mentor_attachment_use_case.py \
+            tests/intelligence/core/use_cases/test_prepare_mentor_attachment_use_case.py \
+            tests/intelligence/core/use_cases/test_complete_mentor_attachment_use_case.py \
+            tests/intelligence/core/use_cases/test_mentor_attachment_access_use_cases.py \
+            tests/intelligence/core/use_cases/test_fail_mentor_attachment_use_case.py \
+            tests/intelligence/core/use_cases/test_renew_mentor_attachment_claim_use_case.py \
+            tests/intelligence/core/use_cases/test_release_mentor_attachment_claim_use_case.py \
+            tests/intelligence/core/use_cases/test_purge_mentor_attachments_use_case.py \
+            tests/intelligence/core/use_cases/test_create_mentor_session_use_case.py \
+            tests/intelligence/core/use_cases/test_submit_mentor_message_use_case.py \
+            tests/intelligence/core/use_cases/test_remove_mentor_session_use_case.py \
+            tests/intelligence/rest/controllers/test_mentor_attachments_controller.py \
+            tests/intelligence/rest/controllers/test_mentor_session_routes_coverage.py \
+            tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
+            tests/intelligence/server/controllers/test_submit_mentor_message_controller.py \
+            tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
+            tests/intelligence/server/controllers/test_get_mentor_session_summary_controller.py \
+            tests/intelligence/server/controllers/test_list_mentor_sessions_controller.py \
+            tests/intelligence/server/controllers/test_mentor_runtime_composition_controller.py \
+            tests/intelligence/server/controllers/test_remove_mentor_session_controller.py \
+            tests/intelligence/server/controllers/test_rename_mentor_session_controller.py \
+            tests/intelligence/server/controllers/test_cancel_mentor_response_controller.py \
+            tests/intelligence/server/controllers/test_retry_mentor_response_controller.py \
+            tests/intelligence/server/controllers/test_stream_mentor_response_controller.py \
+            tests/intelligence/server/agentos/test_mentor_attachment_workflow_boundaries.py \
+            tests/intelligence/providers/test_local_mentor_attachment_extractor_provider.py \
+            tests/intelligence/ai/test_eval_factories.py \
+            tests/intelligence/ai/test_intelligence_workflows_registry.py \
+            tests/intelligence/core/domain/test_mentor_attachment_domain.py \
+            tests/shared/database/sqlalchemy/repositories/test_events_repository.py \
+            tests/shared/messaging/agentos/test_agentos_runtime.py \
+            tests/learning/core/use_cases/test_submit_choice_activity_use_case.py \
+            tests/learning/server/controllers/test_submit_choice_activity_controller.py \
+            tests/intelligence/core/use_cases/test_record_mentor_response_progress_use_case.py \
+            tests/intelligence/core/use_cases/test_remove_mentor_attachment_use_case.py \
+            tests/intelligence/rest/test_attachment_request_boundaries.py \
+            tests/intelligence/server/controllers/test_mentor_attachment_storage_http_boundary.py \
+            tests/intelligence/server/controllers/test_mentor_attachments_controller.py \
+            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
+            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_summaries_on_account_deleted_job.py \
+            tests/rest/handlers/test_app_error_handler.py \
+            tests/shared/messaging/agentos/test_agentos_client.py \
+            tests/shared/messaging/agentos/test_agentos_handoff_store.py \
+            tests/intelligence/server/agentos/test_agent_monitoring_workflow.py \
+            tests/shared/messaging/test_outbox_brokers.py \
+            tests/shared/test_settings.py \
+            tests/shared/providers/test_s3_file_storage_provider.py
+
+          uv run coverage combine
+
+      - name: Generate per-file coverage report
+        run: uv run coverage json -o coverage.json
+
+      - name: Enforce thresholds for every changed production file
+        shell: bash
+        run: >-
+          uv run python scripts/check_changed_coverage.py
+          --base origin/main --report coverage.json --data-file .coverage
+          | tee changed-coverage-summary.txt
+
+      - name: Upload changed-file coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: server-changed-file-coverage
+          path: |
+            apps/server/coverage.json
+            apps/server/.coverage
+            apps/server/changed-coverage-summary.txt
+          if-no-files-found: warn
+
+  evals:
+    name: Server real AI evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/server
+    env:
+      SHIFU_RUN_REAL_AI_EVALS: "1"
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_PROMPT_LOGGING_DISABLED: "true"
+      MENTOR_TITLE_PROMPT_LOGGING_DISABLED: "true"
       REDIS_URL: redis://localhost:6379/0
       SHIFU_AUTH_AUDIENCE: shifu-api
       SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
@@ -310,207 +654,13 @@ jobs:
           'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
           SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
-      - name: Run real Inngest job tests
-        run: uv run poe test:jobs
+      - name: Run all real evals
+        run: uv run python evals/run.py --output-dir test-results/evals
 
-  distributions:
-    name: Build and verify server distributions
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/server
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          version: 0.11.26
-          enable-cache: true
-          cache-dependency-glob: apps/server/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Build distributions
-        run: uv build
-
-      - name: Verify distributions
-        run: |
-          test -f dist/*.tar.gz
-          test -f dist/*.whl
-
-  verify:
-    name: Verify server application
-    if: always()
-    needs:
-      - type-check
-      - lint
-      - architecture
-      - unit-tests
-      - mutation-tooling
-      - integration
-      - inngest-jobs
-      - distributions
-      - mutation
-      - mutation-summary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require all server checks to pass
-        env:
-          TYPE_CHECK_RESULT: ${{ needs.type-check.result }}
-          LINT_RESULT: ${{ needs.lint.result }}
-          ARCHITECTURE_RESULT: ${{ needs.architecture.result }}
-          UNIT_TESTS_RESULT: ${{ needs.unit-tests.result }}
-          MUTATION_TOOLING_RESULT: ${{ needs.mutation-tooling.result }}
-          INTEGRATION_RESULT: ${{ needs.integration.result }}
-          INNGEST_JOBS_RESULT: ${{ needs.inngest-jobs.result }}
-          DISTRIBUTIONS_RESULT: ${{ needs.distributions.result }}
-          MUTATION_RESULT: ${{ needs.mutation.result }}
-          MUTATION_SUMMARY_RESULT: ${{ needs.mutation-summary.result }}
-        run: |
-          results=(
-            "$TYPE_CHECK_RESULT"
-            "$LINT_RESULT"
-            "$ARCHITECTURE_RESULT"
-            "$UNIT_TESTS_RESULT"
-            "$MUTATION_TOOLING_RESULT"
-            "$INTEGRATION_RESULT"
-            "$INNGEST_JOBS_RESULT"
-            "$DISTRIBUTIONS_RESULT"
-            "$MUTATION_RESULT"
-            "$MUTATION_SUMMARY_RESULT"
-          )
-          for result in "${results[@]}"; do
-            if [[ "$result" != "success" ]]; then
-              echo "A required server check finished with result: $result"
-              exit 1
-            fi
-          done
-
-  mutation:
-    name: Use-case mutation shard ${{ matrix.shard }}/12
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      max-parallel: 12
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    defaults:
-      run:
-        working-directory: apps/server
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          version: 0.11.26
-          enable-cache: true
-          cache-dependency-glob: apps/server/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Run use-case mutation tests
-        run: uv run poe test:mutation --all --core --shard ${{ matrix.shard }}/12
-
-      - name: Upload mutation report
+      - name: Upload eval reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: server-mutation-shard-${{ matrix.shard }}-of-12
-          path: apps/server/test-results/mutation/shard-${{ matrix.shard }}-of-12
+          name: server-evals
+          path: apps/server/test-results/evals
           if-no-files-found: error
-
-  mutation-summary:
-    name: Check mutation scores and summarize
-    if: always()
-    needs: mutation
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Identify changed core use-case sources
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: |
-          git diff --name-only --diff-filter=ACMRT \
-            "$BASE_SHA...$HEAD_SHA" -- apps/server/src/shifu \
-            > "$CHANGED_FILES"
-
-      - name: Download mutation shard reports
-        if: always()
-        continue-on-error: true
-        uses: actions/download-artifact@v8
-        with:
-          pattern: server-mutation-shard-*-of-12
-          path: ${{ runner.temp }}/mutation-reports
-          merge-multiple: false
-
-      - name: Build mutation summary
-        id: report
-        if: always()
-        env:
-          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
-          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
-          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: >-
-          python apps/server/scripts/summarize_mutation_reports.py
-          --reports-dir "$REPORTS_DIR"
-          --expected-shards 12
-          --mutation-result "$MUTATION_JOB_RESULT"
-          --thresholds apps/server/scripts/mutation_score_thresholds.json
-          --changed-files "$CHANGED_FILES"
-          --output "$REPORT_PATH"
-
-      - name: Upload mutation summary
-        if: always() && steps.report.outcome == 'success'
-        uses: actions/upload-artifact@v6
-        with:
-          name: server-mutation-summary
-          path: ${{ runner.temp }}/mutation-summary.md
-          if-no-files-found: error
-
-      - name: Enforce per-module mutation score thresholds
-        if: always() && steps.report.outcome == 'success'
-        env:
-          MUTATION_JOB_RESULT: ${{ needs.mutation.result }}
-          REPORTS_DIR: ${{ runner.temp }}/mutation-reports
-          REPORT_PATH: ${{ runner.temp }}/mutation-summary.md
-          CHANGED_FILES: ${{ runner.temp }}/changed-files.txt
-        run: >-
-          python apps/server/scripts/summarize_mutation_reports.py
-          --reports-dir "$REPORTS_DIR"
-          --expected-shards 12
-          --mutation-result "$MUTATION_JOB_RESULT"
-          --thresholds apps/server/scripts/mutation_score_thresholds.json
-          --changed-files "$CHANGED_FILES"
-          --output "$REPORT_PATH"
-          --enforce

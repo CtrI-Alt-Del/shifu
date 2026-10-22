@@ -50,9 +50,15 @@ class CriterionResponse(BaseModel):
     weight_percentage: int
 
 
+class AdditionalFilePolicyResponse(BaseModel):
+    allowed_directories: tuple[str, ...]
+    allowed_extensions: tuple[str, ...]
+    max_files: int
+
+
 class CodeQuestionResponse(BaseModel):
     key: str
-    kind: Literal['javascript_stdin']
+    kind: Literal['javascript_stdin', 'react']
     prompt: str
     initial_files: tuple[FileResponse, ...]
     entrypoint: str
@@ -60,6 +66,7 @@ class CodeQuestionResponse(BaseModel):
     fixed_dependencies: tuple[DependencyResponse, ...]
     permitted_commands: tuple[CommandResponse, ...]
     criteria: tuple[CriterionResponse, ...]
+    additional_file_policy: AdditionalFilePolicyResponse | None = None
 
 
 class Response(BaseModel):

@@ -24,6 +24,9 @@ from shifu.intelligence.core.interfaces.mentor_embeddings_repository import (
 from shifu.intelligence.core.interfaces.mentor_faq_reranker_provider import (
     MentorFaqRerankerProvider,
 )
+from shifu.intelligence.core.interfaces.mentor_telemetry_provider import (
+    MentorTelemetryProvider,
+)
 from shifu.intelligence.providers.intent_classification.embeddings.embeddings_mentor_intent_classifier_provider import (
     EmbeddingsMentorIntentClassifierProvider,
 )
@@ -49,6 +52,8 @@ class LocalMentorRouteProvider:
         r'(?:eu\s+)?tenho\s+(?:uma\s+)?d[uú]vida\s*[,!:]\s*)(?=\S)',
         re.IGNORECASE,
     )
+    _ELLIPTICAL_MAX_CONTENT_TOKENS: ClassVar[int] = 6
+    _EXPANSION_TOPIC_LIMIT: ClassVar[int] = 3
     _FACTS: ClassVar[dict[MentorIntent, tuple[tuple[str, str], ...]]] = {
         MentorIntent.CONSULT_PROGRESS: (
             ('progress_summary', 'Progresso'),
@@ -70,7 +75,7 @@ class LocalMentorRouteProvider:
     _resources: MentorResources
     _classifier: EmbeddingsMentorIntentClassifierProvider
     _retrieval: Bm25MentorHybridRetrievalProvider
-    _telemetry: LangfuseMentorTelemetryProvider
+    _telemetry: MentorTelemetryProvider
     _catalog: MentorCatalogProvider | None
     _preprocessor: SpacyMentorTextPreprocessorProvider
 
@@ -80,7 +85,7 @@ class LocalMentorRouteProvider:
         repository: MentorEmbeddingsRepository,
         preprocessor: SpacyMentorTextPreprocessorProvider,
         resources: MentorResources,
-        telemetry: LangfuseMentorTelemetryProvider | None = None,
+        telemetry: MentorTelemetryProvider | None = None,
         catalog_provider: MentorCatalogProvider | None = None,
         reranker_provider: MentorFaqRerankerProvider | None = None,
     ) -> None:
@@ -96,9 +101,16 @@ class LocalMentorRouteProvider:
             repository, preprocessor, resources, reranker_provider
         )
 
-    def route(self, content: str, context: MentorContextSnapshot) -> MentorRouteResult:
+    def route(
+        self,
+        content: str,
+        context: MentorContextSnapshot,
+        topics: tuple[str, ...] = (),
+    ) -> MentorRouteResult:
         started = perf_counter()
-        matches, answer_ids, generation, block_matches = self._semantic(content)
+        matches, answer_ids, generation, block_matches, expanded = self._semantic(
+            content, topics
+        )
         proposed: tuple[str, ...] = ()
         if self._catalog is not None and context.eligible_references:
             try:
@@ -144,30 +156,32 @@ class LocalMentorRouteProvider:
             correlation_id=str(uuid4()),
             profile='local',
             duration_ms=(perf_counter() - started) * 1000,
-            counts={'blocks': len(blocks)},
+            counts={'blocks': len(blocks), 'expanded': expanded},
             outcome='passed',
         )
         return MentorRouteResult(
             intents=tuple(matches.values()),
             local_blocks=tuple(blocks),
-            generation_requests=(),
+            generation_requests=generation,
             clarification=clarification,
             proposed_reference_ids=proposed,
         )
 
     def _semantic(
-        self, content: str
+        self, content: str, topics: tuple[str, ...]
     ) -> tuple[
         dict[MentorIntent, MentorIntentMatch],
         list[str],
         tuple[str, ...],
         dict[MentorIntent, MentorIntentMatch],
+        int,
     ]:
         parts = self._parts(content)
         matches: dict[MentorIntent, MentorIntentMatch] = {}
         answer_ids: list[str] = []
         generation: list[str] = []
         block_matches: dict[MentorIntent, MentorIntentMatch] = {}
+        expanded = 0
         try:
             with self._telemetry.scope('classify'):
                 vectors = self._embeddings.embed_queries(
@@ -187,18 +201,60 @@ class LocalMentorRouteProvider:
                     references = self._retrieval.retrieve(
                         self._semantic_query(part), vector
                     )
+                    if not references and topics and self._is_elliptical(part):
+                        # One guarded retry; the retrieval gates are unchanged.
+                        expanded += 1
+                        references = self._retrieve_with_topics(part, vector, topics)
                 answer_ids.extend(references)
                 if not references:
                     self._merge_matches(block_matches, labels)
                 if self._requires_generation(labels, references):
                     generation.append(part)
         except ServiceUnavailableError:
-            return {}, [], (content,), {}
+            return {}, [], (content,), {}, expanded
         return (
             matches,
             list(dict.fromkeys(answer_ids)),
             tuple(dict.fromkeys(generation)),
             block_matches,
+            expanded,
+        )
+
+    def _is_elliptical(self, part: str) -> bool:
+        return (
+            len(self._preprocessor.tokenize(part))
+            <= self._ELLIPTICAL_MAX_CONTENT_TOKENS
+            or self._preprocessor.has_unresolved_reference(part)
+        )
+
+    def _retrieve_with_topics(
+        self,
+        part: str,
+        part_vector: tuple[float, ...],
+        topics: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        unique_topics = tuple(dict.fromkeys(topic for topic in topics if topic.strip()))
+        if not unique_topics:
+            return ()
+        topic_vectors = self._embeddings.embed_passages(unique_topics)
+        ranked = sorted(
+            range(len(unique_topics)),
+            key=lambda index: (
+                -sum(
+                    left * right
+                    for left, right in zip(
+                        part_vector, topic_vectors[index], strict=True
+                    )
+                ),
+                index,
+            ),
+        )[: self._EXPANSION_TOPIC_LIMIT]
+        expanded_part = ' '.join((part, *(unique_topics[index] for index in ranked)))
+        expanded_vector = self._embeddings.embed_queries(
+            (self._semantic_query(expanded_part),)
+        )[0]
+        return self._retrieval.retrieve(
+            self._semantic_query(expanded_part), expanded_vector
         )
 
     @staticmethod

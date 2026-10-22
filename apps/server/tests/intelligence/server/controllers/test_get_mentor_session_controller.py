@@ -19,6 +19,19 @@ from tests.intelligence.server.controllers.conftest import (
     MENTOR_ACCOUNT,
     configure_mentor_access,
 )
+from tests.intelligence.server.controllers.mentor_response_scenarios import (
+    append_status,
+    create_session,
+    start_processing,
+)
+from tests.intelligence.server.controllers.mentor_summary_scenarios import (
+    seed_exchanges,
+    seed_summary,
+)
+from shifu.intelligence.core.domain.enums import (
+    MentorSummaryFailureCode,
+    MentorWorkflowStep,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -308,3 +321,77 @@ class TestGetMentorSessionController:
             (item['id'], item['role'], item['content'])
             for item in body['messages']['items']
         ] == [(learner_id, 'learner', question), (reply_id, 'mentor', answer)]
+
+
+class TestGetMentorSessionControllerSummaryState:
+    def test_should_return_an_empty_summary_state_without_summaries(
+        self, mentor_client: TestClient
+    ) -> None:
+        session_id, _, _ = create_session(mentor_client)
+
+        body = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}').json()
+
+        assert body['summary'] == {'current': None, 'failure_after_message_id': None}
+
+    def test_should_expose_the_ready_marker_without_content_or_offsets(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, attempt_id, learner_id = create_session(mentor_client)
+        messages = seed_exchanges(postgres_database, session_id, 3)
+        summary = seed_summary(
+            postgres_database, session_id, attempt_id, messages, version=2
+        )
+
+        response = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
+
+        assert response.status_code == 200
+        current = response.json()['summary']['current']
+        assert current == {
+            'version': 2,
+            'boundary_message_id': messages[-1].id,
+            'covered_message_count': 6,
+            'completed_at': summary.completed_at.isoformat().replace('+00:00', 'Z')
+            if summary.completed_at
+            else None,
+            'after_message_id': learner_id,
+        }
+        assert response.json()['summary']['failure_after_message_id'] is None
+        for hidden in ('excerpts', 'topics', 'start', 'algorithm_version'):
+            assert hidden not in response.json()['summary']['current']
+
+    def test_should_anchor_the_failure_notice_after_the_failed_attempts_learner_message(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, attempt_id, learner_id = create_session(mentor_client)
+        messages = seed_exchanges(postgres_database, session_id, 2)
+        seed_summary(
+            postgres_database,
+            session_id,
+            attempt_id,
+            messages,
+            failure=MentorSummaryFailureCode.NLP_UNAVAILABLE,
+        )
+
+        body = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}').json()
+
+        assert body['summary'] == {
+            'current': None,
+            'failure_after_message_id': learner_id,
+        }
+
+    def test_should_report_progress_of_the_latest_status_event_including_null(
+        self, mentor_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session_id, attempt_id, _ = create_session(mentor_client)
+        start_processing(postgres_database, attempt_id)
+        path = f'/intelligence/mentor-sessions/{session_id}'
+
+        expected = [
+            (MentorWorkflowStep.SUMMARIZE_CONTEXT, 'summarize-context'),
+            (None, None),
+            (MentorWorkflowStep.WRITE_ANSWER, 'write-answer'),
+            (MentorWorkflowStep.REVIEW_ANSWER, 'review-answer'),
+        ]
+        for step, progress in expected:
+            append_status(postgres_database, session_id, attempt_id, step)
+            assert mentor_client.get(path).json()['response']['progress'] == progress
