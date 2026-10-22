@@ -63,4 +63,70 @@ describe('ConsoleTelemetryProvider', () => {
       'app.version.reported',
     )
   })
+
+  it('ignores malformed events and keeps emission best effort', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const provider = new ConsoleTelemetryProvider({
+      environment: 'local',
+      logLevel: 'DEBUG',
+      version: 'test-version',
+    })
+
+    provider.emit({ level: 'INVALID', event: 'app.version.reported' } as never)
+    provider.emit({ level: 'INFO', event: 'invalid.event' } as never)
+
+    log.mockImplementationOnce(() => {
+      throw new Error('console unavailable')
+    })
+    provider.emit({ level: 'INFO', event: 'app.version.reported' })
+
+    expect(log).toHaveBeenCalledTimes(1)
+  })
+
+  it('accepts the complete allowlisted field set and drops invalid values', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const provider = new ConsoleTelemetryProvider({
+      environment: 'local',
+      logLevel: 'DEBUG',
+      version: 'test-version',
+    })
+
+    provider.emit({
+      level: 'INFO',
+      event: 'http.request.completed',
+      request_id: '11111111-1111-4111-8111-111111111111',
+      run_id: 'run-1',
+      event_id: 'event-1',
+      method: 'GET',
+      route: 'unmatched',
+      status_code: 200,
+      duration_ms: 1.5,
+      operation: 'http.request',
+      integration: 'openrouter',
+      dependency: 'better-auth',
+      result: 'success',
+      attempt: 1,
+      error_code: 'internal_error',
+      exception_type: 'Error',
+      stack_trace: [{ file: 'server.ts', line: 1, function: 'handler' }],
+    })
+    provider.emit({
+      level: 'INFO',
+      event: 'http.request.completed',
+      request_id: 'not-a-uuid',
+      run_id: 'bad value',
+      event_id: 'bad value',
+      method: 'get',
+      route: 'not-a-route',
+      status_code: 99,
+      duration_ms: -1,
+      operation: 'not-allowed',
+      result: 'not-allowed',
+      attempt: 0,
+      exception_type: 'bad value',
+      stack_trace: [{ file: 'bad file.ts' }],
+    } as never)
+
+    expect(log).toHaveBeenCalledTimes(2)
+  })
 })

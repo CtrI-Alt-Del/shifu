@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url))
 const webDirectory = path.resolve(scriptDirectory, '..')
 const repositoryDirectory = path.resolve(webDirectory, '../..')
-const defaultReportPath = path.join(webDirectory, 'coverage', 'coverage-summary.json')
+const defaultReportPath = path.join(webDirectory, 'coverage', 'coverage-final.json')
 const thresholds = {
   lines: 85,
   statements: 85,
@@ -18,6 +18,20 @@ const metricNames = Object.keys(thresholds) as (keyof typeof thresholds)[]
 type MetricName = keyof typeof thresholds
 type CoverageMetric = { total: number; covered: number }
 type Arguments = { base?: string; files?: string[]; reportPath: string }
+type LineRange = { start: number; end: number }
+type CoverageLocation = { start: { line: number }; end: { line: number } }
+type CoverageEntry = {
+  statementMap?: Record<string, CoverageLocation>
+  s?: Record<string, number>
+  fnMap?: Record<
+    string,
+    { decl?: CoverageLocation; loc?: CoverageLocation; location?: CoverageLocation }
+  >
+  f?: Record<string, number>
+  branchMap?: Record<string, { locations?: CoverageLocation[]; loc?: CoverageLocation }>
+  b?: Record<string, number[]>
+  l?: Record<string, number>
+}
 
 function fail(message: string): never {
   console.error(`Coverage check failed: ${message}`)
@@ -84,6 +98,41 @@ function changedFiles(base: string): string[] {
   }
 }
 
+function changedLineRanges(base: string | undefined, filePath: string): LineRange[] {
+  if (base === undefined) {
+    return [{ start: 1, end: Number.MAX_SAFE_INTEGER }]
+  }
+
+  try {
+    return execFileSync(
+      'git',
+      [
+        'diff',
+        '--unified=0',
+        '--no-color',
+        '--diff-filter=ACMR',
+        `${base}...HEAD`,
+        '--',
+        filePath,
+      ],
+      { cwd: repositoryDirectory, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+      .split(/\r?\n/)
+      .flatMap((line): LineRange[] => {
+        const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line)
+        if (!match) return []
+        const start = Number(match[1])
+        const count = Number(match[2] ?? 1)
+        return count > 0 ? [{ start, end: start + count - 1 }] : []
+      })
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error)
+    fail(
+      `could not discover changed lines from ${base}...HEAD for ${filePath}${detail ? `: ${detail}` : ''}`,
+    )
+  }
+}
+
 function repositoryPath(input: string): string | null {
   const normalizedInput = input.replaceAll('\\', '/')
   const absolutePath = path.isAbsolute(normalizedInput)
@@ -115,7 +164,7 @@ function isEligibleProductionFile(input: string): boolean {
   )
 }
 
-function loadCoverageReport(reportPath: string): Map<string, unknown> {
+function loadCoverageReport(reportPath: string): Map<string, CoverageEntry> {
   if (!existsSync(reportPath)) fail(`coverage summary does not exist: ${reportPath}`)
 
   let summary: Record<string, unknown>
@@ -131,7 +180,7 @@ function loadCoverageReport(reportPath: string): Map<string, unknown> {
     )
   }
 
-  const byRepositoryPath = new Map<string, unknown>()
+  const byRepositoryPath = new Map<string, CoverageEntry>()
   for (const [reportedPath, entry] of Object.entries(summary)) {
     if (reportedPath === 'total') continue
     const relativePath = repositoryPath(reportedPath)
@@ -139,36 +188,88 @@ function loadCoverageReport(reportPath: string): Map<string, unknown> {
     if (byRepositoryPath.has(relativePath)) {
       fail(`coverage summary contains more than one entry for ${relativePath}`)
     }
-    byRepositoryPath.set(relativePath, entry)
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      fail(`${relativePath}: coverage entry must be an object`)
+    }
+    byRepositoryPath.set(relativePath, entry as CoverageEntry)
   }
   return byRepositoryPath
 }
 
-function readMetric(
-  entry: unknown,
+function overlaps(location: CoverageLocation | undefined, ranges: LineRange[]): boolean {
+  if (!location) return false
+  return ranges.some(
+    (range) => location.start.line <= range.end && location.end.line >= range.start,
+  )
+}
+
+function metricForChangedLines(
+  entry: CoverageEntry,
   filePath: string,
   metricName: MetricName,
+  ranges: LineRange[],
 ): CoverageMetric {
-  const coverageEntry =
-    entry && typeof entry === 'object' && !Array.isArray(entry)
-      ? (entry as Record<string, unknown>)
-      : undefined
-  const metric = coverageEntry?.[metricName]
-  const metricEntry =
-    metric && typeof metric === 'object' && !Array.isArray(metric)
-      ? (metric as Record<string, unknown>)
-      : undefined
-  if (
-    !metricEntry ||
-    !Number.isInteger(metricEntry.total) ||
-    !Number.isInteger(metricEntry.covered) ||
-    (metricEntry.total as number) < 0 ||
-    (metricEntry.covered as number) < 0 ||
-    (metricEntry.covered as number) > (metricEntry.total as number)
-  ) {
-    fail(`${filePath}: ${metricName} metric is missing or incomplete`)
+  if (metricName === 'lines') {
+    if (!entry.statementMap || !entry.s) {
+      fail(`${filePath}: line coverage data is missing`)
+    }
+    const lineCoverage = new Map<number, number>()
+    for (const [id, location] of Object.entries(entry.statementMap)) {
+      const line = location.start.line
+      lineCoverage.set(line, Math.max(lineCoverage.get(line) ?? 0, entry.s[id] ?? 0))
+    }
+    const changedLines = [...lineCoverage].filter(([line]) =>
+      ranges.some((range) => line >= range.start && line <= range.end),
+    )
+    return {
+      total: changedLines.length,
+      covered: changedLines.filter(([, count]) => count > 0).length,
+    }
   }
-  return { total: metricEntry.total as number, covered: metricEntry.covered as number }
+
+  if (metricName === 'statements') {
+    if (!entry.statementMap || !entry.s) {
+      fail(`${filePath}: statement coverage data is missing`)
+    }
+    const changedStatements = Object.entries(entry.s).filter(([id]) =>
+      overlaps(entry.statementMap?.[id], ranges),
+    )
+    return {
+      total: changedStatements.length,
+      covered: changedStatements.filter(([, count]) => count > 0).length,
+    }
+  }
+
+  if (metricName === 'functions') {
+    if (!entry.fnMap || !entry.f) fail(`${filePath}: function coverage data is missing`)
+    const changedFunctions = Object.entries(entry.f).filter(([id]) =>
+      overlaps(
+        entry.fnMap?.[id]?.decl ?? entry.fnMap?.[id]?.loc ?? entry.fnMap?.[id]?.location,
+        ranges,
+      ),
+    )
+    return {
+      total: changedFunctions.length,
+      covered: changedFunctions.filter(([, count]) => count > 0).length,
+    }
+  }
+
+  if (!entry.branchMap || !entry.b) fail(`${filePath}: branch coverage data is missing`)
+  const changedBranches = Object.entries(entry.b).flatMap(([id, counts]) => {
+    const locations = entry.branchMap?.[id]?.locations
+    const location = entry.branchMap?.[id]?.loc
+    return counts.map((count, index) => ({
+      count,
+      location: locations?.[index] ?? location,
+    }))
+  })
+  const relevantBranches = changedBranches.filter(({ location }) =>
+    overlaps(location, ranges),
+  )
+  return {
+    total: relevantBranches.length,
+    covered: relevantBranches.filter(({ count }) => count > 0).length,
+  }
 }
 
 function metricResult(
@@ -207,14 +308,15 @@ function main() {
 
   for (const filePath of changed) {
     const entry = coverage.get(filePath)
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    if (!entry) {
       console.error(`FAIL ${filePath}: missing from coverage summary`)
       failedFiles += 1
       continue
     }
 
+    const ranges = changedLineRanges(base, filePath)
     const results = metricNames.map((metricName) => {
-      const metric = readMetric(entry, filePath, metricName)
+      const metric = metricForChangedLines(entry, filePath, metricName, ranges)
       return metricResult(metricName, metric)
     })
     const passed = results.every((result) => result.passed)
@@ -230,7 +332,7 @@ function main() {
     )
   }
   console.log(
-    `Passed per-file coverage thresholds for ${changed.length} changed eligible Web source file(s).`,
+    `Passed coverage thresholds for changed executable items in ${changed.length} eligible Web source file(s).`,
   )
 }
 

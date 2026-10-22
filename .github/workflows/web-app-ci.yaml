@@ -215,6 +215,8 @@ jobs:
           src/ui/learning/widgets/pages/competency-detail-page/tests
           src/ui/learning/widgets/layouts/goals-list-section/tests
           src/ui/learning/widgets/sections/add-skill-catalog-section/tests
+          src/ui/gamification/widgets/pages/gamification-page/tests
+          src/ui/gamification/widgets/pages/gamification-page/calendar-tab-panel/tests
           src/ui/identity/widgets/pages/account-page/tests
           src/ui/identity/widgets/pages/privacy-policy-page/tests
           src/ui/identity/widgets/pages/sign-in-page/tests/sign-in-page.test.tsx
@@ -226,6 +228,7 @@ jobs:
         run: >-
           node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts
           --base origin/main
+          --report apps/web/coverage/coverage-final.json
           | tee apps/web/coverage/changed-coverage-summary.txt
 
       - name: Upload changed-file coverage report
@@ -235,6 +238,7 @@ jobs:
           name: web-changed-file-coverage
           path: |
             apps/web/coverage/coverage-summary.json
+            apps/web/coverage/coverage-final.json
             apps/web/coverage/changed-coverage-summary.txt
           if-no-files-found: warn
 

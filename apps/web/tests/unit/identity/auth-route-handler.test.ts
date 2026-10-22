@@ -80,4 +80,27 @@ describe('Better Auth API route handler', () => {
     expect(response.status).toBe(404)
     expect(auth.handler).not.toHaveBeenCalled()
   })
+
+  it('falls back to the request header when the telemetry context is absent', async () => {
+    const request = new Request('http://localhost:7000/api/auth/get-session', {
+      headers: { 'X-Request-ID': context.requestId },
+    })
+
+    await getHandlers().GET({ request, context: undefined as never })
+
+    const forwardedRequest = auth.handler.mock.calls[0]?.[0] as Request
+    expect(forwardedRequest.headers.get('X-Request-ID')).toBe(context.requestId)
+  })
+
+  it('generates a request ID when neither context nor request header supplies one', async () => {
+    await getHandlers().GET({
+      request: new Request('http://localhost:7000/api/auth/get-session'),
+      context: undefined as never,
+    })
+
+    const forwardedRequest = auth.handler.mock.calls[0]?.[0] as Request
+    expect(forwardedRequest.headers.get('X-Request-ID')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    )
+  })
 })

@@ -80,7 +80,8 @@ class LogMainPageEnteredJob:
             )
             await context.step.run(
                 'log_main_page_entered',
-                lambda: LogMainPageEnteredJob._log_payload(normalized_data),
+                LogMainPageEnteredJob._log_payload,
+                normalized_data,
             )
 
         return _

@@ -337,7 +337,9 @@ def agentos_fixture(
         settings: Settings,
         *,
         profile: Literal['primary', 'fallback', 'reviewer', 'vision'] = 'primary',
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> MentorOpenAIChat | None:
+        del telemetry_provider
         model = original_build(settings, profile=profile)
         if model is None:
             raise AssertionError(

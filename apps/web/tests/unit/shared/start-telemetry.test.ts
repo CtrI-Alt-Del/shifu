@@ -15,6 +15,7 @@ import {
   requestTelemetryMiddleware,
   sanitizeErrorStack,
   serverFunctionTelemetryMiddleware,
+  startInstance,
 } from '@/start'
 
 type RequestMiddleware = {
@@ -69,6 +70,38 @@ describe('Web request telemetry boundary', () => {
     )
   })
 
+  it('classifies client and server response statuses at the request boundary', async () => {
+    const request = new Request('http://localhost:7000/learning', {
+      method: 'GET',
+    })
+
+    await requestHandler({
+      request,
+      next: async () => ({ response: new Response(null, { status: 404 }) }),
+    })
+    await requestHandler({
+      request,
+      next: async () => ({ response: new Response(null, { status: 503 }) }),
+    })
+
+    expect(telemetry.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'http.request.failed',
+        level: 'WARNING',
+        status_code: 404,
+        result: 'failure',
+      }),
+    )
+    expect(telemetry.emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'http.request.failed',
+        level: 'ERROR',
+        status_code: 503,
+        result: 'failure',
+      }),
+    )
+  })
+
   it('generates a safe ID and records bounded sanitized frames for unexpected errors', async () => {
     const error = new Error('raw password=secret message')
     error.stack =
@@ -114,6 +147,10 @@ describe('Web request telemetry boundary', () => {
     expect(sanitizeErrorStack(error)).toHaveLength(20)
   })
 
+  it('does not expose stack frames from non-Error failures', () => {
+    expect(sanitizeErrorStack('not-an-error')).toBeUndefined()
+  })
+
   it('forwards function middleware context unchanged', async () => {
     const functionMiddleware = (
       serverFunctionTelemetryMiddleware as unknown as FunctionMiddleware
@@ -124,5 +161,12 @@ describe('Web request telemetry boundary', () => {
     await functionMiddleware({ context, next: next as never })
 
     expect(next).toHaveBeenCalledWith({ context })
+  })
+
+  it('registers both telemetry middleware layers in Start', async () => {
+    const options = await startInstance.getOptions()
+
+    expect(options.requestMiddleware).toEqual([requestTelemetryMiddleware])
+    expect(options.functionMiddleware).toEqual([serverFunctionTelemetryMiddleware])
   })
 })
