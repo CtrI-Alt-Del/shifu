@@ -190,7 +190,7 @@ class GrantXpUseCase:
                     XpOrigin(
                         source=XpSource.ACHIEVEMENT,
                         reference_id=achievement.id,
-                        label=f'Conquista: {achievement.name}',
+                        label=achievement.name,
                     ),
                     earned_id,
                     occurred_at=now,

@@ -5,7 +5,9 @@ from shifu.gamification.core.domain.enums import MilestoneKind, XpSource
 from shifu.gamification.core.domain.structures import XpOrigin
 from shifu.gamification.core.interfaces import GamificationDatabase
 from shifu.gamification.core.use_cases.grant_xp_use_case import GrantXpUseCase
-from shifu.shared.core.interfaces import IdentifierProvider
+from shifu.shared.core.interfaces import CurriculumContentProvider, IdentifierProvider
+
+_FALLBACK_LABEL = 'Competência dominada pela primeira vez'
 
 
 class RecognizeCompetencyMasteredUseCase:
@@ -21,10 +23,12 @@ class RecognizeCompetencyMasteredUseCase:
     def __init__(
         self,
         database: GamificationDatabase,
+        curriculum_content_provider: CurriculumContentProvider,
         identifier_provider: IdentifierProvider,
         grant_xp_use_case: GrantXpUseCase,
     ) -> None:
         self._database = database
+        self._curriculum_content_provider = curriculum_content_provider
         self._identifier_provider = identifier_provider
         self._grant_xp_use_case = grant_xp_use_case
 
@@ -32,6 +36,7 @@ class RecognizeCompetencyMasteredUseCase:
         self,
         account_id: str,
         competency_id: str,
+        skill_id: str,
         skill_experience_id: str,
         *,
         occurred_at: datetime,
@@ -58,7 +63,7 @@ class RecognizeCompetencyMasteredUseCase:
             origin = XpOrigin(
                 source=XpSource.COMPETENCY_MASTERY,
                 reference_id=competency_id,
-                label='Competência dominada pela primeira vez',
+                label=self._competency_name(skill_id, competency_id),
             )
             self._grant_xp_use_case.apply_within_transaction(
                 repositories,
@@ -70,3 +75,18 @@ class RecognizeCompetencyMasteredUseCase:
                 occurred_at=occurred_at,
                 now=now,
             )
+
+    def _competency_name(self, skill_id: str, competency_id: str) -> str:
+        """The Competência's own name, for the readable origin (RP-08).
+
+        Resolved after the idempotency check and never allowed to decide
+        whether XP is granted: an unresolvable subject falls back to the
+        generic sentence so the reward still commits.
+        """
+        skill = self._curriculum_content_provider.get_skill_content(skill_id)
+        if skill is None:
+            return _FALLBACK_LABEL
+        for competency in skill.competencies:
+            if competency.id == competency_id:
+                return competency.name
+        return _FALLBACK_LABEL

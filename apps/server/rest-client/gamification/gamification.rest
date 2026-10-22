@@ -1,6 +1,10 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
 
+### Visão geral tab: level progress, constância and the achievements summary
+GET {{baseUrl}}/gamification/overview
+Authorization: Bearer {{accessToken}}
+
 ### Achievements tab: level, XP and the merged achievement catalog
 GET {{baseUrl}}/gamification/achievements
 Authorization: Bearer {{accessToken}}
@@ -11,4 +15,8 @@ Authorization: Bearer {{accessToken}}
 
 ### Calendário tab: a future month is rejected with 400
 GET {{baseUrl}}/gamification/calendar?year=2099&month=1
+Authorization: Bearer {{accessToken}}
+
+### Histórico de XP tab: every grant for the account, newest concession first
+GET {{baseUrl}}/gamification/xp-history
 Authorization: Bearer {{accessToken}}
