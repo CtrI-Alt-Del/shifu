@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.identity.core.use_cases import SignInUseCase
 from shifu.shared.core.domain.errors import AuthorizationError
 
@@ -13,6 +14,26 @@ if TYPE_CHECKING:
 
 
 class TestSignInController:
+    def test_should_emit_invalid_credentials_telemetry_for_invalid_credentials(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def refuse(_self: SignInUseCase, _credentials: object) -> object:
+            raise InvalidCredentialsError
+
+        monkeypatch.setattr(SignInUseCase, 'execute', refuse)
+
+        response = cast(
+            'Response',
+            client.post(
+                '/identity/sign-in',
+                json={'email': 'learner@example.com', 'password': 'password'},
+            ),
+        )
+
+        assert response.status_code == 401
+
     def test_should_emit_forbidden_telemetry_for_authorization_refusal(
         self,
         client: TestClient,
