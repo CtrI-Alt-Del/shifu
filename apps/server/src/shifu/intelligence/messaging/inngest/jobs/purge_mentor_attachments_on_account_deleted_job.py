@@ -1,11 +1,12 @@
 """Purge private Mentor files after account deletion retention expires."""
 
 import asyncio
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import ClassVar, cast
 
-from inngest import Context, Function, Inngest, TriggerEvent
+from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.intelligence.core.use_cases import PurgeMentorAttachmentsUseCase
@@ -13,6 +14,9 @@ from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
 )
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class _Payload(BaseModel):
@@ -77,11 +81,18 @@ class PurgeMentorAttachmentsOnAccountDeletedJob:
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
-            payload = await context.step.run(
-                'normalize_payload',
-                PurgeMentorAttachmentsOnAccountDeletedJob._normalize_payload,
-                data,
-            )
+            try:
+                payload = await context.step.run(
+                    'normalize_payload',
+                    PurgeMentorAttachmentsOnAccountDeletedJob._normalize_payload,
+                    data,
+                )
+            except NonRetriableError:
+                LOGGER.warning(
+                    'mentor_attachment_account_deletion_payload_rejected event_id=%s',
+                    context.event.id,
+                )
+                raise
             purge_after = datetime.fromisoformat(payload['deleted_at']) + (
                 PurgeMentorAttachmentsOnAccountDeletedJob._RETENTION
             )

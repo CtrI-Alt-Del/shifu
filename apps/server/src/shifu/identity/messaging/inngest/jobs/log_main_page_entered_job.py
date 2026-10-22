@@ -2,6 +2,8 @@
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
+import json
+import logging
 from typing import ClassVar, cast
 
 from inngest import Context, Function, Inngest, TriggerEvent
@@ -11,6 +13,9 @@ from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
     job_lifecycle_telemetry,
 )
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class _Payload(BaseModel):
@@ -73,7 +78,10 @@ class LogMainPageEnteredJob:
                 LogMainPageEnteredJob._normalize_payload,
                 data,
             )
-            del normalized_data
+            await context.step.run(
+                'log_main_page_entered',
+                lambda: LogMainPageEnteredJob._log_payload(normalized_data),
+            )
 
         return _
 
@@ -85,3 +93,16 @@ class LogMainPageEnteredJob:
             'account_id': payload.account_id,
             'occurred_at': payload.occurred_at,
         }
+
+    @staticmethod
+    async def _log_payload(payload: Mapping[str, str]) -> None:
+        log_data = {
+            'event': 'identity.main_page_entered',
+            'event_id': payload['event_id'],
+            'account_id': payload['account_id'],
+            'occurred_at': payload['occurred_at'],
+        }
+        LOGGER.info(
+            json.dumps(log_data, sort_keys=True),
+            extra=log_data,
+        )

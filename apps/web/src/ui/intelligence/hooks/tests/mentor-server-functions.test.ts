@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
     middleware: () => ({
       validator: (validate: (data: unknown) => unknown) => ({

@@ -4,14 +4,16 @@ import json
 import logging
 import sys
 from io import StringIO
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any
+from types import SimpleNamespace, TracebackType
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 if TYPE_CHECKING:
     import pytest
+
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryEventInput
 
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.providers.console_telemetry_provider import (
@@ -26,9 +28,9 @@ from shifu.shared.rest.middlewares.telemetry_middleware import TelemetryMiddlewa
 
 class _Provider:
     def __init__(self) -> None:
-        self.events: list[dict[str, Any]] = []
+        self.events: list[TelemetryEventInput] = []
 
-    def emit(self, event: dict[str, Any]) -> None:
+    def emit(self, event: TelemetryEventInput) -> None:
         self.events.append(event)
 
 
@@ -53,13 +55,14 @@ def test_unexpected_error_emits_safe_event_without_exception_message() -> None:
     ]
     assert error_events
     event = error_events[0]
-    assert event['error_code'] == 'internal_error'
-    assert event['exception_type'] == 'RuntimeError'
+    assert event.get('error_code') == 'internal_error'
+    assert event.get('exception_type') == 'RuntimeError'
     assert 'password=secret-token' not in str(provider.events)
     assert 'learner@example.test' not in str(provider.events)
+    stack_trace = event.get('stack_trace')
+    assert stack_trace is not None
     assert all(
-        '/' not in frame['file'] and '\\' not in frame['file']
-        for frame in event['stack_trace']
+        '/' not in frame['file'] and '\\' not in frame['file'] for frame in stack_trace
     )
 
 
@@ -90,7 +93,7 @@ def test_telemetry_provider_filters_unsafe_stack_frame_filenames() -> None:
 
 def test_provider_failure_does_not_change_unexpected_error_response() -> None:
     class _FailingProvider:
-        def emit(self, event: dict[str, Any]) -> None:
+        def emit(self, event: TelemetryEventInput) -> None:
             del event
             raise RuntimeError('telemetry sink unavailable')
 
@@ -130,15 +133,16 @@ def test_logging_handler_bounds_and_sanitizes_exception_frames(
         lineno=42,
         name='safe_handler',
     )
-    monkeypatch.setattr(
-        telemetry_module.traceback,
-        'extract_tb',
-        lambda _traceback: [safe_frame] * 5 + [hostile_frame] * 19 + [safe_frame],
-    )
+
+    def extract_tb(_traceback: TracebackType | None) -> list[SimpleNamespace]:
+        return [safe_frame] * 5 + [hostile_frame] * 19 + [safe_frame]
+
+    monkeypatch.setattr(telemetry_module.traceback, 'extract_tb', extract_tb)
 
     def _raise_hostile_error() -> None:
         raise RuntimeError('password=secret-token email=learner@example.test')
 
+    record: logging.LogRecord | None = None
     try:
         _raise_hostile_error()
     except RuntimeError:
@@ -153,10 +157,11 @@ def test_logging_handler_bounds_and_sanitizes_exception_frames(
         )
         record.exc_info = sys.exc_info()
 
+    assert record is not None
     handler.emit(record)
 
     event = provider.events[0]
-    assert event['stack_trace'] == [
+    assert event.get('stack_trace') == [
         {'file': 'safe-handler.py', 'line': 42, 'function': 'safe_handler'}
     ]
     assert 'password=secret' not in str(event)

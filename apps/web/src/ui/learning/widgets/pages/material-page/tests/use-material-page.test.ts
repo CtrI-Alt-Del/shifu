@@ -22,6 +22,8 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
     middleware: () => ({
       validator: () => ({

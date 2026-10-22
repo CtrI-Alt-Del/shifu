@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from httpx2 import Request
 
     from shifu.intelligence.ai.agno.models.mentor_openai_chat import MentorOpenAIChat
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.settings import Settings
     from tests.fixtures.postgres_fixture import PostgresDatabase
     from tests.fixtures.redis_fixture import RedisFixture
@@ -351,8 +352,13 @@ def agentos_fixture(
         controlled_model,
     )
 
-    def no_title_model(_settings: Settings) -> None:
-        return None
+    def no_title_model(
+        _settings: Settings,
+        *,
+        telemetry_provider: TelemetryProvider | None = None,
+    ) -> None:
+        del telemetry_provider
+        return
 
     monkeypatch.setattr(MentorTitleModelProvider, 'build', no_title_model)
 
