@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import {
   COMPETENCY_DETAIL_ID_PATTERN,
   type ActivityDifficulty,
@@ -21,7 +23,7 @@ import type {
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -102,6 +104,7 @@ class StaleDiagnosticRunError extends RestError {}
 class DiagnosticEntryRequiredError extends RestError {}
 
 export const getActivityAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: unknown): ValidatedInput => {
     if (!isRecord(input)) return { kind: 'invalid-request' }
     if (
@@ -121,85 +124,97 @@ export const getActivityAction = createServerFn({ method: 'GET' })
       diagnosticRunId: input.diagnosticRunId,
     }
   })
-  .handler(async ({ data }): Promise<ChoiceActivityDetail | GetActivityFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: ValidatedInput
+      context: RequestTelemetryContext
+    }): Promise<ChoiceActivityDetail | GetActivityFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-
-      const learningService = LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      )
       try {
-        return await learningService.getChoiceActivity(
-          access.accessToken,
-          data,
-          data.diagnosticRunId,
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
         )
-      } catch (error) {
-        if (
-          !(error instanceof RestError) ||
-          error.statusCode !== HTTP_CONFLICT_STATUS_CODE
+        if (!access) return { kind: 'unauthorized' }
+
+        const learningService = LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         )
-          throw error
-        if (!data.diagnosticRunId) {
-          return {
-            kind: 'unavailable',
-            statusCode: HTTP_CONFLICT_STATUS_CODE,
-            diagnosticEntryRequired: true,
-          }
-        }
         try {
-          const diagnostic = await learningService.getDiagnostic(
+          return await learningService.getChoiceActivity(
             access.accessToken,
-            data.goalId,
-            data.skillId,
+            data,
             data.diagnosticRunId,
           )
+        } catch (error) {
           if (
-            diagnostic.status === 'diagnosing' &&
-            diagnostic.pendingAttemptId &&
-            diagnostic.nextCompetencyId === data.competencyId &&
-            diagnostic.nextActivityId === data.activityId
+            !(error instanceof RestError) ||
+            error.statusCode !== HTTP_CONFLICT_STATUS_CODE
           )
-            return { kind: 'unavailable', diagnosticProcessing: true }
-          if (diagnostic.readyToComplete)
-            return { kind: 'unavailable', diagnosticProcessing: true }
-        } catch (diagnosticError) {
-          if (
-            diagnosticError instanceof RestError &&
-            diagnosticError.statusCode === HTTP_CONFLICT_STATUS_CODE
-          ) {
+            throw error
+          if (!data.diagnosticRunId) {
             return {
               kind: 'unavailable',
               statusCode: HTTP_CONFLICT_STATUS_CODE,
-              diagnosticRunStale: true,
+              diagnosticEntryRequired: true,
             }
           }
-          throw diagnosticError
-        }
-        return { kind: 'unavailable', statusCode: HTTP_CONFLICT_STATUS_CODE }
-      }
-    } catch (error) {
-      if (error instanceof AuthError && error.kind === 'unavailable') {
-        return { kind: 'unavailable', statusCode: error.statusCode }
-      }
-      if (error instanceof RestError) {
-        if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
-          return { kind: 'unauthorized' }
-        if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }
-        if (error.statusCode === HTTP_CONFLICT_STATUS_CODE)
+          try {
+            const diagnostic = await learningService.getDiagnostic(
+              access.accessToken,
+              data.goalId,
+              data.skillId,
+              data.diagnosticRunId,
+            )
+            if (
+              diagnostic.status === 'diagnosing' &&
+              diagnostic.pendingAttemptId &&
+              diagnostic.nextCompetencyId === data.competencyId &&
+              diagnostic.nextActivityId === data.activityId
+            )
+              return { kind: 'unavailable', diagnosticProcessing: true }
+            if (diagnostic.readyToComplete)
+              return { kind: 'unavailable', diagnosticProcessing: true }
+          } catch (diagnosticError) {
+            if (
+              diagnosticError instanceof RestError &&
+              diagnosticError.statusCode === HTTP_CONFLICT_STATUS_CODE
+            ) {
+              return {
+                kind: 'unavailable',
+                statusCode: HTTP_CONFLICT_STATUS_CODE,
+                diagnosticRunStale: true,
+              }
+            }
+            throw diagnosticError
+          }
           return { kind: 'unavailable', statusCode: HTTP_CONFLICT_STATUS_CODE }
-        if (error.statusCode === HTTP_STATUS_CODE.tooManyRequests) {
+        }
+      } catch (error) {
+        if (error instanceof AuthError && error.kind === 'unavailable') {
           return { kind: 'unavailable', statusCode: error.statusCode }
         }
+        if (error instanceof RestError) {
+          if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
+            return { kind: 'unauthorized' }
+          if (error.statusCode === HTTP_STATUS_CODE.notFound) return { kind: 'not-found' }
+          if (error.statusCode === HTTP_CONFLICT_STATUS_CODE)
+            return { kind: 'unavailable', statusCode: HTTP_CONFLICT_STATUS_CODE }
+          if (error.statusCode === HTTP_STATUS_CODE.tooManyRequests) {
+            return { kind: 'unavailable', statusCode: error.statusCode }
+          }
+        }
+        return { kind: 'unavailable' }
       }
-      return { kind: 'unavailable' }
-    }
-  })
+    },
+  )
 
 export const submitActivityAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -212,26 +227,40 @@ export const submitActivityAction = createServerFn({ method: 'POST' })
       return { ids: input, submission: input.submission }
     },
   )
-  .handler(async ({ data }): Promise<ChoiceSubmissionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | { ids: ActivityRouteIds; submission: ChoiceSubmission }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<ChoiceSubmissionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).submitChoiceActivity(
-        access.accessToken,
-        data.ids,
-        data.submission,
-        data.ids.diagnosticRunId,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).submitChoiceActivity(
+          access.accessToken,
+          data.ids,
+          data.submission,
+          data.ids.diagnosticRunId,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export const submitDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -281,14 +310,28 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   .handler(
     async ({
       data,
+      context,
+    }: {
+      data:
+        | {
+            goalId: string
+            skillId: string
+            diagnosticRunId: string
+            submission: { submissionKey: string; items: DiagnosticSubmissionItem[] }
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
     }): Promise<{ status: 'pending'; replayed: boolean } | ActionFailure> => {
       if ('kind' in data) return data
 
       try {
-        const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
         if (!access) return { kind: 'unauthorized' }
         return await LearningService(
-          AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         ).submitDiagnostic(
           access.accessToken,
           data.goalId,
@@ -303,6 +346,7 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   )
 
 export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -337,25 +381,43 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
       }
     },
   )
-  .handler(async ({ data }): Promise<PreliminaryQuestionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | {
+            ids: ActivityRouteIds
+            questionKey: string
+            activityRevision: string
+            answer: ActivityAnswer
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<PreliminaryQuestionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).previewActivityQuestion(
-        access.accessToken,
-        data.ids,
-        data.questionKey,
-        data.activityRevision,
-        data.answer,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).previewActivityQuestion(
+          access.accessToken,
+          data.ids,
+          data.questionKey,
+          data.activityRevision,
+          data.answer,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export function useActivityPage(props: ActivityPageProps) {
   const injected = 'activity' in props

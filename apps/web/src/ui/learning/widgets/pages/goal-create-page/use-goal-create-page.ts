@@ -2,54 +2,77 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import type { AvailableSkill } from '@/core/learning/goal-detail'
 import { COMPETENCY_DETAIL_ID_PATTERN } from '@/core/learning/competency-detail'
 import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 
 type ActionFailure = {
   kind: 'unauthorized' | 'invalid' | 'unavailable' | 'curriculum-gap'
 }
 
-export const getAvailableSkillsAction = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<AvailableSkill[] | ActionFailure> => {
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).getAvailableSkills(access.accessToken)
-    } catch {
-      return { kind: 'unavailable' }
-    }
-  },
-)
+export const getAvailableSkillsAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
+  .handler(
+    async ({
+      context,
+    }: {
+      context: RequestTelemetryContext
+    }): Promise<AvailableSkill[] | ActionFailure> => {
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).getAvailableSkills(access.accessToken)
+      } catch {
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export const createGoalAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: { title: string; description: string; skillIds: string[] }) => input)
-  .handler(async ({ data }): Promise<{ goalId: string } | ActionFailure> => {
-    if (
-      !data.title.trim() ||
-      !data.description.trim() ||
-      !data.skillIds.every((id) => COMPETENCY_DETAIL_ID_PATTERN.test(id))
-    )
-      return { kind: 'invalid' }
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).createGoal(access.accessToken, data)
-    } catch (error) {
-      if (error instanceof CurriculumGapError) return { kind: 'curriculum-gap' }
-      return { kind: 'unavailable' }
-    }
-  })
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: { title: string; description: string; skillIds: string[] }
+      context: RequestTelemetryContext
+    }): Promise<{ goalId: string } | ActionFailure> => {
+      if (
+        !data.title.trim() ||
+        !data.description.trim() ||
+        !data.skillIds.every((id) => COMPETENCY_DETAIL_ID_PATTERN.test(id))
+      )
+        return { kind: 'invalid' }
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).createGoal(access.accessToken, data)
+      } catch (error) {
+        if (error instanceof CurriculumGapError) return { kind: 'curriculum-gap' }
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export function useGoalCreatePage() {
   const navigate = useNavigate()

@@ -128,4 +128,56 @@ describe('AxiosRestClient', () => {
       },
     })
   })
+
+  it('propagates the request identifier to every REST operation', async () => {
+    const rest = AxiosRestClient('https://api.test', {
+      requestId: '11111111-1111-4111-8111-111111111111',
+    })
+
+    await rest.get('/sessions', { headers: { 'X-Request-ID': 'override' } })
+    await rest.delete('/sessions', { value: 1 })
+
+    expect(request).toHaveBeenNthCalledWith(1, client, {
+      method: 'get',
+      url: '/sessions',
+      params: undefined,
+      headers: { 'X-Request-ID': 'override' },
+    })
+    expect(request).toHaveBeenNthCalledWith(2, client, {
+      method: 'delete',
+      url: '/sessions',
+      data: { value: 1 },
+      headers: { 'X-Request-ID': '11111111-1111-4111-8111-111111111111' },
+    })
+  })
+
+  it('observes the API response correlation identifier without exposing response content', async () => {
+    const telemetry = { emit: vi.fn() }
+    request.mockResolvedValueOnce(
+      new RestResponse({
+        body: { ok: true },
+        statusCode: 200,
+        headers: {
+          'X-Request-ID': '22222222-2222-4222-8222-222222222222',
+        },
+      }),
+    )
+
+    await AxiosRestClient('https://api.test', {
+      requestId: '11111111-1111-4111-8111-111111111111',
+      telemetry,
+    }).get('/sessions', {})
+
+    expect(telemetry.emit).toHaveBeenCalledWith({
+      level: 'INFO',
+      event: 'http.request.completed',
+      request_id: '22222222-2222-4222-8222-222222222222',
+      method: 'GET',
+      route: 'unmatched',
+      status_code: 200,
+      operation: 'http.request',
+      result: 'success',
+    })
+    expect(telemetry.emit.mock.calls[0]?.[0]).not.toHaveProperty('body')
+  })
 })

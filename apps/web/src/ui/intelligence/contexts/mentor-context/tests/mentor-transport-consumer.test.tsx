@@ -15,12 +15,17 @@ const ports = vi.hoisted(() => ({
 }))
 vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => ({
-    validator: (validate: (data: unknown) => unknown) => ({
-      handler:
-        (handle: (input: { data: unknown }) => unknown) => (input: { data: unknown }) =>
-          handle({ data: validate(input.data) }),
+    middleware: () => ({
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handle: (input: { data: unknown }) => unknown) => (input: { data: unknown }) =>
+            handle({ data: validate(input.data) }),
+      }),
     }),
   }),
+}))
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 vi.mock('@tanstack/react-start/server', () => ({
   getRequest: () => new Request('http://localhost/mentor'),
