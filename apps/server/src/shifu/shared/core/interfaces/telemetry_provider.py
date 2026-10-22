@@ -82,6 +82,7 @@ TelemetryJob = Literal[
     'communication.deliver_communication',
     'learning.evaluate_choice_activity',
     'intelligence.purge_mentor_attachments_on_account_deleted',
+    'intelligence.purge_mentor_summaries_on_account_deleted',
     'identity.record_communication_delivery_state',
     'identity.log_main_page_entered',
     'identity.fan_out_unconfirmed_account_expiry',

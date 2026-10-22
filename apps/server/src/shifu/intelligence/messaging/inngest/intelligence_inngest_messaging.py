@@ -39,6 +39,7 @@ class IntelligenceInngestMessaging:
                     inngest,
                     purge_mentor_summaries_use_case,
                     account_deleted_event_name=account_deleted_event_name,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
         ]

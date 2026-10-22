@@ -15,7 +15,19 @@ function handleAuthRequest(
     context?.requestId ?? request.headers.get('X-Request-ID') ?? crypto.randomUUID()
   const headers = new Headers(request.headers)
   headers.set('X-Request-ID', requestId)
-  return getBetterAuthProvider().handler(new Request(request, { headers }))
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: request.method,
+    headers,
+    redirect: request.redirect,
+    signal: request.signal,
+  }
+
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    init.body = request.body
+    init.duplex = 'half'
+  }
+
+  return getBetterAuthProvider().handler(new Request(request.url, init))
 }
 
 export const Route = createFileRoute('/api/auth/$')({

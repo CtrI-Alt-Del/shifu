@@ -40,6 +40,7 @@ _UUID_PATTERN = re.compile(
     r'[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
 )
 _MAX_STACK_FRAMES = 20
+_NOISY_LOGGERS = ('httpx', 'httpx2', 'httpcore', 'httpcore2')
 
 
 class ConsoleTelemetryProvider(TelemetryProvider):
@@ -107,6 +108,7 @@ class ConsoleTelemetryProvider(TelemetryProvider):
             'communication.deliver_communication',
             'learning.evaluate_choice_activity',
             'intelligence.purge_mentor_attachments_on_account_deleted',
+            'intelligence.purge_mentor_summaries_on_account_deleted',
             'identity.record_communication_delivery_state',
             'identity.log_main_page_entered',
             'identity.fan_out_unconfirmed_account_expiry',
@@ -420,3 +422,6 @@ def configure_telemetry_logging(
     for existing in tuple(access_logger.handlers):
         access_logger.removeHandler(existing)
     access_logger.propagate = False
+
+    for logger_name in _NOISY_LOGGERS:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
