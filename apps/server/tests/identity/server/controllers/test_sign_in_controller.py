@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.identity.core.use_cases import SignInUseCase
 from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 if TYPE_CHECKING:
     import pytest
@@ -23,6 +24,7 @@ class TestSignInController:
             raise InvalidCredentialsError
 
         monkeypatch.setattr(SignInUseCase, 'execute', refuse)
+        monkeypatch.setattr(TelemetryPipe, 'get_request_id', lambda _request: None)
 
         response = cast(
             'Response',
