@@ -35,13 +35,16 @@ out-of-band population after the metadata exists:
 | Secret | Required JSON keys |
 | --- | --- |
 | Web | `BETTER_AUTH_DATABASE_URL`, `BETTER_AUTH_SECRET`, `SHIFU_BFF_SHARED_SECRET` |
-| API | `DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
+| API | `DATABASE_URL`, `AGENTOS_DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
 | API, optional | `OPENROUTER_API_KEY`; set `openrouter_enabled=true` only after the key exists |
 
-The database URLs use the RDS-generated master credential. `REDIS_URL` must use
-TLS and AUTH. Inngest must use production event/signing keys, and Resend must use
-the staging sender. Generate independent high-entropy values for Better Auth,
-the BFF shared secret, communication encryption, diagnostics, and Redis AUTH.
+`DATABASE_URL` and `BETTER_AUTH_DATABASE_URL` use the RDS-generated master
+credential. `REDIS_URL` must use TLS and AUTH. Inngest must use production
+event/signing keys, and Resend must use the staging sender. Generate independent
+high-entropy values for Better Auth, the BFF shared secret, communication
+encryption, diagnostics, and Redis AUTH.
+`AGENTOS_DATABASE_URL` must use the `shifu_agentos_runtime` role and the same
+runtime password passed to the AgentOS role bootstrap in step 5.
 
 ## 1. Bootstrap remote state
 
@@ -141,7 +144,7 @@ Confirm every required JSON key exists. If OpenRouter is omitted, leave
 `openrouter_enabled=false`; health and non-AI flows remain enabled while AI code
 assessment is unavailable by its existing controlled behavior.
 
-## 5. Run the one-off migration
+## 5. Create the AgentOS runtime role and run the one-off migration
 
 Keep both service desired counts at zero. Use the `api_task_definition_arn`,
 private `application_subnet_ids`, and `api_security_group_id` outputs to run one
@@ -150,6 +153,33 @@ Fargate task with the API container command overridden to:
 ```text
 uv run alembic upgrade head
 ```
+
+Before running that task, create the least-privileged AgentOS runtime role through
+a private database administration path (for example, an operator-controlled
+bastion or port-forward). Run the committed
+`apps/server/scripts/create_agentos_runtime_role.sql` script as the RDS master
+user, passing `runtime_password` equal to the password embedded in
+`AGENTOS_DATABASE_URL` and `database_name` equal to the application database.
+Keep both values in non-echoing operator environment variables; never print them
+or place them in Terraform state. The script is idempotent and grants only
+database `CONNECT`; the migration below creates the `agentos_intelligence` and
+`agentos_learning` schemas, revokes public schema creation, and grants the role
+the runtime table privileges it needs.
+
+For example, with the private connection variables and password already prepared
+by the operator:
+
+```powershell
+psql $env:SHIFU_DATABASE_ADMIN_URL `
+  -v ON_ERROR_STOP=1 `
+  -v runtime_password="$env:SHIFU_AGENTOS_RUNTIME_ROLE_PASSWORD" `
+  -v database_name="$env:SHIFU_DATABASE_NAME" `
+  -f apps/server/scripts/create_agentos_runtime_role.sql
+```
+
+Verify privately that `shifu_agentos_runtime` exists before starting the
+migration task. Do not enable either ECS service until the role creation and the
+migration both succeed.
 
 Supply the same `awsvpc` settings as the API service and
 `assignPublicIp=DISABLED`. This PowerShell template uses only non-secret Terraform
@@ -196,8 +226,8 @@ Create the operator-managed DNS alias/CNAME from the supplied hostname to
 account, sending e-mail, emitting an Inngest event, or calling OpenRouter:
 
 1. confirm plain HTTP redirects to the HTTPS hostname;
-2. request `https://<hostname>/api/health` and expect Web identity;
-3. request `https://<hostname>/api/shifu/health` and expect FastAPI identity;
+2. request `https://<hostname>/api/health` and expect `{"status":"ok"}` from Web;
+3. inspect the API target group and confirm its private `/health` check is healthy;
 4. confirm an unrelated public path does not bypass Web to reach FastAPI;
 5. inspect both target groups, ECS task networking, migration revision, and the
    separate Web/API log streams;

@@ -26,6 +26,7 @@ locals {
 
   api_required_secret_keys = [
     "DATABASE_URL",
+    "AGENTOS_DATABASE_URL",
     "REDIS_URL",
     "INNGEST_EVENT_KEY",
     "INNGEST_SIGNING_KEY",

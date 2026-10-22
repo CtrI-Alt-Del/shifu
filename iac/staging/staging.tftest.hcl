@@ -54,6 +54,11 @@ run "foundation_contract" {
   }
 
   assert {
+    condition     = contains(local.api_required_secret_keys, "AGENTOS_DATABASE_URL")
+    error_message = "The API secret must include the AgentOS database URL."
+  }
+
+  assert {
     condition     = one(one(aws_lb_listener_rule.inngest.condition).path_pattern).values == toset(["/api/inngest"])
     error_message = "Only the exact Inngest callback path may route publicly to API."
   }
