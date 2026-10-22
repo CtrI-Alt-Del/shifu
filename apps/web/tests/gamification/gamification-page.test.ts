@@ -459,22 +459,17 @@ test('invokes the XP history server function and renders its records newest firs
   await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 })
 
-test('exercises the real XP history endpoint end to end for a fresh account', async ({
-  authenticatedPage,
-}) => {
-  // No `_serverFn` stub here: a freshly created account has no XP grants, so
-  // the server function, the gamification service and the controller all
-  // run for real, proving the UI->API contract the stubbed test above
-  // cannot (RP: widget-testing-rules.md "Navigation has unit and
-  // integration boundaries").
-  await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
-
-  const historyTab = authenticatedPage.getByRole('tab', { name: 'Histórico de XP' })
-  await historyTab.click()
-
-  await expect(historyTab).toHaveAttribute('aria-selected', 'true')
-  await expect(
-    authenticatedPage.getByRole('heading', { name: 'Você ainda não recebeu XP' }),
-  ).toBeVisible()
-  await expect(authenticatedPage.getByText('0 XP')).toBeVisible()
-})
+// A no-stub, real-backend variant of the test above was tried and reverted:
+// `authenticatedPage` only fakes the route-protection middleware, it never
+// creates a real BetterAuth session, so achievements/calendar/xp-history
+// (which each check real auth independently) get rejected by the real
+// backend and `useGamificationPage`'s session-rejected effect bounces the
+// whole page to /login mid-test. Separately, this harness's seeded test
+// accounts never run the "account activated" flow that creates a
+// GamificationProfile, so even with auth sorted out, GET /xp-history 404s
+// for them (`test_should_return_not_found_without_a_gamification_profile`)
+// instead of returning the empty-history 200 such a test would need.
+// Reaching the real controller properly would need either a dedicated
+// controlled upstream (the `tests/support/mentor-stream-upstream.mjs`
+// pattern) or a DB-seeded profile for the test account; both are more
+// infrastructure than this one gap currently justifies.
