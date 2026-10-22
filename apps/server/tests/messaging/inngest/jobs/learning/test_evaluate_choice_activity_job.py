@@ -2,13 +2,15 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 import atexit
+import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import time
 from threading import Thread
-from typing import ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
+import pytest
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
 
@@ -68,15 +70,30 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
-from shifu.learning.core.use_cases import RemoveSkillFromGoalUseCase
+from shifu.learning.core.use_cases import (
+    EvaluateChoiceActivityUseCase,
+    RemoveSkillFromGoalUseCase,
+)
+from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
+    EvaluateChoiceActivityJob,
+    _emit_telemetry,  # pyright: ignore[reportPrivateUsage]
+)
 from shifu.learning.database.sqlalchemy.models import (
     CompetencyProgressModel,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryEventInput
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.fixtures.inngest_fixture import InngestFixture
+
+if TYPE_CHECKING:
+    from shifu.learning.core.interfaces import LearningDatabase
+    from shifu.shared.core.interfaces import ClockProvider
+    from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
+        EvaluationJobPayload,
+    )
 
 
 class _DecisionsHandler(BaseHTTPRequestHandler):
@@ -118,6 +135,20 @@ class _DecisionsHandler(BaseHTTPRequestHandler):
         del format, args
 
 
+class _TelemetrySink:
+    def __init__(self) -> None:
+        self.events: list[TelemetryEventInput] = []
+
+    def emit(self, event: TelemetryEventInput) -> None:
+        self.events.append(event)
+
+
+class _FailingTelemetrySink:
+    def emit(self, event: TelemetryEventInput) -> None:
+        del event
+        raise RuntimeError('telemetry sink unavailable')
+
+
 def _stop_decisions_api() -> None:
     _DECISIONS_SERVER.shutdown()
     _DECISIONS_SERVER.server_close()
@@ -144,6 +175,54 @@ os.environ['OPENROUTER_DECISIONS_URL'] = (
     f'http://127.0.0.1:{_DECISIONS_SERVER.server_port}/api/alpha/decisions'
 )
 atexit.register(_stop_decisions_api)
+
+
+def test_evaluate_skips_completion_telemetry_when_effect_is_not_committed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def execute(
+        _self: EvaluateChoiceActivityUseCase,
+        _attempt_id: str,
+        _run_id: str,
+    ) -> bool:
+        return False
+
+    monkeypatch.setattr(EvaluateChoiceActivityUseCase, 'execute', execute)
+    provider = _TelemetrySink()
+    payload = cast(
+        'EvaluationJobPayload',
+        {
+            'attempt_id': 'attempt-1',
+            'run_id': 'run-1',
+            'skill_experience_id': 'experience-1',
+            'activity_id': 'activity-1',
+            'kind': 'learning',
+            'requested_at': '2026-01-01T00:00:00Z',
+        },
+    )
+
+    asyncio.run(
+        EvaluateChoiceActivityJob._evaluate(  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+            cast('LearningDatabase', object()),
+            cast('ClockProvider', object()),
+            None,
+            None,
+            262144,
+            payload,
+            provider,
+            'run-1',
+            'event-1',
+        )
+    )
+
+    assert provider.events == []
+
+
+def test_evaluate_telemetry_sink_failure_does_not_escape() -> None:
+    _emit_telemetry(
+        _FailingTelemetrySink(),
+        {'level': 'INFO', 'event': 'learning.evaluation.completed'},
+    )
 
 
 class TestEvaluateChoiceActivityJob:

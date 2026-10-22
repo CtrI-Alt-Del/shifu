@@ -1,3 +1,7 @@
+import pytest
+from pydantic import ValidationError
+
+from shifu.shared.constants.environment import EnvironmentSettings
 from shifu.shared.settings import Settings
 
 
@@ -19,3 +23,26 @@ def test_settings_preserve_a_preparsed_trusted_proxy_list() -> None:
     )
 
     assert settings.trusted_proxy_ips == ['127.0.0.1', '10.0.0.0/8']
+
+
+def test_environment_settings_default_local_release_version_for_blank_input() -> None:
+    settings = EnvironmentSettings.from_environment(
+        {
+            'SHIFU_SERVER_APP_MODE': 'local',
+            'SHIFU_RELEASE_VERSION': '  ',
+            'SHIFU_COMMUNICATION_ENCRYPTION_KEYS': 'test-key',
+        }
+    )
+
+    assert settings.release_version == 'local-dev'
+
+
+def test_environment_settings_requires_release_version_outside_local_modes() -> None:
+    with pytest.raises(ValidationError, match='Release version is required'):
+        EnvironmentSettings.from_environment(
+            {
+                'SHIFU_SERVER_APP_MODE': 'staging',
+                'SHIFU_RELEASE_VERSION': '',
+                'SHIFU_COMMUNICATION_ENCRYPTION_KEYS': 'test-key',
+            }
+        )

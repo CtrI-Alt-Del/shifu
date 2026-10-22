@@ -35,6 +35,12 @@ class Metric:
         return 100.0 if self.total == 0 else 100.0 * self.covered / self.total
 
 
+@dataclass(frozen=True)
+class LineRange:
+    start: int
+    end: int
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -91,6 +97,51 @@ def changed_paths(base: str) -> list[Path]:
             f'Could not discover changed files from {base!r}: {error}'
         ) from error
     return [Path(line) for line in result.stdout.splitlines() if line]
+
+
+def changed_line_ranges(base: str, path: Path, root: Path) -> list[LineRange]:
+    repository_root = root.parent.parent
+    repository_path = Path('apps') / 'server' / path.relative_to(root)
+    try:
+        command = [
+            'git',
+            'diff',
+            '--unified=0',
+            '--no-color',
+            '--diff-filter=ACMR',
+            f'{base}...HEAD',
+            '--',
+            repository_path.as_posix(),
+        ]
+        result = subprocess.run(  # noqa: S603 - argv is fixed and base is a revision label.
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            cwd=repository_root,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise RuntimeError(
+            f'Could not discover changed lines for {repository_path} from {base!r}: {error}'
+        ) from error
+
+    ranges: list[LineRange] = []
+    for line in result.stdout.splitlines():
+        if not line.startswith('@@'):
+            continue
+        try:
+            header = line.split('@@', 2)[1]
+            new_range = header.split('+', 1)[1].split(' ', 1)[0]
+            start_text, _, count_text = new_range.partition(',')
+            start = int(start_text)
+            count = int(count_text) if count_text else 1
+        except (IndexError, ValueError) as error:
+            raise RuntimeError(
+                f'Could not parse changed line range {line!r} for {repository_path}'
+            ) from error
+        if count > 0:
+            ranges.append(LineRange(start=start, end=start + count - 1))
+    return ranges
 
 
 def normalize_source_path(path: Path, root: Path) -> Path | None:
@@ -240,6 +291,88 @@ def render_metric(name: str, value: Metric) -> str:
     return f'{name} {value.percent:5.1f}% ({value.covered}/{value.total})'
 
 
+def overlaps(location: object, ranges: list[LineRange]) -> bool:
+    if not isinstance(location, dict):
+        return False
+    start = location.get('start')
+    end = location.get('end')
+    if not isinstance(start, dict) or not isinstance(end, dict):
+        return False
+    start_line = start.get('line')
+    end_line = end.get('line')
+    if not isinstance(start_line, int) or not isinstance(end_line, int):
+        return False
+    return any(
+        start_line <= changed.end and end_line >= changed.start
+        for changed in ranges
+    )
+
+
+def metric_for_changed_lines(
+    details: dict[str, Any],
+    name: str,
+    ranges: list[LineRange],
+) -> Metric:
+    executed_lines = details.get('executed_lines')
+    missing_lines = details.get('missing_lines')
+    if not isinstance(executed_lines, list) or not isinstance(missing_lines, list):
+        raise RuntimeError('line coverage data is missing')
+
+    def is_changed(line: int) -> bool:
+        return any(changed.start <= line <= changed.end for changed in ranges)
+
+    if name in {'lines', 'statements'}:
+        measured_lines = {
+            line for line in [*executed_lines, *missing_lines] if isinstance(line, int)
+        }
+        changed_lines = [line for line in measured_lines if is_changed(line)]
+        return metric(
+            sum(line in executed_lines for line in changed_lines),
+            len(changed_lines),
+        )
+
+    if name == 'functions':
+        functions = details.get('functions')
+        if not isinstance(functions, dict):
+            raise RuntimeError('function coverage data is missing')
+        changed_functions: list[bool] = []
+        for function in functions.values():
+            if not isinstance(function, dict):
+                continue
+            start_line = function.get('start_line')
+            summary = function.get('summary')
+            function_executed = function.get('executed_lines')
+            if (
+                isinstance(start_line, int)
+                and is_changed(start_line)
+                and isinstance(summary, dict)
+                and int(summary.get('num_statements', 0)) > 0
+                and isinstance(function_executed, list)
+            ):
+                changed_functions.append(bool(function_executed))
+        return metric(sum(changed_functions), len(changed_functions))
+
+    executed_branches = details.get('executed_branches')
+    missing_branches = details.get('missing_branches')
+    if not isinstance(executed_branches, list) or not isinstance(
+        missing_branches, list
+    ):
+        raise RuntimeError('branch coverage data is missing')
+
+    def branch_is_changed(branch: object) -> bool:
+        return (
+            isinstance(branch, list)
+            and bool(branch)
+            and isinstance(branch[0], int)
+            and branch[0] > 0
+            and is_changed(branch[0])
+        )
+
+    executed = [branch for branch in executed_branches if branch_is_changed(branch)]
+    missing = [branch for branch in missing_branches if branch_is_changed(branch)]
+    return metric(len(executed), len(executed) + len(missing))
+
+
 def main() -> int:
     args = parse_args()
     root = Path.cwd().resolve()
@@ -263,48 +396,38 @@ def main() -> int:
 
     try:
         report_files = normalized_report_files(load_report(args.report), root)
-        arcs_by_file = load_arcs(args.data_file)
     except (RuntimeError, TypeError) as error:
         print(f'Coverage gate cannot run: {error}', file=sys.stderr)
         return 2
 
     failed = False
     print(
-        'Python denominators: statements and lines both use Coverage.py executable '
-        'source lines (the tracer cannot distinguish multiple statements on one line); '
-        'functions are named def/async def entries observed as a negative-start arc into '
-        'their first executable body statement; abstract/overload and declaration-only stubs '
-        'are excluded; branches use Coverage.py possible/executed arcs.'
+        'Coverage denominators include only executable statements, functions, lines, and '
+        'branches overlapping source lines changed in the current diff; branches use '
+        'Coverage.py possible/executed arcs.'
     )
     for path in eligible:
         display_path = path.relative_to(root)
         details = report_files.get(path)
-        arcs = arcs_by_file.get(path)
-        if details is None or arcs is None:
+        if details is None:
             failed = True
-            missing: list[str] = []
-            if details is None:
-                missing.append('JSON report')
-            if arcs is None:
-                missing.append('arc data')
-            print(f'FAIL {display_path}: missing from {" and ".join(missing)}')
+            print(f'FAIL {display_path}: missing from JSON report')
             continue
 
-        summary = details.get('summary', {})
-        statement_total = int(summary.get('num_statements', 0))
-        line_covered = int(summary.get('covered_lines', 0))
-        statement = metric(line_covered, statement_total)
-        line = metric(line_covered, statement_total)
-
-        functions = function_entries(path)
-        function_covered = sum(
-            has_function_entry_arc(entry, arcs) for entry in functions
-        )
-        function = metric(function_covered, len(functions))
-
-        branch_total = int(summary.get('num_branches', 0))
-        branch_covered = int(summary.get('covered_branches', 0))
-        branch = metric(branch_covered, branch_total)
+        try:
+            ranges = (
+                changed_line_ranges(args.base, path, root)
+                if args.base
+                else [LineRange(start=1, end=sys.maxsize)]
+            )
+            statement = metric_for_changed_lines(details, 'statements', ranges)
+            line = metric_for_changed_lines(details, 'lines', ranges)
+            function = metric_for_changed_lines(details, 'functions', ranges)
+            branch = metric_for_changed_lines(details, 'branches', ranges)
+        except (RuntimeError, TypeError) as error:
+            failed = True
+            print(f'FAIL {display_path}: {error}')
+            continue
         checks = [
             ('statements', statement, STATEMENT_THRESHOLD),
             ('functions', function, FUNCTION_THRESHOLD),

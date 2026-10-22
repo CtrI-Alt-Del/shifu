@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from shifu.shared.rest.middlewares.telemetry_middleware import TelemetryMiddleware
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 if TYPE_CHECKING:
     from shifu.shared.core.interfaces.telemetry_provider import (
@@ -83,3 +84,52 @@ def test_provider_failure_does_not_change_http_result() -> None:
     assert response.status_code == 200
     assert response.json() == {'component': 'database'}
     assert UUID(response.headers['X-Request-ID']).version == 4
+
+
+def test_pipe_resolves_provider_and_emits_optional_events() -> None:
+    provider = _Provider()
+    app = FastAPI()
+    app.state.telemetry_provider = provider
+
+    @app.get('/pipe')
+    def pipe(request: Request) -> dict[str, object]:
+        request.state.request_id = 'request-1'
+        assert TelemetryPipe.get_telemetry_provider(request) is provider
+        assert TelemetryPipe.get_provider(request) is provider
+        TelemetryPipe.emit(
+            None,
+            {'level': 'INFO', 'event': 'app.startup.completed'},
+        )
+        TelemetryPipe.emit(
+            provider,
+            {'level': 'INFO', 'event': 'app.startup.completed'},
+        )
+        return {'request_id': TelemetryPipe.get_request_id(request)}
+
+    with TestClient(app) as client:
+        response = client.get('/pipe')
+
+    assert response.status_code == 200
+    assert response.json() == {'request_id': 'request-1'}
+    assert len(provider.events) == 1
+
+
+def test_pipe_returns_none_for_missing_provider_and_non_string_request_id() -> None:
+    app = FastAPI()
+
+    @app.get('/pipe')
+    def pipe(request: Request) -> dict[str, object]:
+        request.state.request_id = 123
+        assert TelemetryPipe.get_telemetry_provider(request) is None
+        assert TelemetryPipe.get_provider(request) is None
+        TelemetryPipe.emit(
+            None,
+            {'level': 'INFO', 'event': 'app.startup.completed'},
+        )
+        return {'request_id': TelemetryPipe.get_request_id(request)}
+
+    with TestClient(app) as client:
+        response = client.get('/pipe')
+
+    assert response.status_code == 200
+    assert response.json() == {'request_id': None}

@@ -494,6 +494,8 @@ jobs:
             tests/shared/server/controllers/test_business_event_telemetry.py \
             tests/identity/server/controllers/test_sign_in_controller.py \
             tests/identity/server/controllers/test_get_current_session_controller.py \
+            tests/communication/core/use_cases/test_cancel_communication_use_case.py \
+            tests/communication/core/use_cases/test_deliver_communication_use_case.py \
             tests/learning/server/controllers/test_create_goal_controller.py \
             tests/learning/server/controllers/test_remove_goal_controller.py \
             tests/learning/server/controllers/test_submit_choice_activity_controller.py \
@@ -501,8 +503,17 @@ jobs:
             tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
             tests/learning/server/agentos/test_learning_code_evaluation_workflow.py \
             tests/messaging/inngest/jobs/identity/test_log_main_page_entered_job.py \
+            tests/messaging/inngest/jobs/identity/test_expire_unconfirmed_accounts_job.py \
+            tests/messaging/inngest/jobs/identity/test_fan_out_unconfirmed_account_expiry_job.py \
+            tests/messaging/inngest/jobs/identity/test_record_communication_delivery_state_job.py \
             tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
+            tests/messaging/inngest/jobs/communication/test_cancel_communication_job.py \
             tests/messaging/inngest/jobs/communication/test_deliver_communication_job.py \
+            tests/messaging/inngest/jobs/gamification/test_create_profile_on_account_activated_job.py \
+            tests/messaging/inngest/jobs/gamification/test_recognize_competency_mastered_job.py \
+            tests/messaging/inngest/jobs/gamification/test_recognize_diagnostic_completed_job.py \
+            tests/messaging/inngest/jobs/gamification/test_recognize_practice_day_on_activity_evaluated_job.py \
+            tests/messaging/inngest/jobs/gamification/test_recognize_practice_day_on_diagnostic_completed_job.py \
             tests/messaging/inngest/jobs/gamification/test_recognize_skill_completed_job.py \
             tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
             tests/curriculum/core/domain/test_react_question.py \
@@ -579,6 +590,7 @@ jobs:
             tests/intelligence/server/controllers/test_stream_mentor_response_controller.py \
             tests/intelligence/server/agentos/test_mentor_attachment_workflow_boundaries.py \
             tests/intelligence/providers/test_local_mentor_attachment_extractor_provider.py \
+            tests/intelligence/providers/test_telemetry_instrumented_providers.py \
             tests/intelligence/ai/test_eval_factories.py \
             tests/intelligence/ai/test_intelligence_workflows_registry.py \
             tests/intelligence/core/domain/test_mentor_attachment_domain.py \

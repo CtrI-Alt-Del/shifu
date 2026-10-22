@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 import pytest
+from fastapi import Request
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -46,6 +47,7 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.learning.server.controllers.react_controller_fixture import (
@@ -180,8 +182,17 @@ class TestSubmitChoiceActivityController:
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,
+        monkeypatch: pytest.MonkeyPatch,
         with_policy: bool,
     ) -> None:
+        def no_request_id(_request: Request) -> None:
+            return None
+
+        monkeypatch.setattr(
+            TelemetryPipe,
+            'get_request_id',
+            staticmethod(no_request_id),
+        )
         curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
         with curriculum.transaction() as repositories:
             repositories.activities.add_many(
