@@ -458,3 +458,23 @@ test('invokes the XP history server function and renders its records newest firs
 
   await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 })
+
+test('exercises the real XP history endpoint end to end for a fresh account', async ({
+  authenticatedPage,
+}) => {
+  // No `_serverFn` stub here: a freshly created account has no XP grants, so
+  // the server function, the gamification service and the controller all
+  // run for real, proving the UI->API contract the stubbed test above
+  // cannot (RP: widget-testing-rules.md "Navigation has unit and
+  // integration boundaries").
+  await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
+
+  const historyTab = authenticatedPage.getByRole('tab', { name: 'Histórico de XP' })
+  await historyTab.click()
+
+  await expect(historyTab).toHaveAttribute('aria-selected', 'true')
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Você ainda não recebeu XP' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('0 XP')).toBeVisible()
+})

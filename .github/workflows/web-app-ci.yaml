@@ -215,6 +215,10 @@ jobs:
           src/ui/identity/widgets/pages/sign-in-page/tests/sign-in-page.test.tsx
           src/ui/identity/widgets/pages/register-page/tests/register-page.test.tsx
           src/ui/shared/widgets/layouts/root-layout/tests
+          src/rest/services/tests/gamification-service.test.ts
+          src/ui/shared/hooks/tests/use-format-date.test.ts
+          src/ui/gamification/widgets/pages/gamification-page/tests
+          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests
 
       - name: Enforce thresholds for every changed production file
         shell: bash
