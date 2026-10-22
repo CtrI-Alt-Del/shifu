@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from shifu.shared.providers.langfuse_telemetry_provider import (
         LangfuseTelemetryProvider,
     )
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
         AgentOSHandoffStore,
     )
@@ -162,13 +163,18 @@ def _agentos_submissions(
                 profile: Literal['primary', 'fallback', 'reviewer', 'vision'] = (
                     'primary'
                 ),
+                telemetry_provider: TelemetryProvider | None = None,
             ) -> Model | None:
                 nonlocal profile_calls
                 if profile == missing_profile:
                     profile_calls += 1
                     if missing_call is None or profile_calls == missing_call:
                         return None
-                return original_build(settings, profile=profile)
+                return original_build(
+                    settings,
+                    profile=profile,
+                    telemetry_provider=telemetry_provider,
+                )
 
             monkeypatch.setattr(provider, 'build', staticmethod(build_without_profile))
             return original_register(*args, **kwargs)
