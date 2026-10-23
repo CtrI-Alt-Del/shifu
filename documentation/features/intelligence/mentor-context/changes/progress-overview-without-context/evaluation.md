@@ -15,7 +15,7 @@ last_updated_at: 2026-10-22
 | Manual checks | 1/1 passed (VM-01) |
 | Visual checks | Not applicable: no UI change |
 | Independent review | Current: Implementation Reviewer report reconciled; every accepted finding corrected and its proof rerun |
-| Blockers | Publication blocked, see Handoff |
+| Blockers | None; see Handoff for limitations |
 | Candidate | Branch `feat/shifu-101`, base `52b52d71`, uncommitted. Mine: the two providers, the new test, this folder. Not mine and preserved: the removed changed-file coverage jobs, scripts and Tooling text (`.github/workflows/*`, `apps/server/scripts/check_changed_coverage.py`, `apps/server/tests/tooling/test_check_changed_coverage.py`, `apps/web/scripts/check-changed-coverage.ts`, `documentation/tooling.md`) |
 
 # Progress
@@ -79,8 +79,8 @@ last_updated_at: 2026-10-22
 | Unfinished | Conclusion: commits need the Jira key for this change (SHIFU-101 belongs to the learner memories delivery); base Spec pointer to this change; PRD version recheck |
 | Uncommitted work | `apps/server/src/shifu/learning/providers/learning_mentor_context_provider.py`, `apps/server/src/shifu/intelligence/providers/routing/local_mentor_route_provider.py`, `apps/server/tests/intelligence/ai/workflows/test_agno_process_mentor_response_workflow.py`, this change folder. Unrelated changes to preserve: the coverage-gate retirement paths listed in Current State |
 | Active processes | None started by this task are running; disposable containers removed |
-| Blockers | Publication: Synchronization paused on 2026-10-22: `git fetch origin main` gave `0bc77d56`, 23 commits not in the branch, and 47 dirty paths are also changed by main (for example `app.py`, the intelligence registry and pipe, rest controllers, the evals and workflow tests). The 267 dirty paths also hold work that is not part of these two changes (Identity and Learning controller edits and new Identity use cases, the retired coverage-gate files, `.github` workflows, web test removals, `package.json`). A merge would overwrite them, and a scoped commit cannot separate them from mine inside shared files. No fetch result was merged, nothing was committed or pushed. The Jira key is taken from the branch name (`SHIFU-101`, the learner memories delivery) only if the user confirms it for these changes. PRD recheck done: Intelligence PRD content 83099649 is still version 9 (2026-10-13T16:12:19Z), so Spec authority is unchanged |
-| Next action | The user decides which dirty paths belong to this delivery and the Jira key. Then commit the exact paths in coherent groups, fetch and merge `origin/main` (no rebase), rerun only the checks the merge affects, run `create-pr`, and complete both artifacts after current-head CI |
+| Blockers | None. Synchronized on 2026-10-22: `origin/main` `0bc77d56` merged with no rebase into the branch (merge commit `1c394530`). Conflicts: the two CI workflows (kept the retired coverage-gate side), the removed AgentOS React evaluation test and the removed coverage-gate test, and the moved React controller fixture (main's file kept, imports updated). Reused: every Intelligence result, because the merge touched no Intelligence path. Refreshed on the merged candidate: `tests/learning` and `tests/curriculum` 467 passed, types 0 errors, ruff clean, architecture valid. Limitations: (1) the AgentOS React evaluation cases that main added (routing to the Learning runtime and a persisted React attempt with replay) were dropped with the AgentOS suite and have no in-process equivalent yet; (2) `scripts/check-test-integrity.mjs` flags two test files that main added, `apps/server/tests/curriculum/core/domain/test_react_question.py` and `apps/web/src/rest/services/tests/gamification-service.test.ts`, which are kinds the repository policy does not allow; they were kept untouched |
+| Next action | Create the pull request with `create-pr`, wait for current-head CI, then complete both artifacts |
 
 # Delivery
 
@@ -92,7 +92,7 @@ last_updated_at: 2026-10-22
 
 | Field | Result |
 | --- | --- |
-| Publication | Authorized by `conclude-spec`, not performed: synchronization and commits are blocked by unowned dirty work, see Handoff. Spec stays `implemented` and Evaluation `ready` |
+| Publication | Local commits made, not pushed yet. Commits: `a5d2f791` server source, `57798ab8` server tests, `18284fc0` evals, `b51a0a67` CI and tooling, `f005ec4f` Specs and rules, `1c394530` merge of main. Left uncommitted and unrelated: `.vscode/settings.json` (only reformatted by biome so the repository lint hook passes) and `documentation/prompts/review-code-prompt.md` |
 | Source verification | PRD Intelligence content 83099649, version 9, read 2026-10-21. Recheck at conclusion; the Atlassian connector was unavailable on 2026-10-22 |
 | Documentation Alignment | Pointer from the base Spec to this change pending at conclusion |
 | Revision History | Revision 2 removed the retired coverage gate; no product behavior changed |
