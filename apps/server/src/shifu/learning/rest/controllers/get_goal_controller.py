@@ -1,7 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Path
+from pydantic import BaseModel, Field, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.get_goal_use_case import GetGoalUseCase
@@ -27,12 +27,13 @@ class Response(BaseModel):
     skills: tuple[SkillResponse, ...]
 
 
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
 class GetGoalController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.get(
-            '/goals/{goal_id}', response_model=Response, status_code=status.HTTP_200_OK
-        )
+        @router.get('/goals/{goal_id}', response_model=Response, status_code=200)
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],
             user: Annotated[
@@ -47,16 +48,4 @@ class GetGoalController:
             detail = GetGoalUseCase(database, curriculum).execute(
                 user.account_id, goal_id
             )
-            return Response(
-                goal_id=detail.goal_id,
-                title=detail.title,
-                description=detail.description,
-                skills=tuple(
-                    SkillResponse(
-                        skill_id=item.skill_id,
-                        skill_name=item.skill_name,
-                        status=item.status.value,
-                    )
-                    for item in detail.skills
-                ),
-            )
+            return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)

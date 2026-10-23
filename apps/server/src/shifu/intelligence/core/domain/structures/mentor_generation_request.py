@@ -28,7 +28,9 @@ class MentorGenerationRequest:
     approved_blocks: tuple[MentorResponseBlock, ...]
     correction: str | None
     attachment_context: MentorAttachmentContext | None = None
-    summary: MentorConversationSummaryContext | None = None  # read by the reviewer only
+    summary: MentorConversationSummaryContext | None = (
+        None  # read by the writer and the reviewer
+    )
     memories: tuple[
         LearnerMemoryContext, ...
-    ] = ()  # learner declarations, answer/reviewer only
+    ] = ()  # learner declarations, read by the answer, writer and reviewer

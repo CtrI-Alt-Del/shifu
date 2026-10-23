@@ -7,7 +7,6 @@ from fastapi import (
     Header,
     Path,
     Response as FastAPIResponse,
-    status,
 )
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
@@ -84,7 +83,7 @@ class SubmitChoiceActivityController:
             '/goals/{goal_id}/skills/{skill_id}/competencies/{competency_id}'
             '/activities/{activity_id}/attempts',
             response_model=Response,
-            status_code=status.HTTP_201_CREATED,
+            status_code=201,
         )
         def _(
             request: Request,
@@ -149,9 +148,7 @@ class SubmitChoiceActivityController:
                 ),
                 from_attributes=True,
             )
-            response.status_code = (
-                status.HTTP_200_OK if outcome.replayed else status.HTTP_201_CREATED
-            )
+            response.status_code = 200 if outcome.replayed else 201
             return Response(
                 attempt_id=outcome.attempt.attempt_id,
                 status='pending',

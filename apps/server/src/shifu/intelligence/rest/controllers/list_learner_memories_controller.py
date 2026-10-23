@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
+    Query,
     Response as FastApiResponse,
 )
 from pydantic import BaseModel, TypeAdapter
@@ -42,21 +42,13 @@ class ListLearnerMemoriesController:
                 MentorAccessProvider,
                 Depends(IntelligencePipe.get_mentor_access_provider),
             ],
-            q: str | None = None,
+            q: Annotated[
+                str | None,
+                Query(max_length=LearnerMemoryFilter.MAX_QUERY_CODE_POINTS),
+            ] = None,
             category: LearnerMemoryCategory | None = None,
         ) -> Response:
             query = q.strip() if q is not None else None
-            if (
-                query is not None
-                and len(query) > LearnerMemoryFilter.MAX_QUERY_CODE_POINTS
-            ):
-                raise HTTPException(
-                    status_code=422,
-                    detail={
-                        'code': 'validation_error',
-                        'message': 'A busca deve ter no máximo 100 caracteres.',
-                    },
-                )
             details = ListLearnerMemoriesUseCase(database, access).execute(
                 user.account_id,
                 LearnerMemoryFilter(query=query or None, category=category),

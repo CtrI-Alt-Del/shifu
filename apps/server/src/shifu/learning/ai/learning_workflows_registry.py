@@ -67,7 +67,7 @@ class LearningWorkflowsRegistry:
         observability = observability or LangfuseTelemetryProvider(
             'learning', telemetry_client
         )
-        self._observability: LangfuseTelemetryProvider = observability
+        self._observability_provider: LangfuseTelemetryProvider = observability
         self._settings = settings
         self._assessor = assessor
         self._access_provider = access_provider
@@ -127,12 +127,12 @@ class LearningWorkflowsRegistry:
         return self._database_port
 
     @property
-    def code_rubric_assessor(self) -> CodeRubricAssessorProvider:
+    def code_rubric_assessor_provider(self) -> CodeRubricAssessorProvider:
         return self._assessment_provider
 
     @property
-    def observability(self) -> LangfuseTelemetryProvider:
-        return self._observability
+    def observability_provider(self) -> LangfuseTelemetryProvider:
+        return self._observability_provider
 
     def destination_for_event(self, event: OutboxEvent) -> str | None:
         if event.name != _EVENT_NAME:

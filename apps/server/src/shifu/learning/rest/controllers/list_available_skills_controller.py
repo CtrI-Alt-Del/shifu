@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from shifu.learning.core.use_cases.list_available_skills_use_case import (
@@ -29,9 +29,7 @@ class Response(BaseModel):
 class ListAvailableSkillsController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.get(
-            '/available-skills', response_model=Response, status_code=status.HTTP_200_OK
-        )
+        @router.get('/available-skills', response_model=Response, status_code=200)
         def _(
             _user: Annotated[
                 AuthenticatedUser, Depends(AuthenticationPipe.get_authenticated_user)

@@ -2,7 +2,7 @@ from fastapi import Request
 from sqlalchemy.engine import Engine
 
 from shifu.intelligence.core.interfaces import (
-    GenerateMentorTitleWorkflow,
+    GenerateMentorTitleProvider,
     IntelligenceDatabase,
     LearnerMemoryAnalyzerProvider,
     MentorAttachmentExtractorProvider,
@@ -34,10 +34,10 @@ class IntelligencePipe:
         return request.app.state.intelligence_database
 
     @staticmethod
-    def get_generate_mentor_title_workflow(
+    def get_generate_mentor_title_provider(
         request: Request,
-    ) -> GenerateMentorTitleWorkflow:
-        return request.app.state.generate_mentor_title_workflow
+    ) -> GenerateMentorTitleProvider:
+        return request.app.state.generate_mentor_title_provider
 
     @staticmethod
     def get_mentor_attachment_extractor_provider(
@@ -49,7 +49,7 @@ class IntelligencePipe:
     def get_learner_memory_analyzer_provider(
         request: Request,
     ) -> LearnerMemoryAnalyzerProvider:
-        return request.app.state.learner_memory_analyzer
+        return request.app.state.learner_memory_analyzer_provider
 
     @staticmethod
     def get_identifier_provider() -> IdentifierProvider:

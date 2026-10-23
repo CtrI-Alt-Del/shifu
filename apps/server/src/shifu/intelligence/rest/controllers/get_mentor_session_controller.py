@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
+    Path,
     Response as FastApiResponse,
 )
 from pydantic import BaseModel, TypeAdapter
@@ -16,6 +16,9 @@ from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.rest.schemas.mentor_session_schemas import MentorSessionSchemas
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import SharedPipe
+
+
+_ID_PATTERN = r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$'
 
 
 class Response(BaseModel):
@@ -37,7 +40,7 @@ class GetMentorSessionController:
             '/mentor-sessions/{session_id}', response_model=Response, status_code=200
         )
         def _(
-            session_id: str,
+            session_id: Annotated[str, Path(pattern=_ID_PATTERN)],
             response: FastApiResponse,
             user: Annotated[
                 AuthenticatedUser, Depends(SharedPipe.get_authenticated_user)
@@ -51,30 +54,8 @@ class GetMentorSessionController:
             ],
             cursor: str | None = None,
         ) -> Response:
-            if not _is_ulid(session_id):
-                raise HTTPException(
-                    status_code=422,
-                    detail={
-                        'code': 'validation_error',
-                        'message': 'Identificador inválido.',
-                    },
-                )
-            try:
-                detail = GetMentorSessionUseCase(database, access).execute(
-                    user.account_id, session_id, cursor
-                )
-            except (TypeError, ValueError) as error:
-                raise HTTPException(
-                    status_code=422,
-                    detail={'code': 'validation_error', 'message': 'Cursor inválido.'},
-                ) from error
+            detail = GetMentorSessionUseCase(database, access).execute(
+                user.account_id, session_id, cursor
+            )
             response.headers['Cache-Control'] = 'private, no-store'
             return _RESPONSE_ADAPTER.validate_python(detail, from_attributes=True)
-
-
-def _is_ulid(value: str) -> bool:
-    return (
-        len(value) == 26
-        and value[0] <= '7'
-        and all(character in '0123456789ABCDEFGHJKMNPQRSTVWXYZ' for character in value)
-    )

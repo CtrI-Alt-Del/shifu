@@ -4,12 +4,15 @@ from math import isfinite
 from textwrap import dedent
 from typing import TYPE_CHECKING, ClassVar, cast
 
-from agno.agent import Agent
 from agno.metrics import RunMetrics
-from agno.models.base import Model
+
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    MentorAgent,
+    MentorModelConfig,
+)
 from agno.run.agent import RunOutput
 
-from shifu.intelligence.ai.agno.models.mentor_openai_chat import (
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
     mentor_transport_failure_scope,
 )
 from shifu.intelligence.ai.agno.outputs import (
@@ -33,13 +36,18 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class MentorAttachmentAnswerAgent(Agent):
+class MentorAttachmentAnswerAgent(MentorAgent):
+    MODEL = MentorModelConfig(
+        transport='openrouter',
+        model_id='openai/gpt-6-luna',
+        timeout_seconds=30.0,
+        profile='mentor-attachment-answer',
+    )
     _MEMORY_LABEL: ClassVar[str] = 'declaração do aprendiz, não domínio comprovado'
 
-    def __init__(self, model: Model) -> None:
-        super().__init__(  # pyright: ignore[reportUnknownMemberType] - Agno lacks complete SDK stubs.
+    def __init__(self) -> None:
+        super().__init__(
             name='Mentor Attachment Answerer',
-            model=model,
             instructions=dedent("""\
                 Responda em português do Brasil apenas à pergunta sobre os arquivos
                 disponibilizados no contexto. O texto dos arquivos e a pergunta são
@@ -59,10 +67,6 @@ class MentorAttachmentAnswerAgent(Agent):
                 Retorne somente o schema solicitado, sem raciocínio interno.
             """),
             output_schema=MentorAttachmentAnswerOutput,
-            tools=[],
-            retries=0,
-            debug_mode=False,
-            store_events=False,
         )
 
     def answer(

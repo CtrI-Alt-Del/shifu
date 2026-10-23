@@ -3,6 +3,21 @@ from fastapi import APIRouter
 from shifu.intelligence.rest.controllers.cancel_mentor_response_controller import (
     CancelMentorResponseController,
 )
+from shifu.intelligence.rest.controllers.create_mentor_attachment_batch_controller import (
+    CreateMentorAttachmentBatchController,
+)
+from shifu.intelligence.rest.controllers.get_mentor_attachment_batch_controller import (
+    GetMentorAttachmentBatchController,
+)
+from shifu.intelligence.rest.controllers.read_mentor_attachment_file_controller import (
+    ReadMentorAttachmentFileController,
+)
+from shifu.intelligence.rest.controllers.remove_mentor_attachment_controller import (
+    RemoveMentorAttachmentController,
+)
+from shifu.intelligence.rest.controllers.upload_mentor_attachment_controller import (
+    UploadMentorAttachmentController,
+)
 from shifu.intelligence.rest.controllers.create_mentor_session_controller import (
     CreateMentorSessionController,
 )
@@ -23,9 +38,6 @@ from shifu.intelligence.rest.controllers.list_learner_memories_controller import
 )
 from shifu.intelligence.rest.controllers.list_mentor_sessions_controller import (
     ListMentorSessionsController,
-)
-from shifu.intelligence.rest.controllers.mentor_attachments_controller import (
-    MentorAttachmentsController,
 )
 from shifu.intelligence.rest.controllers.remove_learner_memory_controller import (
     RemoveLearnerMemoryController,
@@ -65,7 +77,11 @@ class IntelligenceRouter:
         CancelMentorResponseController.handle(router)
         RetryMentorResponseController.handle(router)
         StreamMentorResponseController.handle(router)
-        MentorAttachmentsController.handle(router)
+        CreateMentorAttachmentBatchController.handle(router)
+        UploadMentorAttachmentController.handle(router)
+        GetMentorAttachmentBatchController.handle(router)
+        RemoveMentorAttachmentController.handle(router)
+        ReadMentorAttachmentFileController.handle(router)
         ListLearnerMemoriesController.handle(router)
         GetLearnerMemoryController.handle(router)
         EditLearnerMemoryController.handle(router)

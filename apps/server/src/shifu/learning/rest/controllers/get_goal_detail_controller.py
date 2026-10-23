@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Response, status
+from fastapi import APIRouter, Depends, Path, Response as FastApiResponse
 from pydantic import BaseModel, Field, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -29,7 +29,7 @@ class GoalSkillRelationResponse(BaseModel):
     skill_id: str = Field(serialization_alias='skillId')
 
 
-class ResponseModel(BaseModel):
+class Response(BaseModel):
     goal_id: str = Field(serialization_alias='goalId')
     title: str
     description: str
@@ -37,7 +37,7 @@ class ResponseModel(BaseModel):
     relations: tuple[GoalSkillRelationResponse, ...]
 
 
-_RESPONSE_ADAPTER = TypeAdapter(ResponseModel)
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
 
 
 class GetGoalDetailController:
@@ -45,11 +45,11 @@ class GetGoalDetailController:
     def handle(router: APIRouter) -> None:
         @router.get(
             '/goals/{goal_id}',
-            response_model=ResponseModel,
-            status_code=status.HTTP_200_OK,
+            response_model=Response,
+            status_code=200,
         )
         def _(
-            response: Response,
+            response: FastApiResponse,
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],
             user: Annotated[
                 AuthenticatedUser,
@@ -63,7 +63,7 @@ class GetGoalDetailController:
                 CurriculumContentProvider,
                 Depends(LearningPipe.get_curriculum_content_provider),
             ],
-        ) -> ResponseModel:
+        ) -> Response:
             detail = GetGoalDetailUseCase(
                 database,
                 curriculum_content_provider,

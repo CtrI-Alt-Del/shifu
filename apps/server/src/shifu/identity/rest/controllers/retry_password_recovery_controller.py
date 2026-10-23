@@ -1,7 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
@@ -24,13 +24,16 @@ class Response(BaseModel):
     is_decoy: bool
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class RetryPasswordRecoveryController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.post(
             '/password-recoveries/retry',
             response_model=Response,
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=202,
         )
         def _(
             request: Request,
@@ -65,7 +68,4 @@ class RetryPasswordRecoveryController:
                 recovery_handle_provider=recovery_handle_provider,
                 delivery_gateway=gateway,
             ).execute(request.recovery_handle)
-            return Response(
-                recovery_handle=result.recovery_handle,
-                is_decoy=result.is_decoy,
-            )
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

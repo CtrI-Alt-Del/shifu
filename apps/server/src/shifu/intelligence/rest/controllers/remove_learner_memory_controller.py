@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response
 
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.intelligence.core.use_cases import RemoveLearnerMemoryUseCase
@@ -16,7 +16,7 @@ class RemoveLearnerMemoryController:
         @router.delete(
             '/learner-memories/{memory_id}',
             response_model=None,
-            status_code=status.HTTP_204_NO_CONTENT,
+            status_code=204,
         )
         def _(
             memory_id: str,
@@ -39,5 +39,5 @@ class RemoveLearnerMemoryController:
                 user.account_id, memory_id
             )
             response.headers['Cache-Control'] = 'private, no-store'
-            response.status_code = status.HTTP_204_NO_CONTENT
+            response.status_code = 204
             return response

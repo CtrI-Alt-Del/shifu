@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends
+from fastapi import Response as FastApiResponse
 
 from shifu.identity.core.interfaces import IdentityDatabase
 from shifu.identity.core.use_cases import PublishMainPageEnteredUseCase
@@ -15,7 +16,7 @@ class MainPageEnteredController:
         @router.post(
             '/main-page-entries',
             response_model=None,
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=202,
         )
         def _(
             user: Annotated[
@@ -34,10 +35,10 @@ class MainPageEnteredController:
                 ClockProvider,
                 Depends(IdentityPipe.get_clock_provider),
             ],
-        ) -> Response:
+        ) -> FastApiResponse:
             PublishMainPageEnteredUseCase(
                 database,
                 identifier_provider,
                 clock_provider,
             ).execute(user.account_id)
-            return Response(status_code=status.HTTP_202_ACCEPTED)
+            return FastApiResponse(status_code=202)

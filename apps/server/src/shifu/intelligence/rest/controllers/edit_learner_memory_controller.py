@@ -3,12 +3,10 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     Response as FastApiResponse,
 )
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, TypeAdapter
 
-from shifu.intelligence.core.domain.errors import LearnerMemoryContentInvalidError
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     LearnerMemoryAnalyzerProvider,
@@ -63,20 +61,13 @@ class EditLearnerMemoryController:
                 ClockProvider, Depends(IntelligencePipe.get_clock_provider)
             ],
         ) -> Response:
-            try:
-                details = EditLearnerMemoryUseCase(
-                    database, analyzer, access, clock_provider
-                ).execute(
-                    user.account_id,
-                    memory_id,
-                    request.content,
-                    request.expected_version,
-                )
-            except LearnerMemoryContentInvalidError as error:
-                # The shared handler maps domain validation to 400; this contract is 422.
-                raise HTTPException(
-                    status_code=422,
-                    detail={'code': 'validation_error', 'message': error.message},
-                ) from error
+            details = EditLearnerMemoryUseCase(
+                database, analyzer, access, clock_provider
+            ).execute(
+                user.account_id,
+                memory_id,
+                request.content,
+                request.expected_version,
+            )
             response.headers['Cache-Control'] = 'private, no-store'
             return _RESPONSE_ADAPTER.validate_python(details, from_attributes=True)

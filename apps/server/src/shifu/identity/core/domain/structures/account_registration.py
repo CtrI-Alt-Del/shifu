@@ -51,3 +51,8 @@ class AccountRegistrationResult:
     communication_id: str | None
     confirmation_token: str | None
     confirmation_expires_at: datetime | None
+
+    @property
+    def is_decoy(self) -> bool:
+        """A decoy result hides whether the e-mail already had an account."""
+        return self.account_id is None

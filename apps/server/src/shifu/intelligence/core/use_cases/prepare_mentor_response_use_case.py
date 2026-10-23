@@ -29,6 +29,7 @@ from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
     LearnerMemorySimilarityProvider,
+    MentorGenerationLimitProvider,
     MentorRouteProvider,
 )
 from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case import (
@@ -85,6 +86,7 @@ class PrepareMentorResponseUseCase:
         attachment_context_use_case: GetMentorAttachmentContextUseCase,
         memory_similarity: LearnerMemorySimilarityProvider,
         memory_relevance_threshold: float,
+        generation_limit_provider: MentorGenerationLimitProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
@@ -95,6 +97,7 @@ class PrepareMentorResponseUseCase:
         self._attachment_context_use_case = attachment_context_use_case
         self._memory_similarity = memory_similarity
         self._memory_relevance_threshold = memory_relevance_threshold
+        self._generation_limit = generation_limit_provider
 
     def execute(
         self, attempt_id: str, execution_owner: str
@@ -210,8 +213,6 @@ class PrepareMentorResponseUseCase:
             attempt.session_id,
         )
         request = None
-        # General responses stay on the local route. Only attachment-backed
-        # requests cross the inference boundary into the registered workflow.
         if requests and attachment_context is not None:
             request = MentorGenerationRequest(
                 session_id=attempt.session_id,
@@ -227,6 +228,36 @@ class PrepareMentorResponseUseCase:
                 memories=self._relevant_memories(attempt.account_id, learner),
             )
         self._assert_claim_current(attempt, execution_owner)
+        fallback = None
+        unanswered = tuple(
+            part for part in route.unanswered_requests if part in requests
+        )
+        if (
+            request is None
+            and self._may_generate(unanswered, statement_only, learner, local_blocks)
+            and self._take_slot(attempt, approved)
+        ):
+            request = MentorGenerationRequest(
+                session_id=attempt.session_id,
+                learner_message_id=attempt.learner_message_id,
+                attempt_id=attempt.id,
+                requested_part='\n\n'.join(unanswered),
+                history=tuple(history),
+                context=context,
+                approved_blocks=approved,
+                correction=None,
+                attachment_context=None,
+                summary=summary,
+                memories=self._relevant_memories(attempt.account_id, learner),
+            )
+            fallback = next(
+                block
+                for block in local_blocks
+                if block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+            )
+            local_blocks = tuple(
+                block for block in local_blocks if block is not fallback
+            )
         return PreparedMentorResponse(
             attempt_id=attempt.id,
             execution_owner=execution_owner,
@@ -236,7 +267,46 @@ class PrepareMentorResponseUseCase:
             context=context,
             local_blocks=local_blocks,
             attachment_request=request,
+            generation_fallback=fallback,
         )
+
+    def _may_generate(
+        self,
+        unanswered: tuple[str, ...],
+        statement_only: bool,
+        learner: MentorMessage,
+        local_blocks: tuple[MentorResponseBlock, ...],
+    ) -> bool:
+        """A general answer needs an unanswered part and none of the RF-06 exclusions.
+
+        The abstention must be among the local blocks: it is the safe fallback.
+        """
+        usable = (MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL)
+        return (
+            bool(unanswered)
+            and not statement_only
+            and (
+                not learner.attachments
+                or any(
+                    attachment.status in usable for attachment in learner.attachments
+                )
+            )
+            and any(
+                block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+                for block in local_blocks
+            )
+        )
+
+    def _take_slot(
+        self, attempt: MentorResponseAttempt, approved: tuple[MentorResponseBlock, ...]
+    ) -> bool:
+        """Take the attempt's slot once; a denial or a store failure keeps the abstention."""
+        if any(block.block_key.startswith('generated-') for block in approved):
+            return True
+        try:
+            return self._generation_limit.try_acquire(attempt.account_id, attempt.id)
+        except ServiceUnavailableError:
+            return False
 
     def _start(
         self, attempt_id: str, execution_owner: str
@@ -343,7 +413,7 @@ class PrepareMentorResponseUseCase:
     ) -> tuple[LearnerMemoryContext, ...]:
         """Up to three recent preferences plus up to five memories relevant to the message.
 
-        Memory selection only enriches an attachment answer, so any failure here
+        Memory selection only enriches a generated answer, so any failure here
         leaves the request without memories instead of failing the answer.
         """
         try:
@@ -553,7 +623,12 @@ class PrepareMentorResponseUseCase:
             else self._route_provider.route(content, context)
         )
         if clarification is not None:
-            return replace(route, clarification=clarification, generation_requests=())
+            return replace(
+                route,
+                clarification=clarification,
+                generation_requests=(),
+                unanswered_requests=(),
+            )
         return route
 
     def _propose_catalog(

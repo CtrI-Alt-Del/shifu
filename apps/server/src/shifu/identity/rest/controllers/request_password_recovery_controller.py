@@ -1,8 +1,8 @@
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from shifu.identity.core.domain.structures import PasswordRecoveryRequest
 from shifu.identity.core.interfaces import (
@@ -38,13 +38,16 @@ class Response(BaseModel):
     is_decoy: bool
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class RequestPasswordRecoveryController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.post(
             '/password-recovery-requests',
             response_model=Response,
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=202,
         )
         def _(
             request: Request,
@@ -79,7 +82,4 @@ class RequestPasswordRecoveryController:
                 recovery_handle_provider=recovery_handle_provider,
                 delivery_gateway=gateway,
             ).execute(PasswordRecoveryRequest(email=request.email))
-            return Response(
-                recovery_handle=result.recovery_handle,
-                is_decoy=result.is_decoy,
-            )
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)
