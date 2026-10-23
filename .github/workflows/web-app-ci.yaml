@@ -179,6 +179,7 @@ jobs:
           pnpm --filter web exec vitest run --coverage
           src/constants/tests/routes.test.ts
           src/routes/privacy/tests/privacy-route.test.ts
+          src/routes/api/tests/-health-route.test.ts
           src/rest/axios/tests/axios-rest-client.test.ts
           tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
           tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
