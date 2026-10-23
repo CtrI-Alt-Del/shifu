@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 import type { ActivityRecommendation } from '@/core/learning/competency-detail'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
+import { ActivityXpRewardBand } from '@/ui/gamification/widgets/components/activity-xp-reward-band'
 import { ChoiceResultPage } from '@/ui/learning/widgets/pages/choice-result-page'
 
 export const Route = createFileRoute(
@@ -29,6 +30,9 @@ function AttemptIndexRoute() {
       {...ids}
       onOpenRecommendation={openRecommendation}
       onSessionExpired={onSessionExpired}
+      rewardBand={
+        <ActivityXpRewardBand activityId={ids.activityId} attemptId={ids.attemptId} />
+      }
     />
   )
 }

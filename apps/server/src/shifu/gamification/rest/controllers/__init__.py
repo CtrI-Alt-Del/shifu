@@ -1,3 +1,6 @@
+from .get_activity_xp_reward_controller import (
+    GetActivityXpRewardController as GetActivityXpRewardController,
+)
 from .get_gamification_overview_controller import (
     GetGamificationOverviewController as GetGamificationOverviewController,
 )

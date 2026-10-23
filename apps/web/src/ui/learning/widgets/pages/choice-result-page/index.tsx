@@ -33,6 +33,7 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   const { canRetry, handleRetryEvaluation, hasRetryError, isRetrying, renderProps } =
     useChoiceResultPage(props)
   const pageProps = 'attemptId' in props ? renderProps : props
+  const { rewardBand } = props
 
   if (pageProps.state === 'loading') {
     return (
@@ -260,6 +261,8 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
           </output>
         ) : null}
       </header>
+
+      {rewardBand}
 
       {attempt.progressBefore !== undefined &&
       attempt.progressBefore !== null &&
