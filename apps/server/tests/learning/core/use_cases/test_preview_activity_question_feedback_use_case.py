@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
-from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
+from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
 from shifu.learning.core.domain.entities import CompetencyProgress

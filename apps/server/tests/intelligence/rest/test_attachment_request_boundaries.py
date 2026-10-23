@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
-from shifu.intelligence.rest.controllers.mentor_attachments_controller import (
-    MentorAttachmentsController,
+from shifu.intelligence.rest.controllers.upload_mentor_attachment_controller import (
+    UploadMentorAttachmentController,
 )
 
 if TYPE_CHECKING:
@@ -88,7 +88,7 @@ def test_upload_body_limit_does_not_apply_to_other_methods_or_paths(
 
 def test_upload_handler_is_synchronous_so_blocking_work_leaves_the_event_loop() -> None:
     router = APIRouter()
-    MentorAttachmentsController.handle(router)
+    UploadMentorAttachmentController.handle(router)
 
     routes = [
         route

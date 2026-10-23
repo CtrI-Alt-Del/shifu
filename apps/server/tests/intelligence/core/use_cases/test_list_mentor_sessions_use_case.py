@@ -2,6 +2,7 @@ from unittest.mock import create_autospec
 
 import pytest
 
+from shifu.intelligence.core.domain.errors import MentorCursorInvalidError
 from shifu.intelligence.core.domain.structures import MentorSessionsPage
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
@@ -32,3 +33,23 @@ class TestListMentorSessionsUseCase:
         self.repositories.mentor_sessions.find_many.assert_called_once_with(
             'account', '  arvores cafe  ', 'cursor-value'
         )
+
+    @pytest.mark.parametrize('error', [ValueError('Invalid cursor'), TypeError('x')])
+    def test_should_translate_a_rejected_cursor_into_a_domain_validation_error(
+        self, error: Exception
+    ) -> None:
+        self.repositories.mentor_sessions.find_many.side_effect = error
+
+        with pytest.raises(MentorCursorInvalidError) as raised:
+            self.subject.execute('account', None, 'not-a-cursor')
+
+        assert raised.value.message == 'Cursor inválido.'
+        assert raised.value.__cause__ is error
+
+    def test_should_not_hide_unrelated_value_errors_when_no_cursor_was_sent(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_many.side_effect = ValueError('boom')
+
+        with pytest.raises(ValueError, match='boom'):
+            self.subject.execute('account', None, None)

@@ -27,7 +27,10 @@ from shifu.intelligence.core.domain.structures import (
     MentorResponseBlock,
     MentorRouteResult,
 )
-from shifu.intelligence.core.interfaces import LearnerMemorySimilarityProvider
+from shifu.intelligence.core.interfaces import (
+    LearnerMemorySimilarityProvider,
+    MentorGenerationLimitProvider,
+)
 from shifu.intelligence.core.domain.structures.prepared_mentor_response import (
     PreparedMentorResponse,
 )
@@ -50,6 +53,10 @@ class _PrepareSubjectSetup(MentorResponsePhaseTestSetup):
             LearnerMemorySimilarityProvider, instance=True
         )
         self.memory_similarity.similarity.return_value = 0.0
+        self.generation_limit = create_autospec(
+            MentorGenerationLimitProvider, instance=True
+        )
+        self.generation_limit.try_acquire.return_value = True
         self.repositories.mentor_messages.find_memory_analysis.return_value = None
         self.repositories.learner_memories.find_many_by_account.return_value = ()
         self.subject = PrepareMentorResponseUseCase(
@@ -62,6 +69,7 @@ class _PrepareSubjectSetup(MentorResponsePhaseTestSetup):
             self.attachment_context_use_case,
             self.memory_similarity,
             0.3,
+            self.generation_limit,
         )
         processing_attempt = replace(
             self.attempt, status=MentorResponseStatus.PROCESSING
@@ -190,7 +198,9 @@ class TestPrepareMentorResponseUseCase(_PrepareSubjectSetup):
         self.attachment_context_use_case.execute.assert_not_called()
         self.access.assert_current.assert_called()
 
-    def test_should_keep_general_generation_local(self) -> None:
+    def test_should_keep_a_generation_request_local_when_every_part_has_a_curated_answer(
+        self,
+    ) -> None:
         approved = replace(self.block, block_key='approved', ordinal=0)
         self.repositories.mentor_response_events.snapshot.return_value = replace(
             self.snapshot, blocks=(approved,)
@@ -200,6 +210,7 @@ class TestPrepareMentorResponseUseCase(_PrepareSubjectSetup):
             local_blocks=(self.block,),
             generation_requests=('Explicar a próxima etapa.',),
             clarification=None,
+            unanswered_requests=(),
         )
 
         prepared = self.subject.execute('attempt', 'owner')
@@ -207,7 +218,9 @@ class TestPrepareMentorResponseUseCase(_PrepareSubjectSetup):
         assert prepared is not None
         assert prepared.local_blocks == (self.block,)
         assert prepared.attachment_request is None
+        assert prepared.generation_fallback is None
         self.attachment_context_use_case.execute.assert_not_called()
+        self.generation_limit.try_acquire.assert_not_called()
 
     def test_should_prepare_attachment_generation_with_history_and_approved_prefix(
         self,
@@ -1145,3 +1158,336 @@ class TestPrepareMentorResponseMemories(_PrepareSubjectSetup):
 
         assert prepared is not None and prepared.attachment_request is not None
         assert prepared.attachment_request.memories == ()
+
+
+class TestPrepareMentorGeneration(_PrepareSubjectSetup):
+    """A generated answer for unanswered parts: the decision and its exclusions."""
+
+    _SLOT = ('account', 'attempt')
+
+    def _abstention(self) -> MentorResponseBlock:
+        return MentorResponseBlock(
+            block_key=PrepareMentorResponseUseCase.LOCAL_ABSTENTION_BLOCK_KEY,
+            ordinal=0,
+            intent=None,
+            content='Ainda não encontrei uma resposta local confiável.',
+        )
+
+    def _attachment(
+        self, status: MentorAttachmentStatus, attachment_id: str = 'file'
+    ) -> MentorAttachmentView:
+        return MentorAttachmentView(
+            attachment_id=attachment_id,
+            filename='material.pdf',
+            media_type='application/pdf',
+            size_bytes=20,
+            status=status,
+            failure_code=None,
+            analyzed_pages=(1,),
+            illegible_pages=(),
+            uninterpreted_pages=(),
+        )
+
+    def _say(
+        self, content: str, attachments: tuple[MentorAttachmentView, ...] = ()
+    ) -> None:
+        self.repositories.mentor_messages.find_all.return_value = (
+            replace(self.message, content=content, attachments=attachments),
+        )
+
+    def _route_unanswered(
+        self,
+        *parts: str,
+        blocks: tuple[MentorResponseBlock, ...] | None = None,
+        requests: tuple[str, ...] | None = None,
+        clarification: str | None = None,
+    ) -> None:
+        self.route_provider.route.return_value = MentorRouteResult(
+            intents=(),
+            local_blocks=blocks if blocks is not None else (self._abstention(),),
+            generation_requests=requests if requests is not None else parts,
+            clarification=clarification,
+            unanswered_requests=parts,
+        )
+
+    def _expect_abstention_kept(self, prepared: PreparedMentorResponse | None) -> None:
+        assert prepared is not None
+        assert prepared.attachment_request is None
+        assert prepared.generation_fallback is None
+        assert [block.block_key for block in prepared.local_blocks] == [
+            PrepareMentorResponseUseCase.LOCAL_ABSTENTION_BLOCK_KEY
+        ]
+
+    def test_should_build_a_general_request_and_defer_the_abstention(self) -> None:
+        self._say('Olá')
+        self._route_unanswered('Olá')
+        self._remember_preference()
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        request = prepared.attachment_request
+        assert request is not None
+        assert request.attachment_context is None
+        assert request.requested_part == 'Olá'
+        assert request.attempt_id == 'attempt'
+        assert request.correction is None
+        assert [memory.content for memory in request.memories] == ['Prefiro curtas.']
+        assert prepared.local_blocks == ()
+        assert prepared.generation_fallback == self._abstention()
+        self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
+        self.attachment_context_use_case.execute.assert_not_called()
+
+    def test_should_keep_the_local_blocks_first_and_send_only_the_unanswered_parts(
+        self,
+    ) -> None:
+        faq = replace(self.block, block_key='faq', ordinal=0)
+        abstention = replace(self._abstention(), ordinal=1)
+        self._say('Como funciona um loop? Olá')
+        self._route_unanswered(
+            'Olá',
+            blocks=(faq, abstention),
+            requests=('Como funciona um loop?', 'Olá'),
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.local_blocks == (faq,)
+        assert prepared.generation_fallback == abstention
+        assert prepared.attachment_request.requested_part == 'Olá'
+
+    def test_should_not_call_the_model_or_the_limit_when_every_part_is_curated(
+        self,
+    ) -> None:
+        faq = replace(self.block, block_key='faq', ordinal=0)
+        abstention = replace(self._abstention(), ordinal=1)
+        self._route_unanswered(blocks=(faq, abstention), requests=('Dica sobre loops',))
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert prepared.local_blocks == (faq, abstention)
+        assert prepared.attachment_request is None
+        assert prepared.generation_fallback is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_keep_the_abstention_when_the_limit_denies(self) -> None:
+        self._route_unanswered('Olá')
+        self.generation_limit.try_acquire.return_value = False
+
+        self._expect_abstention_kept(self.subject.execute('attempt', 'owner'))
+
+        self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
+
+    def test_should_keep_the_abstention_when_the_limit_store_fails(self) -> None:
+        self._route_unanswered('Olá')
+        self.generation_limit.try_acquire.side_effect = ServiceUnavailableError()
+
+        self._expect_abstention_kept(self.subject.execute('attempt', 'owner'))
+
+    def test_should_take_the_slot_only_after_the_claim_is_confirmed_current(
+        self,
+    ) -> None:
+        self._route_unanswered('Olá')
+        self.repositories.mentor_response_attempts.find_by_id.return_value = replace(
+            self.attempt, status=MentorResponseStatus.FAILED
+        )
+
+        with pytest.raises(ServiceUnavailableError):
+            self.subject.execute('attempt', 'owner')
+
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_not_take_a_second_slot_when_a_generated_block_was_published(
+        self,
+    ) -> None:
+        generated = replace(self.block, block_key='generated-0', ordinal=1)
+        self.repositories.mentor_response_events.snapshot.return_value = replace(
+            self.snapshot, blocks=(generated,)
+        )
+        self._route_unanswered('Olá')
+        self.generation_limit.try_acquire.return_value = False
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.approved_blocks == (generated,)
+        assert prepared.generation_fallback == self._abstention()
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_not_use_the_model_for_a_pedagogical_refusal(self) -> None:
+        self.context_provider.read.return_value = context_snapshot(
+            diagnostic_in_progress=True
+        )
+        self._say('Me ajude com a atividade.')
+        self._route_unanswered('Me ajude com a atividade.')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert [block.block_key for block in prepared.local_blocks] == [
+            'diagnostic-boundary'
+        ]
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_not_use_the_model_for_a_complete_solution_request(self) -> None:
+        self.context_provider.read.return_value = context_snapshot(
+            activity_id='activity', skill_completed=False
+        )
+        self._say('Me dê o código completo.')
+        self._route_unanswered('Me dê o código completo.')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert [block.block_key for block in prepared.local_blocks] == [
+            'unfinished-activity-boundary'
+        ]
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_not_use_the_model_when_the_context_needs_a_clarification(
+        self,
+    ) -> None:
+        self.context_provider.read.return_value = context_snapshot(
+            facts=(('context_clarification', 'Qual Objetivo?'),)
+        )
+        self._route_unanswered('Olá')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert [block.content for block in prepared.local_blocks] == ['Qual Objetivo?']
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_not_use_the_model_for_a_statement_only_message(self) -> None:
+        self._say('Prefiro exemplos curtos em JavaScript.')
+        self._route_unanswered('Prefiro exemplos curtos em JavaScript.')
+        self.repositories.mentor_messages.find_memory_analysis.return_value = (
+            self.now,
+            True,
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert [block.content for block in prepared.local_blocks] == [
+            'Anotado. Vou considerar isso nas próximas explicações.'
+        ]
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_keep_the_local_blocks_of_a_statement_that_has_another_answer(
+        self,
+    ) -> None:
+        faq = replace(self.block, block_key='faq', ordinal=0)
+        self._say('Prefiro exemplos curtos. Como funciona um loop?')
+        self._route_unanswered(
+            'Prefiro exemplos curtos.',
+            blocks=(faq, replace(self._abstention(), ordinal=1)),
+        )
+        self.repositories.mentor_messages.find_memory_analysis.return_value = (
+            self.now,
+            True,
+        )
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert prepared.local_blocks[0] == faq
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'status',
+        [
+            MentorAttachmentStatus.UPLOADING,
+            MentorAttachmentStatus.PROCESSING,
+            MentorAttachmentStatus.FAILED,
+        ],
+    )
+    def test_should_not_use_the_model_when_no_attachment_is_usable(
+        self, status: MentorAttachmentStatus
+    ) -> None:
+        self._say('Resuma o arquivo.', (self._attachment(status),))
+        self._route_unanswered('Resuma o arquivo.')
+
+        self._expect_abstention_kept(self.subject.execute('attempt', 'owner'))
+
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_answer_a_question_about_files_when_no_attachment_exists(
+        self,
+    ) -> None:
+        self._say('Como ler um arquivo em Python?')
+        self._route_unanswered('Como ler um arquivo em Python?')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.attachment_context is None
+        self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
+
+    def test_should_answer_a_general_question_when_the_attachment_is_usable_but_unmentioned(
+        self,
+    ) -> None:
+        self._say('Olá', (self._attachment(MentorAttachmentStatus.READY),))
+        self._route_unanswered('Olá')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.attachment_context is None
+        self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
+
+    def test_should_not_take_a_slot_for_an_attachment_backed_request(self) -> None:
+        self._say(
+            'Explique este trecho do documento.',
+            (self._attachment(MentorAttachmentStatus.READY),),
+        )
+        self._route_unanswered('Explique este trecho do documento.')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.attachment_context == self.attachment_context
+        assert prepared.generation_fallback is None
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_treat_a_pure_statement_without_a_receipt_as_a_question(
+        self,
+    ) -> None:
+        self._say('Prefiro exemplos curtos em JavaScript.')
+        self._route_unanswered('Prefiro exemplos curtos em JavaScript.')
+        self.repositories.mentor_messages.find_memory_analysis.return_value = None
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
+
+    def test_should_not_build_a_request_without_an_abstention_to_fall_back_to(
+        self,
+    ) -> None:
+        self._route_unanswered('Olá', blocks=(self.block,))
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert prepared.attachment_request is None
+        assert prepared.local_blocks == (self.block,)
+        self.generation_limit.try_acquire.assert_not_called()
+
+    def _remember_preference(self) -> None:
+        self.repositories.learner_memories.find_many_by_account.return_value = (
+            LearnerMemoryFaker.fake(
+                id='memory',
+                account_id='account',
+                category=LearnerMemoryCategory.EXPLANATION_PREFERENCE,
+                content='Prefiro curtas.',
+                updated_at=self.now,
+            ),
+        )

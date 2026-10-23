@@ -7,7 +7,10 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.intelligence.core.domain.entities import MentorSession
-from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
+from shifu.intelligence.core.domain.errors import (
+    MentorCursorInvalidError,
+    MentorSessionNotFoundError,
+)
 from shifu.intelligence.core.domain.entities import (
     MentorResponseAttempt,
     MentorSessionSummary,
@@ -122,6 +125,26 @@ class TestGetMentorSessionUseCase:
             self.subject.execute('foreign-account', 'session')
 
         self.repositories.learner_memory_changes.find_items_by_session.assert_not_called()
+
+    @pytest.mark.parametrize('error', [ValueError('Invalid cursor'), TypeError('x')])
+    def test_should_translate_a_rejected_cursor_into_a_domain_validation_error(
+        self, error: Exception
+    ) -> None:
+        self.repositories.mentor_messages.find_many.side_effect = error
+
+        with pytest.raises(MentorCursorInvalidError) as raised:
+            self.subject.execute('account', 'session', 'not-a-cursor')
+
+        assert raised.value.message == 'Cursor inválido.'
+        assert raised.value.__cause__ is error
+
+    def test_should_not_hide_unrelated_value_errors_when_no_cursor_was_sent(
+        self,
+    ) -> None:
+        self.repositories.mentor_messages.find_many.side_effect = ValueError('boom')
+
+        with pytest.raises(ValueError, match='boom'):
+            self.subject.execute('account', 'session')
 
     def test_should_return_private_not_found_for_unowned_session(self) -> None:
         self.repositories.mentor_sessions.find_by_id.return_value = None

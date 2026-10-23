@@ -2,16 +2,38 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from fastapi.testclient import TestClient
+
+from shifu.app import FastAPIApp
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
+from shifu.identity.core.domain.enums import (
+    AccountActionTokenDeliveryStatus,
+    ConfirmationDeliveryQueueStatus,
+)
+from shifu.identity.core.interfaces import (
+    ConfirmationDeliveryRequest,
+    ConfirmationDeliveryResult,
+)
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
+from shifu.identity.pipes import IdentityPipe
 from shifu.identity.providers.security import PendingConfirmationHandleProvider
+from shifu.shared.constants import ENVIRONMENT
 
 if TYPE_CHECKING:
-    from fastapi.testclient import TestClient
-
     from httpx import Response
 
     from tests.fixtures.postgres_fixture import PostgresDatabase
+
+
+class _UnavailableConfirmationDeliveryGateway:
+    def __init__(self) -> None:
+        self.requests: list[ConfirmationDeliveryRequest] = []
+
+    def queue(self, request: ConfirmationDeliveryRequest) -> ConfirmationDeliveryResult:
+        self.requests.append(request)
+        return ConfirmationDeliveryResult(
+            status=ConfirmationDeliveryQueueStatus.DELIVERY_UNAVAILABLE
+        )
 
 
 class TestRegisterAccountController:
@@ -100,3 +122,91 @@ class TestRegisterAccountController:
             assert communication.recipient_email == 'ada@example.com'
             assert communication.content is None
             assert communication.encrypted_content is not None
+
+    def test_registration_records_delivery_unavailable_and_reports_a_delivery_issue(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        gateway = _UnavailableConfirmationDeliveryGateway()
+        app = FastAPIApp.register(postgres_database.engine)
+        app.dependency_overrides[IdentityPipe.get_confirmation_delivery_gateway] = (
+            lambda: gateway
+        )
+
+        with TestClient(
+            app,
+            headers={'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret},
+        ) as client:
+            registration = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    '/identity/registrations',
+                    json={
+                        'display_name': 'Grace Hopper',
+                        'email': 'grace@example.com',
+                        'password': 'correct horse battery staple',
+                    },
+                ),
+            )
+            pending_handle = registration.json()['pending_handle']
+            status = cast(
+                'Response',
+                client.post(  # pyright: ignore[reportUnknownMemberType]
+                    '/identity/pending-confirmations/status',
+                    json={'pending_handle': pending_handle},
+                ),
+            )
+
+        assert registration.status_code == 202
+        assert registration.json() == {
+            'result': 'pending',
+            'pending_handle': pending_handle,
+            'is_decoy': False,
+        }
+        assert len(gateway.requests) == 1
+        assert gateway.requests[0].recipient_email == 'grace@example.com'
+        assert gateway.requests[0].recipient_name == 'Grace Hopper'
+        assert status.json() == {
+            'state': 'delivery_issue',
+            'retry_after_seconds': None,
+        }
+
+        identity_database = SqlalchemyIdentityDatabase(engine=postgres_database.engine)
+        with identity_database.transaction() as repositories:
+            token = repositories.account_action_tokens.find_by_id(
+                gateway.requests[0].identity_action_token_id
+            )
+            assert token is not None
+            assert (
+                token.delivery_status
+                is AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE
+            )
+
+    def test_duplicate_registration_returns_a_decoy_without_queueing_delivery(
+        self,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        gateway = _UnavailableConfirmationDeliveryGateway()
+        app = FastAPIApp.register(postgres_database.engine)
+        app.dependency_overrides[IdentityPipe.get_confirmation_delivery_gateway] = (
+            lambda: gateway
+        )
+        payload = {
+            'display_name': 'Grace Hopper',
+            'email': 'grace@example.com',
+            'password': 'correct horse battery staple',
+        }
+
+        with TestClient(
+            app,
+            headers={'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret},
+        ) as client:
+            client.post('/identity/registrations', json=payload)  # pyright: ignore[reportUnknownMemberType]
+            duplicate = cast(
+                'Response',
+                client.post('/identity/registrations', json=payload),  # pyright: ignore[reportUnknownMemberType]
+            )
+
+        assert duplicate.status_code == 202
+        assert duplicate.json()['is_decoy'] is True
+        assert len(gateway.requests) == 1
