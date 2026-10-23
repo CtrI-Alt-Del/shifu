@@ -20,7 +20,7 @@ concurrency:
 jobs:
   type-check:
     name: Server type check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -48,7 +48,7 @@ jobs:
 
   lint-check:
     name: Server lint check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -76,7 +76,7 @@ jobs:
 
   architecture-check:
     name: Server architecture check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -104,7 +104,7 @@ jobs:
 
   build:
     name: Server build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -137,7 +137,7 @@ jobs:
 
   unit-tests:
     name: Server unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -174,7 +174,7 @@ jobs:
 
   integration-tests:
     name: Server integration shard ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -366,7 +366,7 @@ jobs:
     name: Server integration tests
     if: always()
     needs: integration-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require all four integration shards
         env:
@@ -375,7 +375,7 @@ jobs:
 
   evals:
     name: Server real AI evals
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
