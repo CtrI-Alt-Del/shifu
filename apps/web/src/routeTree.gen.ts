@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ConfirmEmailIndexRouteImport } from './routes/confirm-email/index'
 import { Route as CurriculumIndexRouteImport } from './routes/curriculum/index'
 import { Route as ForgotPasswordIndexRouteImport } from './routes/forgot-password/index'
@@ -47,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccountIndexRoute = AccountIndexRouteImport.update({
   id: '/account/',
   path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfirmEmailIndexRoute = ConfirmEmailIndexRouteImport.update({
@@ -218,6 +224,7 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivity
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/health': typeof ApiHealthRoute
   '/account': typeof AccountIndexRoute
   '/confirm-email': typeof ConfirmEmailIndexRoute
   '/curriculum': typeof CurriculumIndexRoute
@@ -280,6 +288,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
   '/curriculum/': typeof CurriculumIndexRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/health'
     | '/account/'
     | '/confirm-email/'
     | '/curriculum/'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/health'
     | '/account'
     | '/confirm-email'
     | '/curriculum'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/health'
     | '/account/'
     | '/confirm-email/'
     | '/curriculum/'
@@ -406,6 +418,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   AccountIndexRoute: typeof AccountIndexRoute
   ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
@@ -446,6 +459,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account/'
       preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confirm-email/': {
@@ -678,6 +698,7 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren 
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiHealthRoute: ApiHealthRoute,
   AccountIndexRoute: AccountIndexRoute,
   ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,

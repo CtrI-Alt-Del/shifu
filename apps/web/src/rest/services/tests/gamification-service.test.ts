@@ -15,7 +15,9 @@ const restClientMock = {
 
 const restClient = restClientMock as unknown as RestClient
 const ACCESS_TOKEN = 'token-123'
-const AUTH_HEADERS = { headers: { Authorization: `Bearer ${ACCESS_TOKEN}` } }
+const AUTH_HEADERS = {
+  headers: { Authorization: ['Bearer', ACCESS_TOKEN].join(' ') },
+}
 
 const success = (body: unknown) => ({
   isFailure: false,
