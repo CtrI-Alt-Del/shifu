@@ -13,6 +13,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.database.sqlalchemy.models import GoalModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.database.seed_data import (
@@ -73,6 +74,34 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetGoalDetailController:
+    def test_create_goal_rejects_unknown_curriculum_skill(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with postgres_database.engine.connect() as connection:
+            before = connection.scalar(select(func.count()).select_from(GoalModel))
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals',
+                json={
+                    'title': 'Novo objetivo',
+                    'description': 'Estudar uma habilidade desconhecida',
+                    'skillIds': ['01SHF000000000000000000099'],
+                },
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
+        assert response.json()['code'] == 'curriculum_gap'
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(select(func.count()).select_from(GoalModel)) == before
+            )
+
     def test_programming_goal_exposes_graph_only_skills_without_competencies(
         self,
         client: TestClient,

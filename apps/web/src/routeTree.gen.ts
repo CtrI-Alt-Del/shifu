@@ -19,6 +19,7 @@ import { Route as IntelligenceIndexRouteImport } from './routes/intelligence/ind
 import { Route as LearningIndexRouteImport } from './routes/learning/index'
 import { Route as LoginIndexRouteImport } from './routes/login/index'
 import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-confirmation/index'
+import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -89,6 +90,11 @@ const PendingConfirmationIndexRoute =
     path: '/pending-confirmation/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PrivacyIndexRoute = PrivacyIndexRouteImport.update({
+  id: '/privacy/',
+  path: '/privacy/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RegisterIndexRoute = RegisterIndexRouteImport.update({
   id: '/register/',
   path: '/register/',
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/privacy/': typeof PrivacyIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -251,6 +258,7 @@ export interface FileRoutesByTo {
   '/learning': typeof LearningIndexRoute
   '/login': typeof LoginIndexRoute
   '/pending-confirmation': typeof PendingConfirmationIndexRoute
+  '/privacy': typeof PrivacyIndexRoute
   '/register': typeof RegisterIndexRoute
   '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/learning/': typeof LearningIndexRoute
   '/login/': typeof LoginIndexRoute
   '/pending-confirmation/': typeof PendingConfirmationIndexRoute
+  '/privacy/': typeof PrivacyIndexRoute
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -313,6 +322,7 @@ export interface FileRouteTypes {
     | '/learning/'
     | '/login/'
     | '/pending-confirmation/'
+    | '/privacy/'
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/learning'
     | '/login'
     | '/pending-confirmation'
+    | '/privacy'
     | '/register'
     | '/reset-password'
     | '/api/auth/$'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/learning/'
     | '/login/'
     | '/pending-confirmation/'
+    | '/privacy/'
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
@@ -403,6 +415,7 @@ export interface RootRouteChildren {
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
   PendingConfirmationIndexRoute: typeof PendingConfirmationIndexRoute
+  PrivacyIndexRoute: typeof PrivacyIndexRoute
   RegisterIndexRoute: typeof RegisterIndexRoute
   ResetPasswordIndexRoute: typeof ResetPasswordIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -489,6 +502,13 @@ declare module '@tanstack/react-router' {
       path: '/pending-confirmation'
       fullPath: '/pending-confirmation/'
       preLoaderRoute: typeof PendingConfirmationIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy/': {
+      id: '/privacy/'
+      path: '/privacy'
+      fullPath: '/privacy/'
+      preLoaderRoute: typeof PrivacyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/register/': {
@@ -667,6 +687,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
   PendingConfirmationIndexRoute: PendingConfirmationIndexRoute,
+  PrivacyIndexRoute: PrivacyIndexRoute,
   RegisterIndexRoute: RegisterIndexRoute,
   ResetPasswordIndexRoute: ResetPasswordIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

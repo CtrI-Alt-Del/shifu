@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import create_autospec
@@ -18,6 +19,7 @@ from shifu.learning.core.domain.structures import (
 )
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
+    code_answer_at_size,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -36,8 +38,17 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumCodeInconclusiveCommentSnapshot,
+    CurriculumCodeRubricCommentSnapshot,
+    CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricPartSnapshot,
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
+    CurriculumLearningActivitySnapshot,
+    CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactAdditionalFilePolicySnapshot,
+    CurriculumReactInitialFileSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -111,6 +122,71 @@ def answers() -> tuple[ChoiceAnswerSubmission, ...]:
         ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
         ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('c', 'a')),
         ChoiceAnswerSubmission(question_key='q3', selected_option_keys=('a',)),
+    )
+
+
+def react_activity_snapshot() -> CurriculumLearningActivitySnapshot:
+    choice_questions = choice_snapshot().questions[:2]
+    react_question = CurriculumReactQuestionSnapshot(
+        key='q3',
+        prompt='Build a React component',
+        initial_files=(
+            CurriculumReactInitialFileSnapshot(
+                path='src/main.tsx', content='old', editable=True
+            ),
+            CurriculumReactInitialFileSnapshot(
+                path='src/fixed.css', content='fixed', editable=False
+            ),
+        ),
+        entrypoint='src/main.tsx',
+        fixed_dependencies=(),
+        permitted_commands=(),
+        concept_criteria=(),
+        additional_file_policy=CurriculumReactAdditionalFilePolicySnapshot(
+            allowed_directories=('src/components',),
+            allowed_extensions=('.tsx', '.css'),
+            max_files=2,
+        ),
+    )
+    criterion = CurriculumCodeRubricCriterionSnapshot(
+        key='quality',
+        name='Qualidade',
+        description='Implementação',
+        weight_percentage=100,
+        required=True,
+        fixed_comments=tuple(
+            CurriculumCodeRubricCommentSnapshot(
+                id=f'level-{level}', level=level, text=f'Comentário {level}'
+            )
+            for level in (0, 25, 50, 75, 100)
+        ),
+        inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+            id='unknown', text='Inconclusivo'
+        ),
+    )
+    return CurriculumLearningActivitySnapshot(
+        id=ACTIVITY_ID,
+        competency_id=COMPETENCY_ID,
+        difficulty='easy',
+        title='Atividade React',
+        questions=(*choice_questions, react_question),
+        parts=(
+            CurriculumChoicePartSnapshot(
+                question_key='q1', weight_percentage=Decimal(30)
+            ),
+            CurriculumChoicePartSnapshot(
+                question_key='q2', weight_percentage=Decimal(30)
+            ),
+            CurriculumCodeRubricPartSnapshot(
+                question_key='q3',
+                weight_percentage=Decimal(40),
+                criteria=(criterion,),
+            ),
+        ),
+        required_concept_ids=('concept-1', 'concept-2'),
+        activity_type='learning',
+        schema_version=1,
+        revision='revision-react-1',
     )
 
 
@@ -198,6 +274,74 @@ class TestSubmitChoiceActivityUseCase:
             self.database, self.provider, self.clock, self.ids
         )
 
+    @pytest.mark.parametrize(
+        ('changed', 'error_type'),
+        (
+            ('goal', NotFoundError),
+            ('experience', NotFoundError),
+            ('progress', NotFoundError),
+            ('release', NotFoundError),
+            ('not-started', NotFoundError),
+            ('diagnosing', ConflictError),
+        ),
+    )
+    def test_should_revalidate_ownership_and_learning_state_before_persistence(
+        self,
+        changed: str,
+        error_type: type[NotFoundError] | type[ConflictError],
+    ) -> None:
+        if changed == 'goal':
+            self.repositories.goals.find_by_id.side_effect = (self.goal, None)
+        elif changed == 'experience':
+            self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+                None
+            )
+        elif changed == 'progress':
+            self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = None
+        elif changed == 'release':
+            self.progress.content_released = False
+        else:
+            self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+                SkillExperienceFaker.fake(
+                    id=EXPERIENCE_ID,
+                    goal_id=GOAL_ID,
+                    skill_id=SKILL_ID,
+                    status=SkillExperienceStatus(changed),
+                )
+            )
+
+        with pytest.raises(error_type):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'submission-key',
+                answers(),
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_reject_blank_submission_key_before_reading_private_data(
+        self,
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                '  ',
+                answers(),
+            )
+
+        self.database.transaction.assert_not_called()
+        self.provider.get_learning_activity.assert_not_called()
+
     def test_should_persist_one_immutable_attempt_evaluation_and_handoff(self) -> None:
         detail = self.subject.execute(
             ACCOUNT_ID,
@@ -243,6 +387,346 @@ class TestSubmitChoiceActivityUseCase:
 
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def test_should_submit_react_files_as_part_of_existing_attempt(self) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        submitted_answers = (
+            *answers()[:2],
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(
+                        path='src/components/Card.tsx',
+                        content='export const Card = () => null',
+                    ),
+                ),
+            ),
+        )
+
+        outcome = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'react-submission',
+            submitted_answers,
+            snapshot.revision,
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert outcome.replayed is False
+        assert attempt.answers[-1] == CodeAnswer(
+            question_key='q3',
+            kind='react',
+            files=(
+                CodeSubmittedFile(
+                    path='src/components/Card.tsx',
+                    content='export const Card = () => null',
+                ),
+                CodeSubmittedFile(path='src/main.tsx', content='updated'),
+            ),
+        )
+        assert attempt.grading_snapshot is snapshot
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_reject_tampered_react_file_policy_without_side_effects(
+        self,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        submitted_answers = (
+            *answers()[:2],
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/package.json', content='{}'),
+                ),
+            ),
+        )
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'react-submission',
+                submitted_answers,
+                snapshot.revision,
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_accept_exact_react_additional_file_limit_and_normalize_kind(
+        self,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+
+        outcome = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'react-two-additional-files',
+            (
+                *answers()[:2],
+                CodeAnswer(
+                    question_key='q3',
+                    files=(
+                        CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                        CodeSubmittedFile(path='src/components/Z.css', content='z'),
+                        CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                    ),
+                ),
+            ),
+            snapshot.revision,
+        )
+
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.answers[-1] == CodeAnswer(
+            question_key='q3',
+            kind='react',
+            files=(
+                CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                CodeSubmittedFile(path='src/components/Z.css', content='z'),
+                CodeSubmittedFile(path='src/main.tsx', content='updated'),
+            ),
+        )
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'code_answer',
+        (
+            CodeAnswer(question_key='q3', kind='react', files=()),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                source_code='untrusted replacement',
+                files=(CodeSubmittedFile(path='src/main.tsx', content='updated'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='javascript_stdin',
+                files=(CodeSubmittedFile(path='src/main.tsx', content='updated'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='first'),
+                    CodeSubmittedFile(path='src/main.tsx', content='second'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(CodeSubmittedFile(path='src/fixed.css', content='tampered'),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/fixed.css', content='tampered'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/A.tsx', content='a'),
+                    CodeSubmittedFile(path='src/components/B.tsx', content='b'),
+                    CodeSubmittedFile(path='src/components/C.tsx', content='c'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='updated'),
+                    CodeSubmittedFile(path='src/components/package.json', content='{}'),
+                ),
+            ),
+        ),
+        ids=(
+            'missing-editable',
+            'legacy-source',
+            'wrong-kind',
+            'duplicate-path',
+            'readonly-instead-of-editable',
+            'readonly-overwrite',
+            'additional-limit',
+            'forbidden-configuration',
+        ),
+    )
+    def test_should_reject_invalid_react_projects_before_any_write(
+        self, code_answer: CodeAnswer
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'invalid-react-project',
+                (*answers()[:2], code_answer),
+                snapshot.revision,
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
+    )
+    @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
+    def test_should_apply_configured_utf8_project_limit_to_submit_and_replay(
+        self, react: bool, limit: int, extra_byte: int
+    ) -> None:
+        snapshot = mixed_snapshot(react=react)
+        question = snapshot.questions[-1]
+        assert isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+        subject = SubmitChoiceActivityUseCase(
+            self.database, self.provider, self.clock, self.ids, limit
+        )
+        submitted = (
+            ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+            ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+            code_answer_at_size(question, limit + extra_byte),
+        )
+        arguments = (
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'configured-limit',
+            submitted,
+            snapshot.revision,
+        )
+
+        if extra_byte:
+            with pytest.raises(ValidationError):
+                subject.execute(*arguments)
+            self.repositories.activity_attempts.add.assert_not_called()
+            self.repositories.activity_evaluations.add.assert_not_called()
+            self.repositories.events.add.assert_not_called()
+            return
+
+        created = subject.execute(*arguments)
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+
+        replayed = subject.execute(*arguments)
+
+        assert not created.replayed
+        assert replayed.replayed
+        assert replayed.attempt.attempt_id == created.attempt.attempt_id
+        self.repositories.activity_attempts.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize('length', (240, 241))
+    def test_should_accept_only_canonical_additional_paths_at_the_path_limit(
+        self, length: int
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        prefix = 'src/components/' + ('a' * 64 + '/') * 3
+        path = prefix + 'b' * (length - len(prefix) - 4) + '.tsx'
+        submitted = (
+            *answers()[:2],
+            CodeAnswer(
+                question_key='q3',
+                kind='react',
+                files=(
+                    CodeSubmittedFile(path='src/main.tsx', content='main'),
+                    CodeSubmittedFile(path=path, content='extra'),
+                ),
+            ),
+        )
+
+        if length == 241:
+            with pytest.raises(ValidationError):
+                SubmitChoiceActivityUseCase.normalize_answers(snapshot, submitted)
+        else:
+            normalized = SubmitChoiceActivityUseCase.normalize_answers(
+                snapshot, submitted
+            )
+            code = normalized[-1]
+            assert isinstance(code, CodeAnswer)
+            assert path in {item.path for item in code.files}
+
+    @pytest.mark.parametrize('additional', (False, True))
+    def test_should_allow_only_initial_files_without_an_additional_file_policy(
+        self, additional: bool
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactQuestionSnapshot)
+        snapshot = replace(
+            snapshot,
+            questions=(
+                *snapshot.questions[:-1],
+                replace(question, additional_file_policy=None),
+            ),
+        )
+        code = CodeAnswer(
+            question_key='q3',
+            kind='react',
+            files=(
+                CodeSubmittedFile(path='src/main.tsx', content='main'),
+                *(
+                    (
+                        CodeSubmittedFile(
+                            path='src/components/Extra.tsx', content='extra'
+                        ),
+                    )
+                    if additional
+                    else ()
+                ),
+            ),
+        )
+
+        if additional:
+            with pytest.raises(ValidationError):
+                SubmitChoiceActivityUseCase.normalize_answers(
+                    snapshot, (*answers()[:2], code)
+                )
+        else:
+            normalized = SubmitChoiceActivityUseCase.normalize_answers(
+                snapshot, (*answers()[:2], code)
+            )
+            assert normalized[-1] == code
 
     def test_should_reject_v2_choice_without_trusted_live_concept_criteria(
         self,

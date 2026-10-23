@@ -49,6 +49,9 @@ from shifu.learning.database.sqlalchemy.models import (
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
+from tests.learning.rest.controllers.react_controller_fixture import (
+    ReactControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -143,6 +146,232 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestPreviewActivityQuestionFeedbackController:
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            {'kind': 'react', 'question_key': 'q3'},
+            {
+                'kind': 'react',
+                'question_key': 'q3',
+                'files': [],
+                'selected_option_keys': ['a'],
+            },
+            {'kind': 'single_choice', 'question_key': 'q1'},
+            {
+                'kind': 'single_choice',
+                'question_key': 'q1',
+                'files': [],
+                'selected_option_keys': ['a'],
+            },
+        ),
+        ids=(
+            'code-without-files',
+            'mixed-code-shape',
+            'choice-without-options',
+            'mixed-choice-shape',
+        ),
+    )
+    def test_should_reject_malformed_answer_shape_at_http_boundary_without_effects(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+    ) -> None:
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/questions/q3/preliminary-evaluations',
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={'activity_revision': 'revision-1', 'answer': answer},
+            ),
+        )
+
+        assert response.status_code == 422, response.json()
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def test_should_return_choice_preliminary_feedback_without_code_assessor_or_writes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([ReactControllerFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(),
+                headers=headers,
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/questions/q1/preliminary-evaluations',
+                headers=headers,
+                json={
+                    'activity_revision': detail.json()['activity_revision'],
+                    'answer': {
+                        'kind': 'single_choice',
+                        'question_key': 'q1',
+                        'selected_option_keys': ['a'],
+                    },
+                },
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        assert response.json() == {
+            'status': 'conclusive',
+            'score': '100',
+            'explanation': 'Certo',
+            'is_correct': True,
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+        }
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def test_react_preliminary_assesses_composed_project_without_official_effects(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([ReactControllerFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        counts_before = ReactControllerFixture.write_counts(postgres_database)
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            progress_before = repositories.competency_progresses.find_by_id(
+                SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+            )
+            experience_before = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/questions/q3/preliminary-evaluations',
+                headers=headers,
+                json={
+                    'activity_revision': detail.json()['activity_revision'],
+                    'answer': {
+                        'kind': 'react',
+                        'question_key': 'q3',
+                        'files': ReactControllerFixture.answer_files(),
+                    },
+                },
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        result = response.json()
+        assert result['status'] == 'conclusive'
+        assert result['score'] == '75'
+        assert result['submitted_files'] == ReactControllerFixture.composed_files()
+        assert result['criteria'] == [
+            {
+                'key': 'correctness',
+                'weight_percentage': 100,
+                'level': 75,
+                'comment_id': 'comment-75',
+                'comment': 'Fixed comment 75',
+            }
+        ]
+        assert 'attempt_id' not in result
+        assessor = cast(
+            '_FixedCodeRubricAssessorProvider',
+            application.state.test_code_rubric_assessor_provider,
+        )
+        assert len(assessor.requests) == 1
+        request = assessor.requests[0]
+        assert request.question_kind == 'react'
+        assert request.project_files == tuple(
+            (item['path'], item['content'])
+            for item in ReactControllerFixture.composed_files()
+        )
+        assert request.submitted_paths == (
+            'src/App.jsx',
+            'src/components/title.js',
+        )
+        assert ReactControllerFixture.write_counts(postgres_database) == counts_before
+        with learning_database.transaction() as repositories:
+            progress_after = repositories.competency_progresses.find_by_id(
+                SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID
+            )
+            experience_after = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+        assert progress_before is not None and progress_after is not None
+        assert progress_after.current_progress == progress_before.current_progress
+        assert progress_after.status == progress_before.status
+        assert experience_before is not None and experience_after is not None
+        assert experience_after.status == experience_before.status
+
+    @pytest.mark.parametrize('with_policy', [True, False])
+    def test_rejects_react_extra_files_without_assessment_or_writes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+    ) -> None:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many(
+                [ReactControllerFixture.activity(with_policy=with_policy)]
+            )
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        files = ReactControllerFixture.answer_files()
+        if with_policy:
+            files[1]['path'] = 'src/components/package.json'
+        counts_before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{ReactControllerFixture.activity_path()}/questions/q3/preliminary-evaluations',
+                headers=headers,
+                json={
+                    'activity_revision': detail.json()['activity_revision'],
+                    'answer': {'kind': 'react', 'question_key': 'q3', 'files': files},
+                },
+            ),
+        )
+
+        assert response.status_code == 400, response.json()
+        assert response.json()['code'] == 'validation_error'
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert ReactControllerFixture.write_counts(postgres_database) == counts_before
+
     def test_returns_fixed_preliminary_feedback_without_persisting_learning_state(
         self,
         client: TestClient,

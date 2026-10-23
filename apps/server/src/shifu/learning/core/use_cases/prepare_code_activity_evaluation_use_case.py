@@ -14,6 +14,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 
 
@@ -52,7 +53,13 @@ class PrepareCodeActivityEvaluationUseCase:
 
             prepared: list[PreparedCodeQuestionAssessment] = []
             for question in snapshot.questions:
-                if not isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+                if not isinstance(
+                    question,
+                    (
+                        CurriculumJavascriptStdinQuestionSnapshot,
+                        CurriculumReactQuestionSnapshot,
+                    ),
+                ):
                     continue
                 answer = answers[question.key]
                 part = parts[question.key]
@@ -62,7 +69,7 @@ class PrepareCodeActivityEvaluationUseCase:
                     raise EvaluationUnavailableError
                 try:
                     assessment_input = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
-                        question, part, answer
+                        question, part, answer, self._max_input_bytes
                     )
                 except ValidationError as error:
                     raise EvaluationUnavailableError from error

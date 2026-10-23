@@ -3,7 +3,6 @@ from datetime import UTC
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
-    SkillExperience,
 )
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
@@ -30,6 +29,9 @@ from shifu.learning.core.interfaces import (
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
 )
+from shifu.learning.core.use_cases.code_answer_validation import (
+    CodeAnswerValidation,
+)
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -39,6 +41,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -54,11 +57,13 @@ class SubmitChoiceActivityUseCase:
         curriculum_content_provider: CurriculumContentProvider,
         clock_provider: ClockProvider,
         identifier_provider: IdentifierProvider,
+        max_code_assessment_input_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> None:
         self._learning_database = learning_database
         self._curriculum_content_provider = curriculum_content_provider
         self._clock_provider = clock_provider
         self._identifier_provider = identifier_provider
+        self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
 
     def execute(  # noqa: C901
         self,
@@ -104,7 +109,13 @@ class SubmitChoiceActivityUseCase:
         )
         snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-            isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+            isinstance(
+                item,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
             for item in snapshot.questions
         ):
             snapshot = self._curriculum_content_provider.get_choice_activity(
@@ -127,7 +138,9 @@ class SubmitChoiceActivityUseCase:
         ):
             raise ConflictError
 
-        normalized_answers = self.normalize_answers(snapshot, answers)
+        normalized_answers = self.normalize_answers(
+            snapshot, answers, self._max_code_assessment_input_bytes
+        )
         v2_catalog = self._curriculum_content_provider.get_skill_content(skill_id)
 
         now = self._clock_provider.now()
@@ -245,8 +258,8 @@ class SubmitChoiceActivityUseCase:
                 is_diagnostic=False,
             )
 
-    @staticmethod
     def _replayed_outcome(
+        self,
         repositories: LearningDatabaseRepositories,
         existing: ActivityAttempt,
         competency_id: str,
@@ -259,7 +272,9 @@ class SubmitChoiceActivityUseCase:
             or existing.activity_id != activity_id
             or existing.competency_id != competency_id
             or existing.answers
-            != SubmitChoiceActivityUseCase.normalize_answers(snapshot, answers)
+            != self.normalize_answers(
+                snapshot, answers, self._max_code_assessment_input_bytes
+            )
         ):
             raise ConflictError
 
@@ -280,43 +295,10 @@ class SubmitChoiceActivityUseCase:
         )
 
     @staticmethod
-    def _owned_released_experience(
-        repositories: LearningDatabaseRepositories,
-        account_id: str,
-        goal_id: str,
-        skill_id: str,
-        competency_id: str,
-    ) -> SkillExperience:
-        goal = repositories.goals.find_by_id(goal_id)
-        if goal is None or goal.id != goal_id or goal.account_id != account_id:
-            raise NotFoundError
-
-        experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
-            goal_id, skill_id
-        )
-        if (
-            experience is None
-            or experience.goal_id != goal_id
-            or experience.skill_id != skill_id
-        ):
-            raise NotFoundError
-
-        progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
-            experience.id, competency_id
-        )
-        if (
-            progress is None
-            or progress.skill_experience_id != experience.id
-            or not progress.content_released
-        ):
-            raise NotFoundError
-
-        return experience
-
-    @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
         answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
+        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
             raise ValidationError
@@ -326,25 +308,17 @@ class SubmitChoiceActivityUseCase:
             if answer.question_key != question.key:
                 raise ValidationError
 
-            if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+            if isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            ):
                 if not isinstance(answer, CodeAnswer):
                     raise ValidationError
-
-                editable_paths = {
-                    item.path for item in question.initial_files if item.editable
-                }
-                if (
-                    answer.source_code is not None
-                    or len({item.path for item in answer.files}) != len(answer.files)
-                    or {item.path for item in answer.files} != editable_paths
-                ):
-                    raise ValidationError
-
                 normalized.append(
-                    CodeAnswer(
-                        question_key=answer.question_key,
-                        files=tuple(sorted(answer.files, key=lambda item: item.path)),
-                    )
+                    CodeAnswerValidation.normalize(question, answer, max_bytes)
                 )
                 continue
 

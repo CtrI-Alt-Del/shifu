@@ -16,6 +16,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -70,6 +71,8 @@ class ActivityAttemptMapper:
                     question,
                     CurriculumJavascriptStdinQuestionSnapshot
                     if question.get('kind') == 'javascript_stdin'
+                    else CurriculumReactQuestionSnapshot
+                    if question.get('kind') == 'react'
                     else CurriculumChoiceQuestionSnapshot,
                 )
                 for question in normalized['questions']
@@ -89,7 +92,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -142,6 +145,7 @@ class ActivityAttemptMapper:
                             )
                             for file in serialized_files
                         ),
+                        kind=cast('str | None', item.get('kind')),
                     )
                 )
                 continue
@@ -167,6 +171,7 @@ class ActivityAttemptMapper:
                     CodeAnswer(
                         question_key=question_key,
                         source_code=cast('str', item['source_code']),
+                        kind=cast('str | None', item.get('kind')),
                     )
                 )
             elif 'selected_option_key' in item:

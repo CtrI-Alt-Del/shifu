@@ -197,17 +197,32 @@ describe('useGamificationPage', () => {
     expect(initialLoadResult.current.isRetrying).toBe(false)
   })
 
-  it('opens on the Calendário tab and switches on request', () => {
+  it('opens on the Visão geral tab and switches on request', () => {
     mockQuery({ overview })
     const { result } = renderHook(() => useGamificationPage())
 
-    expect(result.current.activeTab).toBe('calendario')
+    expect(result.current.activeTab).toBe('visao-geral')
 
     act(() => result.current.handleTabChange('conquistas'))
     expect(result.current.activeTab).toBe('conquistas')
 
+    act(() => result.current.handleTabChange('historico-xp'))
+    expect(result.current.activeTab).toBe('historico-xp')
+
     act(() => result.current.handleTabChange('calendario'))
     expect(result.current.activeTab).toBe('calendario')
+
+    act(() => result.current.handleTabChange('visao-geral'))
+    expect(result.current.activeTab).toBe('visao-geral')
+  })
+
+  it('selects the Conquistas tab from the overview shortcut', () => {
+    mockQuery({ overview })
+    const { result } = renderHook(() => useGamificationPage())
+
+    act(() => result.current.handleViewAchievements())
+
+    expect(result.current.activeTab).toBe('conquistas')
   })
 
   it('redirects to login when the session is rejected', async () => {

@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
@@ -19,6 +20,8 @@ from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
     ChoiceOption,
+    CodeEvaluationCase,
+    CodeQuestion,
     CodeInconclusiveComment,
     CodeRubricComment,
     CodeRubricCriterion,
@@ -29,6 +32,7 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
+    TestCasesEvaluationPart,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.errors import AuthorizationError
@@ -52,6 +56,9 @@ from shifu.shared.database.seed_data import (
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
+from tests.learning.rest.controllers.react_controller_fixture import (
+    ReactControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -128,6 +135,235 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetChoiceActivityController:
+    @pytest.mark.parametrize(
+        'scenario',
+        (
+            'missing',
+            'missing-explanation',
+            'incomplete-rubric',
+            'foreign-javascript-concept',
+            'foreign-react-concept',
+            'unsupported-rubric',
+        ),
+    )
+    def test_incomplete_curriculum_activity_is_a_private_absence(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        scenario: str,
+    ) -> None:
+        if scenario != 'missing':
+            activity = ReactControllerFixture.activity()
+            if scenario == 'missing-explanation':
+                first = activity.questions[0]
+                assert isinstance(first, SingleChoiceQuestion)
+                activity.questions = (
+                    replace(first, correct_explanation=None),
+                    *activity.questions[1:],
+                )
+            elif scenario == 'incomplete-rubric':
+                first = activity.questions[0]
+                assert isinstance(first, SingleChoiceQuestion)
+                activity.questions = (
+                    *activity.questions[:2],
+                    replace(first, key='q3'),
+                )
+                activity.evaluation_rule = EvaluationRule(
+                    parts=(
+                        CorrectnessEvaluationPart(
+                            question_key='q1', weight_percentage=50
+                        ),
+                        CorrectnessEvaluationPart(
+                            question_key='q2', weight_percentage=50
+                        ),
+                    )
+                )
+            elif scenario in ('foreign-javascript-concept', 'foreign-react-concept'):
+                logic_activity = next(
+                    item
+                    for item in build_logic_programming_seed().activities
+                    if item.id == LOGIC_CLASSIFY_ACTIVITY_ID
+                )
+                logic_question = next(
+                    question
+                    for question in logic_activity.questions
+                    if isinstance(question, JavascriptStdinQuestion)
+                )
+                assert logic_question.concept_criteria
+                if scenario == 'foreign-javascript-concept':
+                    activity.questions = (
+                        *activity.questions[:2],
+                        replace(logic_question, key='q3'),
+                    )
+                else:
+                    react_question = activity.questions[2]
+                    activity.questions = (
+                        *activity.questions[:2],
+                        replace(
+                            react_question,
+                            concept_criteria=logic_question.concept_criteria,
+                        ),
+                    )
+            else:
+                first = activity.questions[0]
+                assert isinstance(first, SingleChoiceQuestion)
+                activity.questions = (
+                    *activity.questions[:2],
+                    replace(first, key='q3'),
+                )
+                activity.evaluation_rule = replace(
+                    activity.evaluation_rule,
+                    parts=(
+                        *activity.evaluation_rule.parts[:2],
+                        TestCasesEvaluationPart(
+                            question_key='q3', weight_percentage=40
+                        ),
+                    ),
+                )
+            database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+            with database.transaction() as repositories:
+                repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404, response.json()
+        assert response.json()['code'] == 'not_found'
+
+    def test_catalog_hides_skills_with_missing_curriculum_sequences(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.curriculum_sequences.remove_all()
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/available-skills',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        assert response.json()['skills']
+        assert all(not item['available'] for item in response.json()['skills'])
+
+    def test_legacy_code_question_is_not_exposed_as_a_modern_learning_activity(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = ReactControllerFixture.activity()
+        activity.questions = (
+            *activity.questions[:2],
+            CodeQuestion(
+                key='q3',
+                prompt='Escreva um programa para a saída esperada.',
+                language='javascript',
+                evaluation_cases=(
+                    CodeEvaluationCase(
+                        name='Saudação',
+                        input='',
+                        expected_output='Olá',
+                        is_initially_public=True,
+                    ),
+                ),
+                starter_code="console.log('Olá')",
+            ),
+        )
+        activity.evaluation_rule = replace(
+            activity.evaluation_rule,
+            parts=(
+                *activity.evaluation_rule.parts[:2],
+                TestCasesEvaluationPart(question_key='q3', weight_percentage=40),
+            ),
+        )
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404, response.json()
+        assert response.json()['code'] == 'not_found'
+
+    @pytest.mark.parametrize('with_policy', [True, False])
+    def test_returns_persisted_react_project_and_curricular_file_policy(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+    ) -> None:
+        activity = ReactControllerFixture.activity(with_policy=with_policy)
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                ReactControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert body['activity_id'] == activity.id
+        assert body['activity_revision']
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'react',
+        ]
+        react = body['questions'][2]
+        assert react['initial_files'] == [
+            {
+                'path': 'src/App.jsx',
+                'content': ReactControllerFixture.INITIAL_SOURCE,
+                'editable': True,
+            },
+            {
+                'path': 'index.html',
+                'content': ReactControllerFixture.FIXED_HTML,
+                'editable': False,
+            },
+        ]
+        assert react['entrypoint'] == 'src/App.jsx'
+        assert react['editable_paths'] == ['src/App.jsx']
+        assert react['fixed_dependencies'] == [{'name': 'react', 'version': '19.2.0'}]
+        assert react['permitted_commands'] == [
+            {'id': 'dev', 'executable': 'npm', 'arguments': ['run', 'dev']}
+        ]
+        assert react.get('additional_file_policy') == (
+            {
+                'allowed_directories': ['src/components'],
+                'allowed_extensions': ['.jsx', '.js'],
+                'max_files': 2,
+            }
+            if with_policy
+            else None
+        )
+        assert react['criteria'] == [
+            {'key': 'correctness', 'name': 'Correção', 'weight_percentage': 100}
+        ]
+        assert 'Fixed comment' not in str(body)
+        assert 'is_correct' not in str(body)
+
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
         seed = build_development_seed()
         logic_competency_ids = {
