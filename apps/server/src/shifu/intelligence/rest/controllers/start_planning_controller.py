@@ -1,9 +1,9 @@
+from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field, field_validator
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field, PlainSerializer, TypeAdapter, field_validator
 
-from shifu.intelligence.core.domain.entities import PlanningSession
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.intelligence.core.use_cases import StartPlanningUseCase
 from shifu.intelligence.pipes import IntelligencePipe
@@ -27,7 +27,12 @@ class Request(BaseModel):
 
 class Response(BaseModel):
     id: str
-    created_at: str
+    created_at: Annotated[
+        datetime, PlainSerializer(lambda value: value.isoformat(), return_type=str)
+    ]
+
+
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
 
 
 class StartPlanningController:
@@ -36,7 +41,7 @@ class StartPlanningController:
         @router.post(
             '/planning-sessions',
             response_model=Response,
-            status_code=status.HTTP_201_CREATED,
+            status_code=201,
         )
         def _(
             request: Request,
@@ -62,11 +67,6 @@ class StartPlanningController:
                 identifier_provider,
                 clock_provider,
             ).execute(user.account_id, request.initial_intent)
-            return StartPlanningController._to_response(planning_session)
-
-    @staticmethod
-    def _to_response(planning_session: PlanningSession) -> Response:
-        return Response(
-            id=planning_session.id,
-            created_at=planning_session.created_at.isoformat(),
-        )
+            return _RESPONSE_ADAPTER.validate_python(
+                planning_session, from_attributes=True
+            )

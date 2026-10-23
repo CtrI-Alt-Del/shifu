@@ -194,6 +194,9 @@ class SubmitMentorMessageUseCase:
                     account_id, session_id
                 ),
                 summary=load_mentor_summary_state(repositories, account_id, session_id),
+                memory_items=repositories.learner_memory_changes.find_items_by_session(
+                    account_id, session_id
+                ),
             )
 
     @staticmethod

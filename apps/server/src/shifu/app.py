@@ -2,7 +2,7 @@ from asyncio import to_thread
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
-from typing import cast
+from typing import ClassVar, cast
 
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
@@ -57,9 +57,13 @@ from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.intelligence.rest.mentor_attachment_body_limit_middleware import (
     MentorAttachmentBodyLimitMiddleware,
 )
+from shifu.intelligence.rest.intelligence_error_handler import (
+    IntelligenceErrorHandler,
+)
 from shifu.intelligence.rest.mentor_attachment_error_handler import (
     MentorAttachmentErrorHandler,
 )
+from shifu.learning.rest.learning_error_handler import LearningErrorHandler
 from shifu.intelligence.messaging.inngest.intelligence_inngest_messaging import (
     IntelligenceInngestMessaging,
 )
@@ -140,14 +144,17 @@ class ActivityPayloadLimitMiddleware:
 
 
 class PrivateMentorNoStoreMiddleware:
+    _PRIVATE_PATH_PREFIXES: ClassVar[tuple[str, ...]] = (
+        '/intelligence/mentor-sessions',
+        '/intelligence/learner-memories',
+    )
+
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get('path', ''))
-        if scope['type'] != 'http' or not path.startswith(
-            '/intelligence/mentor-sessions'
-        ):
+        if scope['type'] != 'http' or not path.startswith(self._PRIVATE_PATH_PREFIXES):
             await self._app(scope, receive, send)
             return
 
@@ -262,7 +269,7 @@ class FastAPIApp:
         learning_registry = LearningWorkflowsRegistry(
             settings,
             None,
-            intelligence_registry.code_rubric_assessor,
+            intelligence_registry.code_rubric_assessor_provider,
             mentor_access_provider,
             curriculum_content_provider,
             outbox_engine=database_engine,
@@ -294,8 +301,8 @@ class FastAPIApp:
             app.state.agent_monitoring_tracer_provider = (
                 monitoring.tracer_provider if monitoring is not None else None
             )
-            intelligence_registry.observability.bind(monitoring_client)
-            learning_registry.observability.bind(monitoring_client)
+            intelligence_registry.observability_provider.bind(monitoring_client)
+            learning_registry.observability_provider.bind(monitoring_client)
             app.state.max_activity_payload_bytes = settings.max_activity_payload_bytes
             app.state.max_code_assessment_input_bytes = (
                 settings.max_code_assessment_input_bytes
@@ -307,7 +314,7 @@ class FastAPIApp:
                     await stack.enter_async_context(intelligence_registry.lifespan())
                     await stack.enter_async_context(learning_registry.lifespan())
                     app.state.code_rubric_assessor_provider = (
-                        learning_registry.code_rubric_assessor
+                        learning_registry.code_rubric_assessor_provider
                     )
                     broker.start()
                     try:
@@ -315,8 +322,8 @@ class FastAPIApp:
                     finally:
                         broker.stop()
             finally:
-                intelligence_registry.observability.bind(None)
-                learning_registry.observability.bind(None)
+                intelligence_registry.observability_provider.bind(None)
+                learning_registry.observability_provider.bind(None)
                 try:
                     await to_thread(close_agent_monitoring_client, monitoring)
                 finally:
@@ -339,6 +346,9 @@ class FastAPIApp:
                     ),
                     purge_mentor_summaries_use_case=(
                         intelligence_registry.purge_mentor_summaries_use_case
+                    ),
+                    purge_learner_memories_use_case=(
+                        intelligence_registry.purge_learner_memories_use_case
                     ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                 ),
@@ -380,6 +390,8 @@ class FastAPIApp:
         )
         AppErrorHandler.register(app)
         MentorAttachmentErrorHandler.register(app)
+        IntelligenceErrorHandler.register(app)
+        LearningErrorHandler.register(app)
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
@@ -402,8 +414,11 @@ class FastAPIApp:
         app.state.mentor_catalog_provider = mentor_catalog_provider
         app.state.intelligence_workflows_registry = intelligence_registry
         app.state.learning_workflows_registry = learning_registry
-        app.state.generate_mentor_title_workflow = (
+        app.state.generate_mentor_title_provider = (
             intelligence_registry.mentor_title_provider
+        )
+        app.state.learner_memory_analyzer_provider = (
+            intelligence_registry.learner_memory_analyzer_provider
         )
         app.state.file_storage_provider = intelligence_registry.file_storage_provider
         app.state.mentor_attachment_extractor_provider = (

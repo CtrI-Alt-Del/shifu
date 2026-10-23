@@ -1,4 +1,5 @@
 import { useMentorContextProvider } from '../use-mentor-context-provider'
+import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -139,6 +140,7 @@ const detail: MentorSessionDetail = {
   messages: { items: [], nextCursor: null },
   pendingLearnerMessageId: null,
   summary: { current: null, failureAfterMessageId: null },
+  memoryItems: [],
 }
 const readyAttachment = {
   attachmentId: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
@@ -2027,6 +2029,211 @@ describe('useMentorContextProvider conversation summary', () => {
       expect(wasFound).toBe(false)
       expect(result.current.conversationError).toContain('Não foi possível carregar')
     })
+  })
+})
+
+describe('useMentorContextProvider memory items', () => {
+  const createdItem = LearnerMemoryFaker.fakeConversationItem({
+    id: 'item-created',
+    sourceMessageId: 'learner-a',
+    kind: 'created',
+    createdAt: '2026-10-10T00:00:02Z',
+  })
+  const olderItem = LearnerMemoryFaker.fakeConversationItem({
+    id: 'item-older',
+    sourceMessageId: 'learner-old',
+    createdAt: '2026-10-10T00:00:01Z',
+  })
+  const learnerMessage = (id: string, createdAt: string) => ({
+    id,
+    sessionId: detail.session.id,
+    role: 'learner' as const,
+    content: `Mensagem ${id}`,
+    inReplyToMessageId: null,
+    createdAt,
+    attachments: [],
+  })
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.list.mockResolvedValue(sessionsPage)
+    mocks.location.pathname = '/intelligence'
+  })
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+
+  function mockDetailWithItems(items: MentorSessionDetail['memoryItems']) {
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      pendingLearnerMessageId: 'learner-a',
+      response: initialResponse,
+      memoryItems: items,
+    })
+  }
+
+  it('exposes the memory items of the selected conversation', async () => {
+    const { result } = openResponseProvider()
+    mockDetailWithItems([createdItem])
+
+    await act(() => result.current.selectSession(detail.session.id))
+
+    expect(result.current.sessionDetail?.memoryItems).toEqual([createdItem])
+  })
+
+  it.each([
+    ['completed', 'completed'],
+    ['failed', 'failed'],
+    ['cancelled', 'cancelled'],
+  ] as const)(
+    're-reads the detail and shows the memory items when the response %s',
+    async (kind, status) => {
+      const { result } = openResponseProvider()
+      await act(() => result.current.selectSession(detail.session.id))
+      expect(result.current.sessionDetail?.memoryItems).toEqual([])
+      mocks.detail.mockClear()
+      mockDetailWithItems([createdItem])
+
+      act(() =>
+        getEventSource(0).emit(responseEvent({ sequence: 2, kind, status, block: null })),
+      )
+
+      await waitFor(() =>
+        expect(result.current.sessionDetail?.memoryItems).toEqual([createdItem]),
+      )
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('does not re-read the detail for non-terminal events', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockClear()
+
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'consultation',
+          block: null,
+          consultation: 'learning',
+        }),
+      ),
+    )
+    act(() => getEventSource(0).emit(responseEvent({ sequence: 3 })))
+
+    expect(mocks.detail).not.toHaveBeenCalled()
+  })
+
+  it('re-reads the detail after a user-initiated cancel, which never reaches the stream', async () => {
+    const { result } = openResponseProvider()
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockClear()
+    mockDetailWithItems([createdItem])
+    mocks.cancel.mockResolvedValue({
+      ...initialResponse,
+      status: 'cancelled',
+      lastSequence: 2,
+    })
+
+    await act(() => result.current.cancelResponse())
+
+    await waitFor(() =>
+      expect(result.current.sessionDetail?.memoryItems).toEqual([createdItem]),
+    )
+    expect(mocks.detail).toHaveBeenCalledTimes(1)
+    expect(result.current.response?.status).toBe('cancelled')
+  })
+
+  it('does not re-read the detail after a retry request', async () => {
+    const { result } = openResponseProvider({ ...initialResponse, status: 'failed' })
+    await act(() => result.current.selectSession(detail.session.id))
+    mocks.detail.mockClear()
+    mocks.retry.mockResolvedValue({
+      ...initialResponse,
+      attemptId: 'attempt-b',
+      status: 'queued',
+      lastSequence: 3,
+    })
+
+    await act(() => result.current.retryResponse())
+
+    expect(mocks.detail).not.toHaveBeenCalled()
+  })
+
+  it('keeps known items when an older message page is read and adds the page items', async () => {
+    const { result } = openResponseProvider()
+    const newest = learnerMessage('learner-a', '2026-10-10T00:00:00Z')
+    const oldest = learnerMessage('learner-old', '2026-10-09T00:00:00Z')
+    mocks.detail.mockImplementation(async ({ data }: { data: { cursor?: string } }) =>
+      data.cursor
+        ? {
+            ...detail,
+            pendingLearnerMessageId: null,
+            response: null,
+            messages: { items: [oldest], nextCursor: null },
+            memoryItems: [olderItem],
+          }
+        : {
+            ...detail,
+            pendingLearnerMessageId: null,
+            response: null,
+            messages: { items: [newest], nextCursor: 'older' },
+            memoryItems: [createdItem],
+          },
+    )
+    await act(() => result.current.selectSession(detail.session.id))
+
+    await act(() => result.current.loadOlderMessages())
+
+    expect(result.current.sessionDetail?.memoryItems).toEqual([olderItem, createdItem])
+  })
+
+  it('does not drop known items when an older page carries none', async () => {
+    const { result } = openResponseProvider()
+    mocks.detail.mockImplementation(async ({ data }: { data: { cursor?: string } }) => ({
+      ...detail,
+      pendingLearnerMessageId: null,
+      response: null,
+      messages: data.cursor
+        ? {
+            items: [learnerMessage('learner-old', '2026-10-09T00:00:00Z')],
+            nextCursor: null,
+          }
+        : {
+            items: [learnerMessage('learner-a', '2026-10-10T00:00:00Z')],
+            nextCursor: 'older',
+          },
+      memoryItems: data.cursor ? [] : [createdItem],
+    }))
+    await act(() => result.current.selectSession(detail.session.id))
+
+    await act(() => result.current.loadOlderMessages())
+
+    expect(result.current.sessionDetail?.memoryItems).toEqual([createdItem])
+  })
+
+  it('replaces the items with the authoritative list of a full read', async () => {
+    const { result } = openResponseProvider()
+    mockDetailWithItems([createdItem])
+    await act(() => result.current.selectSession(detail.session.id))
+    const deleted = { ...createdItem, memoryId: null, content: null }
+    mockDetailWithItems([deleted])
+
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'completed',
+          status: 'completed',
+          block: null,
+        }),
+      ),
+    )
+
+    await waitFor(() =>
+      expect(result.current.sessionDetail?.memoryItems).toEqual([deleted]),
+    )
   })
 })
 

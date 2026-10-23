@@ -14,6 +14,7 @@ export const ROUTES = {
   learningGoalSkillsAdd: '/learning/goals/$goalId/skills/add',
   gamification: '/gamification',
   intelligence: '/intelligence',
+  intelligenceMemories: '/intelligence/memories',
   account: '/account',
   learningActivity:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',

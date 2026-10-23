@@ -5,12 +5,15 @@ from math import isfinite
 from textwrap import dedent
 from typing import Protocol, cast
 
-from agno.agent import Agent
 from agno.media import Image
-from agno.models.base import Model
+
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    MentorAgent,
+    MentorModelConfig,
+)
 from agno.run.agent import RunOutput
 
-from shifu.intelligence.ai.agno.models.mentor_openai_chat import (
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
     mentor_transport_failure_scope,
 )
 from shifu.intelligence.ai.agno.outputs import MentorAttachmentVisionOutput
@@ -26,11 +29,17 @@ class _RunMetrics(Protocol):
     cost: int | float | bool | None
 
 
-class MentorAttachmentVisionAgent(Agent):
-    def __init__(self, model: Model) -> None:
-        super().__init__(  # pyright: ignore[reportUnknownMemberType] - Agno lacks complete SDK stubs.
+class MentorAttachmentVisionAgent(MentorAgent):
+    MODEL = MentorModelConfig(
+        transport='openrouter',
+        model_id='openai/gpt-6-luna',
+        timeout_seconds=30.0,
+        profile='mentor-attachment-vision',
+    )
+
+    def __init__(self) -> None:
+        super().__init__(
             name='Mentor Attachment Vision Analyst',
-            model=model,
             instructions=dedent("""\
                 Descreva em português do Brasil somente o conteúdo claramente visível
                 na imagem ou página fornecida: texto legível, objetos, desenhos,
@@ -53,16 +62,6 @@ class MentorAttachmentVisionAgent(Agent):
                 Retorne somente o schema solicitado.
             """),
             output_schema=MentorAttachmentVisionOutput,
-            tools=[],
-            retries=0,
-            telemetry=False,
-            debug_mode=False,
-            store_events=False,
-            store_history_messages=False,
-            add_history_to_context=False,
-            read_chat_history=False,
-            read_tool_call_history=False,
-            store_tool_messages=False,
         )
 
     def analyze(

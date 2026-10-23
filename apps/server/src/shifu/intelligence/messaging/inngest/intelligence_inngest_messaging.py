@@ -3,10 +3,12 @@ from typing import cast
 from inngest import Function, Inngest
 
 from shifu.intelligence.core.use_cases import (
+    PurgeLearnerMemoriesForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
 )
 from shifu.intelligence.messaging.inngest.jobs import (
+    PurgeLearnerMemoriesOnAccountDeletedJob,
     PurgeMentorAttachmentsOnAccountDeletedJob,
     PurgeMentorSummariesOnAccountDeletedJob,
 )
@@ -19,6 +21,7 @@ class IntelligenceInngestMessaging:
         *,
         purge_mentor_attachments_use_case: PurgeMentorAttachmentsUseCase,
         purge_mentor_summaries_use_case: PurgeMentorSummariesForAccountUseCase,
+        purge_learner_memories_use_case: PurgeLearnerMemoriesForAccountUseCase,
         account_deleted_event_name: str,
     ) -> list[Function[object]]:
         return [
@@ -35,6 +38,14 @@ class IntelligenceInngestMessaging:
                 PurgeMentorSummariesOnAccountDeletedJob.handle(
                     inngest,
                     purge_mentor_summaries_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgeLearnerMemoriesOnAccountDeletedJob.handle(
+                    inngest,
+                    purge_learner_memories_use_case,
                     account_deleted_event_name=account_deleted_event_name,
                 ),
             ),

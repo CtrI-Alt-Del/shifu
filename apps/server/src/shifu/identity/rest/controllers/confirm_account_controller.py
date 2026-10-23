@@ -1,9 +1,8 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from shifu.identity.core.domain.structures import AccountConfirmationResult
 from shifu.identity.core.interfaces import ActionTokenProvider, IdentityDatabase
 from shifu.identity.core.use_cases import ConfirmAccountUseCase
 from shifu.identity.pipes import IdentityPipe
@@ -33,6 +32,9 @@ class Response(BaseModel):
     access_version: int | None = None
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class ConfirmAccountController:
     @staticmethod
     def handle(router: APIRouter) -> None:
@@ -40,7 +42,7 @@ class ConfirmAccountController:
             '/email-confirmations',
             response_model=Response,
             response_model_exclude_none=True,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,
@@ -60,22 +62,4 @@ class ConfirmAccountController:
                 clock_provider=clock_provider,
                 action_token_provider=action_token_provider,
             ).execute(request.token)
-            return ConfirmAccountController._to_response(result)
-
-    @staticmethod
-    def _to_response(result: AccountConfirmationResult) -> Response:
-        profile = result.profile
-        return Response(
-            result=result.result.value,
-            profile=(
-                Profile(
-                    account_id=profile.account_id,
-                    display_name=profile.display_name,
-                    email=profile.email,
-                    time_zone=profile.time_zone,
-                )
-                if profile is not None
-                else None
-            ),
-            access_version=result.access_version,
-        )
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

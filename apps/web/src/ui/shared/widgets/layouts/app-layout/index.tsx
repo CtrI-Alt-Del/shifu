@@ -55,7 +55,10 @@ export const AppLayout = ({
   return (
     <MentorContextProvider accountEmail={account.email} contextHint={mentorContextHint}>
       {layout}
-      <MentorFab isMentorPage={pathname.replace(/\/+$/, '') === ROUTES.intelligence} />
+      <MentorFab
+        isMemoriesPage={pathname.replace(/\/+$/, '') === ROUTES.intelligenceMemories}
+        isMentorPage={pathname.replace(/\/+$/, '') === ROUTES.intelligence}
+      />
     </MentorContextProvider>
   )
 }

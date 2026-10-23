@@ -1,9 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field, TypeAdapter
 
-from shifu.learning.core.domain.structures import SkillCatalogRow
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SearchSkillCatalogUseCase
 from shifu.learning.pipes import LearningPipe
@@ -32,13 +31,16 @@ class Response(BaseModel):
     next_cursor: str | None = Field(serialization_alias='nextCursor')
 
 
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
 class SearchSkillCatalogController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.get(
             '/goals/{goal_id}/skills/catalog',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: str,
@@ -69,28 +71,6 @@ class SearchSkillCatalogController:
                 limit=limit,
             )
 
-            return SearchSkillCatalogController._to_response(rows, next_cursor)
-
-    @staticmethod
-    def _to_response(rows: list[SkillCatalogRow], next_cursor: str | None) -> Response:
-        return Response(
-            items=[
-                CatalogSkill(
-                    id=row.id,
-                    name=row.name,
-                    description=row.description,
-                    already_in_goal=row.already_in_goal,
-                    skill_experience_id=row.skill_experience_id,
-                    foundations=[
-                        CatalogFoundation(
-                            skill_id=foundation.skill_id,
-                            name=foundation.name,
-                            status=foundation.status,
-                        )
-                        for foundation in row.foundations
-                    ],
-                )
-                for row in rows
-            ],
-            next_cursor=next_cursor,
-        )
+            return _RESPONSE_ADAPTER.validate_python(
+                {'items': rows, 'next_cursor': next_cursor}, from_attributes=True
+            )

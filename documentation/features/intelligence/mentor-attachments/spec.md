@@ -1,7 +1,7 @@
 ---
 title: Anexos privados do Mentor e workflows de IA com Agno AgentOS
 status: completed
-revision: 14
+revision: 15
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103
@@ -12,7 +12,7 @@ scope:
   - mentor UI and authenticated BFF
   - local Langfuse agent monitoring
   - observability, evals and server/web CI
-last_updated_at: 2026-10-18
+last_updated_at: 2026-10-22
 ---
 
 # Objective
@@ -429,15 +429,15 @@ Existing synchronous consumer ports remain unchanged; they are framework-neutral
 Protocols, not a second executable workflow type:
 
 ```python
-class GenerateMentorTitleWorkflow(Protocol):
+class GenerateMentorTitleProvider(Protocol):
     def generate(self, first_message: str) -> str: ...
 
 class CodeRubricAssessorProvider(Protocol):
     def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions: ...
 ```
 
-The title transport adapter is named `AgentOSMentorTitleProvider`; its legacy
-Core Protocol name is compatibility only, not another Workflow class.
+The title transport adapter is named `AgentOSMentorTitleProvider` and implements
+the Core Protocol `GenerateMentorTitleProvider`; neither is a Workflow class.
 All concrete operation workflows subclass the same native Agno `Workflow`, are
 registered directly and use the same runtime admission/lifecycle. Their visible
 Steps contain the entire operation graph. Do not create a delivery Workflow that
@@ -644,7 +644,7 @@ class IntelligenceWorkflowsRegistry:
     @property
     def code_rubric_assessor(self) -> CodeRubricAssessorProvider: ...
     @property
-    def mentor_title_provider(self) -> GenerateMentorTitleWorkflow: ...
+    def mentor_title_provider(self) -> GenerateMentorTitleProvider: ...
     def lifespan(self) -> AbstractAsyncContextManager[None]: ...
 
 class LearningWorkflowsRegistry:
@@ -2126,3 +2126,5 @@ under changed IDs; both drafts were still awaiting implementation.
 | 13 | 2026-10-14 | Reconcile Server/Web CI files, independent named jobs and standalone builds; remove both verify aggregates while preserving runtime/browser proof | User requested the Spec reflect the updated Web and Server workflows |
 
 | 14 | 2026-10-18 | Remove mutation testing from the delivery: no mutation runner, CI shards, summary gate or CI-07/CI-19 mutation obligation; per-file coverage in CI-19 is unchanged | Explicit user request; independent compatibility review passed with no findings (EV-152) |
+
+| 15 | 2026-10-22 | Rename the legacy title Protocol to `GenerateMentorTitleProvider` and suffix the registry provider properties with `_provider`; no behavior change | User asked that workflows and providers not share names |

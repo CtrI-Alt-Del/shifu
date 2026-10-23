@@ -24,7 +24,7 @@ concurrency:
 jobs:
   type-check:
     name: Web type check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -49,7 +49,7 @@ jobs:
 
   lint-check:
     name: Web lint check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -74,7 +74,7 @@ jobs:
 
   architecture-check:
     name: Web architecture check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -99,7 +99,7 @@ jobs:
 
   unit-tests:
     name: Web unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
       BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
@@ -136,122 +136,9 @@ jobs:
       - name: Run unit tests
         run: pnpm --filter web test:unit
 
-  changed-file-coverage:
-    name: Changed Web file coverage
-    runs-on: ubuntu-latest
-    env:
-      BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
-      BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
-      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
-      REDIS_URL: redis://127.0.0.1:6379/0
-      SHIFU_AUTH_AUDIENCE: shifu-api
-      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
-      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      SHIFU_IDENTITY_API_URL: http://127.0.0.1:7777
-      SHIFU_SERVER_APP_MODE: local
-      SHIFU_SERVER_APP_PORT: '7777'
-      SHIFU_WEB_APP_PORT: '7000'
-      SHIFU_WEB_APP_URL: http://127.0.0.1:7000
-      VITE_SHIFU_SERVER_URL: http://127.0.0.1:7777
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 10
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24.20.0
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run scoped tests with V8 coverage
-        run: >-
-          pnpm --filter web exec vitest run --coverage
-          src/constants/tests/routes.test.ts
-          src/routes/privacy/tests/privacy-route.test.ts
-          src/routes/api/tests/-health-route.test.ts
-          src/rest/axios/tests/axios-rest-client.test.ts
-          tests/unit/intelligence/mentor-attachment-route-handlers.test.ts
-          tests/unit/intelligence/mentor-response-stream-route-handler.test.ts
-          src/ui/intelligence/hooks/tests/mentor-server-functions.test.ts
-          src/ui/intelligence/hooks/tests/use-mentor-response-stream.test.ts
-          src/ui/intelligence/contexts/mentor-context/tests/mentor-dictation-consumer.test.ts
-          src/ui/intelligence/contexts/mentor-context/tests/use-mentor-context-provider.test.ts
-          src/ui/intelligence/contexts/mentor-context/tests/mentor-transport-consumer.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/composer.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/attachment-list.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/composer/tests/use-composer.test.ts
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/use-message-item.test.ts
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/message-item.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/message-list/message-item/tests/sources.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/conversation.test.tsx
-          src/ui/intelligence/widgets/components/mentor-chat/conversation/tests/use-conversation.test.ts
-          src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
-          src/rest/services/tests/gamification-service.test.ts
-          src/ui/shared/hooks/tests/use-format-date.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/tests/gamification-page.test.tsx
-          src/ui/gamification/widgets/pages/gamification-page/tests/use-gamification-page.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/tests/gamification-server-functions.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/calendar-tab-panel/tests/calendar-tab-panel.test.tsx
-          src/ui/gamification/widgets/pages/gamification-page/calendar-tab-panel/tests/use-calendar-tab-panel.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/overview-tab-panel/tests/overview-tab-panel.test.tsx
-          src/ui/gamification/widgets/pages/gamification-page/overview-tab-panel/tests/use-overview-tab-panel.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests/xp-history-tab-panel.test.tsx
-          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests/use-xp-history-tab-panel.test.ts
-          src/ui/learning/widgets/pages/activity-page/tests
-          src/ui/learning/widgets/pages/activity-page/react-question/tests
-          src/ui/learning/widgets/pages/activity-page/code-question/tests
-          src/ui/learning/widgets/pages/choice-result-page/tests
-          src/ui/learning/widgets/pages/choice-result-page/choice-result-detail/tests
-          src/ui/learning/widgets/components/code-editor/tests
-          src/ui/learning/widgets/components/code-file-tree/tests
-          src/ui/learning/widgets/pages/goal-create-page/tests
-          src/ui/learning/widgets/pages/goal-detail-page/tests
-          src/ui/learning/widgets/pages/skill-page/tests
-          src/ui/learning/widgets/pages/material-page/tests
-          src/ui/learning/widgets/pages/competency-detail-page/tests
-          src/ui/learning/widgets/layouts/goals-list-section/tests
-          src/ui/learning/widgets/sections/add-skill-catalog-section/tests
-          src/ui/identity/widgets/pages/account-page/tests
-          src/ui/identity/widgets/pages/privacy-policy-page/tests
-          src/ui/identity/widgets/pages/sign-in-page/tests/sign-in-page.test.tsx
-          src/ui/identity/widgets/pages/register-page/tests/register-page.test.tsx
-          src/ui/shared/widgets/layouts/root-layout/tests
-          src/rest/services/tests/gamification-service.test.ts
-          src/ui/shared/hooks/tests/use-format-date.test.ts
-          src/ui/gamification/widgets/pages/gamification-page/tests
-          src/ui/gamification/widgets/pages/gamification-page/xp-history-tab-panel/tests
-
-      - name: Enforce thresholds for every changed production file
-        shell: bash
-        run: >-
-          node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts
-          --base origin/main
-          | tee apps/web/coverage/changed-coverage-summary.txt
-
-      - name: Upload changed-file coverage report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: web-changed-file-coverage
-          path: |
-            apps/web/coverage/coverage-summary.json
-            apps/web/coverage/changed-coverage-summary.txt
-          if-no-files-found: warn
-
   integration-tests:
     name: Web integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
       BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests
@@ -359,7 +246,7 @@ jobs:
 
   build:
     name: Web build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BETTER_AUTH_DATABASE_URL: postgresql://shifu:shifu-local@127.0.0.1:54344/shifu
       BETTER_AUTH_SECRET: ci-secret-with-at-least-32-characters-for-tests

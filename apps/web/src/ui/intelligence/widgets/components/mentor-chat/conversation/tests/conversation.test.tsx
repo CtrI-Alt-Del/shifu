@@ -1,7 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
+import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { Conversation } from '..'
@@ -9,6 +12,16 @@ import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { type ConversationItem, useConversation } from '../use-conversation'
 
 vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, search, ...props }: AnchorProps) => (
+    <a
+      href={`${ROUTES[route]}?${new URLSearchParams(search as Record<string, string>)}`}
+      {...props}
+    >
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
@@ -39,6 +52,7 @@ const mockConversationValue = (value: object) => {
   }
   useConversationMock.mockReturnValue({
     visibleMessages: undefined,
+    trailingMemoryItems: [],
     conversationItems: (visibleMessages ?? sessionDetail?.messages.items ?? []).map(
       (message) => ({ kind: 'message' as const, message }),
     ),
@@ -257,6 +271,7 @@ describe('Conversation', () => {
         pendingLearnerMessageId: 'learner',
         response,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -489,6 +504,7 @@ describe('Conversation', () => {
         pendingLearnerMessageId: 'learner',
         response,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -535,6 +551,7 @@ describe('Conversation', () => {
         pendingLearnerMessageId: null,
         response: null,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
       },
       conversationItems: [
         { kind: 'message', message: messages[0] },
@@ -574,5 +591,142 @@ describe('Conversation', () => {
       'aria-haspopup',
       'dialog',
     )
+  })
+
+  describe('memory markers', () => {
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Prefiro exemplos curtos em JavaScript.',
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }
+    const created = LearnerMemoryFaker.fakeConversationItem({
+      id: 'created-item',
+      kind: 'created',
+      category: 'explanation_preference',
+      memoryId: 'MEMORYCREATED',
+      content: 'exemplos curtos em JavaScript.',
+      previousContent: null,
+    })
+    const updated = LearnerMemoryFaker.fakeConversationItem({
+      id: 'updated-item',
+      kind: 'updated',
+      category: 'explanation_preference',
+      memoryId: 'MEMORYUPDATED',
+      content: 'exemplos curtos em Python.',
+      previousContent: 'exemplos curtos em JavaScript.',
+    })
+    const deleted = LearnerMemoryFaker.fakeConversationItem({
+      id: 'deleted-item',
+      memoryId: null,
+      content: null,
+      previousContent: null,
+    })
+
+    function mockMarkers(overrides: object = {}) {
+      const value = {
+        ...mentorValue,
+        selectedSessionId: 'session',
+        handleScroll: vi.fn(),
+        scrollRef: { current: null },
+        trailingMemoryItems: [],
+        shouldAnimateBlock: vi.fn(() => false),
+        markBlockPresented: vi.fn(),
+        ...overrides,
+      }
+      useMentorContextMock.mockReturnValue(value)
+      mockConversationValue(value)
+    }
+
+    it('renders a created marker with its category line and a link to the memory', () => {
+      mockMarkers({
+        conversationItems: [
+          { kind: 'message', message: learnerMessage },
+          { kind: 'memory-change', item: created },
+        ],
+      })
+      render(<Conversation surface='page' />)
+      const list = screen.getByRole('list', { name: 'Mensagens da conversa' })
+
+      expect(within(list).getByText('Memória criada')).toBeVisible()
+      expect(
+        within(list).getByText(
+          'Preferência de explicação: exemplos curtos em JavaScript.',
+        ),
+      ).toBeVisible()
+      expect(within(list).getByRole('link', { name: 'Ver memória' })).toHaveAttribute(
+        'href',
+        `${ROUTES.intelligenceMemories}?memory=MEMORYCREATED`,
+      )
+    })
+
+    it('renders an updated marker with the previous and the current text', () => {
+      mockMarkers({
+        conversationItems: [{ kind: 'memory-change', item: updated }],
+      })
+      render(<Conversation surface='page' />)
+
+      expect(screen.getByText('Memória atualizada')).toBeVisible()
+      expect(screen.getByText('Antes: exemplos curtos em JavaScript.')).toBeVisible()
+      expect(screen.getByText('Agora: exemplos curtos em Python.')).toBeVisible()
+      expect(screen.getByRole('link', { name: 'Ver memória' })).toHaveAttribute(
+        'href',
+        `${ROUTES.intelligenceMemories}?memory=MEMORYUPDATED`,
+      )
+    })
+
+    it('renders a deleted memory marker without text or link', () => {
+      mockMarkers({
+        conversationItems: [{ kind: 'memory-change', item: deleted }],
+      })
+      render(<Conversation surface='page' />)
+
+      expect(screen.getByText('Memória excluída')).toBeVisible()
+      expect(screen.queryByRole('link', { name: 'Ver memória' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/Antes:|Agora:/)).not.toBeInTheDocument()
+    })
+
+    it('renders the trailing markers after the live answer and its status', () => {
+      const response: MentorResponseSnapshot = {
+        attemptId: 'attempt',
+        learnerMessageId: 'learner',
+        status: 'completed',
+        blocks: [
+          { blockKey: 'b1', ordinal: 0, intent: null, content: 'Anotado.', sources: [] },
+        ],
+        consultations: [],
+        lastSequence: 2,
+        failureCode: null,
+      }
+      mockMarkers({
+        response,
+        conversationItems: [{ kind: 'message', message: learnerMessage }],
+        trailingMemoryItems: [created],
+      })
+      render(<Conversation surface='page' />)
+      const answer = screen.getByRole('list', { name: 'Resposta do Mentor' })
+      const status = screen.getByRole('status')
+      const trailing = screen.getByRole('list', { name: 'Memórias desta resposta' })
+
+      expect(within(trailing).getByText('Memória criada')).toBeVisible()
+      expect(
+        answer.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+      expect(
+        status.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it('omits the trailing slot when the live turn produced no memory', () => {
+      mockMarkers({ conversationItems: [{ kind: 'message', message: learnerMessage }] })
+      render(<Conversation surface='page' />)
+
+      expect(
+        screen.queryByRole('list', { name: 'Memórias desta resposta' }),
+      ).not.toBeInTheDocument()
+    })
   })
 })

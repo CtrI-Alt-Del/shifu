@@ -1,19 +1,10 @@
-from datetime import timedelta
-from math import ceil
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from shifu.identity.core.domain.enums import (
-    AccountActionTokenStatus,
-    AccountActionTokenDeliveryStatus,
-    AccountStatus,
-)
-from shifu.identity.core.interfaces import (
-    ActionTokenProvider,
-    IdentityDatabase,
-)
+from shifu.identity.core.interfaces import ActionTokenProvider, IdentityDatabase
+from shifu.identity.core.use_cases import GetPendingConfirmationStatusUseCase
 from shifu.identity.pipes import IdentityPipe
 from shifu.shared.core.interfaces import ClockProvider
 
@@ -33,13 +24,16 @@ class Response(BaseModel):
     retry_after_seconds: int | None = None
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class GetPendingConfirmationStatusController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.post(
             '/pending-confirmations/status',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,
@@ -54,49 +48,9 @@ class GetPendingConfirmationStatusController:
                 Depends(IdentityPipe.get_pending_confirmation_handle_provider),
             ],
         ) -> Response:
-            pending_handle_hash = pending_handle_provider.hash(request.pending_handle)
-            now = clock_provider.now()
-            with database.transaction() as repositories:
-                token_repository = repositories.account_action_tokens
-                token = token_repository.find_by_pending_handle_hash(
-                    pending_handle_hash
-                )
-                if token is None:
-                    return Response(state='delivery_issue')
-
-                account = repositories.accounts.find_by_id(token.account_id)
-                if (
-                    account is None
-                    or account.status is not AccountStatus.PENDING_CONFIRMATION
-                ):
-                    return Response(state='delivery_issue')
-
-                latest_token = (
-                    token_repository.find_latest_by_account_id_and_type(
-                        account.id,
-                        token.type,
-                    )
-                    or token
-                )
-                if latest_token.status is not AccountActionTokenStatus.PENDING:
-                    return Response(state='delivery_issue')
-
-                if latest_token.delivery_status in {
-                    AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
-                    AccountActionTokenDeliveryStatus.TEMPORARY_FAILURE,
-                    AccountActionTokenDeliveryStatus.PERMANENT_FAILURE,
-                    AccountActionTokenDeliveryStatus.EXHAUSTED,
-                }:
-                    return Response(state='delivery_issue')
-
-                cooldown_ends_at = latest_token.issued_at + timedelta(seconds=60)
-                if now < cooldown_ends_at:
-                    return Response(
-                        state='cooldown',
-                        retry_after_seconds=max(
-                            1,
-                            ceil((cooldown_ends_at - now).total_seconds()),
-                        ),
-                    )
-
-                return Response(state='ready')
+            result = GetPendingConfirmationStatusUseCase(
+                identity_database=database,
+                clock_provider=clock_provider,
+                pending_confirmation_handle_provider=pending_handle_provider,
+            ).execute(request.pending_handle)
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

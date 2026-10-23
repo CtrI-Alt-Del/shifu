@@ -7,8 +7,14 @@ from .mentor_attachment_invalid_error import (
 from .mentor_attachment_not_found_error import (
     MentorAttachmentNotFoundError as MentorAttachmentNotFoundError,
 )
+from .mentor_attachment_too_large_error import (
+    MentorAttachmentTooLargeError as MentorAttachmentTooLargeError,
+)
 from .mentor_attachment_unavailable_error import (
     MentorAttachmentUnavailableError as MentorAttachmentUnavailableError,
+)
+from .mentor_cursor_invalid_error import (
+    MentorCursorInvalidError as MentorCursorInvalidError,
 )
 from .mentor_input_invalid_error import (
     MentorInputInvalidError as MentorInputInvalidError,
@@ -30,4 +36,13 @@ from .mentor_title_output_invalid_error import (
 )
 from .mentor_title_unavailable_error import (
     MentorTitleUnavailableError as MentorTitleUnavailableError,
+)
+from .learner_memory_not_found_error import (
+    LearnerMemoryNotFoundError as LearnerMemoryNotFoundError,
+)
+from .learner_memory_conflict_error import (
+    LearnerMemoryConflictError as LearnerMemoryConflictError,
+)
+from .learner_memory_content_invalid_error import (
+    LearnerMemoryContentInvalidError as LearnerMemoryContentInvalidError,
 )

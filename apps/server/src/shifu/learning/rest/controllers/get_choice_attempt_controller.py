@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -92,7 +92,7 @@ class GetChoiceAttemptController:
             response_model=Response,
             response_model_exclude_none=True,
             response_model_exclude_defaults=True,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

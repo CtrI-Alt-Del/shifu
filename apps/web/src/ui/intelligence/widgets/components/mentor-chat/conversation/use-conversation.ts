@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
+import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-memory'
 import type { MentorSummaryMarker } from '@/core/intelligence/mentor-session-summary'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
@@ -8,6 +9,7 @@ export type ConversationItem =
   | { kind: 'message'; message: MentorMessage }
   | { kind: 'summary-marker'; marker: MentorSummaryMarker }
   | { kind: 'summary-failure'; messageId: string }
+  | { kind: 'memory-change'; item: MentorConversationMemoryItem }
 
 export const useConversation = () => {
   const mentor = useMentorContext()
@@ -43,6 +45,25 @@ export const useConversation = () => {
   const markerAnchorMessageId = isTriggerLoaded
     ? summaryMarker?.afterMessageId
     : summaryMarker?.boundaryMessageId
+  // Memory markers sit after the answer of the turn that produced them, or right
+  // after the learner message when no answer is shown. The live answer renders
+  // outside the list, so markers of that turn use a trailing slot after it.
+  const liveSourceMessageId = response?.blocks.length ? response.learnerMessageId : null
+  const memoryItemsBySource = new Map<string, MentorConversationMemoryItem[]>()
+  for (const item of mentor.sessionDetail?.memoryItems ?? []) {
+    const items = memoryItemsBySource.get(item.sourceMessageId) ?? []
+    memoryItemsBySource.set(item.sourceMessageId, [...items, item])
+  }
+  const lastAnswerIdBySource = new Map<string, string>()
+  for (const message of visibleMessages) {
+    if (message.role === 'mentor' && message.inReplyToMessageId)
+      lastAnswerIdBySource.set(message.inReplyToMessageId, message.id)
+  }
+  const trailingMemoryItems =
+    liveSourceMessageId &&
+    visibleMessages.some((message) => message.id === liveSourceMessageId)
+      ? (memoryItemsBySource.get(liveSourceMessageId) ?? [])
+      : []
   const conversationItems: ConversationItem[] = []
   if (summaryMarker && !isBoundaryLoaded && !isTriggerLoaded)
     conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
@@ -52,6 +73,19 @@ export const useConversation = () => {
       conversationItems.push({ kind: 'summary-marker', marker: summaryMarker })
     if (message.id === failureAfterMessageId)
       conversationItems.push({ kind: 'summary-failure', messageId: message.id })
+    const sourceMessageId =
+      message.role === 'mentor'
+        ? message.inReplyToMessageId &&
+          lastAnswerIdBySource.get(message.inReplyToMessageId) === message.id
+          ? message.inReplyToMessageId
+          : null
+        : lastAnswerIdBySource.has(message.id)
+          ? null
+          : message.id
+    if (sourceMessageId && sourceMessageId !== liveSourceMessageId) {
+      for (const item of memoryItemsBySource.get(sourceMessageId) ?? [])
+        conversationItems.push({ kind: 'memory-change', item })
+    }
   }
   const responseContent = mentor.response
     ? `${mentor.response.attemptId}:${mentor.response.blocks.map((block) => `${block.blockKey}:${block.content}`).join('|')}`
@@ -117,5 +151,12 @@ export const useConversation = () => {
     }
   }, [mentor.selectedSessionId])
 
-  return { ...mentor, handleScroll, scrollRef, visibleMessages, conversationItems }
+  return {
+    ...mentor,
+    handleScroll,
+    scrollRef,
+    visibleMessages,
+    conversationItems,
+    trailingMemoryItems,
+  }
 }

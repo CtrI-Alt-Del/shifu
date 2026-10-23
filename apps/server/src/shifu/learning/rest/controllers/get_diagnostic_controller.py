@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, status
+from fastapi import APIRouter, Depends, Header, Path
 from pydantic import BaseModel, Field
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -81,7 +81,7 @@ class GetDiagnosticController:
         @router.get(
             '/goals/{goal_id}/skills/{skill_id}/diagnostic',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

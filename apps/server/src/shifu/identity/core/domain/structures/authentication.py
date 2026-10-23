@@ -8,3 +8,4 @@ class Authentication:
     profile: AccountProfile
     access: AccountAccess
     access_version: int
+    pending_handle: str | None = None

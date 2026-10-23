@@ -17,3 +17,4 @@ class PreparedMentorResponse:
     context: MentorContextSnapshot
     local_blocks: tuple[MentorResponseBlock, ...]
     attachment_request: MentorGenerationRequest | None
+    generation_fallback: MentorResponseBlock | None = None
