@@ -1,6 +1,6 @@
 ---
 title: Mentor — progress overview without page context
-status: implemented
+status: completed
 revision: 4
 source:
   type: direct-request

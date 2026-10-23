@@ -165,11 +165,11 @@ Independent reviews: implementation review and visual review ran on the integrat
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| — | — | Not requested | — |
+| [#42](https://github.com/CtrI-Alt-Del/shifu/pull/42) | `52494baf` | 23 of 23 checks SUCCESS on 2026-10-22, no review threads | [39964668088](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668088), [39964668231](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668231), [39964668299](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668299) |
 
 | Field | Result |
 | --- | --- |
-| Publication | Not requested; local-only completion. Committed locally (server `101d4d47`, web `4430e8f1`, documentation commit), not pushed, no pull request |
+| Publication | Published with the Mentor changes in pull request [#42](https://github.com/CtrI-Alt-Del/shifu/pull/42) on 2026-10-22 (server `101d4d47`, web `4430e8f1`, documentation `ecb11375`). Status left unchanged: this Evaluation was not concluded in that run |
 | Source verification | PRD Intelligence content 83099649 version 9 (retrieved 2026-10-20T23:39Z). The version was not rechecked during implementation; recheck at publication |
 | Documentation Alignment | `architecture.md` updated (local pre-answer memory step and explicit scikit-learn dependency). `design.md` T38/T40 already state the intent, no edit. `modules.md`, mentor-context, mentor-sessions-management, attachments and summary Specs: consistent as recorded in the Spec, no edit. SHIFU-101 and SHIFU-104: no Jira change. Privacy policy v4 and PRD: no change |
 | Revision History | Revision 2 (2026-10-21): RF-07 predicate corrected twice the same day (first "no generation request" removed, then "no intent matched" removed after probing the real route) |

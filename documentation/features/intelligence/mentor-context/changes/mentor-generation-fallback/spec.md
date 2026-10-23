@@ -1,6 +1,6 @@
 ---
 title: Mentor — generated answer when no local answer exists
-status: implemented
+status: completed
 revision: 5
 source:
   type: direct-request

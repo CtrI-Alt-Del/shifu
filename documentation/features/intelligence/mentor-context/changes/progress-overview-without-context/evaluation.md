@@ -1,6 +1,6 @@
 ---
 title: Mentor — progress overview without page context evaluation
-status: ready
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-10-22
 ---
@@ -80,7 +80,7 @@ last_updated_at: 2026-10-22
 | Uncommitted work | `apps/server/src/shifu/learning/providers/learning_mentor_context_provider.py`, `apps/server/src/shifu/intelligence/providers/routing/local_mentor_route_provider.py`, `apps/server/tests/intelligence/ai/workflows/test_agno_process_mentor_response_workflow.py`, this change folder. Unrelated changes to preserve: the coverage-gate retirement paths listed in Current State |
 | Active processes | None started by this task are running; disposable containers removed |
 | Blockers | None. Synchronized on 2026-10-22: `origin/main` `0bc77d56` merged with no rebase into the branch (merge commit `1c394530`). Conflicts: the two CI workflows (kept the retired coverage-gate side), the removed AgentOS React evaluation test and the removed coverage-gate test, and the moved React controller fixture (main's file kept, imports updated). Reused: every Intelligence result, because the merge touched no Intelligence path. Refreshed on the merged candidate: `tests/learning` and `tests/curriculum` 467 passed, types 0 errors, ruff clean, architecture valid. Limitations: (1) the AgentOS React evaluation cases that main added (routing to the Learning runtime and a persisted React attempt with replay) were dropped with the AgentOS suite and have no in-process equivalent yet; (2) `scripts/check-test-integrity.mjs` flags two test files that main added, `apps/server/tests/curriculum/core/domain/test_react_question.py` and `apps/web/src/rest/services/tests/gamification-service.test.ts`, which are kinds the repository policy does not allow; they were kept untouched |
-| Next action | Create the pull request with `create-pr`, wait for current-head CI, then complete both artifacts |
+| Next action | None. Later review feedback follows `resolve-pr-feedback` |
 
 # Delivery
 
@@ -92,8 +92,8 @@ last_updated_at: 2026-10-22
 
 | Field | Result |
 | --- | --- |
-| Publication | Local commits made, not pushed yet. Commits: `a5d2f791` server source, `57798ab8` server tests, `18284fc0` evals, `b51a0a67` CI and tooling, `f005ec4f` Specs and rules, `1c394530` merge of main. Left uncommitted and unrelated: `.vscode/settings.json` (only reformatted by biome so the repository lint hook passes) and `documentation/prompts/review-code-prompt.md` |
+| Publication | Pull request [#42](https://github.com/CtrI-Alt-Del/shifu/pull/42), base `main`, head `feat/shifu-101` at `52494baf`. Current-head CI on 2026-10-22: 23 of 23 checks SUCCESS (type, lint, architecture, build, unit, integration shards 1 to 4, web, email contract, real AI evals). Runs: [39964668088](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668088), [39964668231](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668231), [39964668299](https://github.com/CtrI-Alt-Del/shifu/actions/runs/39964668299). Review: no threads, no review decision yet. Commits: `a5d2f791` server source, `57798ab8` server tests, `18284fc0` evals, `b51a0a67` CI and tooling, `f005ec4f` Specs and rules, `1c394530` merge of main, `52494baf` Evaluation record. Left out as unrelated: `.vscode/settings.json` (only reformatted by biome so the lint hook passes) and `documentation/prompts/review-code-prompt.md` |
 | Source verification | PRD Intelligence content 83099649, version 9, read 2026-10-21. Recheck at conclusion; the Atlassian connector was unavailable on 2026-10-22 |
-| Documentation Alignment | Pointer from the base Spec to this change pending at conclusion |
+| Documentation Alignment | Done: pointer row in the base Mentor context Spec |
 | Revision History | Revision 2 removed the retired coverage gate; no product behavior changed |
 | Limitations | The RF-07 clause about facts in generation context is proven only for the attachment-backed path (the only path that reaches the model); no changed-file coverage measurement exists because the gate was retired |
