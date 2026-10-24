@@ -10,6 +10,8 @@ import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-
 import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 
+import { HOME_GOALS_QUERY_KEY } from './home-goals-query-key'
+
 const fetchHomeGoals = createServerFn({ method: 'GET' })
   .middleware([serverFunctionTelemetryMiddleware])
   .handler(async ({ context }: { context: RequestTelemetryContext }) => {
@@ -36,7 +38,7 @@ export function useHomeGoalsQuery() {
   } = useQuery({
     retry: 1,
     queryFn: fetchHomeGoals,
-    queryKey: ['learning', 'home-goals'],
+    queryKey: HOME_GOALS_QUERY_KEY,
   })
 
   return { goals, goalsError, isLoadingGoals, refetchGoals }

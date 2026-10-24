@@ -74,6 +74,11 @@ type PlannerTransport = {
   answerResult: PlanningSession | { kind: string; message?: string } | null
   retryResult: PlanningSession | null
   restartResult: PlanningSession | { kind: string; message?: string } | null
+  confirmResult:
+    | { goalId: string; replayed: boolean }
+    | { kind: string; message?: string }
+  confirmStatus: number
+  confirmHold: Promise<void> | null
   calls: ServerFunctionCall[]
 }
 
@@ -168,6 +173,9 @@ function serverFnInput(request: Request): Record<string, unknown> {
 }
 
 const NEW_INTENT = 'Quero criar APIs web com Python para integrar sistemas.'
+const GOAL_ID = '01SHF000000000000000000777'
+const CONFIRMATION_KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const REVIEW_PROPOSAL = PlanningSessionFaker.fakeProposal({
   title: 'Automatizar tarefas do dia a dia com Python',
   description:
@@ -245,6 +253,9 @@ function transportFor(session: PlanningSession | null): PlannerTransport {
     answerResult: null,
     retryResult: null,
     restartResult: null,
+    confirmResult: { goalId: GOAL_ID, replayed: false },
+    confirmStatus: 200,
+    confirmHold: null,
     calls: [],
   }
 }
@@ -303,6 +314,42 @@ async function mockPlanner(bff: BffFixtureContract, transport: PlannerTransport)
     if (exportName.startsWith('restartPlanningServer')) {
       transport.calls.push({ exportName, data: serverFnInput(request) })
       await fulfill(transport.restartResult ?? transport.session)
+      return
+    }
+    if (exportName.startsWith('confirmPlanningServer')) {
+      transport.calls.push({ exportName, data: serverFnInput(request) })
+      if (transport.confirmHold) await transport.confirmHold
+      if (transport.confirmStatus !== 200) {
+        await route.fulfill({
+          body: JSON.stringify({ error: 'upstream unavailable' }),
+          contentType: 'application/json',
+          status: transport.confirmStatus,
+        })
+        return
+      }
+      await fulfill(transport.confirmResult)
+      return
+    }
+    if (exportName.startsWith('getGoalDetail')) {
+      transport.calls.push({ exportName, data: serverFnInput(request) })
+      await fulfill({
+        kind: 'success',
+        detail: {
+          goalId: GOAL_ID,
+          title: 'Automatizar planilhas com Python',
+          description: REVIEW_PROPOSAL.description,
+          relations: [],
+          skills: REVIEW_PROPOSAL.skills.map((skill, index) => ({
+            skillExperienceId: `01SHF00000000000000000080${index}`,
+            skillId: skill.skillId,
+            name: skill.name,
+            skillName: skill.name,
+            status: 'not-started',
+            progress: null,
+            inclusionReason: skill.justification,
+          })),
+        },
+      })
       return
     }
     if (exportName.startsWith('cancelPlanningServer')) {
@@ -1174,7 +1221,7 @@ test('reviews a validated proposal in the graph and list views and keeps the edi
   expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
 })
 
-test('validates the edited Goal fields and delivers the creation contract notice (review CA-04, CA-05)', async ({
+test('validates the edited Goal fields before any confirmation is sent (review CA-04)', async ({
   authenticatedPage,
   bff,
 }) => {
@@ -1201,18 +1248,9 @@ test('validates the edited Goal fields and delivers the creation contract notice
     'Informe uma descrição para o Objetivo.',
   )
   await expect(description).toBeFocused()
-
-  await description.fill('Scripts que leem e geram planilhas por mim.')
-  await createGoal.click()
-  await expect(
-    authenticatedPage.getByRole('status').filter({
-      hasText: 'A criação do Objetivo chega na próxima etapa do Planejador.',
-    }),
-  ).toBeVisible()
-  await expect(authenticatedPage).toHaveURL(new RegExp(`${PLANNER_PATH}/?$`))
-  await expect(title).toHaveValue('  Automatizar planilhas com Python  ')
-  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+  expect(callsTo(transport, 'confirmPlanningServer')).toHaveLength(0)
   expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(0)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${PLANNER_PATH}/?$`))
 })
 
 test('restarts the planning from the review with a new intention and lands on the new interview (review CA-06 … CA-08)', async ({
@@ -1380,6 +1418,204 @@ test('reviews at mobile width with keyboard tabs, dialog and stacked actions (re
   expect(widths[0]).toBeLessThan(200)
   expect(widths[1]).toBeGreaterThan(300)
   expect(widths[2]).toBeGreaterThan(300)
+})
+
+/**
+ * Goal creation from the confirmed proposal (SHIFU-95). The acceptance criteria below
+ * refer to `documentation/features/intelligence/planner-confirmation/spec.md`.
+ */
+
+const CREATE_GOAL = { name: 'Criar objetivo' }
+const RETRY_GOAL = { name: 'Tentar criar objetivo' }
+const VERIFY_GOAL = { name: 'Verificar resultado' }
+
+function holdConfirmation(transport: PlannerTransport) {
+  let release: () => void = () => undefined
+  transport.confirmHold = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return () => {
+    transport.confirmHold = null
+    release()
+  }
+}
+
+test('creates the Goal from the confirmed proposal with the edits and lands on its page (confirmation CA-01, CA-02, CA-08)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+  const release = holdConfirmation(transport)
+
+  await authenticatedPage.getByLabel('Título').fill(' Automatizar planilhas com Python ')
+  await authenticatedPage.getByRole('button', CREATE_GOAL).click()
+
+  await expect(authenticatedPage.getByText('Criando seu objetivo…')).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Criando objetivo…' }),
+  ).toBeDisabled()
+  await expect(authenticatedPage.getByLabel('Título')).toBeDisabled()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Reiniciar planejamento' }),
+  ).toBeDisabled()
+  await expect(authenticatedPage.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+  await expectNoHorizontalScroll(authenticatedPage)
+  release()
+
+  await expect(authenticatedPage).toHaveURL(new RegExp(`/learning/goals/${GOAL_ID}/?$`))
+  await expect(
+    authenticatedPage.getByRole('heading', {
+      level: 1,
+      name: 'Automatizar planilhas com Python',
+    }),
+  ).toBeVisible()
+  await authenticatedPage.getByRole('tab', { name: 'Lista' }).click()
+  await expect(
+    authenticatedPage.getByText(REVIEW_PROPOSAL.skills[0].justification),
+  ).toBeVisible()
+
+  const confirmations = callsTo(transport, 'confirmPlanningServer')
+  expect(confirmations).toHaveLength(1)
+  expect(confirmations[0].data).toEqual({
+    planningId: PLANNING_ID,
+    confirmationKey: expect.stringMatching(CONFIRMATION_KEY_PATTERN),
+    title: 'Automatizar planilhas com Python',
+    description: REVIEW_PROPOSAL.description,
+  })
+  expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(0)
+})
+
+test('keeps the proposal after a refused creation and replays the same confirmation on retry (confirmation CA-03, CA-05)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  transport.confirmResult = {
+    kind: 'conflict',
+    message: 'Este Skill ainda não está pronto para iniciar.',
+  }
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  await authenticatedPage.getByRole('button', CREATE_GOAL).click()
+  await expect(authenticatedPage.getByRole('alert')).toContainText(
+    'Não foi possível criar o objetivo',
+  )
+  await expect(authenticatedPage.getByRole('alert')).toContainText(
+    'Este Skill ainda não está pronto para iniciar. Sua proposta foi mantida.',
+  )
+  await expect(authenticatedPage.getByLabel('Título')).toBeEnabled()
+  await expect(authenticatedPage.getByLabel('Título')).toHaveValue(REVIEW_PROPOSAL.title)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${PLANNER_PATH}/?$`))
+
+  const release = holdConfirmation(transport)
+  await authenticatedPage.getByRole('button', RETRY_GOAL).dblclick()
+  await expect(authenticatedPage.getByText('Criando seu objetivo…')).toBeVisible()
+  release()
+  await expect(authenticatedPage.getByRole('button', RETRY_GOAL)).toBeVisible()
+
+  transport.confirmResult = { goalId: GOAL_ID, replayed: false }
+  await authenticatedPage.getByRole('button', RETRY_GOAL).click()
+  await expect(authenticatedPage).toHaveURL(new RegExp(`/learning/goals/${GOAL_ID}/?$`))
+
+  const keys = callsTo(transport, 'confirmPlanningServer').map(
+    (call) => call.data.confirmationKey,
+  )
+  expect(keys).toHaveLength(3)
+  expect(new Set(keys).size).toBe(1)
+})
+
+test('reports a lost response as uncertain and recovers the same confirmation (confirmation CA-06, CA-07)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  transport.confirmStatus = 500
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  await authenticatedPage.getByRole('button', CREATE_GOAL).click()
+  await expect(
+    authenticatedPage.getByText('Não conseguimos confirmar a criação do objetivo'),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByRole('alert')).toHaveCount(0)
+  await expect(authenticatedPage.getByLabel('Título')).toBeDisabled()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Reiniciar planejamento' }),
+  ).toBeDisabled()
+  await expect(authenticatedPage.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+  await expect(authenticatedPage.getByRole('button', VERIFY_GOAL)).toBeEnabled()
+
+  transport.confirmStatus = 200
+  transport.confirmResult = { goalId: GOAL_ID, replayed: true }
+  await authenticatedPage.getByRole('button', VERIFY_GOAL).click()
+
+  await expect(authenticatedPage).toHaveURL(new RegExp(`/learning/goals/${GOAL_ID}/?$`))
+  const keys = callsTo(transport, 'confirmPlanningServer').map(
+    (call) => call.data.confirmationKey,
+  )
+  expect(keys).toHaveLength(2)
+  expect(keys[0]).toBe(keys[1])
+})
+
+type ConfirmationFrameSet = { creating: string; failed: string }
+
+const DESKTOP_CONFIRMATION_FRAMES: ConfirmationFrameSet = {
+  creating: 'BswO3',
+  failed: 'qJw1C',
+}
+const MOBILE_CONFIRMATION_FRAMES: ConfirmationFrameSet = {
+  creating: 'FxmF8',
+  failed: 'n8OPLr',
+}
+
+async function walkThroughConfirmationFrames(
+  page: Page,
+  bff: BffFixtureContract,
+  frames: ConfirmationFrameSet,
+) {
+  const transport = transportFor(proposalSession())
+  transport.confirmResult = { kind: 'unavailable' }
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(page)
+  await page.getByRole('tab', { name: 'Lista' }).click()
+  await expect(page.getByRole('list', { name: LIST_NAME })).toBeVisible()
+
+  const release = holdConfirmation(transport)
+  await page.getByRole('button', CREATE_GOAL).click()
+  await expect(page.getByText('Criando seu objetivo…')).toBeVisible()
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.creating, true)
+
+  transport.confirmResult = {
+    kind: 'conflict',
+    message: 'Este Skill ainda não está pronto para iniciar.',
+  }
+  release()
+  await expect(page.getByRole('button', RETRY_GOAL)).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('Não foi possível criar o objetivo')
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.failed, true)
+}
+
+test('renders the approved desktop creation frames without horizontal scroll (confirmation VM-02)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+
+  await walkThroughConfirmationFrames(authenticatedPage, bff, DESKTOP_CONFIRMATION_FRAMES)
+})
+
+test('renders the approved mobile creation frames without horizontal scroll (confirmation VM-02)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+
+  await walkThroughConfirmationFrames(authenticatedPage, bff, MOBILE_CONFIRMATION_FRAMES)
 })
 
 type ReviewFrameSet = {

@@ -78,11 +78,12 @@ function controller(
     proposal: null,
     errorMessage: null,
     restartErrorMessage: null,
-    goalCreationNotice: null,
+    goalCreation: { status: 'idle', message: null },
     generation: 1,
     isSubmitting: false,
     isRetrying: false,
     isRestarting: false,
+    isCreatingGoal: false,
     isCancelling: false,
     isAbandoning: false,
     questionHeadingRef: { current: null },
@@ -395,31 +396,50 @@ describe('PlannerPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar objetivo' }))
     expect(current.handleCreateGoal).toHaveBeenCalledWith({
       planningId: PLANNING_ID,
+      confirmationKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
       title: 'Automação com Python',
       description: 'Scripts para planilhas.',
       proposal,
     })
   })
 
-  it('shows the goal creation notice and the restart error inside the review', () => {
+  it('freezes the review while the Goal is being created and offers a retry after a failure', () => {
     const proposal = PlanningSessionFaker.fakeProposal()
     renderPage({
       view: 'proposal',
       currentQuestion: null,
       steps: [],
       proposal,
-      goalCreationNotice: 'A criação do Objetivo chega na próxima etapa do Planejador.',
-      isRestarting: true,
+      goalCreation: { status: 'creating', message: null },
+      isCreatingGoal: true,
     })
 
-    expect(
-      screen
-        .getByText('A criação do Objetivo chega na próxima etapa do Planejador.')
-        .closest('output'),
-    ).toBeVisible()
+    expect(screen.getByText('Criando seu objetivo…')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Criando objetivo…' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Criar objetivo' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
+    expect(screen.getByLabelText('Título')).toBeDisabled()
+    cleanup()
+
+    renderPage({
+      view: 'proposal',
+      currentQuestion: null,
+      steps: [],
+      proposal,
+      goalCreation: {
+        status: 'failed',
+        message: 'Este Skill ainda não está pronto para iniciar.',
+      },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Não foi possível criar o objetivo',
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Este Skill ainda não está pronto para iniciar. Sua proposta foi mantida.',
+    )
+    expect(screen.getByRole('button', { name: 'Tentar criar objetivo' })).toBeEnabled()
+    expect(screen.getByLabelText('Título')).toBeEnabled()
   })
 
   it('tells the learner when the planning no longer exists (CA-23)', () => {

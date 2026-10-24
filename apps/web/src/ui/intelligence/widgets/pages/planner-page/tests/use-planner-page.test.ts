@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
     answerPlanningQuestions: vi.fn(),
     retryPlanning: vi.fn(),
     restartPlanning: vi.fn(),
+    confirmPlanning: vi.fn(),
     cancelPlanning: vi.fn(),
   },
 }))
@@ -66,6 +67,8 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 
 const useNavigationMock = vi.mocked(useNavigation)
 const navigateToMock = vi.fn(async () => undefined)
+const navigateToGoalDetailMock = vi.fn(async () => undefined)
+const CONFIRMATION_KEY = '3f0c2b9e-8d1a-4c57-9b2e-6a1d4f8c0e21'
 const PLANNING_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 const INTENT = 'Quero automatizar tarefas do dia a dia com Python.'
 
@@ -120,18 +123,15 @@ function processingSession(overrides: Partial<PlanningSession> = {}): PlanningSe
   })
 }
 
-function renderPlannerPage(
-  onCreateGoal?: (request: PlanningGoalCreationRequest) => void | Promise<void>,
-) {
+function renderPlannerPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const wrapper = ({ children }: PropsWithChildren) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
-  const rendered = renderHook(
-    () => usePlannerPage({ planningId: PLANNING_ID, onCreateGoal }),
-    { wrapper },
-  )
+  const rendered = renderHook(() => usePlannerPage({ planningId: PLANNING_ID }), {
+    wrapper,
+  })
   return { ...rendered, queryClient }
 }
 
@@ -146,7 +146,9 @@ describe('usePlannerPage', () => {
         typeof useNavigation
       >['navigateTo'],
       navigateToActivity: vi.fn(),
-      navigateToGoalDetail: vi.fn(),
+      navigateToGoalDetail: navigateToGoalDetailMock as unknown as ReturnType<
+        typeof useNavigation
+      >['navigateToGoalDetail'],
       navigateToPlanner: vi.fn(),
     })
     mocks.getCurrentAccess.mockResolvedValue({
@@ -610,7 +612,7 @@ describe('usePlannerPage', () => {
     )
   })
 
-  it('ignores a restart outside the review and delivers the goal creation contract (CA-05)', async () => {
+  it('ignores a restart outside the review and creates nothing outside the proposal', async () => {
     registerPlanningEntry(PLANNING_ID)
     const { result } = renderPlannerPage()
     await waitFor(() => expect(result.current.view).toBe('interview'))
@@ -622,28 +624,122 @@ describe('usePlannerPage', () => {
     expect(restarted).toBe(false)
     expect(mocks.service.restartPlanning).not.toHaveBeenCalled()
 
-    const request: PlanningGoalCreationRequest = {
-      planningId: PLANNING_ID,
-      title: 'Automação',
-      description: 'Scripts',
-      proposal: PlanningSessionFaker.fakeProposal(),
-    }
     await act(async () => {
-      await result.current.handleCreateGoal(request)
+      await result.current.handleCreateGoal(creationRequest())
     })
-    expect(result.current.goalCreationNotice).toBe(
-      'A criação do Objetivo chega na próxima etapa do Planejador. Sua proposta e suas edições continuam nesta página.',
-    )
-    cleanup()
+    expect(mocks.service.confirmPlanning).not.toHaveBeenCalled()
+    expect(result.current.goalCreation).toEqual({ status: 'idle', message: null })
+  })
 
+  it('confirms the proposal with its key and edits, then leaves to the new Goal (CA-01, CA-08)', async () => {
     registerPlanningEntry(PLANNING_ID)
-    const onCreateGoal = vi.fn(async () => undefined)
-    const consumer = renderPlannerPage(onCreateGoal)
-    await waitFor(() => expect(consumer.result.current.view).toBe('interview'))
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({
+        status: 'proposal',
+        batch: null,
+        proposal: PlanningSessionFaker.fakeProposal(),
+      }),
+    )
+    mocks.service.confirmPlanning.mockResolvedValue({ goalId: 'goal-1', replayed: false })
+    const { result, queryClient } = renderPlannerPage()
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+
     await act(async () => {
-      await consumer.result.current.handleCreateGoal(request)
+      await result.current.handleCreateGoal(creationRequest())
     })
-    expect(onCreateGoal).toHaveBeenCalledWith(request)
-    expect(consumer.result.current.goalCreationNotice).toBeNull()
+
+    expect(mocks.service.confirmPlanning).toHaveBeenCalledWith(
+      'access-token',
+      PLANNING_ID,
+      {
+        confirmationKey: CONFIRMATION_KEY,
+        title: 'Automação',
+        description: 'Scripts',
+      },
+    )
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['learning', 'home-goals'] })
+    expect(navigateToGoalDetailMock).toHaveBeenCalledWith('goal-1')
+    expect(queryClient.getQueryData(planningSessionQueryKey(PLANNING_ID))).toBeUndefined()
+    expect(result.current.view).toBe('loading')
+    expect(mocks.service.cancelPlanning).not.toHaveBeenCalled()
+  })
+
+  it('keeps the proposal with the reason when Learning refuses and marks a lost response as uncertain (CA-06, CA-07)', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({
+        status: 'proposal',
+        batch: null,
+        proposal: PlanningSessionFaker.fakeProposal(),
+      }),
+    )
+    mocks.service.confirmPlanning.mockRejectedValueOnce(
+      new RestError('Este Skill ainda não está pronto para iniciar.', 409),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+
+    await act(async () => {
+      await result.current.handleCreateGoal(creationRequest())
+    })
+    expect(result.current.goalCreation).toEqual({
+      status: 'failed',
+      message: 'Este Skill ainda não está pronto para iniciar.',
+    })
+    expect(result.current.view).toBe('proposal')
+    expect(navigateToGoalDetailMock).not.toHaveBeenCalled()
+
+    mocks.service.confirmPlanning.mockRejectedValueOnce(new Error('socket hang up'))
+    await act(async () => {
+      await result.current.handleCreateGoal(creationRequest())
+    })
+    expect(result.current.goalCreation).toEqual({ status: 'uncertain', message: null })
+
+    // Verifying the result replays the same key and lands on the Goal.
+    mocks.service.confirmPlanning.mockResolvedValueOnce({
+      goalId: 'goal-1',
+      replayed: true,
+    })
+    await act(async () => {
+      await result.current.handleCreateGoal(creationRequest())
+    })
+    expect(mocks.service.confirmPlanning).toHaveBeenCalledTimes(3)
+    expect(navigateToGoalDetailMock).toHaveBeenCalledWith('goal-1')
+  })
+
+  it('refreshes the planning when the confirmation finds it gone and signs the learner in again when needed', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({
+        status: 'proposal',
+        batch: null,
+        proposal: PlanningSessionFaker.fakeProposal(),
+      }),
+    )
+    mocks.service.confirmPlanning.mockRejectedValueOnce(
+      new RestError('Planejamento não encontrado.', 404),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+    mocks.service.getPlanningSession.mockRejectedValue(
+      new RestError('Planejamento não encontrado.', 404),
+    )
+
+    await act(async () => {
+      await result.current.handleCreateGoal(creationRequest())
+    })
+    await waitFor(() => expect(result.current.view).toBe('not-found'))
+    expect(result.current.goalCreation).toEqual({ status: 'idle', message: null })
   })
 })
+
+function creationRequest(): PlanningGoalCreationRequest {
+  return {
+    planningId: PLANNING_ID,
+    confirmationKey: CONFIRMATION_KEY,
+    title: 'Automação',
+    description: 'Scripts',
+    proposal: PlanningSessionFaker.fakeProposal(),
+  }
+}

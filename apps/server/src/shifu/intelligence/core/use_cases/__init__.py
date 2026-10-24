@@ -111,6 +111,9 @@ from .answer_planning_questions_use_case import (
     AnswerPlanningQuestionsUseCase as AnswerPlanningQuestionsUseCase,
 )
 from .cancel_planning_use_case import CancelPlanningUseCase as CancelPlanningUseCase
+from .confirm_planning_use_case import (
+    ConfirmPlanningUseCase as ConfirmPlanningUseCase,
+)
 from .complete_planning_operation_use_case import (
     CompletePlanningOperationUseCase as CompletePlanningOperationUseCase,
 )

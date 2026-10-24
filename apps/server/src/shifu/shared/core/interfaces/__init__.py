@@ -23,3 +23,4 @@ from .outbox_event import OutboxEvent as OutboxEvent
 from .mentor_goal_destinations_provider import (
     MentorGoalDestinationsProvider as MentorGoalDestinationsProvider,
 )
+from .planned_goal_provider import PlannedGoalProvider as PlannedGoalProvider

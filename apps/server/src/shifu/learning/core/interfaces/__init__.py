@@ -13,6 +13,9 @@ from .concept_observations_repository import (
 from .concept_states_repository import (
     ConceptStatesRepository as ConceptStatesRepository,
 )
+from .goal_confirmations_repository import (
+    GoalConfirmationsRepository as GoalConfirmationsRepository,
+)
 from .goals_repository import GoalsRepository as GoalsRepository
 from .learning_database import (
     LearningDatabase as LearningDatabase,
