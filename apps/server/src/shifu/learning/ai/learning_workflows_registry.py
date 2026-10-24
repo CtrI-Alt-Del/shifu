@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         MentorAccessProvider,
         OutboxEvent,
     )
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
 
@@ -63,6 +64,7 @@ class LearningWorkflowsRegistry:
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         database_url = settings.agentos_database_url
         observability = observability or LangfuseTelemetryProvider(
@@ -93,6 +95,7 @@ class LearningWorkflowsRegistry:
             assessor,
             self._handoffs,
             observability,
+            telemetry_provider,
         )
         self._runtime = (
             AgentOSRuntime(

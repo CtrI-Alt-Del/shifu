@@ -35,14 +35,22 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({
-    validator: (validate: (data: unknown) => unknown) => ({
-      handler:
-        (handler: (context: { data: unknown }) => Promise<unknown>) =>
-        async (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
-    }),
-  }),
+  createServerFn: () => {
+    const builder = {
+      middleware: () => builder,
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          async (context: { data: unknown }) =>
+            handler({ data: validate(context.data) }),
+      }),
+    }
+    return builder
+  },
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 vi.mock('@tanstack/react-start/server', () => ({

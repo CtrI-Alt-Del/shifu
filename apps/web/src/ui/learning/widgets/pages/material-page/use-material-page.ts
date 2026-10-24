@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import {
   MATERIAL_DETAIL_ID_PATTERN,
   type MaterialDetail,
 } from '@/core/learning/material-detail'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -35,6 +37,7 @@ export type GetMaterialDetailActionResult =
 type ValidatedActionInput = MaterialPageProps | { kind: 'invalid-request' }
 
 export const getMaterialDetailAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: unknown): ValidatedActionInput => {
     if (!isRecord(input)) return { kind: 'invalid-request' }
 
@@ -54,34 +57,45 @@ export const getMaterialDetailAction = createServerFn({ method: 'GET' })
       materialId: input.materialId,
     }
   })
-  .handler(async ({ data }): Promise<GetMaterialDetailActionResult> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: ValidatedActionInput
+      context: RequestTelemetryContext
+    }): Promise<GetMaterialDetailActionResult> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
 
-      const learningService = LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      )
+        const learningService = LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        )
 
-      return await learningService.getMaterialDetail(access.accessToken, data)
-    } catch (error) {
-      if (error instanceof AuthError && error.kind === 'unavailable') {
-        return { kind: 'unavailable', statusCode: error.statusCode }
-      }
-
-      if (error instanceof RestError) {
-        if (error.statusCode === 401) return { kind: 'unauthorized' }
-        if (error.statusCode === 404) return { kind: 'not-found' }
-        if (error.statusCode === 429) {
+        return await learningService.getMaterialDetail(access.accessToken, data)
+      } catch (error) {
+        if (error instanceof AuthError && error.kind === 'unavailable') {
           return { kind: 'unavailable', statusCode: error.statusCode }
         }
-      }
 
-      return { kind: 'unavailable' }
-    }
-  })
+        if (error instanceof RestError) {
+          if (error.statusCode === 401) return { kind: 'unauthorized' }
+          if (error.statusCode === 404) return { kind: 'not-found' }
+          if (error.statusCode === 429) {
+            return { kind: 'unavailable', statusCode: error.statusCode }
+          }
+        }
+
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export function useMaterialPage({
   competencyId,
