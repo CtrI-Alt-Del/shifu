@@ -43,6 +43,18 @@ from .planning_classification_unavailable_error import (
 from .planning_index_unavailable_error import (
     PlanningIndexUnavailableError as PlanningIndexUnavailableError,
 )
+from .planning_answers_invalid_error import (
+    PlanningAnswersInvalidError as PlanningAnswersInvalidError,
+)
+from .planning_operation_conflict_error import (
+    PlanningOperationConflictError as PlanningOperationConflictError,
+)
+from .planning_session_not_found_error import (
+    PlanningSessionNotFoundError as PlanningSessionNotFoundError,
+)
+from .planning_state_conflict_error import (
+    PlanningStateConflictError as PlanningStateConflictError,
+)
 from .learner_memory_not_found_error import (
     LearnerMemoryNotFoundError as LearnerMemoryNotFoundError,
 )

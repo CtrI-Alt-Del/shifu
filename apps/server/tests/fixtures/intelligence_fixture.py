@@ -54,6 +54,7 @@ from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.core.domain.structures import AuthenticatedUser, MentorAccessGrant
 from shifu.shared.core.interfaces import ClockProvider, MentorAccessProvider
 from shifu.shared.messaging.inngest.inngest_broker import InngestBroker
+from shifu.shared.messaging.agentos.agentos_broker import AgentOSBroker
 from shifu.shared.pipes import FileStoragePipe, SharedPipe
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
@@ -641,6 +642,23 @@ def intelligence_fixture(
 
 @pytest.fixture
 def mentor_client(intelligence_fixture: IntelligenceFixture) -> Generator[TestClient]:
+    with TestClient(
+        intelligence_fixture.mentor_app(),
+        headers={'Authorization': 'Bearer test-token'},
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+def planning_client(
+    intelligence_fixture: IntelligenceFixture, monkeypatch: pytest.MonkeyPatch
+) -> Generator[TestClient]:
+    # Planning HTTP tests assert the outbox rows themselves; the AgentOS relay only
+    # runs in the in-process workflow tests.
+    monkeypatch.setattr(
+        'shifu.shared.messaging.agentos.agentos_runtime.AgentOSBroker',
+        create_autospec(AgentOSBroker),
+    )
     with TestClient(
         intelligence_fixture.mentor_app(),
         headers={'Authorization': 'Bearer test-token'},

@@ -120,8 +120,9 @@ class TestIntelligenceErrorTranslation:
 
         assert response.status_code == 201
         body = response.json()
-        assert set(body) == {'id', 'created_at'}
+        # The start response is the whole planning detail; this check keeps the id and
+        # the ISO serialization of its creation time.
+        assert {'id', 'created_at'} <= set(body)
         assert isinstance(body['id'], str)
-        assert (
-            body['created_at'] == datetime.fromisoformat(body['created_at']).isoformat()
-        )
+        # Both `Z` and `+00:00` are ISO 8601; the timestamp must parse with its zone.
+        assert datetime.fromisoformat(body['created_at']).tzinfo is not None

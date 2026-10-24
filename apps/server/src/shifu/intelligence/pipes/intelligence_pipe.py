@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from fastapi import Request
 from sqlalchemy.engine import Engine
 
@@ -6,6 +8,7 @@ from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     LearnerMemoryAnalyzerProvider,
     MentorAttachmentExtractorProvider,
+    PlanningSessionsRepository,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -44,6 +47,16 @@ class IntelligencePipe:
         request: Request,
     ) -> MentorAttachmentExtractorProvider:
         return request.app.state.mentor_attachment_extractor_provider
+
+    @staticmethod
+    def get_planning_sessions_repository(
+        request: Request,
+    ) -> PlanningSessionsRepository:
+        return request.app.state.planning_sessions_repository
+
+    @staticmethod
+    def get_planning_operation_timeout(request: Request) -> timedelta:
+        return request.app.state.planning_operation_timeout
 
     @staticmethod
     def get_learner_memory_analyzer_provider(

@@ -13,6 +13,8 @@ if __package__ in {None, ''}:
 from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
 from evals.classify_mentor_intent_eval import ClassifyMentorIntentEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
+from evals.plan_goal_interview_eval import PlanGoalInterviewEval
+from evals.plan_goal_proposal_eval import PlanGoalProposalEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
 from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
@@ -31,6 +33,8 @@ EVAL_CLASSES = (
     SummarizeMentorSessionEval,
     ClassifyLearnerMemoryEval,
     ClassifyMentorIntentEval,
+    PlanGoalInterviewEval,
+    PlanGoalProposalEval,
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')
