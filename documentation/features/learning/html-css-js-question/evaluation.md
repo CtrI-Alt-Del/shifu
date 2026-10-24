@@ -12,10 +12,10 @@ last_updated_at: 2026-10-24
 | Implementation | CA-01–CA-10 implemented; nested preview entrypoint correction and REST examples integrated |
 | Automated checks | CI-01–CI-08 passed on the integrated working tree; current-head CI pending publication |
 | Type / lint / complexity | Web and Server type, lint, architecture and build gates passed; dedicated quantitative complexity tooling unavailable |
-| Manual checks | VM-01 blocked; login stays at `/login` and no local HTML Activity is available to prove the real journey |
-| Visual checks | VM-02 blocked; Activity screenshots and exported desktop references are unavailable |
-| Independent review | Spec review passed and user approved Spec revision 1; implementation review found and verified corrections; final verdict BLOCKED only by VM-01 browser evidence |
-| Blockers | VM-01 authenticated scenario and VM-02 capture/reference evidence unavailable in current local environment |
+| Manual checks | VM-01 partially passed in an authenticated disposable-database journey; final Activity submission was rate-limited and its result page was not reached |
+| Visual checks | VM-02 captures exist at required desktop/mobile viewports; desktop Pencil references are unavailable, so visual comparison remains blocked |
+| Independent review | Spec review passed and user approved Spec revision 1; implementation review verified the fixture guardrail and local-draft description; visual review found the mobile CTA/FAB collision, with source spacing corrected and a post-fix capture still pending |
+| Blockers | Official submission/result-page confirmation and Pencil reference comparison remain unavailable |
 | Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
 
 # Progress
@@ -24,14 +24,14 @@ last_updated_at: 2026-10-24
 | --- | --- | --- | --- | --- | --- |
 | CA-01 | RF-01 | Implemented | Passed | CI-01 | 316 integrated Server tests passed, including Curriculum, mixed activity and legacy snapshot paths |
 | CA-02 | RF-01 | Implemented | Passed | CI-01 | Project validation and editable-file normalization covered in the same 316-test Server selection |
-| CA-03 | RF-02, RF-05 | Implemented | Automated passed; manual blocked | CI-02, VM-01 | Final integrated Web selection passed 66 tests; the 10-test HTML widget/hook selection also passed after the runner entrypoint correction. Real authenticated journey unavailable. |
-| CA-04 | RF-02 | Implemented | Automated passed; manual blocked | CI-03, VM-01 | Draft, cross-tab and consumer regression tests passed. Real account/session recovery not observed in browser. |
+| CA-03 | RF-02, RF-05 | Implemented | Automated passed; manual partial | CI-02, VM-01 | Final integrated Web selection passed 66 tests; the 10-test HTML widget/hook selection also passed after the runner entrypoint correction. Authenticated Activity and question navigation observed. WebContainer preview remained unavailable in headless Chromium. |
+| CA-04 | RF-02 | Implemented | Automated passed; manual passed | CI-03, VM-01 | Draft, cross-tab and consumer regression tests passed. Browser logout/login restored edited HTML and JavaScript from the browser-local draft. |
 | CA-05 | RF-02, RF-04 | Implemented | Passed | CI-03 | Tombstone invalidation and frozen-response tests passed in the focused Web selection. |
 | CA-06 | RF-03 | Implemented | Passed | CI-04 | Server preview/use-case/controller and Web feedback selections passed. |
-| CA-07 | RF-03, RF-04 | Implemented | Passed | CI-05 | Immutable submission, retry and workflow selections passed in the integrated Server run. |
-| CA-08 | RF-04 | Implemented | Automated passed; manual blocked | CI-06, VM-01 | Historical read-only Web/Server tests passed; browser persistence and recovery journey unavailable. |
+| CA-07 | RF-03, RF-04 | Implemented | Automated passed; manual partial | CI-05, VM-01 | Immutable submission, retry and workflow selections passed in the integrated Server run. Browser reached final submission UI, but API rate limiting prevented confirmation. |
+| CA-08 | RF-04 | Implemented | Automated passed; manual partial | CI-06, VM-01 | Historical read-only Web/Server tests passed; browser proved draft recovery, but no persisted official result was reached. |
 | CA-09 | RF-03, RF-04 | Implemented | Passed | CI-07 | Privacy, invalidation and delayed-work workflow/use-case tests passed in the integrated Server selection. |
-| CA-10 | RF-05 | Implemented | Blocked | VM-02 | Keyboard interaction tests passed. Desktop/mobile captures, overflow inspection and Pencil comparison are unavailable. |
+| CA-10 | RF-05 | Implemented | Manual partial | VM-02 | Keyboard interaction tests passed. Screenshots at 1440×900 and 390×844 exposed a mobile FAB/CTA overlap; the HTML assessment button now reserves 4rem on the right below `lg`. Mobile document width matched the viewport. Fresh post-fix capture and Pencil comparison remain unavailable. |
 
 # Check Results
 
@@ -45,11 +45,11 @@ last_updated_at: 2026-10-24
 | EV-06 | CI-06 / Automated / CA-08 | Passed | Integrated working tree, 2026-10-24; disposable Testcontainers and local Vitest | Attempt/history Server and read-only result Web tests in the combined selections | Covered by the 316 Server passes and 65 Web passes. |
 | EV-07 | CI-07 / Automated / CA-09 | Passed | Integrated working tree, 2026-10-24; disposable Testcontainers | Evaluation workflow and submit/evaluate use-case tests in the combined `apps/server` selection | Covered by the 316 Server passes; no registered AgentOS runtime suite exists per supplied context. |
 | EV-08 | CI-08 / Automated / types, lint, complexity, architecture and build | Passed with stated limit | Integrated working tree, 2026-10-24; local toolchain | Web TypeScript, Biome on changed files, Dependency Cruiser and Vite build; Server basedpyright, Ruff check/format, Tach, compileall and `uv build` | All configured gates passed. Dedicated quantitative complexity metrics are unavailable and remain unmeasured. Corepack/pnpm could not resolve pnpm because registry DNS failed; installed local binaries ran the declared checks. Server build passed after granting local cache/Docker access. |
-| EV-09 | VM-01 / Manual / CA-03–09 | Blocked | Local Web at `http://127.0.0.1:7000`; API health `http://127.0.0.1:7777/health` returned 200; 2026-10-24 | Playwright CLI opened `/login`, submitted the documented seed account, and inspected page, requests and console | Sign-in POST returned 200 but the page stayed at `/login`; no authenticated Activity was reached. No database seed/reset was run. Preview, draft-recovery, submission and persisted-result browser behavior remain unobserved. |
-| EV-10 | VM-02 / Visual / CA-10 | Blocked | Candidate working tree; 2026-10-24 | Visual Reviewer inspected the handoff and available Playwright evidence | Activity captures at 1440×900 and 390×844 are absent. Handoff names Pencil references Veyl9/EzCt3 but provides no exported image paths. Visual Reviewer returned BLOCKED; only a `/login` snapshot is available. |
+| EV-09 | VM-01 / Manual / CA-03–09 | Partial | Local Web `http://localhost:7001`, API `http://localhost:7778`, disposable PostgreSQL `127.0.0.1:15448` and Redis `127.0.0.1:16379`; 2026-10-24 | Playwright CLI signed in with the documented seed account; opened the mixed Activity; evaluated choice and HTML responses; edited all three files; logged out/in; inspected restored draft; captured final desktop/mobile views; attempted final submit | Activity GET, choice preliminary, HTML preliminary (75%), and third choice preliminary returned 200. Draft recovery restored edited HTML/JS from browser-local storage after reauthentication. No browser or console errors were recorded in the successful run. WebContainer preview stayed unavailable despite cross-origin isolation and SharedArrayBuffer support. Final submission returned 429 from the API limiter, so persisted official result is unverified. Screenshots: `apps/web/.playwright-cli/screenshots/shifu-86-desktop.png` and `apps/web/.playwright-cli/screenshots/shifu-86-mobile.png`. |
+| EV-10 | VM-02 / Visual / CA-10 | Partial | Candidate working tree; 2026-10-24 | Captured authenticated Activity at desktop and mobile viewports; measured document width at mobile; reviewed overlap and added mobile CTA spacing | Screenshots exist at 1440×900 and 390×844; mobile document/body width was 390px, with no horizontal overflow. Mobile capture showed the Mentor FAB touching the assessment button; the button now reserves 4rem at right below `lg`, and the 10 focused HTML widget/hook tests pass. A post-fix browser capture is still needed. Pencil references Veyl9/EzCt3 have no exported image paths, so visual comparison cannot be completed. |
 | EV-11 | Baseline regression / Automated / existing React and Activity consumers | Passed | Feature branch, 2026-10-23; local Web dependencies | `apps/web/node_modules/.bin/vitest.cmd run` with five Activity/React/result test files from `apps/web`; `TEMP` and `TMP` used an ignored task-local directory | 80 tests passed in 5 files. `pnpm` could not resolve its package-manager version because registry DNS was unavailable; direct installed Vitest binary was used. |
 | EV-12 | Baseline regression / Automated / existing Curriculum and Learning consumers | Passed | Feature branch, 2026-10-23; local Server venv and disposable Testcontainers | `.venv/Scripts/python.exe -m pytest -q` with `test_react_question.py` and six named Learning use-case files from `apps/server`, with Docker access | 240 tests passed with 1 warning in 13.56s. An earlier unelevated attempt failed during fixture setup because Docker named-pipe access was denied; rerun with local Docker access passed. |
-| EV-13 | VM-01 readiness / Manual / CA-03–09 | Blocked | Local environment, 2026-10-24 | `docker compose ps`; HTTP health requests; Web startup; Playwright login | PostgreSQL, Inngest and Mailpit were already running; API health returned 200 and task-started Web served `/login`. The documented seed login did not establish an authenticated browser route. Shared Compose services and the pre-existing API process were left running. Task-started Web process is stopped before handoff. |
+| EV-13 | VM-01 readiness / Manual / CA-03–09 | Partial | Disposable local environment, 2026-10-24 | Guarded fixture prepared an isolated PostgreSQL database; isolated Redis, API, decision stub and Web served the authenticated Playwright journey | Authenticated Activity and preliminary evaluation worked. A later retry after restarting the API had an issuer/JWKS configuration mismatch; this did not invalidate the earlier successful journey. Task-started disposable services are stopped before handoff; shared Compose services remain untouched. |
 
 Integrated Server selection, run from `apps/server` with Docker access for
 disposable Testcontainers (EV-01, EV-04–EV-07):
@@ -76,8 +76,8 @@ candidate; no product code in those consumers changed afterward.
 | --- | --- | --- | --- | --- |
 | ACH-01 | Preview omitted nested curricular `entrypoint`; Implementation Reviewer finding, CA-03 | Medium | CI-02, VM-01 | Corrected URL resolution and added a regression test; 10 focused Web tests passed, then Web type/lint/architecture/build gates passed. |
 | ACH-02 | REST examples omitted the `html_css_js` response/request contract; Implementation Reviewer finding, CA-01/06/07 | Low | REST contract review | Added the discriminator/detail documentation plus preliminary-evaluation and mixed-submission examples to `apps/server/rest-client/learning/activities.rest`. |
-| ACH-03 | Browser login stayed at `/login`; EV-09/EV-13 | Blocking for manual evidence | VM-01 | Auth POST returned 200, API health returned 200, but an authenticated Activity was not reached. No seed/reset or shared database mutation was performed. |
-| ACH-04 | Activity screenshots and exported Pencil desktop references are unavailable; EV-10 | Blocking for visual evidence | VM-02 | Visual Reviewer returned BLOCKED. Smallest next action is to supply the references and an authenticated local HTML Activity, then capture the two required viewports. |
+| ACH-03 | Final official browser submission returned 429; EV-09/EV-13 | Blocking for final manual evidence | VM-01 | Authenticated Activity, preliminary evaluation and draft recovery passed in the disposable fixture. The official result page was not reached after API throttling. |
+| ACH-04 | Pencil references Veyl9/EzCt3 are not exported; EV-10 | Blocking for visual comparison | VM-02 | Desktop/mobile Activity screenshots and overflow measurement now exist. The mobile FAB/CTA overlap was corrected in source, but a post-fix capture and reference comparison need fresh authenticated access and exported images. |
 
 # Lessons Learned
 
@@ -89,23 +89,23 @@ None.
 | --- | --- |
 | Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
 | Completed | CA-01–CA-09 implementation and automated proof; CA-10 UI/keyboard implementation and automated checks; all configured local static/build gates; Spec revision 1 approved; implementation-review corrections integrated and checked |
-| Unfinished | VM-01 real authenticated Activity journey; VM-02 captures/reference comparison; current-head CI after PR publication |
-| Uncommitted work | User-provided root task documents remain untracked; evaluation update is pending its own commit |
-| Active processes | Shared Docker Compose services PostgreSQL, Inngest and Mailpit were already running and remain untouched; pre-existing API process not managed by this task; task-started Web must be stopped before handoff |
-| Blockers | Local login remained at `/login`, with no HTML Activity available for the manual journey; Pencil references have no exported image paths; `gh auth status` reports invalid GitHub token although git push credentials work |
-| Next action | Commit this evidence update, push both task commits, then create and attach the PR through the connected GitHub integration |
+| Unfinished | Confirm official submission/result in browser; compare screenshots to exported Pencil references; current-head CI |
+| Uncommitted work | `apps/server/devtools/html_css_js_browser_fixture/{README.md,activity.py,prepare.py}`, the HTML question mobile spacing in `apps/web/src/ui/learning/widgets/pages/activity-page/html-css-js-question/index.tsx`, and this Evaluation update will be committed. The two user-provided root task documents remain untracked and excluded. |
+| Active processes | Shared Docker Compose services PostgreSQL, Inngest and Mailpit were already running and remain untouched; pre-existing API process not managed by this task; task-started Web was stopped after browser validation |
+| Blockers | Official browser submit returned 429 before producing a result page; Pencil references have no exported image paths; `gh auth status` reports invalid GitHub token although git push credentials work |
+| Next action | Review current-head CI on PR #44; repeat only the final submit after the rate-limit window, and compare captures if references are exported |
 
 # Delivery
 
 | RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
 | --- | --- | --- | --- |
 | Curriculum RP-03/JN-03 | RF-01, CA-01–02 | EV-01, EV-08 | Implemented and locally verified; current-head CI pending |
-| Learning RP-09, RP-11–14, RP-18, RP-21–22, RP-25, RP-29 | RF-01–05, CA-01–10 | EV-01–EV-08; EV-09/EV-10 blocked | Implementation and automated checks pass. Real browser journey and visual acceptance remain unverified in this local environment. |
+| Learning RP-09, RP-11–14, RP-18, RP-21–22, RP-25, RP-29 | RF-01–05, CA-01–10 | EV-01–EV-10 | Implementation and automated checks pass. Browser verified sign-in, editing, autosave/recovery and preliminary evaluation. Final submission confirmation and visual reference comparison remain unverified. |
 
 | Field | Result |
 | --- | --- |
-| Publication | Branch published; PR not yet created |
+| Publication | Branch published; PR #44 opened and attached: https://github.com/CtrI-Alt-Del/shifu/pull/44 |
 | Source verification | Learning content 83066881 v26 and Curriculum content 83034113 v13 per supplied context document; no Jira/Confluence refresh requested |
 | Documentation Alignment | Spec and Evaluation created; no external writes |
 | Revision History | Spec revision 1 |
-| Limitations | Local automated checks pass; VM-01/VM-02 remain blocked as recorded. Quantitative complexity metrics have no configured tool. GitHub CLI token is invalid; use the connected GitHub integration for PR creation. Current-head CI remains pending until publication. |
+| Limitations | Local automated checks pass; VM-01/VM-02 are partial as recorded. The headless browser could not start the WebContainer preview; official submit was rate-limited. Quantitative complexity metrics have no configured tool. GitHub CLI token is invalid; branch push and PR creation succeeded through configured integrations. Current-head CI is pending. |

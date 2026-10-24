@@ -130,6 +130,7 @@ export const HtmlCssJsQuestion = (props: HtmlCssJsQuestionProps) => {
             </div>
             {props.onAssess && !props.isDiagnostic ? (
               <Button
+                className='mr-16 lg:mr-0'
                 disabled={isFrozen || !draftLoaded}
                 onClick={() => void handleAssess()}
                 type='button'
