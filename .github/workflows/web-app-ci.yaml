@@ -198,6 +198,7 @@ jobs:
           src/ui/intelligence/widgets/layouts/planning-intent-composer/tests/planning-intent-composer.test.tsx
           src/rest/services/tests/gamification-service.test.ts
           src/ui/shared/hooks/tests/use-format-date.test.ts
+          src/ui/gamification/widgets/components/activity-xp-reward-band/tests
           src/ui/gamification/widgets/pages/gamification-page/tests/gamification-page.test.tsx
           src/ui/gamification/widgets/pages/gamification-page/tests/use-gamification-page.test.ts
           src/ui/gamification/widgets/pages/gamification-page/tests/gamification-server-functions.test.ts
@@ -212,6 +213,7 @@ jobs:
           src/ui/learning/widgets/pages/activity-page/code-question/tests
           src/ui/learning/widgets/pages/choice-result-page/tests
           src/ui/learning/widgets/pages/choice-result-page/choice-result-detail/tests
+          "src/routes/learning/goals/\$goalId/skills/\$skillId/competencies/\$competencyId/activities/\$activityId/attempts/\$attemptId/tests"
           src/ui/learning/widgets/components/code-editor/tests
           src/ui/learning/widgets/components/code-file-tree/tests
           src/ui/learning/widgets/pages/goal-create-page/tests
