@@ -28,7 +28,7 @@ concurrency:
 jobs:
   email_code:
     name: Check email package code
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -53,7 +53,7 @@ jobs:
 
   email_types:
     name: Check email package types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
 
   email_build:
     name: Build generated email templates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -103,7 +103,7 @@ jobs:
 
   server_types:
     name: Check server types with generated email templates
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
       REDIS_URL: redis://localhost:6379/0
@@ -168,7 +168,7 @@ jobs:
 
   server_build:
     name: Build and verify server distributions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -226,7 +226,7 @@ jobs:
       - email_build
       - server_types
       - server_build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require all email package and server checks
         env:

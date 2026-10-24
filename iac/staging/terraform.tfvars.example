@@ -1,0 +1,24 @@
+aws_region = "us-east-1"
+
+hostname        = "staging.example.com"
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+# Use immutable build identifiers such as a full Git SHA. The repositories are
+# created during phase zero; the images may be pushed after that first apply.
+web_image_tag = "replace-with-immutable-web-tag"
+api_image_tag = "replace-with-immutable-api-tag"
+
+# Phase zero defaults: no running application tasks.
+services_enabled   = false
+openrouter_enabled = false
+
+monthly_budget_usd       = 100
+budget_subscriber_emails = ["platform-owner@example.com"]
+
+# Safe teardown defaults. Use a unique identifier for every destroy rehearsal.
+purge_data                = false
+final_snapshot_identifier = "shifu-staging-final-snapshot-replace-me"
+
+additional_tags = {
+  Owner = "replace-with-team-name"
+}

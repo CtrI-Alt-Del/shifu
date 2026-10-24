@@ -1,8 +1,8 @@
 from .answer_mentor_message_workflow import (
     AnswerMentorMessageWorkflow as AnswerMentorMessageWorkflow,
 )
-from .generate_mentor_title_workflow import (
-    GenerateMentorTitleWorkflow as GenerateMentorTitleWorkflow,
+from .generate_mentor_title_provider import (
+    GenerateMentorTitleProvider as GenerateMentorTitleProvider,
 )
 from .intelligence_database import (
     IntelligenceDatabase as IntelligenceDatabase,
@@ -53,4 +53,19 @@ from .mentor_telemetry_provider import (
 )
 from .planning_sessions_repository import (
     PlanningSessionsRepository as PlanningSessionsRepository,
+)
+from .learner_memories_repository import (
+    LearnerMemoriesRepository as LearnerMemoriesRepository,
+)
+from .learner_memory_analyzer_provider import (
+    LearnerMemoryAnalyzerProvider as LearnerMemoryAnalyzerProvider,
+)
+from .learner_memory_changes_repository import (
+    LearnerMemoryChangesRepository as LearnerMemoryChangesRepository,
+)
+from .learner_memory_similarity_provider import (
+    LearnerMemorySimilarityProvider as LearnerMemorySimilarityProvider,
+)
+from .mentor_generation_limit_provider import (
+    MentorGenerationLimitProvider as MentorGenerationLimitProvider,
 )

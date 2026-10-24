@@ -26,6 +26,7 @@ class RemoveMentorSessionUseCase:
                 raise MentorSessionNotFoundError
 
             repositories.mentor_sessions.lock_session(account_id, session_id)
+            repositories.learner_memory_changes.remove_by_session_id(session_id)
             current_submission = (
                 repositories.mentor_sessions.find_submission_by_session_id(
                     account_id, session_id

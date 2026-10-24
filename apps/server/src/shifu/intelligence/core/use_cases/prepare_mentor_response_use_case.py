@@ -1,15 +1,23 @@
+import hashlib
 import re
 import unicodedata
 from dataclasses import asdict, replace
+from typing import ClassVar
 
-from shifu.intelligence.core.domain.entities import MentorMessage, MentorResponseAttempt
+from shifu.intelligence.core.domain.entities import (
+    LearnerMemory,
+    MentorMessage,
+    MentorResponseAttempt,
+)
 from shifu.intelligence.core.domain.enums import (
+    LearnerMemoryCategory,
     MentorAttachmentStatus,
     MentorIntent,
     MentorMessageRole,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import (
+    LearnerMemoryContext,
     MentorAttachmentContext,
     MentorConversationSummaryContext,
     MentorGenerationRequest,
@@ -20,6 +28,8 @@ from shifu.intelligence.core.domain.structures import (
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
+    LearnerMemorySimilarityProvider,
+    MentorGenerationLimitProvider,
     MentorRouteProvider,
 )
 from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case import (
@@ -53,6 +63,18 @@ class PrepareMentorResponseUseCase:
         'pagina',
     )
 
+    # The route provider names its abstention block by this key; the policy only
+    # recognizes it, so the provider stays unchanged (RF-07).
+    LOCAL_ABSTENTION_BLOCK_KEY: ClassVar[str] = hashlib.sha256(
+        b'local-abstention'
+    ).hexdigest()[:32]
+    MEMORY_ACKNOWLEDGEMENT_BLOCK_KEY: ClassVar[str] = 'memory-acknowledged'
+    MEMORY_ACKNOWLEDGEMENT: ClassVar[str] = (
+        'Anotado. Vou considerar isso nas próximas explicações.'
+    )
+    MAX_PREFERENCE_MEMORIES: ClassVar[int] = 3
+    MAX_RELEVANT_MEMORIES: ClassVar[int] = 5
+
     def __init__(
         self,
         database: IntelligenceDatabase,
@@ -62,6 +84,9 @@ class PrepareMentorResponseUseCase:
         route_provider: MentorRouteProvider,
         catalog_provider: MentorCatalogProvider,
         attachment_context_use_case: GetMentorAttachmentContextUseCase,
+        memory_similarity: LearnerMemorySimilarityProvider,
+        memory_relevance_threshold: float,
+        generation_limit_provider: MentorGenerationLimitProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
@@ -70,6 +95,9 @@ class PrepareMentorResponseUseCase:
         self._route_provider = route_provider
         self._catalog_provider = catalog_provider
         self._attachment_context_use_case = attachment_context_use_case
+        self._memory_similarity = memory_similarity
+        self._memory_relevance_threshold = memory_relevance_threshold
+        self._generation_limit = generation_limit_provider
 
     def execute(
         self, attempt_id: str, execution_owner: str
@@ -112,6 +140,10 @@ class PrepareMentorResponseUseCase:
             continuity = repositories.mentor_response_attempts.find_continuity(
                 attempt.account_id, attempt.session_id
             )
+            analysis = repositories.mentor_messages.find_memory_analysis(
+                attempt.learner_message_id
+            )
+        statement_only = analysis is not None and analysis[1] is True
         learner = next(
             (
                 message
@@ -159,6 +191,10 @@ class PrepareMentorResponseUseCase:
         route = self._propose_catalog(
             attempt, learner.content, context, route, execution_owner
         )
+        if statement_only and not self._attachment_ids(
+            learner, route.generation_requests
+        ):
+            route = self._acknowledge_statement(route)
         route = replace(
             route, local_blocks=self._clarify(route.local_blocks, route.clarification)
         )
@@ -177,8 +213,6 @@ class PrepareMentorResponseUseCase:
             attempt.session_id,
         )
         request = None
-        # General responses stay on the local route. Only attachment-backed
-        # requests cross the inference boundary into the registered workflow.
         if requests and attachment_context is not None:
             request = MentorGenerationRequest(
                 session_id=attempt.session_id,
@@ -191,8 +225,39 @@ class PrepareMentorResponseUseCase:
                 correction=None,
                 attachment_context=attachment_context,
                 summary=summary,
+                memories=self._relevant_memories(attempt.account_id, learner),
             )
         self._assert_claim_current(attempt, execution_owner)
+        fallback = None
+        unanswered = tuple(
+            part for part in route.unanswered_requests if part in requests
+        )
+        if (
+            request is None
+            and self._may_generate(unanswered, statement_only, learner, local_blocks)
+            and self._take_slot(attempt, approved)
+        ):
+            request = MentorGenerationRequest(
+                session_id=attempt.session_id,
+                learner_message_id=attempt.learner_message_id,
+                attempt_id=attempt.id,
+                requested_part='\n\n'.join(unanswered),
+                history=tuple(history),
+                context=context,
+                approved_blocks=approved,
+                correction=None,
+                attachment_context=None,
+                summary=summary,
+                memories=self._relevant_memories(attempt.account_id, learner),
+            )
+            fallback = next(
+                block
+                for block in local_blocks
+                if block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+            )
+            local_blocks = tuple(
+                block for block in local_blocks if block is not fallback
+            )
         return PreparedMentorResponse(
             attempt_id=attempt.id,
             execution_owner=execution_owner,
@@ -202,7 +267,46 @@ class PrepareMentorResponseUseCase:
             context=context,
             local_blocks=local_blocks,
             attachment_request=request,
+            generation_fallback=fallback,
         )
+
+    def _may_generate(
+        self,
+        unanswered: tuple[str, ...],
+        statement_only: bool,
+        learner: MentorMessage,
+        local_blocks: tuple[MentorResponseBlock, ...],
+    ) -> bool:
+        """A general answer needs an unanswered part and none of the RF-06 exclusions.
+
+        The abstention must be among the local blocks: it is the safe fallback.
+        """
+        usable = (MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL)
+        return (
+            bool(unanswered)
+            and not statement_only
+            and (
+                not learner.attachments
+                or any(
+                    attachment.status in usable for attachment in learner.attachments
+                )
+            )
+            and any(
+                block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+                for block in local_blocks
+            )
+        )
+
+    def _take_slot(
+        self, attempt: MentorResponseAttempt, approved: tuple[MentorResponseBlock, ...]
+    ) -> bool:
+        """Take the attempt's slot once; a denial or a store failure keeps the abstention."""
+        if any(block.block_key.startswith('generated-') for block in approved):
+            return True
+        try:
+            return self._generation_limit.try_acquire(attempt.account_id, attempt.id)
+        except ServiceUnavailableError:
+            return False
 
     def _start(
         self, attempt_id: str, execution_owner: str
@@ -251,14 +355,7 @@ class PrepareMentorResponseUseCase:
         account_id: str,
         session_id: str,
     ) -> MentorAttachmentContext | None:
-        if not requests or not self._asks_about_attachments(learner.content):
-            return None
-        attachment_ids = tuple(
-            attachment.attachment_id
-            for attachment in learner.attachments
-            if attachment.status
-            in (MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL)
-        )
+        attachment_ids = self._attachment_ids(learner, requests)
         if not attachment_ids:
             return None
         pages = tuple(
@@ -275,6 +372,98 @@ class PrepareMentorResponseUseCase:
             attachment_ids=attachment_ids,
             page_numbers=pages,
         )
+
+    @classmethod
+    def _attachment_ids(
+        cls, learner: MentorMessage, requests: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        """Ready attachments an attachment-backed request would read (else empty)."""
+        if not requests or not cls._asks_about_attachments(learner.content):
+            return ()
+        return tuple(
+            attachment.attachment_id
+            for attachment in learner.attachments
+            if attachment.status
+            in (MentorAttachmentStatus.READY, MentorAttachmentStatus.PARTIAL)
+        )
+
+    @classmethod
+    def _acknowledge_statement(cls, route: MentorRouteResult) -> MentorRouteResult:
+        """RF-07: a statement-only message gets "Anotado" instead of the abstention."""
+        if (
+            route.clarification is not None
+            or len(route.local_blocks) != 1
+            or route.local_blocks[0].block_key != cls.LOCAL_ABSTENTION_BLOCK_KEY
+        ):
+            return route
+        return replace(
+            route,
+            local_blocks=(
+                MentorResponseBlock(
+                    block_key=cls.MEMORY_ACKNOWLEDGEMENT_BLOCK_KEY,
+                    ordinal=route.local_blocks[0].ordinal,
+                    intent=None,
+                    content=cls.MEMORY_ACKNOWLEDGEMENT,
+                ),
+            ),
+        )
+
+    def _relevant_memories(
+        self, account_id: str, learner: MentorMessage
+    ) -> tuple[LearnerMemoryContext, ...]:
+        """Up to three recent preferences plus up to five memories relevant to the message.
+
+        Memory selection only enriches a generated answer, so any failure here
+        leaves the request without memories instead of failing the answer.
+        """
+        try:
+            with self._database.transaction() as repositories:
+                memories = repositories.learner_memories.find_many_by_account(
+                    account_id
+                )
+            preferences = self._most_recent(
+                tuple(
+                    memory
+                    for memory in memories
+                    if memory.category is LearnerMemoryCategory.EXPLANATION_PREFERENCE
+                )
+            )[: self.MAX_PREFERENCE_MEMORIES]
+            chosen = {memory.id for memory in preferences}
+            scored = [
+                (
+                    self._memory_similarity.similarity(learner.content, memory.content),
+                    memory,
+                )
+                for memory in memories
+                if memory.id not in chosen
+            ]
+            relevant = [
+                (score, memory)
+                for score, memory in self._most_recent_scored(scored)
+                if score >= self._memory_relevance_threshold
+            ]
+            relevant.sort(key=lambda item: item[0], reverse=True)
+        except Exception:  # noqa: BLE001 - memories never fail an attachment answer.
+            return ()
+        return tuple(
+            LearnerMemoryContext(category=memory.category, content=memory.content)
+            for memory in (
+                *preferences,
+                *(memory for _, memory in relevant[: self.MAX_RELEVANT_MEMORIES]),
+            )
+        )
+
+    @staticmethod
+    def _most_recent(memories: tuple[LearnerMemory, ...]) -> tuple[LearnerMemory, ...]:
+        by_id = sorted(memories, key=lambda memory: memory.id)
+        return tuple(sorted(by_id, key=lambda memory: memory.updated_at, reverse=True))
+
+    @staticmethod
+    def _most_recent_scored(
+        scored: list[tuple[float, LearnerMemory]],
+    ) -> list[tuple[float, LearnerMemory]]:
+        by_id = sorted(scored, key=lambda item: item[1].id)
+        return sorted(by_id, key=lambda item: item[1].updated_at, reverse=True)
 
     @classmethod
     def _asks_about_attachments(cls, content: str) -> bool:
@@ -434,7 +623,12 @@ class PrepareMentorResponseUseCase:
             else self._route_provider.route(content, context)
         )
         if clarification is not None:
-            return replace(route, clarification=clarification, generation_requests=())
+            return replace(
+                route,
+                clarification=clarification,
+                generation_requests=(),
+                unanswered_requests=(),
+            )
         return route
 
     def _propose_catalog(

@@ -101,3 +101,21 @@ from .summarize_mentor_session_context_use_case import (
 from .upload_mentor_attachment_use_case import (
     UploadMentorAttachmentUseCase as UploadMentorAttachmentUseCase,
 )
+from .update_learner_memories_use_case import (
+    UpdateLearnerMemoriesUseCase as UpdateLearnerMemoriesUseCase,
+)
+from .list_learner_memories_use_case import (
+    ListLearnerMemoriesUseCase as ListLearnerMemoriesUseCase,
+)
+from .get_learner_memory_use_case import (
+    GetLearnerMemoryUseCase as GetLearnerMemoryUseCase,
+)
+from .edit_learner_memory_use_case import (
+    EditLearnerMemoryUseCase as EditLearnerMemoryUseCase,
+)
+from .remove_learner_memory_use_case import (
+    RemoveLearnerMemoryUseCase as RemoveLearnerMemoryUseCase,
+)
+from .purge_learner_memories_for_account_use_case import (
+    PurgeLearnerMemoriesForAccountUseCase as PurgeLearnerMemoriesForAccountUseCase,
+)

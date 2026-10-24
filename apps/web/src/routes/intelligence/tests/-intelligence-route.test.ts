@@ -31,8 +31,28 @@ describe('Intelligence route', () => {
     expect(validateIntelligenceSearch({ session: '01J7T8AC91Z5K8M4JQ8C2D6F0B' })).toEqual(
       {
         session: '01J7T8AC91Z5K8M4JQ8C2D6F0B',
+        message: undefined,
       },
     )
+  })
+
+  it('keeps a valid ULID message search value', () => {
+    expect(
+      validateIntelligenceSearch({
+        session: '01J7T8AC91Z5K8M4JQ8C2D6F0B',
+        message: '01J7T8AC91Z5K8M4JQ8C2D6F0C',
+      }),
+    ).toEqual({
+      session: '01J7T8AC91Z5K8M4JQ8C2D6F0B',
+      message: '01J7T8AC91Z5K8M4JQ8C2D6F0C',
+    })
+  })
+
+  it.each([
+    ['a malformed message', { message: 'not-a-ulid' }],
+    ['a non-string message', { message: 123 }],
+  ])('clears %s from the search state', (_description, search) => {
+    expect(validateIntelligenceSearch(search).message).toBeUndefined()
   })
 
   it.each([
@@ -40,7 +60,10 @@ describe('Intelligence route', () => {
     ['a non-string value', { session: 123 }],
     ['a missing value', {}],
   ])('clears %s from the search state', (_description, search) => {
-    expect(validateIntelligenceSearch(search)).toEqual({ session: undefined })
+    expect(validateIntelligenceSearch(search)).toEqual({
+      session: undefined,
+      message: undefined,
+    })
   })
 
   it('registers the validator and runs the authentication middleware', () => {

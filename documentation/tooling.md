@@ -113,6 +113,7 @@ Important local variables include:
 | `LANGFUSE_PORT` | `7003` | Local agent monitoring UI/API host port |
 | `LANGFUSE_BASE_URL` | `http://localhost:7003` | Server telemetry destination |
 | `MENTOR_TELEMETRY_ENABLED` | `false` | Opt in to sanitized Intelligence and Learning agent monitoring |
+| `MENTOR_GENERATION_LIMIT_PER_HOUR` | `30` | Server setting: generated Mentor answers per account per rolling hour for questions without a local answer; `0` turns them off and the Mentor shows its local abstention |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
 | `INNGEST_APP_URL` | `http://host.docker.internal:7777/api/inngest` | FastAPI Inngest endpoint discovered by the existing Compose Dev Server |
@@ -230,6 +231,13 @@ the answer run summarize the older messages first ("Resumindo contexto…") and 
 show the "Contexto resumido" marker. Reseeding restores it; the summary itself is
 derived data, so it is created by the first message and removed by the next reseed.
 
+## Test integrity
+
+`pnpm check:test-integrity` (`node scripts/check-test-integrity.mjs`) fails when a
+test file is not for a use case, controller, job or API handler on the server, or a
+hook, widget, page, layout or API handler on the web. `--list` prints the allowed
+files with their kind. Run it after adding, moving or deleting test files.
+
 ## Running the applications
 
 Set each application port in its ignored app-local `.env.local` file:
@@ -285,18 +293,9 @@ Playwright.
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
 | `pnpm --filter web test:coverage` | Run Vitest unit tests with V8 coverage |
-| `node --experimental-strip-types apps/web/scripts/check-changed-coverage.ts --base origin/main` | Enforce per-file changed-source coverage from `apps/web/coverage/coverage-summary.json` |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
-
-The Web changed-file coverage job runs the affected Mentor tests with Vitest's
-V8 provider, then checks every changed eligible production file against
-`coverage/coverage-summary.json`. It requires at least 85% statements, lines and
-functions, and 80% branches per file. Use `--files <repo-path...>` for a local
-explicit file selection instead of `--base origin/main`; files missing from the
-coverage summary fail the check. The workflow's focused test selection is in
-`.github/workflows/web-app-ci.yaml` and its report is uploaded as an artifact.
 
 Biome is configured centrally in the root `biome.json`. Formatting uses two spaces,
 a 90-character line width,
@@ -357,19 +356,6 @@ Run commands from `apps/server` through uv:
 | `uv run poe test` | Run the complete pytest suite with verbose output |
 | `uv run poe build` | Build source and wheel distributions with uv |
 | `uv run --env-file .env.local python src/main.py` | Start the API locally |
-
-Server changed-file coverage uses `coverage.py` branch data and
-`scripts/check_changed_coverage.py`. The checker requires at least 85% statements,
-lines and function entries, and 80% branches for every changed eligible
-`src/shifu/**/*.py` file. Statements and lines both count Coverage.py executable
-source lines; function entries count arcs from a named function's entry to its
-first executable body line; branches count possible and executed arcs. Abstract,
-overload and declaration-only stub functions are excluded from the function-entry
-denominator. Run focused pytest selections under `coverage run --branch`, emit
-`coverage.json`, then pass the changed files with `--files` locally or use
-`--base origin/main` in a full-history checkout. The dedicated CI job records the
-exact affected test selections in `.github/workflows/server-app-ci.yaml` and uploads
-the JSON report, raw coverage data, and checker summary.
 
 The server's module boundaries are declared in `apps/server/tach.toml`. The current
 module policy keeps business modules dependent on shared code while application
@@ -542,10 +528,7 @@ configuration are deferred. The local SonarQube service is separate from the
 planned SonarCloud coverage and quality-gate integration.
 
 Inspect the current `.github/workflows` when selecting delivery gates. CI uses
-application-owned commands and repository runtime files. Web and Server have
-dedicated changed-file coverage jobs that enforce the per-file thresholds above;
-their uploaded reports apply only to the exact candidate and scoped tests in that
-job. Server CI also runs
+application-owned commands and repository runtime files. Server CI also runs
 `uv run alembic check` after migrating its disposable database to detect schema
 migration drift. The Email workflow separately checks package code/types,
 generates templates and verifies the server distribution contract when its path
@@ -581,11 +564,11 @@ AgentOS registries for Intelligence and Learning. Their PostgreSQL schemas, queu
 clients and lifecycles are module-scoped; Shared supplies only destination-aware
 transport and sanitized observability. REST integration tests use disposable
 PostgreSQL Testcontainers and do not reuse the developer's Compose database.
-Registered AgentOS integration tests use disposable PostgreSQL and Redis; attachment
-controller tests also use disposable MinIO. Inngest tests use disposable PostgreSQL and
-Inngest. Local tests may report a precise Docker or callback-port skip, but CI must run
+Attachment controller tests also use disposable MinIO. Inngest tests use disposable
+PostgreSQL and Inngest. There are no AgentOS runtime tests. Workflow tests under
+`apps/server/tests/<module>/ai/workflows/` run the Agno workflow in process with mocked
+agents; answer quality is proved by the evals under `apps/server/evals`. Local tests may report a precise Docker or callback-port skip, but CI must run
 all contracted runtime selections on a Docker-capable runner. Set
-`SHIFU_RUN_REAL_AGENTOS_TESTS=1` for AgentOS runtime tests and
 `SHIFU_RUN_REAL_INNGEST_TESTS=1` for real Inngest tests; skips or empty selections do
 not pass.
 

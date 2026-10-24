@@ -5,6 +5,7 @@ import type {
   SubmitMentorMessageInput,
 } from '@/core/intelligence/mentor-response'
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
+import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-memory'
 import type { MentorSessionSummaryState } from '@/core/intelligence/mentor-session-summary'
 import { NativeMentorEventSource } from '@/provision/realtime/native-mentor-event-source'
 import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-response-stream'
@@ -37,6 +38,11 @@ const MAX_REVEAL_PAGE_ATTEMPTS = 3
 const MAX_MENTOR_ATTACHMENTS = 5
 const MAX_MENTOR_ATTACHMENT_BYTES = 2_000_000
 const EMPTY_SESSIONS_PAGE: MentorSessionsPage = { items: [], nextCursor: null }
+const TERMINAL_EVENT_KINDS: readonly MentorResponseEvent['kind'][] = [
+  'completed',
+  'failed',
+  'cancelled',
+]
 const EMPTY_SUMMARY: MentorSessionSummaryState = {
   current: null,
   failureAfterMessageId: null,
@@ -878,7 +884,7 @@ export function useMentorContextProvider(
           event.status === 'completed' ? null : current.pendingLearnerMessageId,
       }
     })
-    if (event.kind === 'completed' && selectedSessionId)
+    if (TERMINAL_EVENT_KINDS.includes(event.kind) && selectedSessionId)
       void readDetail(selectedSessionId)
   }
   async function reconcileResponse() {
@@ -942,6 +948,9 @@ export function useMentorContextProvider(
         return { ...current, response: nextResponse }
       })
       setSubmissionError(null)
+      // A user-initiated cancel never reaches applyResponseEvent, so the detail
+      // (and its memory items) is re-read here.
+      if (action === 'cancel') void readDetail(sessionId)
     } catch (error) {
       if (generation !== detailGeneration.current) return
       if (isMentorScopeError(error)) {
@@ -1103,7 +1112,7 @@ export function useMentorContextProvider(
         ) {
           void navigate({
             to: ROUTES.intelligence,
-            search: { session: undefined },
+            search: { session: undefined, message: undefined },
             replace: true,
           })
         }
@@ -1140,7 +1149,7 @@ export function useMentorContextProvider(
     await refresh()
     await navigate({
       to: ROUTES.intelligence,
-      search: { session: selectedSessionId ?? undefined },
+      search: { session: selectedSessionId ?? undefined, message: undefined },
     })
   }, [cancelDictation, navigate, refresh, selectedSessionId])
 
@@ -1319,5 +1328,19 @@ function mergeSessionDetail(
     pendingLearnerMessageId:
       response?.status === 'completed' ? null : incoming.pendingLearnerMessageId,
     messages: { items: messages, nextCursor },
+    // A full read is authoritative; an older-page read must not drop known items.
+    memoryItems: isOlderPage
+      ? mergeMemoryItems(current.memoryItems, incoming.memoryItems)
+      : incoming.memoryItems,
   }
+}
+
+function mergeMemoryItems(
+  current: MentorConversationMemoryItem[],
+  incoming: MentorConversationMemoryItem[],
+): MentorConversationMemoryItem[] {
+  const incomingIds = new Set(incoming.map((item) => item.id))
+  return [...current.filter((item) => !incomingIds.has(item.id)), ...incoming].sort(
+    (left, right) => left.createdAt.localeCompare(right.createdAt),
+  )
 }

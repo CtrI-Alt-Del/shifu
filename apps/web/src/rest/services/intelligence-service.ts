@@ -12,6 +12,13 @@ import type {
   MentorAttachmentSource,
 } from '@/core/intelligence/mentor-attachment'
 import type {
+  EditLearnerMemoryInput,
+  LearnerMemory,
+  LearnerMemoryCategory,
+  ListLearnerMemoriesInput,
+  MentorConversationMemoryItem,
+} from '@/core/intelligence/learner-memory'
+import type {
   MentorSessionSummaryContent,
   MentorSessionSummaryState,
 } from '@/core/intelligence/mentor-session-summary'
@@ -52,6 +59,7 @@ export type MentorSessionDetail = {
   pendingLearnerMessageId: string | null
   response?: MentorResponseSnapshot | null
   summary: MentorSessionSummaryState
+  memoryItems: MentorConversationMemoryItem[]
 }
 
 export type CreateMentorSessionInput = {
@@ -126,7 +134,38 @@ type MentorSessionDetailDto = {
   pending_learner_message_id: string | null
   response?: MentorResponseSnapshotDto | null
   summary?: MentorSessionSummaryStateDto
+  memory_items?: MentorConversationMemoryItemDto[]
 }
+
+type MentorConversationMemoryItemDto = {
+  id: string
+  source_message_id: string
+  kind: 'created' | 'updated'
+  category: LearnerMemoryCategory
+  memory_id: string | null
+  content: string | null
+  previous_content: string | null
+  created_at: string
+}
+
+type LearnerMemoryDto = {
+  id: string
+  category: LearnerMemoryCategory
+  content: string
+  version: number
+  created_at: string
+  updated_at: string
+  origins: {
+    session_id: string
+    message_id: string | null
+    conversation_title: string | null
+    is_available: boolean
+    declared_at: string
+  }[]
+  concepts: { key: string; label: string }[]
+}
+
+type LearnerMemoriesDto = { items: LearnerMemoryDto[] }
 
 type MentorSessionSummaryStateDto = {
   current: {
@@ -267,6 +306,42 @@ export const IntelligenceService = (
       pendingLearnerMessageId: detail.pending_learner_message_id,
       response: detail.response ? mapSnapshot(detail.response) : null,
       summary: mapSummaryState(detail.summary),
+      memoryItems: (detail.memory_items ?? []).map(mapMemoryItem),
+    }
+  }
+  function mapMemoryItem(
+    item: MentorConversationMemoryItemDto,
+  ): MentorConversationMemoryItem {
+    return {
+      id: item.id,
+      sourceMessageId: item.source_message_id,
+      kind: item.kind,
+      category: item.category,
+      memoryId: item.memory_id,
+      content: item.content,
+      previousContent: item.previous_content,
+      createdAt: item.created_at,
+    }
+  }
+  function mapLearnerMemory(memory: LearnerMemoryDto): LearnerMemory {
+    return {
+      id: memory.id,
+      category: memory.category,
+      content: memory.content,
+      version: memory.version,
+      createdAt: memory.created_at,
+      updatedAt: memory.updated_at,
+      origins: memory.origins.map((origin) => ({
+        sessionId: origin.session_id,
+        messageId: origin.message_id,
+        conversationTitle: origin.conversation_title,
+        isAvailable: origin.is_available,
+        declaredAt: origin.declared_at,
+      })),
+      concepts: memory.concepts.map((concept) => ({
+        key: concept.key,
+        label: concept.label,
+      })),
     }
   }
   function mapSummaryState(
@@ -526,6 +601,53 @@ export const IntelligenceService = (
     async removeMentorSession(accessToken: string, sessionId: string): Promise<void> {
       const response = await restClient.delete<void>(
         `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+    },
+
+    async listLearnerMemories(
+      accessToken: string,
+      input: ListLearnerMemoriesInput,
+    ): Promise<LearnerMemory[]> {
+      const response = await restClient.get<LearnerMemoriesDto>(
+        '/intelligence/learner-memories',
+        { ...auth(accessToken), params: { q: input.q, category: input.category } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body.items.map(mapLearnerMemory)
+    },
+
+    async getLearnerMemory(
+      accessToken: string,
+      memoryId: string,
+    ): Promise<LearnerMemory> {
+      const response = await restClient.get<LearnerMemoryDto>(
+        `/intelligence/learner-memories/${memoryId}`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapLearnerMemory(response.body)
+    },
+
+    async editLearnerMemory(
+      accessToken: string,
+      memoryId: string,
+      input: EditLearnerMemoryInput,
+    ): Promise<LearnerMemory> {
+      const response = await restClient.patch<LearnerMemoryDto>(
+        `/intelligence/learner-memories/${memoryId}`,
+        { content: input.content, expected_version: input.expectedVersion },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapLearnerMemory(response.body)
+    },
+
+    async removeLearnerMemory(accessToken: string, memoryId: string): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/intelligence/learner-memories/${memoryId}`,
         undefined,
         auth(accessToken),
       )

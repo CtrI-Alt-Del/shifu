@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = None
     openrouter_prompt_logging_disabled: bool = False
     mentor_title_prompt_logging_disabled: bool = False
+    mentor_generation_limit_per_hour: int = Field(default=30, ge=0, le=1000)
     mentor_telemetry_enabled: bool = False
     mentor_telemetry_content_enabled: bool = False
     langfuse_public_key: SecretStr | None = None

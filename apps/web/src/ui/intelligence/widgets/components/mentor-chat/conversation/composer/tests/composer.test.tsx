@@ -49,9 +49,7 @@ describe('Composer', () => {
         screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
       ).toBeDisabled()
       if (surface === 'fab') {
-        expect(
-          screen.queryByRole('button', { name: 'Memórias. Indisponível no momento' }),
-        ).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Memórias' })).not.toBeInTheDocument()
       }
     },
   )

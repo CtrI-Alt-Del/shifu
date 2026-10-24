@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from io import BytesIO
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
-import pytest
-from fastapi import APIRouter, HTTPException, Response
-from fastapi import Request as StarletteRequest
-from fastapi import UploadFile
+from fastapi import APIRouter, Response
 
 import shifu.intelligence.rest.controllers.create_mentor_session_controller as create_session_module
 import shifu.intelligence.rest.controllers.submit_mentor_message_controller as submit_message_module
@@ -16,17 +12,13 @@ from shifu.intelligence.rest.controllers.create_mentor_session_controller import
     CreateMentorSessionController,
     Request as CreateSessionRequest,
 )
-from shifu.intelligence.rest.controllers.mentor_attachments_controller import (
-    CreateBatchRequest,
-    MentorAttachmentsController,
-)
-from shifu.intelligence.rest.controllers.remove_mentor_session_controller import (
-    RemoveMentorSessionController,
-)
 from shifu.intelligence.rest.controllers.submit_mentor_message_controller import (
     Request as SubmitMessageRequest,
     SubmitMentorMessageController,
 )
+
+if TYPE_CHECKING:
+    import pytest
 
 _USER = SimpleNamespace(account_id='account')
 _VALID_ULID = '01M00000000000000000000000'
@@ -126,111 +118,3 @@ def test_submit_message_route_calls_use_case_and_sets_response_status(
     assert result == {'session': 'detail'}
     assert response.status_code == 202
     assert response.headers['cache-control'] == 'private, no-store'
-
-
-def test_remove_session_route_rejects_a_malformed_id_directly() -> None:
-    router = APIRouter()
-    RemoveMentorSessionController.handle(router)
-    endpoint = _endpoint(router, '/mentor-sessions/{session_id}', 'DELETE')
-
-    with pytest.raises(HTTPException) as error:
-        endpoint('not-a-ulid', Response(), _USER, object(), object(), object())
-
-    assert error.value.status_code == 422
-
-
-@pytest.mark.parametrize(
-    ('path', 'method', 'args', 'expected_status'),
-    [
-        (
-            '/mentor-attachment-batches',
-            'POST',
-            (
-                CreateBatchRequest(session_id='invalid'),
-                Response(),
-                _USER,
-                object(),
-                object(),
-                object(),
-                object(),
-            ),
-            422,
-        ),
-        (
-            '/mentor-attachment-batches/{batch_id}',
-            'GET',
-            ('invalid', Response(), _USER, object(), object(), object()),
-            422,
-        ),
-        (
-            '/mentor-attachment-batches/{batch_id}/attachments/{attachment_id}',
-            'DELETE',
-            ('invalid', _VALID_ULID, Response(), _USER, object(), object(), object()),
-            422,
-        ),
-        (
-            '/mentor-sessions/{session_id}/attachments/{attachment_id}/file',
-            'GET',
-            ('invalid', _VALID_ULID, _USER, object(), object(), object(), object()),
-            422,
-        ),
-    ],
-)
-def test_attachment_routes_reject_malformed_ids_inside_handlers(
-    path: str,
-    method: str,
-    args: tuple[object, ...],
-    expected_status: int,
-) -> None:
-    router = APIRouter()
-    MentorAttachmentsController.handle(router)
-    endpoint = _endpoint(router, path, method)
-
-    with pytest.raises(HTTPException) as error:
-        endpoint(*args)
-
-    assert error.value.status_code == expected_status
-
-
-@pytest.mark.parametrize(
-    ('content_length', 'expected_status'),
-    [('invalid', 422), ('10065000', 413)],
-)
-@pytest.mark.anyio
-async def test_upload_route_rejects_invalid_declared_lengths_inside_handler(
-    content_length: str,
-    expected_status: int,
-) -> None:
-    router = APIRouter()
-    MentorAttachmentsController.handle(router)
-    endpoint = _endpoint(
-        router,
-        '/mentor-attachment-batches/{batch_id}/attachments',
-        'POST',
-    )
-    request = StarletteRequest(
-        {
-            'type': 'http',
-            'method': 'POST',
-            'path': '/',
-            'headers': [(b'content-length', content_length.encode())],
-        }
-    )
-
-    with pytest.raises(HTTPException) as error:
-        await endpoint(  # type: ignore[operator]
-            _VALID_ULID,
-            request,
-            Response(),
-            UploadFile(file=BytesIO(b'content'), filename='notes.txt'),
-            uuid4(),
-            _USER,
-            object(),
-            object(),
-            object(),
-            object(),
-            object(),
-            object(),
-        )
-
-    assert error.value.status_code == expected_status

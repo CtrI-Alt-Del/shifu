@@ -15,9 +15,11 @@ from shifu.identity.core.domain.enums import (
 from shifu.identity.core.domain.structures import ResendConfirmationResult
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
+    ConfirmationDeliveryRequest,
     IdentityDatabase,
     IdentityDatabaseRepositories,
 )
+from shifu.identity.core.use_cases import QueueConfirmationDeliveryUseCase
 from shifu.identity.core.use_cases.resend_email_confirmation_use_case import (
     ResendEmailConfirmationUseCase,
 )
@@ -193,3 +195,105 @@ class TestResendEmailConfirmationUseCase:
         self.action_token_provider.generate.assert_not_called()
         self.repositories.account_action_tokens.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def _subject_with_delivery(self) -> ResendEmailConfirmationUseCase:
+        self.queue_delivery_use_case = create_autospec(
+            QueueConfirmationDeliveryUseCase,
+            instance=True,
+        )
+        return ResendEmailConfirmationUseCase(
+            self.identity_database,
+            self.id_provider,
+            self.clock_provider,
+            self.action_token_provider,
+            self.pending_handle_provider,
+            self.queue_delivery_use_case,
+        )
+
+    def _prepare_eligible_resend(self, account_status: AccountStatus) -> None:
+        self.account = AccountFaker.fake(
+            id='01JACCOUNT000000000000000001',
+            display_name='Pessoa Aprendente',
+            email='learner@example.com',
+            status=AccountStatus.PENDING_CONFIRMATION,
+            confirmed_at=None,
+        )
+        old_token = AccountActionToken(
+            id='01JOLDTOKEN00000000000000001',
+            account_id=self.account.id,
+            type=AccountActionTokenType.EMAIL_CONFIRMATION,
+            status=AccountActionTokenStatus.PENDING,
+            token_hash='old-token-hash',  # noqa: S106
+            issued_at=self.now - timedelta(seconds=61),
+            expires_at=self.now + timedelta(hours=23),
+            updated_at=self.now - timedelta(seconds=61),
+            communication_id='01JOLDCOMMUNICATION00000000001',
+            pending_handle_hash='pending-handle-hash',
+        )
+        tokens = self.repositories.account_action_tokens
+        tokens.find_by_pending_handle_hash.return_value = old_token
+        tokens.find_latest_by_account_id_and_type.return_value = old_token
+        tokens.find_many_pending_by_account_id_and_type.return_value = [old_token]
+        replacement = AccountActionToken(
+            id='01JREPLACEMENT000000000001',
+            account_id=self.account.id,
+            type=AccountActionTokenType.EMAIL_CONFIRMATION,
+            status=AccountActionTokenStatus.PENDING,
+            token_hash='replacement-token-hash',  # noqa: S106
+            issued_at=self.now,
+            expires_at=self.now + timedelta(hours=24),
+            updated_at=self.now,
+            communication_id='01JCOMMUNICATION000000000002',
+            pending_handle_hash='pending-handle-hash',
+        )
+        tokens.find_by_id.return_value = replacement
+        self.repositories.accounts.find_by_id.side_effect = [
+            self.account,
+            AccountFaker.fake(
+                id=self.account.id,
+                display_name='Pessoa Aprendente',
+                email='learner@example.com',
+                status=account_status,
+            ),
+        ]
+
+    def test_should_queue_delivery_for_the_replacement_token(self) -> None:
+        subject = self._subject_with_delivery()
+        self._prepare_eligible_resend(AccountStatus.PENDING_CONFIRMATION)
+
+        result = subject.execute('pending-handle')
+
+        assert result.result is ResendConfirmationResultStatus.ACCEPTED
+        self.queue_delivery_use_case.execute.assert_called_once_with(
+            ConfirmationDeliveryRequest(
+                communication_id='01JCOMMUNICATION000000000002',
+                identity_action_token_id='01JREPLACEMENT000000000001',  # noqa: S106
+                account_id='01JACCOUNT000000000000000001',
+                recipient_email='learner@example.com',
+                recipient_name='Pessoa Aprendente',
+                confirmation_token='replacement-token',  # noqa: S106
+                expires_at=self.now + timedelta(hours=24),
+            )
+        )
+
+    def test_should_not_queue_delivery_when_the_account_stopped_being_pending(
+        self,
+    ) -> None:
+        subject = self._subject_with_delivery()
+        self._prepare_eligible_resend(AccountStatus.ACTIVE)
+
+        result = subject.execute('pending-handle')
+
+        assert result.result is ResendConfirmationResultStatus.ACCEPTED
+        self.queue_delivery_use_case.execute.assert_not_called()
+
+    def test_should_not_queue_delivery_for_an_unknown_handle(self) -> None:
+        subject = self._subject_with_delivery()
+        tokens = self.repositories.account_action_tokens
+        tokens.find_by_pending_handle_hash.return_value = None
+
+        result = subject.execute('unknown-handle')
+
+        assert result.result is ResendConfirmationResultStatus.ACCEPTED
+        self.queue_delivery_use_case.execute.assert_not_called()
+        self.repositories.account_action_tokens.add.assert_not_called()

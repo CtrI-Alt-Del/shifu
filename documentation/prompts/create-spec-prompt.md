@@ -91,7 +91,17 @@ conversation; a revised question keeps its number or names the question it revis
 Ask directly in the conversation, without a question tool, and do not use tables
 in questions or in-chat design sections; use short paragraphs and bullet lists.
 
-Use this format for every question, including when re-asking an unanswered one:
+Write questions, options and design sections in the user's language with the
+plain style defined in `AGENTS.md` under User communication: lead with the
+conclusion, use short sentences with one idea each, keep parentheses, semicolons
+and code identifiers out of running text unless they locate something, and
+avoid untranslated jargon. Describe each option in one or two plain sentences:
+what happens, then its consequence. When citing an earlier decision, restate in a
+few words what it decided instead of writing only its number.
+
+Use this format for every question, including when re-asking an unanswered one.
+The fence below only shows the template; in the conversation, write each question
+as plain text without a code fence:
 
 ```text
 ❓ Q7 — <title>

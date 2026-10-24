@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
+  Compass,
   CircleAlert,
   Circle,
   CircleCheck,
@@ -29,7 +30,9 @@ import {
   EyeOff,
   GraduationCap,
   House,
+  List,
   LoaderCircle,
+  Lock,
   LockKeyhole,
   LogOut,
   Menu,
@@ -41,8 +44,10 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Puzzle,
   RotateCcw,
   ScrollText,
+  SlidersHorizontal,
   Sparkles,
   Target,
   Search,
@@ -68,6 +73,7 @@ export type IconName =
   | 'chevron-right'
   | 'clipboard-check'
   | 'clock-3'
+  | 'compass'
   | 'circle-alert'
   | 'circle'
   | 'circle-check'
@@ -84,7 +90,9 @@ export type IconName =
   | 'eye-off'
   | 'graduation-cap'
   | 'home'
+  | 'list'
   | 'loader-circle'
+  | 'lock'
   | 'lock-keyhole'
   | 'log-out'
   | 'menu'
@@ -96,8 +104,10 @@ export type IconName =
   | 'paperclip'
   | 'pencil'
   | 'plus'
+  | 'puzzle'
   | 'rotate-ccw'
   | 'scroll-text'
+  | 'sliders-horizontal'
   | 'sparkles'
   | 'target'
   | 'search'
@@ -121,6 +131,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'chevron-right': ChevronRight,
   'clipboard-check': ClipboardCheck,
   'clock-3': Clock3,
+  compass: Compass,
   'circle-alert': CircleAlert,
   circle: Circle,
   'circle-check': CircleCheck,
@@ -137,7 +148,9 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'eye-off': EyeOff,
   'graduation-cap': GraduationCap,
   home: House,
+  list: List,
   'loader-circle': LoaderCircle,
+  lock: Lock,
   'lock-keyhole': LockKeyhole,
   'log-out': LogOut,
   menu: Menu,
@@ -149,8 +162,10 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   paperclip: Paperclip,
   pencil: Pencil,
   plus: Plus,
+  puzzle: Puzzle,
   'rotate-ccw': RotateCcw,
   'scroll-text': ScrollText,
+  'sliders-horizontal': SlidersHorizontal,
   sparkles: Sparkles,
   target: Target,
   search: Search,

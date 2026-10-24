@@ -1,3 +1,9 @@
+from .learner_memories_repository import (
+    SqlalchemyLearnerMemoriesRepository as SqlalchemyLearnerMemoriesRepository,
+)
+from .learner_memory_changes_repository import (
+    SqlalchemyLearnerMemoryChangesRepository as SqlalchemyLearnerMemoryChangesRepository,
+)
 from .mentor_attachment_batches_repository import (
     SqlalchemyMentorAttachmentBatchesRepository as SqlalchemyMentorAttachmentBatchesRepository,
 )

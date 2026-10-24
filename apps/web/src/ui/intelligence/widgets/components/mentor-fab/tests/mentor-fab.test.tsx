@@ -66,4 +66,18 @@ describe('MentorFab', () => {
       expect(container).toBeEmptyDOMElement()
     },
   )
+  it('keeps the floating access on the Memórias page and delegates the route to its hook', () => {
+    useMentorFabMock.mockReturnValue({
+      closePanel: closePanelMock,
+      handlePanelKeyDown: vi.fn(),
+      isPanelOpen: false,
+      openPanel: openPanelMock,
+      panelRef: { current: null },
+      triggerRef: { current: null },
+    })
+    render(<MentorFab isMemoriesPage />)
+
+    expect(screen.getByRole('button', { name: 'Abrir Mentor' })).toBeVisible()
+    expect(useMentorFabMock).toHaveBeenCalledWith(false, true)
+  })
 })

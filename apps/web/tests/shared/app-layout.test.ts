@@ -8,6 +8,12 @@ import {
 } from '../support/mentor-summary-journey'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import {
+  installMentorMemoriesBackend,
+  MEMORY_IDS,
+  openMentorFabConversation,
+  searchOf,
+} from '../support/mentor-memories-backend'
 
 function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
@@ -293,4 +299,31 @@ test('shows the summarization failure notice after its learner message on fab', 
   authenticatedPage,
 }) => {
   await exerciseSummaryFailure(authenticatedPage, 'fab')
+})
+
+// SHIFU-101: markers inside the floating Mentor panel (mocked transport).
+test('shows the memory marker in the floating Mentor and closes the panel when following "Ver memória"', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await installMentorMemoriesBackend(page)
+  await openMentorFabConversation(page)
+
+  const panel = page.getByRole('dialog', { name: 'Painel do Mentor' })
+  const marker = panel.getByRole('list', { name: 'Memórias desta resposta' })
+  await expect(marker).toContainText('Memória atualizada')
+  await expect(marker).toContainText('Antes: Prefiro exemplos curtos em JavaScript.')
+  await expect(panel.getByRole('link', { name: 'Memórias' })).toHaveCount(0)
+
+  await marker.getByRole('link', { name: 'Ver memória' }).click()
+
+  await expect(page).toHaveURL(/\/intelligence\/memories\/?\?/)
+  expect(searchOf(page).get('memory')).toBe(MEMORY_IDS.preference)
+  await expect(
+    page
+      .getByRole('region', { name: 'Detalhes da memória' })
+      .getByRole('heading', { level: 2, name: 'Agora prefiro exemplos em Python.' }),
+  ).toBeVisible()
+  await expect(panel).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Abrir Mentor' })).toBeVisible()
 })
