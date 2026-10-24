@@ -6,13 +6,14 @@ from shifu.gamification.core.domain.current_practice_run import current_practice
 from shifu.gamification.core.domain.derived_practice_streak import (
     derived_practice_streak,
 )
-from shifu.gamification.core.domain.errors import (
-    GamificationProfileNotFoundError,
-    InvalidGamificationError,
-)
+from shifu.gamification.core.domain.errors import InvalidGamificationError
 from shifu.gamification.core.domain.practice_day_state import practice_day_state
 from shifu.gamification.core.domain.resolved_time_zone import resolved_time_zone
-from shifu.gamification.core.domain.structures import CalendarDay, PracticeCalendar
+from shifu.gamification.core.domain.structures import (
+    CalendarDay,
+    PracticeCalendar,
+    PracticeStreak,
+)
 from shifu.gamification.core.interfaces import GamificationDatabase
 
 
@@ -45,10 +46,12 @@ class GetPracticeCalendarUseCase:
 
         with self._database.transaction() as repositories:
             profile = repositories.profiles.find_by_account_id(account_id)
-            if profile is None:
-                raise GamificationProfileNotFoundError
-
             dates = repositories.practice_days.find_many_dates_by_account_id(account_id)
+
+        # An account whose profile row has not been created yet reads the
+        # initial state rather than an error, as the overview does: JN-01
+        # describes that state as normal.
+        stored_streak = profile.streak if profile is not None else PracticeStreak()
 
         ordered = tuple(sorted(set(dates)))
         earliest = ordered[0] if ordered else None
@@ -76,7 +79,7 @@ class GetPracticeCalendarUseCase:
             today=today,
             days=days,
             streak=derived_practice_streak(
-                profile.streak, ordered_dates=ordered, current_run=run
+                stored_streak, ordered_dates=ordered, current_run=run
             ),
             earliest_practice_date=earliest,
         )

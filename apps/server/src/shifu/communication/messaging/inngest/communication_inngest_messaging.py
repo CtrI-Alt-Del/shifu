@@ -27,6 +27,7 @@ from shifu.communication.providers.email import (
 )
 from shifu.shared.constants import EnvironmentSettings
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
@@ -44,6 +45,7 @@ class CommunicationInngestMessaging:
         secret_envelope_provider: SecretEnvelopeProvider | None = None,
         message_renderer_provider: MessageRendererProvider | None = None,
         email_delivery_provider: EmailDeliveryProvider | None = None,
+        telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         settings = EnvironmentSettings.from_environment()
         communication_database = (
@@ -59,7 +61,10 @@ class CommunicationInngestMessaging:
             message_renderer_provider or GeneratedEmailMessageRenderer()
         )
         email_delivery_provider = email_delivery_provider or (
-            CommunicationInngestMessaging._build_email_delivery_provider(settings)
+            CommunicationInngestMessaging._build_email_delivery_provider(
+                settings,
+                telemetry_provider,
+            )
         )
 
         delivery_use_case = DeliverCommunicationUseCase(
@@ -77,17 +82,26 @@ class CommunicationInngestMessaging:
         return [
             cast(
                 'Function[object]',
-                DeliverCommunicationJob.handle(inngest, delivery_use_case),
+                DeliverCommunicationJob.handle(
+                    inngest,
+                    delivery_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
             ),
             cast(
                 'Function[object]',
-                CancelCommunicationJob.handle(inngest, cancellation_use_case),
+                CancelCommunicationJob.handle(
+                    inngest,
+                    cancellation_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
             ),
         ]
 
     @staticmethod
     def _build_email_delivery_provider(
         settings: EnvironmentSettings,
+        telemetry_provider: TelemetryProvider,
     ) -> EmailDeliveryProvider:
         if settings.email_provider == 'resend':
             if settings.resend_api_key is None or settings.resend_from is None:
@@ -97,6 +111,7 @@ class CommunicationInngestMessaging:
                 api_key=settings.resend_api_key,
                 sender=settings.resend_from,
                 timeout_seconds=settings.email_timeout_seconds,
+                telemetry_provider=telemetry_provider,
             )
         return SmtpEmailDeliveryProvider(
             host=settings.smtp_host,

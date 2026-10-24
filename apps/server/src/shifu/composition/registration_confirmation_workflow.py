@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from shifu.identity.core.interfaces import ConfirmationDeliveryRequest
     from shifu.shared.constants import EnvironmentSettings
     from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 
 class RegistrationConfirmationWorkflow:
@@ -123,6 +124,8 @@ def build_secret_envelope_provider(
 
 def build_email_delivery_provider(
     settings: EnvironmentSettings,
+    *,
+    telemetry_provider: TelemetryProvider | None = None,
 ) -> EmailDeliveryProvider:
     if settings.email_provider == 'resend':
         if settings.resend_api_key is None or settings.resend_from is None:
@@ -132,6 +135,7 @@ def build_email_delivery_provider(
             api_key=settings.resend_api_key,
             sender=settings.resend_from,
             timeout_seconds=settings.email_timeout_seconds,
+            telemetry_provider=telemetry_provider,
         )
     return SmtpEmailDeliveryProvider(
         host=settings.smtp_host,

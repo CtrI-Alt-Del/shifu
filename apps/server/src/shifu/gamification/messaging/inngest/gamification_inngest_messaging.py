@@ -27,6 +27,7 @@ from shifu.gamification.messaging.inngest.jobs import (
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 from shifu.shared.core.interfaces import IdentifierProvider
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 
 
@@ -41,6 +42,7 @@ class GamificationInngestMessaging:
         curriculum_content_provider: CurriculumContentProvider,
         clock_provider: ClockProvider,
         id_provider: IdentifierProvider | None = None,
+        telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         id_provider = id_provider or SystemIdentifierProvider()
 
@@ -86,6 +88,7 @@ class GamificationInngestMessaging:
                     inngest,
                     create_profile_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -93,6 +96,7 @@ class GamificationInngestMessaging:
                 PurgeProfileOnAccountDeletedJob.handle(
                     inngest,
                     delete_profile_use_case,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -101,6 +105,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_diagnostic_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -109,6 +114,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_competency_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -117,6 +123,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_skill_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -125,6 +132,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_practice_day_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
@@ -133,6 +141,7 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_practice_day_use_case,
                     clock_provider,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(

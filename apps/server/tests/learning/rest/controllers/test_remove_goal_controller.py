@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, cast
 
+import pytest
+from fastapi import Request
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 
@@ -20,6 +22,7 @@ from shifu.learning.core.domain.enums import (
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.pipes import SharedPipe
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 from tests.fixtures.postgres_fixture import PostgresDatabase
 
 if TYPE_CHECKING:
@@ -44,7 +47,16 @@ class TestRemoveGoalController:
     def test_should_remove_goal_when_owned_by_account(
         self,
         postgres_database: PostgresDatabase,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        def no_request_id(_request: Request) -> None:
+            return None
+
+        monkeypatch.setattr(
+            TelemetryPipe,
+            'get_request_id',
+            staticmethod(no_request_id),
+        )
         goal = GoalFaker.fake()
         skill_experience = SkillExperienceFaker.fake(goal_id=goal.id)
         competency_progress = CompetencyProgressFaker.fake(

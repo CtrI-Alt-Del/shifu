@@ -17,8 +17,28 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => mocks.navigate }))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
-    handler: (handler: () => Promise<unknown>) => () => handler(),
+    middleware: () => ({
+      handler:
+        (handler: (context: { context: { requestId: string } }) => Promise<unknown>) =>
+        () =>
+          handler({ context: { requestId: 'test-request-id' } }),
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          (context: { data: unknown }) =>
+            handler({
+              data: validate(context.data),
+              context: { requestId: 'test-request-id' },
+            } as never),
+      }),
+    }),
+    handler:
+      (handler: (context: { context: { requestId: string } }) => Promise<unknown>) =>
+      () =>
+        handler({ context: { requestId: 'test-request-id' } }),
     validator: (validate: (data: unknown) => unknown) => ({
       handler:
         (handler: (context: { data: unknown }) => Promise<unknown>) =>

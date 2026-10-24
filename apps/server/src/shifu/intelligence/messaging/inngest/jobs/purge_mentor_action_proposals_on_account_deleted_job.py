@@ -1,7 +1,6 @@
 """Purge Mentor action proposals as soon as an account is deleted."""
 
 import asyncio
-import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import ClassVar, cast
@@ -12,8 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from shifu.intelligence.core.use_cases import (
     PurgeMentorActionProposalsForAccountUseCase,
 )
-
-LOGGER = logging.getLogger(__name__)
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class _Payload(BaseModel):
@@ -63,26 +64,25 @@ class PurgeMentorActionProposalsOnAccountDeletedJob:
         use_case: PurgeMentorActionProposalsForAccountUseCase,
         *,
         account_deleted_event_name: str,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=PurgeMentorActionProposalsOnAccountDeletedJob.FUNCTION_ID,
             trigger=TriggerEvent(event=account_deleted_event_name),
             retries=3,
         )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=PurgeMentorActionProposalsOnAccountDeletedJob.FUNCTION_ID,
+            max_attempts=4,
+        )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
-            try:
-                payload = await context.step.run(
-                    'normalize_payload',
-                    PurgeMentorActionProposalsOnAccountDeletedJob._normalize_payload,
-                    data,
-                )
-            except NonRetriableError:
-                LOGGER.warning(
-                    'mentor_action_account_deletion_payload_rejected event_id=%s',
-                    context.event.id,
-                )
-                raise
+            payload = await context.step.run(
+                'normalize_payload',
+                PurgeMentorActionProposalsOnAccountDeletedJob._normalize_payload,
+                data,
+            )
             await context.step.run(
                 'purge_mentor_action_proposals',
                 PurgeMentorActionProposalsOnAccountDeletedJob._purge,
