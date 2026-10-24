@@ -121,9 +121,7 @@ class TestPurgeMentorAttachmentsOnAccountDeletedJob:
             event_id=event_id,
         )
 
-        inngest_fixture.wait_for_log(
-            f'mentor_attachment_account_deletion_payload_rejected event_id={event_id}'
-        )
+        inngest_fixture.wait_for_log(f'"event":"job.failed","event_id":"{event_id}"')
         with inngest_fixture.inspection_session() as session:
             assert session.get(MentorAttachmentBatchModel, batch_id) is not None
 
@@ -351,8 +349,6 @@ class TestPurgeMentorAttachmentsWorkflow:
             event_id=event_id,
         )
 
-        inngest_fixture.wait_for_log(
-            f'mentor_attachment_account_deletion_payload_rejected event_id={event_id}'
-        )
+        inngest_fixture.wait_for_log(f'"event":"job.failed","event_id":"{event_id}"')
         with inngest_fixture.inspection_session() as session:
             assert session.get(MentorAttachmentBatchModel, batch_id) is not None
