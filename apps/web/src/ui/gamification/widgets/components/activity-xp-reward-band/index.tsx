@@ -2,7 +2,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { useActivityXpRewardBand } from './use-activity-xp-reward-band'
 
-type ActivityXpRewardBandProps = {
+export type ActivityXpRewardBandProps = {
   activityId: string
   attemptId: string
 }

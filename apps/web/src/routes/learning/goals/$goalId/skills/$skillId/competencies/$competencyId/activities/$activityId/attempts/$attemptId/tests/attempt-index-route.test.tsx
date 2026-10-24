@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ActivityRecommendation } from '@/core/learning/competency-detail'
+import type { ActivityXpRewardBandProps } from '@/ui/gamification/widgets/components/activity-xp-reward-band'
 
 const ids = {
   goalId: 'goal-1',
@@ -27,7 +28,7 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
   useNavigation: () => ({ navigateTo: mocks.navigateTo }),
 }))
 vi.mock('@/ui/gamification/widgets/components/activity-xp-reward-band', () => ({
-  ActivityXpRewardBand: (props: { activityId: string; attemptId: string }) => (
+  ActivityXpRewardBand: (props: ActivityXpRewardBandProps) => (
     <div
       data-activity-id={props.activityId}
       data-attempt-id={props.attemptId}

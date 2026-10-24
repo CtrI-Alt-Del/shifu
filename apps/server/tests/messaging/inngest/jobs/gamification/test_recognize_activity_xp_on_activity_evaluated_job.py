@@ -260,6 +260,85 @@ class TestRecognizeActivityXpOnActivityEvaluatedJob:
         finally:
             engine.dispose()
 
+    def test_should_fail_non_retriably_for_a_non_utc_evaluated_at(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        account_id = ids.generate()
+        _seed_profile(inngest_fixture, account_id)
+
+        payload = _payload(account_id, ids)
+        data = _event_data(payload)
+        data['evaluated_at'] = '2026-01-01T00:00:00-03:00'
+        inngest_fixture.publish(
+            ActivityEvaluatedEvent(payload=payload).name,
+            data,
+            event_id=ids.generate(),
+        )
+
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            with engine.connect() as connection:
+                assert _grant_count(connection, account_id) == 0
+                assert _recognition_count(connection, account_id) == 0
+        finally:
+            engine.dispose()
+
+    def test_should_fail_non_retriably_for_a_missing_field(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        account_id = ids.generate()
+        _seed_profile(inngest_fixture, account_id)
+
+        payload = _payload(account_id, ids)
+        data = _event_data(payload)
+        del data['skill_id']
+        inngest_fixture.publish(
+            ActivityEvaluatedEvent(payload=payload).name,
+            data,
+            event_id=ids.generate(),
+        )
+
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            with engine.connect() as connection:
+                assert _grant_count(connection, account_id) == 0
+                assert _recognition_count(connection, account_id) == 0
+        finally:
+            engine.dispose()
+
+    def test_should_fail_non_retriably_for_a_blank_account_id(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        ids = SystemIdentifierProvider()
+        account_id = ids.generate()
+        _seed_profile(inngest_fixture, account_id)
+
+        payload = _payload(account_id, ids)
+        data = _event_data(payload)
+        data['account_id'] = '   '
+        inngest_fixture.publish(
+            ActivityEvaluatedEvent(payload=payload).name,
+            data,
+            event_id=ids.generate(),
+        )
+
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            with engine.connect() as connection:
+                total_grants = connection.execute(
+                    select(func.count()).select_from(XpGrantModel)
+                ).scalar()
+                total_recognitions = connection.execute(
+                    select(func.count()).select_from(ActivityXpRecognitionModel)
+                ).scalar()
+        finally:
+            engine.dispose()
+
+        assert total_grants == 0
+        assert total_recognitions == 0
+
     def test_should_fan_out_to_both_practice_day_and_activity_xp(
         self, inngest_fixture: 'InngestFixture'
     ) -> None:
