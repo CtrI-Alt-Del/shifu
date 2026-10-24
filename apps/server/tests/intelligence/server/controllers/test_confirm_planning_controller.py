@@ -18,7 +18,7 @@ from shifu.shared.database.seed_data import (
     SEED_GRAPH_HTML_CSS_SKILL_ID,
     build_development_seed,
 )
-from tests.intelligence.server.controllers.conftest import MENTOR_ACCOUNT
+from tests.fixtures.intelligence_fixture import MENTOR_ACCOUNT
 from tests.intelligence.server.controllers.planning_test_support import (
     interviewing_session,
     sessions_of,
@@ -214,7 +214,7 @@ class TestConfirmPlanningController:
         response = _confirm(planning_client, session.id)
 
         assert response.status_code == 409, response.text
-        assert response.json()['code'] == 'conflict'
+        assert response.json()['code'] == 'curriculum_gap'
         assert _goal_count(postgres_database) == goals_before
         stored = sessions_of(planning_client).find_by_id(session.id)
         assert stored is not None

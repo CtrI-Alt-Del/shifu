@@ -17,9 +17,20 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({
-    handler: (handler: () => Promise<unknown>) => handler,
-  }),
+  createServerFn: () => {
+    const builder = {
+      middleware: () => builder,
+      handler:
+        (handler: (input: { context: { requestId: string } }) => Promise<unknown>) =>
+        () =>
+          handler({ context: { requestId: 'request-1' } }),
+    }
+    return builder
+  },
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 vi.mock('@tanstack/react-start/server', () => ({
@@ -66,9 +77,12 @@ describe('useHomeGoalsQuery', () => {
     await waitFor(() => expect(result.current.isLoadingGoals).toBe(false))
 
     expect(result.current.goals).toEqual([{ id: 'goal-1' }])
+    expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request, 'request-1')
     expect(mocks.getGoals).toHaveBeenCalledWith('access-token')
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
       withCredentials: false,
+      requestId: 'request-1',
+      telemetry: undefined,
     })
     expect(queryClient.getQueryData(HOME_GOALS_QUERY_KEY)).toEqual([{ id: 'goal-1' }])
   })
