@@ -5,9 +5,8 @@ description: Pytest integration rules for Inngest functions, durable execution, 
 # Job Testing Rules
 
 These rules apply to Inngest integration tests under
-`apps/server/tests/messaging/inngest/jobs`, registered module AgentOS integration
-tests under `apps/server/tests/<module>/server/agentos`, and their separate runtime
-fixtures.
+`apps/server/tests/messaging/inngest/jobs`, including the job tests that enter a
+registered AgentOS workflow, and their separate runtime fixtures.
 
 ## Test jobs through a real Inngest runtime
 
@@ -116,27 +115,15 @@ assert call counts, bounded retries/review, and persisted/public effects. Do not
 invoke workflow internals or replace the composition with an approved-output mock
 for scenarios intended to prove that composition.
 
-## Registered AgentOS workflow integration
+## Workflows are tested in process, with mocked agents
 
-An AgentOS integration test enters through the actual owning module registry, internal
-HTTP admission, and native queue. It does not invoke a `Workflow`, `Step`, `Agent`, or
-SDK callback directly. Use `tests/fixtures/agentos_fixture.py` and a class named
-`Test<Action>Workflow` under the owning module's
-`tests/<module>/server/agentos/` path.
-
-The fixture provides disposable PostgreSQL and Redis, applies the current Alembic
-head, starts the real composed app and both independently managed registries, and
-waits for explicit readiness. Each scenario uses isolated IDs and waits with a
-bounded deadline for the persisted or externally visible effect. Tests prove queue
-registration, destination isolation, run completion, privacy-safe run/trace data,
-restart behavior, cancellation/late-result fences, and persisted effects through a
-fresh database session. Stop/restart only the registry under test; the other registry
-and its work must remain available. Never use the developer's Compose database or
-Inngest instance.
-
-Set `SHIFU_RUN_REAL_AGENTOS_TESTS=1` for the required real-runtime selection. If the
-flag is absent, Docker is unavailable, or the callback port cannot be bound, a local
-skip must give the specific reason; CI must run the same selection with disposable
-services. Controlled remote inference uses endpoint doubles that capture the actual
-registered workflow's request. It never replaces the workflow with an approved-output
-mock.
+No test file enters a registered AgentOS workflow through its runtime, and no fixture
+starts an AgentOS registry. A workflow test lives under
+`apps/server/tests/<module>/ai/workflows/test_<name>_workflow.py`, builds the Agno
+`Workflow` with its real use cases over the disposable PostgreSQL and Redis, replaces
+every agent with a `unittest.mock.Mock` specced from the agent class, and runs it with
+`arun` as the runtime does. Mocked agents script approvals, rejections, failures and
+their usage reports; routing, context and catalog providers are mocks. Answer quality
+is proved by the evals under `apps/server/evals`, not by workflow tests. A job test
+proves only the job's own admission, idempotency and persisted effect through the real
+Inngest runtime.

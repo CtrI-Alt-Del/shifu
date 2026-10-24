@@ -1,5 +1,6 @@
 from .achievement import Achievement as Achievement
 from .activity_xp_balance import ActivityXpBalance as ActivityXpBalance
+from .activity_xp_recognition import ActivityXpRecognition as ActivityXpRecognition
 from .earned_achievement import EarnedAchievement as EarnedAchievement
 from .gamification_profile import GamificationProfile as GamificationProfile
 from .practice_day import PracticeDay as PracticeDay

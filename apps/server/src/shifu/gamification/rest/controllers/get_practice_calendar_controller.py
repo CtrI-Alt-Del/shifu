@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from shifu.gamification.core.interfaces import GamificationDatabase
@@ -39,7 +39,7 @@ class GetPracticeCalendarController:
         @router.get(
             '/calendar',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             user: Annotated[

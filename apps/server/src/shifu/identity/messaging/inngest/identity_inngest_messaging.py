@@ -15,6 +15,7 @@ from shifu.identity.messaging.inngest.jobs import (
     RecordCommunicationDeliveryStateJob,
 )
 from shifu.shared.core.interfaces import ClockProvider
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 
 
@@ -27,6 +28,7 @@ class IdentityInngestMessaging:
         *,
         identity_database: IdentityDatabase | None = None,
         clock_provider: ClockProvider | None = None,
+        telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
         identity_database = identity_database or SqlalchemyIdentityDatabase()
         clock_provider = clock_provider or SystemClockProvider()
@@ -39,23 +41,35 @@ class IdentityInngestMessaging:
             clock_provider=clock_provider,
         )
         return [
-            cast('Function[object]', LogMainPageEnteredJob.handle(inngest)),
+            cast(
+                'Function[object]',
+                LogMainPageEnteredJob.handle(
+                    inngest,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
             cast(
                 'Function[object]',
                 FanOutUnconfirmedAccountExpiryJob.handle(
                     inngest,
                     expiry_use_case,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
             cast(
                 'Function[object]',
-                ExpireUnconfirmedAccountJob.handle(inngest, expiry_use_case),
+                ExpireUnconfirmedAccountJob.handle(
+                    inngest,
+                    expiry_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
             ),
             cast(
                 'Function[object]',
                 RecordCommunicationDeliveryStateJob.handle(
                     inngest,
                     delivery_state_use_case,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
         ]

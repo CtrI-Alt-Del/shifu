@@ -1,26 +1,20 @@
 import re
-from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
-from shifu.identity.core.domain.structures import (
-    AccountRegistration,
-    AccountRegistrationResult,
-)
-from shifu.identity.core.domain.enums import (
-    AccountActionTokenDeliveryStatus,
-    ConfirmationDeliveryQueueStatus,
-)
+from shifu.identity.core.domain.structures import AccountRegistration
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
     ConfirmationDeliveryGateway,
-    ConfirmationDeliveryRequest,
     IdentityDatabase,
     PasswordHashingProvider,
 )
-from shifu.identity.core.use_cases import RegisterAccountUseCase
+from shifu.identity.core.use_cases import (
+    QueueConfirmationDeliveryUseCase,
+    RegisterAccountUseCase,
+)
 from shifu.identity.pipes import IdentityPipe
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
@@ -55,9 +49,12 @@ class Request(BaseModel):
 
 
 class Response(BaseModel):
-    result: Literal['pending']
+    result: Literal['pending'] = 'pending'
     pending_handle: str
     is_decoy: bool
+
+
+_RESPONSE_ADAPTER = TypeAdapter(Response)
 
 
 class RegisterAccountController:
@@ -66,7 +63,7 @@ class RegisterAccountController:
         @router.post(
             '/registrations',
             response_model=Response,
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=202,
         )
         def _(
             request: Request,
@@ -104,6 +101,11 @@ class RegisterAccountController:
                 password_hashing_provider=password_hashing_provider,
                 action_token_provider=action_token_provider,
                 pending_confirmation_handle_provider=pending_handle_provider,
+                queue_confirmation_delivery_use_case=QueueConfirmationDeliveryUseCase(
+                    identity_database=database,
+                    clock_provider=clock_provider,
+                    delivery_gateway=gateway,
+                ),
             ).execute(
                 AccountRegistration.create(
                     display_name=request.display_name,
@@ -111,71 +113,4 @@ class RegisterAccountController:
                     password=request.password,
                 )
             )
-            delivery_request = RegisterAccountController._to_delivery_request(
-                result=result,
-                registration_email=request.email,
-                registration_name=request.display_name,
-            )
-            if delivery_request is not None:
-                delivery_result = gateway.queue(delivery_request)
-                if (
-                    delivery_result.status
-                    is ConfirmationDeliveryQueueStatus.DELIVERY_UNAVAILABLE
-                ):
-                    RegisterAccountController._record_delivery_unavailable(
-                        database,
-                        result.identity_action_token_id,
-                        clock_provider.now(),
-                    )
-            return Response(
-                result='pending',
-                pending_handle=result.pending_handle,
-                is_decoy=result.account_id is None,
-            )
-
-    @staticmethod
-    def _record_delivery_unavailable(
-        database: IdentityDatabase,
-        identity_action_token_id: str | None,
-        recorded_at: datetime,
-    ) -> None:
-        if identity_action_token_id is None:
-            return
-
-        with database.transaction() as repositories:
-            token_repository = repositories.account_action_tokens
-            token = token_repository.find_by_id(identity_action_token_id)
-            if token is None:
-                return
-
-            if token.record_delivery_status(
-                AccountActionTokenDeliveryStatus.DELIVERY_UNAVAILABLE,
-                recorded_at,
-            ):
-                token_repository.update(token)
-
-    @staticmethod
-    def _to_delivery_request(
-        *,
-        result: AccountRegistrationResult,
-        registration_email: str,
-        registration_name: str,
-    ) -> ConfirmationDeliveryRequest | None:
-        if (
-            result.account_id is None
-            or result.identity_action_token_id is None
-            or result.communication_id is None
-            or result.confirmation_token is None
-            or result.confirmation_expires_at is None
-        ):
-            return None
-
-        return ConfirmationDeliveryRequest(
-            communication_id=result.communication_id,
-            identity_action_token_id=result.identity_action_token_id,
-            account_id=result.account_id,
-            recipient_email=registration_email,
-            recipient_name=registration_name,
-            confirmation_token=result.confirmation_token,
-            expires_at=result.confirmation_expires_at,
-        )
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

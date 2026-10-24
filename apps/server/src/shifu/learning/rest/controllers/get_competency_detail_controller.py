@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, Field, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -118,7 +118,7 @@ class GetCompetencyDetailController:
         @router.get(
             '/goals/{goal_id}/skills/{skill_id}/competencies/{competency_id}',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

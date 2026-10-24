@@ -321,4 +321,41 @@ describe('useActivityPage', () => {
     expect(onSubmit).toHaveBeenCalledTimes(2)
     expect(onSubmit.mock.calls[0][0]).toEqual(onSubmit.mock.calls[1][0])
   })
+  it('submits the exact conclusive React answer with its discriminator and revision', async () => {
+    const codeQuestion = activity.questions[1]
+    if (codeQuestion.kind !== 'javascript_stdin') throw new Error('Invalid fixture')
+    const question = {
+      ...codeQuestion,
+      kind: 'react' as const,
+      additionalFilePolicy: null,
+    }
+    const reactActivity = { ...activity, questions: [question] }
+    const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 100 })
+    const onSubmit = vi.fn().mockResolvedValue(submitted)
+    vi.stubGlobal('crypto', { randomUUID: () => 'react-key' })
+    const { result } = renderHook(
+      () => useActivityPage({ activity: reactActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+    const files = [{ path: 'index.js', content: 'exact React source' }]
+    act(() => result.current.handleCodeFilesChange(files))
+    await act(async () => result.current.handleAssessCode(files))
+    act(() =>
+      result.current.handleCodeFilesChange([
+        { path: 'index.js', content: 'remote edit' },
+      ]),
+    )
+    expect(result.current.feedback?.score).toBe(100)
+    expect(result.current.frozenAnswer).toEqual({
+      kind: 'react',
+      questionKey: 'code-1',
+      files,
+    })
+    await act(async () => result.current.handleContinue())
+    expect(onSubmit).toHaveBeenCalledWith({
+      activityRevision: 'revision-1',
+      submissionKey: 'react-key',
+      answers: [{ kind: 'react', questionKey: 'code-1', files }],
+    })
+  })
 })

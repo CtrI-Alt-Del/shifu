@@ -6,6 +6,10 @@ from typing import ClassVar
 from inngest import Context, Function, Inngest, TriggerCron
 
 from shifu.identity.core.use_cases import ExpireUnconfirmedAccountsUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class FanOutUnconfirmedAccountExpiryJob:
@@ -18,11 +22,18 @@ class FanOutUnconfirmedAccountExpiryJob:
     def handle(
         inngest: Inngest,
         use_case: ExpireUnconfirmedAccountsUseCase,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=FanOutUnconfirmedAccountExpiryJob.FUNCTION_ID,
             trigger=TriggerCron(cron=FanOutUnconfirmedAccountExpiryJob._CRON),
             retries=3,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=FanOutUnconfirmedAccountExpiryJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             await context.step.run(

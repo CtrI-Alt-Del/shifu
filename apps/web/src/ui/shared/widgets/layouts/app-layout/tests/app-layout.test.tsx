@@ -43,8 +43,13 @@ vi.mock('@/ui/intelligence/contexts/mentor-context', () => ({
   ),
 }))
 
+const mentorFabMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/ui/intelligence/widgets/components/mentor-fab', () => ({
-  MentorFab: () => <button type='button'>Mentor FAB</button>,
+  MentorFab: (props: { isMentorPage?: boolean; isMemoriesPage?: boolean }) => {
+    mentorFabMock(props)
+    return <button type='button'>Mentor FAB</button>
+  },
 }))
 
 vi.mock('../mobile-header/use-mobile-header', () => ({
@@ -146,5 +151,28 @@ describe('AppLayout', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
     expect(handleMenuToggleMock).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    [ROUTES.intelligence, { isMentorPage: true, isMemoriesPage: false }],
+    [`${ROUTES.intelligence}/`, { isMentorPage: true, isMemoriesPage: false }],
+    [ROUTES.intelligenceMemories, { isMentorPage: false, isMemoriesPage: true }],
+    [`${ROUTES.intelligenceMemories}/`, { isMentorPage: false, isMemoriesPage: true }],
+    [ROUTES.gamification, { isMentorPage: false, isMemoriesPage: false }],
+  ])('tells the floating Mentor which dedicated page %s is', (pathname, expected) => {
+    useAppLayoutMock.mockReturnValue({
+      navigationItems: APP_NAVIGATION_ITEMS,
+      pathname,
+    })
+    render(
+      <AppLayout
+        account={{ displayName: 'Ana', email: 'ana@example.com' }}
+        accountMenu={<button type='button'>Conta</button>}
+      >
+        <p>Page content</p>
+      </AppLayout>,
+    )
+
+    expect(mentorFabMock).toHaveBeenLastCalledWith(expected)
   })
 })

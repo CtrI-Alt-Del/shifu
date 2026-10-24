@@ -5,6 +5,7 @@ import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AppError } from '@/core/errors/app-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { RestResponse } from '@/core/shared/responses/rest-response'
 import { IntelligenceService } from '@/rest/services/intelligence-service'
 
@@ -30,10 +31,20 @@ const ATTACHMENT_ID = '01J7T8AC91Z5K8M4JQ8C2D6F0D'
 const UPLOAD_KEY = 'e9cfaab2-fb57-40e6-96aa-e6d7afdd7259'
 const BASE_URL = 'http://localhost:7000'
 
-type UploadHandlerContext = { request: Request; params: { batchId: string } }
+const TELEMETRY_CONTEXT = {
+  requestId: '11111111-1111-4111-8111-111111111111',
+  telemetry: { emit: vi.fn() },
+} satisfies RequestTelemetryContext
+
+type UploadHandlerContext = {
+  request: Request
+  params: { batchId: string }
+  context: RequestTelemetryContext
+}
 type FileHandlerContext = {
   request: Request
   params: { sessionId: string; attachmentId: string }
+  context: RequestTelemetryContext
 }
 type RouteWithHandlers<Handlers> = {
   options: { server?: { handlers?: Handlers } }
@@ -156,7 +167,11 @@ function fileRequest(preview?: string): Request {
 }
 
 async function postUpload(request = uploadRequest(), batchId = BATCH_ID) {
-  return registeredUploadHandler()({ request, params: { batchId } })
+  return registeredUploadHandler()({
+    request,
+    params: { batchId },
+    context: TELEMETRY_CONTEXT,
+  })
 }
 
 async function getFile(
@@ -167,6 +182,7 @@ async function getFile(
   return registeredFileHandler()({
     request,
     params: { sessionId, attachmentId },
+    context: TELEMETRY_CONTEXT,
   })
 }
 
@@ -309,7 +325,11 @@ describe('Mentor attachment API route handlers', () => {
       const request = uploadRequest({ mediaType: 'application/octet-stream' })
       const response = await postUpload(request)
 
-      expect(ports.getMentorScopedService).toHaveBeenCalledWith(request)
+      expect(ports.getMentorScopedService).toHaveBeenCalledWith(
+        request,
+        undefined,
+        TELEMETRY_CONTEXT,
+      )
       expect(ports.uploadMentorAttachment).toHaveBeenCalledOnce()
       const [token, batchId, uploadKey, file, signal] =
         ports.uploadMentorAttachment.mock.calls[0] ?? []
@@ -478,7 +498,11 @@ describe('Mentor attachment API route handlers', () => {
       const downloadRequest = fileRequest()
       const download = await getFile(downloadRequest)
 
-      expect(ports.getMentorScopedService).toHaveBeenCalledWith(previewRequest)
+      expect(ports.getMentorScopedService).toHaveBeenCalledWith(
+        previewRequest,
+        undefined,
+        TELEMETRY_CONTEXT,
+      )
       expect(ports.readMentorAttachmentFile).toHaveBeenNthCalledWith(
         1,
         'private-access-token',

@@ -7,6 +7,11 @@ import { listMentorSessionsServer } from '../use-mentor-sessions-query'
 import { removeMentorSessionServer } from '../use-remove-mentor-session-action'
 import { renameMentorSessionServer } from '../use-rename-mentor-session-action'
 import { submitMentorMessageServer } from '../use-submit-mentor-message-action'
+import { editLearnerMemoryServer } from '../../widgets/pages/memories-page/use-edit-learner-memory-action'
+import { listLearnerMemoriesServer } from '../../widgets/pages/memories-page/use-learner-memories-query'
+import { getLearnerMemoryServer } from '../../widgets/pages/memories-page/use-learner-memory-query'
+import { removeLearnerMemoryServer } from '../../widgets/pages/memories-page/use-remove-learner-memory-action'
+import { RestError } from '@/core/errors/rest-error'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -22,18 +27,30 @@ const mocks = vi.hoisted(() => ({
     removeMentorSession: vi.fn(),
     renameMentorSession: vi.fn(),
     submitMentorMessage: vi.fn(),
+    listLearnerMemories: vi.fn(),
+    getLearnerMemory: vi.fn(),
+    editLearnerMemory: vi.fn(),
+    removeLearnerMemory: vi.fn(),
   },
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({
-    validator: (validate: (data: unknown) => unknown) => ({
-      handler:
-        (handler: (context: { data: unknown }) => Promise<unknown>) =>
-        async (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
-    }),
-  }),
+  createServerFn: () => {
+    const builder = {
+      middleware: () => builder,
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          async (context: { data: unknown }) =>
+            handler({ data: validate(context.data) }),
+      }),
+    }
+    return builder
+  },
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 vi.mock('@tanstack/react-start/server', () => ({
@@ -405,5 +422,225 @@ describe('Mentor server functions', () => {
       listMentorSessionsServer({ data: { accountEmail: 'learner@example.test' } }),
     ).rejects.toThrow('A sessão da conta mudou. Atualize a página.')
     expect(mocks.intelligenceService).not.toHaveBeenCalled()
+  })
+})
+
+describe('Learner memory server functions', () => {
+  const accountEmail = 'Learner@example.test'
+  const memoryId = '01J7T8AC91Z5K8M4JQ8C2D6F0B'
+
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.request = new Request('http://shifu.test/intelligence/memories')
+    mocks.getCurrentAccess.mockResolvedValue({
+      accessToken: 'access-token',
+      email: 'Learner@example.test',
+    })
+    mocks.axiosRestClient.mockReturnValue({ restClient: true })
+    mocks.intelligenceService.mockReturnValue(mocks.service)
+  })
+
+  it('derives access from the request and forwards each scoped memory operation', async () => {
+    mocks.service.listLearnerMemories.mockResolvedValue([])
+    mocks.service.getLearnerMemory.mockResolvedValue({ id: memoryId })
+    mocks.service.editLearnerMemory.mockResolvedValue({ id: memoryId, version: 2 })
+    mocks.service.removeLearnerMemory.mockResolvedValue(undefined)
+
+    const list = await listLearnerMemoriesServer({
+      data: { accountEmail, q: 'python', category: 'declared_knowledge' },
+    })
+    const read = await getLearnerMemoryServer({ data: { accountEmail, memoryId } })
+    const edited = await editLearnerMemoryServer({
+      data: { accountEmail, memoryId, content: 'Novo texto.', expectedVersion: 1 },
+    })
+    const removed = await removeLearnerMemoryServer({ data: { accountEmail, memoryId } })
+
+    expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(4)
+    expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request)
+    expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
+      withCredentials: false,
+    })
+    expect(mocks.service.listLearnerMemories).toHaveBeenCalledWith('access-token', {
+      q: 'python',
+      category: 'declared_knowledge',
+    })
+    expect(mocks.service.getLearnerMemory).toHaveBeenCalledWith('access-token', memoryId)
+    expect(mocks.service.editLearnerMemory).toHaveBeenCalledWith(
+      'access-token',
+      memoryId,
+      { content: 'Novo texto.', expectedVersion: 1 },
+    )
+    expect(mocks.service.removeLearnerMemory).toHaveBeenCalledWith(
+      'access-token',
+      memoryId,
+    )
+    expect(list).toEqual([])
+    expect(read).toEqual({ kind: 'ok', memory: { id: memoryId } })
+    expect(edited).toEqual({ kind: 'ok', memory: { id: memoryId, version: 2 } })
+    expect(removed).toEqual({ kind: 'ok' })
+  })
+
+  it('rejects an account that differs from the request session', async () => {
+    await expect(
+      listLearnerMemoriesServer({ data: { accountEmail: 'other@example.test' } }),
+    ).rejects.toThrow('A sessão da conta mudou')
+    expect(mocks.service.listLearnerMemories).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['an unknown key', { accountEmail, extra: true }],
+    ['an invalid category', { accountEmail, category: 'all' }],
+    ['a query over 100 characters', { accountEmail, q: 'a'.repeat(101) }],
+    ['an invalid account email', { accountEmail: 'not-an-email' }],
+  ])('rejects the list input with %s', async (_description, data) => {
+    await expect(
+      listLearnerMemoriesServer({ data: data as { accountEmail: string } }),
+    ).rejects.toThrow()
+    expect(mocks.service.listLearnerMemories).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a malformed id', { accountEmail, memoryId: 'not-a-ulid' }],
+    ['an unknown key', { accountEmail, memoryId, extra: true }],
+  ])('rejects the get input with %s', async (_description, data) => {
+    await expect(getLearnerMemoryServer({ data })).rejects.toThrow()
+    expect(mocks.service.getLearnerMemory).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['a malformed id', { accountEmail, memoryId: 'x', content: 'a', expectedVersion: 1 }],
+    ['a zero version', { accountEmail, memoryId, content: 'a', expectedVersion: 0 }],
+    [
+      'a fractional version',
+      { accountEmail, memoryId, content: 'a', expectedVersion: 1.5 },
+    ],
+    ['a missing content', { accountEmail, memoryId, expectedVersion: 1 }],
+  ])('rejects the edit input with %s', async (_description, data) => {
+    await expect(editLearnerMemoryServer({ data: data as never })).rejects.toThrow()
+    expect(mocks.service.editLearnerMemory).not.toHaveBeenCalled()
+  })
+
+  it('rejects the delete input with a malformed id', async () => {
+    await expect(
+      removeLearnerMemoryServer({ data: { accountEmail, memoryId: 'x' } }),
+    ).rejects.toThrow()
+    expect(mocks.service.removeLearnerMemory).not.toHaveBeenCalled()
+  })
+
+  it('reports a missing memory as a result instead of losing the status code', async () => {
+    mocks.service.getLearnerMemory.mockRejectedValue(new RestError('não existe', 404))
+
+    await expect(
+      getLearnerMemoryServer({ data: { accountEmail, memoryId } }),
+    ).resolves.toEqual({ kind: 'not-found' })
+  })
+
+  it('rethrows other read failures', async () => {
+    mocks.service.getLearnerMemory.mockRejectedValue(new RestError('falha', 500))
+
+    await expect(
+      getLearnerMemoryServer({ data: { accountEmail, memoryId } }),
+    ).rejects.toThrow('falha')
+  })
+
+  it.each([
+    [409, { kind: 'conflict' }],
+    [422, { kind: 'invalid' }],
+    [404, { kind: 'not-found' }],
+  ])('maps an edit rejected with %s to a result', async (statusCode, expected) => {
+    mocks.service.editLearnerMemory.mockRejectedValue(
+      new RestError('rejeitado', statusCode),
+    )
+
+    await expect(
+      editLearnerMemoryServer({
+        data: { accountEmail, memoryId, content: 'Texto.', expectedVersion: 1 },
+      }),
+    ).resolves.toEqual(expected)
+  })
+
+  it.each([
+    ['a server failure', new RestError('falha', 500)],
+    ['a non-REST failure', new Error('rede')],
+  ])('rethrows an edit that failed with %s', async (_description, error) => {
+    mocks.service.editLearnerMemory.mockRejectedValue(error)
+
+    await expect(
+      editLearnerMemoryServer({
+        data: { accountEmail, memoryId, content: 'Texto.', expectedVersion: 1 },
+      }),
+    ).rejects.toBe(error)
+  })
+
+  it('rethrows a failed deletion so the page can show it inline', async () => {
+    mocks.service.removeLearnerMemory.mockRejectedValue(new RestError('falha', 503))
+
+    await expect(
+      removeLearnerMemoryServer({ data: { accountEmail, memoryId } }),
+    ).rejects.toThrow('falha')
+  })
+
+  it('maps memory items of the session detail and defaults them to an empty list', async () => {
+    const { IntelligenceService: createIntelligenceService } = await vi.importActual<
+      typeof import('@/rest/services/intelligence-service')
+    >('@/rest/services/intelligence-service')
+    const sessionDetail = {
+      session: {
+        id: memoryId,
+        title: 'Dúvida',
+        created_at: '2026-10-14T10:00:00Z',
+        updated_at: '2026-10-14T10:01:00Z',
+        last_activity_at: '2026-10-14T10:01:00Z',
+      },
+      messages: { items: [], next_cursor: null },
+      pending_learner_message_id: null,
+      response: null,
+      memory_items: [
+        {
+          id: '01J7T8AC91Z5K8M4JQ8C2D6F0C',
+          source_message_id: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+          kind: 'updated',
+          category: 'explanation_preference',
+          memory_id: memoryId,
+          content: 'exemplos em Python.',
+          previous_content: 'exemplos em JavaScript.',
+          created_at: '2026-10-14T10:01:00Z',
+        },
+      ],
+    }
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(new RestResponse({ body: sessionDetail, statusCode: 200 }))
+      .mockResolvedValueOnce(
+        new RestResponse({
+          body: { ...sessionDetail, memory_items: undefined },
+          statusCode: 200,
+        }),
+      )
+    mocks.axiosRestClient.mockReturnValue({ get } as unknown as RestClient)
+    mocks.intelligenceService.mockImplementation((client: RestClient) =>
+      createIntelligenceService(client),
+    )
+
+    const withItems = await getMentorSessionServer({
+      data: { accountEmail, sessionId: memoryId },
+    })
+    const withoutItems = await getMentorSessionServer({
+      data: { accountEmail, sessionId: memoryId },
+    })
+
+    expect(withItems.memoryItems).toEqual([
+      {
+        id: '01J7T8AC91Z5K8M4JQ8C2D6F0C',
+        sourceMessageId: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+        kind: 'updated',
+        category: 'explanation_preference',
+        memoryId,
+        content: 'exemplos em Python.',
+        previousContent: 'exemplos em JavaScript.',
+        createdAt: '2026-10-14T10:01:00Z',
+      },
+    ])
+    expect(withoutItems.memoryItems).toEqual([])
   })
 })

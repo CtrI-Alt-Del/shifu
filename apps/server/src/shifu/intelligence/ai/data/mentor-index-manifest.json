@@ -18,7 +18,9 @@
     "explain_assessment": 0.88386,
     "search_curriculum": 0.87768,
     "consult_gamification": 0.87053,
-    "learning_conversation": 0.87996
+    "learning_conversation": 0.87996,
+    "add_skill": 0.8888,
+    "remove_skill": 0.90044
   },
   "faq_cosine_threshold": 0.9,
   "faq_margin": 0.025,

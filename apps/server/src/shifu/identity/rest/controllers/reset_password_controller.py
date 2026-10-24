@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from shifu.identity.core.domain.structures import PasswordResetRequest
 from shifu.identity.core.interfaces import (
@@ -29,6 +29,9 @@ class Response(BaseModel):
     access_version: int | None = None
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class ResetPasswordController:
     @staticmethod
     def handle(router: APIRouter) -> None:
@@ -36,7 +39,7 @@ class ResetPasswordController:
             '/password-resets',
             response_model=Response,
             response_model_exclude_none=True,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,
@@ -67,9 +70,4 @@ class ResetPasswordController:
                     password_confirmation=request.password_confirmation,
                 ),
             )
-            return Response(
-                result=result.result,
-                account_id=result.account_id,
-                requires_email_confirmation=result.requires_email_confirmation,
-                access_version=result.access_version,
-            )
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

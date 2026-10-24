@@ -10,6 +10,10 @@ from shifu.learning.core.domain.structures import (
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
 )
+from shifu.learning.core.use_cases.code_answer_validation import (
+    CodeAnswerValidation,
+    CodeQuestionSnapshot,
+)
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.errors import (
     ConflictError,
@@ -20,6 +24,7 @@ from shifu.shared.core.domain.structures import (
     CodeRubricAssessmentInput,
     CodeRubricDecisions,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -80,7 +85,13 @@ class PreviewActivityQuestionFeedbackUseCase:
         if question is None or answer.question_key != question_key:
             raise ValidationError
 
-        if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+        if isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        ):
             if not isinstance(answer, CodeAnswer):
                 raise ValidationError
 
@@ -91,18 +102,18 @@ class PreviewActivityQuestionFeedbackUseCase:
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
                 raise ValidationError
 
-            request = self.build_code_assessment_input(question, part, answer)
-            if (
-                sum(
-                    len(path.encode()) + len(content.encode())
-                    for path, content in request.project_files
-                )
-                > self._max_code_assessment_input_bytes
-            ):
-                raise ValidationError
+            request = self.build_code_assessment_input(
+                question, part, answer, self._max_code_assessment_input_bytes
+            )
 
             decisions = self._code_rubric_assessor_provider.assess(request)
-            return self.code_result(question, part, answer, decisions)
+            return self.code_result(
+                question,
+                part,
+                answer,
+                decisions,
+                self._max_code_assessment_input_bytes,
+            )
 
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
@@ -131,43 +142,22 @@ class PreviewActivityQuestionFeedbackUseCase:
 
     @staticmethod
     def build_code_assessment_input(
-        question: CurriculumJavascriptStdinQuestionSnapshot,
+        question: CodeQuestionSnapshot,
         part: CurriculumCodeRubricPartSnapshot,
         answer: CodeAnswer,
+        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> CodeRubricAssessmentInput:
-        editable = {item.path for item in question.initial_files if item.editable}
-        provided = {item.path: item.content for item in answer.files}
-        if (
-            answer.source_code is not None
-            or len(provided) != len(answer.files)
-            or set(provided) != editable
-        ):
-            raise ValidationError
-
-        files = tuple(
-            sorted(
-                (
-                    (item.path, provided[item.path] if item.editable else item.content)
-                    for item in question.initial_files
-                ),
-                key=lambda item: item[0],
-            )
-        )
-        return CodeRubricAssessmentInput(
-            question_kind=question.kind,
-            prompt=question.prompt,
-            project_files=files,
-            submitted_paths=tuple(sorted(editable)),
-            rubric_criteria=part.criteria,
-            concept_criteria=question.concept_criteria,
+        return CodeAnswerValidation.build_assessment_input(
+            question, part, answer, max_bytes
         )
 
     @staticmethod
     def code_result(
-        question: CurriculumJavascriptStdinQuestionSnapshot,
+        question: CodeQuestionSnapshot,
         part: CurriculumCodeRubricPartSnapshot,
         answer: CodeAnswer,
         decisions: CodeRubricDecisions,
+        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> PreliminaryQuestionResult:
         criterion_by_key = {item.key: item.level for item in decisions.criterion_levels}
         concept_by_id = {
@@ -242,7 +232,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         if any(item.level == 'inconclusive' for item in criteria):
             score = None
         project = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
-            question, part, answer
+            question, part, answer, max_bytes
         )
         return PreliminaryQuestionResult(
             status='inconclusive' if score is None else 'conclusive',

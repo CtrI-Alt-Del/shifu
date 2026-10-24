@@ -51,6 +51,7 @@ _ACCOUNT_ID = '01JACCOUNT000000000000000001'
 _OTHER_ACCOUNT_ID = '01JOTHERACCOUNT00000000000001'
 _SESSION_ID = '01JSESSION000000000000000001'
 _BATCH_ID = '01JBATCH00000000000000000001'
+_ULID_SESSION_ID = '01J00000000000000000000001'
 _ATTACHMENT_ID = '01JATTACHMENT00000000000001'
 _MESSAGE_ID = '01JMESSAGE000000000000000001'
 _NOW = datetime(2026, 10, 10, tzinfo=UTC)
@@ -157,18 +158,18 @@ def test_create_batch_scopes_access_and_schedules_cleanup(
         dependencies['access'],
     )
 
-    result = subject.execute(_ACCOUNT_ID, _SESSION_ID)
+    result = subject.execute(_ACCOUNT_ID, _ULID_SESSION_ID)
 
     assert result.batch_id == _BATCH_ID
     assert result.expires_at == _NOW + timedelta(hours=1)
     dependencies[
         'repositories'
     ].mentor_sessions.find_by_id_for_update.assert_called_once_with(
-        _ACCOUNT_ID, _SESSION_ID
+        _ACCOUNT_ID, _ULID_SESSION_ID
     )
     batch = dependencies['repositories'].mentor_attachment_batches.add.call_args.args[0]
     assert batch.account_id == _ACCOUNT_ID
-    assert batch.session_id == _SESSION_ID
+    assert batch.session_id == _ULID_SESSION_ID
     cleanup = dependencies['repositories'].events.add.call_args.args[0]
     assert cleanup.payload.batch_id == _BATCH_ID
     assert cleanup.payload.deletion_generation == 1
@@ -194,7 +195,7 @@ def test_create_batch_rejects_missing_session_without_writes(
     )
 
     with pytest.raises(MentorSessionNotFoundError):
-        subject.execute(_ACCOUNT_ID, _SESSION_ID)
+        subject.execute(_ACCOUNT_ID, _ULID_SESSION_ID)
 
     dependencies['repositories'].mentor_attachment_batches.add.assert_not_called()
     dependencies['repositories'].events.add.assert_not_called()
@@ -222,6 +223,37 @@ def test_should_reject_invalid_batch_identity_or_session_before_writes(
     dependencies['database'].transaction.assert_not_called()
     dependencies['repositories'].mentor_attachment_batches.add.assert_not_called()
     dependencies['repositories'].events.add.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    'session_id',
+    [
+        'not-a-ulid',
+        _SESSION_ID,
+        '81J00000000000000000000001',
+        '01J0000000000000000000000I',
+        '01j00000000000000000000001',
+        _ULID_SESSION_ID + '0',
+    ],
+)
+def test_create_batch_rejects_a_malformed_session_id_before_any_access_or_write(
+    harness: dict[str, Any], session_id: str
+) -> None:
+    dependencies = harness
+    subject = CreateMentorAttachmentBatchUseCase(
+        dependencies['database'],
+        dependencies['identifier'],
+        dependencies['clock'],
+        dependencies['access'],
+    )
+
+    with pytest.raises(MentorAttachmentInvalidError) as error:
+        subject.execute(_ACCOUNT_ID, session_id)
+
+    assert error.value.message == 'O arquivo não é válido ou não está disponível.'
+    dependencies['identifier'].generate.assert_not_called()
+    dependencies['access'].authorize.assert_not_called()
+    dependencies['database'].transaction.assert_not_called()
 
 
 def test_get_batch_renews_deadline_and_reads_attached_views(

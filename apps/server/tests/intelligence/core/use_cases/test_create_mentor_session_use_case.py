@@ -35,13 +35,13 @@ from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint imp
     mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import (
-    GenerateMentorTitleWorkflow,
+    GenerateMentorTitleProvider,
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
 )
 from shifu.intelligence.core.use_cases import CreateMentorSessionUseCase
-from shifu.intelligence.providers.openrouter import (
-    UnavailableGenerateMentorTitleWorkflow,
+from shifu.intelligence.providers.mentor_title.unavailable_generate_mentor_title_provider import (
+    UnavailableGenerateMentorTitleProvider,
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
@@ -70,8 +70,10 @@ class TestCreateMentorSessionUseCase:
         self.clock = create_autospec(ClockProvider, instance=True)
         self.now = datetime(2026, 1, 1, tzinfo=UTC)
         self.clock.now.return_value = self.now
-        self.workflow = create_autospec(GenerateMentorTitleWorkflow, instance=True)
-        self.workflow.generate.return_value = 'Título inferido'
+        self.title_provider = create_autospec(
+            GenerateMentorTitleProvider, instance=True
+        )
+        self.title_provider.generate.return_value = 'Título inferido'
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.access.authorize.return_value = MentorAccessGrant(
             account_id='01JACCOUNT000000000000000001',
@@ -91,7 +93,11 @@ class TestCreateMentorSessionUseCase:
             ),
         )
         self.subject = CreateMentorSessionUseCase(
-            self.database, self.identifiers, self.clock, self.workflow, self.access
+            self.database,
+            self.identifiers,
+            self.clock,
+            self.title_provider,
+            self.access,
         )
 
     def test_should_atomically_persist_exact_first_message_and_final_title(
@@ -118,7 +124,7 @@ class TestCreateMentorSessionUseCase:
             '  Olá\n\t mundo  ',
         )
 
-        self.workflow.generate.assert_called_once_with('  Olá\n\t mundo  ')
+        self.title_provider.generate.assert_called_once_with('  Olá\n\t mundo  ')
         assert result.created is True
         assert result.detail.session.title == 'Título inferido'
         assert (
@@ -166,7 +172,7 @@ class TestCreateMentorSessionUseCase:
                 attachment_batch_id='01JBATCH00000000000000000001',
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
 
     @pytest.mark.parametrize(
@@ -190,7 +196,7 @@ class TestCreateMentorSessionUseCase:
                 attachment_ids=attachment_ids,
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
 
     def test_should_reject_missing_attachment_before_title_generation(self) -> None:
@@ -205,7 +211,7 @@ class TestCreateMentorSessionUseCase:
                 attachment_ids=('01JATTACHMENT00000000000001',),
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
 
     def test_should_reject_an_attachment_from_another_batch_before_title_generation(
@@ -227,7 +233,7 @@ class TestCreateMentorSessionUseCase:
                 attachment_ids=(attachment.id,),
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
 
     def test_should_reject_a_bound_attachment_selection(self) -> None:
@@ -321,7 +327,7 @@ class TestCreateMentorSessionUseCase:
         assert attachment.message_id == message.id
         if not content.strip():
             assert result.detail.session.title == 'Conversa com anexos'
-            self.workflow.generate.assert_not_called()
+            self.title_provider.generate.assert_not_called()
 
     @pytest.mark.parametrize('content', ['', ' \n\t '])
     def test_should_replay_attachment_only_session_without_writes(
@@ -361,7 +367,7 @@ class TestCreateMentorSessionUseCase:
         )
 
         assert result.created is False
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
         self.repositories.mentor_attachments.update.assert_not_called()
@@ -410,7 +416,7 @@ class TestCreateMentorSessionUseCase:
                 attachment_ids=(attachment.id,),
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
         self.repositories.mentor_attachments.update.assert_not_called()
@@ -453,7 +459,7 @@ class TestCreateMentorSessionUseCase:
             message,
         )
 
-        self.workflow.generate.assert_called_once_with('🙂' * 1000)
+        self.title_provider.generate.assert_called_once_with('🙂' * 1000)
         persisted = cast(
             'MentorMessage', self.repositories.mentor_messages.add.call_args.args[0]
         )
@@ -463,7 +469,7 @@ class TestCreateMentorSessionUseCase:
         self,
     ) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
-        self.workflow.generate.side_effect = MentorTitleUnavailableError()
+        self.title_provider.generate.side_effect = MentorTitleUnavailableError()
 
         result = self.subject.execute(
             '01JACCOUNT000000000000000001',
@@ -485,7 +491,7 @@ class TestCreateMentorSessionUseCase:
         self, generated_title: str, expected_title: str
     ) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
-        self.workflow.generate.return_value = generated_title
+        self.title_provider.generate.return_value = generated_title
 
         result = self.subject.execute(
             '01JACCOUNT000000000000000001',
@@ -506,7 +512,7 @@ class TestCreateMentorSessionUseCase:
         self, message: str, expected_title: str
     ) -> None:
         self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
-        self.workflow.generate.side_effect = MentorTitleUnavailableError()
+        self.title_provider.generate.side_effect = MentorTitleUnavailableError()
 
         result = self.subject.execute(
             '01JACCOUNT000000000000000001',
@@ -522,7 +528,7 @@ class TestCreateMentorSessionUseCase:
             self.database,
             self.identifiers,
             self.clock,
-            UnavailableGenerateMentorTitleWorkflow(),
+            UnavailableGenerateMentorTitleProvider(),
             self.access,
         )
 
@@ -614,7 +620,7 @@ class TestCreateMentorSessionUseCase:
         self.repositories.mentor_messages.find_pending_learner_message_id.assert_called_once_with(
             '01JACCOUNT000000000000000001', record.session_id
         )
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
 
@@ -697,7 +703,7 @@ class TestCreateMentorSessionUseCase:
         )
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
 
     def test_should_reject_changed_content_under_a_replayed_key(self) -> None:
         self.repositories.mentor_sessions.find_submission.return_value = (
@@ -715,7 +721,7 @@ class TestCreateMentorSessionUseCase:
                 'hello',
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
 
@@ -735,7 +741,7 @@ class TestCreateMentorSessionUseCase:
                 'hello',
             )
 
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.mentor_messages.add.assert_not_called()
 
@@ -808,7 +814,7 @@ class TestCreateMentorSessionUseCase:
             )
 
         self.database.transaction.assert_not_called()
-        self.workflow.generate.assert_not_called()
+        self.title_provider.generate.assert_not_called()
 
     def test_should_reject_non_uuidv4_submission_key(self) -> None:
         with pytest.raises(MentorInputInvalidError):

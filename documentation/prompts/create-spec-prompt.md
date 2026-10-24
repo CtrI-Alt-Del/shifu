@@ -63,8 +63,7 @@ Use the architectural path of Superpowers brainstorming for a feature Spec: expl
 context, resolve material questions, compare viable approaches, present the design
 in chat for review, then write the approved Spec. Announce this path and its
 expected artifact before the first question. `compact` and `complete` control the
-Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact;
-its required `interactive-spec.html` companion explains that same contract.
+Spec's detail, not this sequence. Shifu's `spec.md` is the written design artifact.
 Do not create a second authoritative design document or a `plan.md`.
 
 ### Grilling protocol
@@ -81,20 +80,49 @@ permissions, scope, destructive behavior, ownership, public compatibility,
 irreversible persistence and required verification. Ordinary reversible
 implementation choices belong to the agent.
 
-Ask **one question per message**, choosing a material question whose prerequisites
-are settled. Prefer concise multiple-choice options when useful, while allowing
-an open answer. Explain relevant evidence and how materially different answers
-affect the contract; give a recommendation with its reason. Number questions
-monotonically across the conversation. Ask directly in the conversation, without
-a question tool:
+Ask questions in **batches of related decisions** whose prerequisites are settled;
+a batch may hold one question or several, and a later batch may depend on earlier
+answers. Give each question as many concise options as the real alternatives need
+(commonly two to four), allowing an open answer. For each option state its concrete
+mechanism and the consequence of choosing it; ground options in inspected source,
+authority and design evidence, and never invent alternatives. End every question
+with one recommendation and its reason. Number questions monotonically across the
+conversation; a revised question keeps its number or names the question it revisits.
+Ask directly in the conversation, without a question tool, and do not use tables
+in questions or in-chat design sections; use short paragraphs and bullet lists.
+
+Write questions, options and design sections in the user's language with the
+plain style defined in `AGENTS.md` under User communication: lead with the
+conclusion, use short sentences with one idea each, keep parentheses, semicolons
+and code identifiers out of running text unless they locate something, and
+avoid untranslated jargon. Describe each option in one or two plain sentences:
+what happens, then its consequence. When citing an earlier decision, restate in a
+few words what it decided instead of writing only its number.
+
+Use this format for every question, including when re-asking an unanswered one.
+The fence below only shows the template; in the conversation, write each question
+as plain text without a code fence:
 
 ```text
-❓ Q1 — <title>: <question, evidence and consequences of materially different choices>
+❓ Q7 — <title>
+<question with the relevant evidence>
+- A: <mechanism> — <consequence>
+- B: <mechanism> — <consequence>
+- C: <mechanism> — <consequence>
 
-➡️ Recommended: <answer and its consequence>
+➡️ Recommended: <option> — <reason and consequence>
 ```
 
-Wait for the answer before asking the next question. A request for more context is
+Record each answer explicitly ("Q7 = A") with its consequence before continuing.
+Answers may arrive individually or as quoted replies to parts of a batch; record
+only what was chosen and re-ask every still-open question in the same full format,
+never as a compressed reminder list. A quoted question without a selected option
+is not an answer. When the user replies with a generic acknowledgement such as "ok"
+to a batch whose questions all carry recommendations, state the interpretation
+explicitly (which recommended options are being recorded) and invite correction;
+never apply such an acknowledgement to questions outside the batch it answers.
+
+Wait for the answer before acting on a decision. A request for more context is
 not an answer; explain the current choice and keep it open. Silence never approves
 a recommendation. Continue independent research while waiting. Challenge
 contradictions respectfully and resolve consequential ambiguity before presenting
@@ -106,6 +134,13 @@ If authority and authorization already settle material choices, skip invented
 questions and proceed to design review. Do not use that absence of questions to
 skip the design and written-Spec review gates. Honor an explicit user request to
 approve every technical decision when present.
+Under that request, also ask about naming, file placement, constants, contracts and
+verification boundaries, and treat rule-mandated corrections as items to report
+with their rule rather than as choices.
+
+When later evidence (a design frame, review finding or source fact) contradicts an
+accepted decision, present the conflict with its evidence and ask a question that
+names the decision it revisits; do not silently reverse or keep it.
 
 Screenshots establish visual intent, not new permissions/actions/workflows.
 Resolve design-derived behavioral ambiguity against the canonical PRD. Visual
@@ -115,15 +150,19 @@ reread before Spec reconciliation; preparing a Spec never authorizes that write.
 
 ### Compare approaches and review the design
 
-For consequential architectural choices, present 2–3 viable approaches grounded
-in Shifu, leading with a recommendation and explaining compatibility, ownership,
-consistency and recovery tradeoffs. Do not invent alternatives when existing
+For consequential architectural choices, present the viable approaches grounded
+in Shifu (usually two to four) in the question format above, with a recommendation
+and the compatibility, ownership, consistency and recovery tradeoffs. Do not invent alternatives when existing
 authority settles the choice or add speculative capabilities/refactoring.
 
 Present the proposed design in short chat sections scaled to its risk: outcome and
-scope; ownership, components and public contracts; runtime flow, persistence and
-failure handling; and verification. Ask whether each section looks right before
-continuing. Revise a section when the user identifies a gap. Explicit approval of
+scope; ownership, components and public contracts, including the expected file tree
+for the affected server and web boundaries; runtime flow, persistence and failure
+handling; UI composition and design references when applicable; and verification.
+Use bullets and code blocks, not tables. Decisions a section raises may be asked as a
+batch at its end. Ask explicitly whether each section looks right before continuing;
+answering that section's questions does not approve the section unless the user
+says so, and a section reopened by a later decision is presented again as a delta. Revise a section when the user identifies a gap. Explicit approval of
 the complete in-chat design permits writing the Spec; it does not approve the
 written Spec or authorize implementation. Record the selected approach and
 rationale in the existing Technical Contract.
@@ -139,9 +178,8 @@ the abbreviated examples below do not replace the complete template.
 
 Use `documentation/features/<module>/<feature>/spec.md` with lowercase kebab-case
 slugs. A distinct change to a concluded feature may use
-`changes/<change-name>/spec.md` beneath that feature. Generate
-`interactive-spec.html` in the same directory as that `spec.md`, for both compact
-and complete mode. Use the contract structure below and omit empty optional fields.
+`changes/<change-name>/spec.md` beneath that feature. Use the contract structure
+below and omit empty optional fields.
 
 ```yaml
 ---
@@ -397,47 +435,6 @@ Revision History records meaningful behavior, technical, design or verification
 contract amendments and reasons. Structural cleanup, status changes, reruns,
 publication and conclusion do not increment revision.
 
-### Required interactive Spec companion
-
-Generate `interactive-spec.html` alongside every Spec created or revised by this
-workflow. Use the title **Shifu — Interactive Spec**, followed by the feature name
-when useful. The HTML is a derived reading companion: `spec.md` remains the sole
-local contract authority. It introduces no independent requirements, planning
-ledger, implementation evidence or additional approval gate.
-
-The companion must:
-
-- explain the objective, scope, behavior, architecture/runtime flow, verification,
-  authority alignment and revision history, with the complete seven-section
-  contract available inside the HTML; a summary alone is insufficient;
-- provide chapter navigation, search and expandable detail; make RF/CA/check
-  traceability easy to explore, with workflow/interaction diagrams or step
-  exploration when they clarify the actual contract;
-- identify the source Spec path, revision, status and generation date; clearly
-  distinguish current implementation from planned behavior and required checks
-  from checks actually executed;
-- be a self-contained offline HTML file with embedded content, CSS and JavaScript,
-  without required CDN, API, model or application-service calls; explanatory
-  simulations must be labeled and must not perform product/external actions;
-- support keyboard navigation, visible focus, readable contrast and desktop/mobile
-  layouts, following the repository's visual direction without exposing secrets,
-  private source data or browser storage.
-
-Regenerate or reconcile the companion after changing the Spec's contract,
-revision or status, including corrections from review and amendments. Keep its
-embedded contract and identifiers synchronized with the current `spec.md`;
-revising the HTML alone does not increment the Spec revision. Do not leave a
-second HTML companion under an alternative filename for the same Spec.
-
-Before presenting the written Spec, verify that all seven sections and the
-current identifiers/metadata are represented, and validate navigation, search,
-expansion, keyboard use and narrow-screen layout with Playwright CLI. A temporary
-local static server may serve the file for this check; product services and
-seed/reset are unnecessary for a documentation companion. Save any browser
-artifacts under the existing ignored Playwright directories, and stop only the
-server/browser session started for this check. This validates the explainer,
-not feature implementation or its acceptance criteria.
-
 ## 4. Review and readiness
 
 Perform an independent Spec compatibility pass before `ready`, for compact and
@@ -460,8 +457,7 @@ requirements and scope that needs decomposition; correct those issues before
 presenting it. Verify that new project concepts and their consequential lifecycle
 contracts are explained, rather than only listed in the tree or declarations.
 After the independent review has no blocking findings, give the
-user the Spec path, revision and `interactive-spec.html` link and ask them to
-review the written contract.
+user the Spec path and revision and ask them to review the written contract.
 Wait for explicit approval before marking it `ready` or handing it to
 `implement-spec`. If the user requests changes, amend the Spec, repeat affected
 self-review and independent review, then present the revised contract again.
@@ -470,13 +466,13 @@ Before `ready`, confirm authority/version metadata; scope and traceability;
 observable criteria; resulting declarations, consumer/wiring impact and runtime
 guarantees; the expected file tree and its agreement with approved widget
 composition and checker paths; available required design references; permitted test boundaries; real
-checker commands; documentation links; current validated interactive companion; reproducible setup/fixture feasibility and
+checker commands; documentation links; reproducible setup/fixture feasibility and
 safe cleanup;
 and resolution of verified compatibility findings. Explicit implementation
 dependencies block affected work, not readiness, unless they leave the contract
 materially ambiguous. Report concrete blockers instead of a successful gate.
 
-Report the Spec path/revision/status and interactive companion link, bounded
+Report the Spec path/revision/status, bounded
 outcome, canonical source/version,
 consequential decisions, checker coverage and review result. The next step is
 `implement-spec`; the agent decides execution mechanics.
@@ -485,8 +481,7 @@ consequential decisions, checker coverage and review result. The next step is
 
 For a material contract change, return the same Spec to `draft`, increment its
 revision, reread affected authority, resolve material decisions and update the
-contract/checker mapping, then regenerate `interactive-spec.html` from the updated
-Spec. Preserve historical Evaluation evidence and mark only
+contract/checker mapping. Preserve historical Evaluation evidence and mark only
 affected results stale. Repeat affected integrity and compatibility checks before
 returning to `ready`. A distinct change after conclusion may receive a new Spec.
 

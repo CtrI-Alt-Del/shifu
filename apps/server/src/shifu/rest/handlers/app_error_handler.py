@@ -1,3 +1,4 @@
+import traceback
 from typing import cast
 
 from fastapi import FastAPI, Request, status
@@ -14,6 +15,11 @@ from shifu.shared.core.domain.errors import (
     ServiceUnavailableError,
     ValidationError,
 )
+from shifu.shared.core.interfaces.telemetry_provider import (
+    SanitizedStackFrame,
+    TelemetryEventInput,
+)
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 
 class AppErrorHandler:
@@ -37,6 +43,32 @@ class AppErrorHandler:
         )
 
     @staticmethod
+    def _emit(request: Request, event: TelemetryEventInput) -> None:
+        request_id = TelemetryPipe.get_request_id(request)
+        if request_id is not None:
+            event['request_id'] = request_id
+        TelemetryPipe.emit(
+            TelemetryPipe.get_telemetry_provider(request),
+            event,
+        )
+
+    @staticmethod
+    def _stack_trace(error: Exception) -> list[SanitizedStackFrame]:
+        frames: list[SanitizedStackFrame] = []
+        for frame in traceback.extract_tb(error.__traceback__)[-20:]:
+            file_name = frame.filename.replace('\\', '/').rsplit('/', 1)[-1]
+            if not file_name:
+                continue
+            sanitized: SanitizedStackFrame = {'file': file_name}
+            line_number = frame.lineno
+            if isinstance(line_number, int) and line_number > 0:
+                sanitized['line'] = line_number
+            if frame.name:
+                sanitized['function'] = frame.name
+            frames.append(sanitized)
+        return frames
+
+    @staticmethod
     async def handle_invalid_credentials(
         request: Request, _error: Exception
     ) -> JSONResponse:
@@ -55,8 +87,20 @@ class AppErrorHandler:
 
     @staticmethod
     async def handle_unexpected_error(
-        request: Request, _error: Exception
+        request: Request, error: Exception
     ) -> JSONResponse:
+        AppErrorHandler._emit(
+            request,
+            {
+                'level': 'ERROR',
+                'event': 'error.unexpected',
+                'operation': 'http.request',
+                'result': 'failure',
+                'error_code': 'internal_error',
+                'exception_type': type(error).__name__,
+                'stack_trace': AppErrorHandler._stack_trace(error),
+            },
+        )
         if request.url.path in AppErrorHandler._IDENTITY_FAILURE_PATHS:
             return AppErrorHandler._build_response(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -118,8 +162,18 @@ class AppErrorHandler:
 
     @staticmethod
     async def handle_authorization_error(
-        _request: Request, _error: Exception
+        request: Request, _error: Exception
     ) -> JSONResponse:
+        AppErrorHandler._emit(
+            request,
+            {
+                'level': 'WARNING',
+                'event': 'auth.access.denied',
+                'operation': 'auth.access',
+                'result': 'failure',
+                'error_code': 'forbidden',
+            },
+        )
         return AppErrorHandler._build_response(
             status_code=status.HTTP_403_FORBIDDEN,
             code='forbidden',
@@ -154,12 +208,36 @@ class AppErrorHandler:
         )
 
     @staticmethod
-    async def handle_http_error(_request: Request, error: Exception) -> JSONResponse:
+    async def handle_http_error(request: Request, error: Exception) -> JSONResponse:
         if not isinstance(error, StarletteHTTPException):
+            AppErrorHandler._emit(
+                request,
+                {
+                    'level': 'ERROR',
+                    'event': 'error.unexpected',
+                    'operation': 'http.request',
+                    'result': 'failure',
+                    'error_code': 'internal_error',
+                    'exception_type': type(error).__name__,
+                    'stack_trace': AppErrorHandler._stack_trace(error),
+                },
+            )
             return AppErrorHandler._build_response(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 code='internal_error',
                 message='Ocorreu um erro inesperado.',
+            )
+
+        if error.status_code == status.HTTP_403_FORBIDDEN:
+            AppErrorHandler._emit(
+                request,
+                {
+                    'level': 'WARNING',
+                    'event': 'auth.access.denied',
+                    'operation': 'auth.access',
+                    'result': 'failure',
+                    'error_code': 'forbidden',
+                },
             )
 
         detail = (

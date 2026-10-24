@@ -5,7 +5,7 @@ if TYPE_CHECKING:
 
 
 class TestLogMainPageEnteredJob:
-    def test_publishes_a_canonical_event_to_the_registered_logging_job(
+    def test_emits_a_completion_event_for_the_registered_logging_job(
         self, inngest_fixture: 'InngestFixture'
     ) -> None:
         from shifu.identity.core.domain.events import (
@@ -34,9 +34,7 @@ class TestLogMainPageEnteredJob:
             event.payload.event_id,
         )
         log_line = inngest_fixture.wait_for_log(
-            'identity.main_page_entered', timeout=90
+            f'"event":"job.completed","event_id":"{event_id}"', timeout=90
         )
 
-        assert event.payload.event_id in log_line
-        assert event.payload.account_id in log_line
-        assert event.payload.occurred_at in log_line
+        assert '"job":"identity.log_main_page_entered"' in log_line

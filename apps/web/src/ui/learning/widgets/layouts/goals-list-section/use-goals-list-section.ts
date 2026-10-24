@@ -17,7 +17,8 @@ export function useGoalsListSection() {
 
   return {
     goals,
-    goalsCountLabel: formatGoalsCountLabel(goals.length),
+    goalsCount: goals.length,
+    formatGoalsCountLabel,
     state,
     handleRetry,
   }

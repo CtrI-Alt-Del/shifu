@@ -3,6 +3,7 @@ export const ROUTES = {
   dashboard: '/',
   login: '/login',
   register: '/register',
+  privacy: '/privacy',
   forgotPassword: '/forgot-password',
   resetPassword: '/reset-password',
   pendingConfirmation: '/pending-confirmation',
@@ -10,9 +11,16 @@ export const ROUTES = {
   curriculum: '/curriculum',
   learning: '/learning',
   learningGoalsNew: '/learning/goals/new',
+  learningGoal: '/learning/goals/$goalId',
+  learningSkill: '/learning/goals/$goalId/skills/$skillId',
   learningGoalSkillsAdd: '/learning/goals/$goalId/skills/add',
   gamification: '/gamification',
+  gamificationOverview: '/gamification/overview',
+  gamificationCalendar: '/gamification/calendar',
+  gamificationAchievements: '/gamification/achievements',
+  gamificationXpHistory: '/gamification/xp-history',
   intelligence: '/intelligence',
+  intelligenceMemories: '/intelligence/memories',
   intelligencePlanner: '/intelligence/planner/$planningId',
   account: '/account',
   learningActivity:
@@ -24,6 +32,8 @@ export const ROUTES = {
 
 type StaticRouteName = Exclude<
   keyof typeof ROUTES,
+  | 'learningGoal'
+  | 'learningSkill'
   | 'learningActivity'
   | 'learningAttempt'
   | 'learningDiagnosticResult'
@@ -35,6 +45,22 @@ type LearningActivityRouteIds = {
   skillId: string
   competencyId: string
   activityId: string
+}
+
+export function learningGoalPath({ goalId }: { goalId: string }) {
+  return ROUTES.learningGoal.replace('$goalId', encodeURIComponent(goalId))
+}
+
+export function learningSkillPath({
+  goalId,
+  skillId,
+}: {
+  goalId: string
+  skillId: string
+}) {
+  return ROUTES.learningSkill
+    .replace('$goalId', encodeURIComponent(goalId))
+    .replace('$skillId', encodeURIComponent(skillId))
 }
 
 export function learningActivityPath({

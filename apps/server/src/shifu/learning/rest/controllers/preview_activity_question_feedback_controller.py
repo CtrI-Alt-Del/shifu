@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
@@ -34,14 +34,14 @@ class SubmittedFileRequest(BaseModel):
 
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
-    kind: Literal['single_choice', 'multiple_selection', 'javascript_stdin']
+    kind: Literal['single_choice', 'multiple_selection', 'javascript_stdin', 'react']
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind == 'javascript_stdin':
+        if self.kind in {'javascript_stdin', 'react'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -95,7 +95,7 @@ class PreviewActivityQuestionFeedbackController:
             '/activities/{activity_id}/questions/{question_key}/preliminary-evaluations',
             response_model=Response,
             response_model_exclude_none=True,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,
@@ -121,9 +121,10 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind == 'javascript_stdin':
+            if payload.kind in {'javascript_stdin', 'react'}:
                 answer = CodeAnswer(
                     question_key=payload.question_key,
+                    kind=payload.kind,
                     files=tuple(
                         CodeSubmittedFile(path=item.path, content=item.content)
                         for item in (payload.files or ())

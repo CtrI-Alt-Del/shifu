@@ -1,1 +1,1 @@
-
+from .gamification_seeder import GamificationSeeder as GamificationSeeder

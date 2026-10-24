@@ -1,3 +1,12 @@
+from .learner_memories_repository import (
+    SqlalchemyLearnerMemoriesRepository as SqlalchemyLearnerMemoriesRepository,
+)
+from .learner_memory_changes_repository import (
+    SqlalchemyLearnerMemoryChangesRepository as SqlalchemyLearnerMemoryChangesRepository,
+)
+from .mentor_action_proposals_repository import (
+    SqlalchemyMentorActionProposalsRepository as SqlalchemyMentorActionProposalsRepository,
+)
 from .mentor_attachment_batches_repository import (
     SqlalchemyMentorAttachmentBatchesRepository as SqlalchemyMentorAttachmentBatchesRepository,
 )
@@ -15,6 +24,9 @@ from .mentor_response_attempts_repository import (
 )
 from .mentor_response_events_repository import (
     SqlalchemyMentorResponseEventsRepository as SqlalchemyMentorResponseEventsRepository,
+)
+from .mentor_session_summaries_repository import (
+    SqlalchemyMentorSessionSummariesRepository as SqlalchemyMentorSessionSummariesRepository,
 )
 from .mentor_sessions_repository import (
     SqlalchemyMentorSessionsRepository as SqlalchemyMentorSessionsRepository,

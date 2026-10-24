@@ -1,6 +1,6 @@
 from typing import Annotated, Self
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from fastapi import Response as FastApiResponse
 from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
@@ -9,7 +9,7 @@ from shifu.intelligence.core.domain.structures import (
     MentorResponseSnapshot,
 )
 from shifu.intelligence.core.interfaces import (
-    GenerateMentorTitleWorkflow,
+    GenerateMentorTitleProvider,
     IntelligenceDatabase,
 )
 from shifu.intelligence.core.use_cases import CreateMentorSessionUseCase
@@ -59,7 +59,7 @@ class CreateMentorSessionController:
         @router.post(
             '/mentor-sessions',
             response_model=Response,
-            status_code=status.HTTP_201_CREATED,
+            status_code=201,
         )
         def _(
             request: Request,
@@ -80,16 +80,16 @@ class CreateMentorSessionController:
                 MentorAccessProvider,
                 Depends(IntelligencePipe.get_mentor_access_provider),
             ],
-            title_workflow: Annotated[
-                GenerateMentorTitleWorkflow,
-                Depends(IntelligencePipe.get_generate_mentor_title_workflow),
+            title_provider: Annotated[
+                GenerateMentorTitleProvider,
+                Depends(IntelligencePipe.get_generate_mentor_title_provider),
             ],
         ) -> Response:
             result = CreateMentorSessionUseCase(
                 database,
                 identifier_provider,
                 clock_provider,
-                title_workflow,
+                title_provider,
                 access_provider,
             ).execute(
                 user.account_id,
@@ -102,9 +102,7 @@ class CreateMentorSessionController:
                 tuple(request.attachment_ids),
             )
             response.headers['Cache-Control'] = 'private, no-store'
-            response.status_code = (
-                status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
-            )
+            response.status_code = 201 if result.created else 200
             return _RESPONSE_ADAPTER.validate_python(
                 result.detail, from_attributes=True
             )

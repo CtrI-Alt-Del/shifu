@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, Response, status
+from fastapi import APIRouter, Depends, Header, Path, Response
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import AbandonDiagnosticUseCase
@@ -19,7 +19,7 @@ class AbandonDiagnosticController:
         @router.post(
             '/goals/{goal_id}/skills/{skill_id}/diagnostic/abandon',
             response_model=None,
-            status_code=status.HTTP_204_NO_CONTENT,
+            status_code=204,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],
@@ -44,4 +44,4 @@ class AbandonDiagnosticController:
                 skill_id,
                 str(diagnostic_run_id),
             )
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+            return Response(status_code=204)

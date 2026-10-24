@@ -6,6 +6,7 @@ from fastapi import (
     Depends,
     Header,
     Path,
+    Request as FastAPIRequest,
     Response as FastAPIResponse,
     status,
 )
@@ -27,6 +28,11 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
 )
 from shifu.shared.pipes import AuthenticationPipe
+from shifu.shared.core.interfaces.telemetry_provider import (
+    TelemetryEventInput,
+    TelemetryProvider,
+)
+from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 
 _ULID_PATTERN = r'^[0-9A-Z]{26}$'
@@ -43,15 +49,16 @@ class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
     question_key: str
-    kind: Literal['single_choice', 'multiple_selection', 'javascript_stdin'] | None = (
-        None
-    )
+    kind: (
+        Literal['single_choice', 'multiple_selection', 'javascript_stdin', 'react']
+        | None
+    ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind == 'javascript_stdin':
+        if self.kind in {'javascript_stdin', 'react'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -87,6 +94,7 @@ class SubmitChoiceActivityController:
             status_code=status.HTTP_201_CREATED,
         )
         def _(
+            http_request: FastAPIRequest,
             request: Request,
             response: FastAPIResponse,
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],
@@ -110,6 +118,13 @@ class SubmitChoiceActivityController:
                 IdentifierProvider,
                 Depends(LearningPipe.get_identifier_provider),
             ],
+            telemetry_provider: Annotated[
+                TelemetryProvider | None,
+                Depends(TelemetryPipe.get_telemetry_provider),
+            ],
+            max_assessment_bytes: Annotated[
+                int, Depends(LearningPipe.get_max_code_assessment_input_bytes)
+            ],
             diagnostic_run_id: Annotated[
                 UUID | None,
                 Header(alias='X-Diagnostic-Run-Id'),
@@ -121,6 +136,7 @@ class SubmitChoiceActivityController:
                     provider,
                     clock,
                     identifiers,
+                    max_assessment_bytes,
                 ).execute(
                     user.account_id,
                     goal_id,
@@ -131,12 +147,13 @@ class SubmitChoiceActivityController:
                     tuple(
                         CodeAnswer(
                             question_key=answer.question_key,
+                            kind=answer.kind,
                             files=tuple(
                                 CodeSubmittedFile(path=item.path, content=item.content)
                                 for item in (answer.files or ())
                             ),
                         )
-                        if answer.kind == 'javascript_stdin'
+                        if answer.kind in {'javascript_stdin', 'react'}
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),
@@ -152,6 +169,17 @@ class SubmitChoiceActivityController:
             response.status_code = (
                 status.HTTP_200_OK if outcome.replayed else status.HTTP_201_CREATED
             )
+            if not outcome.replayed:
+                event: TelemetryEventInput = {
+                    'level': 'INFO',
+                    'event': 'learning.attempt.submitted',
+                    'operation': 'attempt.submit',
+                    'result': 'success',
+                }
+                request_id = TelemetryPipe.get_request_id(http_request)
+                if request_id is not None:
+                    event['request_id'] = request_id
+                TelemetryPipe.emit(telemetry_provider, event)
             return Response(
                 attempt_id=outcome.attempt.attempt_id,
                 status='pending',

@@ -15,6 +15,7 @@ from shifu.intelligence.core.domain.errors import (
     MentorAttachmentConflictError,
     MentorAttachmentInvalidError,
     MentorAttachmentNotFoundError,
+    MentorAttachmentTooLargeError,
 )
 from shifu.intelligence.core.domain.events import (
     MentorAttachmentCleanupRequestedEvent,
@@ -367,7 +368,6 @@ def test_invalid_upload_key_fails_before_validation_or_access(
     'uploaded_file',
     [
         _file(content=b''),
-        _file(content=b'x' * 2_000_001),
         _file(filename=''),
         _file(filename='n' * 256 + '.txt'),
         _file(filename='n' * 252 + '.txt'),
@@ -378,7 +378,6 @@ def test_invalid_upload_key_fails_before_validation_or_access(
     ],
     ids=[
         'empty-content',
-        'oversized-content',
         'empty-filename',
         'long-filename',
         'filename-over-255-boundary',
@@ -396,6 +395,22 @@ def test_invalid_file_fails_before_access_or_storage(
     with pytest.raises(MentorAttachmentInvalidError):
         subject.execute(_ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, uploaded_file)
 
+    dependencies['access'].authorize.assert_not_called()
+    dependencies['extractor'].validate.assert_not_called()
+    dependencies['storage'].put.assert_not_called()
+
+
+def test_oversized_file_fails_with_too_large_before_access_or_storage(
+    harness: _Harness,
+) -> None:
+    subject, dependencies = harness
+
+    with pytest.raises(MentorAttachmentTooLargeError) as error:
+        subject.execute(
+            _ACCOUNT_ID, _BATCH_ID, _UPLOAD_KEY, _file(content=b'x' * 2_000_001)
+        )
+
+    assert error.value.message == 'O arquivo excede o limite de 2 MB.'
     dependencies['access'].authorize.assert_not_called()
     dependencies['extractor'].validate.assert_not_called()
     dependencies['storage'].put.assert_not_called()

@@ -1,5 +1,6 @@
 import { AppError } from '@/core/errors/app-error'
 import type { RestStreamClient } from '@/core/shared/interfaces/rest-stream-client'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type {
   MentorContextHint,
   MentorResponseSnapshot,
@@ -17,6 +18,17 @@ import type {
   PlanningQuestion,
   PlanningSession,
 } from '@/core/intelligence/planning-session'
+import type {
+  EditLearnerMemoryInput,
+  LearnerMemory,
+  LearnerMemoryCategory,
+  ListLearnerMemoriesInput,
+  MentorConversationMemoryItem,
+} from '@/core/intelligence/learner-memory'
+import type {
+  MentorSessionSummaryContent,
+  MentorSessionSummaryState,
+} from '@/core/intelligence/mentor-session-summary'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -53,6 +65,9 @@ export type MentorSessionDetail = {
   messages: MentorMessagesPage
   pendingLearnerMessageId: string | null
   response?: MentorResponseSnapshot | null
+  summary: MentorSessionSummaryState
+  memoryItems: MentorConversationMemoryItem[]
+  actionItems: MentorActionProposal[]
 }
 
 export type CreateMentorSessionInput = {
@@ -126,6 +141,81 @@ type MentorSessionDetailDto = {
   messages: MentorMessagesPageDto
   pending_learner_message_id: string | null
   response?: MentorResponseSnapshotDto | null
+  summary?: MentorSessionSummaryStateDto
+  memory_items?: MentorConversationMemoryItemDto[]
+  action_items?: MentorActionProposalDto[]
+}
+
+export type MentorActionProposalDto = {
+  id: string
+  source_message_id: string
+  kind: MentorActionProposal['kind']
+  skill_id: string
+  skill_name: string
+  goal_id: string | null
+  goal_title: string | null
+  skill_experience_id: string | null
+  candidate_goals: {
+    goal_id: string
+    title: string
+    contains_skill: boolean
+    skill_experience_id: string | null
+  }[]
+  justification: string | null
+  status: MentorActionProposal['status']
+  outcome: MentorActionProposal['outcome']
+  rejection_reason: MentorActionProposal['rejectionReason']
+  resolved_goal_id: string | null
+  resolved_skill_experience_id: string | null
+  created_at: string
+}
+
+type MentorConversationMemoryItemDto = {
+  id: string
+  source_message_id: string
+  kind: 'created' | 'updated'
+  category: LearnerMemoryCategory
+  memory_id: string | null
+  content: string | null
+  previous_content: string | null
+  created_at: string
+}
+
+type LearnerMemoryDto = {
+  id: string
+  category: LearnerMemoryCategory
+  content: string
+  version: number
+  created_at: string
+  updated_at: string
+  origins: {
+    session_id: string
+    message_id: string | null
+    conversation_title: string | null
+    is_available: boolean
+    declared_at: string
+  }[]
+  concepts: { key: string; label: string }[]
+}
+
+type LearnerMemoriesDto = { items: LearnerMemoryDto[] }
+
+type MentorSessionSummaryStateDto = {
+  current: {
+    version: number
+    boundary_message_id: string
+    covered_message_count: number
+    completed_at: string
+    after_message_id?: string | null
+  } | null
+  failure_after_message_id: string | null
+}
+
+type MentorSessionSummaryContentDto = {
+  version: number
+  text: string
+  covered_message_count: number
+  first_message_id: string
 }
 
 type MentorResponseSnapshotDto = {
@@ -176,6 +266,35 @@ type PlanningSessionDto = {
   message: string | null
   failure_code: string | null
 }
+
+export function mapMentorActionProposal(
+  proposal: MentorActionProposalDto,
+): MentorActionProposal {
+  return {
+    id: proposal.id,
+    sourceMessageId: proposal.source_message_id,
+    kind: proposal.kind,
+    skillId: proposal.skill_id,
+    skillName: proposal.skill_name,
+    goalId: proposal.goal_id,
+    goalTitle: proposal.goal_title,
+    skillExperienceId: proposal.skill_experience_id,
+    candidateGoals: proposal.candidate_goals.map((candidate) => ({
+      goalId: candidate.goal_id,
+      title: candidate.title,
+      containsSkill: candidate.contains_skill,
+      skillExperienceId: candidate.skill_experience_id,
+    })),
+    justification: proposal.justification,
+    status: proposal.status,
+    outcome: proposal.outcome,
+    rejectionReason: proposal.rejection_reason,
+    resolvedGoalId: proposal.resolved_goal_id,
+    resolvedSkillExperienceId: proposal.resolved_skill_experience_id,
+    createdAt: proposal.created_at,
+  }
+}
+
 export type IntelligenceService = ReturnType<typeof IntelligenceService>
 
 export const IntelligenceService = (
@@ -280,6 +399,60 @@ export const IntelligenceService = (
       messages: mapMessagesPage(detail.messages),
       pendingLearnerMessageId: detail.pending_learner_message_id,
       response: detail.response ? mapSnapshot(detail.response) : null,
+      summary: mapSummaryState(detail.summary),
+      memoryItems: (detail.memory_items ?? []).map(mapMemoryItem),
+      actionItems: (detail.action_items ?? []).map(mapMentorActionProposal),
+    }
+  }
+  function mapMemoryItem(
+    item: MentorConversationMemoryItemDto,
+  ): MentorConversationMemoryItem {
+    return {
+      id: item.id,
+      sourceMessageId: item.source_message_id,
+      kind: item.kind,
+      category: item.category,
+      memoryId: item.memory_id,
+      content: item.content,
+      previousContent: item.previous_content,
+      createdAt: item.created_at,
+    }
+  }
+  function mapLearnerMemory(memory: LearnerMemoryDto): LearnerMemory {
+    return {
+      id: memory.id,
+      category: memory.category,
+      content: memory.content,
+      version: memory.version,
+      createdAt: memory.created_at,
+      updatedAt: memory.updated_at,
+      origins: memory.origins.map((origin) => ({
+        sessionId: origin.session_id,
+        messageId: origin.message_id,
+        conversationTitle: origin.conversation_title,
+        isAvailable: origin.is_available,
+        declaredAt: origin.declared_at,
+      })),
+      concepts: memory.concepts.map((concept) => ({
+        key: concept.key,
+        label: concept.label,
+      })),
+    }
+  }
+  function mapSummaryState(
+    summary: MentorSessionSummaryStateDto | undefined,
+  ): MentorSessionSummaryState {
+    return {
+      current: summary?.current
+        ? {
+            version: summary.current.version,
+            boundaryMessageId: summary.current.boundary_message_id,
+            coveredMessageCount: summary.current.covered_message_count,
+            completedAt: summary.current.completed_at,
+            afterMessageId: summary.current.after_message_id ?? null,
+          }
+        : null,
+      failureAfterMessageId: summary?.failure_after_message_id ?? null,
     }
   }
   function mapPlanningSession(session: PlanningSessionDto): PlanningSession {
@@ -455,6 +628,19 @@ export const IntelligenceService = (
       if (response.isFailure) response.throwError()
       return mapSnapshot(response.body)
     },
+    async declineMentorActionProposal(
+      accessToken: string,
+      sessionId: string,
+      proposalId: string,
+    ): Promise<MentorActionProposal> {
+      const response = await restClient.post<MentorActionProposalDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/action-proposals/${encodeURIComponent(proposalId)}/decline`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapMentorActionProposal(response.body)
+    },
     async openMentorResponseEvents(
       accessToken: string,
       input: { sessionId: string; afterSequence: number },
@@ -603,6 +789,23 @@ export const IntelligenceService = (
       return mapDetail(response.body)
     },
 
+    async getMentorSessionSummary(
+      accessToken: string,
+      sessionId: string,
+    ): Promise<MentorSessionSummaryContent> {
+      const response = await restClient.get<MentorSessionSummaryContentDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/summary`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return {
+        version: response.body.version,
+        text: response.body.text,
+        coveredMessageCount: response.body.covered_message_count,
+        firstMessageId: response.body.first_message_id,
+      }
+    },
+
     async renameMentorSession(
       accessToken: string,
       sessionId: string,
@@ -620,6 +823,53 @@ export const IntelligenceService = (
     async removeMentorSession(accessToken: string, sessionId: string): Promise<void> {
       const response = await restClient.delete<void>(
         `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+    },
+
+    async listLearnerMemories(
+      accessToken: string,
+      input: ListLearnerMemoriesInput,
+    ): Promise<LearnerMemory[]> {
+      const response = await restClient.get<LearnerMemoriesDto>(
+        '/intelligence/learner-memories',
+        { ...auth(accessToken), params: { q: input.q, category: input.category } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body.items.map(mapLearnerMemory)
+    },
+
+    async getLearnerMemory(
+      accessToken: string,
+      memoryId: string,
+    ): Promise<LearnerMemory> {
+      const response = await restClient.get<LearnerMemoryDto>(
+        `/intelligence/learner-memories/${memoryId}`,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapLearnerMemory(response.body)
+    },
+
+    async editLearnerMemory(
+      accessToken: string,
+      memoryId: string,
+      input: EditLearnerMemoryInput,
+    ): Promise<LearnerMemory> {
+      const response = await restClient.patch<LearnerMemoryDto>(
+        `/intelligence/learner-memories/${memoryId}`,
+        { content: input.content, expected_version: input.expectedVersion },
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapLearnerMemory(response.body)
+    },
+
+    async removeLearnerMemory(accessToken: string, memoryId: string): Promise<void> {
+      const response = await restClient.delete<void>(
+        `/intelligence/learner-memories/${memoryId}`,
         undefined,
         auth(accessToken),
       )

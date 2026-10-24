@@ -1,0 +1,1930 @@
+{
+  "format_version": 1,
+  "dataset_revision": "mentor-summary-synthetic-2026-10-18.1",
+  "language": "pt-BR",
+  "source_contract": "Spec mentor-conversation-summary rev1 RF-12 / CI-08; Intelligence PRD 83099649v9 RP-15, JN-19",
+  "provenance": {
+    "synthetic": true,
+    "contains_real_learner_data": false,
+    "label_policy": "Cada Dúvida e Orientação obrigatória marca a sentença verbatim (ou formulações equivalentes em any_of) que define a linha central da conversa; Assuntos listam substantivos ou identificadores de código centrais, com formas de superfície aceitas. Perguntas e dicas tangenciais, saudações e agradecimentos são distratores e nunca obrigatórios.",
+    "recall_rule": "Um item é recuperado quando um trecho extraído do tipo certo sobrepõe pelo menos metade de qualquer formulação anotada da mesma mensagem; um Assunto é recuperado quando algum assunto produzido contém uma de suas formas como palavra inteira."
+  },
+  "cases": [
+    {
+      "name": "lista_indice_laco",
+      "tags": ["programming-help", "lists"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Estou começando em Python e travei num exercício com lista."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Conte qual é o exercício e vamos resolver juntos."
+        },
+        {
+          "role": "learner",
+          "content": "Preciso mostrar todos os itens de uma lista de frutas. Meu laço não mostra o último item da lista."
+        },
+        {
+          "role": "mentor",
+          "content": "Obrigado por explicar. Veja quais índices `range` produz e compare com o tamanho da lista."
+        },
+        {
+          "role": "learner",
+          "content": "Escrevi assim:\n```python\nfrutas = ['maçã', 'banana', 'uva']\nfor i in range(len(frutas) - 1):\n    print(frutas[i])\n```\nPor que o range para antes da uva na minha lista de frutas?"
+        },
+        {
+          "role": "mentor",
+          "content": "O `range(n)` gera números de 0 até n-1, então o valor final nunca entra. Tire o menos um de `len(frutas)` e o laço percorre todos os índices da lista."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi! Funcionou agora. Obrigado."
+        },
+        {
+          "role": "mentor",
+          "content": "Que bom! Fico feliz em ajudar."
+        },
+        {
+          "role": "learner",
+          "content": "Mas por que a contagem do índice começa em zero e não em um?"
+        },
+        {
+          "role": "mentor",
+          "content": "Em Python o índice mede a distância desde o início da lista, por isso o primeiro item fica no índice zero. Lembre que o último índice da lista é sempre `len(lista) - 1`."
+        },
+        {
+          "role": "learner",
+          "content": "Qual editor de código você recomenda para estudar?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use um editor com realce de sintaxe, como o VS Code, para ler melhor o código."
+        },
+        {
+          "role": "learner",
+          "content": "Ok, vou instalar depois."
+        },
+        {
+          "role": "mentor",
+          "content": "Combinado. Voltando ao assunto, vamos ver como alterar itens."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu troco um item da lista usando o índice?"
+        },
+        {
+          "role": "mentor",
+          "content": "Atribua um novo valor ao índice, por exemplo `frutas[0] = 'pera'`. Confira depois imprimindo a lista inteira."
+        },
+        {
+          "role": "learner",
+          "content": "Testei e funcionou. Mas e se eu usar um índice maior que o tamanho da lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "O Python levanta um `IndexError` quando o índice não existe na lista. Verifique sempre se o índice é menor que `len(lista)` antes de acessar o item."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi o problema do índice. Vou praticar mais."
+        },
+        {
+          "role": "mentor",
+          "content": "Perfeito, a prática ajuda bastante."
+        },
+        {
+          "role": "learner",
+          "content": "Isso funciona do mesmo jeito em outras linguagens?"
+        },
+        {
+          "role": "mentor",
+          "content": "Depende da linguagem, mas a ideia de percorrer coleções existe em quase todas."
+        },
+        {
+          "role": "learner",
+          "content": "Certo, muito obrigado pela ajuda hoje!"
+        },
+        {
+          "role": "mentor",
+          "content": "De nada! Bons estudos e até a próxima."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Meu laço não mostra o último item da lista."]
+          },
+          {
+            "message": 4,
+            "any_of": ["Por que o range para antes da uva na minha lista de frutas?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["Mas por que a contagem do índice começa em zero e não em um?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Como eu troco um item da lista usando o índice?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Mas e se eu usar um índice maior que o tamanho da lista?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Veja quais índices `range` produz e compare com o tamanho da lista."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "O `range(n)` gera números de 0 até n-1, então o valor final nunca entra.",
+              "Tire o menos um de `len(frutas)` e o laço percorre todos os índices da lista."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Em Python o índice mede a distância desde o início da lista, por isso o primeiro item fica no índice zero.",
+              "Lembre que o último índice da lista é sempre `len(lista) - 1`."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Atribua um novo valor ao índice, por exemplo `frutas[0] = 'pera'`.",
+              "Confira depois imprimindo a lista inteira."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "O Python levanta um `IndexError` quando o índice não existe na lista.",
+              "Verifique sempre se o índice é menor que `len(lista)` antes de acessar o item."
+            ]
+          }
+        ],
+        "topics": [
+          ["lista", "listas"],
+          ["índice", "índices"],
+          ["range"],
+          ["laço", "laços", "for"]
+        ]
+      }
+    },
+    {
+      "name": "funcao_retorno_parametros",
+      "tags": ["programming-help", "functions"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Boa tarde! Estou com dúvida em funções."
+        },
+        {
+          "role": "mentor",
+          "content": "Boa tarde! Pode perguntar à vontade."
+        },
+        {
+          "role": "learner",
+          "content": "Criei uma função que soma dois números e, quando chamo, aparece None na tela. Por que a função retorna None em vez de mostrar a soma dos dois números?"
+        },
+        {
+          "role": "mentor",
+          "content": "Isso acontece quando a função não tem `return`. Sem `return`, o Python devolve `None` automaticamente."
+        },
+        {
+          "role": "learner",
+          "content": "Eu usei print dentro da função, então não é a mesma coisa que usar return?"
+        },
+        {
+          "role": "mentor",
+          "content": "Não é. O `print` só mostra o valor na tela, enquanto o `return` entrega o valor para quem chamou a função. Use `return` quando você precisar guardar o resultado em uma variável."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi. Vou guardar a soma em outra variável então."
+        },
+        {
+          "role": "mentor",
+          "content": "Escreva `resultado = soma(2, 3)` e depois use `resultado` como quiser."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado, ficou claro."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo!"
+        },
+        {
+          "role": "learner",
+          "content": "Como eu defino um parâmetro com valor padrão em uma função?"
+        },
+        {
+          "role": "mentor",
+          "content": "Coloque o valor depois do nome do parâmetro, por exemplo `def saudar(nome='aluno')`. Se a chamada não informar o argumento, o Python usa o valor padrão."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre parâmetro e argumento em uma função?"
+        },
+        {
+          "role": "mentor",
+          "content": "O parâmetro é o nome na definição da função, e o argumento é o valor que você passa na chamada. Lembre que a ordem dos argumentos importa quando você não usa nomes."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a melhor música para ouvir enquanto estudo?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira músicas sem letra para manter o foco na leitura do código."
+        },
+        {
+          "role": "learner",
+          "content": "Haha, vou tentar. Posso retornar mais de um valor em uma única função?"
+        },
+        {
+          "role": "mentor",
+          "content": "Pode. Separe os valores por vírgula no `return` e o Python devolve uma tupla com todos eles."
+        },
+        {
+          "role": "learner",
+          "content": "Perfeito, agora tudo faz sentido."
+        },
+        {
+          "role": "mentor",
+          "content": "Excelente! Pratique criando funções pequenas."
+        },
+        {
+          "role": "learner",
+          "content": "Vou praticar. Até mais!"
+        },
+        {
+          "role": "mentor",
+          "content": "Até mais!"
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": [
+              "Por que a função retorna None em vez de mostrar a soma dos dois números?"
+            ]
+          },
+          {
+            "message": 4,
+            "any_of": [
+              "Eu usei print dentro da função, então não é a mesma coisa que usar return?"
+            ]
+          },
+          {
+            "message": 10,
+            "any_of": ["Como eu defino um parâmetro com valor padrão em uma função?"]
+          },
+          {
+            "message": 12,
+            "any_of": ["Qual é a diferença entre parâmetro e argumento em uma função?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Posso retornar mais de um valor em uma única função?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Isso acontece quando a função não tem `return`.",
+              "Sem `return`, o Python devolve `None` automaticamente."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "O `print` só mostra o valor na tela, enquanto o `return` entrega o valor para quem chamou a função.",
+              "Use `return` quando você precisar guardar o resultado em uma variável."
+            ]
+          },
+          {
+            "message": 11,
+            "any_of": [
+              "Coloque o valor depois do nome do parâmetro, por exemplo `def saudar(nome='aluno')`.",
+              "Se a chamada não informar o argumento, o Python usa o valor padrão."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "O parâmetro é o nome na definição da função, e o argumento é o valor que você passa na chamada.",
+              "Lembre que a ordem dos argumentos importa quando você não usa nomes."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "Separe os valores por vírgula no `return` e o Python devolve uma tupla com todos eles."
+            ]
+          }
+        ],
+        "topics": [
+          ["função", "funções"],
+          ["return"],
+          ["parâmetro", "parâmetros"],
+          ["argumento", "argumentos"]
+        ]
+      }
+    },
+    {
+      "name": "string_fatiamento",
+      "tags": ["programming-help", "strings"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Olá! Hoje quero entender melhor as strings."
+        },
+        {
+          "role": "mentor",
+          "content": "Olá! Vamos lá, o que você já tentou?"
+        },
+        {
+          "role": "learner",
+          "content": "Tenho uma palavra e preciso mostrar só o começo dela. Como eu pego só as três primeiras letras de uma palavra?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use o fatiamento `palavra[0:3]` para pegar as três primeiras letras."
+        },
+        {
+          "role": "learner",
+          "content": "Funcionou. Mas por que palavra[1:3] não inclui a letra da posição três?"
+        },
+        {
+          "role": "mentor",
+          "content": "O fim da fatia é exclusivo, então a posição final nunca entra no resultado."
+        },
+        {
+          "role": "learner",
+          "content": "Agora entendi o fatiamento."
+        },
+        {
+          "role": "mentor",
+          "content": "Que bom! Vamos continuar."
+        },
+        {
+          "role": "learner",
+          "content": "O que significam os índices negativos em uma string?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use o índice `-1` para apontar a última letra, e `-2` para a penúltima."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é o melhor curso de inglês técnico para programadores?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira materiais com legendas quando for estudar inglês técnico."
+        },
+        {
+          "role": "learner",
+          "content": "Vou procurar então."
+        },
+        {
+          "role": "mentor",
+          "content": "Combinado. Voltando às strings, tente alterar uma letra."
+        },
+        {
+          "role": "learner",
+          "content": "Por que dá erro quando eu tento trocar uma letra da string?"
+        },
+        {
+          "role": "mentor",
+          "content": "Strings são imutáveis, por isso você precisa criar uma nova string em vez de alterar a original."
+        },
+        {
+          "role": "learner",
+          "content": "Posso inverter uma string sem usar um laço?"
+        },
+        {
+          "role": "mentor",
+          "content": "Pode sim. Use `palavra[::-1]` para inverter o texto."
+        },
+        {
+          "role": "learner",
+          "content": "Que legal, nem imaginava que era tão simples."
+        },
+        {
+          "role": "mentor",
+          "content": "A linguagem tem muitos atalhos assim."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado pela explicação!"
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha!"
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Como eu pego só as três primeiras letras de uma palavra?"]
+          },
+          {
+            "message": 4,
+            "any_of": ["Mas por que palavra[1:3] não inclui a letra da posição três?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["O que significam os índices negativos em uma string?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Por que dá erro quando eu tento trocar uma letra da string?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Posso inverter uma string sem usar um laço?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Use o fatiamento `palavra[0:3]` para pegar as três primeiras letras."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "O fim da fatia é exclusivo, então a posição final nunca entra no resultado."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Use o índice `-1` para apontar a última letra, e `-2` para a penúltima."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Strings são imutáveis, por isso você precisa criar uma nova string em vez de alterar a original."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": ["Use `palavra[::-1]` para inverter o texto."]
+          }
+        ],
+        "topics": [
+          ["string", "strings"],
+          ["fatiamento", "fatia", "fatias"],
+          ["índice", "índices"],
+          ["letra", "letras"]
+        ]
+      }
+    },
+    {
+      "name": "condicionais_logicos",
+      "tags": ["programming-help", "conditionals"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi, preciso de ajuda com condicionais."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Me conte o que está acontecendo no seu código."
+        },
+        {
+          "role": "learner",
+          "content": "Escrevi um programa que decide se a pessoa é maior de idade. Por que meu if sempre executa o bloco mesmo quando a idade é menor que dezoito?"
+        },
+        {
+          "role": "mentor",
+          "content": "Verifique se você usou `==` para comparar, porque `=` apenas atribui um valor. Compare a idade com 18 usando o operador `<` e confira o resultado imprimindo a condição."
+        },
+        {
+          "role": "learner",
+          "content": "Certo, troquei e deu certo."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo!"
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre = e == em uma condição?"
+        },
+        {
+          "role": "mentor",
+          "content": "Lembre que o `=` guarda um valor em uma variável, e o `==` pergunta se dois valores são iguais."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu verifico duas condições ao mesmo tempo no mesmo if?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `and` quando as duas condições precisam ser verdadeiras e `or` quando basta uma delas."
+        },
+        {
+          "role": "learner",
+          "content": "Você também programa nas horas livres?"
+        },
+        {
+          "role": "mentor",
+          "content": "Gosto de ajudar pessoas a aprender, é o que mais me anima."
+        },
+        {
+          "role": "learner",
+          "content": "Quando devo usar elif em vez de vários ifs separados?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira `elif` quando as condições são excludentes, porque o Python para na primeira verdadeira."
+        },
+        {
+          "role": "learner",
+          "content": "O que acontece quando nenhuma condição do if e do elif é verdadeira?"
+        },
+        {
+          "role": "mentor",
+          "content": "O bloco `else` executa somente quando todas as condições anteriores forem falsas."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi, agora faz sentido."
+        },
+        {
+          "role": "mentor",
+          "content": "Lembre de descansar a vista a cada hora de estudo."
+        },
+        {
+          "role": "learner",
+          "content": "Pode deixar, obrigado!"
+        },
+        {
+          "role": "mentor",
+          "content": "Até a próxima."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": [
+              "Por que meu if sempre executa o bloco mesmo quando a idade é menor que dezoito?"
+            ]
+          },
+          {
+            "message": 6,
+            "any_of": ["Qual é a diferença entre = e == em uma condição?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["Como eu verifico duas condições ao mesmo tempo no mesmo if?"]
+          },
+          {
+            "message": 12,
+            "any_of": ["Quando devo usar elif em vez de vários ifs separados?"]
+          },
+          {
+            "message": 14,
+            "any_of": [
+              "O que acontece quando nenhuma condição do if e do elif é verdadeira?"
+            ]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Verifique se você usou `==` para comparar, porque `=` apenas atribui um valor.",
+              "Compare a idade com 18 usando o operador `<` e confira o resultado imprimindo a condição."
+            ]
+          },
+          {
+            "message": 7,
+            "any_of": [
+              "Lembre que o `=` guarda um valor em uma variável, e o `==` pergunta se dois valores são iguais."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Use `and` quando as duas condições precisam ser verdadeiras e `or` quando basta uma delas."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "Prefira `elif` quando as condições são excludentes, porque o Python para na primeira verdadeira."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "O bloco `else` executa somente quando todas as condições anteriores forem falsas."
+            ]
+          }
+        ],
+        "topics": [["if"], ["elif"], ["else"], ["condição", "condições"]]
+      }
+    },
+    {
+      "name": "dicionarios_chaves",
+      "tags": ["programming-help", "dictionaries"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Comecei a estudar dicionários em Python."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Que bom, é um tema muito útil."
+        },
+        {
+          "role": "learner",
+          "content": "Criei um dicionário com as notas dos alunos. Como eu acesso o valor de uma chave dentro de um dicionário?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use colchetes com a chave, por exemplo `notas['ana']`, para acessar o valor."
+        },
+        {
+          "role": "learner",
+          "content": "Funcionou. Por que aparece KeyError quando a chave não existe no dicionário?"
+        },
+        {
+          "role": "mentor",
+          "content": "O `KeyError` acontece porque a chave procurada não existe, então verifique com `in` antes de acessar."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi, vou usar o in."
+        },
+        {
+          "role": "mentor",
+          "content": "Perfeito."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu percorro todas as chaves e valores do dicionário com um laço?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use o método `items()` para receber cada chave e cada valor a cada volta do laço."
+        },
+        {
+          "role": "learner",
+          "content": "Será que vale a pena estudar inteligência artificial depois de Python?"
+        },
+        {
+          "role": "mentor",
+          "content": "Explore projetos pequenos de dados quando terminar o básico de Python."
+        },
+        {
+          "role": "learner",
+          "content": "Boa ideia, vou anotar."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo. Vamos voltar aos dicionários?"
+        },
+        {
+          "role": "learner",
+          "content": "Posso usar uma lista como chave de um dicionário?"
+        },
+        {
+          "role": "mentor",
+          "content": "Chaves precisam ser imutáveis, então listas não funcionam como chave, mas tuplas funcionam."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre um dicionário e uma lista em Python?"
+        },
+        {
+          "role": "mentor",
+          "content": "O dicionário guarda pares de chave e valor, enquanto a lista guarda itens por posição."
+        },
+        {
+          "role": "learner",
+          "content": "Agora ficou muito claro, obrigado."
+        },
+        {
+          "role": "mentor",
+          "content": "Fico contente. Bons estudos!"
+        },
+        {
+          "role": "learner",
+          "content": "Valeu!"
+        },
+        {
+          "role": "mentor",
+          "content": "Até logo."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Como eu acesso o valor de uma chave dentro de um dicionário?"]
+          },
+          {
+            "message": 4,
+            "any_of": [
+              "Por que aparece KeyError quando a chave não existe no dicionário?"
+            ]
+          },
+          {
+            "message": 8,
+            "any_of": [
+              "Como eu percorro todas as chaves e valores do dicionário com um laço?"
+            ]
+          },
+          {
+            "message": 14,
+            "any_of": ["Posso usar uma lista como chave de um dicionário?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Qual é a diferença entre um dicionário e uma lista em Python?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Use colchetes com a chave, por exemplo `notas['ana']`, para acessar o valor."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "O `KeyError` acontece porque a chave procurada não existe, então verifique com `in` antes de acessar."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Use o método `items()` para receber cada chave e cada valor a cada volta do laço."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Chaves precisam ser imutáveis, então listas não funcionam como chave, mas tuplas funcionam."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "O dicionário guarda pares de chave e valor, enquanto a lista guarda itens por posição."
+            ]
+          }
+        ],
+        "topics": [
+          ["dicionário", "dicionários"],
+          ["chave", "chaves"],
+          ["valor", "valores"],
+          ["KeyError"],
+          ["items"]
+        ]
+      }
+    },
+    {
+      "name": "while_laco_infinito",
+      "tags": ["programming-help", "loops"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Bom dia! Meu programa travou e não sei por quê."
+        },
+        {
+          "role": "mentor",
+          "content": "Bom dia! Conte o que ele deveria fazer."
+        },
+        {
+          "role": "learner",
+          "content": "Ele repete uma pergunta usando while. Por que meu while nunca termina e trava o programa?"
+        },
+        {
+          "role": "mentor",
+          "content": "Verifique se a variável da condição muda dentro do laço, porque senão o `while` nunca termina."
+        },
+        {
+          "role": "learner",
+          "content": "Ah, eu esqueci de mudar a variável."
+        },
+        {
+          "role": "mentor",
+          "content": "Isso é muito comum no começo."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu faço o contador aumentar a cada repetição do laço while?"
+        },
+        {
+          "role": "mentor",
+          "content": "Some um ao contador no fim de cada volta, por exemplo `contador += 1`."
+        },
+        {
+          "role": "learner",
+          "content": "Posso estudar programação pelo celular durante a viagem?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use aplicativos de prática no celular para treinar a sintaxe durante viagens."
+        },
+        {
+          "role": "learner",
+          "content": "Vou baixar um agora."
+        },
+        {
+          "role": "mentor",
+          "content": "Boa. Voltando ao laço."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre break e continue dentro do laço?"
+        },
+        {
+          "role": "mentor",
+          "content": "O `break` encerra o laço inteiro, enquanto o `continue` pula apenas para a próxima volta."
+        },
+        {
+          "role": "learner",
+          "content": "Quando devo usar while em vez de for?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `while` quando você não sabe quantas repetições serão necessárias, e `for` quando já sabe."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu peço a senha ao usuário até ele acertar?"
+        },
+        {
+          "role": "mentor",
+          "content": "Repita o `input` dentro do `while` e compare a resposta com a senha correta para decidir quando parar."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi, vou testar."
+        },
+        {
+          "role": "mentor",
+          "content": "Me conte depois como foi."
+        },
+        {
+          "role": "learner",
+          "content": "Combinado, obrigado!"
+        },
+        {
+          "role": "mentor",
+          "content": "Até mais."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Por que meu while nunca termina e trava o programa?"]
+          },
+          {
+            "message": 6,
+            "any_of": ["Como eu faço o contador aumentar a cada repetição do laço while?"]
+          },
+          {
+            "message": 12,
+            "any_of": ["Qual é a diferença entre break e continue dentro do laço?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Quando devo usar while em vez de for?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Como eu peço a senha ao usuário até ele acertar?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Verifique se a variável da condição muda dentro do laço, porque senão o `while` nunca termina."
+            ]
+          },
+          {
+            "message": 7,
+            "any_of": [
+              "Some um ao contador no fim de cada volta, por exemplo `contador += 1`."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "O `break` encerra o laço inteiro, enquanto o `continue` pula apenas para a próxima volta."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Use `while` quando você não sabe quantas repetições serão necessárias, e `for` quando já sabe."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "Repita o `input` dentro do `while` e compare a resposta com a senha correta para decidir quando parar."
+            ]
+          }
+        ],
+        "topics": [["while"], ["laço", "laços"], ["contador"], ["break"]]
+      }
+    },
+    {
+      "name": "codigo_extenso_com_comentarios",
+      "tags": ["programming-help", "code-heavy", "fenced-code"],
+      "note": "Fenced blocks contain comment lines that look like doubts and guidance and must never be excerpted.",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Segue meu código completo, ele imprime várias linhas:\n```python\n# Por que a média sai repetida três vezes?\nnotas = [7, 8, 9]\nsoma = 0\nfor nota in notas:\n    soma += nota\n    print(soma / len(notas))\n# Use len(notas) para dividir\n```\nPor que o programa imprime três valores em vez de uma única média das notas?"
+        },
+        {
+          "role": "mentor",
+          "content": "Vi o código.\n```python\n# Veja que o print está dentro do laço\nfor nota in notas:\n    soma += nota\n    print(soma / len(notas))\n```\nO print está indentado dentro do laço, então ele roda a cada nota."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi. Tentei assim:\n~~~python\nfor nota in notas:\n    soma += nota\nprint(soma / len(notas))  # Como eu arredondo isso?\n~~~\nFuncionou, mas como eu coloco o print fora do laço para mostrar apenas o resultado final?"
+        },
+        {
+          "role": "mentor",
+          "content": "Remova a indentação do print para que ele execute somente depois do laço terminar."
+        },
+        {
+          "role": "learner",
+          "content": "Agora a média saiu 8.0. Rodei também este teste:\n```python\nprint(17 // 2)\nprint(17 / 2)\n# Qual é a diferença entre os dois?\n# Lembre que // descarta a parte fracionária\n```\nQual é a diferença entre dividir com / e com // na média?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `/` para obter a divisão decimal, porque `//` descarta a parte fracionária."
+        },
+        {
+          "role": "learner",
+          "content": "Ótimo. Também quero mostrar duas casas decimais:\n```python\nmedia = soma / len(notas)\nprint(media)  # Use round aqui?\n```\nComo eu arredondo a média para duas casas decimais?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `round(media, 2)` para arredondar a média para duas casas decimais.\n```python\nprint(round(media, 2))\n```"
+        },
+        {
+          "role": "learner",
+          "content": "Última versão:\n```python\nnotas = []\nsoma = 0\nfor nota in notas:\n    soma += nota\n# Verifique se a lista está vazia antes de dividir\nprint(soma / len(notas))\n```\nO que acontece se a lista de notas estiver vazia?"
+        },
+        {
+          "role": "mentor",
+          "content": "Verifique se a lista tem itens antes de dividir, porque dividir por zero levanta `ZeroDivisionError`."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado, agora meu código está certo."
+        },
+        {
+          "role": "mentor",
+          "content": "Excelente trabalho."
+        },
+        {
+          "role": "learner",
+          "content": "Só para registrar, o código final ficou assim:\n```python\nnotas = [7, 8, 9]\nsoma = sum(notas)\nif notas:\n    print(round(soma / len(notas), 2))\n```\n"
+        },
+        {
+          "role": "mentor",
+          "content": "Está ótimo, parabéns."
+        },
+        {
+          "role": "learner",
+          "content": "Até a próxima, valeu!"
+        },
+        {
+          "role": "mentor",
+          "content": "Até mais."
+        },
+        {
+          "role": "learner",
+          "content": "Fui!"
+        },
+        {
+          "role": "mentor",
+          "content": "Tchau!"
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado de novo."
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 0,
+            "any_of": [
+              "Por que o programa imprime três valores em vez de uma única média das notas?"
+            ]
+          },
+          {
+            "message": 2,
+            "any_of": [
+              "Funcionou, mas como eu coloco o print fora do laço para mostrar apenas o resultado final?"
+            ]
+          },
+          {
+            "message": 4,
+            "any_of": ["Qual é a diferença entre dividir com / e com // na média?"]
+          },
+          {
+            "message": 6,
+            "any_of": ["Como eu arredondo a média para duas casas decimais?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["O que acontece se a lista de notas estiver vazia?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 1,
+            "any_of": [
+              "O print está indentado dentro do laço, então ele roda a cada nota."
+            ]
+          },
+          {
+            "message": 3,
+            "any_of": [
+              "Remova a indentação do print para que ele execute somente depois do laço terminar."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "Use `/` para obter a divisão decimal, porque `//` descarta a parte fracionária."
+            ]
+          },
+          {
+            "message": 7,
+            "any_of": [
+              "Use `round(media, 2)` para arredondar a média para duas casas decimais."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Verifique se a lista tem itens antes de dividir, porque dividir por zero levanta `ZeroDivisionError`."
+            ]
+          }
+        ],
+        "topics": [["média", "notas"], ["print"], ["laço"], ["ZeroDivisionError"]]
+      }
+    },
+    {
+      "name": "saudacoes_e_conversa_fiada",
+      "tags": ["greetings", "filler"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Tudo bem?"
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Tudo ótimo, e com você?"
+        },
+        {
+          "role": "learner",
+          "content": "Tudo bem também, estou muito animado com o curso. As aulas estão ótimas e a plataforma está muito bonita."
+        },
+        {
+          "role": "mentor",
+          "content": "Que bom ouvir isso! Fico feliz em ajudar."
+        },
+        {
+          "role": "learner",
+          "content": "Hoje o dia está lindo aqui, nem parece que vai chover."
+        },
+        {
+          "role": "mentor",
+          "content": "Aproveite o dia então!"
+        },
+        {
+          "role": "learner",
+          "content": "Valeu! Mas olha, travei num exercício. Como eu converto o texto digitado pelo usuário em um número inteiro?"
+        },
+        {
+          "role": "mentor",
+          "content": "Boa pergunta! Use `int(input())` para converter o texto digitado em um número inteiro."
+        },
+        {
+          "role": "learner",
+          "content": "Que legal, deu certo! Valeu mesmo."
+        },
+        {
+          "role": "mentor",
+          "content": "Vamos lá, continue!"
+        },
+        {
+          "role": "learner",
+          "content": "kkk fiquei feliz. Ah, e outra coisa."
+        },
+        {
+          "role": "mentor",
+          "content": "Pode falar."
+        },
+        {
+          "role": "learner",
+          "content": "Por que a soma de dois números digitados aparece colada, como 23 em vez de 5?"
+        },
+        {
+          "role": "mentor",
+          "content": "A função `input` sempre devolve texto, por isso o operador `+` concatena em vez de somar."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi, muito obrigado!"
+        },
+        {
+          "role": "mentor",
+          "content": "De nada, sempre que precisar."
+        },
+        {
+          "role": "learner",
+          "content": "Tenha um ótimo fim de semana!"
+        },
+        {
+          "role": "mentor",
+          "content": "Você também!"
+        },
+        {
+          "role": "learner",
+          "content": "Ah, só mais uma coisa. O que acontece se o usuário digitar uma letra no lugar de um número?"
+        },
+        {
+          "role": "mentor",
+          "content": "Quando o valor não é numérico, o Python levanta um `ValueError`, então trate o erro com `try` e `except`."
+        },
+        {
+          "role": "learner",
+          "content": "Perfeito, anotei tudo."
+        },
+        {
+          "role": "mentor",
+          "content": "Excelente!"
+        },
+        {
+          "role": "learner",
+          "content": "Bom descanso!"
+        },
+        {
+          "role": "mentor",
+          "content": "Bom descanso para você também."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado!"
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha!"
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 6,
+            "any_of": [
+              "Como eu converto o texto digitado pelo usuário em um número inteiro?"
+            ]
+          },
+          {
+            "message": 12,
+            "any_of": [
+              "Por que a soma de dois números digitados aparece colada, como 23 em vez de 5?"
+            ]
+          },
+          {
+            "message": 18,
+            "any_of": [
+              "O que acontece se o usuário digitar uma letra no lugar de um número?"
+            ]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 7,
+            "any_of": [
+              "Use `int(input())` para converter o texto digitado em um número inteiro."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "A função `input` sempre devolve texto, por isso o operador `+` concatena em vez de somar."
+            ]
+          },
+          {
+            "message": 19,
+            "any_of": [
+              "Quando o valor não é numérico, o Python levanta um `ValueError`, então trate o erro com `try` e `except`."
+            ]
+          }
+        ],
+        "topics": [["input"], ["int"], ["texto"], ["número", "números"]]
+      }
+    },
+    {
+      "name": "mudanca_de_assunto_variaveis_arquivos",
+      "tags": ["topic-change", "programming-help"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Quero começar entendendo variáveis."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Boa escolha, vamos começar por aí."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu descubro o tipo de uma variável em Python?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `type(variavel)` para descobrir o tipo do valor guardado."
+        },
+        {
+          "role": "learner",
+          "content": "Por que a variável idade vira texto quando eu uso aspas no valor, como idade = '18'?"
+        },
+        {
+          "role": "mentor",
+          "content": "Valores entre aspas são strings, por isso o Python não trata `'18'` como número."
+        },
+        {
+          "role": "learner",
+          "content": "Certo, isso ficou claro."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo, o assunto de variáveis é a base de tudo."
+        },
+        {
+          "role": "learner",
+          "content": "Você sabe quantos alunos já fizeram este curso?"
+        },
+        {
+          "role": "mentor",
+          "content": "Não tenho esse número, mas há muita gente estudando."
+        },
+        {
+          "role": "learner",
+          "content": "Legal. Mudando de assunto, agora preciso trabalhar com arquivos."
+        },
+        {
+          "role": "mentor",
+          "content": "Combinado, vamos para arquivos."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu abro um arquivo de texto e leio todas as linhas dele?"
+        },
+        {
+          "role": "mentor",
+          "content": "Abra o arquivo com `open('dados.txt')` e percorra as linhas com um laço `for`."
+        },
+        {
+          "role": "learner",
+          "content": "Funcionou! Por que o arquivo precisa ser fechado depois de lido?"
+        },
+        {
+          "role": "mentor",
+          "content": "Feche o arquivo com `close()` porque o sistema mantém o recurso aberto até esse momento."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi. O que o with open faz de diferente do open simples?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira `with open` porque ele fecha o arquivo sozinho, mesmo se acontecer um erro."
+        },
+        {
+          "role": "learner",
+          "content": "Perfeito, vou usar o with daqui para frente."
+        },
+        {
+          "role": "mentor",
+          "content": "Muito bem."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado pela ajuda!"
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha!"
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Como eu descubro o tipo de uma variável em Python?"]
+          },
+          {
+            "message": 4,
+            "any_of": [
+              "Por que a variável idade vira texto quando eu uso aspas no valor, como idade = '18'?"
+            ]
+          },
+          {
+            "message": 12,
+            "any_of": ["Como eu abro um arquivo de texto e leio todas as linhas dele?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Por que o arquivo precisa ser fechado depois de lido?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["O que o with open faz de diferente do open simples?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": ["Use `type(variavel)` para descobrir o tipo do valor guardado."]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "Valores entre aspas são strings, por isso o Python não trata `'18'` como número."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "Abra o arquivo com `open('dados.txt')` e percorra as linhas com um laço `for`."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Feche o arquivo com `close()` porque o sistema mantém o recurso aberto até esse momento."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "Prefira `with open` porque ele fecha o arquivo sozinho, mesmo se acontecer um erro."
+            ]
+          }
+        ],
+        "topics": [
+          ["variável", "variáveis"],
+          ["tipo", "type"],
+          ["arquivo", "arquivos"],
+          ["with open", "with"]
+        ]
+      }
+    },
+    {
+      "name": "listas_metodos_proximos",
+      "tags": ["near-topic", "lists"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Quero aprender os métodos das listas."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Vamos ver os principais."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu adiciono um item no final da lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `append` para adicionar um item ao final da lista."
+        },
+        {
+          "role": "learner",
+          "content": "Deu certo. Qual é a diferença entre remove e pop em uma lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "O `remove` apaga o primeiro item com aquele valor, enquanto o `pop` remove pela posição e devolve o item."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo."
+        },
+        {
+          "role": "learner",
+          "content": "Por que a lista original muda depois de ordenar com sort?"
+        },
+        {
+          "role": "mentor",
+          "content": "O método `sort` altera a própria lista, então use `sorted` quando quiser manter a original."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é o melhor livro de Python para iniciantes?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira livros com muitos exercícios práticos."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado pela dica."
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha. Voltando às listas."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu copio uma lista sem alterar a original?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use `lista.copy()` ou o fatiamento `lista[:]` para criar uma cópia independente."
+        },
+        {
+          "role": "learner",
+          "content": "Posso ter listas dentro de outra lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "Pode sim, e você acessa o item interno com dois índices, como `matriz[0][1]`."
+        },
+        {
+          "role": "learner",
+          "content": "Muito bom, vou treinar."
+        },
+        {
+          "role": "mentor",
+          "content": "Boa prática."
+        },
+        {
+          "role": "learner",
+          "content": "Valeu pela ajuda."
+        },
+        {
+          "role": "mentor",
+          "content": "Sempre à disposição."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Como eu adiciono um item no final da lista?"]
+          },
+          {
+            "message": 4,
+            "any_of": ["Qual é a diferença entre remove e pop em uma lista?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["Por que a lista original muda depois de ordenar com sort?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Como eu copio uma lista sem alterar a original?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Posso ter listas dentro de outra lista?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": ["Use `append` para adicionar um item ao final da lista."]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "O `remove` apaga o primeiro item com aquele valor, enquanto o `pop` remove pela posição e devolve o item."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "O método `sort` altera a própria lista, então use `sorted` quando quiser manter a original."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Use `lista.copy()` ou o fatiamento `lista[:]` para criar uma cópia independente."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "Pode sim, e você acessa o item interno com dois índices, como `matriz[0][1]`."
+            ]
+          }
+        ],
+        "topics": [["lista", "listas"], ["append"], ["pop"], ["sort", "sorted"]]
+      }
+    },
+    {
+      "name": "tuplas_imutaveis_proximas",
+      "tags": ["near-topic", "tuples"],
+      "note": "",
+      "split_after": null,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Agora quero entender as tuplas."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Elas lembram as listas, mas têm diferenças importantes."
+        },
+        {
+          "role": "learner",
+          "content": "Por que dá erro quando eu tento mudar um item da tupla?"
+        },
+        {
+          "role": "mentor",
+          "content": "A tupla é imutável, por isso o Python não permite atribuir um novo valor a um item dela."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre tupla e lista na prática?"
+        },
+        {
+          "role": "mentor",
+          "content": "A lista pode ser alterada depois de criada, enquanto a tupla permanece fixa."
+        },
+        {
+          "role": "learner",
+          "content": "Certo, entendi."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu crio uma tupla com um único elemento?"
+        },
+        {
+          "role": "mentor",
+          "content": "Escreva uma vírgula depois do elemento, como `(5,)`, para o Python reconhecer a tupla."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é o melhor livro de Python para iniciantes?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira livros com muitos exercícios práticos."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado pela dica."
+        },
+        {
+          "role": "mentor",
+          "content": "Disponha. Voltando às tuplas."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu separo os valores de uma tupla em variáveis diferentes?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use o desempacotamento, por exemplo `x, y = ponto`, para atribuir cada valor a uma variável."
+        },
+        {
+          "role": "learner",
+          "content": "Quando vale a pena usar tupla em vez de lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira tupla para dados que não devem mudar, como coordenadas fixas."
+        },
+        {
+          "role": "learner",
+          "content": "Muito bom, vou treinar."
+        },
+        {
+          "role": "mentor",
+          "content": "Boa prática."
+        },
+        {
+          "role": "learner",
+          "content": "Valeu pela ajuda."
+        },
+        {
+          "role": "mentor",
+          "content": "Sempre à disposição."
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["Por que dá erro quando eu tento mudar um item da tupla?"]
+          },
+          {
+            "message": 4,
+            "any_of": ["Qual é a diferença entre tupla e lista na prática?"]
+          },
+          {
+            "message": 8,
+            "any_of": ["Como eu crio uma tupla com um único elemento?"]
+          },
+          {
+            "message": 14,
+            "any_of": ["Como eu separo os valores de uma tupla em variáveis diferentes?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Quando vale a pena usar tupla em vez de lista?"]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "A tupla é imutável, por isso o Python não permite atribuir um novo valor a um item dela."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "A lista pode ser alterada depois de criada, enquanto a tupla permanece fixa."
+            ]
+          },
+          {
+            "message": 9,
+            "any_of": [
+              "Escreva uma vírgula depois do elemento, como `(5,)`, para o Python reconhecer a tupla."
+            ]
+          },
+          {
+            "message": 15,
+            "any_of": [
+              "Use o desempacotamento, por exemplo `x, y = ponto`, para atribuir cada valor a uma variável."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "Prefira tupla para dados que não devem mudar, como coordenadas fixas."
+            ]
+          }
+        ],
+        "topics": [
+          ["tupla", "tuplas"],
+          ["elemento", "elementos"],
+          ["desempacotamento"],
+          ["lista", "listas"]
+        ]
+      }
+    },
+    {
+      "name": "recursao_com_resumo_anterior",
+      "tags": ["previous-summary", "programming-help"],
+      "note": "Summarize messages[:split_after] first, then fold that summary into messages[split_after:].",
+      "split_after": 14,
+      "messages": [
+        {
+          "role": "learner",
+          "content": "Oi! Estou com dificuldade em recursão."
+        },
+        {
+          "role": "mentor",
+          "content": "Oi! Vamos devagar, recursão confunde mesmo no início."
+        },
+        {
+          "role": "learner",
+          "content": "O que é recursão e quando uma função chama ela mesma?"
+        },
+        {
+          "role": "mentor",
+          "content": "Recursão é quando uma função chama a si mesma para resolver uma versão menor do mesmo problema."
+        },
+        {
+          "role": "learner",
+          "content": "Por que preciso de um caso base na função recursiva?"
+        },
+        {
+          "role": "mentor",
+          "content": "Escreva sempre o caso base primeiro, porque ele é a condição que faz a função parar de chamar a si mesma."
+        },
+        {
+          "role": "learner",
+          "content": "Entendi mais ou menos."
+        },
+        {
+          "role": "mentor",
+          "content": "Vamos praticar com um exemplo."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é o melhor horário do dia para estudar programação?"
+        },
+        {
+          "role": "mentor",
+          "content": "Prefira estudar quando você estiver descansado e sem distrações."
+        },
+        {
+          "role": "learner",
+          "content": "Vou tentar de manhã."
+        },
+        {
+          "role": "mentor",
+          "content": "Boa estratégia."
+        },
+        {
+          "role": "learner",
+          "content": "Como eu escrevo o fatorial de forma recursiva?"
+        },
+        {
+          "role": "mentor",
+          "content": "Defina que o fatorial de 0 é 1 e que o fatorial de n é `n * fatorial(n - 1)`."
+        },
+        {
+          "role": "learner",
+          "content": "Deu certo para o cinco!"
+        },
+        {
+          "role": "mentor",
+          "content": "Que bom!"
+        },
+        {
+          "role": "learner",
+          "content": "Mas apareceu RecursionError quando eu esqueci o caso base. Por que dá RecursionError quando eu esqueço o caso base?"
+        },
+        {
+          "role": "mentor",
+          "content": "A função chama a si mesma sem parar, então o Python interrompe com `RecursionError` ao estourar o limite de chamadas."
+        },
+        {
+          "role": "learner",
+          "content": "Faz sentido."
+        },
+        {
+          "role": "mentor",
+          "content": "Sim."
+        },
+        {
+          "role": "learner",
+          "content": "Qual é a diferença entre recursão e laço para calcular o fatorial?"
+        },
+        {
+          "role": "mentor",
+          "content": "Use o laço quando a repetição for simples, porque ele gasta menos memória, e prefira a recursão quando o problema se divide naturalmente em partes menores."
+        },
+        {
+          "role": "learner",
+          "content": "Nossa, agora entendi bem."
+        },
+        {
+          "role": "mentor",
+          "content": "Fico feliz."
+        },
+        {
+          "role": "learner",
+          "content": "Posso aplicar recursão para somar os itens de uma lista?"
+        },
+        {
+          "role": "mentor",
+          "content": "Pode. Some o primeiro item com a soma do restante da lista e pare quando a lista estiver vazia."
+        },
+        {
+          "role": "learner",
+          "content": "Vou treinar bastante."
+        },
+        {
+          "role": "mentor",
+          "content": "Ótimo."
+        },
+        {
+          "role": "learner",
+          "content": "Obrigado por tudo!"
+        },
+        {
+          "role": "mentor",
+          "content": "De nada!"
+        }
+      ],
+      "expected": {
+        "doubts": [
+          {
+            "message": 2,
+            "any_of": ["O que é recursão e quando uma função chama ela mesma?"]
+          },
+          {
+            "message": 4,
+            "any_of": ["Por que preciso de um caso base na função recursiva?"]
+          },
+          {
+            "message": 12,
+            "any_of": ["Como eu escrevo o fatorial de forma recursiva?"]
+          },
+          {
+            "message": 16,
+            "any_of": ["Por que dá RecursionError quando eu esqueço o caso base?"]
+          },
+          {
+            "message": 20,
+            "any_of": [
+              "Qual é a diferença entre recursão e laço para calcular o fatorial?"
+            ]
+          }
+        ],
+        "guidance": [
+          {
+            "message": 3,
+            "any_of": [
+              "Recursão é quando uma função chama a si mesma para resolver uma versão menor do mesmo problema."
+            ]
+          },
+          {
+            "message": 5,
+            "any_of": [
+              "Escreva sempre o caso base primeiro, porque ele é a condição que faz a função parar de chamar a si mesma."
+            ]
+          },
+          {
+            "message": 13,
+            "any_of": [
+              "Defina que o fatorial de 0 é 1 e que o fatorial de n é `n * fatorial(n - 1)`."
+            ]
+          },
+          {
+            "message": 17,
+            "any_of": [
+              "A função chama a si mesma sem parar, então o Python interrompe com `RecursionError` ao estourar o limite de chamadas."
+            ]
+          },
+          {
+            "message": 21,
+            "any_of": [
+              "Use o laço quando a repetição for simples, porque ele gasta menos memória, e prefira a recursão quando o problema se divide naturalmente em partes menores."
+            ]
+          }
+        ],
+        "topics": [["recursão"], ["caso base", "base"], ["fatorial"], ["RecursionError"]]
+      }
+    }
+  ]
+}
