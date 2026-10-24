@@ -122,7 +122,9 @@ class PlanGoalWorkflow(Workflow):
         classify_use_case: ClassifyPlanningIntentUseCase,
         retrieve_use_case: RetrievePlanningSkillsUseCase,
         interview_agent: PlanningInterviewAgent,
+        interview_fallback_agent: PlanningInterviewAgent,
         proposal_agent: PlanningProposalAgent,
+        proposal_fallback_agent: PlanningProposalAgent,
         identifier_provider: IdentifierProvider,
         handoffs: AgentOSHandoffStore,
     ) -> None:
@@ -131,7 +133,9 @@ class PlanGoalWorkflow(Workflow):
         self._classify = classify_use_case
         self._retrieve = retrieve_use_case
         self._interview = interview_agent
+        self._interview_fallback = interview_fallback_agent
         self._proposal = proposal_agent
+        self._proposal_fallback = proposal_fallback_agent
         self._identifiers = identifier_provider
         self._handoffs = handoffs
         super().__init__(
@@ -181,7 +185,9 @@ class PlanGoalWorkflow(Workflow):
             classify_use_case=self._classify,
             retrieve_use_case=self._retrieve,
             interview_agent=copy_agent(self._interview),
+            interview_fallback_agent=copy_agent(self._interview_fallback),
             proposal_agent=copy_agent(self._proposal),
+            proposal_fallback_agent=copy_agent(self._proposal_fallback),
             identifier_provider=self._identifiers,
             handoffs=self._handoffs,
         )
@@ -236,9 +242,11 @@ class PlanGoalWorkflow(Workflow):
         if len(context.answered_batches) >= MAX_BATCHES:
             return self._store(state, 'continue')
         try:
-            output = PlanningInterviewOutput.model_validate(
-                self._run_agent(self._interview, self._interview_payload(state)),
-                strict=True,
+            output = self._run_with_fallback(
+                self._interview,
+                self._interview_fallback,
+                PlanningInterviewOutput,
+                self._interview_payload(state),
             )
         except Exception:  # noqa: BLE001 - private model failures fail closed.
             return self._finish(state, self._failed(state))
@@ -258,9 +266,11 @@ class PlanGoalWorkflow(Workflow):
         if context is None or state.result is not None:
             return self._store(state, 'done')
         try:
-            output = PlanningProposalOutput.model_validate(
-                self._run_agent(self._proposal, self._proposal_payload(state)),
-                strict=True,
+            output = self._run_with_fallback(
+                self._proposal,
+                self._proposal_fallback,
+                PlanningProposalOutput,
+                self._proposal_payload(state),
             )
         except Exception:  # noqa: BLE001 - private model failures fail closed.
             return self._finish(state, self._failed(state))
@@ -334,6 +344,23 @@ class PlanGoalWorkflow(Workflow):
         except (ValidationError, ValueError, TypeError):
             return True
         return reference.decision != 'retry'
+
+    def _run_with_fallback[Output: BaseModel](
+        self,
+        primary: Agent,
+        fallback: Agent,
+        output_type: type[Output],
+        payload: dict[str, object],
+    ) -> Output:
+        """Ask the primary model; a transport or schema failure asks the fallback once."""
+        try:
+            return output_type.model_validate(
+                self._run_agent(primary, payload), strict=True
+            )
+        except Exception:  # noqa: BLE001 - any primary failure is recoverable by the fallback.
+            return output_type.model_validate(
+                self._run_agent(fallback, payload), strict=True
+            )
 
     def _run_agent(self, agent: Agent, payload: dict[str, object]) -> object:
         with mentor_transport_failure_scope() as failure:

@@ -74,10 +74,11 @@ class ControlledMentorModelTransport:
         # Planner scenarios: queued outputs are consumed in order, then defaults apply.
         self.planner_interview_outputs: list[dict[str, object]] = []
         self.planner_proposal_outputs: list[dict[str, object]] = []
-        self.planner_fail_next = 0
+        self.planner_failing_models: set[str] = set()
         self.planner_gate: Event | None = None
         self.planner_block_first = 0
         self.planner_requests: list[dict[str, object]] = []
+        self.planner_models: list[str] = []
 
     def build_client(self) -> OpenAI:
         client = OpenAI(
@@ -201,12 +202,13 @@ class ControlledMentorModelTransport:
         self, payload: dict[str, object], output: dict[str, object]
     ) -> httpx2.Response:
         self.planner_requests.append(self._find_payload(payload, 'intent'))
+        model = str(payload.get('model'))
+        self.planner_models.append(model)
         if self.planner_block_first > 0 and self.planner_gate is not None:
             self.planner_block_first -= 1
             # Long enough for a slow runner to observe the operation timeout first.
             self.planner_gate.wait(timeout=90)
-        if self.planner_fail_next > 0:
-            self.planner_fail_next -= 1
+        if model in self.planner_failing_models:
             return httpx2.Response(500, json={'error': 'Planner model unavailable'})
         return httpx2.Response(
             200,
@@ -506,11 +508,17 @@ def agentos_fixture(
 
     original_planner_build = OpenrouterPlannerModelProvider.build
 
-    def controlled_planner_model(settings: Settings) -> MentorOpenAIChat | None:
-        model = original_planner_build(settings)
+    def controlled_planner_model(
+        settings: Settings,
+        *,
+        profile: Literal['primary', 'fallback'] = 'primary',
+    ) -> MentorOpenAIChat | None:
+        model = original_planner_build(settings, profile=profile)
         if model is None:
-            raise AssertionError('Registered AgentOS planner model is unavailable')
-        model_transport.model_profiles.append('planner')
+            raise AssertionError(
+                f'Registered AgentOS planner model profile is unavailable: {profile}'
+            )
+        model_transport.model_profiles.append(f'planner-{profile}')
         model.client = model_transport.build_client()
         return model
 

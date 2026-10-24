@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from itertools import groupby
 from threading import Event
 from time import monotonic, sleep
 from typing import TYPE_CHECKING, cast
@@ -274,6 +275,52 @@ class TestPlanGoalWorkflow:
             )
             == 4
         )
+
+    def test_should_compose_with_luna_when_deepseek_fails(
+        self, planner_runtime: RegisteredAgentOSFixture
+    ) -> None:
+        transport = planner_runtime.model_transport
+        transport.planner_failing_models = {'deepseek/deepseek-v4.1-flash'}
+        planning_id = _start(
+            planner_runtime, 'Quero aprender a construir sites com HTML, CSS e React'
+        )
+
+        body = _wait(planner_runtime, planning_id)
+
+        assert body['status'] == 'proposal'
+        # Each step asks DeepSeek first and Luna only after its failure; the SDK may
+        # repeat a failed request, so consecutive calls to one model are collapsed.
+        assert [model for model, _ in groupby(transport.planner_models)] == [
+            'deepseek/deepseek-v4.1-flash',
+            'openai/gpt-6-luna',
+            'deepseek/deepseek-v4.1-flash',
+            'openai/gpt-6-luna',
+        ]
+        first_fallback = transport.planner_models.index('openai/gpt-6-luna')
+        assert (
+            transport.planner_requests[first_fallback]
+            == (transport.planner_requests[0])
+        )
+
+    def test_should_fail_when_deepseek_and_luna_fail(
+        self, planner_runtime: RegisteredAgentOSFixture
+    ) -> None:
+        transport = planner_runtime.model_transport
+        transport.planner_failing_models = {
+            'deepseek/deepseek-v4.1-flash',
+            'openai/gpt-6-luna',
+        }
+        planning_id = _start(planner_runtime, 'Quero aprender React')
+
+        body = _wait(planner_runtime, planning_id)
+
+        assert body['status'] == 'failed'
+        assert body['failure_code'] == 'service_unavailable'
+        assert body['proposal'] is None
+        assert [model for model, _ in groupby(transport.planner_models)] == [
+            'deepseek/deepseek-v4.1-flash',
+            'openai/gpt-6-luna',
+        ]
 
     def test_should_recover_from_a_classification_failure_through_retry(
         self, planner_runtime: RegisteredAgentOSFixture

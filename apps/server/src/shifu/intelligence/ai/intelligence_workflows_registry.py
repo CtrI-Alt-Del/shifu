@@ -424,15 +424,30 @@ class IntelligenceWorkflowsRegistry:
                 self._planning_redis_client, settings.planning_session_ttl_seconds
             )
         )
-        planner_model = OpenrouterPlannerModelProvider.build(settings)
+        planner_model = OpenrouterPlannerModelProvider.build(
+            settings, profile='primary'
+        )
+        planner_fallback_model = OpenrouterPlannerModelProvider.build(
+            settings, profile='fallback'
+        )
         interview_agent = (
             PlanningInterviewAgent(planner_model)
             if planner_model is not None
             else cast('PlanningInterviewAgent', _UnavailablePlanningAgent())
         )
+        interview_fallback_agent = (
+            PlanningInterviewAgent(planner_fallback_model)
+            if planner_fallback_model is not None
+            else cast('PlanningInterviewAgent', _UnavailablePlanningAgent())
+        )
         proposal_agent = (
             PlanningProposalAgent(planner_model)
             if planner_model is not None
+            else cast('PlanningProposalAgent', _UnavailablePlanningAgent())
+        )
+        proposal_fallback_agent = (
+            PlanningProposalAgent(planner_fallback_model)
+            if planner_fallback_model is not None
             else cast('PlanningProposalAgent', _UnavailablePlanningAgent())
         )
         plan_goal_workflow = PlanGoalWorkflow(
@@ -454,7 +469,9 @@ class IntelligenceWorkflowsRegistry:
                 ),
             ),
             interview_agent=interview_agent,
+            interview_fallback_agent=interview_fallback_agent,
             proposal_agent=proposal_agent,
+            proposal_fallback_agent=proposal_fallback_agent,
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,
         )

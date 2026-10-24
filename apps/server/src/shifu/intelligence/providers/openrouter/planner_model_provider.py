@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from shifu.intelligence.ai.agno.models.mentor_openai_chat import MentorOpenAIChat
 from shifu.shared.settings import Settings
@@ -6,18 +6,26 @@ from shifu.shared.settings import Settings
 
 class OpenrouterPlannerModelProvider:
     _BASE_URL: ClassVar[str] = 'https://openrouter.ai/api/v1'
-    _MODEL_ID: ClassVar[str] = 'deepseek/deepseek-v4.1-flash'
     _TIMEOUT_SECONDS: ClassVar[float] = 60.0
+    _MODEL_IDS: ClassVar[dict[str, str]] = {
+        'primary': 'deepseek/deepseek-v4.1-flash',
+        'fallback': 'openai/gpt-6-luna',
+    }
 
     @classmethod
-    def build(cls, settings: Settings) -> MentorOpenAIChat | None:
+    def build(
+        cls,
+        settings: Settings,
+        *,
+        profile: Literal['primary', 'fallback'] = 'primary',
+    ) -> MentorOpenAIChat | None:
         if (
             not settings.openrouter_api_key
             or not settings.openrouter_prompt_logging_disabled
         ):
             return None
         return MentorOpenAIChat(
-            id=cls._MODEL_ID,
+            id=cls._MODEL_IDS[profile],
             api_key=settings.openrouter_api_key,
             base_url=cls._BASE_URL,
             timeout=cls._TIMEOUT_SECONDS,
