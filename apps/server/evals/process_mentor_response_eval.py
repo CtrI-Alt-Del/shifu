@@ -33,7 +33,7 @@ class ProcessMentorResponseEval(Eval):
 
     selector = 'process-mentor-response'
     workflow_id = 'intelligence-process-mentor-response'
-    prompt_revision = 'mentor-response-eval-v2'
+    prompt_revision = 'mentor-response-eval-v3'
 
     ATTACHMENT_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
     CHUNK_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAW'
