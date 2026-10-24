@@ -148,9 +148,14 @@ class TestPurgeMentorActionProposalsOnAccountDeletedJob:
             inngest_fixture, ids, account_id, unexpected='must be rejected'
         )
 
-        inngest_fixture.wait_for_log(
-            f'mentor_action_account_deletion_payload_rejected event_id={event_id}'
+        failure_log = inngest_fixture.wait_for_log(
+            f'"event":"job.failed","event_id":"{event_id}"'
         )
+        assert (
+            '"job":"intelligence.purge_mentor_action_proposals_on_account_deleted"'
+            in failure_log
+        )
+        assert '"exception_type":"NonRetriableError"' in failure_log
         with inngest_fixture.inspection_session() as session:
             assert session.get(MentorActionProposalModel, proposal.id) is not None
             assert _proposal_count(session, account_id) == 1

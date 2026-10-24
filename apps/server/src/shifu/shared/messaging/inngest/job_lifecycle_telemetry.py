@@ -44,6 +44,15 @@ _JOB_BY_FUNCTION_ID: dict[str, TelemetryJob] = {
     'intelligence-purge-mentor-summaries-on-account-deleted': (
         'intelligence.purge_mentor_summaries_on_account_deleted'
     ),
+    'intelligence-purge-learner-memories-on-account-deleted': (
+        'intelligence.purge_learner_memories_on_account_deleted'
+    ),
+    'intelligence-purge-mentor-action-proposals-on-account-deleted': (
+        'intelligence.purge_mentor_action_proposals_on_account_deleted'
+    ),
+    'intelligence-record-mentor-action-outcome': (
+        'intelligence.record_mentor_action_outcome'
+    ),
     'identity-record-communication-delivery-state': (
         'identity.record_communication_delivery_state'
     ),

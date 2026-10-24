@@ -63,6 +63,7 @@ last_updated_at: 2026-10-24
 | ACH-07 | The changed-file server CI command selected three controller/job test files twice. | medium | CI-02, CI-04, CI-08 | Resolved by removing the lower duplicate entries; each affected filename now occurs once and `git diff --check` passes. |
 | ACH-08 | Final independent review initially reported the CI duplicate selections above. | informational | F9 / affected workflow coverage | Rechecked after correction; no unresolved contract, architecture, privacy, runtime-correlation or coverage finding remains. |
 | ACH-09 | PR review identified redundant standalone Web telemetry tests, including the fetch stream client test; these tests no longer represented required product behavior after the current `main` test composition. | medium | Review feedback / Web test scope | Resolved by removing the ten newly added standalone Web tests while retaining the existing route-handler adaptations and updating the server-function mock for both current `createServerFn` chaining forms. Web typecheck, lint, architecture, focused test and full coverage passed. |
+| ACH-10 | Hosted integration shards exposed three current-main Intelligence jobs still asserting only legacy unstructured rejection logs, which SHIFU-94 suppresses. | high | CI-04 / Server integration shards | Resolved by registering the jobs in the shared lifecycle telemetry wrapper and asserting the structured `job.failed` event by event id with `NonRetriableError`; focused checks and the hosted rerun remain pending. |
 
 # Lessons Learned
 

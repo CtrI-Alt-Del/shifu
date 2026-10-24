@@ -1,7 +1,6 @@
 """Record the Learning outcome of a confirmed Mentor action on its proposal."""
 
 import asyncio
-import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import ClassVar, Literal, Self, cast
@@ -17,8 +16,10 @@ from pydantic import (
 )
 
 from shifu.intelligence.core.use_cases import RecordMentorActionOutcomeUseCase
-
-LOGGER = logging.getLogger(__name__)
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class _Payload(BaseModel):
@@ -91,26 +92,25 @@ class RecordMentorActionOutcomeJob:
         use_case: RecordMentorActionOutcomeUseCase,
         *,
         outcome_event_name: str,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=RecordMentorActionOutcomeJob.FUNCTION_ID,
             trigger=TriggerEvent(event=outcome_event_name),
             retries=3,
         )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=RecordMentorActionOutcomeJob.FUNCTION_ID,
+            max_attempts=4,
+        )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
-            try:
-                payload = await context.step.run(
-                    'normalize_payload',
-                    RecordMentorActionOutcomeJob._normalize_payload,
-                    data,
-                )
-            except NonRetriableError:
-                LOGGER.warning(
-                    'mentor_action_outcome_payload_rejected event_id=%s',
-                    context.event.id,
-                )
-                raise
+            payload = await context.step.run(
+                'normalize_payload',
+                RecordMentorActionOutcomeJob._normalize_payload,
+                data,
+            )
             await context.step.run(
                 'record_mentor_action_outcome',
                 RecordMentorActionOutcomeJob._record,
