@@ -240,7 +240,9 @@ class TestPurgeLearnerMemoriesOnAccountDeletedJob:
         )
 
         failure_log = inngest_fixture.wait_for_log(
-            f'"event":"job.failed","event_id":"{event_id}"'
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.purge_learner_memories_on_account_deleted"'
         )
         assert (
             '"job":"intelligence.purge_learner_memories_on_account_deleted"'

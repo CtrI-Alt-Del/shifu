@@ -271,7 +271,9 @@ class TestRecordMentorActionOutcomeJob:
         )
 
         failure_log = inngest_fixture.wait_for_log(
-            f'"event":"job.failed","event_id":"{event_id}"'
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.record_mentor_action_outcome"'
         )
         assert '"job":"intelligence.record_mentor_action_outcome"' in failure_log
         assert '"exception_type":"NonRetriableError"' in failure_log
@@ -299,7 +301,9 @@ class TestRecordMentorActionOutcomeJob:
         event_id = _publish_outcome(inngest_fixture, ids, proposal, **changes)
 
         failure_log = inngest_fixture.wait_for_log(
-            f'"event":"job.failed","event_id":"{event_id}"'
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.record_mentor_action_outcome"'
         )
         assert '"job":"intelligence.record_mentor_action_outcome"' in failure_log
         assert '"exception_type":"NonRetriableError"' in failure_log

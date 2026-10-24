@@ -149,7 +149,9 @@ class TestPurgeMentorActionProposalsOnAccountDeletedJob:
         )
 
         failure_log = inngest_fixture.wait_for_log(
-            f'"event":"job.failed","event_id":"{event_id}"'
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.purge_mentor_action_proposals_on_account_deleted"'
         )
         assert (
             '"job":"intelligence.purge_mentor_action_proposals_on_account_deleted"'
