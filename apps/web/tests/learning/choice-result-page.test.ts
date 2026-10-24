@@ -442,6 +442,161 @@ test('renders the HTML/CSS/JavaScript attempt as historical read-only content', 
   ).toHaveCount(0)
 })
 
+test.describe('Activity XP reward band integration', () => {
+  const ids = LearningRouteIdsFaker.fake()
+  const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
+  const attemptPath = `${activityPath}/attempts/${ids.attemptId}`
+  const activity = ChoiceActivityDetailFaker.fake({
+    activityId: ids.activityId,
+    title: 'Somar os números pares',
+    latestAttemptId: ids.attemptId,
+    questions: [
+      ChoiceQuestionFaker.fake({
+        key: 'q1',
+        prompt: 'Qual é o resultado?',
+        options: [
+          { key: 'a', text: '4' },
+          { key: 'b', text: '6' },
+        ],
+      }),
+    ],
+  })
+  const completed = ChoiceAttemptDetailFaker.fake({
+    attemptId: ids.attemptId,
+    activityId: ids.activityId,
+    status: 'completed',
+    score: 67,
+    progressBefore: 50,
+    progressAfter: 55,
+    questions: [
+      ChoiceResultQuestionFaker.fake({
+        key: 'q1',
+        prompt: 'Qual é o resultado?',
+        submittedOptionKeys: ['b'],
+        score: 100,
+        isCorrect: true,
+        explanation: 'A soma é 6.',
+      }),
+    ],
+  })
+
+  test('requests the reward endpoint for the attempt and renders a granted band beside the unchanged result', async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    let rewardCalled = false
+
+    await bff.route(async (route) => {
+      const url = route.request().url()
+      const body = route.request().postData() ?? ''
+      const payload = decodeURIComponent(`${url} ${body}`)
+      if (serverFnExport(url)?.startsWith('getActivityXpReward_')) {
+        rewardCalled = true
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              kind: 'success',
+              reward: {
+                activityId: ids.activityId,
+                attemptId: ids.attemptId,
+                state: 'granted',
+                additionalXp: 6,
+                grantedXp: 6,
+                maximumXp: 10,
+              },
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.attemptId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: completed }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.activityId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: activity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fallback()
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+    ).toBeVisible()
+    await expect(authenticatedPage.getByText('+6 XP')).toBeVisible()
+    await expect(
+      authenticatedPage.getByLabel('Nota da Atividade 67 de 100'),
+    ).toBeVisible()
+    await expect.poll(() => rewardCalled).toBe(true)
+  })
+
+  test('shows a pending reward statement while Gamification has not confirmed it, without altering the Learning result', async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    await bff.route(async (route) => {
+      const url = route.request().url()
+      const body = route.request().postData() ?? ''
+      const payload = decodeURIComponent(`${url} ${body}`)
+      if (serverFnExport(url)?.startsWith('getActivityXpReward_')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              kind: 'success',
+              reward: {
+                activityId: ids.activityId,
+                attemptId: ids.attemptId,
+                state: 'pending',
+                additionalXp: 0,
+                grantedXp: 0,
+                maximumXp: null,
+              },
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.attemptId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: completed }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes(ids.activityId)) {
+        await route.fulfill({
+          body: JSON.stringify({ result: activity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fallback()
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByText('Confirmando o XP desta Atividade'),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByLabel('Nota da Atividade 67 de 100'),
+    ).toBeVisible()
+  })
+})
+
 test.describe('ChoiceResultPage route coverage', () => {
   const ids = LearningRouteIdsFaker.fake()
   const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
