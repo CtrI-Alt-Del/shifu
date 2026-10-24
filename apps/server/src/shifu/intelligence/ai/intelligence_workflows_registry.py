@@ -32,8 +32,10 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
     PurgeLearnerMemoriesForAccountUseCase,
+    PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
+    RecordMentorActionOutcomeUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
     ReleaseMentorAttachmentClaimUseCase,
@@ -116,6 +118,7 @@ if TYPE_CHECKING:
         MentorAccessProvider,
         MentorCatalogProvider,
         MentorContextProvider,
+        MentorGoalDestinationsProvider,
         OutboxEvent,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
@@ -205,6 +208,7 @@ class IntelligenceWorkflowsRegistry:
         access_provider: MentorAccessProvider,
         context_provider: MentorContextProvider,
         catalog_provider: MentorCatalogProvider,
+        mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
@@ -373,9 +377,14 @@ class IntelligenceWorkflowsRegistry:
             self._learner_memory_similarity_provider,
             self._memory_resources.manifest.relevance_threshold,
             generation_limit,
+            mentor_goal_destinations_provider,
         )
         publish_response_block = PublishMentorResponseBlockUseCase(
-            self._database, self._clock_provider, access_provider, context_provider
+            self._database,
+            self._clock_provider,
+            access_provider,
+            context_provider,
+            self._identifier_provider,
         )
         assert_response_current = AssertMentorResponseCurrentUseCase(
             self._database, self._clock_provider, access_provider
@@ -420,6 +429,12 @@ class IntelligenceWorkflowsRegistry:
         )
         self._purge_learner_memories_use_case = PurgeLearnerMemoriesForAccountUseCase(
             self._database
+        )
+        self._purge_mentor_action_proposals_use_case = (
+            PurgeMentorActionProposalsForAccountUseCase(self._database)
+        )
+        self._record_mentor_action_outcome_use_case = RecordMentorActionOutcomeUseCase(
+            self._database, self._clock_provider
         )
         process_workflow = AgnoProcessMentorResponseWorkflow(
             summarize_use_case=summarize_context,
@@ -531,6 +546,18 @@ class IntelligenceWorkflowsRegistry:
     @property
     def purge_learner_memories_use_case(self) -> PurgeLearnerMemoriesForAccountUseCase:
         return self._purge_learner_memories_use_case
+
+    @property
+    def purge_mentor_action_proposals_use_case(
+        self,
+    ) -> PurgeMentorActionProposalsForAccountUseCase:
+        return self._purge_mentor_action_proposals_use_case
+
+    @property
+    def record_mentor_action_outcome_use_case(
+        self,
+    ) -> RecordMentorActionOutcomeUseCase:
+        return self._record_mentor_action_outcome_use_case
 
     @property
     def learner_memory_analyzer_provider(self) -> LearnerMemoryAnalyzerProvider:

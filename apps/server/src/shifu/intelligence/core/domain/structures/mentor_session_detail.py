@@ -1,4 +1,7 @@
 from shifu.intelligence.core.domain.entities import MentorSession
+from shifu.intelligence.core.domain.structures.mentor_action_proposal_item import (
+    MentorActionProposalItem,
+)
 from shifu.intelligence.core.domain.structures.mentor_conversation_memory_item import (
     MentorConversationMemoryItem,
 )
@@ -22,3 +25,4 @@ class MentorSessionDetail:
     response: MentorResponseSnapshot | None = None
     summary: MentorSessionSummaryState = MentorSessionSummaryState()
     memory_items: tuple[MentorConversationMemoryItem, ...] = ()
+    action_items: tuple[MentorActionProposalItem, ...] = ()

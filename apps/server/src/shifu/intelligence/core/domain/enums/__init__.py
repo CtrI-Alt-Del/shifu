@@ -17,3 +17,13 @@ from .learner_memory_category import LearnerMemoryCategory as LearnerMemoryCateg
 from .learner_memory_change_kind import (
     LearnerMemoryChangeKind as LearnerMemoryChangeKind,
 )
+from .mentor_action_kind import MentorActionKind as MentorActionKind
+from .mentor_action_proposal_status import (
+    MentorActionProposalStatus as MentorActionProposalStatus,
+)
+from .mentor_action_proposal_outcome import (
+    MentorActionProposalOutcome as MentorActionProposalOutcome,
+)
+from .mentor_action_proposal_rejection_reason import (
+    MentorActionProposalRejectionReason as MentorActionProposalRejectionReason,
+)

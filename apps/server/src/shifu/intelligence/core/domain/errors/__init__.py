@@ -46,3 +46,9 @@ from .learner_memory_conflict_error import (
 from .learner_memory_content_invalid_error import (
     LearnerMemoryContentInvalidError as LearnerMemoryContentInvalidError,
 )
+from .mentor_action_pending_error import (
+    MentorActionPendingError as MentorActionPendingError,
+)
+from .mentor_action_proposal_finalized_error import (
+    MentorActionProposalFinalizedError as MentorActionProposalFinalizedError,
+)

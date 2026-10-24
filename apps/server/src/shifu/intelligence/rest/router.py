@@ -21,6 +21,9 @@ from shifu.intelligence.rest.controllers.upload_mentor_attachment_controller imp
 from shifu.intelligence.rest.controllers.create_mentor_session_controller import (
     CreateMentorSessionController,
 )
+from shifu.intelligence.rest.controllers.decline_mentor_action_proposal_controller import (
+    DeclineMentorActionProposalController,
+)
 from shifu.intelligence.rest.controllers.edit_learner_memory_controller import (
     EditLearnerMemoryController,
 )
@@ -77,6 +80,7 @@ class IntelligenceRouter:
         CancelMentorResponseController.handle(router)
         RetryMentorResponseController.handle(router)
         StreamMentorResponseController.handle(router)
+        DeclineMentorActionProposalController.handle(router)
         CreateMentorAttachmentBatchController.handle(router)
         UploadMentorAttachmentController.handle(router)
         GetMentorAttachmentBatchController.handle(router)

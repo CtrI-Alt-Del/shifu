@@ -18,6 +18,7 @@ from shifu.intelligence.core.domain.enums import (
 )
 from shifu.intelligence.core.domain.structures import (
     LearnerMemoryContext,
+    MentorActionProposalDraft,
     MentorAttachmentContext,
     MentorConversationSummaryContext,
     MentorGenerationRequest,
@@ -35,6 +36,10 @@ from shifu.intelligence.core.interfaces import (
 from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case import (
     GetMentorAttachmentContextUseCase,
 )
+from shifu.intelligence.core.use_cases.mentor_action_planner import (
+    MentorActionPlan,
+    MentorActionPlanner,
+)
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
     start_response_attempt,
@@ -46,6 +51,7 @@ from shifu.shared.core.interfaces import (
     MentorAccessProvider,
     MentorCatalogProvider,
     MentorContextProvider,
+    MentorGoalDestinationsProvider,
 )
 
 
@@ -87,6 +93,7 @@ class PrepareMentorResponseUseCase:
         memory_similarity: LearnerMemorySimilarityProvider,
         memory_relevance_threshold: float,
         generation_limit_provider: MentorGenerationLimitProvider,
+        goal_destinations_provider: MentorGoalDestinationsProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
@@ -98,6 +105,9 @@ class PrepareMentorResponseUseCase:
         self._memory_similarity = memory_similarity
         self._memory_relevance_threshold = memory_relevance_threshold
         self._generation_limit = generation_limit_provider
+        self._action_planner = MentorActionPlanner(
+            catalog_provider, goal_destinations_provider, route_provider
+        )
 
     def execute(
         self, attempt_id: str, execution_owner: str
@@ -191,6 +201,9 @@ class PrepareMentorResponseUseCase:
         route = self._propose_catalog(
             attempt, learner.content, context, route, execution_owner
         )
+        action = self._plan_action(attempt, learner.content, context, hints, route)
+        if action is not None:
+            route = self._with_action(route, action)
         if statement_only and not self._attachment_ids(
             learner, route.generation_requests
         ):
@@ -206,6 +219,7 @@ class PrepareMentorResponseUseCase:
             if snapshot is not None and snapshot.attempt_id == attempt.id
             else ()
         )
+        action_proposal = self._retained_draft(action, local_blocks)
         attachment_context = self._attachment_context(
             learner,
             requests,
@@ -268,7 +282,65 @@ class PrepareMentorResponseUseCase:
             local_blocks=local_blocks,
             attachment_request=request,
             generation_fallback=fallback,
+            action_proposal=action_proposal,
         )
+
+    def _plan_action(
+        self,
+        attempt: MentorResponseAttempt,
+        content: str,
+        context: MentorContextSnapshot,
+        hints: dict[str, str | None],
+        route: MentorRouteResult,
+    ) -> MentorActionPlan | None:
+        """RF-01 to RF-04: an explicit add/remove request becomes a proposal or a text."""
+        if route.clarification is not None:
+            return None
+        return self._action_planner.plan(
+            attempt.account_id,
+            content,
+            context,
+            hints.get('goal_id'),
+            route,
+            lambda: assert_response_access(self._access_provider, attempt),
+        )
+
+    def _with_action(
+        self, route: MentorRouteResult, action: MentorActionPlan
+    ) -> MentorRouteResult:
+        """Add the action answer; the abstention stays last as the generation fallback."""
+        keep_abstention = bool(route.generation_requests)
+        others = tuple(
+            block
+            for block in route.local_blocks
+            if block.block_key != self.LOCAL_ABSTENTION_BLOCK_KEY
+        )
+        abstention = (
+            tuple(
+                block
+                for block in route.local_blocks
+                if block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+            )
+            if keep_abstention
+            else ()
+        )
+        return replace(
+            route,
+            local_blocks=tuple(
+                replace(block, ordinal=ordinal)
+                for ordinal, block in enumerate((*others, *action.blocks, *abstention))
+            ),
+        )
+
+    @staticmethod
+    def _retained_draft(
+        action: MentorActionPlan | None, blocks: tuple[MentorResponseBlock, ...]
+    ) -> MentorActionProposalDraft | None:
+        """The draft survives only while its proposal text block is still published."""
+        if action is None or action.draft is None:
+            return None
+        intent = MentorIntent(action.draft.kind.value)
+        return action.draft if any(block.intent is intent for block in blocks) else None
 
     def _may_generate(
         self,

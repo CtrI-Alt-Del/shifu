@@ -73,3 +73,12 @@ from .learner_memory_context import LearnerMemoryContext as LearnerMemoryContext
 from .mentor_conversation_memory_item import (
     MentorConversationMemoryItem as MentorConversationMemoryItem,
 )
+from .mentor_action_candidate_goal import (
+    MentorActionCandidateGoal as MentorActionCandidateGoal,
+)
+from .mentor_action_proposal_draft import (
+    MentorActionProposalDraft as MentorActionProposalDraft,
+)
+from .mentor_action_proposal_item import (
+    MentorActionProposalItem as MentorActionProposalItem,
+)

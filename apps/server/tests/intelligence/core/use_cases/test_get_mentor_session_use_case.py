@@ -6,6 +6,7 @@ from unittest.mock import create_autospec
 
 import pytest
 
+from shifu.fakers.intelligence.entities import MentorActionProposalFaker
 from shifu.intelligence.core.domain.entities import MentorSession
 from shifu.intelligence.core.domain.errors import (
     MentorCursorInvalidError,
@@ -18,6 +19,9 @@ from shifu.intelligence.core.domain.entities import (
 from shifu.intelligence.core.domain.enums import (
     LearnerMemoryCategory,
     LearnerMemoryChangeKind,
+    MentorActionKind,
+    MentorActionProposalOutcome,
+    MentorActionProposalStatus,
     MentorResponseStatus,
     MentorSummaryExcerptKind,
     MentorSummaryFailureCode,
@@ -65,6 +69,7 @@ class TestGetMentorSessionUseCase:
         self.repositories.mentor_session_summaries.find_ready.return_value = None
         self.repositories.mentor_session_summaries.find_failed.return_value = None
         self.repositories.learner_memory_changes.find_items_by_session.return_value = ()
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = []
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.subject = GetMentorSessionUseCase(self.database, self.access)
 
@@ -117,6 +122,57 @@ class TestGetMentorSessionUseCase:
 
         assert result.memory_items == items
         changes.find_items_by_session.assert_called_once_with('account', 'session')
+
+    def test_should_return_every_proposal_of_the_conversation_with_its_current_state(
+        self,
+    ) -> None:
+        pending = MentorActionProposalFaker.fake(
+            session_id='session', learner_message_id='message-1'
+        )
+        completed = MentorActionProposalFaker.fake(
+            session_id='session',
+            learner_message_id='message-2',
+            kind=MentorActionKind.REMOVE_SKILL,
+            status=MentorActionProposalStatus.COMPLETED,
+            outcome=MentorActionProposalOutcome.REMOVED,
+            resolved_goal_id='goal',
+            resolved_skill_experience_id='experience',
+        )
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = [
+            pending,
+            completed,
+        ]
+
+        result = self.subject.execute('account', 'session')
+
+        assert [item.id for item in result.action_items] == [pending.id, completed.id]
+        assert [item.source_message_id for item in result.action_items] == [
+            'message-1',
+            'message-2',
+        ]
+        assert [item.status for item in result.action_items] == [
+            MentorActionProposalStatus.PENDING,
+            MentorActionProposalStatus.COMPLETED,
+        ]
+        assert result.action_items[1].outcome is MentorActionProposalOutcome.REMOVED
+        assert result.action_items[1].resolved_skill_experience_id == 'experience'
+        assert result.action_items[0].justification == pending.justification
+        self.repositories.mentor_action_proposals.find_many_by_session.assert_called_once_with(
+            'account', 'session'
+        )
+
+    def test_should_return_no_action_items_for_a_conversation_without_proposals(
+        self,
+    ) -> None:
+        assert self.subject.execute('account', 'session').action_items == ()
+
+    def test_should_not_read_proposals_for_unowned_session(self) -> None:
+        self.repositories.mentor_sessions.find_by_id.return_value = None
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+
+        self.repositories.mentor_action_proposals.find_many_by_session.assert_not_called()
 
     def test_should_not_read_memory_items_for_unowned_session(self) -> None:
         self.repositories.mentor_sessions.find_by_id.return_value = None

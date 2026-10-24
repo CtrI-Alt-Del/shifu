@@ -38,6 +38,20 @@ class TestFailMentorResponseUseCase(MentorResponsePhaseTestSetup):
         assert event.block is None
         assert event.consultation is None
 
+    def test_should_remove_the_pending_proposal_of_the_failed_attempt(self) -> None:
+        self.subject.execute('attempt', 'owner', 'service_unavailable')
+
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_called_once_with(
+            'account', 'attempt'
+        )
+
+    def test_should_keep_proposals_when_the_failure_transition_is_lost(self) -> None:
+        self.repositories.mentor_response_attempts.transition.return_value = False
+
+        self.subject.execute('attempt', 'owner', 'service_unavailable')
+
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_not_called()
+
     def test_should_recover_an_expired_claim_before_failure(self) -> None:
         self.repositories.mentor_response_attempts.has_claim.return_value = False
         self.repositories.mentor_response_attempts.claim.return_value = True

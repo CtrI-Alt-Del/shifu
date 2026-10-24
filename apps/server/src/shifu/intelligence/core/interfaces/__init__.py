@@ -69,3 +69,6 @@ from .learner_memory_similarity_provider import (
 from .mentor_generation_limit_provider import (
     MentorGenerationLimitProvider as MentorGenerationLimitProvider,
 )
+from .mentor_action_proposals_repository import (
+    MentorActionProposalsRepository as MentorActionProposalsRepository,
+)

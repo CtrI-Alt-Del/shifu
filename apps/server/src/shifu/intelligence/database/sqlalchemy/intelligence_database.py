@@ -8,6 +8,7 @@ from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyLearnerMemoriesRepository,
     SqlalchemyLearnerMemoryChangesRepository,
+    SqlalchemyMentorActionProposalsRepository,
     SqlalchemyMentorAttachmentBatchesRepository,
     SqlalchemyMentorAttachmentChunksRepository,
     SqlalchemyMentorAttachmentsRepository,
@@ -75,6 +76,9 @@ class SqlalchemyIntelligenceDatabase:
                     session, self._id_provider
                 ),
                 learner_memory_changes=SqlalchemyLearnerMemoryChangesRepository(
+                    session
+                ),
+                mentor_action_proposals=SqlalchemyMentorActionProposalsRepository(
                     session
                 ),
             )
