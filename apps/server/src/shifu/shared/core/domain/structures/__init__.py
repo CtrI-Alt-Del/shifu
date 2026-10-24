@@ -115,3 +115,7 @@ from .mentor_usage import MentorUsage as MentorUsage
 from .mentor_catalog_entry import MentorCatalogEntry as MentorCatalogEntry
 
 from .mentor_context_snapshot import MentorContextSnapshot as MentorContextSnapshot
+
+from .mentor_goal_destination import MentorGoalDestination as MentorGoalDestination
+
+from .mentor_goal_destinations import MentorGoalDestinations as MentorGoalDestinations
