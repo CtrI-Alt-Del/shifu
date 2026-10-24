@@ -63,8 +63,8 @@ last_updated_at: 2026-10-24
 | ACH-07 | The changed-file server CI command selected three controller/job test files twice. | medium | CI-02, CI-04, CI-08 | Resolved by removing the lower duplicate entries; each affected filename now occurs once and `git diff --check` passes. |
 | ACH-08 | Final independent review initially reported the CI duplicate selections above. | informational | F9 / affected workflow coverage | Rechecked after correction; no unresolved contract, architecture, privacy, runtime-correlation or coverage finding remains. |
 | ACH-09 | PR review identified redundant standalone Web telemetry tests, including the fetch stream client test; these tests no longer represented required product behavior after the current `main` test composition. | medium | Review feedback / Web test scope | Resolved by removing the ten newly added standalone Web tests while retaining the existing route-handler adaptations and updating the server-function mock for both current `createServerFn` chaining forms. Web typecheck, lint, architecture, focused test and full coverage passed. |
-| ACH-10 | Hosted integration shards exposed three current-main Intelligence jobs still asserting only legacy unstructured rejection logs, which SHIFU-94 suppresses. | high | CI-04 / Server integration shards | Resolved by registering the jobs in the shared lifecycle telemetry wrapper and asserting the structured `job.failed` event by event id with `NonRetriableError`; focused checks and the hosted rerun remain pending. |
-| ACH-11 | The first CI rerun showed the new job events were emitted but the console provider catalog still filtered the three job names; account-deletion tests could also observe a different job sharing the same trigger first. | high | CI-04 / Server integration shards | Resolved by adding all three names to the provider catalog and waiting for each test's exact `job.failed` event, identified by event id, exception type and job. Static checks pass; hosted rerun remains pending. |
+| ACH-10 | Hosted integration shards exposed three current-main Intelligence jobs still asserting only legacy unstructured rejection logs, which SHIFU-94 suppresses. | high | CI-04 / Server integration shards | Resolved by registering the jobs in the shared lifecycle telemetry wrapper and asserting the structured `job.failed` event by event id with `NonRetriableError`; the hosted rerun passed all four server integration shards. |
+| ACH-11 | The first CI rerun showed the new job events were emitted but the console provider catalog still filtered the three job names; account-deletion tests could also observe a different job sharing the same trigger first. | high | CI-04 / Server integration shards | Resolved by adding all three names to the provider catalog and waiting for each test's exact `job.failed` event, identified by event id, exception type and job; the hosted rerun passed all server and Web checks. |
 
 # Lessons Learned
 
@@ -81,11 +81,11 @@ last_updated_at: 2026-10-24
 | --- | --- |
 | Candidate | Isolated merge candidate implementing Spec revision 5 for SHIFU-94; no external Jira/Confluence mutation was made. |
 | Completed | F1–F9 implementation and local validation; final F9 review; Web/API providers, request propagation, error/lifecycle/business boundaries, all 15 job registrars, Resend/OpenRouter/Jev adapters, root composition, CI selections and `documentation/telemetry.md`. |
-| Unfinished | VM-01–VM-03 composed-runtime observations, CI-06 hosted builds, and VM-04 staging CloudWatch retention proof; hosted PR checks remain to be observed after publication. |
+| Unfinished | VM-01–VM-03 composed-runtime observations and VM-04 staging CloudWatch retention proof; hosted PR checks for the published candidate are green. |
 | Uncommitted work | Task-owned production/tests/docs/workflow paths shown by `git status`; preserve unrelated pre-existing `AGENTS.md`, prompt/SDD edits, `iac/` and `documentation/reports/armazenamento-v1.docx`. |
 | Active processes | None; the temporary documentation HTTP server and Playwright browser were closed after validation. |
 | Blockers | VM-01–VM-03 composed Web/API observations were not completed; pnpm/esbuild preflight and full typecheck resource limits remain; external SHIFU-83/85 staging/CloudWatch/IAM gate remains required for VM-04. |
-| Next action | Publish the corrected PR and observe hosted checks; run the blocked composed checks when Docker access is restored, then execute VM-04 after staging deployment and use `conclude-spec` to close the SDD artifacts. |
+| Next action | Run the blocked composed checks when Docker access is restored, then execute VM-04 after staging deployment and use `conclude-spec` to close the SDD artifacts. |
 
 # Delivery
 
