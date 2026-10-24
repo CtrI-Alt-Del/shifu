@@ -19,3 +19,15 @@ from .remove_mentor_session_controller import (
 from .rename_mentor_session_controller import (
     RenameMentorSessionController as RenameMentorSessionController,
 )
+from .list_learner_memories_controller import (
+    ListLearnerMemoriesController as ListLearnerMemoriesController,
+)
+from .get_learner_memory_controller import (
+    GetLearnerMemoryController as GetLearnerMemoryController,
+)
+from .edit_learner_memory_controller import (
+    EditLearnerMemoryController as EditLearnerMemoryController,
+)
+from .remove_learner_memory_controller import (
+    RemoveLearnerMemoryController as RemoveLearnerMemoryController,
+)

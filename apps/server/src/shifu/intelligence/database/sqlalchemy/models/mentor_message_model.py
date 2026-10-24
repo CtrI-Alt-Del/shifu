@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -9,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,4 +56,10 @@ class MentorMessageModel(Model):
     in_reply_to_message_id: Mapped[str | None] = mapped_column(
         String(26),
         nullable=True,
+    )
+    memory_analyzed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    memory_statement_only: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )

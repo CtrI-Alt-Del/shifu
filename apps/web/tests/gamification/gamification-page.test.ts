@@ -531,6 +531,10 @@ test('invokes the XP history server function and renders its records newest firs
       await route.fallback()
       return
     }
+    // The upstream GET /gamification/xp-history runs inside the SSR process
+    // and isn't observable here, but the server-function call itself is:
+    // pin its method so a regression to POST/PUT would fail this suite.
+    expect(route.request().method()).toBe('GET')
     historyRequests.push(route.request().url())
     await route.fulfill({
       body: JSON.stringify({
@@ -592,3 +596,18 @@ test('invokes the XP history server function and renders its records newest firs
 
   await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
 })
+
+// A no-stub, real-backend variant of the test above was tried and reverted:
+// `authenticatedPage` only fakes the route-protection middleware, it never
+// creates a real BetterAuth session, so achievements/calendar/xp-history
+// (which each check real auth independently) get rejected by the real
+// backend and `useGamificationPage`'s session-rejected effect bounces the
+// whole page to /login mid-test. Separately, this harness's seeded test
+// accounts never run the "account activated" flow that creates a
+// GamificationProfile, so even with auth sorted out, GET /xp-history 404s
+// for them (`test_should_return_not_found_without_a_gamification_profile`)
+// instead of returning the empty-history 200 such a test would need.
+// Reaching the real controller properly would need either a dedicated
+// controlled upstream (the `tests/support/mentor-stream-upstream.mjs`
+// pattern) or a DB-seeded profile for the test account; both are more
+// infrastructure than this one gap currently justifies.

@@ -1,14 +1,32 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
+import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { Conversation } from '..'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { type ConversationItem, useConversation } from '../use-conversation'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
+import { useSkillActionCard } from '../message-list/skill-action-card/use-skill-action-card'
 
 vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))
+vi.mock('../message-list/skill-action-card/use-skill-action-card', () => ({
+  useSkillActionCard: vi.fn(),
+}))
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, search, ...props }: AnchorProps) => (
+    <a
+      href={`${ROUTES[route]}?${new URLSearchParams(search as Record<string, string>)}`}
+      {...props}
+    >
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
@@ -30,6 +48,7 @@ vi.mock('../summary-marker/use-mentor-session-summary-query', () => ({
   }),
 }))
 const useConversationMock = vi.mocked(useConversation)
+const useSkillActionCardMock = vi.mocked(useSkillActionCard)
 const useMentorContextMock = vi.mocked(useMentorContext)
 const mockConversationValue = (value: object) => {
   const { visibleMessages, sessionDetail, conversationItems } = value as {
@@ -39,6 +58,8 @@ const mockConversationValue = (value: object) => {
   }
   useConversationMock.mockReturnValue({
     visibleMessages: undefined,
+    trailingMemoryItems: [],
+    trailingActionItems: [],
     conversationItems: (visibleMessages ?? sessionDetail?.messages.items ?? []).map(
       (message) => ({ kind: 'message' as const, message }),
     ),
@@ -257,6 +278,8 @@ describe('Conversation', () => {
         pendingLearnerMessageId: 'learner',
         response,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
+        actionItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -267,7 +290,7 @@ describe('Conversation', () => {
     expect(screen.getByText('Mensagem preservada')).toBeVisible()
     expect(screen.getByText('Explicação')).toBeVisible()
     expect(container.querySelector('script')).toBeNull()
-    expect(screen.getByText('perigoso').getAttribute('href')).not.toContain('javascript:')
+    expect(screen.getByText('perigoso')).not.toHaveAttribute('href')
     expect(screen.getByLabelText('Trecho de código')).toHaveTextContent(
       'const result = 42',
     )
@@ -489,6 +512,8 @@ describe('Conversation', () => {
         pendingLearnerMessageId: 'learner',
         response,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
+        actionItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -535,6 +560,8 @@ describe('Conversation', () => {
         pendingLearnerMessageId: null,
         response: null,
         summary: { current: null, failureAfterMessageId: null },
+        memoryItems: [],
+        actionItems: [],
       },
       conversationItems: [
         { kind: 'message', message: messages[0] },
@@ -574,5 +601,267 @@ describe('Conversation', () => {
       'aria-haspopup',
       'dialog',
     )
+  })
+
+  describe('memory markers', () => {
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Prefiro exemplos curtos em JavaScript.',
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }
+    const created = LearnerMemoryFaker.fakeConversationItem({
+      id: 'created-item',
+      kind: 'created',
+      category: 'explanation_preference',
+      memoryId: 'MEMORYCREATED',
+      content: 'exemplos curtos em JavaScript.',
+      previousContent: null,
+    })
+    const updated = LearnerMemoryFaker.fakeConversationItem({
+      id: 'updated-item',
+      kind: 'updated',
+      category: 'explanation_preference',
+      memoryId: 'MEMORYUPDATED',
+      content: 'exemplos curtos em Python.',
+      previousContent: 'exemplos curtos em JavaScript.',
+    })
+    const deleted = LearnerMemoryFaker.fakeConversationItem({
+      id: 'deleted-item',
+      memoryId: null,
+      content: null,
+      previousContent: null,
+    })
+
+    function mockMarkers(overrides: object = {}) {
+      const value = {
+        ...mentorValue,
+        selectedSessionId: 'session',
+        handleScroll: vi.fn(),
+        scrollRef: { current: null },
+        trailingMemoryItems: [],
+        shouldAnimateBlock: vi.fn(() => false),
+        markBlockPresented: vi.fn(),
+        ...overrides,
+      }
+      useMentorContextMock.mockReturnValue(value)
+      mockConversationValue(value)
+    }
+
+    it('renders a created marker with its category line and a link to the memory', () => {
+      mockMarkers({
+        conversationItems: [
+          { kind: 'message', message: learnerMessage },
+          { kind: 'memory-change', item: created },
+        ],
+      })
+      render(<Conversation surface='page' />)
+      const list = screen.getByRole('list', { name: 'Mensagens da conversa' })
+
+      expect(within(list).getByText('Memória criada')).toBeVisible()
+      expect(
+        within(list).getByText(
+          'Preferência de explicação: exemplos curtos em JavaScript.',
+        ),
+      ).toBeVisible()
+      expect(within(list).getByRole('link', { name: 'Ver memória' })).toHaveAttribute(
+        'href',
+        `${ROUTES.intelligenceMemories}?memory=MEMORYCREATED`,
+      )
+    })
+
+    it('renders an updated marker with the previous and the current text', () => {
+      mockMarkers({
+        conversationItems: [{ kind: 'memory-change', item: updated }],
+      })
+      render(<Conversation surface='page' />)
+
+      expect(screen.getByText('Memória atualizada')).toBeVisible()
+      expect(screen.getByText('Antes: exemplos curtos em JavaScript.')).toBeVisible()
+      expect(screen.getByText('Agora: exemplos curtos em Python.')).toBeVisible()
+      expect(screen.getByRole('link', { name: 'Ver memória' })).toHaveAttribute(
+        'href',
+        `${ROUTES.intelligenceMemories}?memory=MEMORYUPDATED`,
+      )
+    })
+
+    it('renders a deleted memory marker without text or link', () => {
+      mockMarkers({
+        conversationItems: [{ kind: 'memory-change', item: deleted }],
+      })
+      render(<Conversation surface='page' />)
+
+      expect(screen.getByText('Memória excluída')).toBeVisible()
+      expect(screen.queryByRole('link', { name: 'Ver memória' })).not.toBeInTheDocument()
+      expect(screen.queryByText(/Antes:|Agora:/)).not.toBeInTheDocument()
+    })
+
+    it('renders the trailing markers after the live answer and its status', () => {
+      const response: MentorResponseSnapshot = {
+        attemptId: 'attempt',
+        learnerMessageId: 'learner',
+        status: 'completed',
+        blocks: [
+          { blockKey: 'b1', ordinal: 0, intent: null, content: 'Anotado.', sources: [] },
+        ],
+        consultations: [],
+        lastSequence: 2,
+        failureCode: null,
+      }
+      mockMarkers({
+        response,
+        conversationItems: [{ kind: 'message', message: learnerMessage }],
+        trailingMemoryItems: [created],
+      })
+      render(<Conversation surface='page' />)
+      const answer = screen.getByRole('list', { name: 'Resposta do Mentor' })
+      const status = screen.getByRole('status')
+      const trailing = screen.getByRole('list', { name: 'Memórias desta resposta' })
+
+      expect(within(trailing).getByText('Memória criada')).toBeVisible()
+      expect(
+        answer.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+      expect(
+        status.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it('omits the trailing slot when the live turn produced no memory', () => {
+      mockMarkers({ conversationItems: [{ kind: 'message', message: learnerMessage }] })
+      render(<Conversation surface='page' />)
+
+      expect(
+        screen.queryByRole('list', { name: 'Memórias desta resposta' }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  describe('action cards', () => {
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Adicione Funções em Python ao meu Objetivo',
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }
+    const proposal: MentorActionProposal = {
+      id: 'proposal',
+      sourceMessageId: 'learner',
+      kind: 'add_skill',
+      skillId: 'skill',
+      skillName: 'Funções em Python',
+      goalId: 'goal',
+      goalTitle: 'Aprender a programar',
+      skillExperienceId: null,
+      candidateGoals: [],
+      justification: null,
+      status: 'pending',
+      outcome: null,
+      rejectionReason: null,
+      resolvedGoalId: null,
+      resolvedSkillExperienceId: null,
+      createdAt: '',
+    }
+
+    function mockActions(overrides: object = {}) {
+      const value = {
+        ...mentorValue,
+        selectedSessionId: 'session',
+        handleScroll: vi.fn(),
+        scrollRef: { current: null },
+        shouldAnimateBlock: vi.fn(() => false),
+        markBlockPresented: vi.fn(),
+        ...overrides,
+      }
+      useMentorContextMock.mockReturnValue(value)
+      mockConversationValue(value)
+      useSkillActionCardMock.mockReturnValue({
+        icon: { name: 'graduation-cap', tone: 'jade' },
+        title: 'Adicionar Funções em Python?',
+        destination: 'Objetivo: Aprender a programar',
+        actions: [{ key: 'confirm', label: 'Adicionar habilidade', variant: 'primary' }],
+        picker: null,
+        swap: null,
+        resultRef: { current: null },
+        titleRef: { current: null },
+        handleSelectGoal: vi.fn(),
+      })
+    }
+
+    it('renders the card in the message list at the position the conversation gives it', () => {
+      mockActions({
+        conversationItems: [
+          { kind: 'message', message: learnerMessage },
+          { kind: 'action', proposal },
+        ],
+      })
+      render(<Conversation surface='page' />)
+      const list = screen.getByRole('list', { name: 'Mensagens da conversa' })
+      const items = within(list).getAllByRole('listitem')
+
+      expect(items[0]).toHaveTextContent('Adicione Funções em Python ao meu Objetivo')
+      expect(
+        within(items[1] as HTMLElement).getByRole('region', {
+          name: 'Adicionar Funções em Python?',
+        }),
+      ).toBeVisible()
+      expect(
+        within(items[1] as HTMLElement).getByRole('button', {
+          name: 'Adicionar habilidade',
+        }),
+      ).toBeVisible()
+    })
+
+    it('renders the card of the live turn after the live answer and its status', () => {
+      const response: MentorResponseSnapshot = {
+        attemptId: 'attempt',
+        learnerMessageId: 'learner',
+        status: 'processing',
+        blocks: [
+          {
+            blockKey: 'b1',
+            ordinal: 0,
+            intent: 'add_skill',
+            content: 'Preparei uma proposta para você confirmar.',
+            sources: [],
+          },
+        ],
+        consultations: [],
+        lastSequence: 2,
+        failureCode: null,
+      }
+      mockActions({
+        response,
+        conversationItems: [{ kind: 'message', message: learnerMessage }],
+        trailingActionItems: [proposal],
+      })
+      render(<Conversation surface='page' />)
+      const answer = screen.getByRole('list', { name: 'Resposta do Mentor' })
+      const trailing = screen.getByRole('list', {
+        name: 'Ações propostas nesta resposta',
+      })
+
+      expect(
+        within(trailing).getByRole('region', { name: 'Adicionar Funções em Python?' }),
+      ).toBeVisible()
+      expect(
+        answer.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it('omits the trailing action slot when the live turn proposed nothing', () => {
+      mockActions({ conversationItems: [{ kind: 'message', message: learnerMessage }] })
+      render(<Conversation surface='page' />)
+
+      expect(
+        screen.queryByRole('list', { name: 'Ações propostas nesta resposta' }),
+      ).not.toBeInTheDocument()
+    })
   })
 })

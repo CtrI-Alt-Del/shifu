@@ -44,6 +44,12 @@ class TestDeleteGamificationProfileUseCase:
         self.repositories.practice_days.remove_many_by_account_id.assert_called_once_with(
             ACCOUNT_ID
         )
+        self.repositories.activity_xp_balances.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
+        self.repositories.activity_xp_recognitions.remove_many_by_account_id.assert_called_once_with(
+            ACCOUNT_ID
+        )
 
     def test_should_no_op_when_profile_is_absent(self) -> None:
         self.repositories.profiles.find_by_account_id.return_value = None
@@ -55,3 +61,5 @@ class TestDeleteGamificationProfileUseCase:
         self.repositories.earned_achievements.remove_many_by_account_id.assert_not_called()
         self.repositories.rewarded_milestones.remove_many_by_account_id.assert_not_called()
         self.repositories.practice_days.remove_many_by_account_id.assert_not_called()
+        self.repositories.activity_xp_balances.remove_many_by_account_id.assert_not_called()
+        self.repositories.activity_xp_recognitions.remove_many_by_account_id.assert_not_called()

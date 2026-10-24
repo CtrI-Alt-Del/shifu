@@ -5,6 +5,7 @@ from .achievement_overview_entry import (
 from .achievement_progress import AchievementProgress as AchievementProgress
 from .achievements_overview import AchievementsOverview as AchievementsOverview
 from .achievements_summary import AchievementsSummary as AchievementsSummary
+from .activity_xp_reward import ActivityXpReward as ActivityXpReward
 from .calendar_day import CalendarDay as CalendarDay
 from .gamification_overview import GamificationOverview as GamificationOverview
 from .practice_calendar import PracticeCalendar as PracticeCalendar

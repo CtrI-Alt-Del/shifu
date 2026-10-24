@@ -1,7 +1,11 @@
+import re
 from datetime import timedelta
 
 from shifu.intelligence.core.domain.entities import MentorAttachmentBatch
-from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
+from shifu.intelligence.core.domain.errors import (
+    MentorAttachmentInvalidError,
+    MentorSessionNotFoundError,
+)
 from shifu.intelligence.core.domain.events import (
     MentorAttachmentCleanupRequestedEvent,
     MentorAttachmentCleanupRequestedPayload,
@@ -16,6 +20,8 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     MentorAccessProvider,
 )
+
+_SESSION_ID = re.compile(r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$')
 
 
 class CreateMentorAttachmentBatchUseCase:
@@ -36,6 +42,10 @@ class CreateMentorAttachmentBatchUseCase:
     def execute(
         self, account_id: str, session_id: str | None = None
     ) -> MentorAttachmentBatchView:
+        if session_id is not None and not _SESSION_ID.fullmatch(session_id):
+            raise MentorAttachmentInvalidError(
+                'O arquivo não é válido ou não está disponível.'
+            )
         batch_id = self._identifier_provider.generate()
         grant = self._access_provider.authorize(account_id, batch_id)
         self._access_provider.assert_current(grant)

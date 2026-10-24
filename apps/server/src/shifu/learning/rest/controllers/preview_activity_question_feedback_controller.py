@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
@@ -95,7 +95,7 @@ class PreviewActivityQuestionFeedbackController:
             '/activities/{activity_id}/questions/{question_key}/preliminary-evaluations',
             response_model=Response,
             response_model_exclude_none=True,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,

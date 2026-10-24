@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent } from 'react'
 
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
-export const useMentorFab = (isMentorPage = false) => {
+export const useMentorFab = (isMentorPage = false, isMemoriesPage = false) => {
   const {
     activeDialog,
     closePanel,
@@ -18,7 +18,9 @@ export const useMentorFab = (isMentorPage = false) => {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: restore focus after panel content replaces the focused control.
   useEffect(() => {
-    if (isMentorPage && isPanelOpen) {
+    // The Mentor page and the Memórias page replace the panel; following "Ver memória"
+    // from the panel must not leave it open over the destination.
+    if ((isMentorPage || isMemoriesPage) && isPanelOpen) {
       closePanel()
       return
     }
@@ -38,6 +40,7 @@ export const useMentorFab = (isMentorPage = false) => {
   }, [
     activeDialog,
     closePanel,
+    isMemoriesPage,
     isMentorPage,
     isPanelOpen,
     panelView,

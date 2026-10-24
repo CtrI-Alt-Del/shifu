@@ -1,3 +1,4 @@
+import type { MentorActionProposal } from './mentor-action-proposal'
 import type { MentorAttachmentSource } from './mentor-attachment'
 
 export type MentorContextHint = {
@@ -36,10 +37,18 @@ export type MentorResponseEvent = {
   sessionId: string
   attemptId: string
   sequence: number
-  kind: 'status' | 'consultation' | 'block' | 'completed' | 'failed' | 'cancelled'
+  kind:
+    | 'status'
+    | 'consultation'
+    | 'block'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'action'
   status: MentorResponseStatus
   block: MentorResponseBlock | null
   consultation: string | null
+  actionProposal: MentorActionProposal | null
   failureCode: string | null
   createdAt: string
 }

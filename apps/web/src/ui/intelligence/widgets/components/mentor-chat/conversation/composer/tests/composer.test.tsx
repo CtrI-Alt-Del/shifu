@@ -49,9 +49,7 @@ describe('Composer', () => {
         screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
       ).toBeDisabled()
       if (surface === 'fab') {
-        expect(
-          screen.queryByRole('button', { name: 'Memórias. Indisponível no momento' }),
-        ).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Memórias' })).not.toBeInTheDocument()
       }
     },
   )
@@ -415,4 +413,102 @@ it('offers dictation without an install prompt when the language pack is availab
   expect(
     screen.queryByRole('button', { name: 'Instalar pacote de idioma' }),
   ).not.toBeInTheDocument()
+})
+
+describe('Composer action block', () => {
+  beforeEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+  })
+  afterEach(cleanup)
+  const refreshActionsMock = vi.fn()
+
+  function mockBlocked(overrides: object = {}) {
+    useComposerMock.mockReturnValue({
+      canSend: false,
+      canManageAttachments: false,
+      canStartDictation: false,
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
+      draft: 'Dúvida preservada',
+      handleSubmit: vi.fn(),
+      hasAcceptedSession: true,
+      isActionBlocked: true,
+      isRefreshingActions: false,
+      hasActionRefreshTimedOut: false,
+      refreshActions: refreshActionsMock,
+      isSubmittingFirstMessage: false,
+      sendFirstMessage: sendFirstMessageMock,
+      setDraft: setDraftMock,
+      submissionError: null,
+      ...overrides,
+    } as unknown as ReturnType<typeof useComposer>)
+  }
+
+  it.each(['page', 'fab'] as const)(
+    'explains the block and disables the input, attachment and dictation on %s',
+    (surface) => {
+      mockBlocked()
+      render(<Composer surface={surface} />)
+
+      const textbox = screen.getByRole('textbox')
+      expect(
+        screen.getByText('Confirme ou recuse a ação proposta para continuar.'),
+      ).toBeVisible()
+      expect(textbox).toBeDisabled()
+      expect(textbox).toHaveAccessibleDescription(
+        'Confirme ou recuse a ação proposta para continuar.',
+      )
+      expect(
+        screen.getByRole('button', { name: 'Anexar arquivo ou imagem' }),
+      ).toBeDisabled()
+      expect(
+        screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
+      ).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
+    },
+  )
+
+  it('keeps the draft while blocked', () => {
+    mockBlocked()
+    render(<Composer surface='page' />)
+
+    expect(screen.getByRole('textbox')).toHaveValue('Dúvida preservada')
+  })
+
+  it('announces the refresh instead of the block reason while the conversation is re-read', () => {
+    mockBlocked({ isRefreshingActions: true })
+    render(<Composer surface='page' />)
+
+    expect(screen.getByRole('status')).toHaveTextContent('Atualizando a conversa…')
+    expect(
+      screen.queryByText('Confirme ou recuse a ação proposta para continuar.'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toBeDisabled()
+  })
+
+  it('offers Tentar novamente after the refresh limit and re-reads when pressed', () => {
+    mockBlocked({ hasActionRefreshTimedOut: true })
+    render(<Composer surface='page' />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Ainda não foi possível atualizar a conversa.',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(refreshActionsMock).toHaveBeenCalledOnce()
+  })
+
+  it('shows no block copy when the conversation accepts messages', () => {
+    mockBlocked({ isActionBlocked: false, canSend: true, canManageAttachments: true })
+    render(<Composer surface='page' />)
+
+    expect(
+      screen.queryByText('Confirme ou recuse a ação proposta para continuar.'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toBeEnabled()
+    expect(
+      screen.queryByRole('button', { name: 'Tentar novamente' }),
+    ).not.toBeInTheDocument()
+  })
 })

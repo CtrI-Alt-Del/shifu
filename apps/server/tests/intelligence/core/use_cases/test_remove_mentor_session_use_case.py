@@ -72,6 +72,69 @@ class TestRemoveMentorSessionUseCase:
         summaries.remove_by_session_id.assert_called_once_with('session')
         self.database.transaction.assert_called_once()
 
+    def test_should_remove_the_conversation_proposals_before_its_events(self) -> None:
+        effects = Mock()
+        effects.attach_mock(
+            self.repositories.mentor_action_proposals.remove_by_session_id, 'proposals'
+        )
+        effects.attach_mock(
+            self.repositories.mentor_response_events.remove_by_session_id, 'events'
+        )
+
+        self.subject.execute('account', 'session')
+
+        assert effects.mock_calls == [
+            call.proposals('account', 'session'),
+            call.events('session'),
+        ]
+        self.database.transaction.assert_called_once()
+
+    def test_should_not_remove_proposals_of_an_already_deleted_conversation(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission_by_session_id.return_value = (
+            MentorSubmissionRecord(
+                session_id='session',
+                content_fingerprint='fingerprint',
+                deleted_at=self.now,
+            )
+        )
+
+        self.subject.execute('account', 'session')
+
+        self.repositories.mentor_action_proposals.remove_by_session_id.assert_not_called()
+
+    def test_should_remove_memory_change_records_right_after_locking_the_session(
+        self,
+    ) -> None:
+        effects = Mock()
+        effects.attach_mock(self.repositories.mentor_sessions.lock_session, 'lock')
+        effects.attach_mock(
+            self.repositories.learner_memory_changes.remove_by_session_id, 'changes'
+        )
+
+        self.subject.execute('account', 'session')
+
+        assert effects.mock_calls[:2] == [
+            call.lock('account', 'session'),
+            call.changes('session'),
+        ]
+        self.repositories.learner_memories.remove.assert_not_called()
+        self.repositories.learner_memories.remove_by_account_id.assert_not_called()
+        self.database.transaction.assert_called_once()
+
+    def test_should_not_touch_memory_data_for_an_unknown_or_foreign_session(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission_by_session_id.return_value = (
+            None
+        )
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+
+        self.repositories.learner_memory_changes.remove_by_session_id.assert_not_called()
+
     def test_should_not_touch_summaries_for_an_unknown_or_already_deleted_session(
         self,
     ) -> None:
@@ -154,6 +217,9 @@ class TestRemoveMentorSessionUseCase:
         effects = Mock()
         effects.attach_mock(self.repositories.mentor_sessions.lock_session, 'lock')
         effects.attach_mock(
+            self.repositories.learner_memory_changes.remove_by_session_id, 'memories'
+        )
+        effects.attach_mock(
             self.repositories.mentor_session_summaries.remove_by_session_id, 'summaries'
         )
         effects.attach_mock(
@@ -169,6 +235,7 @@ class TestRemoveMentorSessionUseCase:
         self.subject.execute('account', 'session')
         assert effects.mock_calls == [
             call.lock('account', 'session'),
+            call.memories('session'),
             call.summaries('session'),
             call.events('session'),
             call.attempts('session'),

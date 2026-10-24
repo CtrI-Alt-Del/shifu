@@ -1,4 +1,6 @@
-from sqlalchemy import ColumnElement, delete, func, select
+from datetime import datetime
+
+from sqlalchemy import ColumnElement, delete, func, select, update
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import Select
 
@@ -299,6 +301,28 @@ class SqlalchemyMentorMessagesRepository:
                 for attachment in attachments
             ),
         )
+
+    def mark_memory_analyzed(
+        self, message_id: str, analyzed_at: datetime, statement_only: bool
+    ) -> None:
+        self._session.execute(
+            update(MentorMessageModel)
+            .where(MentorMessageModel.id == message_id)
+            .values(
+                memory_analyzed_at=analyzed_at, memory_statement_only=statement_only
+            )
+        )
+
+    def find_memory_analysis(self, message_id: str) -> tuple[datetime, bool] | None:
+        row = self._session.execute(
+            select(
+                MentorMessageModel.memory_analyzed_at,
+                MentorMessageModel.memory_statement_only,
+            ).where(MentorMessageModel.id == message_id)
+        ).first()
+        if row is None or row[0] is None:
+            return None
+        return row[0], row[1]
 
     def add(self, message: MentorMessage) -> None:
         self._session.add(MentorMessageMapper.to_model(message))

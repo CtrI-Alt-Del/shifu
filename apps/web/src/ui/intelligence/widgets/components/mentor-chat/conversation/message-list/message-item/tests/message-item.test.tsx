@@ -1,5 +1,15 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { ROUTES } from '@/constants/routes'
 
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
 import { MessageItem } from '..'
@@ -43,6 +53,14 @@ const makeHookValue = (
   handleCopyMessage,
   ...overrides,
 })
+
+function leafRoute(router: { state: { matches: unknown[] } }) {
+  const { routeId, params } = router.state.matches.at(-1) as {
+    routeId: string
+    params: Record<string, string>
+  }
+  return { routeId, params }
+}
 
 describe('MessageItem', () => {
   beforeEach(() => {
@@ -316,5 +334,104 @@ describe('MessageItem', () => {
     expect(
       screen.queryByRole('img', { name: 'Prévia de falhou.png' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('MessageItem internal answer links', () => {
+  const GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F0D'
+  const SKILL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F0E'
+  const content = [
+    `[criar um Objetivo](${ROUTES.learningGoalsNew})`,
+    `[Ver Objetivo](/learning/goals/${GOAL_ID})`,
+    `[Ver Habilidade](/learning/goals/${GOAL_ID}/skills/${SKILL_ID})`,
+    '[Página inventada](/learning/inventada)',
+    '[Documentação](https://example.com/ajuda)',
+  ].join(' · ')
+
+  async function renderAnswer() {
+    useMessageItemMock.mockReturnValue(makeHookValue())
+    const root = createRootRoute({
+      component: () => (
+        <>
+          <ol>
+            <MessageItem
+              message={{
+                id: 'mentor',
+                sessionId: 'session',
+                role: 'mentor',
+                content,
+                createdAt: '2026-10-14T12:00:00Z',
+                inReplyToMessageId: 'learner',
+                attachments: [],
+              }}
+            />
+          </ol>
+          <Outlet />
+        </>
+      ),
+    })
+    const destinations = [
+      ROUTES.learningGoalsNew,
+      ROUTES.learningGoal,
+      ROUTES.learningSkill,
+    ].map((path) =>
+      createRoute({
+        getParentRoute: () => root,
+        path,
+        component: () => <h1>{path}</h1>,
+      }),
+    )
+    const router = createRouter({
+      routeTree: root.addChildren(destinations),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    await screen.findByRole('listitem')
+    return router
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(cleanup)
+
+  it('renders the three internal destinations as router links with the route params', async () => {
+    const router = await renderAnswer()
+
+    expect(screen.getByRole('link', { name: 'criar um Objetivo' })).toHaveAttribute(
+      'href',
+      ROUTES.learningGoalsNew,
+    )
+    fireEvent.click(screen.getByRole('link', { name: 'Ver Objetivo' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/learning/goals/${GOAL_ID}`),
+    )
+    expect(leafRoute(router)).toEqual({
+      routeId: ROUTES.learningGoal,
+      params: { goalId: GOAL_ID },
+    })
+    fireEvent.click(screen.getByRole('link', { name: 'Ver Habilidade' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/learning/goals/${GOAL_ID}/skills/${SKILL_ID}`,
+      ),
+    )
+    expect(leafRoute(router)).toEqual({
+      routeId: ROUTES.learningSkill,
+      params: { goalId: GOAL_ID, skillId: SKILL_ID },
+    })
+  })
+
+  it('renders an unknown application path as plain text', async () => {
+    await renderAnswer()
+
+    expect(screen.getByText('Página inventada')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Página inventada' })).toBeNull()
+  })
+
+  it('keeps an external link as a native anchor with a safe rel', async () => {
+    await renderAnswer()
+
+    const link = screen.getByRole('link', { name: 'Documentação' })
+    expect(link).toHaveAttribute('href', 'https://example.com/ajuda')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 })

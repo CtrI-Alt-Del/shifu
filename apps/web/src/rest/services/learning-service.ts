@@ -22,7 +22,10 @@ import type {
 } from '@/core/learning/goal-detail'
 import type { MaterialDetail } from '@/core/learning/material-detail'
 import type { SkillCatalogPage } from '@/core/learning/skill-catalog-page'
+import type { MentorSkillActionOutcome } from '@/core/learning/mentor-skill-action-outcome'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
+import type { RestResponse } from '@/core/shared/responses/rest-response'
+import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { learningActivityPath, learningAttemptsPath } from '@/constants/routes'
 
 type ActivityIds = {
@@ -272,6 +275,20 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
       }
     }),
   }
+}
+
+// A 503 without a body does not prove that the confirmation rolled back, so it is
+// reported as an unknown result instead of a recoverable failure.
+function throwMentorActionFailure(response: RestResponse<unknown>): never {
+  if (
+    response.statusCode === HTTP_STATUS_CODE.serviceUnavailable &&
+    response._body === undefined
+  )
+    throw new AppError(
+      'O resultado da confirmação não foi informado.',
+      'Erro de comunicação',
+    )
+  response.throwError()
 }
 
 export type LearningService = ReturnType<typeof LearningService>
@@ -685,6 +702,43 @@ export const LearningService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
 
       return response.body.created
+    },
+
+    async addSkillToGoalFromMentor(
+      accessToken: string,
+      goalId: string,
+      input: { confirmationId: string; skillId: string; justification: string },
+    ): Promise<MentorSkillActionOutcome> {
+      const response = await restClient.post<MentorSkillActionOutcome>(
+        `/learning/goals/${encodeURIComponent(goalId)}/mentor-skill-additions`,
+        {
+          confirmation_id: input.confirmationId,
+          skill_id: input.skillId,
+          justification: input.justification,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) throwMentorActionFailure(response)
+
+      return response.body
+    },
+
+    async removeSkillExperienceFromMentor(
+      accessToken: string,
+      goalId: string,
+      input: { confirmationId: string; skillExperienceId: string },
+    ): Promise<MentorSkillActionOutcome> {
+      const response = await restClient.post<MentorSkillActionOutcome>(
+        `/learning/goals/${encodeURIComponent(goalId)}/mentor-skill-removals`,
+        {
+          confirmation_id: input.confirmationId,
+          skill_experience_id: input.skillExperienceId,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) throwMentorActionFailure(response)
+
+      return response.body
     },
 
     async deleteGoal(accessToken: string, goalId: string): Promise<void> {

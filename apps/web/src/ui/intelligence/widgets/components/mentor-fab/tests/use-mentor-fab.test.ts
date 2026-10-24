@@ -124,4 +124,19 @@ describe('useMentorFab', () => {
     rerender({ isMentorPage: true })
     expect(closePanel).toHaveBeenCalledOnce()
   })
+  it('closes a previously opened panel when entering the Memórias page but keeps the floating access', () => {
+    const closePanel = vi.fn()
+    useMentorContextMock.mockReturnValue({
+      closePanel,
+      isPanelOpen: true,
+      openPanel: vi.fn(),
+    } as unknown as ReturnType<typeof useMentorContext>)
+    const { rerender } = renderHook(
+      ({ isMemoriesPage }) => useMentorFab(false, isMemoriesPage),
+      { initialProps: { isMemoriesPage: false } },
+    )
+    expect(closePanel).not.toHaveBeenCalled()
+    rerender({ isMemoriesPage: true })
+    expect(closePanel).toHaveBeenCalledOnce()
+  })
 })

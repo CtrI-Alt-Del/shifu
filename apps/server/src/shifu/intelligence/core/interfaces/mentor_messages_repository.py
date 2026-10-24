@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 from shifu.intelligence.core.domain.entities import MentorMessage
@@ -57,6 +58,16 @@ class MentorMessagesRepository(Protocol):
         self, account_id: str, session_id: str, message_ids: tuple[str, ...]
     ) -> tuple[MentorMessage, ...]:
         """Only messages of that session, ordered by (created_at, id)."""
+        ...
+
+    def mark_memory_analyzed(
+        self, message_id: str, analyzed_at: datetime, statement_only: bool
+    ) -> None:
+        """Write the analysis receipt in the caller's transaction."""
+        ...
+
+    def find_memory_analysis(self, message_id: str) -> tuple[datetime, bool] | None:
+        """The receipt ``(analyzed_at, statement_only)``, or None when not analyzed."""
         ...
 
     def add(self, message: MentorMessage) -> None: ...

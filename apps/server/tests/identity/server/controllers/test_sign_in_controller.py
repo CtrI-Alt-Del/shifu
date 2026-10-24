@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
 from shifu.identity.core.domain.errors import InvalidCredentialsError
@@ -106,3 +107,36 @@ class TestSignInController:
 
         assert pending_status.status_code == 200
         assert pending_status.json()['state'] in {'cooldown', 'ready'}
+
+    def test_should_serialize_profile_timestamps_as_iso_strings(
+        self,
+        client: TestClient,
+    ) -> None:
+        client.post(  # pyright: ignore[reportUnknownMemberType]
+            '/identity/registrations',
+            json={
+                'display_name': 'Barbara Liskov',
+                'email': 'barbara@example.com',
+                'password': 'correct horse battery staple',
+            },
+        )
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                '/identity/sign-in',
+                json={
+                    'email': 'barbara@example.com',
+                    'password': 'correct horse battery staple',
+                },
+            ),
+        )
+
+        profile = response.json()['profile']
+
+        assert profile['status'] == 'pending-confirmation'
+        assert profile['display_name'] == 'Barbara Liskov'
+        assert profile['created_at'].endswith('+00:00')
+        assert datetime.fromisoformat(profile['created_at']).utcoffset() == timedelta(0)
+        assert 'confirmed_at' not in profile
+        assert 'time_zone' not in profile

@@ -27,11 +27,11 @@ from shifu.shared.core.interfaces import (
     CurriculumContentProvider,
     IdentifierProvider,
 )
+from shifu.shared.pipes import AuthenticationPipe
 from shifu.shared.core.interfaces.telemetry_provider import (
     TelemetryEventInput,
     TelemetryProvider,
 )
-from shifu.shared.pipes import AuthenticationPipe
 from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 
 

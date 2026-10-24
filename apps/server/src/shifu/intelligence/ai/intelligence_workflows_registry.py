@@ -7,6 +7,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, ClassVar, cast
 
 import httpx
+from redis import Redis
 
 from shifu.intelligence.ai.agno.agents import (
     MentorAttachmentAnswerAgent,
@@ -17,10 +18,11 @@ from shifu.intelligence.ai.agno.agents import (
 )
 from shifu.intelligence.ai.agno.workflows import (
     AgnoGenerateMentorTitleWorkflow,
-    PrepareMentorAttachmentWorkflow,
-    ProcessMentorResponseWorkflow,
-    PurgeMentorAttachmentsWorkflow,
+    AgnoPrepareMentorAttachmentWorkflow,
+    AgnoProcessMentorResponseWorkflow,
+    AgnoPurgeMentorAttachmentsWorkflow,
 )
+from shifu.intelligence.ai.data.learner_memory_resources import LearnerMemoryResources
 from shifu.intelligence.core.use_cases import (
     AssertMentorResponseCurrentUseCase,
     CompleteMentorAttachmentUseCase,
@@ -29,8 +31,11 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorAttachmentUseCase,
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
+    PurgeLearnerMemoriesForAccountUseCase,
+    PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
+    RecordMentorActionOutcomeUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
     ReleaseMentorAttachmentClaimUseCase,
@@ -38,6 +43,7 @@ from shifu.intelligence.core.use_cases import (
     RenewMentorAttachmentClaimUseCase,
     RenewMentorResponseClaimUseCase,
     SummarizeMentorSessionContextUseCase,
+    UpdateLearnerMemoriesUseCase,
 )
 from shifu.intelligence.core.use_cases.finalize_mentor_response_use_case import (
     FinalizeMentorResponseUseCase,
@@ -46,23 +52,28 @@ from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case im
     GetMentorAttachmentContextUseCase,
 )
 from shifu.intelligence.pipes import IntelligencePipe
-from shifu.intelligence.providers.code_rubric_assessor_provider.jev_code_rubric_assessor_provider import (
+from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
-from shifu.intelligence.providers.mentor_attachment.local_mentor_attachment_extractor_provider import (
+from shifu.intelligence.providers.generation_limit.redis.redis_mentor_generation_limit_provider import (
+    RedisMentorGenerationLimitProvider,
+)
+from shifu.intelligence.providers.generation_limit.unavailable_mentor_generation_limit_provider import (
+    UnavailableMentorGenerationLimitProvider,
+)
+from shifu.intelligence.providers.mentor_attachment_extraction.local.local_mentor_attachment_extractor_provider import (
     LocalMentorAttachmentExtractorProvider,
 )
-from shifu.intelligence.providers.openrouter import (
-    MentorTitleModelProvider,
-    UnavailableGenerateMentorTitleWorkflow,
+from shifu.intelligence.providers.memory_classification.tfidf.tfidf_learner_memory_analyzer_provider import (
+    TfidfLearnerMemoryAnalyzerProvider,
 )
-from shifu.intelligence.providers.openrouter.mentor_answer_model_provider import (
-    OpenrouterMentorAnswerModelProvider,
+from shifu.intelligence.providers.mentor_title.unavailable_generate_mentor_title_provider import (
+    UnavailableGenerateMentorTitleProvider,
 )
 from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_provider import (
     LangfuseMentorTelemetryProvider,
 )
-from shifu.intelligence.providers.routing.lazy_mentor_route_provider import (
+from shifu.intelligence.providers.routing.lazy.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
 )
 from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
@@ -70,6 +81,9 @@ from shifu.intelligence.providers.summarization.textrank.textrank_mentor_convers
 )
 from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
     SpacyMentorTextPreprocessorProvider,
+)
+from shifu.intelligence.providers.text_similarity.bag_of_words.bag_of_words_learner_memory_similarity_provider import (
+    BagOfWordsLearnerMemorySimilarityProvider,
 )
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
@@ -88,10 +102,13 @@ if TYPE_CHECKING:
 
     from shifu.intelligence.core.domain.structures import MentorInferenceUsage
     from shifu.intelligence.core.interfaces import (
-        GenerateMentorTitleWorkflow,
+        GenerateMentorTitleProvider,
         IntelligenceDatabase,
+        LearnerMemoryAnalyzerProvider,
+        LearnerMemorySimilarityProvider,
         MentorConversationSummarizerProvider,
         MentorEmbeddingsProvider,
+        MentorGenerationLimitProvider,
         MentorRouteProvider,
         MentorTelemetryProvider,
     )
@@ -101,9 +118,9 @@ if TYPE_CHECKING:
         MentorAccessProvider,
         MentorCatalogProvider,
         MentorContextProvider,
+        MentorGoalDestinationsProvider,
         OutboxEvent,
     )
-    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
 
@@ -134,6 +151,9 @@ class _UnavailableVisionAgent:
 
 class _UnavailableWriterAgent:
     def run(self, **_kwargs: object) -> object:
+        raise ServiceUnavailableError('Mentor response generation is unavailable.')
+
+    def general_input(self, *_args: object, **_kwargs: object) -> str:
         raise ServiceUnavailableError('Mentor response generation is unavailable.')
 
 
@@ -188,13 +208,14 @@ class IntelligenceWorkflowsRegistry:
         access_provider: MentorAccessProvider,
         context_provider: MentorContextProvider,
         catalog_provider: MentorCatalogProvider,
+        mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
-        telemetry_provider: TelemetryProvider | None = None,
         summarizer: MentorConversationSummarizerProvider | None = None,
+        learner_memory_analyzer: LearnerMemoryAnalyzerProvider | None = None,
     ) -> None:
         observability = observability or LangfuseTelemetryProvider(
             'intelligence', telemetry_client
@@ -227,11 +248,26 @@ class IntelligenceWorkflowsRegistry:
                 embeddings=self._shared_embeddings,
             )
         )
-        self._summarizer: MentorConversationSummarizerProvider = (
+        self._summarizer_provider: MentorConversationSummarizerProvider = (
             summarizer
             if summarizer is not None
             else TextrankMentorConversationSummarizerProvider(
                 self._shared_preprocessor, self._shared_embeddings
+            )
+        )
+        # The classifier fits lazily on its first analysis, inside the AgentOS step;
+        # building the registry reads only the small versioned JSON resources.
+        self._memory_resources = LearnerMemoryResources()
+        self._learner_memory_analyzer_provider: LearnerMemoryAnalyzerProvider = (
+            learner_memory_analyzer
+            if learner_memory_analyzer is not None
+            else TfidfLearnerMemoryAnalyzerProvider(
+                self._shared_preprocessor, self._memory_resources
+            )
+        )
+        self._learner_memory_similarity_provider: LearnerMemorySimilarityProvider = (
+            BagOfWordsLearnerMemorySimilarityProvider(
+                self._shared_preprocessor, self._memory_resources
             )
         )
         self._handoffs = AgentOSHandoffStore()
@@ -240,27 +276,18 @@ class IntelligenceWorkflowsRegistry:
             settings, self._identifier_provider
         )
 
-        title_model = MentorTitleModelProvider.build(
-            settings,
-            telemetry_provider=telemetry_provider,
-        )
         title_agent = (
-            MentorTitleAgent(title_model)
-            if title_model is not None
+            MentorTitleAgent()
+            if MentorTitleAgent.enabled()
             else cast('MentorTitleAgent', _UnavailableTitleAgent())
         )
         title_workflow = AgnoGenerateMentorTitleWorkflow(
             title_agent, self._handoffs, observability
         )
 
-        vision_model = OpenrouterMentorAnswerModelProvider.build(
-            settings,
-            profile='vision',
-            telemetry_provider=telemetry_provider,
-        )
         vision_agent = (
-            MentorAttachmentVisionAgent(vision_model)
-            if vision_model is not None
+            MentorAttachmentVisionAgent()
+            if MentorAttachmentVisionAgent.enabled()
             else cast('MentorAttachmentVisionAgent', _UnavailableVisionAgent())
         )
         prepare_attachment = PrepareMentorAttachmentUseCase(
@@ -279,7 +306,7 @@ class IntelligenceWorkflowsRegistry:
             self._database, self._clock_provider, access_provider
         )
         release_attachment = ReleaseMentorAttachmentClaimUseCase(self._database)
-        prepare_workflow = PrepareMentorAttachmentWorkflow(
+        prepare_workflow = AgnoPrepareMentorAttachmentWorkflow(
             prepare_use_case=prepare_attachment,
             complete_use_case=complete_attachment,
             fail_use_case=fail_attachment,
@@ -294,7 +321,7 @@ class IntelligenceWorkflowsRegistry:
         self._purge_mentor_attachments_use_case = PurgeMentorAttachmentsUseCase(
             self._database, self._clock_provider, self._storage_provider
         )
-        purge_workflow = PurgeMentorAttachmentsWorkflow(
+        purge_workflow = AgnoPurgeMentorAttachmentsWorkflow(
             self._purge_mentor_attachments_use_case
         )
 
@@ -303,6 +330,42 @@ class IntelligenceWorkflowsRegistry:
             self._identifier_provider,
             access_provider,
         )
+        writer_agent = (
+            MentorWriterAgent()
+            if MentorWriterAgent.enabled()
+            else cast('MentorWriterAgent', _UnavailableWriterAgent())
+        )
+        attachment_answer_agent = (
+            MentorAttachmentAnswerAgent()
+            if MentorAttachmentAnswerAgent.enabled()
+            else cast(
+                'MentorAttachmentAnswerAgent', _UnavailableAttachmentAnswerAgent()
+            )
+        )
+        reviewer_agent = (
+            MentorReviewerAgent()
+            if MentorReviewerAgent.enabled()
+            else cast('MentorReviewerAgent', _UnavailableReviewerAgent())
+        )
+        self._generation_limit_client: Redis | None = None
+        generation_limit: MentorGenerationLimitProvider = (
+            UnavailableMentorGenerationLimitProvider()
+        )
+        if (
+            MentorWriterAgent.enabled()
+            and MentorReviewerAgent.enabled()
+            and settings.mentor_generation_limit_per_hour > 0
+        ):
+            # Short timeouts keep a blackholed store failing closed instead of hanging.
+            self._generation_limit_client = Redis.from_url(  # pyright: ignore[reportUnknownMemberType] - redis-py has incomplete stubs.
+                settings.redis_url,
+                socket_timeout=2,
+                socket_connect_timeout=2,
+            )
+            generation_limit = RedisMentorGenerationLimitProvider(
+                self._generation_limit_client,
+                settings.mentor_generation_limit_per_hour,
+            )
         prepare_response = PrepareMentorResponseUseCase(
             self._database,
             self._clock_provider,
@@ -311,9 +374,17 @@ class IntelligenceWorkflowsRegistry:
             self._route_provider,
             catalog_provider,
             attachment_context_use_case,
+            self._learner_memory_similarity_provider,
+            self._memory_resources.manifest.relevance_threshold,
+            generation_limit,
+            mentor_goal_destinations_provider,
         )
         publish_response_block = PublishMentorResponseBlockUseCase(
-            self._database, self._clock_provider, access_provider, context_provider
+            self._database,
+            self._clock_provider,
+            access_provider,
+            context_provider,
+            self._identifier_provider,
         )
         assert_response_current = AssertMentorResponseCurrentUseCase(
             self._database, self._clock_provider, access_provider
@@ -336,7 +407,7 @@ class IntelligenceWorkflowsRegistry:
         )
         summarize_context = SummarizeMentorSessionContextUseCase(
             self._database,
-            self._summarizer,
+            self._summarizer_provider,
             access_provider,
             self._clock_provider,
             self._identifier_provider,
@@ -344,43 +415,30 @@ class IntelligenceWorkflowsRegistry:
             renew_response_claim,
             self._telemetry,
         )
+        update_memories = UpdateLearnerMemoriesUseCase(
+            self._database,
+            self._learner_memory_analyzer_provider,
+            self._learner_memory_similarity_provider,
+            access_provider,
+            self._clock_provider,
+            self._identifier_provider,
+            self._memory_resources.manifest.update_threshold,
+        )
         self._purge_mentor_summaries_use_case = PurgeMentorSummariesForAccountUseCase(
             self._database
         )
-        writer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings,
-            profile='primary',
-            telemetry_provider=telemetry_provider,
+        self._purge_learner_memories_use_case = PurgeLearnerMemoriesForAccountUseCase(
+            self._database
         )
-        attachment_answer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings,
-            profile='primary',
-            telemetry_provider=telemetry_provider,
+        self._purge_mentor_action_proposals_use_case = (
+            PurgeMentorActionProposalsForAccountUseCase(self._database)
         )
-        reviewer_model = OpenrouterMentorAnswerModelProvider.build(
-            settings,
-            profile='reviewer',
-            telemetry_provider=telemetry_provider,
+        self._record_mentor_action_outcome_use_case = RecordMentorActionOutcomeUseCase(
+            self._database, self._clock_provider
         )
-        writer_agent = (
-            MentorWriterAgent(writer_model)
-            if writer_model is not None
-            else cast('MentorWriterAgent', _UnavailableWriterAgent())
-        )
-        attachment_answer_agent = (
-            MentorAttachmentAnswerAgent(attachment_answer_model)
-            if attachment_answer_model is not None
-            else cast(
-                'MentorAttachmentAnswerAgent', _UnavailableAttachmentAnswerAgent()
-            )
-        )
-        reviewer_agent = (
-            MentorReviewerAgent(reviewer_model)
-            if reviewer_model is not None
-            else cast('MentorReviewerAgent', _UnavailableReviewerAgent())
-        )
-        process_workflow = ProcessMentorResponseWorkflow(
+        process_workflow = AgnoProcessMentorResponseWorkflow(
             summarize_use_case=summarize_context,
+            update_memories_use_case=update_memories,
             prepare_use_case=prepare_response,
             publish_block_use_case=publish_response_block,
             assert_current_use_case=assert_response_current,
@@ -411,9 +469,7 @@ class IntelligenceWorkflowsRegistry:
 
         self._code_rubric_http_client = self._build_code_rubric_client()
         self._code_rubric_client = self._build_code_rubric_provider(
-            settings,
-            self._code_rubric_http_client,
-            telemetry_provider,
+            settings, self._code_rubric_http_client
         )
         database_url = settings.agentos_database_url
         self._runtime = (
@@ -434,14 +490,14 @@ class IntelligenceWorkflowsRegistry:
             if database_url is not None
             else None
         )
-        self._observability = (
+        self._observability_provider = (
             self._runtime.observability if self._runtime is not None else observability
         )
         if isinstance(self._telemetry, LangfuseMentorTelemetryProvider):
-            self._telemetry.bind(self._observability)
+            self._telemetry.bind(self._observability_provider)
         if self._runtime is None:
-            self._mentor_title_provider: GenerateMentorTitleWorkflow = (
-                UnavailableGenerateMentorTitleWorkflow()
+            self._mentor_title_provider: GenerateMentorTitleProvider = (
+                UnavailableGenerateMentorTitleProvider()
             )
         else:
             from shifu.intelligence.providers.mentor_title.agentos import (
@@ -464,11 +520,11 @@ class IntelligenceWorkflowsRegistry:
         return self._database
 
     @property
-    def code_rubric_assessor(self) -> CodeRubricAssessorProvider:
+    def code_rubric_assessor_provider(self) -> CodeRubricAssessorProvider:
         return self._code_rubric_client
 
     @property
-    def mentor_title_provider(self) -> GenerateMentorTitleWorkflow:
+    def mentor_title_provider(self) -> GenerateMentorTitleProvider:
         return self._mentor_title_provider
 
     @property
@@ -488,18 +544,42 @@ class IntelligenceWorkflowsRegistry:
         return self._purge_mentor_summaries_use_case
 
     @property
-    def summarizer(self) -> MentorConversationSummarizerProvider:
-        return self._summarizer
+    def purge_learner_memories_use_case(self) -> PurgeLearnerMemoriesForAccountUseCase:
+        return self._purge_learner_memories_use_case
+
+    @property
+    def purge_mentor_action_proposals_use_case(
+        self,
+    ) -> PurgeMentorActionProposalsForAccountUseCase:
+        return self._purge_mentor_action_proposals_use_case
+
+    @property
+    def record_mentor_action_outcome_use_case(
+        self,
+    ) -> RecordMentorActionOutcomeUseCase:
+        return self._record_mentor_action_outcome_use_case
+
+    @property
+    def learner_memory_analyzer_provider(self) -> LearnerMemoryAnalyzerProvider:
+        return self._learner_memory_analyzer_provider
+
+    @property
+    def learner_memory_similarity_provider(self) -> LearnerMemorySimilarityProvider:
+        return self._learner_memory_similarity_provider
+
+    @property
+    def summarizer_provider(self) -> MentorConversationSummarizerProvider:
+        return self._summarizer_provider
 
     @property
     def route_provider(self) -> MentorRouteProvider:
         return self._route_provider
 
     @property
-    def observability(self) -> LangfuseTelemetryProvider:
+    def observability_provider(self) -> LangfuseTelemetryProvider:
         if self._runtime is not None:
             return self._runtime.observability
-        return self._observability
+        return self._observability_provider
 
     def destination_for_event(self, event: OutboxEvent) -> str | None:
         if event.name not in {
@@ -582,6 +662,8 @@ class IntelligenceWorkflowsRegistry:
             await self._runtime.close()
         self._storage_provider.close()
         self._code_rubric_http_client.close()
+        if self._generation_limit_client is not None:
+            self._generation_limit_client.close()
 
     @staticmethod
     def _build_code_rubric_client() -> httpx.Client:
@@ -589,16 +671,13 @@ class IntelligenceWorkflowsRegistry:
 
     @staticmethod
     def _build_code_rubric_provider(
-        settings: Settings,
-        client: httpx.Client,
-        telemetry_provider: TelemetryProvider | None,
+        settings: Settings, client: httpx.Client
     ) -> JevCodeRubricAssessorProvider:
         return JevCodeRubricAssessorProvider(
             api_key=settings.openrouter_api_key,
             client=client,
             decisions_url=str(settings.openrouter_decisions_url),
             model=settings.jev_model,
-            telemetry_provider=telemetry_provider,
         )
 
     def _record_attachment_usage(self, usage: MentorInferenceUsage) -> None:

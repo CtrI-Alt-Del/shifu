@@ -4,13 +4,18 @@ import { describe, expect, it } from 'vitest'
 import { Icon, type IconName } from '..'
 
 describe('Icon', () => {
-  it('renders every competency-detail icon through the shared registry', () => {
+  it('renders every registered icon through the shared registry', () => {
     const names: IconName[] = [
       'arrow-left',
       'chevron-right',
       'lock-keyhole',
       'rotate-ccw',
       'target',
+      'sliders-horizontal',
+      'compass',
+      'puzzle',
+      'lock',
+      'list',
     ]
 
     const { container } = render(

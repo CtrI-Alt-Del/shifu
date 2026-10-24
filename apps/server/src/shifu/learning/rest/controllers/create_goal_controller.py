@@ -1,11 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request as FastAPIRequest, status
+from fastapi import APIRouter, Depends, Request as FastAPIRequest
 from pydantic import BaseModel, ConfigDict, Field
-from starlette.responses import JSONResponse
 
 from shifu.learning.core.interfaces import LearningDatabase
-from shifu.learning.core.domain.errors import CurriculumGapError
 from shifu.learning.core.use_cases.create_goal_use_case import CreateGoalUseCase
 from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -37,9 +35,7 @@ class Response(BaseModel):
 class CreateGoalController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.post(
-            '/goals', response_model=Response, status_code=status.HTTP_201_CREATED
-        )
+        @router.post('/goals', response_model=Response, status_code=201)
         def _(
             http_request: FastAPIRequest,
             request: Request,
@@ -59,24 +55,13 @@ class CreateGoalController:
                 TelemetryProvider | None,
                 Depends(TelemetryPipe.get_telemetry_provider),
             ],
-        ) -> Response | JSONResponse:
-            try:
-                goal = CreateGoalUseCase(
-                    database, curriculum, clock, identifiers
-                ).execute(
-                    user.account_id,
-                    request.title,
-                    request.description,
-                    request.skill_ids,
-                )
-            except CurriculumGapError:
-                return JSONResponse(
-                    status_code=status.HTTP_409_CONFLICT,
-                    content={
-                        'code': 'curriculum_gap',
-                        'message': 'Um Skill selecionado ainda não está pronto para iniciar.',
-                    },
-                )
+        ) -> Response:
+            goal = CreateGoalUseCase(database, curriculum, clock, identifiers).execute(
+                user.account_id,
+                request.title,
+                request.description,
+                request.skill_ids,
+            )
             event: TelemetryEventInput = {
                 'level': 'INFO',
                 'event': 'learning.goal.created',

@@ -432,6 +432,23 @@ files and saved criteria vary, while kind is context rather than provider dispat
 This one-step assessment does not construct an Agno Agent, Team, or Workflow.
 The Mentor answer workflow summarizes long conversations locally (extractive,
 no inference, nothing leaves Shifu) in a pre-answer step before preparation.
+A second local pre-answer step analyzes the learner's typed message for explicit
+statements and keeps them as private learner memories: spaCy filters first-person,
+non-question sentences, a count bag-of-words with TF-IDF and a nearest-example vote
+classifies them, and count bag-of-words cosine decides between creating and updating
+a memory. This step uses scikit-learn as an explicit server dependency, calls no AI
+provider and records no usage.
+When a Mentor message part has no local answer, the preparation use case asks a
+Core limit port for one slot of a rolling hour per account. With a slot, the same
+answer workflow asks the writer for a general answer and the cumulative reviewer
+approves it in at most two versions; the deterministic abstention is held back and
+shown only when the model is off, the limit is reached, the limit store fails, or the
+reviewer rejects twice. Local gates, clarifications, memory acknowledgements and
+curated FAQ answers never reach the model. The Redis limit provider keeps one sorted
+set of attempt ids per account and fails closed. The writer and the reviewer receive
+a closed projection of the request without technical identifiers, file names or
+timestamps, under the same zero-data-retention profile. Attachment answers are not
+limited by this slot.
 
 Agno's `Agent`, `Team`, `Workflow`, and AgentOS primitives are infrastructure details
 behind typed core protocols. Each module registry builds only its own workflows and
@@ -461,9 +478,9 @@ Learning HTTP and Inngest paths. The provider calls OpenRouter's
 Neither business module imports the other, and `shifu.composition` needs
 no additional dependency.
 
-New Agno implementations live under
-`apps/server/src/shifu/intelligence/ai/agno`; existing implementations under the
-legacy `ai/generative/agno` layout remain until a scoped refactor migrates them.
+Agno implementations live under `apps/server/src/shifu/intelligence/ai/agno`.
+Intelligence providers follow `providers/<capability>/<technology>/`, with each
+capability's unavailable fallback beside its technology folders.
 NLP technology adapters belong to Intelligence providers; persistent semantic
 indexes use Core repository ports and module-owned database adapters.
 The Mentor contextual-response implementation uses local Portuguese spaCy and

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from shifu.gamification.core.interfaces import GamificationDatabase
@@ -37,7 +37,7 @@ class ListAchievementsController:
         @router.get(
             '/achievements',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             user: Annotated[

@@ -1,3 +1,4 @@
+import type { ActivityXpReward } from '@/core/gamification/activity-xp-reward'
 import type { AchievementsOverview } from '@/core/gamification/achievements-overview'
 import type { GamificationOverview } from '@/core/gamification/overview'
 import type { PracticeCalendar } from '@/core/gamification/practice-calendar'
@@ -43,6 +44,19 @@ export const GamificationService = (restClient: RestClient) => {
       const response = await restClient.get<XpHistory>('/gamification/xp-history', {
         headers: { Authorization: `Bearer ${accessToken}` },
       })
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+
+    async getActivityXpReward(
+      accessToken: string,
+      activityId: string,
+      attemptId: string,
+    ): Promise<ActivityXpReward> {
+      const response = await restClient.get<ActivityXpReward>(
+        `/gamification/activities/${activityId}/attempts/${attemptId}/xp-reward`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
       if (response.isFailure) response.throwError()
       return response.body
     },

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import json
-import re
-import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import cache
 from importlib.resources import files
+import json
+import re
 from time import monotonic
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from typing import Any, ClassVar
+import unicodedata
 
-from evals.common import CaseDefinition, select_definitions
 from shifu.intelligence.core.domain.entities import MentorMessage, MentorSessionSummary
 from shifu.intelligence.core.domain.enums import (
     MentorMessageRole,
@@ -21,219 +20,173 @@ from shifu.intelligence.core.domain.structures import (
     MentorConversationSummaryDraft,
     MentorSummaryBoundary,
 )
+from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import (
+    SentenceTransformersEmbeddingsProvider,
+)
+from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
+    TextrankMentorConversationSummarizerProvider,
+)
+from shifu.intelligence.providers.text_preprocessing.spacy.spacy_mentor_text_preprocessor_provider import (
+    SpacyMentorTextPreprocessorProvider,
+)
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
-
-class _Summarizer(Protocol):
-    def summarize(
-        self,
-        messages: tuple[MentorMessage, ...],
-        previous: MentorConversationSummaryContext | None,
-    ) -> MentorConversationSummaryDraft: ...
-
-
-_DATASET = 'mentor-summary-evaluation.json'
-_BASE_TIME = datetime(2026, 1, 1, tzinfo=UTC)
-_EXCERPT_LIMIT = 280
-_FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')
+from evals.eval import Eval
 
 
-@cache
-def _dataset() -> dict[str, Any]:
-    raw = files('shifu.intelligence.ai.data').joinpath(_DATASET).read_text('utf-8')
-    return json.loads(raw)
+class SummarizeMentorSessionEval(Eval):
+    """Gate the local extractive summary on a versioned synthetic pt-BR dataset.
 
-
-def _normalize(text: str) -> str:
-    decomposed = unicodedata.normalize('NFD', text.casefold())
-    stripped = ''.join(c for c in decomposed if not unicodedata.combining(c))
-    return ' '.join(re.sub(r'[^\w]+', ' ', stripped).split())
-
-
-def _fenced(content: str) -> list[tuple[int, int]]:
-    """Independent fence scan used only to judge the summarizer's output."""
-    ranges: list[tuple[int, int]] = []
-    opened: tuple[int, str] | None = None
-    offset = 0
-    for line in content.split('\n'):
-        match = _FENCE.match(line)
-        if match is not None:
-            if opened is None:
-                opened = (offset, match.group(1)[0])
-            elif match.group(1)[0] == opened[1]:
-                ranges.append((opened[0], offset + len(line)))
-                opened = None
-        offset += len(line) + 1
-    if opened is not None:
-        ranges.append((opened[0], len(content)))
-    return ranges
-
-
-@dataclass(frozen=True)
-class _Case:
-    name: str
-    messages: tuple[MentorMessage, ...]
-    split_after: int | None
-    expected: dict[str, Any]
-
-
-def _build_case(entry: dict[str, Any]) -> _Case:
-    name = str(entry['name'])
-    messages = tuple(
-        MentorMessage(
-            id=f'{name}:{index:03d}',
-            session_id=name,
-            role=MentorMessageRole(message['role']),
-            content=message['content'],
-            created_at=_BASE_TIME + timedelta(minutes=index),
-            in_reply_to_message_id=None,
-        )
-        for index, message in enumerate(entry['messages'])
-    )
-    return _Case(name, messages, entry.get('split_after'), entry['expected'])
-
-
-class SummarizeMentorSessionEval:
-    """Gate the local extractive summary on a versioned synthetic pt-BR dataset."""
+    Local NLP only: identical in double and real modes, no model calls.
+    """
 
     selector = 'summarize-mentor-session'
     workflow_id = 'intelligence-summarize-mentor-session'
     prompt_revision = 'textrank-mmr-e5-v1'
+    unavailable_failure_code = 'summarizer_unavailable'
     DOUBT_RECALL: ClassVar[float] = 0.80
     GUIDANCE_RECALL: ClassVar[float] = 0.80
     TOPIC_RECALL: ClassVar[float] = 0.70
+    DATASET: ClassVar[str] = 'mentor-summary-evaluation.json'
+    BASE_TIME: ClassVar[datetime] = datetime(2026, 1, 1, tzinfo=UTC)
+    EXCERPT_LIMIT: ClassVar[int] = 280
+    FENCE: ClassVar[re.Pattern[str]] = re.compile(r'^ {0,3}(`{3,}|~{3,})')
 
-    def __init__(
-        self,
-        summarizer: _Summarizer,
-        *,
-        mode: str,
-        model_profile: str,
-        close_resources: Callable[[], None] | None = None,
-    ) -> None:
-        self._summarizer = summarizer
-        self._mode = mode
-        self._model_profile = model_profile
-        self._close_resources = close_resources
+    @dataclass(frozen=True)
+    class Conversation:
+        name: str
+        messages: tuple[MentorMessage, ...]
+        split_after: int | None
+        expected: dict[str, Any]
+
+    def __init__(self, *, mode: str) -> None:
+        super().__init__(mode=mode)
+        self.summarizer = TextrankMentorConversationSummarizerProvider(
+            SpacyMentorTextPreprocessorProvider(),
+            SentenceTransformersEmbeddingsProvider(),
+        )
+        self.model_profile = 'local-textrank'
 
     @property
     def dataset_revision(self) -> str:
-        return str(_dataset()['dataset_revision'])
+        return str(self.dataset()['dataset_revision'])
 
-    @classmethod
-    def definitions(cls) -> tuple[CaseDefinition, ...]:
+    def cases(self) -> tuple[Eval.LocalCase, ...]:
         return tuple(
-            CaseDefinition(
+            Eval.LocalCase(
                 name=str(entry['name']),
                 tags=tuple(entry['tags']),
                 input=f'{len(entry["messages"])} synthetic pt-BR messages',
                 expected=entry['expected'],
             )
-            for entry in _dataset()['cases']
+            for entry in self.dataset()['cases']
         )
 
-    def run(self, name: str | None = None, tag: str | None = None) -> dict[str, Any]:
-        definitions = self.definitions()
-        selected = select_definitions(definitions, name=name, tag=tag)
-        entries = {str(entry['name']): entry for entry in _dataset()['cases']}
-        cases = [_build_case(entries[definition.name]) for definition in selected]
+    def run_local_cases(self, selected: tuple[Any, ...]) -> list[dict[str, Any]]:
+        entries = {str(entry['name']): entry for entry in self.dataset()['cases']}
+        conversations = [self.conversation(entries[case.name]) for case in selected]
         reports: list[dict[str, Any]] = []
         drafts: dict[str, MentorConversationSummaryDraft] = {}
-        for case in cases:
+        for conversation in conversations:
             started = monotonic()
             try:
-                drafts[case.name] = self._summarize(case)
-                report = self._score(case, drafts[case.name])
+                drafts[conversation.name] = self.summarize(conversation)
+                report = self.score(conversation, drafts[conversation.name])
                 # RF-02: the same input yields the same draft and rendered text.
-                repeated = self._summarize(case)
+                repeated = self.summarize(conversation)
                 mismatch = int(
-                    repeated != drafts[case.name]
-                    or self._rendered(case, repeated)
-                    != self._rendered(case, drafts[case.name])
+                    repeated != drafts[conversation.name]
+                    or self.rendered(conversation, repeated)
+                    != self.rendered(conversation, drafts[conversation.name])
                 )
                 report['nondeterministic'] = mismatch
                 if mismatch:
                     report['passed'] = False
                     report['failure_code'] = 'nondeterministic_output'
             except Exception:  # noqa: BLE001 - provider errors can contain conversation text.
-                report = {'passed': False, 'failure_code': 'summarizer_unavailable'}
-            report['case_id'] = case.name
+                report = {
+                    'passed': False,
+                    'failure_code': self.unavailable_failure_code,
+                }
+            report['case_id'] = conversation.name
             report['duration_seconds'] = round(max(monotonic() - started, 0.0), 3)
             reports.append(report)
 
         # Leakage and independence: replaying the cases in reverse order, after every
         # other conversation went through the same instance, must change nothing.
-        for case in reversed(cases):
-            report = next(item for item in reports if item['case_id'] == case.name)
-            if case.name not in drafts:
+        for conversation in reversed(conversations):
+            report = next(
+                item for item in reports if item['case_id'] == conversation.name
+            )
+            if conversation.name not in drafts:
                 continue
             try:
-                replay = self._summarize(case)
+                replay = self.summarize(conversation)
             except Exception:  # noqa: BLE001 - see above.
                 replay = None
-            if replay != drafts[case.name]:
+            if replay != drafts[conversation.name]:
                 report['leakage'] = report.get('leakage', 0) + 1
                 report['passed'] = False
                 report['failure_code'] = 'cross_case_leakage'
 
-        case_reports = [self._case_report(report) for report in reports]
-        successful = bool(case_reports) and all(
-            item['outcome'] == 'passed' for item in case_reports
-        )
-        return {
-            'workflow': self.selector,
-            'status': 'passed' if successful else 'failed',
-            'partial': len(selected) < len(definitions),
-            'mode': self._mode,
-            'model_profile': self._model_profile,
-            'dataset_revision': self.dataset_revision,
-            'prompt_revision': self.prompt_revision,
-            'selected_case_ids': [definition.name for definition in selected],
-            'counts': {
-                'selected': len(case_reports),
-                'passed': sum(item['outcome'] == 'passed' for item in case_reports),
-                'failed': sum(item['outcome'] == 'failed' for item in case_reports),
-                'skipped': 0,
-            },
-            'cases': case_reports,
-        }
-
-    def close(self) -> None:
-        if self._close_resources is not None:
-            self._close_resources()
+        return [self.case_report(report) for report in reports]
 
     # --- execution -----------------------------------------------------------
 
-    def _summarize(self, case: _Case) -> MentorConversationSummaryDraft:
-        if case.split_after is None:
-            return self._summarizer.summarize(case.messages, None)
-        first, rest = (
-            case.messages[: case.split_after],
-            case.messages[case.split_after :],
+    @classmethod
+    @cache
+    def dataset(cls) -> dict[str, Any]:
+        raw = (
+            files('shifu.intelligence.ai.data').joinpath(cls.DATASET).read_text('utf-8')
         )
-        draft = self._summarizer.summarize(first, None)
-        summary = self._ready(case, first, draft)
+        return json.loads(raw)
+
+    @classmethod
+    def conversation(cls, entry: dict[str, Any]) -> Conversation:
+        name = str(entry['name'])
+        messages = tuple(
+            MentorMessage(
+                id=f'{name}:{index:03d}',
+                session_id=name,
+                role=MentorMessageRole(message['role']),
+                content=message['content'],
+                created_at=cls.BASE_TIME + timedelta(minutes=index),
+                in_reply_to_message_id=None,
+            )
+            for index, message in enumerate(entry['messages'])
+        )
+        return cls.Conversation(
+            name, messages, entry.get('split_after'), entry['expected']
+        )
+
+    def summarize(self, conversation: Conversation) -> MentorConversationSummaryDraft:
+        if conversation.split_after is None:
+            return self.summarizer.summarize(conversation.messages, None)
+        first, rest = (
+            conversation.messages[: conversation.split_after],
+            conversation.messages[conversation.split_after :],
+        )
+        draft = self.summarizer.summarize(first, None)
+        summary = self.ready(conversation, first, draft)
         previous = MentorConversationSummaryContext.from_summary(summary, first)
         sources = tuple(
             message
             for message in first
             if message.id in {span.message_id for span in draft.excerpts}
         )
-        return self._summarizer.summarize((*sources, *rest), previous)
+        return self.summarizer.summarize((*sources, *rest), previous)
 
-    @staticmethod
-    def _ready(
-        case: _Case,
+    @classmethod
+    def ready(
+        cls,
+        conversation: Conversation,
         covered: tuple[MentorMessage, ...],
         draft: MentorConversationSummaryDraft,
     ) -> MentorSessionSummary:
         last = covered[-1]
         started = MentorSessionSummary.start(
-            id=f'{case.name}:summary',
+            id=f'{conversation.name}:summary',
             account_id='eval-account',
-            session_id=case.name,
+            session_id=conversation.name,
             attempt_id='eval-attempt',
             version=1,
             boundary=MentorSummaryBoundary(
@@ -241,16 +194,16 @@ class SummarizeMentorSessionEval:
             ),
             covered_message_count=len(covered),
             first_message_id=covered[0].id,
-            now=_BASE_TIME,
+            now=cls.BASE_TIME,
         )
-        return started.complete(draft, _BASE_TIME)
+        return started.complete(draft, cls.BASE_TIME)
 
     # --- scoring -------------------------------------------------------------
 
-    def _score(
-        self, case: _Case, draft: MentorConversationSummaryDraft
+    def score(
+        self, conversation: Conversation, draft: MentorConversationSummaryDraft
     ) -> dict[str, Any]:
-        by_id = {message.id: message for message in case.messages}
+        by_id = {message.id: message for message in conversation.messages}
         fidelity_errors = 0
         fenced = 0
         for span in draft.excerpts:
@@ -258,28 +211,30 @@ class SummarizeMentorSessionEval:
             if (
                 message is None
                 or not 0 <= span.start < span.end <= len(message.content)
-                or span.end - span.start > _EXCERPT_LIMIT
+                or span.end - span.start > self.EXCERPT_LIMIT
                 or not message.content[span.start : span.end].strip()
             ):
                 fidelity_errors += 1
                 continue
             if any(
                 span.start < end and span.end > start
-                for start, end in _fenced(message.content)
+                for start, end in self.fenced(message.content)
             ):
                 fenced += 1
-        fidelity_errors += self._render_errors(case, draft, by_id)
+        fidelity_errors += self.render_errors(conversation, draft, by_id)
 
-        text = _normalize(' '.join(message.content for message in case.messages))
-        leakage = sum(1 for topic in draft.topics if _normalize(topic) not in text)
+        text = self.normalize(
+            ' '.join(message.content for message in conversation.messages)
+        )
+        leakage = sum(1 for topic in draft.topics if self.normalize(topic) not in text)
         recalls = {
-            'doubt_recall': self._excerpt_recall(
-                case, draft, by_id, 'doubts', MentorSummaryExcerptKind.DOUBT
+            'doubt_recall': self.excerpt_recall(
+                conversation, draft, 'doubts', MentorSummaryExcerptKind.DOUBT
             ),
-            'guidance_recall': self._excerpt_recall(
-                case, draft, by_id, 'guidance', MentorSummaryExcerptKind.GUIDANCE
+            'guidance_recall': self.excerpt_recall(
+                conversation, draft, 'guidance', MentorSummaryExcerptKind.GUIDANCE
             ),
-            'topic_recall': self._topic_recall(case, draft),
+            'topic_recall': self.topic_recall(conversation, draft),
         }
         passed = (
             recalls['doubt_recall'] >= self.DOUBT_RECALL
@@ -300,29 +255,29 @@ class SummarizeMentorSessionEval:
             **{key: round(value, 3) for key, value in recalls.items()},
         }
 
-    def _rendered(
-        self, case: _Case, draft: MentorConversationSummaryDraft
+    def rendered(
+        self, conversation: Conversation, draft: MentorConversationSummaryDraft
     ) -> str | None:
         try:
-            summary = self._ready(case, case.messages, draft)
+            summary = self.ready(conversation, conversation.messages, draft)
             return MentorConversationSummaryContext.from_summary(
-                summary, case.messages
+                summary, conversation.messages
             ).text
         except ValueError:
             return None
 
-    def _render_errors(
+    def render_errors(
         self,
-        case: _Case,
+        conversation: Conversation,
         draft: MentorConversationSummaryDraft,
         by_id: dict[str, MentorMessage],
     ) -> int:
         if not draft.topics and not draft.excerpts:
             return 1
         try:
-            summary = self._ready(case, case.messages, draft)
+            summary = self.ready(conversation, conversation.messages, draft)
             context = MentorConversationSummaryContext.from_summary(
-                summary, case.messages
+                summary, conversation.messages
             )
         except ValueError:
             return 1
@@ -333,19 +288,18 @@ class SummarizeMentorSessionEval:
         )
 
     @staticmethod
-    def _excerpt_recall(
-        case: _Case,
+    def excerpt_recall(
+        conversation: Conversation,
         draft: MentorConversationSummaryDraft,
-        by_id: dict[str, MentorMessage],
         key: str,
         kind: MentorSummaryExcerptKind,
     ) -> float:
-        wanted = case.expected[key]
+        wanted = conversation.expected[key]
         if not wanted:
             return 1.0
         kept = 0
         for item in wanted:
-            message = case.messages[item['message']]
+            message = conversation.messages[item['message']]
             for alternative in item['any_of']:
                 start = message.content.find(alternative)
                 end = start + len(alternative)
@@ -360,17 +314,19 @@ class SummarizeMentorSessionEval:
                     break
         return kept / len(wanted)
 
-    @staticmethod
-    def _topic_recall(case: _Case, draft: MentorConversationSummaryDraft) -> float:
-        wanted = case.expected['topics']
+    @classmethod
+    def topic_recall(
+        cls, conversation: Conversation, draft: MentorConversationSummaryDraft
+    ) -> float:
+        wanted = conversation.expected['topics']
         if not wanted:
             return 1.0
-        produced = [f' {_normalize(topic)} ' for topic in draft.topics]
+        produced = [f' {cls.normalize(topic)} ' for topic in draft.topics]
         kept = sum(
             1
             for aliases in wanted
             if any(
-                f' {_normalize(alias)} ' in topic
+                f' {cls.normalize(alias)} ' in topic
                 for alias in aliases
                 for topic in produced
             )
@@ -378,7 +334,32 @@ class SummarizeMentorSessionEval:
         return kept / len(wanted)
 
     @staticmethod
-    def _case_report(report: dict[str, Any]) -> dict[str, Any]:
+    def normalize(text: str) -> str:
+        decomposed = unicodedata.normalize('NFD', text.casefold())
+        stripped = ''.join(c for c in decomposed if not unicodedata.combining(c))
+        return ' '.join(re.sub(r'[^\w]+', ' ', stripped).split())
+
+    @classmethod
+    def fenced(cls, content: str) -> list[tuple[int, int]]:
+        """Independent fence scan used only to judge the summarizer's output."""
+        ranges: list[tuple[int, int]] = []
+        opened: tuple[int, str] | None = None
+        offset = 0
+        for line in content.split('\n'):
+            match = cls.FENCE.match(line)
+            if match is not None:
+                if opened is None:
+                    opened = (offset, match.group(1)[0])
+                elif match.group(1)[0] == opened[1]:
+                    ranges.append((opened[0], offset + len(line)))
+                    opened = None
+            offset += len(line) + 1
+        if opened is not None:
+            ranges.append((opened[0], len(content)))
+        return ranges
+
+    @staticmethod
+    def case_report(report: dict[str, Any]) -> dict[str, Any]:
         passed = bool(report.pop('passed'))
         metrics = {
             key: report.pop(key)

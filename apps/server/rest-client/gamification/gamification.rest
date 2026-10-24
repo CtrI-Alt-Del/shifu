@@ -20,3 +20,9 @@ Authorization: Bearer {{accessToken}}
 ### Histórico de XP tab: every grant for the account, newest concession first
 GET {{baseUrl}}/gamification/xp-history
 Authorization: Bearer {{accessToken}}
+
+### Activity result reward band: this attempt's confirmed Activity XP
+@activityId = replace-with-local-activity-id
+@attemptId = replace-with-local-attempt-id
+GET {{baseUrl}}/gamification/activities/{{activityId}}/attempts/{{attemptId}}/xp-reward
+Authorization: Bearer {{accessToken}}

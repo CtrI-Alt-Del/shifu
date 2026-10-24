@@ -1,20 +1,20 @@
 ---
 title: Structured JSON telemetry for Web/BFF and API evaluation
-status: ready
+status: in_progress
 spec: ./spec.md
-last_updated_at: 2026-10-21
+last_updated_at: 2026-10-24
 ---
 
 # Current State
 
 | Field | State |
 | --- | --- |
-| Implementation | Local candidate implemented for CA-01–CA-07; no product behavior, persistence, route collection, IAC or dependency changes |
-| Automated checks | Local focused checks passed; repository-wide/build gates are recorded with their environment limits below |
+| Implementation | Review revision applied for CA-01–CA-07; no product behavior, persistence, route collection, IAC or dependency changes |
+| Automated checks | Integrated Web type, architecture, focused test and full coverage gates passed; API type/lint gates passed; Docker-backed API tests remain environment-limited |
 | Type / lint / complexity | API Ruff, format, compileall, targeted basedpyright and architecture passed; Web direct TypeScript, Vitest and dependency-cruiser passed; Web Biome/pnpm wrapper and full API basedpyright were environment-limited |
 | Manual checks | Browser companion integrity passed; feature VM-01–VM-03 require healthy composed services and are not claimed from static checks; VM-04 is externally blocked |
 | Visual checks | Not applicable by Spec; the browser companion was exercised only as documentation-integrity validation |
-| Independent review | Final integrated read-only implementation review completed; all findings are reconciled below |
+| Independent review | PR review feedback is implemented; redundant Web telemetry tests were removed and the integrated candidate is ready for publication |
 | Blockers | VM-01–VM-03 require healthy composed Web/API services and are not claimed from isolated checks; VM-04 requires SHIFU-83/85 staging deployments, CloudWatch groups, awslogs/IAM and exact 14-day retention |
 | Candidate | Working tree at implementation time; unrelated pre-existing changes in `AGENTS.md`, prompt/SDD files, `iac/` and `documentation/reports/armazenamento-v1.docx` were preserved |
 
@@ -38,7 +38,7 @@ last_updated_at: 2026-10-21
 | EV-02 | CI-02-types / Automated baseline / CA-01–CA-07 | Passed with limits | Working tree; local toolchains | Web direct `cmd /c .\\node_modules\\.bin\\tsc.cmd --noEmit` from `apps/web`; API targeted `basedpyright` over changed source/tests | Web TypeScript passed with `NODE_OPTIONS=--max-old-space-size=4096`; targeted API basedpyright reported 0 errors/warnings/notes. `pnpm --filter web check:types` was blocked by pnpm preflight rejecting ignored `esbuild@0.28.2` build scripts; full API basedpyright OOMed. |
 | EV-03 | CI-02-lint / Automated baseline / CA-01–CA-07 | Passed with limits | Working tree; local toolchains | `ruff check src tests`; `ruff format --check src tests`; Web focused Vitest and dependency checks | API Ruff/format passed (`1233 files already formatted`); Web 5 suites/57 tests passed and dependency-cruiser passed. Web Biome was unavailable because the pnpm preflight environment was incomplete. |
 | EV-04 | CI-02-architecture / Automated baseline / CA-01–CA-07 | Passed | Working tree; local toolchains | `tach check --dependencies -e ...` from `apps/server`; `cmd /c .\\node_modules\\.bin\\depcruise.cmd --config dependency-cruiser.config.cjs src` from `apps/web` | API architecture reported all modules valid; Web dependency-cruiser reported 477 modules, 1659 dependencies and no violations. |
-| EV-05 | CI-03 / Automated / CA-02 | Partial local pass | Working tree; 2026-10-21; static companion and isolated API fixtures | API middleware suite above; browser companion served from `documentation/features/shared/structured-telemetry` with Playwright CLI | API valid/missing/malformed request-ID boundary passed. The dedicated Web→API integration test exists at `apps/web/tests/shared/structured-telemetry-api.test.ts` but was not run without healthy composed Web/API services; no mock result is claimed. |
+| EV-05 | CI-03 / Automated / CA-02 | Re-scoped by review | Integrated candidate; 2026-10-24; local Web toolchain | `pnpm --filter web run test:coverage` from repository root | The redundant standalone Web telemetry integration test was removed per PR review. Full Web coverage passed with 141 suites and 1,238 tests; composed Web→API evidence remains service-dependent. |
 | EV-06 | CI-04 / Automated / CA-03 | Partial local pass | Working tree; isolated lifecycle fixture and disposable AgentOS fixture | `apps/server/.venv/Scripts/pytest.exe -q tests/shared/server/messaging/test_job_lifecycle_telemetry.py` plus the focused AgentOS workflow regression with `SHIFU_RUN_REAL_AGENTOS_TESTS=1` | Lifecycle wrapper test passed (2 tests); focused AgentOS commit/no-op regression passed (1 passed, 21 deselected); all 15 function IDs are explicitly mapped and registrars pass the same provider. The full composed job/provider gate remains unclaimed. |
 | EV-07 | CI-05 / Automated / CA-04, CA-05 | Passed locally at API boundary | Working tree; isolated synthetic error fixture | `test_app_error_telemetry.py` and `test_telemetry_middleware.py` in EV-01 | Raw messages are not serialized, frames are sanitized, and provider failures are swallowed without changing the HTTP/job result. Full Web error integration remains service-dependent. |
 | EV-08 | CI-06 / Automated baseline / CA-01–CA-07 | Not run | Working tree; local build toolchains | Spec Web/API build commands | Not run because the Web package-manager preflight/build-script restriction and full API typecheck resource failure made a reliable integrated build unavailable; no build pass is inferred. |
@@ -62,6 +62,7 @@ last_updated_at: 2026-10-21
 | ACH-06 | The AgentOS evaluation workflow could bypass the shared completion event, and the Inngest path could report completion after a no-op evaluation. | high | CI-04, CI-08, CA-03, CA-07 | Resolved by gating both paths on a committed evaluation and adding the direct workflow regression; the focused AgentOS test passed. |
 | ACH-07 | The changed-file server CI command selected three controller/job test files twice. | medium | CI-02, CI-04, CI-08 | Resolved by removing the lower duplicate entries; each affected filename now occurs once and `git diff --check` passes. |
 | ACH-08 | Final independent review initially reported the CI duplicate selections above. | informational | F9 / affected workflow coverage | Rechecked after correction; no unresolved contract, architecture, privacy, runtime-correlation or coverage finding remains. |
+| ACH-09 | PR review identified redundant standalone Web telemetry tests, including the fetch stream client test; these tests no longer represented required product behavior after the current `main` test composition. | medium | Review feedback / Web test scope | Resolved by removing the ten newly added standalone Web tests while retaining the existing route-handler adaptations and updating the server-function mock for both current `createServerFn` chaining forms. Web typecheck, lint, architecture, focused test and full coverage passed. |
 
 # Lessons Learned
 
@@ -76,13 +77,13 @@ last_updated_at: 2026-10-21
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Local working tree implementing Spec revision 5 for SHIFU-94; no commit or external Jira/Confluence mutation was made. |
+| Candidate | Isolated merge candidate implementing Spec revision 5 for SHIFU-94; no external Jira/Confluence mutation was made. |
 | Completed | F1–F9 implementation and local validation; final F9 review; Web/API providers, request propagation, error/lifecycle/business boundaries, all 15 job registrars, Resend/OpenRouter/Jev adapters, root composition, CI selections and `documentation/telemetry.md`. |
-| Unfinished | VM-01–VM-03 composed-runtime observations, CI-06 hosted builds, and VM-04 staging CloudWatch retention proof. |
+| Unfinished | VM-01–VM-03 composed-runtime observations, CI-06 hosted builds, and VM-04 staging CloudWatch retention proof; hosted PR checks remain to be observed after publication. |
 | Uncommitted work | Task-owned production/tests/docs/workflow paths shown by `git status`; preserve unrelated pre-existing `AGENTS.md`, prompt/SDD edits, `iac/` and `documentation/reports/armazenamento-v1.docx`. |
 | Active processes | None; the temporary documentation HTTP server and Playwright browser were closed after validation. |
 | Blockers | VM-01–VM-03 composed Web/API observations were not completed; pnpm/esbuild preflight and full typecheck resource limits remain; external SHIFU-83/85 staging/CloudWatch/IAM gate remains required for VM-04. |
-| Next action | Run the blocked composed checks when Docker access is restored, then execute VM-04 after staging deployment and use `conclude-spec` to close the SDD artifacts. |
+| Next action | Publish the corrected PR and observe hosted checks; run the blocked composed checks when Docker access is restored, then execute VM-04 after staging deployment and use `conclude-spec` to close the SDD artifacts. |
 
 # Delivery
 
@@ -92,11 +93,11 @@ last_updated_at: 2026-10-21
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| Not requested | Working tree; no new commit | Final independent implementation review reconciled; no unresolved finding | Evaluation, telemetry documentation, focused tests and ignored Playwright artifacts |
+| #40 | Pending publication | Review feedback implemented; hosted checks pending | Evaluation, telemetry documentation and current focused Web/API validation |
 
 | Field | Result |
 | --- | --- |
-| Publication | Not requested; local implementation only |
+| Publication | Pending push of the corrected merge candidate; no merge or deploy |
 | Source verification | SHIFU-94, privacy policy v4 and Spec revision 5 were preserved from the kickoff preflight; no external source was mutated |
 | Documentation Alignment | Added `documentation/telemetry.md`; no Confluence/Jira mutation authorized |
 | Revision History | No Spec contract change; implementation and evidence recorded in this Evaluation |

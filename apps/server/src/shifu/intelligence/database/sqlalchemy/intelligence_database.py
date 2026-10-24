@@ -6,6 +6,9 @@ from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyLearnerMemoriesRepository,
+    SqlalchemyLearnerMemoryChangesRepository,
+    SqlalchemyMentorActionProposalsRepository,
     SqlalchemyMentorAttachmentBatchesRepository,
     SqlalchemyMentorAttachmentChunksRepository,
     SqlalchemyMentorAttachmentsRepository,
@@ -67,6 +70,15 @@ class SqlalchemyIntelligenceDatabase:
                     session
                 ),
                 mentor_session_summaries=SqlalchemyMentorSessionSummariesRepository(
+                    session
+                ),
+                learner_memories=SqlalchemyLearnerMemoriesRepository(
+                    session, self._id_provider
+                ),
+                learner_memory_changes=SqlalchemyLearnerMemoryChangesRepository(
+                    session
+                ),
+                mentor_action_proposals=SqlalchemyMentorActionProposalsRepository(
                     session
                 ),
             )
