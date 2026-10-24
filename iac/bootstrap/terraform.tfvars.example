@@ -1,0 +1,14 @@
+aws_region        = "us-east-1"
+state_bucket_name = "replace-with-a-globally-unique-shifu-staging-state-bucket"
+
+# Keep false for normal operation and safe teardown. Set true only for the
+# separately reviewed, backend-last purge operation.
+purge_backend = false
+
+# Optional IAM roles/users for shared state access. The identity applying this
+# root retains access through its own AWS authorization.
+operator_principal_arns = []
+
+additional_tags = {
+  Owner = "replace-with-team-name"
+}

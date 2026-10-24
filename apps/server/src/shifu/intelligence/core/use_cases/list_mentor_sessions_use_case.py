@@ -1,5 +1,6 @@
 import unicodedata
 
+from shifu.intelligence.core.domain.errors import MentorCursorInvalidError
 from shifu.intelligence.core.domain.structures import MentorSessionsPage
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 
@@ -14,10 +15,15 @@ class ListMentorSessionsUseCase:
         normalized_search = (
             self._normalize_search(search) if search is not None else None
         )
-        with self._database.transaction() as repositories:
-            return repositories.mentor_sessions.find_many(
-                account_id, normalized_search, cursor
-            )
+        try:
+            with self._database.transaction() as repositories:
+                return repositories.mentor_sessions.find_many(
+                    account_id, normalized_search, cursor
+                )
+        except (TypeError, ValueError) as error:
+            if cursor is None:
+                raise
+            raise MentorCursorInvalidError from error
 
     @staticmethod
     def _normalize_search(search: str) -> str:

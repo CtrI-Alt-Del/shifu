@@ -10,3 +10,5 @@ class MentorIntent(StrEnum):
     SEARCH_CURRICULUM = 'search_curriculum'
     CONSULT_GAMIFICATION = 'consult_gamification'
     LEARNING_CONVERSATION = 'learning_conversation'
+    ADD_SKILL = 'add_skill'
+    REMOVE_SKILL = 'remove_skill'

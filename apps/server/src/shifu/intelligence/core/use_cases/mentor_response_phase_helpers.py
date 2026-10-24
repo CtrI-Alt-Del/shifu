@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import timedelta
 
 from shifu.intelligence.core.domain.entities import MentorResponseAttempt
@@ -6,7 +7,10 @@ from shifu.intelligence.core.domain.enums import (
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import MentorResponseEvent
-from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
+from shifu.intelligence.core.interfaces import (
+    IntelligenceDatabase,
+    IntelligenceDatabaseRepositories,
+)
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
@@ -91,3 +95,74 @@ def claim_for_failure(
         now + timedelta(minutes=5),
         attempt.access_revision,
     )
+
+
+def start_response_attempt(
+    database: IntelligenceDatabase,
+    clock_provider: ClockProvider,
+    access_provider: MentorAccessProvider,
+    attempt_id: str,
+    execution_owner: str,
+) -> MentorResponseAttempt | None:
+    """Claim a queued/processing attempt for ``execution_owner`` and mark it processing.
+
+    Returns ``None`` when the attempt is absent, finished, no longer the current one
+    or claimed by another live owner. Re-claiming with the same owner is allowed.
+    """
+    with database.transaction() as repositories:
+        attempt = repositories.mentor_response_attempts.find_by_id_for_update(
+            attempt_id
+        )
+        if attempt is None or attempt.status not in (
+            MentorResponseStatus.QUEUED,
+            MentorResponseStatus.PROCESSING,
+        ):
+            return None
+        session = repositories.mentor_sessions.find_by_id_for_update(
+            attempt.account_id, attempt.session_id
+        )
+        current = repositories.mentor_response_attempts.find_current(
+            attempt.account_id, attempt.session_id
+        )
+        now = clock_provider.now()
+        if (
+            session is None
+            or current is None
+            or current.id != attempt.id
+            or not repositories.mentor_response_attempts.claim(
+                attempt.id,
+                execution_owner,
+                now,
+                now + timedelta(minutes=5),
+                attempt.access_revision,
+            )
+        ):
+            return None
+    assert_response_access(access_provider, attempt)
+    with database.transaction() as repositories:
+        if not repositories.mentor_response_attempts.has_claim(
+            attempt.id, execution_owner, clock_provider.now()
+        ):
+            raise ServiceUnavailableError
+        assert_response_access(access_provider, attempt)
+        if attempt.status is MentorResponseStatus.QUEUED:
+            if not repositories.mentor_response_attempts.transition(
+                attempt.id,
+                MentorResponseStatus.QUEUED,
+                MentorResponseStatus.PROCESSING,
+                attempt.access_revision,
+            ):
+                return None
+            sequence = repositories.mentor_response_events.next_sequence(
+                attempt.session_id
+            )
+            repositories.mentor_response_events.append(
+                response_event(
+                    attempt,
+                    clock_provider,
+                    sequence,
+                    MentorResponseEventKind.STATUS,
+                    MentorResponseStatus.PROCESSING,
+                )
+            )
+    return replace(attempt, status=MentorResponseStatus.PROCESSING)

@@ -16,6 +16,7 @@ const STATUS_LABELS = {
   cancelled: 'Resposta cancelada',
 }
 const PROGRESS_LABELS = {
+  'summarize-context': 'Resumindo contexto…',
   'write-answer': 'Gerando resposta',
   'review-answer': 'Revisando resposta',
 }

@@ -9,6 +9,7 @@ from shifu.gamification.core.use_cases import (
     CreateGamificationProfileUseCase,
     DeleteGamificationProfileUseCase,
     GrantXpUseCase,
+    RecognizeActivityEvaluatedUseCase,
     RecognizeCompetencyMasteredUseCase,
     RecognizeDiagnosticCompletedUseCase,
     RecognizePracticeDayUseCase,
@@ -17,6 +18,7 @@ from shifu.gamification.core.use_cases import (
 from shifu.gamification.messaging.inngest.jobs import (
     CreateProfileOnAccountActivatedJob,
     PurgeProfileOnAccountDeletedJob,
+    RecognizeActivityXpOnActivityEvaluatedJob,
     RecognizeCompetencyMasteredJob,
     RecognizeDiagnosticCompletedJob,
     RecognizePracticeDayOnActivityEvaluatedJob,
@@ -57,6 +59,7 @@ class GamificationInngestMessaging:
         )
         recognize_competency_use_case = RecognizeCompetencyMasteredUseCase(
             gamification_database,
+            curriculum_content_provider,
             id_provider,
             grant_xp_use_case,
         )
@@ -65,6 +68,13 @@ class GamificationInngestMessaging:
         )
         recognize_skill_use_case = RecognizeSkillCompletedUseCase(
             gamification_database,
+            curriculum_content_provider,
+            id_provider,
+            grant_xp_use_case,
+        )
+        recognize_activity_xp_use_case = RecognizeActivityEvaluatedUseCase(
+            gamification_database,
+            curriculum_content_provider,
             id_provider,
             grant_xp_use_case,
         )
@@ -122,6 +132,14 @@ class GamificationInngestMessaging:
                 RecognizePracticeDayOnDiagnosticCompletedJob.handle(
                     inngest,
                     recognize_practice_day_use_case,
+                    clock_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                RecognizeActivityXpOnActivityEvaluatedJob.handle(
+                    inngest,
+                    recognize_activity_xp_use_case,
                     clock_provider,
                 ),
             ),

@@ -14,3 +14,6 @@ class MentorRouteResult:
     generation_requests: tuple[str, ...]
     clarification: str | None
     proposed_reference_ids: tuple[str, ...] = ()
+    unanswered_requests: tuple[
+        str, ...
+    ] = ()  # generation requests without a curated FAQ answer

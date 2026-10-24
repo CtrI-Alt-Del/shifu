@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from shifu.identity.core.interfaces import ActionTokenProvider, IdentityDatabase
 from shifu.identity.core.use_cases import ResolvePasswordResetLinkUseCase
@@ -19,13 +19,16 @@ class Response(BaseModel):
     result: Literal['valid', 'expired', 'used', 'invalid']
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class ResolvePasswordResetLinkController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.post(
             '/password-reset-links/status',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,
@@ -45,4 +48,4 @@ class ResolvePasswordResetLinkController:
                 clock_provider=clock_provider,
                 action_token_provider=action_token_provider,
             ).execute(request.token)
-            return Response(result=result.result)
+            return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

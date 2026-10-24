@@ -3,44 +3,47 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING, Any
 
 if __package__ in {None, ''}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from evals.common import CaseDefinition, failed_setup_report
-from evals.evaluate_code_activity_eval import EvaluateCodeActivityEval
+from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
+from evals.classify_mentor_intent_eval import ClassifyMentorIntentEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
+from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
     from typing import TextIO
+
+    from evals.eval import Eval
 
 
 EVAL_CLASSES = (
     GenerateMentorTitleEval,
-    EvaluateCodeActivityEval,
     ProcessMentorResponseEval,
     PrepareMentorAttachmentEval,
+    SummarizeMentorSessionEval,
+    ClassifyLearnerMemoryEval,
+    ClassifyMentorIntentEval,
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description='Run synthetic Shifu AI quality evals.'
-    )
+    parser = argparse.ArgumentParser(description='Run Shifu AI quality evals.')
     parser.add_argument(
         '--workflow',
         action='append',
         dest='workflows',
         metavar='SELECTOR',
-        help='Run one or more affected eval selectors. Defaults to the full catalogue.',
+        help='Run one or more eval selectors. Defaults to the full catalogue.',
     )
     parser.add_argument(
         '--name', help='Run the named case within the selected workflows.'
@@ -55,7 +58,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--list',
         action='store_true',
-        help='List matching case IDs without constructing model dependencies.',
+        help='List matching case IDs (evals are built in double mode, no model call).',
     )
     return parser
 
@@ -63,7 +66,6 @@ def _parser() -> argparse.ArgumentParser:
 def main(
     argv: Sequence[str] | None = None,
     *,
-    evaluator_builder: Callable[..., Any] | None = None,
     stdout: TextIO | None = None,
     stderr: TextIO | None = None,
     environ: dict[str, str] | None = None,
@@ -76,109 +78,111 @@ def main(
     except SystemExit as error:
         return 0 if error.code is None else int(error.code)
 
-    matching, error_code = _select_matching(
-        arguments.workflows,
-        name=arguments.name,
-        tag=arguments.tag,
+    if arguments.workflows is None:
+        selectors = tuple(EVAL_BY_SELECTOR)
+    elif any(selector not in EVAL_BY_SELECTOR for selector in arguments.workflows):
+        print('unknown_workflow_selector', file=err)
+        return 2
+    else:
+        selectors = tuple(dict.fromkeys(arguments.workflows))
+
+    env = os.environ if environ is None else environ
+    real = env.get('SHIFU_RUN_REAL_AI_EVALS') == '1' and not arguments.list
+    mode = 'real' if real else 'double'
+
+    evaluators, matching = _build_and_select(
+        selectors, mode=mode, name=arguments.name, tag=arguments.tag
+    )
+    error_code = _selection_error(
+        matching, explicit=arguments.workflows is not None, expected=len(selectors)
     )
     if error_code is not None:
+        _close_all(evaluators)
         print(error_code, file=err)
         return 2
 
     if arguments.list:
-        _print_matching(matching, out)
+        for selector, selected in matching.items():
+            for case in selected:
+                print(f'{selector}\t{case.name}\t{",".join(case.tags)}', file=out)
+        _close_all(evaluators)
         return 0
 
-    env = os.environ if environ is None else environ
-    mode = 'real' if env.get('SHIFU_RUN_REAL_AI_EVALS') == '1' else 'double'
-    if evaluator_builder is None:
-        from evals.dependencies import build_evaluator
-
-        evaluator_builder = build_evaluator
-
-    return _execute_selection(
+    return _execute(
+        evaluators=evaluators,
         matching=matching,
-        name=arguments.name,
-        tag=arguments.tag,
         output_dir=arguments.output_dir,
         mode=mode,
-        evaluator_builder=evaluator_builder,
         stdout=out,
         stderr=err,
     )
 
 
-def _select_matching(
-    workflows: list[str] | None,
-    *,
-    name: str | None,
-    tag: str | None,
-) -> tuple[dict[str, tuple[CaseDefinition, ...]], str | None]:
-    if workflows is None:
-        selectors = tuple(eval_class.selector for eval_class in EVAL_CLASSES)
-    else:
-        if any(selector not in EVAL_BY_SELECTOR for selector in workflows):
-            return {}, 'unknown_workflow_selector'
-        selectors = tuple(dict.fromkeys(workflows))
+def _selection_error(
+    matching: dict[str, tuple[Any, ...]], *, explicit: bool, expected: int
+) -> str | None:
+    if not matching:
+        return 'unknown_case_or_tag_or_empty_eval_selection'
+    if explicit and len(matching) < expected:
+        return 'empty_eval_selection'
+    return None
 
-    matching: dict[str, tuple[CaseDefinition, ...]] = {}
+
+def _close_all(evaluators: dict[str, Eval | None]) -> None:
+    for evaluator in evaluators.values():
+        if evaluator is not None:
+            evaluator.close()
+
+
+def _build_and_select(
+    selectors: tuple[str, ...], *, mode: str, name: str | None, tag: str | None
+) -> tuple[dict[str, Eval | None], dict[str, tuple[Any, ...]]]:
+    """Build each eval once; a failed build keeps its selector with no evaluator."""
+    evaluators: dict[str, Eval | None] = {}
+    matching: dict[str, tuple[Any, ...]] = {}
     for selector in selectors:
-        definitions = EVAL_BY_SELECTOR[selector].definitions()
-        selected = tuple(
-            definition
-            for definition in definitions
-            if (name is None or definition.name == name)
-            and (tag is None or tag in definition.tags)
-        )
+        try:
+            evaluator = EVAL_BY_SELECTOR[selector](mode=mode)
+        except Exception:  # noqa: BLE001 - setup errors may contain private configuration.
+            evaluators[selector] = None
+            matching[selector] = ()
+            continue
+        evaluators[selector] = evaluator
+        selected = evaluator.select(name=name, tag=tag)
         if selected:
             matching[selector] = selected
-        elif workflows is not None:
-            return {}, 'empty_eval_selection'
-    if not matching:
-        return {}, 'unknown_case_or_tag_or_empty_eval_selection'
-    return matching, None
+        else:
+            evaluator.close()
+            evaluators[selector] = None
+    return evaluators, matching
 
 
-def _print_matching(
-    matching: dict[str, tuple[CaseDefinition, ...]], output: TextIO
-) -> None:
-    for selector, definitions in matching.items():
-        for definition in definitions:
-            print(
-                f'{selector}\t{definition.name}\t{",".join(definition.tags)}',
-                file=output,
-            )
-
-
-def _execute_selection(
+def _execute(
     *,
-    matching: dict[str, tuple[CaseDefinition, ...]],
-    name: str | None,
-    tag: str | None,
+    evaluators: dict[str, Eval | None],
+    matching: dict[str, tuple[Any, ...]],
     output_dir: Path,
     mode: str,
-    evaluator_builder: Callable[..., Any],
     stdout: TextIO,
     stderr: TextIO,
 ) -> int:
     reports: dict[str, dict[str, Any]] = {}
     report_write_failed = False
     for selector, selected in matching.items():
-        definitions = EVAL_BY_SELECTOR[selector].definitions()
-        report = _run_one(
-            selector=selector,
-            selected=selected,
-            definitions=definitions,
-            name=name,
-            tag=tag,
-            mode=mode,
-            evaluator_builder=evaluator_builder,
-        )
-        report['mode'] = mode
+        evaluator = evaluators[selector]
+        if evaluator is None:
+            report = _unbuilt_report(selector, mode)
+        else:
+            try:
+                report = evaluator.run(selected)
+            except Exception:  # noqa: BLE001 - provider errors may contain private inputs.
+                report = evaluator.setup_failed_report(selected)
+            finally:
+                evaluator.close()
         report['selected_scope'] = {
             'workflow': selector,
-            'case_ids': [definition.name for definition in selected],
-            'partial': len(selected) < len(definitions),
+            'case_ids': [case.name for case in selected],
+            'partial': report.get('partial', False),
         }
         reports[selector] = report
         try:
@@ -187,48 +191,32 @@ def _execute_selection(
             report_write_failed = True
             print('report_write_failed', file=stderr)
 
-    summary = _make_summary(matching, reports, mode, report_write_failed)
-    exit_code = summary['exit_status']
+    summary = _summary(reports, mode, report_write_failed)
     try:
         _write_json(output_dir / 'summary.json', summary)
     except OSError:
         print('report_write_failed', file=stderr)
         return 1
     print(json.dumps(summary, ensure_ascii=False, separators=(',', ':')), file=stdout)
-    return exit_code
+    return int(summary['exit_status'])
 
 
-def _run_one(
-    *,
-    selector: str,
-    selected: tuple[CaseDefinition, ...],
-    definitions: tuple[CaseDefinition, ...],
-    name: str | None,
-    tag: str | None,
-    mode: str,
-    evaluator_builder: Callable[..., Any],
-) -> dict[str, Any]:
-    try:
-        evaluator = evaluator_builder(selector, mode=mode)
-        try:
-            return evaluator.run(name=name, tag=tag)
-        finally:
-            _close_evaluator(evaluator)
-    except Exception:  # noqa: BLE001 - provider/setup errors may contain synthetic or private inputs.
-        return failed_setup_report(
-            workflow=selector,
-            definitions=definitions,
-            selected=selected,
-            mode=mode,
-            model_profile='unavailable',
-        )
+def _unbuilt_report(selector: str, mode: str) -> dict[str, Any]:
+    return {
+        'workflow': selector,
+        'status': 'failed',
+        'partial': False,
+        'mode': mode,
+        'model_profile': 'unavailable',
+        'selected_case_ids': [],
+        'counts': {'selected': 0, 'passed': 0, 'failed': 0, 'skipped': 0},
+        'failure_code': 'eval_setup_failed',
+        'cases': [],
+    }
 
 
-def _make_summary(
-    matching: dict[str, tuple[CaseDefinition, ...]],
-    reports: dict[str, dict[str, Any]],
-    mode: str,
-    report_write_failed: bool,
+def _summary(
+    reports: dict[str, dict[str, Any]], mode: str, report_write_failed: bool
 ) -> dict[str, Any]:
     all_passed = all(report.get('status') == 'passed' for report in reports.values())
     exit_code = 0 if all_passed and not report_write_failed else 1
@@ -237,14 +225,13 @@ def _make_summary(
         'exit_status': exit_code,
         'mode': mode,
         'selected_scope': {
-            'workflows': list(matching),
+            'workflows': list(reports),
             'case_ids': {
-                selector: [definition.name for definition in definitions]
-                for selector, definitions in matching.items()
+                selector: report['selected_scope']['case_ids']
+                for selector, report in reports.items()
             },
             'partial': any(
-                len(definitions) < len(EVAL_BY_SELECTOR[selector].definitions())
-                for selector, definitions in matching.items()
+                report['selected_scope']['partial'] for report in reports.values()
             ),
         },
         'failure_code': 'report_write_failed' if report_write_failed else None,
@@ -267,12 +254,6 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
         json.dumps(value, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
     )
     temporary.replace(path)
-
-
-def _close_evaluator(evaluator: Any) -> None:
-    close = getattr(evaluator, 'close', None)
-    if callable(close):
-        close()
 
 
 if __name__ == '__main__':

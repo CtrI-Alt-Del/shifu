@@ -14,6 +14,12 @@ class SqlalchemyGoalsRepository:
         model = self._session.scalar(select(GoalModel).where(GoalModel.id == goal_id))
         return GoalMapper.to_domain(model) if model is not None else None
 
+    def find_by_id_for_update(self, goal_id: str) -> Goal | None:
+        model = self._session.scalar(
+            select(GoalModel).where(GoalModel.id == goal_id).with_for_update()
+        )
+        return GoalMapper.to_domain(model) if model is not None else None
+
     def find_many_by_account_id(self, account_id: str) -> list[Goal]:
         models = self._session.scalars(
             select(GoalModel)

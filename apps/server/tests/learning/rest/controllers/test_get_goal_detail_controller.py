@@ -1,0 +1,267 @@
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, cast
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+
+from shifu.app import FastAPIApp
+from shifu.curriculum.database.sqlalchemy.models import CompetencyModel
+from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.curriculum.providers.curriculum_content_provider import (
+    DatabaseCurriculumContentProvider,
+)
+from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
+from shifu.learning.database.sqlalchemy.models import GoalModel
+from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.database.seed_data import (
+    SEED_ACCOUNT_ID,
+    SEED_ADAPTIVE_LAB_GOAL_ID,
+    SEED_ADAPTIVE_LAB_SKILL_ID,
+    SEED_ADAPTIVE_SKILL_ID,
+    SEED_GOAL_ID,
+    SEED_GRAPH_GOAL_ID,
+    SEED_GRAPH_APIS_SKILL_ID,
+    SEED_GRAPH_HTML_CSS_SKILL_ID,
+    SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+    SEED_GRAPH_REACT_SKILL_ID,
+    SEED_GRAPH_SKILL_IDS,
+    SEED_SKILL_LOGIC_ID,
+    build_development_seed,
+)
+from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.redis_fixture import RedisFixture
+
+if TYPE_CHECKING:
+    from httpx import Response
+
+
+class _TestAuthenticationProvider:
+    def authenticate(self, access_token: str) -> AuthenticatedUser:
+        if access_token != 'test-access-token':
+            raise AuthorizationError
+        return AuthenticatedUser(
+            account_id=SEED_ACCOUNT_ID,
+            display_name='Pessoa Estudante',
+            time_zone='America/Sao_Paulo',
+        )
+
+
+@pytest.fixture
+def application(
+    postgres_database: PostgresDatabase,
+    redis_fixture: RedisFixture,
+) -> Iterator[FastAPI]:
+    _seed_application(postgres_database)
+    application = FastAPIApp.register(postgres_database.engine)
+    application.state.authentication_provider = _TestAuthenticationProvider()
+    application.state.learning_database = SqlalchemyLearningDatabase(
+        postgres_database.engine
+    )
+    application.state.curriculum_content_provider = DatabaseCurriculumContentProvider(
+        SqlalchemyCurriculumDatabase(postgres_database.engine)
+    )
+    yield application
+    application.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(application: FastAPI) -> Iterator[TestClient]:
+    with TestClient(application, raise_server_exceptions=False) as test_client:
+        yield test_client
+
+
+class TestGetGoalDetailController:
+    def test_create_goal_rejects_unknown_curriculum_skill(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with postgres_database.engine.connect() as connection:
+            before = connection.scalar(select(func.count()).select_from(GoalModel))
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                '/learning/goals',
+                json={
+                    'title': 'Novo objetivo',
+                    'description': 'Estudar uma habilidade desconhecida',
+                    'skillIds': ['01SHF000000000000000000099'],
+                },
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
+        assert response.json()['code'] == 'curriculum_gap'
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(select(func.count()).select_from(GoalModel)) == before
+            )
+
+    def test_programming_goal_exposes_graph_only_skills_without_competencies(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path(SEED_GOAL_ID),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+
+        assert {skill['skillId'] for skill in body['skills']} == {
+            SEED_SKILL_LOGIC_ID,
+            *SEED_GRAPH_SKILL_IDS,
+        }
+        assert len(body['skills']) == 5
+        assert {
+            (relation['foundationSkillId'], relation['skillId'])
+            for relation in body['relations']
+        } == {
+            (SEED_SKILL_LOGIC_ID, SEED_GRAPH_JAVASCRIPT_SKILL_ID),
+            (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
+            (SEED_GRAPH_HTML_CSS_SKILL_ID, SEED_GRAPH_REACT_SKILL_ID),
+            (SEED_GRAPH_JAVASCRIPT_SKILL_ID, SEED_GRAPH_APIS_SKILL_ID),
+        }
+        assert {skill['skillId']: skill['status'] for skill in body['skills']} == {
+            SEED_SKILL_LOGIC_ID: 'learning',
+            **dict.fromkeys(SEED_GRAPH_SKILL_IDS, 'not-started'),
+        }
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.scalar(
+                    select(func.count())
+                    .select_from(CompetencyModel)
+                    .where(CompetencyModel.skill_id.in_(SEED_GRAPH_SKILL_IDS))
+                )
+                == 0
+            )
+
+    def test_removed_incompatible_seed_goal_is_not_exposed(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        before = _learning_count(postgres_database)
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path(SEED_GRAPH_GOAL_ID),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'O objetivo de aprendizagem não foi encontrado.',
+        }
+        assert _learning_count(postgres_database) == before
+
+    def test_should_return_owned_goal_detail_without_writing(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        before = _learning_count(postgres_database)
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path(SEED_ADAPTIVE_LAB_GOAL_ID),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200
+        assert response.headers['cache-control'] == 'private, no-store'
+        body = response.json()
+
+        assert body['goalId'] == SEED_ADAPTIVE_LAB_GOAL_ID
+        assert body['title'] == 'Laboratório de progresso adaptativo'
+        assert body['skills']
+        assert {skill['skillId'] for skill in body['skills']} <= {
+            SEED_ADAPTIVE_LAB_SKILL_ID,
+            SEED_ADAPTIVE_SKILL_ID,
+        }
+        assert _learning_count(postgres_database) == before
+
+    def test_should_keep_unknown_goal_private(self, client: TestClient) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path('01SHF000000000000000000099'),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'O objetivo de aprendizagem não foi encontrado.',
+        }
+
+    def test_should_reject_unauthenticated_goal_detail(
+        self, client: TestClient
+    ) -> None:
+        response = cast(
+            'Response',
+            client.get(_detail_path(SEED_GOAL_ID)),  # pyright: ignore[reportUnknownMemberType]
+        )
+
+        assert response.status_code == 401
+        assert response.json()['detail']['code'] == 'unauthorized'
+
+    def test_should_reject_malformed_goal_id(self, client: TestClient) -> None:
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _detail_path('invalid-goal-id'),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 422
+
+
+def _detail_path(goal_id: str) -> str:
+    return f'/learning/goals/{goal_id}'
+
+
+def _learning_count(database: PostgresDatabase) -> int:
+    with database.engine.connect() as connection:
+        return int(
+            connection.exec_driver_sql(
+                'SELECT COUNT(*) FROM learning_competency_progresses'
+            ).scalar_one()
+        )
+
+
+def _seed_application(database: PostgresDatabase) -> None:
+    seed = build_development_seed()
+    curriculum_database = SqlalchemyCurriculumDatabase(database.engine)
+    with curriculum_database.transaction() as repositories:
+        repositories.skills.add_many(list(seed.skills))
+        repositories.skill_foundations.add_many(list(seed.skill_foundations))
+        repositories.competencies.add_many(list(seed.competencies))
+        repositories.materials.add_many(list(seed.materials))
+        repositories.activities.add_many(list(seed.activities))
+        repositories.curriculum_sequences.add_many(list(seed.curriculum_sequences))
+
+    learning_database = SqlalchemyLearningDatabase(database.engine)
+    with learning_database.transaction() as repositories:
+        repositories.goals.add_many(list(seed.goals))
+        repositories.skill_experiences.add_many(list(seed.skill_experiences))
+        repositories.competency_progresses.add_many(list(seed.competency_progresses))
+        repositories.activity_attempts.add_many(list(seed.activity_attempts))
+        repositories.activity_evaluations.add_many(list(seed.activity_evaluations))

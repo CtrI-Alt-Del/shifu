@@ -1,6 +1,9 @@
 from .add_skill_to_goal_controller import (
     AddSkillToGoalController as AddSkillToGoalController,
 )
+from .add_skill_to_goal_from_mentor_controller import (
+    AddSkillToGoalFromMentorController as AddSkillToGoalFromMentorController,
+)
 from .abandon_diagnostic_controller import (
     AbandonDiagnosticController as AbandonDiagnosticController,
 )
@@ -33,6 +36,9 @@ from .list_available_skills_controller import (
     ListAvailableSkillsController as ListAvailableSkillsController,
 )
 from .remove_goal_controller import RemoveGoalController as RemoveGoalController
+from .remove_skill_experience_from_mentor_controller import (
+    RemoveSkillExperienceFromMentorController as RemoveSkillExperienceFromMentorController,
+)
 from .remove_skill_from_goal_controller import (
     RemoveSkillFromGoalController as RemoveSkillFromGoalController,
 )

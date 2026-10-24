@@ -28,15 +28,19 @@ class MentorResponseEventModel(Model):
             ondelete='CASCADE',
         ),
         CheckConstraint(
-            "kind IN ('status','consultation','block','completed','failed','cancelled')",
+            "kind IN ('status','consultation','block','completed','failed','cancelled','action')",
             name='ck_mentor_event_kind',
+        ),
+        CheckConstraint(
+            "(kind = 'action') = (action_proposal_id IS NOT NULL)",
+            name='ck_mentor_event_action_shape',
         ),
         CheckConstraint(
             "status IN ('queued','processing','completed','failed','cancelled')",
             name='ck_mentor_event_status',
         ),
         CheckConstraint(
-            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('write-answer','review-answer'))",
+            "progress IS NULL OR (kind = 'status' AND status = 'processing' AND progress IN ('summarize-context','write-answer','review-answer'))",
             name='ck_mentor_event_progress',
         ),
         CheckConstraint('sequence > 0', name='ck_mentor_event_sequence'),
@@ -73,6 +77,11 @@ class MentorResponseEventModel(Model):
         nullable=False,
     )
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    action_proposal_id: Mapped[str | None] = mapped_column(
+        String(26),
+        ForeignKey('intelligence_mentor_action_proposals.id', ondelete='CASCADE'),
+        nullable=True,
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     block_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -18,6 +18,23 @@ When applying the grilling protocol, do not use the question tool to ask the
 user questions. Ask them directly in the conversation according to the
 protocol.
 
+## User communication
+
+Every reply, question, design section and report written for the user follows
+the same plain style, in the user's language:
+
+- Lead with the answer or conclusion, then give the supporting detail.
+- Use short sentences with one idea each; avoid chaining clauses with
+  semicolons, dashes and parentheses.
+- Mention file paths, symbols and commands only where they help locate
+  something; describe the idea otherwise.
+- Write natural language without untranslated jargon or literal calques; define
+  an unavoidable technical term in a few words.
+- When referring to an earlier decision, check or identifier, restate in a few
+  words what it means.
+- Send only what changed instead of repeating long blocks, except where a
+  workflow explicitly requires a full re-ask.
+
 ## Parallel work and subagents
 
 When work has genuinely independent streams, create specifically named

@@ -4,6 +4,9 @@ from .create_profile_on_account_activated_job import (
 from .purge_profile_on_account_deleted_job import (
     PurgeProfileOnAccountDeletedJob as PurgeProfileOnAccountDeletedJob,
 )
+from .recognize_activity_xp_on_activity_evaluated_job import (
+    RecognizeActivityXpOnActivityEvaluatedJob as RecognizeActivityXpOnActivityEvaluatedJob,
+)
 from .recognize_competency_mastered_job import (
     RecognizeCompetencyMasteredJob as RecognizeCompetencyMasteredJob,
 )

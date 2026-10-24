@@ -10,6 +10,7 @@ from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapsh
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
+from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
 
 
 @structure
@@ -19,7 +20,9 @@ class CurriculumLearningActivitySnapshot:
     difficulty: str
     title: str
     questions: tuple[
-        CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot,
+        CurriculumChoiceQuestionSnapshot
+        | CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot,
         ...,
     ]
     parts: tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]
@@ -59,7 +62,18 @@ class CurriculumLearningActivitySnapshot:
             raise ValidationError
         parts = {part.question_key: part for part in self.parts}
         for question in self.questions:
-            if isinstance(
-                question, CurriculumJavascriptStdinQuestionSnapshot
-            ) != isinstance(parts[question.key], CurriculumCodeRubricPartSnapshot):
+            requires_code_rubric = isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
+            if requires_code_rubric != isinstance(
+                parts[question.key], CurriculumCodeRubricPartSnapshot
+            ):
+                raise ValidationError
+            if self.activity_type == 'diagnostic' and isinstance(
+                question, CurriculumReactQuestionSnapshot
+            ):
                 raise ValidationError

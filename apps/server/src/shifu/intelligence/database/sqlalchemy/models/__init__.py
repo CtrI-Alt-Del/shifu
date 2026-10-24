@@ -1,3 +1,19 @@
+from .learner_memory_change_model import (
+    LearnerMemoryChangeModel as LearnerMemoryChangeModel,
+)
+from .learner_memory_concept_model import (
+    LearnerMemoryConceptModel as LearnerMemoryConceptModel,
+)
+from .learner_memory_fence_model import (
+    LearnerMemoryFenceModel as LearnerMemoryFenceModel,
+)
+from .learner_memory_model import LearnerMemoryModel as LearnerMemoryModel
+from .learner_memory_origin_model import (
+    LearnerMemoryOriginModel as LearnerMemoryOriginModel,
+)
+from .mentor_action_proposal_model import (
+    MentorActionProposalModel as MentorActionProposalModel,
+)
 from .mentor_attachment_batch_model import (
     MentorAttachmentBatchModel as MentorAttachmentBatchModel,
 )
@@ -22,6 +38,9 @@ from .mentor_response_submission_model import (
     MentorResponseSubmissionModel as MentorResponseSubmissionModel,
 )
 from .mentor_session_model import MentorSessionModel as MentorSessionModel
+from .mentor_session_summary_model import (
+    MentorSessionSummaryModel as MentorSessionSummaryModel,
+)
 from .planning_session_model import PlanningSessionModel as PlanningSessionModel
 from .planning_embedding_version_model import (
     PlanningEmbeddingVersionModel as PlanningEmbeddingVersionModel,

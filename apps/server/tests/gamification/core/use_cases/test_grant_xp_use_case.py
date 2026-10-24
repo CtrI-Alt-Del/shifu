@@ -183,6 +183,37 @@ class TestGrantXpUseCase:
         # One XpGrant for the triggering fact, one per achievement reward.
         assert self.repositories.xp_grants.add.call_count == 3
 
+    def test_should_label_an_achievement_grant_with_the_bare_achievement_name(
+        self,
+    ) -> None:
+        profile = GamificationProfileFaker.fake(
+            account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
+        )
+        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(
+            {MilestoneKind.DIAGNOSIS: 1}
+        )
+
+        self.subject.execute(
+            ACCOUNT_ID,
+            GRANT_ID,
+            10,
+            _DIAGNOSTIC_ORIGIN,
+            'skill-experience-1',
+            occurred_at=OCCURRED_AT,
+            now=NOW,
+        )
+
+        achievement_origins = [
+            call.args[0].origin
+            for call in self.repositories.xp_grants.add.call_args_list
+            if call.args[0].origin.source is XpSource.ACHIEVEMENT
+        ]
+        assert [origin.label for origin in achievement_origins] == ['Primeiro Passo']
+        assert [origin.reference_id for origin in achievement_origins] == [
+            'primeiro-passo'
+        ]
+
     def test_should_not_grant_an_already_unlocked_achievement_again(self) -> None:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT

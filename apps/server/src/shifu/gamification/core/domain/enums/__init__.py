@@ -2,6 +2,7 @@ from .achievement_criterion_kind import (
     AchievementCriterionKind as AchievementCriterionKind,
 )
 from .achievement_family import AchievementFamily as AchievementFamily
+from .activity_xp_reward_state import ActivityXpRewardState as ActivityXpRewardState
 from .calendar_day_state import CalendarDayState as CalendarDayState
 from .milestone_kind import MilestoneKind as MilestoneKind
 from .practice_kind import PracticeKind as PracticeKind

@@ -10,8 +10,8 @@ from agno.workflow.workflow import Workflow
 from sqlalchemy import create_engine
 
 from shifu.identity.core.domain.events import AccountDeletedEvent, AccountDeletedPayload
-from shifu.intelligence.ai.agno.workflows.purge_mentor_attachments_workflow import (
-    PurgeMentorAttachmentsWorkflow,
+from shifu.intelligence.ai.agno.workflows.agno_purge_mentor_attachments_workflow import (
+    AgnoPurgeMentorAttachmentsWorkflow,
 )
 from shifu.intelligence.core.domain.errors import MentorAttachmentInvalidError
 from shifu.intelligence.core.domain.entities import MentorAttachmentBatch
@@ -132,7 +132,7 @@ class TestPurgeMentorAttachmentsWorkflow:
     def test_should_register_private_cleanup_step_without_retries_or_telemetry(
         self,
     ) -> None:
-        workflow = PurgeMentorAttachmentsWorkflow(Mock())
+        workflow = AgnoPurgeMentorAttachmentsWorkflow(Mock())
 
         assert workflow.id == 'intelligence-purge-mentor-attachments'
         assert workflow.name == 'purge-mentor-attachments'
@@ -167,11 +167,11 @@ class TestPurgeMentorAttachmentsWorkflow:
         }
         use_case = Mock()
         use_case.execute.return_value = 2
-        workflow = object.__new__(PurgeMentorAttachmentsWorkflow)
+        workflow = object.__new__(AgnoPurgeMentorAttachmentsWorkflow)
         workflow._purge_use_case = use_case  # noqa: SLF001
         workflow._request = ContextVar('test-purge-request', default=None)  # noqa: SLF001
         workflow._request.set(  # noqa: SLF001
-            PurgeMentorAttachmentsWorkflow._parse_input(request)  # noqa: SLF001
+            AgnoPurgeMentorAttachmentsWorkflow._parse_input(request)  # noqa: SLF001
         )
 
         output = workflow._purge(  # noqa: SLF001
@@ -190,7 +190,7 @@ class TestPurgeMentorAttachmentsWorkflow:
         batch_id = 'E' * 26
         use_case = Mock()
         use_case.execute.return_value = 0
-        workflow = object.__new__(PurgeMentorAttachmentsWorkflow)
+        workflow = object.__new__(AgnoPurgeMentorAttachmentsWorkflow)
         workflow._purge_use_case = use_case  # noqa: SLF001
         workflow._request = ContextVar('test-purge-request', default=None)  # noqa: SLF001
 
@@ -212,7 +212,7 @@ class TestPurgeMentorAttachmentsWorkflow:
     def test_run_normalizes_generation_and_resets_request_context(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        workflow = PurgeMentorAttachmentsWorkflow(Mock())
+        workflow = AgnoPurgeMentorAttachmentsWorkflow(Mock())
         observed: list[object] = []
         sentinel = object()
 
@@ -245,7 +245,7 @@ class TestPurgeMentorAttachmentsWorkflow:
     def test_run_resets_request_context_when_engine_raises(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        workflow = PurgeMentorAttachmentsWorkflow(Mock())
+        workflow = AgnoPurgeMentorAttachmentsWorkflow(Mock())
 
         def run_base(_workflow: Workflow, *, input: object) -> object:
             raise RuntimeError('private workflow failure')
@@ -280,11 +280,11 @@ class TestPurgeMentorAttachmentsWorkflow:
             },
         ):
             with pytest.raises(MentorAttachmentInvalidError):
-                PurgeMentorAttachmentsWorkflow._parse_input(request)  # noqa: SLF001
+                AgnoPurgeMentorAttachmentsWorkflow._parse_input(request)  # noqa: SLF001
 
     def test_deep_copy_preserves_use_case_and_applies_updates(self) -> None:
         use_case = Mock()
-        workflow = PurgeMentorAttachmentsWorkflow(use_case)
+        workflow = AgnoPurgeMentorAttachmentsWorkflow(use_case)
         workflow_any = cast('Any', workflow)
         workflow_any.db = 'original-database'
 

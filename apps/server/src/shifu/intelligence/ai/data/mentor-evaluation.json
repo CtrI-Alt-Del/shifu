@@ -340,5 +340,698 @@
       "text": "O diagnóstico do meu exame médico permite concluir que preciso de cirurgia?",
       "answer_id": null
     }
+  ],
+  "action_intent_calibration": [
+    {
+      "text": "Adicione Estruturas de Dados ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Coloca Programação Orientada a Objetos no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Inclua a Habilidade de SQL no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Quero adicionar Dicionários em Python ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Adicione a Habilidade Algoritmos de Ordenação ao Objetivo Aprender a programar",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Gostaria de incluir Git e GitHub no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Põe Funções Lambda no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Preciso que você adicione Testes Automatizados ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Insira a Habilidade de Segurança da Informação no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Inclua essa Habilidade no Objetivo Desenvolvimento Web",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Remova Estruturas de Dados deste Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Tira Programação Orientada a Objetos do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Retire a Habilidade de SQL do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Quero remover Dicionários em Python do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Exclua Algoritmos de Ordenação do Objetivo Aprender a programar",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Preciso que você remova Testes Automatizados do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Pode tirar Funções Lambda deste Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Desvincule a Habilidade de Segurança da Informação do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Apague essa Habilidade do Objetivo Desenvolvimento Web",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Elimine Banco de Dados Relacional do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "coloca estruturas de dados no meu objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "adicione a habilidade de sql ao meu objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "tira estruturas de dados do meu objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Pode adicionar Estruturas de Dados ao meu Objetivo?",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Poderia remover Dicionários em Python do meu Objetivo?",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "remova a habilidade de sql deste objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Quero estudar Funções em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "O que é uma função",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero praticar recursão",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quanto falta para eu concluir Funções em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Qual é meu progresso em Estruturas de Dados",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Me explique a Habilidade de SQL",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quais Habilidades existem no meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Estou com dificuldade em Dicionários em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como adicionar um elemento em uma lista em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como remover um item de um dicionário em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Adicione dois números em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Remova os espaços de uma string em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero conhecer a Habilidade de Recursão",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como faço para adicionar uma Habilidade ao meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como eu removo uma Habilidade do meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Mostre as Habilidades do meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Por que Recursão está no meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero criar um novo Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero excluir meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Preciso de uma dica sobre funções",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quais materiais existem para Funções em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Não adicione Funções em Python ao meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Não quero remover Variáveis do meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Posso adicionar Habilidades ao meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Dá para remover Habilidades do meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Se eu remover uma Habilidade do Objetivo, perco o progresso?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Para que serve adicionar Habilidades ao Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero saber se posso remover uma Habilidade do Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Se eu remover Funções em Python do Objetivo, perco o progresso?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Posso adicionar Funções em Python ao meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Será que dá para tirar Funções em Python do meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    }
+  ],
+  "action_intent_held_out": [
+    {
+      "text": "Adicione Testes de Software ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Coloque a Habilidade Expressões Regulares no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Quero incluir Estruturas Condicionais no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Acrescente a Habilidade de JavaScript ao Objetivo Desenvolvimento Web",
+      "intents": ["add_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Por favor, inclua Pilhas e Filas no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Preciso adicionar Tratamento de Erros ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Insira Módulos em Python no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Pode incluir Orientação a Objetos no meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Remova Testes de Software deste Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Tire a Habilidade Expressões Regulares do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Quero excluir Estruturas Condicionais do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Retire a Habilidade de JavaScript do Objetivo Desenvolvimento Web",
+      "intents": ["remove_skill"],
+      "group": "positive"
+    },
+    {
+      "text": "Por favor, remova Pilhas e Filas do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Preciso remover Tratamento de Erros do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Apague Módulos em Python do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Pode tirar Orientação a Objetos do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Pode colocar a Habilidade Git no meu Objetivo por favor",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Vincule Redes de Computadores ao meu Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Adicionar Estatística ao Objetivo",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Gostaria de remover Docker do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Quero que você tire Kubernetes do meu Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Desvincule Redes de Computadores deste Objetivo",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Consegue adicionar Testes de Software ao meu Objetivo?",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Você pode remover Pilhas e Filas do meu Objetivo?",
+      "intents": ["remove_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Poderia adicionar Módulos em Python ao meu Objetivo?",
+      "intents": ["add_skill"],
+      "group": "paraphrase"
+    },
+    {
+      "text": "Quero estudar Estruturas Condicionais",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "O que são pilhas e filas",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero praticar tratamento de erros em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quanto falta para concluir Testes de Software",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Qual é meu nível em Módulos em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Explique a Habilidade de Expressões Regulares",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como adicionar itens a uma pilha em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Como remover o último item de uma fila",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Remova as vogais desta palavra em Python",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Adicione um comentário ao meu código",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero ver as Habilidades do Objetivo Desenvolvimento Web",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Quero começar um novo Objetivo de estudos",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Apague o código que escrevi na atividade",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Preciso de uma pista sobre Testes de Software",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Qual material posso usar para aprender JavaScript",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Tire minha dúvida sobre recursão",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Estou animado para estudar Python hoje",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Inclua um exemplo de função no meu código da atividade",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Pode me ajudar a escolher uma Habilidade para o meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Qual Habilidade eu devo incluir no meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Nunca remova Estruturas Condicionais do meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Não inclua Pilhas e Filas no meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Dá para adicionar Estruturas de Dados ao meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Caso eu remova Testes de Software do Objetivo, o que acontece?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Queria saber se posso incluir Habilidades no meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Preciso saber se dá para tirar uma Habilidade do Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Posso remover Pilhas e Filas do meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Para que serve incluir Pilhas e Filas no Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Você adiciona Tratamento de Erros ao meu Objetivo?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Se eu adicionar Git ao Objetivo, ele muda meu progresso?",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Me diga quais Habilidades eu devo adicionar ao meu Objetivo",
+      "intents": [],
+      "group": "hard_negative"
+    },
+    {
+      "text": "Remover uma Habilidade do Objetivo apaga o meu progresso",
+      "intents": [],
+      "group": "meta_question"
+    },
+    {
+      "text": "Adicionar uma Habilidade ao Objetivo muda meu progresso",
+      "intents": [],
+      "group": "meta_question"
+    }
+  ],
+  "intent_held_out": [
+    {
+      "text": "Pode me explicar o que é recursão",
+      "intents": ["explain_concept"]
+    },
+    {
+      "text": "Qual o significado de uma função em programação",
+      "intents": ["explain_concept"]
+    },
+    {
+      "text": "Como funciona um dicionário em Python",
+      "intents": ["explain_concept"]
+    },
+    {
+      "text": "Me dá uma dica sobre este desafio sem entregar a resposta",
+      "intents": ["request_hint"]
+    },
+    {
+      "text": "Estou preso nesta questão, pode me orientar",
+      "intents": ["request_hint"]
+    },
+    {
+      "text": "Preciso de um empurrãozinho para resolver este exercício",
+      "intents": ["request_hint"]
+    },
+    {
+      "text": "Como está meu avanço no Objetivo",
+      "intents": ["consult_progress"]
+    },
+    {
+      "text": "Quais Habilidades ainda faltam concluir",
+      "intents": ["consult_progress"]
+    },
+    {
+      "text": "Quero ver o quanto já estudei",
+      "intents": ["consult_progress"]
+    },
+    {
+      "text": "Quais materiais posso estudar agora",
+      "intents": ["find_materials_activities"]
+    },
+    {
+      "text": "Tem alguma atividade disponível para praticar",
+      "intents": ["find_materials_activities"]
+    },
+    {
+      "text": "Onde encontro conteúdo de apoio para esta Habilidade",
+      "intents": ["find_materials_activities"]
+    },
+    {
+      "text": "Por que minha nota foi essa nesta atividade",
+      "intents": ["explain_assessment"]
+    },
+    {
+      "text": "Pode detalhar o resultado da minha avaliação",
+      "intents": ["explain_assessment"]
+    },
+    {
+      "text": "O que o feedback oficial quer dizer",
+      "intents": ["explain_assessment"]
+    },
+    {
+      "text": "Existe alguma Habilidade sobre redes de computadores",
+      "intents": ["search_curriculum"]
+    },
+    {
+      "text": "Que Habilidades o catálogo oferece para Python",
+      "intents": ["search_curriculum"]
+    },
+    {
+      "text": "Procure Habilidades sobre algoritmos",
+      "intents": ["search_curriculum"]
+    },
+    {
+      "text": "Quantos XP eu acumulei",
+      "intents": ["consult_gamification"]
+    },
+    {
+      "text": "Em que nível estou",
+      "intents": ["consult_gamification"]
+    },
+    {
+      "text": "Qual é a minha sequência atual de estudos",
+      "intents": ["consult_gamification"]
+    },
+    {
+      "text": "Não sei como me organizar para estudar",
+      "intents": ["learning_conversation"]
+    },
+    {
+      "text": "Estou perdendo a motivação para aprender",
+      "intents": ["learning_conversation"]
+    },
+    {
+      "text": "Quero trocar ideias sobre o meu método de estudo",
+      "intents": ["learning_conversation"]
+    },
+    {
+      "text": "Qual a previsão do tempo para amanhã",
+      "intents": []
+    },
+    {
+      "text": "Me conte uma piada",
+      "intents": []
+    },
+    {
+      "text": "Quem descobriu o Brasil",
+      "intents": []
+    },
+    {
+      "text": "Qual é a capital da França",
+      "intents": []
+    }
   ]
 }

@@ -1,3 +1,6 @@
+from shifu.intelligence.core.domain.structures.mentor_action_proposal_draft import (
+    MentorActionProposalDraft,
+)
 from shifu.intelligence.core.domain.structures.mentor_generation_request import (
     MentorGenerationRequest,
 )
@@ -17,3 +20,5 @@ class PreparedMentorResponse:
     context: MentorContextSnapshot
     local_blocks: tuple[MentorResponseBlock, ...]
     attachment_request: MentorGenerationRequest | None
+    generation_fallback: MentorResponseBlock | None = None
+    action_proposal: MentorActionProposalDraft | None = None

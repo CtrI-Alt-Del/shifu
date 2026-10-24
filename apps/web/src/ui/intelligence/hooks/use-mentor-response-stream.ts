@@ -4,14 +4,54 @@ import type {
   MentorResponseEvent,
   MentorResponseSnapshot,
 } from '@/core/intelligence/mentor-response'
+import { mapMentorActionProposal } from '@/rest/services/intelligence-service'
 
 const STATUS = z.enum(['queued', 'processing', 'completed', 'failed', 'cancelled'])
+const ACTION_PROPOSAL = z
+  .object({
+    id: z.string(),
+    source_message_id: z.string(),
+    kind: z.enum(['add_skill', 'remove_skill']),
+    skill_id: z.string(),
+    skill_name: z.string(),
+    goal_id: z.string().nullable(),
+    goal_title: z.string().nullable(),
+    skill_experience_id: z.string().nullable(),
+    candidate_goals: z.array(
+      z
+        .object({
+          goal_id: z.string(),
+          title: z.string(),
+          contains_skill: z.boolean(),
+          skill_experience_id: z.string().nullable(),
+        })
+        .strict(),
+    ),
+    justification: z.string().nullable(),
+    status: z.enum(['pending', 'declined', 'completed', 'rejected']),
+    outcome: z.enum(['added', 'already_present', 'removed']).nullable(),
+    rejection_reason: z
+      .enum(['goal_unavailable', 'skill_unavailable', 'experience_unavailable'])
+      .nullable(),
+    resolved_goal_id: z.string().nullable(),
+    resolved_skill_experience_id: z.string().nullable(),
+    created_at: z.string(),
+  })
+  .strict()
 const EVENT = z
   .object({
     session_id: z.string(),
     attempt_id: z.string(),
     sequence: z.number().int().nonnegative(),
-    kind: z.enum(['status', 'consultation', 'block', 'completed', 'failed', 'cancelled']),
+    kind: z.enum([
+      'status',
+      'consultation',
+      'block',
+      'completed',
+      'failed',
+      'cancelled',
+      'action',
+    ]),
     status: STATUS,
     block: z
       .object({
@@ -35,7 +75,8 @@ const EVENT = z
       })
       .nullable(),
     consultation: z.enum(['learning', 'curriculum', 'gamification']).nullable(),
-    progress: z.enum(['write-answer', 'review-answer']).nullish(),
+    action_proposal: ACTION_PROPOSAL.nullish(),
+    progress: z.enum(['summarize-context', 'write-answer', 'review-answer']).nullish(),
     failure_code: z.string().nullable(),
     created_at: z.string(),
   })
@@ -129,6 +170,9 @@ export function useMentorResponseStream(input: UseMentorResponseStreamInput): vo
               }
             : null,
           consultation: parsed.consultation,
+          actionProposal: parsed.action_proposal
+            ? mapMentorActionProposal(parsed.action_proposal)
+            : null,
           progress: parsed.progress ?? null,
           failureCode: parsed.failure_code,
           createdAt: parsed.created_at,

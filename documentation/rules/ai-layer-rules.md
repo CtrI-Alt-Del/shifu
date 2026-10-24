@@ -21,7 +21,7 @@ application composition.
 ```text
 apps/server/src/shifu/intelligence/ai/
 ├── agno/
-│   ├── agents/
+│   ├── agents/                one base agent plus one class per responsibility
 │   ├── outputs/
 │   ├── tools/                 only when model-directed tools are required
 │   └── workflows/
@@ -47,8 +47,8 @@ compatible; migrating them is a separately scoped refactor, not an incidental ch
 Tools are optional: prepared authorized context may be sufficient for an agent.
 Introduce tools only for an approved capability needing model-directed operations.
 
-Shared model selection, credentials, and reusable provider construction belong to the
-provider or composition boundary. Feature prompts and capability-specific orchestration
+Shared model transport settings and credential handling belong to the owning
+module's base agent and model resolver inside its AI package, not to a provider. Feature prompts and capability-specific orchestration
 remain in the owning module and must not move into `shared`.
 
 Other modules consume their own Core contracts, a genuinely shared technical port, or
@@ -118,22 +118,27 @@ same prompt fragment. Do not introduce a prompt constant merely to move text out
 class. A shared fragment must have a specific semantic purpose and remain inside the
 Intelligence AI package.
 
-Agents receive a resolved model and explicit tools through constructor injection. They
-do not read environment variables, choose credentials, construct repositories, or
+Each agent class declares its own model config, and the module's base agent resolves
+it from the typed settings when the agent is built; constructors take no model and no
+settings. An agent whose model is not enabled is built without one, and the registry
+composes an unavailable double in its place. Evals assign a synthetic model to the
+built agent. Agents do not read environment variables, construct repositories, or
 instantiate use cases.
 
 Internal prompts, system instructions, hidden reasoning, agent-to-agent messages, raw
 tool transcripts, and provider metadata must never be returned to the browser. Expose
 only validated domain results or comprehensible review findings.
 
-## Model resolution belongs to the provider boundary
+## Model resolution belongs to the base agent
 
-Centralize runtime model construction behind typed settings and provider composition.
-Do not create one environment variable per agent and do not force every agent to use
-one model profile when their cost, latency, or reasoning needs differ.
+Each module with Agno agents has one base agent class that owns the reusable Agent
+configuration and resolves a per-agent model config into a model. Do not create one
+environment variable per agent and do not force every agent to use one model when
+their cost, latency, or reasoning needs differ.
 
-Agent definitions select a named model profile or receive a resolved model. The model
-provider maps that choice to the environment-specific implementation and owns:
+An agent class declares a frozen model config with its transport, model identifier,
+timeout and usage profile. The base agent maps that config to the
+environment-specific implementation and owns:
 
 - credentials and provider SDK construction;
 - model identifiers and supported parameters;

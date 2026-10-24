@@ -20,6 +20,16 @@ from shifu.curriculum.database.sqlalchemy.repositories import (
     SqlalchemySkillFoundationsRepository,
     SqlalchemySkillsRepository,
 )
+from shifu.gamification.database import GamificationSeeder
+from shifu.gamification.database.sqlalchemy.repositories import (
+    SqlalchemyActivityXpBalancesRepository,
+    SqlalchemyActivityXpRecognitionsRepository,
+    SqlalchemyEarnedAchievementsRepository,
+    SqlalchemyGamificationProfilesRepository,
+    SqlalchemyPracticeDaysRepository,
+    SqlalchemyRewardedMilestonesRepository,
+    SqlalchemyXpGrantsRepository,
+)
 from shifu.identity.database import IdentitySeeder
 from shifu.identity.database.sqlalchemy.repositories import (
     SqlalchemyAccountActionTokensRepository,
@@ -27,6 +37,8 @@ from shifu.identity.database.sqlalchemy.repositories import (
 )
 from shifu.intelligence.database import IntelligenceSeeder
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyLearnerMemoriesRepository,
+    SqlalchemyLearnerMemoryChangesRepository,
     SqlalchemyMentorMessagesRepository,
     SqlalchemyMentorSessionsRepository,
 )
@@ -53,6 +65,7 @@ class SeedOrchestrator:
         communication_seeder: CommunicationSeeder,
         events_repository: SqlalchemyEventsRepository,
         intelligence_seeder: IntelligenceSeeder,
+        gamification_seeder: GamificationSeeder,
     ) -> None:
         self._identity_seeder = identity_seeder
         self._curriculum_seeder = curriculum_seeder
@@ -60,9 +73,11 @@ class SeedOrchestrator:
         self._communication_seeder = communication_seeder
         self._events_repository = events_repository
         self._intelligence_seeder: IntelligenceSeeder = intelligence_seeder
+        self._gamification_seeder: GamificationSeeder = gamification_seeder
 
-    def clear(self) -> None:
+    def clear(self, account_ids: list[str]) -> None:
         self._events_repository.remove_all()
+        self._gamification_seeder.clear(account_ids)
         self._communication_seeder.clear()
         self._learning_seeder.clear()
         self._intelligence_seeder.clear()
@@ -72,7 +87,7 @@ class SeedOrchestrator:
     def run(self, seed: DevelopmentSeed | None = None) -> None:
         development_seed = seed or build_development_seed()
 
-        self.clear()
+        self.clear([account.id for account in development_seed.accounts])
         self._identity_seeder.run(
             list(development_seed.accounts),
             list(development_seed.account_action_tokens),
@@ -96,10 +111,18 @@ class SeedOrchestrator:
         self._intelligence_seeder.run(
             list(development_seed.mentor_sessions),
             list(development_seed.mentor_messages),
+            list(development_seed.learner_memories),
+            list(development_seed.tombstoned_mentor_session_ids),
         )
         self._communication_seeder.run(
             list(development_seed.communications),
             list(development_seed.delivery_attempts),
+        )
+        self._gamification_seeder.run(
+            list(development_seed.gamification_profiles),
+            list(development_seed.practice_days),
+            list(development_seed.earned_achievements),
+            list(development_seed.xp_grants),
         )
 
 
@@ -162,6 +185,17 @@ def seed() -> None:
             IntelligenceSeeder(
                 SqlalchemyMentorSessionsRepository(session),
                 SqlalchemyMentorMessagesRepository(session),
+                SqlalchemyLearnerMemoriesRepository(session),
+                SqlalchemyLearnerMemoryChangesRepository(session),
+            ),
+            GamificationSeeder(
+                SqlalchemyGamificationProfilesRepository(session),
+                SqlalchemyXpGrantsRepository(session),
+                SqlalchemyEarnedAchievementsRepository(session),
+                SqlalchemyRewardedMilestonesRepository(session),
+                SqlalchemyPracticeDaysRepository(session),
+                SqlalchemyActivityXpBalancesRepository(session),
+                SqlalchemyActivityXpRecognitionsRepository(session),
             ),
         )
         orchestrator.run()

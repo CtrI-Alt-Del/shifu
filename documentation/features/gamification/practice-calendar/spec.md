@@ -1,14 +1,14 @@
 ---
 title: Practice calendar and streak calculation
 status: implemented
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-80
 scope:
   - gamification
   - learning
-last_updated_at: 2026-10-14
+last_updated_at: 2026-10-24
 ---
 
 # Objective
@@ -50,7 +50,7 @@ Selected product outcomes for this bounded slice:
 | RP-01 | partial | The calendar read is private to the owning account; the profile itself already exists from `SHIFU-82` |
 | RP-05 | full | Recognition, single-day collapse, timezone rule, late-evaluation correction, break and restart all delivered |
 | RP-06 | full | Monthly calendar, five states, navigation bounds and date-only selection all delivered |
-| RP-08 | partial | Practice days are preserved as part of the minimum history; the XP history surface is `SHIFU-81`/`SHIFU-84` |
+| RP-08 | partial | Practice days are preserved as part of the minimum history; the XP history surface is delivered by `SHIFU-81`, except the `Atividade` row, which remains `SHIFU-84` |
 | RP-11 | partial | Non-blocking recognition, retry and no-duplication delivered for practice days; activity XP recovery is `SHIFU-84` |
 | RP-12 | partial | Practice days are purged and blocked for deleted accounts, inside the existing deletion path |
 | RP-13 | partial | Responsive, pt-BR, keyboard-operable and non-color-only for the Calendário tab |
@@ -83,7 +83,7 @@ Design handoff for affected UI states and viewports:
 | RF-07 | RP-06, RP-13 | Each day renders exactly one of five states — neutral, practiced, current-streak, missed, today-pending — distinguished by shape and icon, never by color alone. Days before the first practice and days after today are neutral. |
 | RF-08 | RP-05, RP-06 | Selecting a practice day confirms only its date, with no XP and no Activity count. The tab shows current streak, longest streak and coherent guidance for today. |
 | RF-09 | RP-08, RP-11; JN-11, JN-12 | Redelivery, concurrent delivery and failure recovery never create a duplicate practice day and never block Learning. Removing a Goal or Skill preserves recognized days. |
-| RF-10 | RP-01, RP-12; JN-13 | The calendar read returns only the authenticated account's own data. An account without a Gamification profile receives 404; a deleted account receives no new practice day and has its existing ones purged. |
+| RF-10 | RP-01, RP-12; JN-13 | The calendar read returns only the authenticated account's own data. An account without a Gamification profile receives the initial state: every day neutral, streak 0/0 and no earliest practice date; a deleted account receives no new practice day and has its existing ones purged. |
 | RF-11 | RP-13 | The tab works on desktop and mobile, in pt-BR, with keyboard-operable month navigation and day selection, accessible day identification, and clearly communicated loading, unavailable and recovery states. |
 | RF-12 | RP-11 | A Gamification failure never blocks attempt submission, evaluation, progress, mastery or completion in Learning; the practice day is recognized on a later retry without the learner repeating anything. |
 
@@ -103,7 +103,7 @@ Design handoff for affected UI states and viewports:
 | CA-12 | RF-06, RF-07 | An account with practice days in the current and previous month | The current month is read | Days carry the five states correctly; days after today and days before the first practice are neutral | CI-06 |
 | CA-13 | RF-06 | An authenticated account | A month after the current month is requested | The API rejects it with 400 and no calendar body | CI-07 |
 | CA-14 | RF-10 | Two accounts each with their own practice days | Account A reads the calendar | Only A's days are returned | CI-07 |
-| CA-15 | RF-10 | An authenticated account with no Gamification profile | The calendar is read | The API responds 404 | CI-07 |
+| CA-15 | RF-10 | An authenticated account with no Gamification profile | The calendar is read | The API responds 200 with every day `neutral`, streak `0/0` and a null `earliestPracticeDate` | CI-07 |
 | CA-16 | RF-10, RF-09 | An account whose Gamification profile is deleted | The deletion path runs | Its practice-day rows are removed with the rest of its state | CI-10 |
 | CA-17 | RF-09, RF-12 | A delivered practice fact for an account with no Gamification profile | The job runs | Nothing is written and the job does not fail | CI-01, CI-08 |
 | CA-18 | RF-09 | A practice fact already processed | The same event is delivered again | No duplicate row is created and the job completes | CI-08, CI-09 |
@@ -391,7 +391,7 @@ class Response(BaseModel):
 
 Errors flow to the global `AppErrorHandler`: a future month or an out-of-range
 month raises `InvalidGamificationError` (a `ValidationError`) → 400; a missing
-profile raises `GamificationProfileNotFoundError` (a `NotFoundError`) → 404;
+profile reads the initial state rather than an error (revision 2);
 an unauthenticated request is rejected by `AuthenticationPipe` → 401.
 
 ### Web
@@ -621,9 +621,7 @@ Read — synchronous:
 flowchart TD
     A[GET /gamification/calendar?year&month] --> B[AuthenticationPipe: AuthenticatedUser]
     B --> C[GetPracticeCalendarUseCase.execute account_id, year, month, time_zone, now]
-    C --> D{profile exists?}
-    D -- no --> E[GamificationProfileNotFoundError -> 404]
-    D -- yes --> F{month after current month in viewer tz?}
+    C --> F{month after current month in viewer tz?}
     F -- yes --> G[InvalidGamificationError -> 400]
     F -- no --> H[load every practice date for the account]
     H --> I[derive today, current-streak run, earliest practice date]
@@ -753,7 +751,7 @@ uv run pytest tests/gamification/core/use_cases/test_get_practice_calendar_use_c
 
 **Criteria:** CA-13, CA-14, CA-15
 
-**Expected result:** 200 with the serialized month for the owning account; 400 for a future or out-of-range month; 404 with no profile; 401 unauthenticated. Account A never sees account B's days.
+**Expected result:** 200 with the serialized month for the owning account; 400 for a future or out-of-range month; 200 with the initial state with no profile; 401 unauthenticated. Account A never sees account B's days.
 
 **Setup / inputs:** Two seeded accounts with distinct practice days, persisted through real repositories and migrations.
 
@@ -978,4 +976,5 @@ saved images is required — saving a screenshot is not a pass.
 
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
+| 2 | 2026-10-24 | Contract amendment | RF-10 and CA-15: an account without a Gamification profile now reads the initial state (every day neutral, streak 0/0, no earliest practice date) instead of 404, matching the overview (SHIFU-82) and Conquistas reads. Reason: profiles are created by an Inngest job on `identity/account.activated`, so the window before that job commits, and any account inserted without activation, is a normal JN-01 state, not corrupted state. The 404 left the Calendário tab in an error state beside a working Visão geral tab. `GamificationProfileNotFoundError` stays in use by the Activity XP reward read |
 | 1 | 2026-10-14 | Initial contract | SHIFU-80 against PRD — Gamification version 3. Consequential decisions: Learning enriches `learning/activity-evaluated` and `learning/diagnostic-completed` with `submitted_at` + `time_zone` and persists a nullable `time_zone` on `learning_activity_attempts`, rather than Gamification reading a current time zone through a new Identity port, so the practice date reflects the zone in effect at submission; practice-day uniqueness is `(account_id, practice_date)`, making single-day collapse and redelivery idempotency one guarantee; the streak is recomputed from the full date set so late evaluations need no special path; the Gamification area gains a two-tab shell rather than the reference design's four, since the other two tabs have no content in any delivered ticket; and because every Gamification job validates with `extra='forbid'`, enriching `learning/diagnostic-completed` is a breaking change for its one existing consumer, so `RecognizeDiagnosticCompletedJob._Payload` is widened in the same delivery and `CA-26` guards that regression |

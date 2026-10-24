@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
@@ -21,7 +22,11 @@ import type {
 } from '@/core/learning/competency-detail'
 import { getCompetencyDetailAction } from '@/ui/learning/widgets/pages/competency-detail-page/use-competency-detail-page'
 
-export type ChoiceResultRouteProps = {
+export type ChoiceResultSlots = {
+  rewardBand?: ReactNode
+}
+
+export type ChoiceResultRouteProps = ChoiceResultSlots & {
   goalId: string
   skillId: string
   competencyId: string
@@ -31,21 +36,23 @@ export type ChoiceResultRouteProps = {
   onSessionExpired: () => void
 }
 
-export type ChoiceResultRenderProps =
-  | { state: 'loading' }
-  | { state: 'private-absence' }
-  | { state: 'error'; onRetryLoad: () => void }
-  | {
-      state: 'result'
-      activity: ChoiceActivityDetail
-      attempt: ChoiceAttemptDetail
-      recommendation?: ActivityRecommendation | null
-      adaptiveDetail?: AvailableCompetencyDetail | null
-      adaptiveLoadError?: boolean
-      detailIds?: { goalId: string; skillId: string; competencyId: string }
-      onRetryEvaluation: () => Promise<void>
-      onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
-    }
+export type ChoiceResultRenderProps = ChoiceResultSlots &
+  (
+    | { state: 'loading' }
+    | { state: 'private-absence' }
+    | { state: 'error'; onRetryLoad: () => void }
+    | {
+        state: 'result'
+        activity: ChoiceActivityDetail
+        attempt: ChoiceAttemptDetail
+        recommendation?: ActivityRecommendation | null
+        adaptiveDetail?: AvailableCompetencyDetail | null
+        adaptiveLoadError?: boolean
+        detailIds?: { goalId: string; skillId: string; competencyId: string }
+        onRetryEvaluation: () => Promise<void>
+        onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
+      }
+  )
 
 export type ChoiceResultPageProps = ChoiceResultRenderProps | ChoiceResultRouteProps
 

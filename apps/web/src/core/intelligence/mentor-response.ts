@@ -1,3 +1,4 @@
+import type { MentorActionProposal } from './mentor-action-proposal'
 import type { MentorAttachmentSource } from './mentor-attachment'
 
 export type MentorContextHint = {
@@ -13,7 +14,7 @@ export type MentorResponseStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
-export type MentorWorkflowStep = 'write-answer' | 'review-answer'
+export type MentorWorkflowStep = 'summarize-context' | 'write-answer' | 'review-answer'
 export type MentorResponseBlock = {
   blockKey: string
   ordinal: number
@@ -36,10 +37,18 @@ export type MentorResponseEvent = {
   sessionId: string
   attemptId: string
   sequence: number
-  kind: 'status' | 'consultation' | 'block' | 'completed' | 'failed' | 'cancelled'
+  kind:
+    | 'status'
+    | 'consultation'
+    | 'block'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'action'
   status: MentorResponseStatus
   block: MentorResponseBlock | null
   consultation: string | null
+  actionProposal: MentorActionProposal | null
   failureCode: string | null
   createdAt: string
 }

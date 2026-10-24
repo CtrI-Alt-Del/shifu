@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -34,7 +34,7 @@ class StartSkillController:
         @router.post(
             '/goals/{goal_id}/skills/{skill_id}/start',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

@@ -2,8 +2,37 @@ import {
   exerciseDictationStates,
   exerciseBrowserManagedControls,
 } from '../support/native-dictation'
+import {
+  exerciseSummaryFailure,
+  exerciseSummaryJourney,
+} from '../support/mentor-summary-journey'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
+import {
+  ACTION_IDS,
+  ADD_JUSTIFICATION,
+  BLOCK_REASON,
+  buildPickerProposal,
+  buildProposal,
+  GOAL_TITLE,
+  installMentorActionsBackend,
+  openMentorActionsPage,
+  OTHER_GOAL_TITLE,
+  outcomeOf,
+  SKILL_NAME,
+} from '../support/mentor-actions-backend'
+import {
+  CONVERSATION_TEXTS,
+  expectNoHorizontalOverflow,
+  installMentorMemoriesBackend,
+  MEMORY_IDS,
+  MESSAGE_IDS,
+  openMemoriesPage,
+  openMentorPage,
+  searchOf,
+  SESSION_ID,
+  SESSION_TITLE,
+} from '../support/mentor-memories-backend'
 
 type MentorSessionFixture = {
   id: string
@@ -28,6 +57,7 @@ type MentorDetailFixture = {
     nextCursor: string | null
   }
   pendingLearnerMessageId: string | null
+  memoryItems?: unknown[]
 }
 
 type MentorServerFunctionCall = {
@@ -182,6 +212,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
           nextCursor: null,
         },
         pendingLearnerMessageId: `mentor-message-${index + 1}`,
+        memoryItems: [],
       },
     ]),
   )
@@ -257,6 +288,7 @@ test('keeps the selected route, editable draft, history, search, rename and dele
         session,
         messages: { items: [], nextCursor: null },
         pendingLearnerMessageId: null,
+        memoryItems: [],
       }
       details.set(session.id, detail)
       await route.fulfill({
@@ -504,4 +536,581 @@ test('renders native dictation states without a local language pack on page', as
   authenticatedPage,
 }) => {
   await exerciseBrowserManagedControls(authenticatedPage, 'page')
+})
+
+test('summarizes the context, reads the summary and reveals the originals on page at 1440', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'page', 1440)
+})
+test('summarizes the context, reads the summary and reveals the originals on page at 390', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryJourney(authenticatedPage, 'page', 390)
+})
+test('shows the summarization failure notice after its learner message on page', async ({
+  authenticatedPage,
+}) => {
+  await exerciseSummaryFailure(authenticatedPage, 'page')
+})
+
+// SHIFU-101: memory markers, the Memórias entry and the origin deep link. Browser
+// integration with mocked transport; it does not prove real persistence.
+test.describe('Mentor page memories', () => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`opens the Memórias page from the header link at ${viewport.width}`, async ({
+      authenticatedPage: page,
+    }) => {
+      await page.setViewportSize(viewport)
+      await installMentorMemoriesBackend(page)
+      await openMentorPage(page)
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Nova conversa' }),
+      ).toBeVisible()
+
+      const link = page.getByRole('link', { name: 'Memórias' })
+      await expect(link).toBeVisible()
+      expect((await link.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
+      await link.click()
+
+      await expect(page).toHaveURL(/\/intelligence\/memories\/?(\?.*)?$/)
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Memórias' }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole('list', { name: 'Lista de memórias' }).getByRole('button'),
+      ).toHaveCount(8)
+      await expectNoHorizontalOverflow(page)
+    })
+  }
+
+  test('places the markers after the answer of their turn and links to the memory', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await installMentorMemoriesBackend(page)
+    await openMentorPage(page, { session: SESSION_ID })
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+
+    const answer = page.getByRole('list', { name: 'Resposta do Mentor' })
+    const trailing = page.getByRole('list', { name: 'Memórias desta resposta' })
+    await expect(answer).toContainText(CONVERSATION_TEXTS.answer)
+    await expect(trailing).toContainText('Memória atualizada')
+    await expect(trailing).toContainText('Antes: Prefiro exemplos curtos em JavaScript.')
+    await expect(trailing).toContainText('Agora: Agora prefiro exemplos em Python.')
+    expect(
+      await trailing.evaluate(
+        (element, other) =>
+          Boolean(
+            element.compareDocumentPosition(document.querySelector(other) as Element) &
+              Node.DOCUMENT_POSITION_PRECEDING,
+          ),
+        '[aria-label="Resposta do Mentor"]',
+      ),
+    ).toBe(true)
+    // Items whose source message is in an older, unloaded page are not shown yet.
+    await expect(page.getByText('Memória criada')).toHaveCount(0)
+
+    // The list also loads older pages on its own near the top, so the explicit button can
+    // be replaced between the lookup and the click; retry until the page it loads is shown.
+    const loadOlderUntilVisible = async (messageId: string) =>
+      expect(async () => {
+        const target = page.locator(`[data-message-id="${messageId}"]`)
+        if (!(await target.isVisible())) {
+          await page
+            .getByRole('button', { name: 'Carregar mensagens anteriores' })
+            .click({ timeout: 2_000 })
+        }
+        await expect(target).toBeVisible({ timeout: 2_000 })
+      }).toPass({ timeout: 15_000 })
+
+    await loadOlderUntilVisible(MESSAGE_IDS.unansweredQuestion)
+    await loadOlderUntilVisible(MESSAGE_IDS.firstQuestion)
+
+    const items = page
+      .getByRole('list', { name: 'Mensagens da conversa' })
+      .getByRole('listitem')
+    await expect(items).toHaveCount(9)
+    const texts = await items.allInnerTexts()
+    const order = [
+      CONVERSATION_TEXTS.firstQuestion,
+      CONVERSATION_TEXTS.answer,
+      'Memória criada',
+      CONVERSATION_TEXTS.knowledgeQuestion,
+      CONVERSATION_TEXTS.answer,
+      'Memória excluída',
+      CONVERSATION_TEXTS.unansweredQuestion,
+      'Memória criada',
+      CONVERSATION_TEXTS.latestQuestion,
+    ]
+    order.forEach((content, index) => {
+      expect(texts[index]).toContain(content)
+    })
+    expect(texts[2]).toContain(
+      'Preferência de explicação: Prefiro exemplos curtos em JavaScript.',
+    )
+    expect(texts[7]).toContain('Interesse ou intenção: Quero criar aplicações web.')
+    expect(texts[5]).not.toContain('Sei Python.')
+    await expect(items.nth(5).getByRole('link')).toHaveCount(0)
+    await expect(items.nth(2).getByRole('link', { name: 'Ver memória' })).toBeVisible()
+    await expectNoHorizontalOverflow(page)
+
+    await trailing.getByRole('link', { name: 'Ver memória' }).click()
+
+    await expect(page).toHaveURL(/\/intelligence\/memories\/?\?/)
+    expect(searchOf(page).get('memory')).toBe(MEMORY_IDS.preference)
+    await expect(
+      page
+        .getByRole('region', { name: 'Detalhes da memória' })
+        .getByRole('heading', { level: 2, name: 'Agora prefiro exemplos em Python.' }),
+    ).toBeVisible()
+  })
+
+  test('follows an origin link, loads older pages until the message appears and clears the URL', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+    await openMemoriesPage(page, { memory: MEMORY_IDS.preference })
+
+    await page
+      .getByRole('region', { name: 'Detalhes da memória' })
+      .getByRole('link', { name: SESSION_TITLE })
+      .first()
+      .click()
+
+    const origin = page.locator(`[data-message-id="${MESSAGE_IDS.firstQuestion}"]`)
+    await expect(origin).toBeVisible()
+    await expect(origin).toBeFocused()
+    await expect.poll(() => searchOf(page).get('message')).toBeNull()
+    expect(searchOf(page).get('session')).toBe(SESSION_ID)
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual(['older-1', 'older-2'])
+    await expect(origin).toContainText(CONVERSATION_TEXTS.firstQuestion)
+  })
+
+  test('opens the conversation normally when the origin message no longer exists', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+    await openMemoriesPage(page, { memory: MEMORY_IDS.missingOrigin })
+
+    await page
+      .getByRole('region', { name: 'Detalhes da memória' })
+      .getByRole('link', { name: SESSION_TITLE })
+      .click()
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+    await expect.poll(() => searchOf(page).get('message')).toBeNull()
+    expect(searchOf(page).get('session')).toBe(SESSION_ID)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.locator(`[data-message-id="${MESSAGE_IDS.deleted}"]`)).toHaveCount(
+      0,
+    )
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual(['older-1', 'older-2'])
+  })
+
+  test('ignores an invalid message search value without paging', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installMentorMemoriesBackend(page)
+
+    await openMentorPage(page, { session: SESSION_ID, message: 'not-a-ulid' })
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: SESSION_TITLE }),
+    ).toBeVisible()
+    expect(searchOf(page).get('message')).toBeNull()
+    expect(
+      backend
+        .callsOf('session')
+        .map((call) => call.data.cursor)
+        .filter(Boolean),
+    ).toEqual([])
+  })
+})
+
+// SHIFU-104: confirmed Mentor actions on the page (mocked BFF transport and response stream).
+test.describe('Mentor page confirmed actions', () => {
+  test.beforeEach(async ({ authenticatedPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+  })
+
+  test('confirms an addition with the keyboard, announces the result and unblocks the composer after the refreshed detail', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toBeVisible()
+    await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+    await expect(card).toContainText(ADD_JUSTIFICATION)
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByText(BLOCK_REASON)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Anexar arquivo ou imagem' }),
+    ).toBeDisabled()
+
+    await card.getByRole('button', { name: 'Recusar' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    const done = page.getByRole('region', { name: `${SKILL_NAME} adicionada` })
+    await expect(done).toBeVisible()
+    await expect(done.getByRole('status')).toContainText('Adição concluída')
+    await expect(done.getByRole('status')).toBeFocused()
+    await expect(done.getByRole('button')).toHaveCount(0)
+    await expect(done.getByRole('link', { name: 'Ver Objetivo' })).toHaveAttribute(
+      'href',
+      `/learning/goals/${ACTION_IDS.goal}`,
+    )
+
+    const [confirmation] = backend.callsOf('confirmMentorSkillAdditionServer')
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')).toHaveLength(1)
+    expect(confirmation).toMatchObject({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillId: ACTION_IDS.skill,
+        justification: ADD_JUSTIFICATION,
+      },
+    })
+    await expect(page.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+    await expect(page.getByText(BLOCK_REASON)).toHaveCount(0)
+    expect(backend.proposal().status).toBe('completed')
+    await page.screenshot({
+      path: '.playwright-cli/screenshots/shifu-104-page-1440-add-completed.png',
+    })
+  })
+
+  test('keeps the card after leaving and returning and sends nothing without the button', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+    await expect(
+      page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` }),
+    ).toBeVisible()
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Enviar' })).toBeDisabled()
+
+    await openMentorPage(page)
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Nova conversa' }),
+    ).toBeVisible()
+    await openMentorActionsPage(page)
+
+    await expect(
+      page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` }),
+    ).toBeVisible()
+    expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
+    expect(backend.proposal().status).toBe('pending')
+  })
+
+  test('chooses an Objective in the picker, swaps it and confirms the chosen one', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildPickerProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+
+    const picker = page.getByRole('group', { name: 'Objetivo' })
+    await expect(picker).toContainText(
+      'Escolha um Objetivo para revisar a proposta de adição.',
+    )
+    const available = picker.getByRole('button', { name: GOAL_TITLE })
+    const containing = picker.getByRole('button', { name: OTHER_GOAL_TITLE })
+    await expect(containing).toHaveAttribute('aria-disabled', 'true')
+    await expect(containing).toHaveAccessibleDescription('Já contém esta Habilidade')
+    await containing.click({ force: true })
+    await expect(picker).toBeVisible()
+
+    await available.focus()
+    await page.keyboard.press('Enter')
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+    await expect(card.getByRole('button', { name: 'Trocar Objetivo' })).toBeVisible()
+    await card.getByRole('button', { name: 'Trocar Objetivo' }).click()
+    await expect(page.getByRole('group', { name: 'Objetivo' })).toBeVisible()
+    await expect(
+      page
+        .getByRole('group', { name: 'Objetivo' })
+        .getByRole('button', { name: GOAL_TITLE }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: GOAL_TITLE }).click()
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} adicionada` }),
+    ).toBeVisible()
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')[0]?.data).toMatchObject({
+      goalId: ACTION_IDS.goal,
+      confirmationId: ACTION_IDS.proposal,
+    })
+  })
+
+  test('declines a proposal, keeps it declined after a reload and unblocks the composer', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('remove_skill'),
+      readsUntilFinal: 1,
+    })
+    await openMentorActionsPage(page)
+    const card = page.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+    await expect(card).toContainText(
+      'Você pediu para retirar esta Habilidade do Objetivo.',
+    )
+    await expect(card).toContainText('Não há restauração.')
+
+    await card.getByRole('button', { name: 'Recusar' }).click()
+
+    const declined = page.getByRole('region', { name: 'Remoção recusada' })
+    await expect(declined).toContainText(`${SKILL_NAME} permanece no Objetivo.`)
+    await expect(declined).toContainText('Nenhuma alteração foi executada.')
+    expect(backend.callsOf('declineMentorActionProposalServer')).toEqual([
+      expect.objectContaining({
+        method: 'POST',
+        data: { sessionId: expect.any(String), proposalId: ACTION_IDS.proposal },
+      }),
+    ])
+    expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
+    await expect(page.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+
+    await openMentorPage(page)
+    await openMentorActionsPage(page)
+    await expect(page.getByRole('region', { name: 'Remoção recusada' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Remover habilidade' })).toHaveCount(0)
+  })
+
+  test('shows the uncertain state after a lost response and verifies with the same confirmation', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    backend.enqueue({ kind: 'abort' })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    const uncertain = page.getByRole('region', {
+      name: `Verificando adição de ${SKILL_NAME}`,
+    })
+    await expect(uncertain).toContainText('Resultado ainda não confirmado')
+    await expect(uncertain.getByRole('button')).toHaveText(['Verificar resultado'])
+    await expect(uncertain).not.toContainText('Não foi possível adicionar')
+
+    await uncertain.getByRole('button', { name: 'Verificar resultado' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} adicionada` }),
+    ).toBeVisible()
+    const confirmations = backend.callsOf('confirmMentorSkillAdditionServer')
+    expect(confirmations).toHaveLength(2)
+    expect(confirmations[1]?.data).toEqual(confirmations[0]?.data)
+  })
+
+  test('offers retry and decline after a safe failure and retries with the same data', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('remove_skill'),
+    })
+    backend.enqueue({ kind: 'failure', statusCode: 503 })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Remover habilidade' }).click()
+
+    const failed = page.getByRole('region', {
+      name: `Não foi possível remover ${SKILL_NAME}`,
+    })
+    await expect(failed).toContainText(
+      'A remoção não foi concluída. Sua proposta foi preservada.',
+    )
+    await expect(failed.getByRole('button')).toHaveText(['Recusar', 'Tentar novamente'])
+
+    await failed.getByRole('button', { name: 'Tentar novamente' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} removida` }),
+    ).toBeVisible()
+    const confirmations = backend.callsOf('confirmMentorSkillRemovalServer')
+    expect(confirmations).toHaveLength(2)
+    expect(confirmations[0]).toMatchObject({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillExperienceId: ACTION_IDS.experience,
+      },
+    })
+    expect(confirmations[1]?.data).toEqual(confirmations[0]?.data)
+  })
+
+  test('shows a rejection without buttons', async ({ authenticatedPage: page }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    backend.enqueue({
+      kind: 'success',
+      outcome: outcomeOf(buildProposal('add_skill'), {
+        outcome: 'rejected',
+        rejectionReason: 'goal_unavailable',
+      }),
+    })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    const rejected = page.getByRole('region', {
+      name: `Não foi possível adicionar ${SKILL_NAME}`,
+    })
+    await expect(rejected).toContainText('Este Objetivo não está mais disponível.')
+    await expect(rejected).toContainText('Nenhuma alteração foi executada.')
+    await expect(rejected.getByRole('button')).toHaveCount(0)
+    await expect(rejected.getByRole('link')).toHaveCount(0)
+  })
+
+  test('offers Tentar novamente when the conversation is not refreshed within the limit', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+      readsUntilFinal: 1000,
+    })
+    await openMentorActionsPage(page)
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Atualizando a conversa…' }),
+    ).toBeVisible()
+
+    await expect(
+      page.getByText('Ainda não foi possível atualizar a conversa.'),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('textbox')).toBeDisabled()
+
+    const readsBefore = backend.callsOf('getMentorSessionServer').length
+    backend.finalizeOnNextRead()
+    await page.getByRole('button', { name: 'Tentar novamente' }).click()
+    expect(backend.callsOf('getMentorSessionServer').length).toBeGreaterThan(readsBefore)
+  })
+
+  test('renders a streamed action event as a card and keeps the conversation blocked', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+      isLive: true,
+    })
+    await openMentorActionsPage(page)
+
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toBeVisible()
+    await expect(
+      page.getByText('Preparei uma proposta para você confirmar.'),
+    ).toBeVisible()
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByText(BLOCK_REASON)).toBeVisible()
+  })
+
+  test('follows the Markdown links of an answer to the routed pages and keeps unknown paths as text', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill', { status: 'declined' }),
+      answer: [
+        'Ainda não encontrei Objetivos seus. [criar um Objetivo](/learning/goals/new).',
+        `[Ver Habilidade](/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}).`,
+        '[Página inventada](/learning/inventada).',
+      ].join(' '),
+    })
+    await openMentorActionsPage(page)
+
+    await expect(page.getByText('Página inventada')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Página inventada' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Ver Habilidade' })).toHaveAttribute(
+      'href',
+      `/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}`,
+    )
+
+    await page.getByRole('link', { name: 'criar um Objetivo' }).click()
+
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.learningGoalsNew}/?$`))
+  })
+
+  test('reaches the Skill page from Ver Habilidade', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill', { status: 'declined' }),
+      answer: `[Ver Habilidade](/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}).`,
+    })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('link', { name: 'Ver Habilidade' }).click()
+
+    await expect(page).toHaveURL(
+      new RegExp(`/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}/?$`),
+    )
+  })
+
+  test('stacks the card buttons at full width on a 390 px page', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildPickerProposal('remove_skill'),
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openMentorActionsPage(page)
+
+    const picker = page.getByRole('group', { name: 'Objetivo' })
+    for (const name of [GOAL_TITLE, OTHER_GOAL_TITLE]) {
+      const box = await picker.getByRole('button', { name }).boundingBox()
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+    }
+    await picker.getByRole('button', { name: GOAL_TITLE }).click()
+    const card = page.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+    const decline = await card.getByRole('button', { name: 'Recusar' }).boundingBox()
+    const confirm = await card
+      .getByRole('button', { name: 'Remover habilidade' })
+      .boundingBox()
+    const cardBox = await card.boundingBox()
+    if (!decline || !confirm || !cardBox) throw new Error('The card has no layout box')
+    expect(confirm.y).toBeGreaterThan(decline.y + decline.height - 1)
+    expect(decline.width).toBeGreaterThan(cardBox.width - 60)
+    expect(confirm.width).toBeGreaterThan(cardBox.width - 60)
+    expect(decline.height).toBeGreaterThanOrEqual(44)
+    expect(confirm.height).toBeGreaterThanOrEqual(44)
+    await expectNoHorizontalOverflow(page)
+    await page.screenshot({
+      path: '.playwright-cli/screenshots/shifu-104-page-390-remove-proposal.png',
+    })
+  })
 })

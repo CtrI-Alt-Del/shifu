@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     Response as FastApiResponse,
 )
 from pydantic import BaseModel, TypeAdapter
@@ -39,14 +38,8 @@ class ListMentorSessionsController:
             search: str | None = None,
             cursor: str | None = None,
         ) -> Response:
-            try:
-                page = ListMentorSessionsUseCase(database).execute(
-                    user.account_id, search, cursor
-                )
-            except (TypeError, ValueError) as error:
-                raise HTTPException(
-                    status_code=422,
-                    detail={'code': 'validation_error', 'message': 'Cursor inválido.'},
-                ) from error
+            page = ListMentorSessionsUseCase(database).execute(
+                user.account_id, search, cursor
+            )
             response.headers['Cache-Control'] = 'private, no-store'
             return _RESPONSE_ADAPTER.validate_python(page, from_attributes=True)
