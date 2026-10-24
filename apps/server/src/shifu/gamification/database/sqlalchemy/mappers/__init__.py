@@ -1,3 +1,9 @@
+from .activity_xp_balance_mapper import (
+    ActivityXpBalanceMapper as ActivityXpBalanceMapper,
+)
+from .activity_xp_recognition_mapper import (
+    ActivityXpRecognitionMapper as ActivityXpRecognitionMapper,
+)
 from .earned_achievement_mapper import (
     EarnedAchievementMapper as EarnedAchievementMapper,
 )

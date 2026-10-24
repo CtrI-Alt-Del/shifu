@@ -12,6 +12,11 @@ from .javascript_stdin_question import JavascriptDependency as JavascriptDepende
 from .javascript_stdin_question import (
     JavascriptPermittedCommand as JavascriptPermittedCommand,
 )
+from .react_question import ReactQuestion as ReactQuestion
+from .react_question import ReactInitialFile as ReactInitialFile
+from .react_question import ReactDependency as ReactDependency
+from .react_question import ReactPermittedCommand as ReactPermittedCommand
+from .react_question import ReactAdditionalFilePolicy as ReactAdditionalFilePolicy
 from .code_rubric_criterion import CodeRubricCriterion as CodeRubricCriterion
 from .code_rubric_criterion import CodeRubricComment as CodeRubricComment
 from .code_rubric_criterion import CodeInconclusiveComment as CodeInconclusiveComment

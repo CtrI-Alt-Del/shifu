@@ -35,7 +35,30 @@ export type CodeQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
-export type ActivityQuestion = ChoiceQuestion | CodeQuestion
+export type ReactAdditionalFilePolicy = {
+  allowedDirectories: readonly string[]
+  allowedExtensions: readonly string[]
+  maxFiles: number
+}
+
+export type ReactQuestion = {
+  key: string
+  kind: 'react'
+  prompt: string
+  initialFiles: readonly { path: string; content: string; editable: boolean }[]
+  entrypoint: string
+  editablePaths: readonly string[]
+  fixedDependencies: readonly { name: string; version: string }[]
+  permittedCommands: readonly {
+    id: string
+    executable: string
+    arguments: readonly string[]
+  }[]
+  additionalFilePolicy: ReactAdditionalFilePolicy | null
+  criteria: readonly { key: string; name: string; weightPercentage: number }[]
+}
+
+export type ActivityQuestion = ChoiceQuestion | CodeQuestion | ReactQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -56,7 +79,7 @@ export type ChoiceAnswer = {
 }
 
 export type CodeAnswer = {
-  kind: 'javascript_stdin'
+  kind: 'javascript_stdin' | 'react'
   questionKey: string
   files: readonly { path: string; content: string }[]
 }
@@ -103,7 +126,7 @@ export type ChoiceResultQuestion = {
 
 export type CodeResultQuestion = {
   key: string
-  kind: 'javascript_stdin'
+  kind: 'javascript_stdin' | 'react'
   prompt: string
   score: number | null
   submittedFiles: readonly { path: string; content: string }[]

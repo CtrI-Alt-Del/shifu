@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import create_engine, func, select
 
 from shifu.fakers.gamification.entities import (
+    ActivityXpBalanceFaker,
+    ActivityXpRecognitionFaker,
     EarnedAchievementFaker,
     GamificationProfileFaker,
     RewardedMilestoneFaker,
@@ -15,6 +17,8 @@ from shifu.gamification.core.domain.enums import AchievementCriterionKind, Miles
 from shifu.gamification.core.domain.structures import AchievementCriterion
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.gamification.database.sqlalchemy.models import (
+    ActivityXpBalanceModel,
+    ActivityXpRecognitionModel,
     EarnedAchievementModel,
     GamificationProfileModel,
     RewardedMilestoneModel,
@@ -84,6 +88,22 @@ class TestPurgeProfileOnAccountDeletedJob:
                         rewarded_at=NOW,
                     )
                 )
+                repositories.activity_xp_balances.add(
+                    ActivityXpBalanceFaker.fake(
+                        account_id=account_id,
+                        maximum_xp=10,
+                        granted_xp=6,
+                        updated_at=NOW,
+                    )
+                )
+                repositories.activity_xp_recognitions.try_add(
+                    ActivityXpRecognitionFaker.fake(
+                        account_id=account_id,
+                        granted_xp=6,
+                        occurred_at=NOW,
+                        recognized_at=NOW,
+                    )
+                )
         finally:
             engine.dispose()
 
@@ -114,6 +134,8 @@ def _all_purged(session: 'Session', account_id: str) -> bool:
         and _count(session, XpGrantModel, account_id) == 0
         and _count(session, EarnedAchievementModel, account_id) == 0
         and _count(session, RewardedMilestoneModel, account_id) == 0
+        and _count(session, ActivityXpBalanceModel, account_id) == 0
+        and _count(session, ActivityXpRecognitionModel, account_id) == 0
     )
 
 
@@ -124,6 +146,8 @@ def _count(
         | type[XpGrantModel]
         | type[EarnedAchievementModel]
         | type[RewardedMilestoneModel]
+        | type[ActivityXpBalanceModel]
+        | type[ActivityXpRecognitionModel]
     ),
     account_id: str,
 ) -> int:

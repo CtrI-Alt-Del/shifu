@@ -1,0 +1,29 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+@memoryId = 01J00000000000000000000010
+
+### List my learner memories (newest update first); q matches content ignoring case and accents (up to 100 characters); category is one of explanation_preference, declared_knowledge, interest_or_intention, recurring_difficulty (invalid value: 422)
+GET {{baseUrl}}/intelligence/learner-memories?q=exemplos&category=explanation_preference
+Authorization: Bearer {{accessToken}}
+
+### List all my learner memories
+GET {{baseUrl}}/intelligence/learner-memories
+Authorization: Bearer {{accessToken}}
+
+### Read one learner memory; 404 when absent, malformed or owned by another account
+GET {{baseUrl}}/intelligence/learner-memories/{{memoryId}}
+Authorization: Bearer {{accessToken}}
+
+### Edit the content of a learner memory; 409 when expected_version is stale, 422 when content has 0 or more than 280 characters after trimming
+PATCH {{baseUrl}}/intelligence/learner-memories/{{memoryId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "content": "Prefiro exemplos curtos em Python.",
+  "expected_version": 1
+}
+
+### Delete a learner memory; 204 also when it is absent, malformed, already deleted or owned by another account
+DELETE {{baseUrl}}/intelligence/learner-memories/{{memoryId}}
+Authorization: Bearer {{accessToken}}

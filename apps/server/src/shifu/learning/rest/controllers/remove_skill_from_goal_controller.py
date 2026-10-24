@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response
 
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import RemoveSkillFromGoalUseCase
@@ -15,7 +15,7 @@ class RemoveSkillFromGoalController:
         @router.delete(
             '/goals/{goal_id}/skills/{skill_id}',
             response_model=None,
-            status_code=status.HTTP_204_NO_CONTENT,
+            status_code=204,
         )
         def _(
             goal_id: str,
@@ -34,4 +34,4 @@ class RemoveSkillFromGoalController:
                 goal_id=goal_id,
                 skill_id=skill_id,
             )
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+            return Response(status_code=204)

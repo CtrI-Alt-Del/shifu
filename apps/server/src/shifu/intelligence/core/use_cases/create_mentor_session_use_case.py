@@ -36,7 +36,7 @@ from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint imp
     mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import (
-    GenerateMentorTitleWorkflow,
+    GenerateMentorTitleProvider,
     IntelligenceDatabase,
 )
 from shifu.intelligence.core.interfaces.intelligence_database import (
@@ -59,14 +59,14 @@ class CreateMentorSessionUseCase:
         database: IntelligenceDatabase,
         identifier_provider: IdentifierProvider,
         clock_provider: ClockProvider,
-        title_workflow: GenerateMentorTitleWorkflow,
+        title_provider: GenerateMentorTitleProvider,
         access_provider: MentorAccessProvider,
     ) -> None:
         self._access_provider: MentorAccessProvider = access_provider
         self._database = database
         self._identifier_provider = identifier_provider
         self._clock_provider = clock_provider
-        self._title_workflow = title_workflow
+        self._title_provider = title_provider
 
     def execute(
         self,
@@ -229,7 +229,7 @@ class CreateMentorSessionUseCase:
         if not first_message.strip():
             return 'Conversa com anexos'
         try:
-            title = self._title_workflow.generate(first_message[:1000]).strip()
+            title = self._title_provider.generate(first_message[:1000]).strip()
         except (MentorTitleUnavailableError, MentorTitleOutputInvalidError):
             return self._fallback_title(first_message)
 

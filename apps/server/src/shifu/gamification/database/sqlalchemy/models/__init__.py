@@ -1,3 +1,9 @@
+from .activity_xp_balance_model import (
+    ActivityXpBalanceModel as ActivityXpBalanceModel,
+)
+from .activity_xp_recognition_model import (
+    ActivityXpRecognitionModel as ActivityXpRecognitionModel,
+)
 from .earned_achievement_model import EarnedAchievementModel as EarnedAchievementModel
 from .gamification_profile_model import (
     GamificationProfileModel as GamificationProfileModel,

@@ -1,3 +1,4 @@
+from threading import Lock
 from typing import ClassVar, cast
 
 import numpy as np
@@ -11,6 +12,7 @@ class SentenceTransformersEmbeddingsProvider:
     REVISION: ClassVar[str] = '614241f622f53c4eeff9890bdc4f31cfecc418b3'
     DIMENSION: ClassVar[int] = 384
     _model: SentenceTransformer
+    _lock: Lock
 
     def __init__(
         self, *, cache_folder: str | None = None, local_files_only: bool = True
@@ -25,6 +27,9 @@ class SentenceTransformersEmbeddingsProvider:
         )
         if self._model.get_embedding_dimension() != self.DIMENSION:
             raise ServiceUnavailableError('Índice do Mentor incompatível.')
+        # The router (event-loop thread) and the summarizer (worker thread) share this
+        # instance; neither the tokenizer nor the model is safe for concurrent calls.
+        self._lock = Lock()
 
     def embed_queries(self, texts: tuple[str, ...]) -> tuple[tuple[float, ...], ...]:
         return self._encode(texts, 'query: ')
@@ -39,19 +44,20 @@ class SentenceTransformersEmbeddingsProvider:
             return ()
         # E5 has a finite token window. Never silently discard the query tail.
         prefixed = [prefix + text for text in texts]
-        tokens = self._model.tokenizer(prefixed, truncation=False)
-        lengths = cast('list[list[int]]', tokens['input_ids'])
-        max_length = self._model.max_seq_length
-        if max_length is None or any(len(row) > max_length for row in lengths):
-            raise ServiceUnavailableError(
-                'Texto excede a capacidade do índice do Mentor.'
+        with self._lock:
+            tokens = self._model.tokenizer(prefixed, truncation=False)
+            lengths = cast('list[list[int]]', tokens['input_ids'])
+            max_length = self._model.max_seq_length
+            if max_length is None or any(len(row) > max_length for row in lengths):
+                raise ServiceUnavailableError(
+                    'Texto excede a capacidade do índice do Mentor.'
+                )
+            encoded = self._model.encode(  # pyright: ignore[reportUnknownMemberType] - SDK overload exposes unsupported multimodal types.
+                prefixed,
+                normalize_embeddings=True,
+                convert_to_numpy=True,
+                show_progress_bar=False,
             )
-        encoded = self._model.encode(  # pyright: ignore[reportUnknownMemberType] - SDK overload exposes unsupported multimodal types.
-            prefixed,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
         array = np.asarray(encoded, dtype=np.float32)
         if array.shape != (len(texts), self.DIMENSION) or not np.isfinite(array).all():
             raise ServiceUnavailableError('Índice do Mentor incompatível.')

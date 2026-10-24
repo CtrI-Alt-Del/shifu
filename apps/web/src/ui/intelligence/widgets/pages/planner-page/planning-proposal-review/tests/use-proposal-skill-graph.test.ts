@@ -142,13 +142,14 @@ describe('useProposalSkillGraph', () => {
     expect(third.position.y).toBeGreaterThan(first.position.y)
   })
 
-  it('clamps the zoom between the configured bounds and forwards it to the flow', () => {
+  it('clamps the zoom between the configured bounds and forwards it to the flow', async () => {
     const flow = {
       zoomTo: vi.fn(async () => true),
       setViewport: vi.fn(),
       getNodes: () => [],
     }
     const { result } = renderHook(() => useProposalSkillGraph('Título', skills, []))
+    await waitFor(() => expect(result.current.nodes).toHaveLength(4))
 
     act(() => {
       result.current.handleInit(

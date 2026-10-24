@@ -1,3 +1,8 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_SECTION, ENTRANCE_SLIDE } from '@/constants/motion-variants'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
+
 import { SessionHistory } from './session-history'
 import { Conversation } from './conversation'
 import { LoadingSkeleton } from './loading-skeleton'
@@ -27,9 +32,10 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
           {mentor.scopeError}
         </p>
       ) : surface === 'page' ? (
-        <div className='flex min-h-0 flex-1 gap-5'>
-          <aside
+        <MotionEntrance className='flex min-h-0 flex-1 gap-5'>
+          <motion.aside
             className={`${mentor.panelView === 'history' ? 'flex w-full' : 'hidden'} h-full min-h-0 shrink-0 rounded-xl border border-border bg-surface-alt sm:flex sm:w-[300px]`}
+            variants={ENTRANCE_SLIDE}
           >
             <SessionHistory
               onShowConversation={mentor.showPanelConversation}
@@ -37,9 +43,10 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
               onSelectSession={mentor.handleSelectSession}
               surface='page'
             />
-          </aside>
-          <div
+          </motion.aside>
+          <motion.div
             className={`${mentor.panelView === 'conversation' ? 'flex' : 'hidden'} min-h-0 min-w-0 flex-1 flex-col sm:flex`}
+            variants={ENTRANCE_SECTION}
           >
             <MentorChatHeader
               isDraft={!selectedSessionId}
@@ -58,8 +65,8 @@ export const MentorChat = ({ surface }: MentorChatProps) => {
               title={title}
             />
             <Conversation surface={surface} />
-          </div>
-        </div>
+          </motion.div>
+        </MotionEntrance>
       ) : (
         <>
           <MentorChatHeader

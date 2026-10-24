@@ -5,10 +5,7 @@ import pytest
 
 from shifu.fakers.gamification.entities import GamificationProfileFaker
 from shifu.gamification.core.domain.enums import CalendarDayState
-from shifu.gamification.core.domain.errors import (
-    GamificationProfileNotFoundError,
-    InvalidGamificationError,
-)
+from shifu.gamification.core.domain.errors import InvalidGamificationError
 from shifu.gamification.core.domain.structures import PracticeCalendar, PracticeStreak
 from shifu.gamification.core.interfaces import (
     GamificationDatabase,
@@ -66,11 +63,17 @@ class TestGetPracticeCalendarUseCase:
         with pytest.raises(InvalidGamificationError):
             self._read(now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC), month=13)
 
-    def test_should_reject_when_the_account_has_no_profile(self) -> None:
+    def test_should_read_the_initial_state_when_the_account_has_no_profile(
+        self,
+    ) -> None:
         self.repositories.profiles.find_by_account_id.return_value = None
 
-        with pytest.raises(GamificationProfileNotFoundError):
-            self._read(now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC))
+        calendar = self._read(now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC))
+
+        assert len(calendar.days) == 30
+        assert calendar.streak == PracticeStreak()
+        assert calendar.earliest_practice_date is None
+        assert {item.state for item in calendar.days} == {CalendarDayState.NEUTRAL}
 
     def test_should_emit_one_ordered_day_per_day_of_the_month(self) -> None:
         calendar = self._read(now=datetime(2026, 9, 15, 12, 0, tzinfo=UTC))

@@ -31,6 +31,7 @@ from shifu.intelligence.core.domain.errors import (
     MentorAttachmentConflictError,
     MentorAttachmentInvalidError,
     MentorAttachmentNotFoundError,
+    MentorAttachmentTooLargeError,
 )
 from shifu.intelligence.core.domain.events import (
     MentorAttachmentCleanupRequestedEvent,
@@ -338,7 +339,9 @@ class UploadMentorAttachmentUseCase:
         if type(uploaded_file.content) is not bytes:
             raise MentorAttachmentInvalidError
         content = uploaded_file.content
-        if not 0 < len(content) <= _MAX_FILE_SIZE:
+        if len(content) > _MAX_FILE_SIZE:
+            raise MentorAttachmentTooLargeError
+        if not content:
             raise MentorAttachmentInvalidError
         filename = uploaded_file.filename.strip().replace('\\', '/').rsplit('/', 1)[-1]
         if not filename or len(filename) > 255 or _UNSAFE_FILENAME.search(filename):

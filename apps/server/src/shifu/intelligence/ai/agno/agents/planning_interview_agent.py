@@ -1,19 +1,26 @@
 from textwrap import dedent
 
-from agno.agent import Agent
-from agno.models.base import Model
-
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    MentorAgent,
+    MentorModelConfig,
+)
 from shifu.intelligence.ai.agno.outputs.planning_interview_output import (
     PlanningInterviewOutput,
 )
 
 
-class PlanningInterviewAgent(Agent):
-    def __init__(self, model: Model) -> None:
-        super().__init__(  # pyright: ignore[reportUnknownMemberType] - Agno lacks complete SDK stubs.
+class PlanningInterviewAgent(MentorAgent):
+    MODEL = MentorModelConfig(
+        transport='openrouter',
+        model_id='openai/gpt-6-luna',
+        timeout_seconds=60.0,
+        profile='planner-interview',
+    )
+
+    def __init__(self) -> None:
+        super().__init__(
             name='Planning Interview Agent',
             description='Decide se o Planejador precisa de esclarecimentos objetivos.',
-            model=model,
             instructions=dedent("""\
                 Você é o Planejador de Objetivos do Shifu. Recebe um JSON com a
                 intenção do aprendiz em `intent`, as respostas já dadas em `answers`,
@@ -36,13 +43,4 @@ class PlanningInterviewAgent(Agent):
                 processos internos. Retorne somente o schema.
             """),
             output_schema=PlanningInterviewOutput,
-            tools=[],
-            retries=0,
-            telemetry=False,
-            store_history_messages=False,
-            add_history_to_context=False,
-            read_chat_history=False,
-            read_tool_call_history=False,
-            store_tool_messages=False,
-            store_events=False,
         )

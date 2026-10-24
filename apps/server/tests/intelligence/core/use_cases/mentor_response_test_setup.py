@@ -14,10 +14,14 @@ from shifu.intelligence.core.domain.structures import (
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
+    LearnerMemoriesRepository,
+    LearnerMemoryChangesRepository,
+    MentorActionProposalsRepository,
     MentorMessagesRepository,
     MentorResponseAttemptsRepository,
     MentorResponseEventsRepository,
     MentorSessionsRepository,
+    MentorSessionSummariesRepository,
 )
 from shifu.shared.core.domain.structures import MentorAccessGrant
 from shifu.shared.core.interfaces import (
@@ -53,6 +57,10 @@ class MentorResponseTestSetup:
             ('mentor_response_events', MentorResponseEventsRepository),
             ('mentor_messages', MentorMessagesRepository),
             ('mentor_sessions', MentorSessionsRepository),
+            ('mentor_session_summaries', MentorSessionSummariesRepository),
+            ('learner_memories', LearnerMemoriesRepository),
+            ('learner_memory_changes', LearnerMemoryChangesRepository),
+            ('mentor_action_proposals', MentorActionProposalsRepository),
             ('events', EventsRepository),
         ]:
             setattr(self.repositories, name, create_autospec(port, instance=True))
@@ -139,3 +147,8 @@ class MentorResponseTestSetup:
             items=[self.message], next_cursor=None
         )
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = []
+        self.repositories.mentor_action_proposals.exists_pending.return_value = False
+        self.repositories.mentor_session_summaries.find_ready.return_value = None
+        self.repositories.mentor_session_summaries.find_failed.return_value = None
+        self.repositories.mentor_session_summaries.find_processing_for_update.return_value = None

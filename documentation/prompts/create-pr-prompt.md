@@ -36,7 +36,8 @@ Quando vier de uma demanda direta, não invente Spec, PRD, Jira, requisitos ou
 registros externos para preencher o PR.
 
 Exija autorização explícita antes de fazer commit, `push` e criar ou atualizar
-o PR. A invocação explícita deste prompt autoriza o `push` e a publicação do PR,
+o PR. A instrução do usuário de que as alterações novas devem entrar no PR (ver
+"Alterações novas da entrega") autoriza o commit e o `push` delas. A invocação explícita deste prompt autoriza o `push` e a publicação do PR,
 mas não autoriza commits de alterações pendentes. No uso independente, invoque
 `commit-code` somente quando o usuário também autorizar os commits. Quando
 chamado por `conclude-spec`, reutilize os commits preparados imediatamente pelo
@@ -65,9 +66,11 @@ Identifique:
 - segredos ou dados locais que não podem entrar no PR;
 - divergências entre Jira, PRD, Spec, implementação e evidências.
 
-Preserve alterações alheias e mantenha-as fora dos commits. Se a relação entre
-um arquivo e a entrega for ambígua, interrompa e informe a ambiguidade em vez de
-incluí-lo por suposição.
+Preserve alterações alheias e mantenha-as fora dos commits. Alterações alheias são
+as que já estavam na worktree antes da entrega e não têm relação com ela;
+alterações feitas ou pedidas durante a entrega não são alheias (ver "Alterações
+novas da entrega"). Se a relação entre um arquivo e a entrega for ambígua,
+interrompa e informe a ambiguidade em vez de incluí-lo por suposição.
 
 ### Documentação e fontes de design
 
@@ -83,6 +86,26 @@ edite seus bytes com shell ou ferramentas genéricas de filesystem. Use Pencil
 MCP para inspeção ou edição visual; para publicação, identifique e adicione o
 path exato como arquivo versionado sem expor seu conteúdo. Preserve arquivos
 Pencil que não pertençam à entrega atual.
+
+### Alterações novas da entrega
+
+Toda alteração nova da entrega entra no PR. Isso vale para correções, mudanças
+pedidas pelo usuário durante ou depois da criação do PR, atualizações de Spec e
+Evaluation (status, CI, hashes) e qualquer arquivo alterado pela própria tarefa.
+Não deixe essas alterações apenas na worktree e não as exclua do PR por
+iniciativa própria.
+
+- Faça commit por intenção coerente (via `commit-code` quando autorizado), `push`
+  na mesma branch e atualize o corpo do PR quando as validações, limitações ou o
+  escopo mudarem.
+- Se uma alteração pedida pelo usuário conflitar com um requisito, Spec ou PRD
+  registrado, informe o conflito (no Evaluation e na resposta) e inclua a
+  alteração mesmo assim quando o usuário mandar incluí-la; não a resolva em
+  silêncio nem a remova por conta própria.
+- Depois de cada `push`, aguarde os checks do novo head e registre o resultado;
+  o registro final (Evaluation) também entra no PR, em um commit apenas
+  documental quando necessário.
+- Somente alterações preexistentes sem relação com a entrega ficam de fora.
 
 ## Preparação da branch e do PR
 

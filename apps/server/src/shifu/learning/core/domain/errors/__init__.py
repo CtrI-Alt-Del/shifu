@@ -43,3 +43,6 @@ from .skill_experience_not_found_error import (
 from .skill_experience_transition_error import (
     SkillExperienceTransitionError as SkillExperienceTransitionError,
 )
+from .mentor_action_conflict_error import (
+    MentorActionConflictError as MentorActionConflictError,
+)

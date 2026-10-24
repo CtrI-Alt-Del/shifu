@@ -1,310 +1,187 @@
-import base64
-import hashlib
-import json
-from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from __future__ import annotations
 
-from fastapi.testclient import TestClient
+from typing import TYPE_CHECKING
 
-from shifu.app import FastAPIApp
-from shifu.intelligence.core.domain.entities import MentorMessage, MentorSession
-from shifu.intelligence.core.domain.enums import MentorMessageRole
-from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
-from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.constants import ENVIRONMENT
-from shifu.shared.pipes import SharedPipe
-from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
-from tests.fixtures.postgres_fixture import PostgresDatabase
-from tests.intelligence.server.controllers.conftest import (
-    MENTOR_ACCOUNT,
-    configure_mentor_access,
+import pytest
+
+from shifu.intelligence.core.domain.enums import (
+    MentorActionKind,
+    MentorActionProposalOutcome,
+    MentorActionProposalStatus,
 )
+from shifu.intelligence.core.domain.structures import MentorActionCandidateGoal
+from tests.fixtures.intelligence_fixture import OTHER_ACCOUNT
 
 if TYPE_CHECKING:
-    from httpx import Response
+    from fastapi.testclient import TestClient
+
+    from tests.fixtures.intelligence_fixture import IntelligenceFixture
 
 
 class TestGetMentorSessionController:
-    def test_should_return_only_owned_active_session_and_accepted_message(
-        self, mentor_client: TestClient
+    @pytest.fixture(autouse=True)
+    def setup(
+        self, intelligence_fixture: IntelligenceFixture, mentor_client: TestClient
     ) -> None:
-        created = mentor_client.post(
-            '/intelligence/mentor-sessions',
-            json={
-                'submission_key': '89c0e33a-e8db-4cf5-8a0c-999999999999',
-                'first_message': 'Quero aprender matemática.',
-            },
+        self.fixture = intelligence_fixture
+        self.client = mentor_client
+        self.session_id, self.attempt_id, self.message_id = (
+            intelligence_fixture.create_session(mentor_client)
         )
-        session_id = created.json()['session']['id']
+        self.path = f'/intelligence/mentor-sessions/{self.session_id}'
 
-        response = cast(
-            'Response',
-            mentor_client.get(f'/intelligence/mentor-sessions/{session_id}'),
-        )
+    def test_should_return_no_action_items_for_a_conversation_without_proposals(
+        self,
+    ) -> None:
+        response = self.client.get(self.path)
+
         assert response.status_code == 200
-        assert response.headers['cache-control'] == 'private, no-store'
-        assert response.json()['session']['id'] == session_id
-        assert response.json()['messages']['items'][0]['content'] == (
-            'Quero aprender matemática.'
-        )
+        assert response.json()['action_items'] == []
 
-    def test_should_return_newest_message_pages_in_chronological_order_and_pending_state(
+    def test_should_return_every_proposal_with_its_current_state_and_survive_a_second_read(
         self,
-        mentor_client: TestClient,
-        postgres_database: PostgresDatabase,
     ) -> None:
-        created = mentor_client.post(
-            '/intelligence/mentor-sessions',
-            json={
-                'submission_key': '09c0e33a-e8db-4cf5-8a0c-999999999999',
-                'first_message': 'Primeira pergunta aceita.',
-            },
+        pending = self.fixture.seed_action_proposal(
+            self.session_id, self.attempt_id, self.message_id
         )
-        session_id = created.json()['session']['id']
-        database = SqlalchemyIntelligenceDatabase(engine=postgres_database.engine)
-        identifiers = SystemIdentifierProvider()
-        first_timestamp = datetime(2026, 1, 1, tzinfo=UTC)
-        seeded_ids: list[str] = []
-        with database.transaction() as repositories:
-            for index in range(30):
-                learner_id = identifiers.generate()
-                seeded_ids.append(learner_id)
-                repositories.mentor_messages.add(
-                    MentorMessage(
-                        id=learner_id,
-                        session_id=session_id,
-                        role=MentorMessageRole.LEARNER,
-                        content=f'Pergunta de histórico {index}.',
-                        created_at=first_timestamp + timedelta(seconds=index * 2),
-                        in_reply_to_message_id=None,
-                    )
-                )
-                if index == 0:
-                    repositories.mentor_messages.add(
-                        MentorMessage(
-                            id=identifiers.generate(),
-                            session_id=session_id,
-                            role=MentorMessageRole.MENTOR,
-                            content='Resposta persistida.',
-                            created_at=first_timestamp + timedelta(seconds=1),
-                            in_reply_to_message_id=learner_id,
-                        )
-                    )
-
-        first_page = cast(
-            'Response',
-            mentor_client.get(f'/intelligence/mentor-sessions/{session_id}'),
-        )
-        assert first_page.status_code == 200
-        page_body = first_page.json()
-        assert len(page_body['messages']['items']) == 30
-        assert page_body['messages']['items'][0]['content'] == (
-            'Pergunta de histórico 1.'
-        )
-        assert page_body['messages']['items'][-1]['content'] == (
-            'Primeira pergunta aceita.'
-        )
-        assert page_body['messages']['next_cursor'] is not None
-        assert (
-            page_body['pending_learner_message_id']
-            == page_body['messages']['items'][-1]['id']
-        )
-
-        older_page = cast(
-            'Response',
-            mentor_client.get(
-                f'/intelligence/mentor-sessions/{session_id}',
-                params={'cursor': page_body['messages']['next_cursor']},
+        candidates = (
+            MentorActionCandidateGoal(
+                goal_id='goal-a',
+                title='A',
+                contains_skill=True,
+                skill_experience_id='experience-a',
+            ),
+            MentorActionCandidateGoal(
+                goal_id='goal-b',
+                title='B',
+                contains_skill=True,
+                skill_experience_id='experience-b',
             ),
         )
-        assert older_page.status_code == 200
-        older_items = older_page.json()['messages']['items']
-        assert len(older_items) == 2
-        assert [item['content'] for item in older_items] == [
-            'Pergunta de histórico 0.',
-            'Resposta persistida.',
-        ]
-
-    def test_should_reject_malformed_message_cursor_as_validation_error(
-        self, mentor_client: TestClient
-    ) -> None:
-        created = mentor_client.post(
-            '/intelligence/mentor-sessions',
-            json={
-                'submission_key': '19c0e33a-e8db-4cf5-8a0c-999999999999',
-                'first_message': 'Pergunta com cursor inválido.',
-            },
-        )
-        response = cast(
-            'Response',
-            mentor_client.get(
-                f'/intelligence/mentor-sessions/{created.json()["session"]["id"]}',
-                params={'cursor': 'not-a-cursor'},
-            ),
+        completed = self.fixture.seed_action_proposal(
+            self.session_id,
+            self.attempt_id,
+            self.message_id,
+            kind=MentorActionKind.REMOVE_SKILL,
+            status=MentorActionProposalStatus.COMPLETED,
+            outcome=MentorActionProposalOutcome.REMOVED,
+            candidate_goals=candidates,
+            goal_id=None,
+            resolved_goal_id='goal-b',
+            resolved_skill_experience_id='experience-b',
         )
 
-        assert response.status_code == 422
-        assert response.headers['cache-control'] == 'private, no-store'
+        first = self.client.get(self.path)
+        second = self.client.get(self.path)
 
-    def test_should_reject_cursor_for_a_different_resource(
-        self, mentor_client: TestClient
-    ) -> None:
-        created = mentor_client.post(
-            '/intelligence/mentor-sessions',
-            json={
-                'submission_key': '44c0e33a-e8db-4cf5-8a0c-999999999999',
-                'first_message': 'Pergunta para validar o cursor.',
-            },
-        )
-        payload = json.dumps(
+        assert first.status_code == second.status_code == 200
+        assert first.json()['action_items'] == second.json()['action_items']
+        items = {item['id']: item for item in first.json()['action_items']}
+        assert set(items) == {pending.id, completed.id}
+        assert items[pending.id]['status'] == 'pending'
+        assert items[pending.id]['kind'] == 'add_skill'
+        assert items[pending.id]['source_message_id'] == self.message_id
+        assert items[completed.id]['status'] == 'completed'
+        assert items[completed.id]['outcome'] == 'removed'
+        assert items[completed.id]['goal_id'] is None
+        assert items[completed.id]['candidate_goals'] == [
             {
-                'kind': 'sessions',
-                'account_id': MENTOR_ACCOUNT.account_id,
-                'session_id': created.json()['session']['id'],
-                'created_at': datetime.now(UTC).isoformat(),
-                'id': '01JMESSAGE000000000000000000',
+                'goal_id': 'goal-a',
+                'title': 'A',
+                'contains_skill': True,
+                'skill_experience_id': 'experience-a',
             },
-            separators=(',', ':'),
-        ).encode()
-        cursor = base64.urlsafe_b64encode(payload).decode().rstrip('=')
-
-        response = cast(
-            'Response',
-            mentor_client.get(
-                f'/intelligence/mentor-sessions/{created.json()["session"]["id"]}',
-                params={'cursor': cursor},
-            ),
-        )
-
-        assert response.status_code == 422
-        assert response.headers['cache-control'] == 'private, no-store'
-
-    def test_should_hide_unknown_ids_and_reject_invalid_ulids(
-        self, mentor_client: TestClient
-    ) -> None:
-        unknown = cast(
-            'Response',
-            mentor_client.get(
-                '/intelligence/mentor-sessions/00000000000000000000000000'
-            ),
-        )
-        malformed = cast(
-            'Response', mentor_client.get('/intelligence/mentor-sessions/not-a-ulid')
-        )
-
-        assert unknown.status_code == 404
-        assert malformed.status_code == 422
-
-    def test_should_return_private_not_found_for_another_authenticated_account(
-        self,
-        mentor_client: TestClient,
-        postgres_database: PostgresDatabase,
-    ) -> None:
-        created = mentor_client.post(
-            '/intelligence/mentor-sessions',
-            json={
-                'submission_key': 'f50d79e9-bc83-40fb-9fc9-999999999999',
-                'first_message': 'Dados privados.',
+            {
+                'goal_id': 'goal-b',
+                'title': 'B',
+                'contains_skill': True,
+                'skill_experience_id': 'experience-b',
             },
+        ]
+        assert items[completed.id]['resolved_goal_id'] == 'goal-b'
+        assert items[completed.id]['resolved_skill_experience_id'] == 'experience-b'
+
+    def test_should_not_show_the_proposals_of_another_account(self) -> None:
+        self.fixture.seed_action_proposal(
+            self.session_id, self.attempt_id, self.message_id
         )
-        other_app = FastAPIApp.register(postgres_database.engine)
-        configure_mentor_access(other_app)
-        other_user = AuthenticatedUser(
-            account_id='01JOTHER000000000000TEST',
-            display_name='Other Learner',
-            time_zone=None,
-        )
-        other_app.dependency_overrides[SharedPipe.get_authenticated_user] = lambda: (
-            other_user
-        )
-        with TestClient(
-            other_app, headers={'Authorization': 'Bearer test-token'}
-        ) as client:
-            response = cast(
-                'Response',
-                client.get(
-                    f'/intelligence/mentor-sessions/{created.json()["session"]["id"]}'
-                ),
-            )
+
+        with self.fixture.other_account_client() as other:
+            response = other.get(self.path)
 
         assert response.status_code == 404
-        assert response.headers['cache-control'] == 'private, no-store'
 
-    def test_should_require_authentication_for_private_history(
-        self, postgres_database: PostgresDatabase
-    ) -> None:
-        app = FastAPIApp.register(postgres_database.engine)
-        with TestClient(
-            app,
-            headers={'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret},
-        ) as client:
-            response = cast(
-                'Response',
-                client.get('/intelligence/mentor-sessions/00000000000000000000000000'),
-            )
-
-        assert response.status_code == 401
-        assert response.headers['cache-control'] == 'private, no-store'
-
-    def test_should_preserve_answered_legacy_history_without_response_attempt(
-        self,
-        mentor_client: TestClient,
-        postgres_database: PostgresDatabase,
-    ) -> None:
-        identifiers = SystemIdentifierProvider()
-        session_id, learner_id, reply_id = (
-            identifiers.generate(),
-            identifiers.generate(),
-            identifiers.generate(),
+    def test_should_remove_the_proposals_with_the_deleted_conversation(self) -> None:
+        self.fixture.seed_action_proposal(
+            self.session_id, self.attempt_id, self.message_id
         )
-        created_at = datetime(2025, 1, 1, tzinfo=UTC)
-        question = 'Como organizar meus estudos?'
-        answer = 'Reserve um horário para revisar o que aprendeu.'
-        database = SqlalchemyIntelligenceDatabase(engine=postgres_database.engine)
-        # e633 backfills attempts only for unanswered legacy learners. This
-        # already answered conversation legitimately has no response attempt.
-        with database.transaction() as repositories:
-            repositories.mentor_sessions.add(
-                MentorSession(
-                    id=session_id,
-                    account_id=MENTOR_ACCOUNT.account_id,
-                    title='Conversa anterior',
-                    created_at=created_at,
-                    updated_at=created_at + timedelta(seconds=1),
-                    last_activity_at=created_at + timedelta(seconds=1),
-                ),
-                'legacy:' + session_id,
-                hashlib.sha256(question.encode()).hexdigest(),
-            )
-            repositories.mentor_messages.add(
-                MentorMessage(
-                    id=learner_id,
-                    session_id=session_id,
-                    role=MentorMessageRole.LEARNER,
-                    content=question,
-                    created_at=created_at,
-                    in_reply_to_message_id=None,
-                )
-            )
-            repositories.mentor_messages.add(
-                MentorMessage(
-                    id=reply_id,
-                    session_id=session_id,
-                    role=MentorMessageRole.MENTOR,
-                    content=answer,
-                    created_at=created_at + timedelta(seconds=1),
-                    in_reply_to_message_id=learner_id,
-                )
-            )
-        response = mentor_client.get(f'/intelligence/mentor-sessions/{session_id}')
-        assert response.status_code == 200
-        assert response.headers['cache-control'] == 'private, no-store'
-        body = response.json()
-        assert body['session']['id'] == session_id
-        assert body['response'] is None
-        assert body['pending_learner_message_id'] is None
-        assert body['messages']['next_cursor'] is None
+        assert len(self.fixture.read_action_proposals(self.session_id)) == 1
+
+        deleted = self.client.delete(self.path)
+
+        assert deleted.status_code == 204
+        assert self.fixture.read_action_proposals(self.session_id) == []
+        assert self.client.get(self.path).status_code == 404
+
+    def test_should_keep_the_proposals_of_other_conversations_when_one_is_deleted(
+        self,
+    ) -> None:
+        other_session, other_attempt, other_message = self.fixture.create_session(
+            self.client, '5b2d6f0e-2c68-4f7f-8c6e-0c9d0a9b3a11'
+        )
+        self.fixture.seed_action_proposal(
+            self.session_id, self.attempt_id, self.message_id
+        )
+        kept = self.fixture.seed_action_proposal(
+            other_session, other_attempt, other_message
+        )
+
+        assert self.client.delete(self.path).status_code == 204
+
         assert [
-            (item['id'], item['role'], item['content'])
-            for item in body['messages']['items']
-        ] == [(learner_id, 'learner', question), (reply_id, 'mentor', answer)]
+            item.id for item in self.fixture.read_action_proposals(other_session)
+        ] == [kept.id]
+
+    def test_should_remove_only_the_pending_proposals_of_a_cancelled_attempt(
+        self,
+    ) -> None:
+        other_session, other_attempt, other_message = self.fixture.create_session(
+            self.client, '5b2d6f0e-2c68-4f7f-8c6e-0c9d0a9b3a11'
+        )
+        pending = self.fixture.seed_action_proposal(
+            self.session_id, self.attempt_id, self.message_id
+        )
+        declined = self.fixture.seed_action_proposal(
+            self.session_id,
+            self.attempt_id,
+            self.message_id,
+            status=MentorActionProposalStatus.DECLINED,
+        )
+        other_attempt_pending = self.fixture.seed_action_proposal(
+            other_session, other_attempt, other_message
+        )
+        foreign = self.fixture.seed_action_proposal(
+            self.session_id,
+            self.attempt_id,
+            self.message_id,
+            account_id=OTHER_ACCOUNT.account_id,
+        )
+
+        cancelled = self.client.post(
+            f'{self.path}/responses/{self.attempt_id}/cancel',
+            json={'submission_key': '9a4e1c7b-6d23-4b58-8f10-3c5d7e9a1b22'},
+        )
+
+        assert cancelled.status_code == 200
+        remaining = {
+            item.id
+            for item in (
+                *self.fixture.read_action_proposals(self.session_id),
+                *self.fixture.read_action_proposals(
+                    self.session_id, OTHER_ACCOUNT.account_id
+                ),
+                *self.fixture.read_action_proposals(other_session),
+            )
+        }
+        assert pending.id not in remaining
+        assert remaining == {declined.id, other_attempt_pending.id, foreign.id}

@@ -13,8 +13,13 @@ import { z } from 'zod'
 import { ROUTES } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
+import {
+  createServerRequestClient,
+  type ServerRequestClientOptions,
+} from '@/rest/axios/server-request-client'
 import { IdentityService } from '@/rest/services/identity-service'
+import { getWebTelemetryProvider } from '@/provision/telemetry/console-telemetry-provider'
 
 import { BETTER_AUTH_OPTIONS, BetterAuthConfig } from './better-auth-config'
 
@@ -51,6 +56,8 @@ const passwordResetBody = z.object({
 })
 const passwordResetLinkBody = z.object({ token: z.string().optional().default('') })
 
+const telemetry = getWebTelemetryProvider()
+
 type ServerAuthenticatedAccess = {
   accountId: string
   displayName: string
@@ -63,14 +70,25 @@ const BetterAuthProvider = () => {
   const config = BetterAuthConfig()
   pgTypes.setTypeParser(20, (value) => Number.parseInt(value, 10))
   const pool = new Pool({ connectionString: config.databaseURL })
-  const identityService = IdentityService(
-    AxiosRestClient(config.identityURL, {
-      defaultHeaders: { 'X-Shifu-Bff-Secret': config.bffSharedSecret },
-      withCredentials: false,
-    }),
-  )
+  const identityClientOptions = {
+    baseUrl: config.identityURL,
+    defaultHeaders: { 'X-Shifu-Bff-Secret': config.bffSharedSecret },
+    withCredentials: false,
+  } satisfies ServerRequestClientOptions
+  const identityService = createIdentityService()
 
-  const identityPlugin = createIdentityPlugin(identityService)
+  function createIdentityService(requestId?: string) {
+    const requestContext: RequestTelemetryContext | undefined = requestId
+      ? { requestId, telemetry }
+      : undefined
+    return IdentityService(
+      createServerRequestClient(requestContext, identityClientOptions),
+    )
+  }
+
+  const requestIdentityService = (request?: Request) =>
+    createIdentityService(request?.headers.get('X-Request-ID') ?? undefined)
+  const identityPlugin = createIdentityPlugin(requestIdentityService)
   const auth = betterAuth({
     appName: 'Shifu',
     baseURL: config.baseURL,
@@ -201,6 +219,7 @@ const BetterAuthProvider = () => {
 
   async function getCurrentAccess(
     request: Request,
+    requestId?: string,
   ): Promise<ServerAuthenticatedAccess | null> {
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session) return null
@@ -210,7 +229,10 @@ const BetterAuthProvider = () => {
     if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
 
     try {
-      const currentSession = await identityService.getCurrentSession(accessToken)
+      const currentIdentityService = requestId
+        ? createIdentityService(requestId)
+        : identityService
+      const currentSession = await currentIdentityService.getCurrentSession(accessToken)
       return {
         accountId: currentSession.account_id,
         displayName: currentSession.display_name,
@@ -237,12 +259,12 @@ const BetterAuthProvider = () => {
         error instanceof AuthError &&
         (error.kind === 'authentication-rejected' || error.kind === 'invalid-response')
       ) {
-        await deleteSession(request)
+        await deleteSession(request, requestId)
         return null
       }
 
       if (error instanceof RestError) {
-        await deleteSession(request)
+        await deleteSession(request, requestId)
         return null
       }
 
@@ -250,7 +272,7 @@ const BetterAuthProvider = () => {
     }
   }
 
-  async function deleteSession(request: Request) {
+  async function deleteSession(request: Request, requestId?: string) {
     const response = await auth.handler(
       new Request(new URL('/api/auth/sign-out', request.url), {
         method: 'POST',
@@ -259,15 +281,35 @@ const BetterAuthProvider = () => {
     )
     const setCookie = response.headers.get('set-cookie')
     if (setCookie) setResponseHeaders(new Headers({ 'set-cookie': setCookie }))
+    telemetry.emit({
+      level: 'INFO',
+      event: 'auth.session.revoked',
+      request_id: requestId,
+      operation: 'auth.session.revoke',
+      result: 'success',
+    })
   }
 
-  async function publishMainPageEntered(access: ServerAuthenticatedAccess) {
+  async function publishMainPageEntered(
+    access: ServerAuthenticatedAccess,
+    requestId?: string,
+  ) {
     try {
-      await identityService.publishMainPageEntered(access.accessToken)
+      await (requestId
+        ? createIdentityService(requestId)
+        : identityService
+      ).publishMainPageEntered(access.accessToken)
     } catch {
       // Observability is best effort. The access decision has already
       // completed and must not block a valid dashboard navigation.
-      console.warn('Main-page entry observability is unavailable.')
+      telemetry.emit({
+        level: 'WARNING',
+        event: 'dependency.unavailable',
+        request_id: requestId,
+        operation: 'dependency.check',
+        dependency: 'better-auth',
+        result: 'unavailable',
+      })
     }
   }
 
@@ -281,7 +323,9 @@ const BetterAuthProvider = () => {
   }
 }
 
-function createIdentityPlugin(identityService: ReturnType<typeof IdentityService>) {
+function createIdentityPlugin(
+  requestIdentityService: (request?: Request) => ReturnType<typeof IdentityService>,
+) {
   return {
     id: 'shifu-identity-sign-in',
     endpoints: {
@@ -289,6 +333,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-recovery',
         { method: 'POST', body: passwordRecoveryBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let result: Awaited<ReturnType<typeof identityService.requestPasswordRecovery>>
           try {
             result = await identityService.requestPasswordRecovery(context.body.email)
@@ -319,6 +364,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-recovery/status',
         { method: 'GET' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const recoveryContext = await getPasswordRecoveryContext(context)
           if (!recoveryContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -353,6 +399,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-recovery/retry',
         { method: 'POST' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const recoveryContext = await getPasswordRecoveryContext(context)
           if (!recoveryContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -383,6 +430,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-reset-link/status',
         { method: 'POST', body: passwordResetLinkBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           if (!isRecoveryToken(context.body.token)) {
             return context.json({ result: 'invalid' })
           }
@@ -404,6 +452,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-reset',
         { method: 'POST', body: passwordResetBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           if (!isRecoveryToken(context.body.token)) {
             return context.json({ result: 'invalid', redirectTo: ROUTES.login })
           }
@@ -429,13 +478,25 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
           try {
             await context.context.internalAdapter.deleteUserSessions(result.account_id)
           } catch {
-            console.warn('password_reset_session_cleanup_failed')
+            telemetry.emit({
+              level: 'WARNING',
+              event: 'dependency.unavailable',
+              operation: 'dependency.check',
+              dependency: 'better-auth',
+              result: 'unavailable',
+            })
           }
 
           try {
             await clearPasswordRecoveryContext(context)
           } catch {
-            console.warn('password_reset_recovery_context_cleanup_failed')
+            telemetry.emit({
+              level: 'WARNING',
+              event: 'dependency.unavailable',
+              operation: 'dependency.check',
+              dependency: 'better-auth',
+              result: 'unavailable',
+            })
           }
           deleteSessionCookie(context)
 
@@ -450,6 +511,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/register/identity',
         { method: 'POST', body: registerBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let registration: Awaited<ReturnType<typeof identityService.registerAccount>>
           try {
             registration = await identityService.registerAccount(context.body)
@@ -489,6 +551,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/pending-confirmation',
         { method: 'GET' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -514,6 +577,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/pending-confirmation/resend',
         { method: 'POST' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
             return context.json({ result: 'accepted', retryAfterSeconds: null })
@@ -540,6 +604,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/confirm-email',
         { method: 'POST', body: confirmEmailBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let result: Awaited<ReturnType<typeof identityService.confirmEmail>>
           try {
             result = await identityService.confirmEmail(context.body.token)
@@ -592,6 +657,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
           body: signInBody,
         },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let authentication: Awaited<
             ReturnType<typeof identityService.validateCredentials>
           >

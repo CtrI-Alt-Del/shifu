@@ -6,6 +6,10 @@ from shifu.learning.core.domain.entities import Goal
 class GoalsRepository(Protocol):
     def find_by_id(self, goal_id: str) -> Goal | None: ...
 
+    def find_by_id_for_update(self, goal_id: str) -> Goal | None:
+        """Return the Goal while holding a row lock until the transaction ends."""
+        ...
+
     def find_many_by_account_id(self, account_id: str) -> list[Goal]:
         """Return the account's Goals ordered by most-recent `updated_at` first."""
         ...

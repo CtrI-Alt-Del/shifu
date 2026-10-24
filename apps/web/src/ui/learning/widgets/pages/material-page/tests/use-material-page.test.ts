@@ -22,11 +22,19 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
-    validator: () => ({
-      handler: () => getMaterialDetailActionMock,
+    middleware: () => ({
+      validator: () => ({
+        handler: () => getMaterialDetailActionMock,
+      }),
     }),
   }),
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 const useQueryMock = vi.mocked(useQuery)

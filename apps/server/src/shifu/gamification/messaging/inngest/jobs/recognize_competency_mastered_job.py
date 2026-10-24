@@ -9,6 +9,10 @@ from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.gamification.core.use_cases import RecognizeCompetencyMasteredUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 from shifu.shared.core.interfaces import ClockProvider
 
 
@@ -79,11 +83,18 @@ class RecognizeCompetencyMasteredJob:
         inngest: Inngest,
         use_case: RecognizeCompetencyMasteredUseCase,
         clock_provider: ClockProvider,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=RecognizeCompetencyMasteredJob.FUNCTION_ID,
             trigger=TriggerEvent(event=RecognizeCompetencyMasteredJob._EVENT_NAME),
             retries=3,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=RecognizeCompetencyMasteredJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))
@@ -108,6 +119,7 @@ class RecognizeCompetencyMasteredJob:
         return {
             'account_id': payload.account_id,
             'competency_id': payload.competency_id,
+            'skill_id': payload.skill_id,
             'skill_experience_id': payload.skill_experience_id,
             'mastered_at': payload.mastered_at,
         }
@@ -122,6 +134,7 @@ class RecognizeCompetencyMasteredJob:
             use_case.execute,
             normalized['account_id'],
             normalized['competency_id'],
+            normalized['skill_id'],
             normalized['skill_experience_id'],
             occurred_at=_parse_utc_iso(normalized['mastered_at']),
             now=clock_provider.now(),

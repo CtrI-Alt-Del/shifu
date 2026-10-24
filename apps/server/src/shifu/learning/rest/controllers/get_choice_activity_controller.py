@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, status
+from fastapi import APIRouter, Depends, Header, Path
 from pydantic import BaseModel, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -50,9 +50,15 @@ class CriterionResponse(BaseModel):
     weight_percentage: int
 
 
+class AdditionalFilePolicyResponse(BaseModel):
+    allowed_directories: tuple[str, ...]
+    allowed_extensions: tuple[str, ...]
+    max_files: int
+
+
 class CodeQuestionResponse(BaseModel):
     key: str
-    kind: Literal['javascript_stdin']
+    kind: Literal['javascript_stdin', 'react']
     prompt: str
     initial_files: tuple[FileResponse, ...]
     entrypoint: str
@@ -60,6 +66,7 @@ class CodeQuestionResponse(BaseModel):
     fixed_dependencies: tuple[DependencyResponse, ...]
     permitted_commands: tuple[CommandResponse, ...]
     criteria: tuple[CriterionResponse, ...]
+    additional_file_policy: AdditionalFilePolicyResponse | None = None
 
 
 class Response(BaseModel):
@@ -84,7 +91,7 @@ class GetChoiceActivityController:
             '/goals/{goal_id}/skills/{skill_id}/competencies/{competency_id}'
             '/activities/{activity_id}',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

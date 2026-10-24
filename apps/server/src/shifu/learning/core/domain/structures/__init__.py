@@ -119,3 +119,4 @@ from .unavailable_competency_detail import (
 from .unavailable_material_detail import (
     UnavailableMaterialDetail as UnavailableMaterialDetail,
 )
+from .mentor_action_resolution import MentorActionResolution as MentorActionResolution

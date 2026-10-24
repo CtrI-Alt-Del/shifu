@@ -10,7 +10,7 @@ from shifu.intelligence.core.domain.structures import PlanningOperationResult
 from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabase
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.intelligence.core.use_cases.planning_test_setup import batch, proposal
-from tests.intelligence.server.controllers.conftest import MENTOR_ACCOUNT
+from tests.fixtures.intelligence_fixture import MENTOR_ACCOUNT
 
 if TYPE_CHECKING:
     from fastapi import FastAPI

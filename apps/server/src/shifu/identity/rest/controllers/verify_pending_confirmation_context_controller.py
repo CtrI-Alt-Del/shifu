@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
 from shifu.identity.core.interfaces import ActionTokenProvider, IdentityDatabase
@@ -29,7 +29,7 @@ class VerifyPendingConfirmationContextController:
         @router.post(
             '/pending-confirmations/validate',
             response_model=Response,
-            status_code=status.HTTP_200_OK,
+            status_code=200,
         )
         def _(
             request: Request,

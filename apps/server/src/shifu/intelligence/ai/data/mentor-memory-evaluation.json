@@ -1,0 +1,570 @@
+{
+  "provenance": {
+    "source": "synthetic-authored-for-shifu-mentor-memory",
+    "language": "pt-BR",
+    "contains_real_learner_data": false
+  },
+  "dataset_revision": "2026-10-21.1",
+  "cases": [
+    {
+      "text": "Eu prefiro respostas mais curtas e objetivas.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Gosto de exemplos com comentários explicando cada passo.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Prefiro que a explicação comece pelo código.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Aprendo melhor com analogias simples.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu gosto de ver diagramas junto com o texto.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Prefiro exemplos em C#.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Quero respostas em tópicos, por favor.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Entendo melhor quando você explica por etapas.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu prefiro uma linguagem informal e leve.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Não gosto de respostas cheias de jargão.",
+      "label": "explanation_preference",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Prefiro que você me mostre primeiro um exemplo pequeno.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Gosto de explicações que usam situações do dia a dia.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu aprendo mais com exercícios do que com leitura.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Prefiro receber o resumo no começo da resposta.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu entendo melhor com exemplos que têm saída na tela.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Não prefiro respostas muito extensas.",
+      "label": "explanation_preference",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Quero exemplos mais curtos e com menos linhas.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu gosto quando você compara com outra linguagem.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Prefiro explicações calmas, sem pressa.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Aprendo melhor quando o exemplo vem antes da definição.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu prefiro que cada resposta termine com uma pergunta de revisão.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Gosto de exemplos em Ruby.",
+      "label": "explanation_preference",
+      "tags": []
+    },
+    {
+      "text": "Eu conheço bem a linguagem Python.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Já programei em C por dois anos.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Tenho conhecimento básico de bancos de dados.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Sei criar páginas simples com HTML.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Sou aluno de ciência da computação.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Eu já estudei laços e condicionais.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Nunca trabalhei com orientação a objetos.",
+      "label": "declared_knowledge",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Não conheço nada de JavaScript.",
+      "label": "declared_knowledge",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Eu domino as operações básicas com listas.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Já usei SQL em um estágio.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Tenho experiência prática com Git.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Eu aprendi a usar funções no último semestre.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Não sei trabalhar com recursão.",
+      "label": "declared_knowledge",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Eu entendo bem o que são variáveis.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Já fiz um site pequeno com React.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Sou autodidata em programação.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Eu trabalho com análise de dados há três anos.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Conheço o básico de redes.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Tenho pouca experiência com Python.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Eu nunca usei testes unitários.",
+      "label": "declared_knowledge",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Já estudei árvores e grafos na faculdade.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Eu sei usar a linha de comando do Windows.",
+      "label": "declared_knowledge",
+      "tags": []
+    },
+    {
+      "text": "Quero aprender desenvolvimento de jogos.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Tenho interesse em segurança de aplicações.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Pretendo trabalhar como desenvolvedor full stack.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu quero criar um aplicativo de finanças.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Planejo estudar estruturas de dados nas férias.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu espero conseguir uma vaga de estágio em programação.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Quero me aprofundar em inteligência artificial.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu pretendo aprender a programar em Go.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Tenho o sonho de trabalhar em uma grande empresa de tecnologia.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Quero entender como funcionam as APIs.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu quero fazer um projeto de automação para a minha casa.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Estou interessado em ciência de dados.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Pretendo me preparar para a prova de algoritmos.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu quero me tornar engenheiro de software.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Quero aprender a criar sites responsivos.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu planejo terminar o curso até dezembro.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Tenho vontade de trabalhar com dados de saúde.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu pretendo desenvolver um jogo de tabuleiro digital.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Quero entrar na área de DevOps.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu estou focado em aprender front-end.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Quero melhorar minha lógica para os desafios de programação.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Eu quero publicar meus projetos no GitHub.",
+      "label": "interest_or_intention",
+      "tags": []
+    },
+    {
+      "text": "Tenho dificuldade com recursão.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Sempre erro a condição dos laços while.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Me confundo com a diferença entre lista e tupla.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu não entendo como funcionam as promessas.",
+      "label": "recurring_difficulty",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Travo toda vez que preciso escrever uma função recursiva.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Continuo errando a indentação nos meus códigos.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu tenho dificuldade em entender ponteiros.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Não consigo entender herança múltipla.",
+      "label": "recurring_difficulty",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Eu me perco quando o código tem muitas funções.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Sempre esqueço o return no fim da função.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Estou com dificuldade em consultas com join.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu me confundo com escopo de variáveis globais.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Tenho problemas com a lógica de laços aninhados.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu não consigo achar meus erros de sintaxe.",
+      "label": "recurring_difficulty",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Continuo com dúvidas sobre classes e objetos.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu sempre erro os índices das matrizes.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Me enrolo com expressões booleanas longas.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu tenho muita dificuldade em ler a documentação.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Toda vez eu confundo o operador de igualdade.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu não consigo acompanhar o que o depurador mostra.",
+      "label": "recurring_difficulty",
+      "tags": ["negation"]
+    },
+    {
+      "text": "Tenho dificuldade para dividir o problema em partes.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Eu sempre travo com a complexidade dos algoritmos.",
+      "label": "recurring_difficulty",
+      "tags": []
+    },
+    {
+      "text": "Muito obrigado pela ajuda!",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "Entendi o exemplo, vou testar.",
+      "label": "nenhuma",
+      "tags": ["first_person_chat"]
+    },
+    {
+      "text": "Estou abrindo o exercício agora.",
+      "label": "nenhuma",
+      "tags": ["first_person_chat"]
+    },
+    {
+      "text": "Acabei de enviar a atividade.",
+      "label": "nenhuma",
+      "tags": ["first_person_chat"]
+    },
+    {
+      "text": "Vou tomar um café e já volto.",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "Boa noite, pessoal!",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "Hoje eu estou sem tempo.",
+      "label": "nenhuma",
+      "tags": ["first_person_chat"]
+    },
+    {
+      "text": "Ok, entendi.",
+      "label": "nenhuma",
+      "tags": ["first_person_chat"]
+    },
+    {
+      "text": "A Ana prefere respostas curtas.",
+      "label": "nenhuma",
+      "tags": ["third_person"]
+    },
+    {
+      "text": "Meu primo tem dificuldade com laços.",
+      "label": "nenhuma",
+      "tags": ["third_person"]
+    },
+    {
+      "text": "O João sabe programar em Python.",
+      "label": "nenhuma",
+      "tags": ["third_person"]
+    },
+    {
+      "text": "Minha amiga quer aprender ciência de dados.",
+      "label": "nenhuma",
+      "tags": ["third_person"]
+    },
+    {
+      "text": "Eles gostam de exemplos visuais.",
+      "label": "nenhuma",
+      "tags": ["third_person"]
+    },
+    {
+      "text": "Você prefere explicações longas ou curtas?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "Como eu declaro uma variável em Python?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "Qual é a melhor forma de estudar recursão?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "Quando começa a próxima atividade?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "O que significa essa mensagem de erro?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "Onde fica o meu histórico de conversas?",
+      "label": "nenhuma",
+      "tags": ["question"]
+    },
+    {
+      "text": "A atividade deu um aviso na tela.",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "O professor passou um trabalho para a semana que vem.",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "Hoje o clima está bem frio.",
+      "label": "nenhuma",
+      "tags": ["off_topic"]
+    },
+    {
+      "text": "Não, não precisa.",
+      "label": "nenhuma",
+      "tags": ["negation", "first_person_chat"]
+    },
+    {
+      "text": "Eu não vou continuar agora.",
+      "label": "nenhuma",
+      "tags": ["negation", "first_person_chat"]
+    }
+  ]
+}

@@ -4,9 +4,14 @@ import { MentorChat } from '@/ui/intelligence/widgets/components/mentor-chat'
 
 import { useMentorFab } from './use-mentor-fab'
 
-export const MentorFab = ({ isMentorPage = false }: { isMentorPage?: boolean }) => {
+export type MentorFabProps = { isMentorPage?: boolean; isMemoriesPage?: boolean }
+
+export const MentorFab = ({
+  isMentorPage = false,
+  isMemoriesPage = false,
+}: MentorFabProps) => {
   const { closePanel, handlePanelKeyDown, isPanelOpen, openPanel, panelRef, triggerRef } =
-    useMentorFab(isMentorPage)
+    useMentorFab(isMentorPage, isMemoriesPage)
 
   if (isMentorPage) return null
 

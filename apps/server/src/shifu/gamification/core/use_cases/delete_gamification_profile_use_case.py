@@ -21,3 +21,5 @@ class DeleteGamificationProfileUseCase:
             repositories.earned_achievements.remove_many_by_account_id(account_id)
             repositories.rewarded_milestones.remove_many_by_account_id(account_id)
             repositories.practice_days.remove_many_by_account_id(account_id)
+            repositories.activity_xp_balances.remove_many_by_account_id(account_id)
+            repositories.activity_xp_recognitions.remove_many_by_account_id(account_id)
