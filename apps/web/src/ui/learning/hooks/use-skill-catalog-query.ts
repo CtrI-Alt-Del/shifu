@@ -1,34 +1,51 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useEffect, useState } from 'react'
 
 import { SERVER_ENV } from '@/constants/server-env'
 import { AppError } from '@/core/errors/app-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 
 const SEARCH_DEBOUNCE_MS = 300
 const PAGE_SIZE = 20
 
 const searchSkillCatalog = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((data: { goalId: string; query?: string; cursor?: string }) => data)
-  .handler(async ({ data }) => {
-    const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-    if (!access) {
-      throw new AppError('Sua sessão expirou. Atualize a página.', 'Erro de autenticação')
-    }
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: { goalId: string; query?: string; cursor?: string }
+      context: RequestTelemetryContext
+    }) => {
+      const access = await getBetterAuthProvider().getCurrentAccess(
+        getRequest(),
+        context.requestId,
+      )
+      if (!access) {
+        throw new AppError(
+          'Sua sessão expirou. Atualize a página.',
+          'Erro de autenticação',
+        )
+      }
 
-    const learningService = LearningService(
-      AxiosRestClient(SERVER_ENV.shifuServerAppUrl, { withCredentials: false }),
-    )
-    return learningService.searchSkillCatalog(access.accessToken, data.goalId, {
-      query: data.query,
-      cursor: data.cursor,
-      limit: PAGE_SIZE,
-    })
-  })
+      const learningService = LearningService(
+        createServerRequestClient(context, { baseUrl: SERVER_ENV.shifuServerAppUrl }),
+      )
+      return learningService.searchSkillCatalog(access.accessToken, data.goalId, {
+        query: data.query,
+        cursor: data.cursor,
+        limit: PAGE_SIZE,
+      })
+    },
+  )
 
 export function useSkillCatalogQuery(goalId: string) {
   const [query, setQuery] = useState('')

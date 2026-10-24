@@ -15,6 +15,10 @@ from shifu.communication.core.domain.events import (
     CommunicationQueuedPayload,
 )
 from shifu.communication.core.use_cases import DeliverCommunicationUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class _Payload(BaseModel):
@@ -60,11 +64,18 @@ class DeliverCommunicationJob:
     def handle(
         inngest: Inngest,
         use_case: DeliverCommunicationUseCase,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=DeliverCommunicationJob.FUNCTION_ID,
             trigger=TriggerEvent(event=DeliverCommunicationJob._EVENT_NAME),
             retries=3,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=DeliverCommunicationJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))

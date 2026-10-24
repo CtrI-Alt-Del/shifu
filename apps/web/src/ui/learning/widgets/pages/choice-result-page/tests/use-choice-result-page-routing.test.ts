@@ -13,12 +13,28 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
+    middleware: () => ({
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          (context: { data: unknown }) =>
+            handler({
+              data: validate(context.data),
+              context: { requestId: 'test-request-id' },
+            } as never),
+      }),
+    }),
     validator: (validate: (data: unknown) => unknown) => ({
       handler:
         (handler: (context: { data: unknown }) => Promise<unknown>) =>
         (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
+          handler({
+            data: validate(context.data),
+            context: { requestId: 'test-request-id' },
+          } as never),
     }),
   }),
 }))

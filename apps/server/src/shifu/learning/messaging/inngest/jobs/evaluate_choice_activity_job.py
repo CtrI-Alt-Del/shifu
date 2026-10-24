@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
-import logging
 from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
 from inngest import Context, Function, Inngest, TriggerEvent
@@ -17,9 +16,15 @@ from shifu.learning.core.domain.enums import (
     SkillExperienceStatus,
 )
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
-
-LOGGER = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from shifu.shared.core.interfaces.telemetry_provider import (
+        TelemetryEventInput,
+        TelemetryProvider,
+    )
 
 if TYPE_CHECKING:
     from shifu.learning.core.domain.entities import ActivityEvaluation
@@ -80,6 +85,8 @@ class EvaluateChoiceActivityJob:
         code_rubric_assessor_provider_factory: Callable[[], CodeRubricAssessorProvider]
         | None = None,
         max_code_assessment_input_bytes: int = 262144,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         async def on_failure(context: Context) -> None:
             failure_data = cast('dict[str, object]', dict(context.event.data))
@@ -103,17 +110,17 @@ class EvaluateChoiceActivityJob:
                 learning_database,
                 payload,
             )
-            LOGGER.info(
-                'choice_activity_job_failure_handled attempt_id=%s run_id=%s',
-                payload['attempt_id'],
-                payload['run_id'],
-            )
 
         @inngest.create_function(
             fn_id=EvaluateChoiceActivityJob.FUNCTION_ID,
             trigger=TriggerEvent(event=EvaluateChoiceActivityJob._EVENT_NAME),
             retries=0,
             on_failure=on_failure,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=EvaluateChoiceActivityJob.FUNCTION_ID,
+            max_attempts=1,
         )
         async def _(context: Context) -> None:
             event_data = cast('dict[str, object]', dict(context.event.data))
@@ -129,11 +136,6 @@ class EvaluateChoiceActivityJob:
                 payload,
             )
             if not is_current:
-                LOGGER.info(
-                    'choice_activity_job_stale_run attempt_id=%s run_id=%s',
-                    payload['attempt_id'],
-                    payload['run_id'],
-                )
                 return
 
             await context.step.run(
@@ -145,11 +147,9 @@ class EvaluateChoiceActivityJob:
                 code_rubric_assessor_provider_factory,
                 max_code_assessment_input_bytes,
                 payload,
-            )
-            LOGGER.info(
-                'choice_activity_job_completed attempt_id=%s run_id=%s',
-                payload['attempt_id'],
-                payload['run_id'],
+                telemetry_provider,
+                context.run_id,
+                context.event.id,
             )
 
         return _
@@ -225,8 +225,11 @@ class EvaluateChoiceActivityJob:
         | None,
         max_code_assessment_input_bytes: int,
         payload: EvaluationJobPayload,
+        telemetry_provider: TelemetryProvider,
+        run_id: str,
+        event_id: str,
     ) -> None:
-        await asyncio.to_thread(
+        committed = await asyncio.to_thread(
             EvaluateChoiceActivityUseCase(
                 learning_database,
                 clock_provider,
@@ -239,6 +242,18 @@ class EvaluateChoiceActivityJob:
             payload['attempt_id'],
             payload['run_id'],
         )
+        if not committed:
+            return
+
+        completion_event: TelemetryEventInput = {
+            'level': 'INFO',
+            'event': 'learning.evaluation.completed',
+            'run_id': run_id,
+            'event_id': event_id,
+            'operation': 'evaluation.complete',
+            'result': 'success',
+        }
+        _emit_telemetry(telemetry_provider, completion_event)
 
     @staticmethod
     async def _mark_failed(
@@ -286,3 +301,13 @@ class EvaluateChoiceActivityJob:
 
             evaluation.fail('evaluation_failed')
             repositories.activity_evaluations.update(evaluation)
+
+
+def _emit_telemetry(
+    telemetry_provider: TelemetryProvider,
+    event: TelemetryEventInput,
+) -> None:
+    try:
+        telemetry_provider.emit(event)
+    except Exception:  # noqa: BLE001 - telemetry must not change job behavior.
+        return

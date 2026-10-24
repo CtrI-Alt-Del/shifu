@@ -253,7 +253,7 @@ class TestEvaluateChoiceActivityUseCase:
         )
 
     def test_should_score_exact_sets_and_apply_weighted_result_once(self) -> None:
-        self.subject.execute(self.attempt.id, 'run-1')
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
 
         assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
         assert self.evaluation.score == Decimal(80)
@@ -492,7 +492,7 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.events.add.assert_not_called()
 
     def test_should_ignore_stale_run_without_mutating_result_or_progress(self) -> None:
-        self.subject.execute(self.attempt.id, 'stale-run')
+        assert self.subject.execute(self.attempt.id, 'stale-run') is False
 
         assert self.evaluation.status is ActivityEvaluationStatus.PENDING
         self.repositories.activity_evaluations.update.assert_not_called()

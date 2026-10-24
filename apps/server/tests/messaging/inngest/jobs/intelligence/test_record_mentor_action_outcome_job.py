@@ -270,9 +270,13 @@ class TestRecordMentorActionOutcomeJob:
             event_id=event_id,
         )
 
-        inngest_fixture.wait_for_log(
-            f'mentor_action_outcome_payload_rejected event_id={event_id}'
+        failure_log = inngest_fixture.wait_for_log(
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.record_mentor_action_outcome"'
         )
+        assert '"job":"intelligence.record_mentor_action_outcome"' in failure_log
+        assert '"exception_type":"NonRetriableError"' in failure_log
         with inngest_fixture.inspection_session() as session:
             model = _state(session, proposal.id)
             assert model.status == MentorActionProposalStatus.PENDING.value
@@ -296,9 +300,13 @@ class TestRecordMentorActionOutcomeJob:
 
         event_id = _publish_outcome(inngest_fixture, ids, proposal, **changes)
 
-        inngest_fixture.wait_for_log(
-            f'mentor_action_outcome_payload_rejected event_id={event_id}'
+        failure_log = inngest_fixture.wait_for_log(
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.record_mentor_action_outcome"'
         )
+        assert '"job":"intelligence.record_mentor_action_outcome"' in failure_log
+        assert '"exception_type":"NonRetriableError"' in failure_log
         with inngest_fixture.inspection_session() as session:
             assert (
                 _state(session, proposal.id).status
