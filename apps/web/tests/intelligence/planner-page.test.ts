@@ -73,6 +73,7 @@ type PlannerTransport = {
   loadFailure: boolean
   answerResult: PlanningSession | { kind: string; message?: string } | null
   retryResult: PlanningSession | null
+  restartResult: PlanningSession | { kind: string; message?: string } | null
   calls: ServerFunctionCall[]
 }
 
@@ -166,12 +167,62 @@ function serverFnInput(request: Request): Record<string, unknown> {
   return Object.fromEntries(url.searchParams.entries())
 }
 
+const NEW_INTENT = 'Quero criar APIs web com Python para integrar sistemas.'
+const REVIEW_PROPOSAL = PlanningSessionFaker.fakeProposal({
+  title: 'Automatizar tarefas do dia a dia com Python',
+  description:
+    'Quero parar de fazer planilha na mão e escrever scripts que resolvam isso por mim.',
+  skills: [
+    {
+      skillId: 'skill-logic',
+      name: 'Lógica de programação',
+      justification:
+        'Você já adaptou scripts. Esta habilidade ajuda a entender a sequência de passos e as decisões por trás deles.',
+    },
+    {
+      skillId: 'skill-python',
+      name: 'Python essencial',
+      justification:
+        'Para escrever seus próprios scripts em Python: variáveis, funções e manipulação de dados.',
+    },
+    {
+      skillId: 'skill-automation',
+      name: 'Automação de arquivos e planilhas',
+      justification:
+        'Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas.',
+    },
+  ],
+  relations: [
+    { skillId: 'skill-automation', foundationSkillId: 'skill-logic' },
+    { skillId: 'skill-automation', foundationSkillId: 'skill-python' },
+  ],
+})
+
 function interviewSession(overrides: Partial<PlanningSession> = {}): PlanningSession {
   return PlanningSessionFaker.fake({
     id: PLANNING_ID,
     intent: INTENT,
     status: 'interview',
     batch: { id: 'batch-1', questions: [firstQuestion, secondQuestion, thirdQuestion] },
+    ...overrides,
+  })
+}
+
+function proposalSession(overrides: Partial<PlanningSession> = {}): PlanningSession {
+  return interviewSession({
+    status: 'proposal',
+    batch: null,
+    answeredBatchCount: 1,
+    proposal: REVIEW_PROPOSAL,
+    ...overrides,
+  })
+}
+
+function restartedSession(overrides: Partial<PlanningSession> = {}): PlanningSession {
+  return processingSession({
+    generation: 2,
+    answeredBatchCount: 0,
+    operation: { kind: 'restart', startedAt: new Date().toISOString(), stage: null },
     ...overrides,
   })
 }
@@ -188,7 +239,14 @@ function processingSession(overrides: Partial<PlanningSession> = {}): PlanningSe
 }
 
 function transportFor(session: PlanningSession | null): PlannerTransport {
-  return { session, loadFailure: false, answerResult: null, retryResult: null, calls: [] }
+  return {
+    session,
+    loadFailure: false,
+    answerResult: null,
+    retryResult: null,
+    restartResult: null,
+    calls: [],
+  }
 }
 
 function callsTo(transport: PlannerTransport, prefix: string) {
@@ -242,6 +300,11 @@ async function mockPlanner(bff: BffFixtureContract, transport: PlannerTransport)
       await fulfill(transport.retryResult ?? transport.session)
       return
     }
+    if (exportName.startsWith('restartPlanningServer')) {
+      transport.calls.push({ exportName, data: serverFnInput(request) })
+      await fulfill(transport.restartResult ?? transport.session)
+      return
+    }
     if (exportName.startsWith('cancelPlanningServer')) {
       transport.calls.push({ exportName, data: serverFnInput(request) })
       await fulfill({ cancelled: true })
@@ -254,9 +317,20 @@ async function mockPlanner(bff: BffFixtureContract, transport: PlannerTransport)
 
 const CAPTURE_DIR = process.env.PLANNER_CAPTURE_DIR
 
-async function capture(page: Page, name: string) {
+async function capture(page: Page, name: string, tall = false) {
   if (!CAPTURE_DIR) return
-  await page.screenshot({ path: `${CAPTURE_DIR}/${name}.png`, fullPage: false })
+
+  // Tall frames are captured on a viewport as tall as the document, like the frames.
+  const viewport = page.viewportSize()
+  if (tall && viewport) {
+    const height = await page.evaluate(() => document.documentElement.scrollHeight)
+    await page.setViewportSize({
+      width: viewport.width,
+      height: Math.max(viewport.height, height),
+    })
+  }
+  await page.screenshot({ animations: 'disabled', path: `${CAPTURE_DIR}/${name}.png` })
+  if (tall && viewport) await page.setViewportSize(viewport)
 }
 
 async function expectNoHorizontalScroll(page: Page) {
@@ -935,25 +1009,18 @@ test('distinguishes a proposal that failed validation and retries it (CA-17)', a
   )
 })
 
-test('hands a validated proposal to the review boundary even without an interview (CA-19)', async ({
+test('renders the review surface for a validated proposal even without an interview (CA-19)', async ({
   authenticatedPage,
   bff,
 }) => {
-  const proposal = PlanningSessionFaker.fakeProposal({ title: 'Automação com Python' })
-  const transport = transportFor(
-    interviewSession({ status: 'proposal', batch: null, proposal }),
-  )
+  const transport = transportFor(proposalSession({ answeredBatchCount: 0 }))
   await mockPlanner(bff, transport)
   await openPlannerFromHome(authenticatedPage)
 
   await expect(
-    authenticatedPage.getByRole('heading', {
-      level: 1,
-      name: 'Sua proposta está pronta para revisão',
-    }),
+    authenticatedPage.getByRole('heading', { level: 1, name: 'Revise seu objetivo' }),
   ).toBeVisible()
-  await expect(authenticatedPage.getByText('Automação com Python')).toBeVisible()
-  await expect(authenticatedPage.getByText(INTENT)).toBeVisible()
+  await expect(authenticatedPage.getByLabel('Título')).toHaveValue(REVIEW_PROPOSAL.title)
   await expect(authenticatedPage.getByRole('radio')).toHaveCount(0)
   await expect(
     authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
@@ -1033,6 +1100,364 @@ test('works at mobile width with keyboard selection and navigation (CA-20, CA-21
   expect(widths[0]).toBeLessThan(200)
   expect(widths[1]).toBeGreaterThan(300)
   expect(widths[2]).toBeGreaterThan(300)
+})
+
+/**
+ * Proposal review (SHIFU-93). The acceptance criteria below refer to
+ * `documentation/features/intelligence/planner-review/spec.md`.
+ */
+
+const REVIEW_HEADING = { level: 1, name: 'Revise seu objetivo' } as const
+const GRAPH_NAME = 'Grafo das Habilidades propostas'
+const LIST_NAME = 'Habilidades sugeridas'
+const DIALOG_NAME = 'Reiniciar planejamento'
+const INTENT_LABEL = 'O que você quer aprender?'
+
+test('reviews a validated proposal in the graph and list views and keeps the edits (review CA-01 … CA-03)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  await expect(authenticatedPage.getByRole('heading', REVIEW_HEADING)).toBeVisible()
+  const title = authenticatedPage.getByLabel('Título')
+  await expect(title).toHaveValue(REVIEW_PROPOSAL.title)
+  await expect(authenticatedPage.getByLabel('Descrição')).toHaveValue(
+    REVIEW_PROPOSAL.description,
+  )
+  await expect(authenticatedPage.getByRole('tab', { name: 'Grafo' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(
+    authenticatedPage.getByText(
+      'As três habilidades se complementam. Você escolhe por onde começar.',
+    ),
+  ).toBeVisible()
+  const graph = authenticatedPage.getByRole('region', { name: GRAPH_NAME })
+  await expect(
+    graph.getByRole('article', {
+      name: `Proposta de Objetivo: ${REVIEW_PROPOSAL.title}`,
+    }),
+  ).toBeVisible()
+  for (const skill of REVIEW_PROPOSAL.skills) {
+    await expect(
+      graph.getByRole('article', { name: `Habilidade ${skill.name}` }),
+    ).toContainText(skill.justification)
+  }
+  await expect(graph.getByRole('link')).toHaveCount(0)
+  await expect(graph.getByRole('progressbar')).toHaveCount(0)
+  await expect(authenticatedPage.getByRole('list', { name: LIST_NAME })).toHaveCount(0)
+
+  await title.fill('Automatizar planilhas com Python')
+  await authenticatedPage.getByRole('tab', { name: 'Lista' }).click()
+  const list = authenticatedPage.getByRole('list', { name: LIST_NAME })
+  await expect(list.getByRole('listitem')).toHaveCount(3)
+  for (const [index, skill] of REVIEW_PROPOSAL.skills.entries()) {
+    await expect(list.getByRole('listitem').nth(index)).toContainText(skill.name)
+    await expect(list.getByRole('listitem').nth(index)).toContainText(skill.justification)
+  }
+  await expect(list.getByRole('textbox')).toHaveCount(0)
+  await expect(graph).toHaveCount(0)
+  await expect(title).toHaveValue('Automatizar planilhas com Python')
+
+  await authenticatedPage.getByRole('tab', { name: 'Grafo' }).click()
+  await expect(
+    graph.getByRole('article', {
+      name: 'Proposta de Objetivo: Automatizar planilhas com Python',
+    }),
+  ).toBeVisible()
+  await expect(title).toHaveValue('Automatizar planilhas com Python')
+  expect(callsTo(transport, 'answerPlanningQuestionsServer')).toHaveLength(0)
+  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+})
+
+test('validates the edited Goal fields and delivers the creation contract notice (review CA-04, CA-05)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+  const title = authenticatedPage.getByLabel('Título')
+  const description = authenticatedPage.getByLabel('Descrição')
+  const createGoal = authenticatedPage.getByRole('button', { name: 'Criar objetivo' })
+
+  await title.fill('')
+  await createGoal.click()
+  await expect(authenticatedPage.getByRole('alert')).toContainText(
+    'Informe um título para o Objetivo.',
+  )
+  await expect(title).toBeFocused()
+  await expect(title).toHaveAttribute('aria-invalid', 'true')
+
+  await title.fill('  Automatizar planilhas com Python  ')
+  await expect(authenticatedPage.getByRole('alert')).toHaveCount(0)
+  await description.fill('   ')
+  await createGoal.click()
+  await expect(authenticatedPage.getByRole('alert')).toContainText(
+    'Informe uma descrição para o Objetivo.',
+  )
+  await expect(description).toBeFocused()
+
+  await description.fill('Scripts que leem e geram planilhas por mim.')
+  await createGoal.click()
+  await expect(
+    authenticatedPage.getByRole('status').filter({
+      hasText: 'A criação do Objetivo chega na próxima etapa do Planejador.',
+    }),
+  ).toBeVisible()
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${PLANNER_PATH}/?$`))
+  await expect(title).toHaveValue('  Automatizar planilhas com Python  ')
+  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+  expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(0)
+})
+
+test('restarts the planning from the review with a new intention and lands on the new interview (review CA-06 … CA-08)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Reiniciar planejamento',
+  })
+  const dialog = authenticatedPage.getByRole('alertdialog', { name: DIALOG_NAME })
+  const field = dialog.getByLabel(INTENT_LABEL)
+
+  await trigger.click()
+  await expect(dialog).toBeVisible()
+  await expect(field).toHaveValue(INTENT)
+  await expect(field).toBeFocused()
+  await expect(dialog.getByRole('button', { name: 'Cancelar' })).toHaveCount(0)
+  await expect(dialog).toContainText(
+    'Ao continuar, a proposta e as respostas anteriores serão substituídas por um novo planejamento.',
+  )
+
+  await dialog.getByRole('button', { name: 'Fechar' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+
+  await trigger.click()
+  await expect(field).toBeFocused()
+  await authenticatedPage.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await expect(authenticatedPage.getByLabel('Título')).toHaveValue(REVIEW_PROPOSAL.title)
+
+  await trigger.click()
+  await field.fill('   ')
+  await dialog.getByRole('button', { name: 'Iniciar planejamento' }).click()
+  await expect(dialog.getByRole('alert')).toContainText(
+    'Descreva o que você quer aprender antes de continuar.',
+  )
+  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+
+  const restarted = restartedSession({ intent: NEW_INTENT })
+  transport.restartResult = restarted
+  transport.session = restarted
+  await field.fill(NEW_INTENT)
+  await dialog.getByRole('button', { name: 'Iniciar planejamento' }).click()
+
+  await expect(authenticatedPage.getByRole('status')).toContainText(
+    'Analisando seu objetivo…',
+  )
+  await expect(dialog).toBeHidden()
+  await expect(authenticatedPage.getByText(NEW_INTENT)).toBeVisible()
+  await expect(authenticatedPage.getByRole('heading', REVIEW_HEADING)).toHaveCount(0)
+  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(1)
+  expect(callsTo(transport, 'restartPlanningServer')[0].data).toEqual({
+    planningId: PLANNING_ID,
+    initialIntent: NEW_INTENT,
+  })
+
+  transport.session = interviewSession({
+    intent: NEW_INTENT,
+    generation: 2,
+    answeredBatchCount: 0,
+    batch: { id: 'batch-2', questions: [secondBatchQuestion] },
+  })
+  await expect(
+    authenticatedPage.getByRole('heading', { level: 1, name: secondBatchQuestion.text }),
+  ).toBeVisible({ timeout: 6_000 })
+  await expect(
+    authenticatedPage.getByText('Pergunta 1 de 1 deste conjunto'),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText(NEW_INTENT)).toBeVisible()
+})
+
+test('keeps the proposal and reports a refused restart inside the dialog (review CA-09)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  transport.restartResult = {
+    kind: 'conflict',
+    message: 'Já existe uma operação em andamento neste planejamento.',
+  }
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+  const dialog = authenticatedPage.getByRole('alertdialog', { name: DIALOG_NAME })
+
+  await authenticatedPage.getByRole('button', { name: 'Reiniciar planejamento' }).click()
+  await dialog.getByLabel(INTENT_LABEL).fill(NEW_INTENT)
+  await dialog.getByRole('button', { name: 'Iniciar planejamento' }).click()
+
+  await expect(dialog.getByRole('alert')).toContainText(
+    'Já existe uma operação em andamento neste planejamento.',
+  )
+  await expect(dialog.getByRole('button', { name: 'Iniciar planejamento' })).toBeEnabled()
+  expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(1)
+  await expect
+    .poll(() => callsTo(transport, 'getPlanningSessionServer').length)
+    .toBeGreaterThanOrEqual(2)
+
+  await dialog.getByRole('button', { name: 'Fechar' }).click()
+  await expect(authenticatedPage.getByRole('heading', REVIEW_HEADING)).toBeVisible()
+  await expect(authenticatedPage.getByLabel('Título')).toHaveValue(REVIEW_PROPOSAL.title)
+})
+
+test('cancels the planning from the review and returns to the Home (review CA-10)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  await authenticatedPage.getByRole('button', { name: 'Cancelar' }).click()
+
+  await expect(authenticatedPage).toHaveURL(/\/$/)
+  expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(1)
+  expect(callsTo(transport, 'cancelPlanningServer')[0].data).toEqual({
+    planningId: PLANNING_ID,
+  })
+})
+
+test('reviews at mobile width with keyboard tabs, dialog and stacked actions (review CA-11)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  await expect(authenticatedPage.getByRole('heading', REVIEW_HEADING)).toBeVisible()
+  await expectNoHorizontalScroll(authenticatedPage)
+
+  await authenticatedPage.getByRole('tab', { name: 'Grafo' }).focus()
+  await authenticatedPage.keyboard.press('ArrowRight')
+  await expect(authenticatedPage.getByRole('tab', { name: 'Lista' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(authenticatedPage.getByRole('list', { name: LIST_NAME })).toBeVisible()
+  await expectNoHorizontalScroll(authenticatedPage)
+
+  const trigger = authenticatedPage.getByRole('button', {
+    name: 'Reiniciar planejamento',
+  })
+  await trigger.focus()
+  await authenticatedPage.keyboard.press('Enter')
+  const dialog = authenticatedPage.getByRole('alertdialog', { name: DIALOG_NAME })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByLabel(INTENT_LABEL)).toBeFocused()
+  await authenticatedPage.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+
+  const actions = authenticatedPage.getByRole('button', {
+    name: /^(Cancelar|Reiniciar planejamento|Criar objetivo)$/,
+  })
+  await expect(actions).toHaveCount(3)
+  const widths = await actions.evaluateAll((buttons) =>
+    buttons.map((button) => button.getBoundingClientRect().width),
+  )
+  expect(widths[0]).toBeLessThan(200)
+  expect(widths[1]).toBeGreaterThan(300)
+  expect(widths[2]).toBeGreaterThan(300)
+})
+
+type ReviewFrameSet = {
+  graph: string
+  list: string
+  restart: string
+  analyzing: string
+}
+
+const DESKTOP_REVIEW_FRAMES: ReviewFrameSet = {
+  graph: 'bzItW',
+  list: 'zX9Ow',
+  restart: 'eSaNL',
+  analyzing: 'SU4H8',
+}
+
+const MOBILE_REVIEW_FRAMES: ReviewFrameSet = {
+  graph: 'gXrEP',
+  list: 'zCbC0',
+  restart: 'NxoN7',
+  analyzing: 'lPCGg',
+}
+
+async function walkThroughReviewFrames(
+  page: Page,
+  bff: BffFixtureContract,
+  frames: ReviewFrameSet,
+) {
+  const transport = transportFor(proposalSession())
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(page)
+
+  const graph = page.getByRole('region', { name: GRAPH_NAME })
+  for (const skill of REVIEW_PROPOSAL.skills) {
+    await expect(
+      graph.getByRole('article', { name: `Habilidade ${skill.name}` }),
+    ).toBeVisible()
+  }
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.graph, true)
+
+  await page.getByRole('tab', { name: 'Lista' }).click()
+  await expect(page.getByRole('list', { name: LIST_NAME })).toBeVisible()
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.list, true)
+
+  await page.getByRole('button', { name: 'Reiniciar planejamento' }).click()
+  const dialog = page.getByRole('alertdialog', { name: DIALOG_NAME })
+  await expect(dialog.getByLabel(INTENT_LABEL)).toHaveValue(INTENT)
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.restart)
+
+  const restarted = restartedSession()
+  transport.restartResult = restarted
+  transport.session = restarted
+  await dialog.getByRole('button', { name: 'Iniciar planejamento' }).click()
+  await expect(page.getByRole('status')).toContainText('Analisando seu objetivo…')
+  await expect(dialog).toBeHidden()
+  await expectNoHorizontalScroll(page)
+  await capture(page, frames.analyzing)
+}
+
+test('renders every approved desktop review frame without horizontal scroll (review VM-02)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+
+  await walkThroughReviewFrames(authenticatedPage, bff, DESKTOP_REVIEW_FRAMES)
+})
+
+test('renders every approved mobile review frame without horizontal scroll (review VM-02)', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+
+  await walkThroughReviewFrames(authenticatedPage, bff, MOBILE_REVIEW_FRAMES)
 })
 
 test('renders every approved desktop frame state without horizontal scroll (VM-02)', async ({

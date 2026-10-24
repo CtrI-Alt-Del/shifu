@@ -11,6 +11,23 @@ vi.mock('../use-planner-page', () => ({
   usePlannerPage: vi.fn(),
 }))
 
+vi.stubGlobal(
+  'ResizeObserver',
+  class {
+    observe = vi.fn()
+    disconnect = vi.fn()
+    unobserve = vi.fn()
+  },
+)
+
+vi.mock('@xyflow/react', () => ({
+  Background: () => null,
+  Controls: () => null,
+  Handle: () => null,
+  Position: { Bottom: 'bottom', Top: 'top' },
+  ReactFlow: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+}))
+
 const usePlannerPageMock = vi.mocked(usePlannerPage)
 const PLANNING_ID = PlanningSessionFaker.fakeId()
 const INTENT = 'Quero automatizar tarefas do dia a dia com Python.'
@@ -60,8 +77,12 @@ function controller(
     processingStage: null,
     proposal: null,
     errorMessage: null,
+    restartErrorMessage: null,
+    goalCreationNotice: null,
+    generation: 1,
     isSubmitting: false,
     isRetrying: false,
+    isRestarting: false,
     isCancelling: false,
     isAbandoning: false,
     questionHeadingRef: { current: null },
@@ -73,6 +94,8 @@ function controller(
     handleSubmitAnswers: vi.fn(async () => undefined),
     handleCancel: vi.fn(async () => undefined),
     handleRetry: vi.fn(async () => undefined),
+    handleRestart: vi.fn(async () => true),
+    handleCreateGoal: vi.fn(async () => undefined),
     handleReformulate: vi.fn(),
     handleCreateManually: vi.fn(),
     handleRetryLoad: vi.fn(),
@@ -337,8 +360,11 @@ describe('PlannerPage', () => {
     expect(current.handleCreateManually).toHaveBeenCalledOnce()
   })
 
-  it('hands a validated proposal to the review boundary (CA-19)', () => {
-    const proposal = PlanningSessionFaker.fakeProposal({ title: 'Automação com Python' })
+  it('renders the review surface for a validated proposal and wires its actions (CA-19)', () => {
+    const proposal = PlanningSessionFaker.fakeProposal({
+      title: 'Automação com Python',
+      description: 'Scripts para planilhas.',
+    })
     const current = renderPage({
       view: 'proposal',
       currentQuestion: null,
@@ -347,29 +373,53 @@ describe('PlannerPage', () => {
     })
 
     expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: 'Sua proposta está pronta para revisão',
-      }),
+      screen.getByRole('heading', { level: 1, name: 'Revise seu objetivo' }),
     ).toBeVisible()
-    expect(screen.getByText('Automação com Python')).toBeVisible()
-    expect(screen.getByText(/2 Habilidades do Currículo selecionadas/)).toBeVisible()
+    expect(screen.getByLabelText('Título')).toHaveValue('Automação com Python')
+    expect(screen.getByLabelText('Descrição')).toHaveValue('Scripts para planilhas.')
+    expect(screen.getByRole('tab', { name: 'Grafo' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(
+      screen.getByRole('region', { name: 'Grafo das Habilidades propostas' }),
+    ).toBeVisible()
     expect(screen.queryByRole('radio')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Enviar respostas' }),
     ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Criar objetivo' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
     expect(current.handleCancel).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Criar objetivo' }))
+    expect(current.handleCreateGoal).toHaveBeenCalledWith({
+      planningId: PLANNING_ID,
+      title: 'Automação com Python',
+      description: 'Scripts para planilhas.',
+      proposal,
+    })
   })
 
-  it('describes a single-Skill proposal in the singular', () => {
-    const proposal = PlanningSessionFaker.fakeProposal({
-      skills: [{ skillId: 'skill-python', name: 'Python', justification: 'Base.' }],
-      relations: [],
+  it('shows the goal creation notice and the restart error inside the review', () => {
+    const proposal = PlanningSessionFaker.fakeProposal()
+    renderPage({
+      view: 'proposal',
+      currentQuestion: null,
+      steps: [],
+      proposal,
+      goalCreationNotice: 'A criação do Objetivo chega na próxima etapa do Planejador.',
+      isRestarting: true,
     })
-    renderPage({ view: 'proposal', currentQuestion: null, steps: [], proposal })
 
-    expect(screen.getByText(/1 Habilidade do Currículo selecionada\./)).toBeVisible()
+    expect(
+      screen
+        .getByText('A criação do Objetivo chega na próxima etapa do Planejador.')
+        .closest('output'),
+    ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Criar objetivo' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
   })
 
   it('tells the learner when the planning no longer exists (CA-23)', () => {

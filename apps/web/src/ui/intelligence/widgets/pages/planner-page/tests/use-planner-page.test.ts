@@ -7,6 +7,7 @@ import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import { PlanningSessionFaker } from '@/core/intelligence/fakers/planning-session-faker'
 import type {
+  PlanningGoalCreationRequest,
   PlanningQuestion,
   PlanningSession,
 } from '@/core/intelligence/planning-session'
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
     getPlanningSession: vi.fn(),
     answerPlanningQuestions: vi.fn(),
     retryPlanning: vi.fn(),
+    restartPlanning: vi.fn(),
     cancelPlanning: vi.fn(),
   },
 }))
@@ -118,15 +120,18 @@ function processingSession(overrides: Partial<PlanningSession> = {}): PlanningSe
   })
 }
 
-function renderPlannerPage() {
+function renderPlannerPage(
+  onCreateGoal?: (request: PlanningGoalCreationRequest) => void | Promise<void>,
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const wrapper = ({ children }: PropsWithChildren) =>
     createElement(QueryClientProvider, { client: queryClient }, children)
-  const rendered = renderHook(() => usePlannerPage({ planningId: PLANNING_ID }), {
-    wrapper,
-  })
+  const rendered = renderHook(
+    () => usePlannerPage({ planningId: PLANNING_ID, onCreateGoal }),
+    { wrapper },
+  )
   return { ...rendered, queryClient }
 }
 
@@ -535,5 +540,110 @@ describe('usePlannerPage', () => {
     act(() => result.current.handleReformulate())
     await waitFor(() => expect(navigateToMock).toHaveBeenCalledWith('root'))
     expect(mocks.service.cancelPlanning).toHaveBeenCalledTimes(1)
+  })
+
+  it('restarts the planning from the review and replaces the proposal with the new processing (CA-08)', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    const proposal = PlanningSessionFaker.fakeProposal()
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'proposal', batch: null, proposal, generation: 1 }),
+    )
+    mocks.service.restartPlanning.mockResolvedValue(
+      processingSession({
+        generation: 2,
+        operation: { kind: 'restart', startedAt: new Date().toISOString(), stage: null },
+      }),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+    expect(result.current.generation).toBe(1)
+
+    let restarted = false
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+
+    expect(restarted).toBe(true)
+    expect(mocks.service.restartPlanning).toHaveBeenCalledWith(
+      'access-token',
+      PLANNING_ID,
+      'Quero aprender APIs web',
+    )
+    expect(result.current.view).toBe('processing')
+    expect(result.current.generation).toBe(2)
+    expect(result.current.proposal).toBeNull()
+    expect(result.current.processingStage?.title).toBe('Analisando seu objetivo…')
+    expect(result.current.restartErrorMessage).toBeNull()
+  })
+
+  it('keeps the proposal and reports a conflict when the restart is refused (CA-09)', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    const proposal = PlanningSessionFaker.fakeProposal()
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'proposal', batch: null, proposal }),
+    )
+    mocks.service.restartPlanning.mockRejectedValueOnce(
+      new RestError('Já existe uma operação em andamento neste planejamento.', 409),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+
+    let restarted = true
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+
+    expect(restarted).toBe(false)
+    expect(result.current.restartErrorMessage).toBe(
+      'Já existe uma operação em andamento neste planejamento.',
+    )
+    expect(result.current.view).toBe('proposal')
+    expect(result.current.proposal).toEqual(proposal)
+
+    mocks.service.restartPlanning.mockRejectedValueOnce(new Error('offline'))
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+    expect(restarted).toBe(false)
+    expect(result.current.restartErrorMessage).toBe(
+      'Não foi possível reiniciar o planejamento agora. Sua proposta continua nesta página; tente novamente.',
+    )
+  })
+
+  it('ignores a restart outside the review and delivers the goal creation contract (CA-05)', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('interview'))
+
+    let restarted = true
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+    expect(restarted).toBe(false)
+    expect(mocks.service.restartPlanning).not.toHaveBeenCalled()
+
+    const request: PlanningGoalCreationRequest = {
+      planningId: PLANNING_ID,
+      title: 'Automação',
+      description: 'Scripts',
+      proposal: PlanningSessionFaker.fakeProposal(),
+    }
+    await act(async () => {
+      await result.current.handleCreateGoal(request)
+    })
+    expect(result.current.goalCreationNotice).toBe(
+      'A criação do Objetivo chega na próxima etapa do Planejador. Sua proposta e suas edições continuam nesta página.',
+    )
+    cleanup()
+
+    registerPlanningEntry(PLANNING_ID)
+    const onCreateGoal = vi.fn(async () => undefined)
+    const consumer = renderPlannerPage(onCreateGoal)
+    await waitFor(() => expect(consumer.result.current.view).toBe('interview'))
+    await act(async () => {
+      await consumer.result.current.handleCreateGoal(request)
+    })
+    expect(onCreateGoal).toHaveBeenCalledWith(request)
+    expect(consumer.result.current.goalCreationNotice).toBeNull()
   })
 })

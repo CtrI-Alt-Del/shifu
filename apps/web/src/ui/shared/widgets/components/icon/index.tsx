@@ -31,6 +31,7 @@ import {
   History,
   Eye,
   EyeOff,
+  GitFork,
   GraduationCap,
   House,
   Info,
@@ -99,6 +100,7 @@ export type IconName =
   | 'history'
   | 'eye'
   | 'eye-off'
+  | 'git-fork'
   | 'graduation-cap'
   | 'home'
   | 'info'
@@ -165,6 +167,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   history: History,
   eye: Eye,
   'eye-off': EyeOff,
+  'git-fork': GitFork,
   'graduation-cap': GraduationCap,
   home: House,
   info: Info,

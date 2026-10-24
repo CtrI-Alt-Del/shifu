@@ -10,6 +10,7 @@ import { PlanningRequestError, unwrapPlanningResult } from '../planning-request-
 import { answerPlanningQuestionsServer } from '../use-answer-planning-questions-action'
 import { cancelPlanningServer } from '../use-cancel-planning-action'
 import { getPlanningSessionServer } from '../use-planning-session-query'
+import { restartPlanningServer } from '../use-restart-planning-action'
 import { retryPlanningServer } from '../use-retry-planning-action'
 
 const mocks = vi.hoisted(() => ({
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     getPlanningSession: vi.fn(),
     answerPlanningQuestions: vi.fn(),
     retryPlanning: vi.fn(),
+    restartPlanning: vi.fn(),
     cancelPlanning: vi.fn(),
   },
 }))
@@ -70,6 +72,10 @@ describe('Planner server functions', () => {
     mocks.service.getPlanningSession.mockResolvedValue({ id: PLANNING_ID })
     mocks.service.answerPlanningQuestions.mockResolvedValue({ status: 'processing' })
     mocks.service.retryPlanning.mockResolvedValue({ status: 'processing' })
+    mocks.service.restartPlanning.mockResolvedValue({
+      status: 'processing',
+      generation: 2,
+    })
     mocks.service.cancelPlanning.mockResolvedValue(undefined)
   })
 
@@ -83,9 +89,12 @@ describe('Planner server functions', () => {
       },
     })
     await retryPlanningServer({ data: { planningId: PLANNING_ID } })
+    await restartPlanningServer({
+      data: { planningId: PLANNING_ID, initialIntent: '  Quero aprender APIs  ' },
+    })
     const cancelled = await cancelPlanningServer({ data: { planningId: PLANNING_ID } })
 
-    expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(4)
+    expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(5)
     expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request)
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
       withCredentials: false,
@@ -103,6 +112,11 @@ describe('Planner server functions', () => {
       },
     )
     expect(mocks.service.retryPlanning).toHaveBeenCalledWith('access-token', PLANNING_ID)
+    expect(mocks.service.restartPlanning).toHaveBeenCalledWith(
+      'access-token',
+      PLANNING_ID,
+      'Quero aprender APIs',
+    )
     expect(mocks.service.cancelPlanning).toHaveBeenCalledWith('access-token', PLANNING_ID)
     expect(cancelled).toEqual({ cancelled: true })
   })
@@ -128,6 +142,15 @@ describe('Planner server functions', () => {
     await expect(
       retryPlanningServer({ data: { planningId: PLANNING_ID, extra: true } }),
     ).rejects.toThrow()
+    await expect(
+      restartPlanningServer({ data: { planningId: PLANNING_ID, initialIntent: '   ' } }),
+    ).rejects.toThrow()
+    await expect(
+      restartPlanningServer({
+        data: { planningId: PLANNING_ID, initialIntent: 'x'.repeat(4001) },
+      }),
+    ).rejects.toThrow()
+    expect(mocks.service.restartPlanning).not.toHaveBeenCalled()
     expect(mocks.service.getPlanningSession).not.toHaveBeenCalled()
     expect(mocks.service.answerPlanningQuestions).not.toHaveBeenCalled()
     expect(mocks.service.retryPlanning).not.toHaveBeenCalled()
@@ -293,6 +316,9 @@ describe('Planner server functions', () => {
       },
     })
     const retried = await retryPlanningServer({ data: { planningId: PLANNING_ID } })
+    const restarted = await restartPlanningServer({
+      data: { planningId: PLANNING_ID, initialIntent: 'Quero aprender APIs' },
+    })
     await cancelPlanningServer({ data: { planningId: PLANNING_ID } })
 
     expect(calls).toEqual([
@@ -309,6 +335,11 @@ describe('Planner server functions', () => {
         method: 'POST',
         url: `/intelligence/planning-sessions/${PLANNING_ID}/retry`,
         body: undefined,
+      },
+      {
+        method: 'POST',
+        url: `/intelligence/planning-sessions/${PLANNING_ID}/restart`,
+        body: { initial_intent: 'Quero aprender APIs' },
       },
       { method: 'DELETE', url: `/intelligence/planning-sessions/${PLANNING_ID}` },
     ])
@@ -352,6 +383,7 @@ describe('Planner server functions', () => {
         stage: 'composing',
       },
     })
+    expect(restarted).toMatchObject({ status: 'processing', batch: null })
     expect(retried).toMatchObject({
       status: 'proposal',
       operation: { kind: 'start', stage: null },

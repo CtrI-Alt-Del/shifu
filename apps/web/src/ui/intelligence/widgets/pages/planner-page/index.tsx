@@ -5,7 +5,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { PlanningIntentSummary } from './planning-intent-summary'
 import { PlanningOutcome } from './planning-outcome'
 import { PlanningProcessingNotice } from './planning-processing-notice'
-import { PlanningProposalHandoff } from './planning-proposal-handoff'
+import { PlanningProposalReview } from './planning-proposal-review'
 import { PlanningQuestionCard } from './planning-question-card'
 import { PlanningStepTrail } from './planning-step-trail'
 import { type PlannerPageProps, usePlannerPage } from './use-planner-page'
@@ -33,8 +33,12 @@ export const PlannerPage = (props: PlannerPageProps) => {
     processingStage,
     proposal,
     errorMessage,
+    restartErrorMessage,
+    goalCreationNotice,
+    generation,
     isSubmitting,
     isRetrying,
+    isRestarting,
     isCancelling,
     questionHeadingRef,
     handleSelectSingle,
@@ -45,6 +49,8 @@ export const PlannerPage = (props: PlannerPageProps) => {
     handleSubmitAnswers,
     handleCancel,
     handleRetry,
+    handleRestart,
+    handleCreateGoal,
     handleReformulate,
     handleCreateManually,
     handleRetryLoad,
@@ -53,7 +59,11 @@ export const PlannerPage = (props: PlannerPageProps) => {
 
   return (
     <div className='planner-page mx-auto flex w-full max-w-7xl flex-1 flex-col lg:justify-center'>
-      <div className='mx-auto flex w-full max-w-[760px] flex-col gap-6'>
+      <div
+        className={`mx-auto flex w-full flex-col gap-6 ${
+          view === 'proposal' ? 'max-w-[1170px]' : 'max-w-[760px]'
+        }`}
+      >
         {view === 'loading' ? (
           <output
             aria-busy='true'
@@ -329,12 +339,18 @@ export const PlannerPage = (props: PlannerPageProps) => {
         ) : null}
 
         {view === 'proposal' && intent && proposal ? (
-          <PlanningProposalHandoff
+          <PlanningProposalReview
+            goalCreationNotice={goalCreationNotice}
             intent={intent}
             isCancelling={isCancelling}
+            isRestarting={isRestarting}
+            key={`${props.planningId}:${generation}`}
             onCancel={() => void handleCancel()}
+            onCreateGoal={(request) => void handleCreateGoal(request)}
+            onRestart={handleRestart}
             planningId={props.planningId}
             proposal={proposal}
+            restartErrorMessage={restartErrorMessage}
           />
         ) : null}
 

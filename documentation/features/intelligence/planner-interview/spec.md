@@ -1,7 +1,7 @@
 ---
 title: Goal Planner interview page with batch navigation, processing states and outcome exits
 status: draft
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-92
@@ -440,3 +440,4 @@ the support copy omits `Suas respostas foram enviadas.`
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-10-20 | Initial contract | SHIFU-92 ticket, PRD v4, twenty-four approved frames |
+| 2 | 2026-10-20 | RF-10 / CA-19: the provisional `PlanningProposalHandoff` is replaced by `PlanningProposalReview` (`../planner-review/spec.md`); the page keeps delivering the full proposal payload to that surface | SHIFU-93 delivery |

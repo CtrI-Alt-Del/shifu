@@ -101,7 +101,7 @@ last_updated_at: 2026-10-20
 | --- | --- | --- | --- |
 | RP-07; JN-07, JN-08, JN-12, JN-15 | RF-01, RF-06, RF-07, RF-08 / CA-01, CA-08 … CA-14, CA-23 | EV-01 … EV-05, EV-12 | implemented; live model run pending the OpenRouter key |
 | RP-08; JN-08 | RF-02 … RF-05 / CA-02 … CA-07 | EV-03, EV-05, EV-12 | implemented |
-| RP-09; JN-10, JN-11 | RF-09, RF-10 / CA-15 … CA-19 | EV-03, EV-05, EV-12 | partially_implemented: outcomes and the review handoff are delivered; the review rendering belongs to SHIFU-93 |
+| RP-09; JN-10, JN-11 | RF-09, RF-10 / CA-15 … CA-19 | EV-03, EV-05, EV-12 | partially_implemented in this delivery: outcomes and the review handoff; the review rendering is delivered by SHIFU-93 (`../planner-review/evaluation.md`), which replaced `PlanningProposalHandoff` by `PlanningProposalReview` (spec revision 2) |
 | RP-12 | RF-11 / CA-20, CA-21 | EV-03, EV-05, EV-12 | implemented |
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
