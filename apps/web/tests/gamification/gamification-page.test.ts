@@ -1,5 +1,6 @@
 import type { Achievement } from '@/core/gamification/achievement'
 import type { AchievementsOverview } from '@/core/gamification/achievements-overview'
+import type { GamificationOverview } from '@/core/gamification/overview'
 
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 
@@ -172,6 +173,48 @@ const overview: AchievementsOverview = {
   achievements,
 }
 
+// Mirrors the real `GET /gamification/overview` contract. `Visão geral` is the
+// area's default tab, so this query runs on load for every test in this file.
+const gamificationOverview: GamificationOverview = {
+  level: 5,
+  totalXp: 1240,
+  currentLevelXp: 1000,
+  nextLevelXp: 1500,
+  xpForNextLevel: 260,
+  levelPercentage: 48,
+  streak: {
+    streak: { current: 3, longest: 9 },
+    lastSevenDays: [
+      { day: '2026-09-09', state: 'neutral' },
+      { day: '2026-09-10', state: 'missed' },
+      { day: '2026-09-11', state: 'practiced' },
+      { day: '2026-09-12', state: 'current-streak' },
+      { day: '2026-09-13', state: 'current-streak' },
+      { day: '2026-09-14', state: 'current-streak' },
+      { day: '2026-09-15', state: 'today-pending' },
+    ],
+    today: '2026-09-15',
+    isTodayPending: true,
+  },
+  achievements: {
+    recent: [
+      {
+        achievementId: 'primeira-jornada',
+        name: 'Primeira Jornada',
+        criterionLabel: '1 Habilidade concluída',
+        xpReward: 50,
+        achievedAt: '2026-09-13T12:00:00Z',
+      },
+    ],
+    obtainedCount: 3,
+    catalogCount: 12,
+  },
+}
+
+const overviewPayload = JSON.stringify({
+  result: { kind: 'success', overview: gamificationOverview },
+})
+
 type CalendarWindow = { year: number; month: number }
 
 // TanStack encodes server-fn GET input as a structured payload, so the month
@@ -197,6 +240,14 @@ async function mockPracticeCalendar(
   await page.route('**/_serverFn/**', async (route) => {
     const url = decodeURIComponent(route.request().url())
     const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getOverview_')) {
+      await route.fulfill({
+        body: overviewPayload,
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
     if (fn?.startsWith('getAchievements_')) {
       // The page hook runs this query on both tabs; leaving it live lets a
       // real auth failure bounce the session to /login mid-test.
@@ -275,6 +326,14 @@ test('renders the real level/XP header and the achievement grid grouped by famil
   let achievementsRequests = 0
   await authenticatedPage.route('**/_serverFn/**', async (route) => {
     const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getOverview_')) {
+      await route.fulfill({
+        body: overviewPayload,
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
     if (fn?.startsWith('getAchievements_')) {
       achievementsRequests += 1
       await route.fulfill({
@@ -334,6 +393,74 @@ test('renders the real level/XP header and the achievement grid grouped by famil
   expect(achievementsRequests).toBe(1)
 })
 
+test('lands on Visão geral, renders the overview and opens Conquistas from its shortcut', async ({
+  authenticatedPage,
+}) => {
+  const overviewRequests: string[] = []
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getOverview_')) {
+      overviewRequests.push(route.request().url())
+      await route.fulfill({
+        body: overviewPayload,
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+    if (fn?.startsWith('getAchievements_')) {
+      // The page hook runs this query on every tab; leaving it live lets a
+      // real auth failure bounce the session to /login mid-test.
+      await route.fulfill({
+        body: JSON.stringify({ result: { kind: 'success', overview } }),
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
+
+  const overviewTab = authenticatedPage.getByRole('tab', { name: 'Visão geral' })
+  await expect(overviewTab).toHaveAttribute('aria-selected', 'true')
+
+  await expect(authenticatedPage.getByText('1.240 XP acumulados')).toBeVisible()
+  await expect(authenticatedPage.getByText('260 XP para o próximo nível')).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('progressbar', { name: 'Progresso para o nível 6' }),
+  ).toHaveAttribute('aria-valuenow', '48')
+
+  await expect(authenticatedPage.getByText('Maior sequência: 9 dias')).toBeVisible()
+  await expect(
+    authenticatedPage
+      .getByRole('list', { name: 'Últimos sete dias' })
+      .getByRole('listitem'),
+  ).toHaveCount(7)
+  await expect(authenticatedPage.getByText('3 de 12 obtidas')).toBeVisible()
+  await expect(authenticatedPage.getByText('Primeira Jornada')).toBeVisible()
+
+  // The upstream GET /gamification/overview is issued inside the SSR process
+  // and is not observable here; the server-function export is.
+  await expect.poll(() => overviewRequests.length, { timeout: 10_000 }).toBe(1)
+
+  // Keyboard activation of the shortcut, per RP-13.
+  const shortcut = authenticatedPage.getByRole('button', {
+    name: 'Ver todas as conquistas',
+  })
+  await shortcut.focus()
+  await authenticatedPage.keyboard.press('Enter')
+
+  await expect(
+    authenticatedPage.getByRole('tab', { name: 'Conquistas' }),
+  ).toHaveAttribute('aria-selected', 'true')
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Diagnóstico', exact: true }),
+  ).toBeVisible()
+  await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
+})
+
 test('requests the practice calendar for the viewed month and blocks future months', async ({
   authenticatedPage,
 }) => {
@@ -343,9 +470,12 @@ test('requests the practice calendar for the viewed month and blocks future mont
 
   await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
 
-  await expect(
-    authenticatedPage.getByRole('tab', { name: 'Calendário' }),
-  ).toHaveAttribute('aria-selected', 'true')
+  // `Visão geral` is the default tab now, so the calendar is reached through
+  // its own trigger rather than on load.
+  const calendarTab = authenticatedPage.getByRole('tab', { name: 'Calendário' })
+  await calendarTab.click()
+
+  await expect(calendarTab).toHaveAttribute('aria-selected', 'true')
   await expect(authenticatedPage.getByText('Maior sequência: 3 dias')).toBeVisible()
 
   expect(calendarRequests.length).toBeGreaterThan(0)
@@ -372,3 +502,112 @@ test('requests the practice calendar for the viewed month and blocks future mont
     await expect(authenticatedPage.getByText(label, { exact: true })).toBeVisible()
   }
 })
+
+test('invokes the XP history server function and renders its records newest first', async ({
+  authenticatedPage,
+}) => {
+  const historyRequests: string[] = []
+  await authenticatedPage.route('**/_serverFn/**', async (route) => {
+    const fn = serverFnExport(route.request().url())
+    if (fn?.startsWith('getOverview_')) {
+      await route.fulfill({
+        body: overviewPayload,
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+    if (fn?.startsWith('getAchievements_')) {
+      // The page hook runs this query on every tab; leaving it live lets a
+      // real auth failure bounce the session to /login mid-test.
+      await route.fulfill({
+        body: JSON.stringify({ result: { kind: 'success', overview } }),
+        contentType: 'application/json',
+        status: 200,
+      })
+      return
+    }
+    if (!fn?.startsWith('getXpHistory_')) {
+      await route.fallback()
+      return
+    }
+    // The upstream GET /gamification/xp-history runs inside the SSR process
+    // and isn't observable here, but the server-function call itself is:
+    // pin its method so a regression to POST/PUT would fail this suite.
+    expect(route.request().method()).toBe('GET')
+    historyRequests.push(route.request().url())
+    await route.fulfill({
+      body: JSON.stringify({
+        result: {
+          kind: 'success',
+          history: {
+            totalXp: 160,
+            entries: [
+              {
+                id: '01SHF000000000000000GRANTA',
+                amount: 60,
+                source: 'diagnosis',
+                title: 'Lógica de programação',
+                detail: 'Diagnóstico concluído',
+                occurredAt: '2026-09-11T12:00:00Z',
+                grantedAt: '2026-09-13T12:00:00Z',
+              },
+              {
+                id: '01SHF000000000000000GRANTB',
+                amount: 100,
+                source: 'skill-completion',
+                title: 'Estruturas de dados',
+                detail: 'Habilidade concluída',
+                occurredAt: '2026-09-02T12:00:00Z',
+                grantedAt: '2026-09-02T12:00:00Z',
+              },
+            ],
+          },
+        },
+      }),
+      contentType: 'application/json',
+      status: 200,
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, '/gamification/')
+
+  // Keyboard activation, per RP-13.
+  const historyTab = authenticatedPage.getByRole('tab', { name: 'Histórico de XP' })
+  await historyTab.focus()
+  await authenticatedPage.keyboard.press('Enter')
+
+  await expect(historyTab).toHaveAttribute('aria-selected', 'true')
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Histórico de XP' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('160 XP')).toBeVisible()
+
+  const records = authenticatedPage.getByRole('region', { name: 'Registros de XP' })
+  const rows = records.getByRole('listitem')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0)).toContainText('Lógica de programação')
+  await expect(rows.nth(0)).toContainText('+60 XP')
+  await expect(rows.nth(1)).toContainText('Estruturas de dados')
+
+  // The upstream GET /gamification/xp-history is issued inside the SSR
+  // process and is not observable here; the server-function export is.
+  await expect.poll(() => historyRequests.length, { timeout: 10_000 }).toBe(1)
+
+  await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
+})
+
+// A no-stub, real-backend variant of the test above was tried and reverted:
+// `authenticatedPage` only fakes the route-protection middleware, it never
+// creates a real BetterAuth session, so achievements/calendar/xp-history
+// (which each check real auth independently) get rejected by the real
+// backend and `useGamificationPage`'s session-rejected effect bounces the
+// whole page to /login mid-test. Separately, this harness's seeded test
+// accounts never run the "account activated" flow that creates a
+// GamificationProfile, so even with auth sorted out, GET /xp-history 404s
+// for them (`test_should_return_not_found_without_a_gamification_profile`)
+// instead of returning the empty-history 200 such a test would need.
+// Reaching the real controller properly would need either a dedicated
+// controlled upstream (the `tests/support/mentor-stream-upstream.mjs`
+// pattern) or a DB-seeded profile for the test account; both are more
+// infrastructure than this one gap currently justifies.

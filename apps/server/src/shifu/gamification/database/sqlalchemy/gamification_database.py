@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.gamification.core.interfaces import GamificationDatabaseRepositories
 from shifu.gamification.database.sqlalchemy.repositories import (
+    SqlalchemyActivityXpBalancesRepository,
+    SqlalchemyActivityXpRecognitionsRepository,
     SqlalchemyEarnedAchievementsRepository,
     SqlalchemyGamificationProfilesRepository,
     SqlalchemyPracticeDaysRepository,
@@ -42,6 +44,10 @@ class SqlalchemyGamificationDatabase:
                 earned_achievements=SqlalchemyEarnedAchievementsRepository(session),
                 rewarded_milestones=SqlalchemyRewardedMilestonesRepository(session),
                 practice_days=SqlalchemyPracticeDaysRepository(session),
+                activity_xp_balances=SqlalchemyActivityXpBalancesRepository(session),
+                activity_xp_recognitions=SqlalchemyActivityXpRecognitionsRepository(
+                    session
+                ),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from shifu.shared.settings import get_settings
-from tests.intelligence.server.controllers.conftest import MENTOR_ACCOUNT
+from tests.fixtures.intelligence_fixture import MENTOR_ACCOUNT
 from tests.intelligence.server.controllers.planning_test_support import (
     PLANNING_EVENT,
     planning_events,

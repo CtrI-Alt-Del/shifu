@@ -65,7 +65,7 @@ class RecognizeDiagnosticCompletedUseCase:
             origin = XpOrigin(
                 source=XpSource.DIAGNOSIS,
                 reference_id=skill_id,
-                label=f'Diagnóstico concluído: {skill.name}',
+                label=skill.name,
             )
             self._grant_xp_use_case.apply_within_transaction(
                 repositories,

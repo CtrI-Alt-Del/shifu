@@ -108,6 +108,7 @@ class RecognizeCompetencyMasteredJob:
         return {
             'account_id': payload.account_id,
             'competency_id': payload.competency_id,
+            'skill_id': payload.skill_id,
             'skill_experience_id': payload.skill_experience_id,
             'mastered_at': payload.mastered_at,
         }
@@ -122,6 +123,7 @@ class RecognizeCompetencyMasteredJob:
             use_case.execute,
             normalized['account_id'],
             normalized['competency_id'],
+            normalized['skill_id'],
             normalized['skill_experience_id'],
             occurred_at=_parse_utc_iso(normalized['mastered_at']),
             now=clock_provider.now(),

@@ -30,7 +30,7 @@ const FAMILY_ORDER: AchievementFamily[] = [
 
 export function useGamificationPage() {
   const { navigateTo } = useNavigation()
-  const [activeTab, setActiveTab] = useState<GamificationTab>('calendario')
+  const [activeTab, setActiveTab] = useState<GamificationTab>('visao-geral')
   const {
     overview,
     overviewError,
@@ -59,6 +59,10 @@ export function useGamificationPage() {
     setActiveTab(tab)
   }
 
+  function handleViewAchievements() {
+    setActiveTab('conquistas')
+  }
+
   return {
     familyGroups:
       state === 'success' && overview ? groupByFamily(overview.achievements) : [],
@@ -81,6 +85,7 @@ export function useGamificationPage() {
     activeTab,
     handleRetry,
     handleTabChange,
+    handleViewAchievements,
   }
 }
 

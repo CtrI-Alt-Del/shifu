@@ -1,6 +1,15 @@
 from contextlib import AbstractContextManager
 from typing import Protocol
 
+from shifu.intelligence.core.interfaces.learner_memories_repository import (
+    LearnerMemoriesRepository,
+)
+from shifu.intelligence.core.interfaces.learner_memory_changes_repository import (
+    LearnerMemoryChangesRepository,
+)
+from shifu.intelligence.core.interfaces.mentor_action_proposals_repository import (
+    MentorActionProposalsRepository,
+)
 from shifu.intelligence.core.interfaces.mentor_attachment_batches_repository import (
     MentorAttachmentBatchesRepository,
 )
@@ -21,6 +30,9 @@ from shifu.intelligence.core.interfaces.mentor_response_attempts_repository impo
 )
 from shifu.intelligence.core.interfaces.mentor_response_events_repository import (
     MentorResponseEventsRepository,
+)
+from shifu.intelligence.core.interfaces.mentor_session_summaries_repository import (
+    MentorSessionSummariesRepository,
 )
 from shifu.intelligence.core.interfaces.mentor_sessions_repository import (
     MentorSessionsRepository,
@@ -44,6 +56,10 @@ class IntelligenceDatabaseRepositories:
     mentor_attachment_batches: MentorAttachmentBatchesRepository
     mentor_attachments: MentorAttachmentsRepository
     mentor_attachment_chunks: MentorAttachmentChunksRepository
+    mentor_session_summaries: MentorSessionSummariesRepository
+    learner_memories: LearnerMemoriesRepository
+    learner_memory_changes: LearnerMemoryChangesRepository
+    mentor_action_proposals: MentorActionProposalsRepository
 
 
 class IntelligenceDatabase(Protocol):

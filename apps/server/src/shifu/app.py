@@ -3,7 +3,7 @@ from datetime import timedelta
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import partial
-from typing import cast
+from typing import ClassVar, cast
 
 from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
@@ -58,9 +58,13 @@ from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.intelligence.rest.mentor_attachment_body_limit_middleware import (
     MentorAttachmentBodyLimitMiddleware,
 )
+from shifu.intelligence.rest.intelligence_error_handler import (
+    IntelligenceErrorHandler,
+)
 from shifu.intelligence.rest.mentor_attachment_error_handler import (
     MentorAttachmentErrorHandler,
 )
+from shifu.learning.rest.learning_error_handler import LearningErrorHandler
 from shifu.intelligence.messaging.inngest.intelligence_inngest_messaging import (
     IntelligenceInngestMessaging,
 )
@@ -72,14 +76,22 @@ from shifu.learning.core.use_cases.get_competency_detail_use_case import (
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.messaging.inngest import LearningInngestMessaging
+from shifu.learning.core.domain.events import MentorSkillActionResolvedEvent
 from shifu.learning.providers.learning_mentor_context_provider import (
     LearningMentorContextProvider,
+)
+from shifu.learning.providers.learning_mentor_goal_destinations_provider import (
+    LearningMentorGoalDestinationsProvider,
 )
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
-from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
+from shifu.shared.core.interfaces import (
+    MentorAccessProvider,
+    MentorContextProvider,
+    MentorGoalDestinationsProvider,
+)
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
@@ -141,14 +153,17 @@ class ActivityPayloadLimitMiddleware:
 
 
 class PrivateMentorNoStoreMiddleware:
+    _PRIVATE_PATH_PREFIXES: ClassVar[tuple[str, ...]] = (
+        '/intelligence/mentor-sessions',
+        '/intelligence/learner-memories',
+    )
+
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         path = str(scope.get('path', ''))
-        if scope['type'] != 'http' or not path.startswith(
-            '/intelligence/mentor-sessions'
-        ):
+        if scope['type'] != 'http' or not path.startswith(self._PRIVATE_PATH_PREFIXES):
             await self._app(scope, receive, send)
             return
 
@@ -184,6 +199,7 @@ class FastAPIApp:
         *,
         mentor_access_provider: MentorAccessProvider | None = None,
         mentor_context_provider: MentorContextProvider | None = None,
+        mentor_goal_destinations_provider: MentorGoalDestinationsProvider | None = None,
         mentor_route_provider: MentorRouteProvider | None = None,
         mentor_telemetry_provider: MentorTelemetryProvider | None = None,
     ) -> FastAPI:
@@ -250,12 +266,17 @@ class FastAPIApp:
                 ),
             )
         )
+        mentor_goal_destinations_provider = (
+            mentor_goal_destinations_provider
+            or LearningMentorGoalDestinationsProvider(learning_database)
+        )
         intelligence_registry = IntelligenceWorkflowsRegistry(
             settings,
             None,
             mentor_access_provider,
             mentor_context_provider,
             mentor_catalog_provider,
+            mentor_goal_destinations_provider,
             outbox_engine=database_engine,
             route_provider=mentor_route_provider,
             telemetry=mentor_telemetry_provider,
@@ -264,7 +285,7 @@ class FastAPIApp:
         learning_registry = LearningWorkflowsRegistry(
             settings,
             None,
-            intelligence_registry.code_rubric_assessor,
+            intelligence_registry.code_rubric_assessor_provider,
             mentor_access_provider,
             curriculum_content_provider,
             outbox_engine=database_engine,
@@ -296,8 +317,8 @@ class FastAPIApp:
             app.state.agent_monitoring_tracer_provider = (
                 monitoring.tracer_provider if monitoring is not None else None
             )
-            intelligence_registry.observability.bind(monitoring_client)
-            learning_registry.observability.bind(monitoring_client)
+            intelligence_registry.observability_provider.bind(monitoring_client)
+            learning_registry.observability_provider.bind(monitoring_client)
             app.state.max_activity_payload_bytes = settings.max_activity_payload_bytes
             app.state.max_code_assessment_input_bytes = (
                 settings.max_code_assessment_input_bytes
@@ -309,7 +330,7 @@ class FastAPIApp:
                     await stack.enter_async_context(intelligence_registry.lifespan())
                     await stack.enter_async_context(learning_registry.lifespan())
                     app.state.code_rubric_assessor_provider = (
-                        learning_registry.code_rubric_assessor
+                        learning_registry.code_rubric_assessor_provider
                     )
                     broker.start()
                     try:
@@ -317,8 +338,8 @@ class FastAPIApp:
                     finally:
                         broker.stop()
             finally:
-                intelligence_registry.observability.bind(None)
-                learning_registry.observability.bind(None)
+                intelligence_registry.observability_provider.bind(None)
+                learning_registry.observability_provider.bind(None)
                 try:
                     await to_thread(close_agent_monitoring_client, monitoring)
                 finally:
@@ -339,7 +360,22 @@ class FastAPIApp:
                     purge_mentor_attachments_use_case=(
                         intelligence_registry.purge_mentor_attachments_use_case
                     ),
+                    purge_mentor_summaries_use_case=(
+                        intelligence_registry.purge_mentor_summaries_use_case
+                    ),
+                    purge_learner_memories_use_case=(
+                        intelligence_registry.purge_learner_memories_use_case
+                    ),
+                    purge_mentor_action_proposals_use_case=(
+                        intelligence_registry.purge_mentor_action_proposals_use_case
+                    ),
+                    record_mentor_action_outcome_use_case=(
+                        intelligence_registry.record_mentor_action_outcome_use_case
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
+                    mentor_action_resolved_event_name=(
+                        MentorSkillActionResolvedEvent.EVENT_NAME
+                    ),
                 ),
                 lambda inngest: CommunicationInngestMessaging.register_jobs(
                     inngest,
@@ -379,6 +415,8 @@ class FastAPIApp:
         )
         AppErrorHandler.register(app)
         MentorAttachmentErrorHandler.register(app)
+        IntelligenceErrorHandler.register(app)
+        LearningErrorHandler.register(app)
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
@@ -397,6 +435,7 @@ class FastAPIApp:
         app.state.intelligence_database = intelligence_registry.database
         app.state.mentor_access_provider = mentor_access_provider
         app.state.mentor_context_provider = mentor_context_provider
+        app.state.mentor_goal_destinations_provider = mentor_goal_destinations_provider
         app.state.mentor_route_provider = intelligence_registry.route_provider
         app.state.mentor_catalog_provider = mentor_catalog_provider
         app.state.planning_intent_classifier_provider = (
@@ -411,8 +450,11 @@ class FastAPIApp:
         )
         app.state.intelligence_workflows_registry = intelligence_registry
         app.state.learning_workflows_registry = learning_registry
-        app.state.generate_mentor_title_workflow = (
+        app.state.generate_mentor_title_provider = (
             intelligence_registry.mentor_title_provider
+        )
+        app.state.learner_memory_analyzer_provider = (
+            intelligence_registry.learner_memory_analyzer_provider
         )
         app.state.file_storage_provider = intelligence_registry.file_storage_provider
         app.state.mentor_attachment_extractor_provider = (

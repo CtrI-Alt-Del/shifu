@@ -1,19 +1,26 @@
 from textwrap import dedent
 
-from agno.agent import Agent
-from agno.models.base import Model
-
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    MentorAgent,
+    MentorModelConfig,
+)
 from shifu.intelligence.ai.agno.outputs.planning_proposal_output import (
     PlanningProposalOutput,
 )
 
 
-class PlanningProposalAgent(Agent):
-    def __init__(self, model: Model) -> None:
-        super().__init__(  # pyright: ignore[reportUnknownMemberType] - Agno lacks complete SDK stubs.
+class PlanningProposalAgent(MentorAgent):
+    MODEL = MentorModelConfig(
+        transport='openrouter',
+        model_id='deepseek/deepseek-v4.1-flash',
+        timeout_seconds=60.0,
+        profile='planner-proposal',
+    )
+
+    def __init__(self) -> None:
+        super().__init__(
             name='Planning Proposal Agent',
             description='Compõe uma proposta de Objetivo com Habilidades do Currículo.',
-            model=model,
             instructions=dedent("""\
                 Você é o Planejador de Objetivos do Shifu. Recebe um JSON com a
                 intenção do aprendiz em `intent`, as respostas da entrevista em
@@ -37,13 +44,4 @@ class PlanningProposalAgent(Agent):
                 descrição ou nas justificativas. Retorne somente o schema.
             """),
             output_schema=PlanningProposalOutput,
-            tools=[],
-            retries=0,
-            telemetry=False,
-            store_history_messages=False,
-            add_history_to_context=False,
-            read_chat_history=False,
-            read_tool_call_history=False,
-            store_tool_messages=False,
-            store_events=False,
         )

@@ -23,6 +23,10 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
     isDictationBusy,
     canStartDictation,
     canInstallDictationLanguage,
+    isActionBlocked,
+    isRefreshingActions,
+    hasActionRefreshTimedOut,
+    refreshActions,
     startDictation,
     finishDictation,
     cancelDictation,
@@ -32,6 +36,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
     handleSubmit,
     isResponsePending,
     isSubmittingFirstMessage,
+    placeholder,
     sendFirstMessage,
     setDraft,
     submissionError,
@@ -41,6 +46,7 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
     retryAttachment = async () => {},
     removeAttachment = async () => {},
   } = useComposer(surface)
+  const actionBlockId = useId()
   const attachmentInputId = useId()
   const attachmentInputRef = useRef<HTMLInputElement | null>(null)
   const attachButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -147,11 +153,6 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           ) : null}
         </div>
       ) : null}
-      {dictationLanguageAvailability === 'available' ? (
-        <p className='text-xs text-muted-foreground'>
-          O navegador pode usar um serviço na nuvem para reconhecer sua fala.
-        </p>
-      ) : null}
       {submissionError ? (
         <div
           className='mb-2 flex items-center justify-between gap-2 text-sm'
@@ -167,6 +168,37 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
             Tentar novamente
           </Button>
         </div>
+      ) : null}
+      {isActionBlocked ? (
+        isRefreshingActions ? (
+          <p
+            className='px-1 text-sm text-secondary-foreground'
+            id={actionBlockId}
+            role='status'
+          >
+            Atualizando a conversa…
+          </p>
+        ) : hasActionRefreshTimedOut ? (
+          <div
+            className='flex flex-wrap items-center justify-between gap-2 px-1 text-sm text-secondary-foreground'
+            id={actionBlockId}
+            role='status'
+          >
+            <p>Ainda não foi possível atualizar a conversa.</p>
+            <Button
+              className='border border-control-border text-foreground'
+              onClick={refreshActions}
+              type='button'
+              variant='ghost'
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        ) : (
+          <p className='px-1 text-sm text-secondary-foreground' id={actionBlockId}>
+            Confirme ou recuse a ação proposta para continuar.
+          </p>
+        )
       ) : null}
       <p className='px-1 text-xs text-muted-foreground'>
         Anexe até cinco arquivos PNG, JPG, WebP, PDF, JSON, CSV ou TXT. Cada arquivo pode
@@ -188,13 +220,19 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
           {surface === 'page' ? <span className='hidden sm:inline'>Anexar</span> : null}
         </Button>
         <Textarea
+          aria-describedby={isActionBlocked ? actionBlockId : undefined}
           className='min-h-11 min-w-0 max-h-44 flex-1 resize-none overflow-y-auto border-0! bg-transparent! px-0! py-3! text-sm focus-visible:border-transparent! focus-visible:ring-0! focus-visible:shadow-none! focus-visible:outline-none!'
           data-focus-ring='delegated'
-          disabled={isResponsePending || isSubmittingFirstMessage || isDictationBusy}
+          disabled={
+            isResponsePending ||
+            isSubmittingFirstMessage ||
+            isDictationBusy ||
+            isActionBlocked
+          }
           id={messageId}
           onChange={(event) => setDraft(event.currentTarget.value)}
           onKeyDown={handleKeyDown}
-          placeholder='Pergunte ao Mentor…'
+          placeholder={placeholder}
           ref={textareaRef}
           rows={1}
           value={draft}

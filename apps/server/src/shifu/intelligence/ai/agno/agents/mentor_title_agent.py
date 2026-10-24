@@ -1,17 +1,27 @@
 from textwrap import dedent
 
-from agno.agent import Agent
-from agno.models.base import Model
+
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    MentorAgent,
+    MentorModelConfig,
+)
 
 from shifu.intelligence.ai.agno.outputs import MentorTitleOutput
 
 
-class MentorTitleAgent(Agent):
-    def __init__(self, model: Model) -> None:
-        super().__init__(  # pyright: ignore[reportUnknownMemberType] - Agno Agent lacks complete stubs.
+class MentorTitleAgent(MentorAgent):
+    MODEL = MentorModelConfig(
+        transport='openrouter',
+        model_id='openai/gpt-6-luna',
+        timeout_seconds=3.0,
+        profile='mentor-title',
+        prompt_logging_gate='mentor_title',
+    )
+
+    def __init__(self) -> None:
+        super().__init__(
             name='Mentor Title Agent',
             description='Gera um título breve para uma nova conversa do Mentor.',
-            model=model,
             instructions=dedent(
                 """\
                 Gere somente um título curto em português do Brasil, com no máximo
@@ -34,13 +44,4 @@ class MentorTitleAgent(Agent):
                 """
             ),
             output_schema=MentorTitleOutput,
-            tools=[],
-            retries=0,
-            telemetry=False,
-            store_history_messages=False,
-            add_history_to_context=False,
-            read_chat_history=False,
-            read_tool_call_history=False,
-            store_tool_messages=False,
-            store_events=False,
         )

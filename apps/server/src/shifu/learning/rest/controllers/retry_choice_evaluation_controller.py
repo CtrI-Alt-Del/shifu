@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Path, status
+from fastapi import APIRouter, Depends, Header, Path
 from pydantic import BaseModel, TypeAdapter
 
 from shifu.learning.core.interfaces import LearningDatabase
@@ -36,7 +36,7 @@ class RetryChoiceEvaluationController:
             '/activities/{activity_id}/attempts/{attempt_id}/retry',
             response_model=Response,
             response_model_exclude_none=True,
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=202,
         )
         def _(
             goal_id: Annotated[str, Path(pattern=_ULID_PATTERN)],

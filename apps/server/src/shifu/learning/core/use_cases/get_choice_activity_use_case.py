@@ -16,6 +16,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceActivitySnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
+    CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
@@ -84,7 +85,13 @@ class GetChoiceActivityUseCase:
             )
             snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
             if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-                isinstance(item, CurriculumJavascriptStdinQuestionSnapshot)
+                isinstance(
+                    item,
+                    (
+                        CurriculumJavascriptStdinQuestionSnapshot,
+                        CurriculumReactQuestionSnapshot,
+                    ),
+                )
                 for item in snapshot.questions
             ):
                 snapshot = self._curriculum_content_provider.get_choice_activity(
@@ -192,8 +199,19 @@ class GetChoiceActivityUseCase:
                             and part.question_key == question.key
                             for item in part.criteria
                         ),
+                        additional_file_policy=(
+                            question.additional_file_policy
+                            if isinstance(question, CurriculumReactQuestionSnapshot)
+                            else None
+                        ),
                     )
-                    if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot)
+                    if isinstance(
+                        question,
+                        (
+                            CurriculumJavascriptStdinQuestionSnapshot,
+                            CurriculumReactQuestionSnapshot,
+                        ),
+                    )
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,

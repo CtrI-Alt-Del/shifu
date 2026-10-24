@@ -127,6 +127,16 @@ export const RegisterPage = () => {
             Entrar
           </Anchor>
         </p>
+        <p className='mt-4 text-center text-sm text-muted-foreground'>
+          Saiba como tratamos seus dados na{' '}
+          <Anchor
+            className='min-h-11 rounded-md px-1 py-3 text-jade-text underline decoration-jade-text/60 underline-offset-4 hover:decoration-jade-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-selo-text'
+            route='privacy'
+          >
+            Política de privacidade
+          </Anchor>
+          .
+        </p>
       </main>
     </div>
   )

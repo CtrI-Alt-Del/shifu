@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from typing import Literal, Protocol
 
+from shifu.intelligence.core.domain.enums import MentorSummaryFailureCode
 from shifu.intelligence.core.domain.structures import MentorReviewResult
 
 
@@ -46,5 +47,8 @@ class MentorTelemetryProvider(Protocol):
         profile: str,
         duration_ms: float,
         counts: Mapping[str, int],
-        outcome: Literal['passed', 'failed', 'abstained', 'cancelled'],
+        outcome: Literal[
+            'passed', 'failed', 'abstained', 'cancelled', 'ready', 'discarded'
+        ],
+        failure_code: MentorSummaryFailureCode | None = None,
     ) -> None: ...

@@ -48,6 +48,11 @@ const defineCodeEditorTheme: NonNullable<ComponentProps<typeof Editor>['beforeMo
 function languageForFile(path: string) {
   const extension = path.split('.').at(-1)?.toLowerCase()
   if (extension === 'js') return 'javascript'
+  if (extension === 'jsx') return 'javascriptreact'
+  if (extension === 'ts') return 'typescript'
+  if (extension === 'tsx') return 'typescriptreact'
+  if (extension === 'css') return 'css'
+  if (extension === 'html') return 'html'
   if (extension === 'json') return 'json'
   return 'plaintext'
 }

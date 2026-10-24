@@ -14,7 +14,7 @@ from agno.workflow.types import StepInput, StepOutput
 from agno.workflow.workflow import Workflow
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from shifu.intelligence.ai.agno.models.mentor_openai_chat import (
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
     mentor_transport_failure_scope,
 )
 from shifu.intelligence.ai.agno.outputs.planning_interview_output import (

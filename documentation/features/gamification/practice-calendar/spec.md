@@ -50,7 +50,7 @@ Selected product outcomes for this bounded slice:
 | RP-01 | partial | The calendar read is private to the owning account; the profile itself already exists from `SHIFU-82` |
 | RP-05 | full | Recognition, single-day collapse, timezone rule, late-evaluation correction, break and restart all delivered |
 | RP-06 | full | Monthly calendar, five states, navigation bounds and date-only selection all delivered |
-| RP-08 | partial | Practice days are preserved as part of the minimum history; the XP history surface is `SHIFU-81`/`SHIFU-84` |
+| RP-08 | partial | Practice days are preserved as part of the minimum history; the XP history surface is delivered by `SHIFU-81`, except the `Atividade` row, which remains `SHIFU-84` |
 | RP-11 | partial | Non-blocking recognition, retry and no-duplication delivered for practice days; activity XP recovery is `SHIFU-84` |
 | RP-12 | partial | Practice days are purged and blocked for deleted accounts, inside the existing deletion path |
 | RP-13 | partial | Responsive, pt-BR, keyboard-operable and non-color-only for the Calendário tab |

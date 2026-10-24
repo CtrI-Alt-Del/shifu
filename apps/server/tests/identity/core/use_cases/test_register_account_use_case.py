@@ -13,10 +13,12 @@ from shifu.identity.core.domain.errors import (
 from shifu.identity.core.domain.structures import AccountRegistration
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
+    ConfirmationDeliveryRequest,
     IdentityDatabase,
     IdentityDatabaseRepositories,
     PasswordHashingProvider,
 )
+from shifu.identity.core.use_cases import QueueConfirmationDeliveryUseCase
 from shifu.identity.core.use_cases.register_account_use_case import (
     RegisterAccountUseCase,
 )
@@ -182,3 +184,60 @@ class TestRegisterAccountUseCase:
             )
 
         self.identity_database.transaction.assert_not_called()
+
+    def _subject_with_delivery(self) -> RegisterAccountUseCase:
+        self.queue_delivery_use_case = create_autospec(
+            QueueConfirmationDeliveryUseCase,
+            instance=True,
+        )
+        return RegisterAccountUseCase(
+            self.identity_database,
+            self.id_provider,
+            self.clock_provider,
+            self.password_hashing_provider,
+            self.action_token_provider,
+            self.pending_handle_provider,
+            self.queue_delivery_use_case,
+        )
+
+    def test_should_queue_the_confirmation_delivery_for_a_new_account(self) -> None:
+        subject = self._subject_with_delivery()
+
+        result = subject.execute(
+            AccountRegistration(
+                display_name='  Pessoa Aprendente  ',
+                email='  Learner@Example.COM ',
+                password='secret123',  # noqa: S106
+            )
+        )
+
+        assert not result.is_decoy
+        self.queue_delivery_use_case.execute.assert_called_once_with(
+            ConfirmationDeliveryRequest(
+                communication_id='01JCOMMUNICATION000000000001',
+                identity_action_token_id='01JCONFIRM00000000000000001',  # noqa: S106
+                account_id='01JACCOUNT000000000000000001',
+                recipient_email='learner@example.com',
+                recipient_name='Pessoa Aprendente',
+                confirmation_token='confirmation-token',  # noqa: S106
+                expires_at=self.now + timedelta(hours=24),
+            )
+        )
+
+    def test_should_not_queue_delivery_for_a_decoy_registration(self) -> None:
+        subject = self._subject_with_delivery()
+        self.repositories.accounts.find_non_deleted_by_email.return_value = (
+            AccountFaker.fake(email='learner@example.com')
+        )
+
+        result = subject.execute(
+            AccountRegistration(
+                display_name='Pessoa Aprendente',
+                email='learner@example.com',
+                password='secret123',  # noqa: S106
+            )
+        )
+
+        assert result.is_decoy
+        assert result.pending_handle == 'pending-handle'
+        self.queue_delivery_use_case.execute.assert_not_called()

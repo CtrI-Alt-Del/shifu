@@ -1,4 +1,5 @@
 import { Button } from '@/ui/shadcn/button'
+import { Anchor } from '@/ui/shared/widgets/components/anchor'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 export type MentorChatHeaderProps = {
@@ -128,16 +129,13 @@ export const MentorChatHeader = ({
               <Icon name='pencil' className='size-4 shrink-0' />
               Renomear
             </Button>
-            <Button
-              aria-label='Memórias. Indisponível no momento'
-              className='gap-2 px-2! text-sm font-normal! disabled:opacity-100!'
-              disabled
-              title='Indisponível no momento'
-              variant='ghost'
+            <Anchor
+              className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-transparent px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground'
+              route='intelligenceMemories'
             >
               <Icon name='brain' className='size-4 shrink-0' />
               Memórias
-            </Button>
+            </Anchor>
           </>
         ) : null}
       </div>

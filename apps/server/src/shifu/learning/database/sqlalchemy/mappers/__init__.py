@@ -10,4 +10,7 @@ from .concept_observation_mapper import (
 )
 from .concept_state_mapper import ConceptStateMapper as ConceptStateMapper
 from .goal_mapper import GoalMapper as GoalMapper
+from .mentor_action_receipt_mapper import (
+    MentorActionReceiptMapper as MentorActionReceiptMapper,
+)
 from .skill_experience_mapper import SkillExperienceMapper as SkillExperienceMapper

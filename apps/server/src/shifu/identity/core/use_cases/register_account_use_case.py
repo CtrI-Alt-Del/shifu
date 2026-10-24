@@ -14,8 +14,12 @@ from shifu.identity.core.domain.structures import (
 )
 from shifu.identity.core.interfaces import (
     ActionTokenProvider,
+    ConfirmationDeliveryRequest,
     IdentityDatabase,
     PasswordHashingProvider,
+)
+from shifu.identity.core.use_cases.queue_confirmation_delivery_use_case import (
+    QueueConfirmationDeliveryUseCase,
 )
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
 
@@ -31,6 +35,9 @@ class RegisterAccountUseCase:
         password_hashing_provider: PasswordHashingProvider,
         action_token_provider: ActionTokenProvider,
         pending_confirmation_handle_provider: ActionTokenProvider | None = None,
+        queue_confirmation_delivery_use_case: (
+            QueueConfirmationDeliveryUseCase | None
+        ) = None,
     ) -> None:
         self._identity_database = identity_database
         self._id_provider = id_provider
@@ -40,8 +47,22 @@ class RegisterAccountUseCase:
         self._pending_confirmation_handle_provider = (
             pending_confirmation_handle_provider or action_token_provider
         )
+        self._queue_confirmation_delivery_use_case = (
+            queue_confirmation_delivery_use_case
+        )
 
     def execute(self, registration: AccountRegistration) -> AccountRegistrationResult:
+        result = self._register(registration)
+        if self._queue_confirmation_delivery_use_case is None:
+            return result
+
+        delivery_request = self._to_delivery_request(result, registration)
+        if delivery_request is not None:
+            self._queue_confirmation_delivery_use_case.execute(delivery_request)
+
+        return result
+
+    def _register(self, registration: AccountRegistration) -> AccountRegistrationResult:
         pending_handle = self._pending_confirmation_handle_provider.generate()
         pending_handle_hash = self._pending_confirmation_handle_provider.hash(
             pending_handle
@@ -113,3 +134,27 @@ class RegisterAccountUseCase:
                 confirmation_token=confirmation_token,
                 confirmation_expires_at=confirmation_expires_at,
             )
+
+    @staticmethod
+    def _to_delivery_request(
+        result: AccountRegistrationResult,
+        registration: AccountRegistration,
+    ) -> ConfirmationDeliveryRequest | None:
+        if (
+            result.account_id is None
+            or result.identity_action_token_id is None
+            or result.communication_id is None
+            or result.confirmation_token is None
+            or result.confirmation_expires_at is None
+        ):
+            return None
+
+        return ConfirmationDeliveryRequest(
+            communication_id=result.communication_id,
+            identity_action_token_id=result.identity_action_token_id,
+            account_id=result.account_id,
+            recipient_email=registration.email,
+            recipient_name=registration.display_name,
+            confirmation_token=result.confirmation_token,
+            expires_at=result.confirmation_expires_at,
+        )

@@ -81,7 +81,7 @@ class TestRecognizeDiagnosticCompletedUseCase:
             XpOrigin(
                 source=XpSource.DIAGNOSIS,
                 reference_id=SKILL_ID,
-                label='Diagnóstico concluído: Skill',
+                label='Skill',
             ),
             SKILL_EXPERIENCE_ID,
             occurred_at=NOW,
@@ -107,7 +107,7 @@ class TestRecognizeDiagnosticCompletedUseCase:
             XpOrigin(
                 source=XpSource.DIAGNOSIS,
                 reference_id=SKILL_ID,
-                label='Diagnóstico concluído: Skill',
+                label='Skill',
             ),
             SKILL_EXPERIENCE_ID,
             occurred_at=OCCURRED_AT,

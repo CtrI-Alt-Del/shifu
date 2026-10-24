@@ -34,6 +34,11 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptInitialFileSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumReactQuestionSnapshot,
+)
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    mixed_snapshot,
+    code_answer_at_size,
 )
 
 _ATTEMPT_ID = '01J000000000000000000000001'
@@ -256,6 +261,30 @@ def test_should_prepare_only_code_questions_for_the_current_pending_run() -> Non
     cast('Mock', repositories.events.add).assert_not_called()
 
 
+def test_should_prepare_react_question_with_saved_project_files() -> None:
+    snapshot = mixed_snapshot(react=True)
+    answers = (
+        SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+        SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+        CodeAnswer(
+            question_key='q3',
+            files=(CodeSubmittedFile(path='src/main.tsx', content='submitted'),),
+        ),
+    )
+    subject, _repositories = _subject(
+        _attempt(snapshot=snapshot, answers=answers), _evaluation()
+    )
+
+    result = subject.execute(_ATTEMPT_ID, _RUN_ID)
+
+    assert result is not None
+    assert tuple(item.question_key for item in result.questions) == ('q3',)
+    assert result.questions[0].assessment_input.project_files == (
+        ('src/fixed.css', 'fixed'),
+        ('src/main.tsx', 'submitted'),
+    )
+
+
 @pytest.mark.parametrize(
     ('attempt', 'evaluation'),
     (
@@ -347,3 +376,47 @@ def test_should_reject_code_project_over_the_configured_input_limit() -> None:
 
     with pytest.raises(EvaluationUnavailableError):
         subject.execute(_ATTEMPT_ID, _RUN_ID)
+
+
+class TestPrepareCodeActivityEvaluationConfiguredLimit:
+    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
+    )
+    @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
+    def test_should_apply_configured_utf8_project_limit_to_saved_projects(
+        self, react: bool, limit: int, extra_byte: int
+    ) -> None:
+        snapshot = mixed_snapshot(react=react)
+        question = snapshot.questions[-1]
+        assert isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumReactQuestionSnapshot,
+            ),
+        )
+        answer = code_answer_at_size(question, limit + extra_byte)
+        attempt = _attempt(
+            snapshot,
+            (
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                answer,
+            ),
+        )
+        subject, repositories = _subject(attempt, _evaluation(), max_input_bytes=limit)
+
+        if extra_byte:
+            with pytest.raises(EvaluationUnavailableError):
+                subject.execute(_ATTEMPT_ID, _RUN_ID)
+        else:
+            result = subject.execute(_ATTEMPT_ID, _RUN_ID)
+            assert result is not None
+            assert len(result.questions) == 1
+            assert result.questions[0].assessment_input.question_kind == question.kind
+            assert result.questions[0].assessment_input.project_files[-1] == (
+                question.entrypoint,
+                answer.files[0].content,
+            )
+        cast('Mock', repositories.events.add).assert_not_called()
