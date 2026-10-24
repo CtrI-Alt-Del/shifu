@@ -18,9 +18,7 @@ from redis import Redis
 
 from shifu.intelligence.ai.agno.agents import (
     PlanningInterviewAgent,
-    PlanningInterviewFallbackAgent,
     PlanningProposalAgent,
-    PlanningProposalFallbackAgent,
 )
 from shifu.intelligence.ai.agno.outputs.planning_interview_output import (
     PlanningInterviewOutput,
@@ -225,9 +223,7 @@ class Harness:
     access: Mock
     classifier: Mock
     interview: Mock
-    interview_fallback: Mock
     proposal: Mock
-    proposal_fallback: Mock
 
     def start(self, intent: str) -> PlanningSession:
         return StartPlanningUseCase(
@@ -294,15 +290,7 @@ class Harness:
         ).execute(MENTOR_ACCOUNT.account_id, session.id, intent)
 
     def model_calls(self) -> int:
-        return sum(
-            agent.run.call_count
-            for agent in (
-                self.interview,
-                self.interview_fallback,
-                self.proposal,
-                self.proposal_fallback,
-            )
-        )
+        return self.interview.run.call_count + self.proposal.run.call_count
 
 
 @pytest.fixture
@@ -327,21 +315,15 @@ def harness(
     }
     interview = Mock(spec=PlanningInterviewAgent)
     interview.run.return_value = sufficient()
-    interview_fallback = Mock(spec=PlanningInterviewFallbackAgent)
-    interview_fallback.run.return_value = sufficient()
     proposal = Mock(spec=PlanningProposalAgent)
     proposal.run.return_value = web_proposal()
-    proposal_fallback = Mock(spec=PlanningProposalFallbackAgent)
-    proposal_fallback.run.return_value = web_proposal()
     workflow = PlanGoalWorkflow(
         prepare_use_case=PreparePlanningOperationUseCase(sessions, access),
         complete_use_case=CompletePlanningOperationUseCase(sessions, clock),
         classify_use_case=ClassifyPlanningIntentUseCase(classifier),
         retrieve_use_case=RetrievePlanningSkillsUseCase(retrieval, catalog),
         interview_agent=interview,
-        interview_fallback_agent=interview_fallback,
         proposal_agent=proposal,
-        proposal_fallback_agent=proposal_fallback,
         identifier_provider=SystemIdentifierProvider(),
         handoffs=AgentOSHandoffStore(),
     )
@@ -353,9 +335,7 @@ def harness(
             access=access,
             classifier=classifier,
             interview=interview,
-            interview_fallback=interview_fallback,
             proposal=proposal,
-            proposal_fallback=proposal_fallback,
         )
     finally:
         client.close()
@@ -385,8 +365,6 @@ class TestPlanGoalWorkflow:
         requests = payloads(harness.interview) + payloads(harness.proposal)
         assert len(requests) == 2
         assert all(set(request) <= _ALLOWED_PAYLOAD_KEYS for request in requests)
-        harness.interview_fallback.run.assert_not_called()
-        harness.proposal_fallback.run.assert_not_called()
 
     def test_should_ask_a_batch_and_compose_after_the_answers(
         self, harness: Harness
@@ -484,45 +462,12 @@ class TestPlanGoalWorkflow:
         assert final.proposal is None
         assert harness.proposal.run.call_count == 4
 
-    def test_should_compose_with_luna_when_deepseek_fails(
+    def test_should_fail_recoverably_when_the_model_fails(
         self, harness: Harness
     ) -> None:
-        unavailable = ServiceUnavailableError('DeepSeek is unavailable.')
-        harness.interview.run.side_effect = unavailable
-        harness.proposal.run.side_effect = unavailable
-        session = harness.start(
-            'Quero aprender a construir sites com HTML, CSS e React'
+        harness.interview.run.side_effect = ServiceUnavailableError(
+            'The Planner model is unavailable.'
         )
-
-        final = harness.run(session)
-
-        assert final is not None
-        assert final.status is PlanningSessionStatus.PROPOSAL
-        # Each step asks DeepSeek first and Luna once, with the same input.
-        assert payloads(harness.interview) == payloads(harness.interview_fallback)
-        assert payloads(harness.proposal) == payloads(harness.proposal_fallback)
-        assert harness.interview_fallback.run.call_count == 1
-        assert harness.proposal_fallback.run.call_count == 1
-
-    def test_should_ask_luna_when_deepseek_breaks_the_schema(
-        self, harness: Harness
-    ) -> None:
-        harness.interview.run.return_value = RunOutput(
-            content='não é JSON', status=RunStatus.completed
-        )
-        session = harness.start('Quero aprender React')
-
-        final = harness.run(session)
-
-        assert final is not None
-        assert final.status is PlanningSessionStatus.PROPOSAL
-        harness.interview_fallback.run.assert_called_once()
-        harness.proposal_fallback.run.assert_not_called()
-
-    def test_should_fail_when_deepseek_and_luna_fail(self, harness: Harness) -> None:
-        unavailable = ServiceUnavailableError('The Planner models are unavailable.')
-        harness.interview.run.side_effect = unavailable
-        harness.interview_fallback.run.side_effect = unavailable
         session = harness.start('Quero aprender React')
 
         final = harness.run(session)
@@ -531,8 +476,22 @@ class TestPlanGoalWorkflow:
         assert final.status is PlanningSessionStatus.FAILED
         assert final.failure_code == 'service_unavailable'
         assert final.proposal is None
-        assert harness.interview_fallback.run.call_count == 1
         harness.proposal.run.assert_not_called()
+
+    def test_should_fail_recoverably_when_the_model_breaks_the_schema(
+        self, harness: Harness
+    ) -> None:
+        harness.proposal.run.return_value = RunOutput(
+            content='não é JSON', status=RunStatus.completed
+        )
+        session = harness.start('Quero aprender React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.FAILED
+        assert final.failure_code == 'service_unavailable'
+        assert final.proposal is None
 
     def test_should_recover_from_a_classification_failure_through_retry(
         self, harness: Harness

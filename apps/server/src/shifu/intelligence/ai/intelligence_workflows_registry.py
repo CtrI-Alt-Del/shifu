@@ -16,9 +16,7 @@ from shifu.intelligence.ai.agno.agents import (
     MentorTitleAgent,
     MentorWriterAgent,
     PlanningInterviewAgent,
-    PlanningInterviewFallbackAgent,
     PlanningProposalAgent,
-    PlanningProposalFallbackAgent,
 )
 from shifu.intelligence.ai.agno.workflows import (
     AgnoGenerateMentorTitleWorkflow,
@@ -584,14 +582,8 @@ class IntelligenceWorkflowsRegistry:
             interview_agent=PlanningInterviewAgent()
             if PlanningInterviewAgent.enabled()
             else cast('PlanningInterviewAgent', _UnavailablePlanningAgent()),
-            interview_fallback_agent=PlanningInterviewFallbackAgent()
-            if PlanningInterviewFallbackAgent.enabled()
-            else cast('PlanningInterviewAgent', _UnavailablePlanningAgent()),
             proposal_agent=PlanningProposalAgent()
             if PlanningProposalAgent.enabled()
-            else cast('PlanningProposalAgent', _UnavailablePlanningAgent()),
-            proposal_fallback_agent=PlanningProposalFallbackAgent()
-            if PlanningProposalFallbackAgent.enabled()
             else cast('PlanningProposalAgent', _UnavailablePlanningAgent()),
             identifier_provider=self._identifier_provider,
             handoffs=self._handoffs,

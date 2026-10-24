@@ -12,7 +12,7 @@ from shifu.intelligence.ai.agno.outputs.planning_interview_output import (
 class PlanningInterviewAgent(MentorAgent):
     MODEL = MentorModelConfig(
         transport='openrouter',
-        model_id='deepseek/deepseek-v4.1-flash',
+        model_id='openai/gpt-6-luna',
         timeout_seconds=60.0,
         profile='planner-interview',
     )
