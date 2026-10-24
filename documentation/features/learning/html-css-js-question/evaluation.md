@@ -90,7 +90,7 @@ None.
 | Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
 | Completed | CA-01–CA-09 implementation and automated proof; CA-10 UI/keyboard implementation and automated checks; all configured local static/build gates; Spec revision 1 approved; implementation-review corrections integrated and checked |
 | Unfinished | Confirm official submission/result in browser; compare screenshots to exported Pencil references; current-head CI |
-| Uncommitted work | `apps/server/devtools/html_css_js_browser_fixture/{README.md,activity.py,prepare.py}`, the HTML question mobile spacing in `apps/web/src/ui/learning/widgets/pages/activity-page/html-css-js-question/index.tsx`, and this Evaluation update will be committed. The two user-provided root task documents remain untracked and excluded. |
+| Uncommitted work | No tracked changes remain. The fixture, mobile spacing adjustment, and Evaluation update were committed in `392f73a`; the two user-provided root task documents remain untracked and excluded. |
 | Active processes | Shared Docker Compose services PostgreSQL, Inngest and Mailpit were already running and remain untouched; pre-existing API process not managed by this task; task-started Web was stopped after browser validation |
 | Blockers | Official browser submit returned 429 before producing a result page; Pencil references have no exported image paths; `gh auth status` reports invalid GitHub token although git push credentials work |
 | Next action | Review current-head CI on PR #44; repeat only the final submit after the rate-limit window, and compare captures if references are exported |
