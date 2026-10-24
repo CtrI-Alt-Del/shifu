@@ -245,7 +245,7 @@ describe('useHtmlCssJsQuestion', () => {
         ),
       { timeout: 1500 },
     )
-    expect(result.current.generation).toBe(3)
+    await waitFor(() => expect(result.current.generation).toBe(3))
   })
 
   it('adopts a newer saved cross-tab generation without allowing extra files', async () => {
