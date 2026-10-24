@@ -7,7 +7,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock, create_autospec
 from uuid import uuid4
 
@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 
 from shifu.app import FastAPIApp
 from shifu.fakers.identity.entities.account_faker import AccountFaker
+from shifu.fakers.intelligence.entities import MentorActionProposalFaker
 from shifu.identity.database.sqlalchemy.identity_database import (
     SqlalchemyIdentityDatabase,
 )
@@ -29,11 +30,14 @@ from shifu.intelligence.core.domain.entities import (
 from shifu.intelligence.core.domain.enums import (
     LearnerMemoryCategory,
     LearnerMemoryChangeKind,
+    MentorActionKind,
+    MentorActionProposalStatus,
     MentorMessageRole,
     MentorResponseEventKind,
     MentorResponseStatus,
     MentorSummaryExcerptKind,
 )
+from shifu.intelligence.core.use_cases.mentor_detail import mentor_action_item
 from shifu.intelligence.core.domain.structures import (
     LearnerMemoryConcept,
     LearnerMemoryOrigin,
@@ -56,6 +60,8 @@ from shifu.shared.providers.system_identifier_provider import SystemIdentifierPr
 if TYPE_CHECKING:
     from collections.abc import Generator
     from fastapi import FastAPI
+
+    from shifu.intelligence.core.domain.entities import MentorActionProposal
 
     from shifu.identity.core.domain.enums import AccountStatus
     from shifu.intelligence.core.domain.enums import (
@@ -302,6 +308,61 @@ class IntelligenceFixture:
             attempt_id,
             'test-owner',
         )
+
+    # Mentor action proposals
+
+    def seed_action_proposal(
+        self,
+        session_id: str,
+        attempt_id: str,
+        message_id: str,
+        *,
+        account_id: str = MENTOR_ACCOUNT.account_id,
+        kind: MentorActionKind = MentorActionKind.ADD_SKILL,
+        status: MentorActionProposalStatus = MentorActionProposalStatus.PENDING,
+        event_status: MentorResponseStatus = MentorResponseStatus.PROCESSING,
+        **changes: Any,
+    ) -> MentorActionProposal:
+        """Persist a proposal and the `action` event that announced it.
+
+        Extra keyword arguments override the faker defaults (outcome, candidates...).
+        """
+        proposal = MentorActionProposalFaker.fake(
+            account_id=account_id,
+            session_id=session_id,
+            learner_message_id=message_id,
+            attempt_id=attempt_id,
+            kind=kind,
+            status=status,
+            **changes,
+        )
+        with self.database.transaction() as repositories:
+            repositories.mentor_action_proposals.add(proposal)
+            repositories.mentor_response_events.append(
+                MentorResponseEvent(
+                    session_id=session_id,
+                    attempt_id=attempt_id,
+                    sequence=repositories.mentor_response_events.next_sequence(
+                        session_id
+                    ),
+                    kind=MentorResponseEventKind.ACTION,
+                    status=event_status,
+                    block=None,
+                    consultation=None,
+                    failure_code=None,
+                    created_at=datetime.now(UTC),
+                    action_proposal=mentor_action_item(proposal),
+                )
+            )
+        return proposal
+
+    def read_action_proposals(
+        self, session_id: str, account_id: str = MENTOR_ACCOUNT.account_id
+    ) -> list[MentorActionProposal]:
+        with self.database.transaction() as repositories:
+            return repositories.mentor_action_proposals.find_many_by_session(
+                account_id, session_id
+            )
 
     # Summaries
 

@@ -75,14 +75,22 @@ from shifu.learning.core.use_cases.get_competency_detail_use_case import (
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.learning.messaging.inngest import LearningInngestMessaging
+from shifu.learning.core.domain.events import MentorSkillActionResolvedEvent
 from shifu.learning.providers.learning_mentor_context_provider import (
     LearningMentorContextProvider,
+)
+from shifu.learning.providers.learning_mentor_goal_destinations_provider import (
+    LearningMentorGoalDestinationsProvider,
 )
 from shifu.learning.rest.router import LearningRouter
 from shifu.rest.handlers import AppErrorHandler
 from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.core.domain.errors import ServiceUnavailableError
-from shifu.shared.core.interfaces import MentorAccessProvider, MentorContextProvider
+from shifu.shared.core.interfaces import (
+    MentorAccessProvider,
+    MentorContextProvider,
+    MentorGoalDestinationsProvider,
+)
 from shifu.shared.database.sqlalchemy.session import Session
 from shifu.shared.messaging.inngest import InngestBroker, InngestMessaging
 from shifu.shared.providers.cache.redis.redis_cache_provider import (
@@ -190,6 +198,7 @@ class FastAPIApp:
         *,
         mentor_access_provider: MentorAccessProvider | None = None,
         mentor_context_provider: MentorContextProvider | None = None,
+        mentor_goal_destinations_provider: MentorGoalDestinationsProvider | None = None,
         mentor_route_provider: MentorRouteProvider | None = None,
         mentor_telemetry_provider: MentorTelemetryProvider | None = None,
     ) -> FastAPI:
@@ -256,12 +265,17 @@ class FastAPIApp:
                 ),
             )
         )
+        mentor_goal_destinations_provider = (
+            mentor_goal_destinations_provider
+            or LearningMentorGoalDestinationsProvider(learning_database)
+        )
         intelligence_registry = IntelligenceWorkflowsRegistry(
             settings,
             None,
             mentor_access_provider,
             mentor_context_provider,
             mentor_catalog_provider,
+            mentor_goal_destinations_provider,
             outbox_engine=database_engine,
             route_provider=mentor_route_provider,
             telemetry=mentor_telemetry_provider,
@@ -350,7 +364,16 @@ class FastAPIApp:
                     purge_learner_memories_use_case=(
                         intelligence_registry.purge_learner_memories_use_case
                     ),
+                    purge_mentor_action_proposals_use_case=(
+                        intelligence_registry.purge_mentor_action_proposals_use_case
+                    ),
+                    record_mentor_action_outcome_use_case=(
+                        intelligence_registry.record_mentor_action_outcome_use_case
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
+                    mentor_action_resolved_event_name=(
+                        MentorSkillActionResolvedEvent.EVENT_NAME
+                    ),
                 ),
                 lambda inngest: CommunicationInngestMessaging.register_jobs(
                     inngest,
@@ -410,6 +433,7 @@ class FastAPIApp:
         app.state.intelligence_database = intelligence_registry.database
         app.state.mentor_access_provider = mentor_access_provider
         app.state.mentor_context_provider = mentor_context_provider
+        app.state.mentor_goal_destinations_provider = mentor_goal_destinations_provider
         app.state.mentor_route_provider = intelligence_registry.route_provider
         app.state.mentor_catalog_provider = mentor_catalog_provider
         app.state.intelligence_workflows_registry = intelligence_registry

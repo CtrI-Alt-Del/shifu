@@ -18,6 +18,9 @@ from .learning_database import (
     LearningDatabase as LearningDatabase,
     LearningDatabaseRepositories as LearningDatabaseRepositories,
 )
+from .mentor_action_receipts_repository import (
+    MentorActionReceiptsRepository as MentorActionReceiptsRepository,
+)
 from .skill_experiences_repository import (
     SkillExperiencesRepository as SkillExperiencesRepository,
 )

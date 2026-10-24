@@ -293,12 +293,7 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
                 else []
             )
             for block in prepared.local_blocks:
-                published = self._publish_block.execute(
-                    prepared.attempt_id,
-                    owner,
-                    block,
-                    prepared.context,
-                )
+                published = self._publish_local_block(prepared, owner, block)
                 self._assert_published(published)
                 if all(existing.block_key != block.block_key for existing in approved):
                     approved.append(block)
@@ -321,6 +316,27 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             status = self._fail_response(request.attempt_id, owner)
             self._release_claim_safely(request.attempt_id, owner)
             return self._store(_ExecutionState(prepared=None, status=status), 'done')
+
+    def _publish_local_block(
+        self, prepared: PreparedMentorResponse, owner: str, block: MentorResponseBlock
+    ) -> bool:
+        """Publish a prepared block; the proposal rides with its own text block only."""
+        draft = prepared.action_proposal
+        if (
+            draft is not None
+            and block.intent is not None
+            and block.intent.value == draft.kind.value
+        ):
+            return self._publish_block.execute(
+                prepared.attempt_id,
+                owner,
+                block,
+                prepared.context,
+                action_proposal=draft,
+            )
+        return self._publish_block.execute(
+            prepared.attempt_id, owner, block, prepared.context
+        )
 
     def _write_and_review(self, step_input: StepInput) -> StepOutput:
         try:
@@ -732,12 +748,7 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             )
             for block in prepared.local_blocks:
                 self._assert_published(
-                    self._publish_block.execute(
-                        prepared.attempt_id,
-                        owner,
-                        block,
-                        prepared.context,
-                    )
+                    self._publish_local_block(prepared, owner, block)
                 )
                 if all(existing.block_key != block.block_key for existing in approved):
                     approved.append(block)

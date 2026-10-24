@@ -8,6 +8,9 @@ from .learner_memory_mapper import LearnerMemoryMapper as LearnerMemoryMapper
 from .learner_memory_origin_mapper import (
     LearnerMemoryOriginMapper as LearnerMemoryOriginMapper,
 )
+from .mentor_action_proposal_mapper import (
+    MentorActionProposalMapper as MentorActionProposalMapper,
+)
 from .mentor_attachment_batch_mapper import (
     MentorAttachmentBatchMapper as MentorAttachmentBatchMapper,
 )

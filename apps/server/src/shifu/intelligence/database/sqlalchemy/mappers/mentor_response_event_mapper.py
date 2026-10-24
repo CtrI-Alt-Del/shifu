@@ -7,6 +7,7 @@ from shifu.intelligence.core.domain.enums import (
     MentorWorkflowStep,
 )
 from shifu.intelligence.core.domain.structures import (
+    MentorActionProposalItem,
     MentorResponseBlock,
     MentorResponseEvent,
 )
@@ -18,7 +19,10 @@ from shifu.intelligence.database.sqlalchemy.models import MentorResponseEventMod
 
 class MentorResponseEventMapper:
     @staticmethod
-    def to_structure(model: MentorResponseEventModel) -> MentorResponseEvent:
+    def to_structure(
+        model: MentorResponseEventModel,
+        action_proposal: MentorActionProposalItem | None = None,
+    ) -> MentorResponseEvent:
         block = None
         if (
             model.block_key is not None
@@ -51,6 +55,7 @@ class MentorResponseEventMapper:
             consultation=model.consultation,
             failure_code=model.failure_code,
             created_at=model.created_at,
+            action_proposal=action_proposal,
         )
 
     @staticmethod
@@ -61,6 +66,9 @@ class MentorResponseEventMapper:
             attempt_id=event.attempt_id,
             sequence=event.sequence,
             kind=event.kind.value,
+            action_proposal_id=(
+                event.action_proposal.id if event.action_proposal else None
+            ),
             status=event.status.value,
             block_key=block.block_key if block else None,
             ordinal=block.ordinal if block else None,

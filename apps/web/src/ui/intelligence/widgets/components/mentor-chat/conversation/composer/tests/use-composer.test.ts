@@ -169,6 +169,102 @@ describe('useComposer', () => {
   })
 })
 
+describe('useComposer action block', () => {
+  afterEach(cleanup)
+
+  function blockedContext(overrides: object = {}) {
+    return {
+      selectedSessionId: 'session-1',
+      draft: 'texto',
+      draftAttachments: [{ attachment: { status: 'ready' }, error: null }],
+      isSubmittingFirstMessage: false,
+      isDictationBusy: false,
+      canStartDictation: true,
+      sessionDetail: { pendingLearnerMessageId: null },
+      blockingActionProposalId: 'proposal-1',
+      isRefreshingActions: false,
+      hasActionRefreshTimedOut: false,
+      refreshActions: vi.fn(),
+      sendFirstMessage: vi.fn(),
+      setDraft: vi.fn(),
+      ...overrides,
+    }
+  }
+
+  it('blocks sending, attachments and dictation while a proposal needs an answer', () => {
+    const context = blockedContext()
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    const { result } = renderHook(() => useComposer())
+
+    expect(result.current.isActionBlocked).toBe(true)
+    expect(result.current.canSend).toBe(false)
+    expect(result.current.canManageAttachments).toBe(false)
+    expect(result.current.canStartDictation).toBe(false)
+    result.current.handleSubmit({
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent<HTMLFormElement>)
+    expect(context.sendFirstMessage).not.toHaveBeenCalled()
+  })
+
+  it('ignores the Enter key while a proposal is unresolved', () => {
+    useMentorContextMock.mockReturnValue(
+      blockedContext() as unknown as MentorContextValue,
+    )
+    const { result } = renderHook(() => useComposer())
+    const requestSubmit = vi.fn()
+
+    result.current.handleKeyDown({
+      key: 'Enter',
+      shiftKey: false,
+      nativeEvent: { isComposing: false },
+      preventDefault: vi.fn(),
+      currentTarget: { form: { requestSubmit } },
+    } as unknown as React.KeyboardEvent<HTMLTextAreaElement>)
+
+    expect(requestSubmit).not.toHaveBeenCalled()
+  })
+
+  it('unblocks sending, attachments and dictation once the proposal is final', () => {
+    const context = blockedContext()
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    const { result, rerender } = renderHook(() => useComposer())
+
+    context.blockingActionProposalId = null as unknown as string
+    rerender()
+
+    expect(result.current.isActionBlocked).toBe(false)
+    expect(result.current.canSend).toBe(true)
+    expect(result.current.canManageAttachments).toBe(true)
+    expect(result.current.canStartDictation).toBe(true)
+  })
+
+  it('keeps dictation unavailable when the context already forbids it', () => {
+    useMentorContextMock.mockReturnValue(
+      blockedContext({
+        blockingActionProposalId: null,
+        canStartDictation: false,
+      }) as unknown as MentorContextValue,
+    )
+    const { result } = renderHook(() => useComposer())
+
+    expect(result.current.canStartDictation).toBe(false)
+  })
+
+  it('exposes the refresh state and the retry callback of the context', () => {
+    const context = blockedContext({
+      isRefreshingActions: true,
+      hasActionRefreshTimedOut: true,
+    })
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    const { result } = renderHook(() => useComposer())
+
+    expect(result.current.isRefreshingActions).toBe(true)
+    expect(result.current.hasActionRefreshTimedOut).toBe(true)
+    result.current.refreshActions()
+    expect(context.refreshActions).toHaveBeenCalledOnce()
+  })
+})
+
 describe('useComposer dictation', () => {
   afterEach(cleanup)
   it.each(['preparing', 'recording', 'transcribing'])(

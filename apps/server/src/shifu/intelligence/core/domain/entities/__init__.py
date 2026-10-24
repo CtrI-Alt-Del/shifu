@@ -7,3 +7,4 @@ from .mentor_session_summary import MentorSessionSummary as MentorSessionSummary
 from .planning_session import PlanningSession as PlanningSession
 from .learner_memory import LearnerMemory as LearnerMemory
 from .learner_memory_change import LearnerMemoryChange as LearnerMemoryChange
+from .mentor_action_proposal import MentorActionProposal as MentorActionProposal

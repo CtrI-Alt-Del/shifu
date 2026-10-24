@@ -1,5 +1,6 @@
 import { AppError } from '@/core/errors/app-error'
 import type { RestStreamClient } from '@/core/shared/interfaces/rest-stream-client'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type {
   MentorContextHint,
   MentorResponseSnapshot,
@@ -60,6 +61,7 @@ export type MentorSessionDetail = {
   response?: MentorResponseSnapshot | null
   summary: MentorSessionSummaryState
   memoryItems: MentorConversationMemoryItem[]
+  actionItems: MentorActionProposal[]
 }
 
 export type CreateMentorSessionInput = {
@@ -135,6 +137,31 @@ type MentorSessionDetailDto = {
   response?: MentorResponseSnapshotDto | null
   summary?: MentorSessionSummaryStateDto
   memory_items?: MentorConversationMemoryItemDto[]
+  action_items?: MentorActionProposalDto[]
+}
+
+export type MentorActionProposalDto = {
+  id: string
+  source_message_id: string
+  kind: MentorActionProposal['kind']
+  skill_id: string
+  skill_name: string
+  goal_id: string | null
+  goal_title: string | null
+  skill_experience_id: string | null
+  candidate_goals: {
+    goal_id: string
+    title: string
+    contains_skill: boolean
+    skill_experience_id: string | null
+  }[]
+  justification: string | null
+  status: MentorActionProposal['status']
+  outcome: MentorActionProposal['outcome']
+  rejection_reason: MentorActionProposal['rejectionReason']
+  resolved_goal_id: string | null
+  resolved_skill_experience_id: string | null
+  created_at: string
 }
 
 type MentorConversationMemoryItemDto = {
@@ -201,6 +228,34 @@ type MentorResponseSnapshotDto = {
   last_sequence: number
   failure_code: string | null
 }
+export function mapMentorActionProposal(
+  proposal: MentorActionProposalDto,
+): MentorActionProposal {
+  return {
+    id: proposal.id,
+    sourceMessageId: proposal.source_message_id,
+    kind: proposal.kind,
+    skillId: proposal.skill_id,
+    skillName: proposal.skill_name,
+    goalId: proposal.goal_id,
+    goalTitle: proposal.goal_title,
+    skillExperienceId: proposal.skill_experience_id,
+    candidateGoals: proposal.candidate_goals.map((candidate) => ({
+      goalId: candidate.goal_id,
+      title: candidate.title,
+      containsSkill: candidate.contains_skill,
+      skillExperienceId: candidate.skill_experience_id,
+    })),
+    justification: proposal.justification,
+    status: proposal.status,
+    outcome: proposal.outcome,
+    rejectionReason: proposal.rejection_reason,
+    resolvedGoalId: proposal.resolved_goal_id,
+    resolvedSkillExperienceId: proposal.resolved_skill_experience_id,
+    createdAt: proposal.created_at,
+  }
+}
+
 export type IntelligenceService = ReturnType<typeof IntelligenceService>
 
 export const IntelligenceService = (
@@ -307,6 +362,7 @@ export const IntelligenceService = (
       response: detail.response ? mapSnapshot(detail.response) : null,
       summary: mapSummaryState(detail.summary),
       memoryItems: (detail.memory_items ?? []).map(mapMemoryItem),
+      actionItems: (detail.action_items ?? []).map(mapMentorActionProposal),
     }
   }
   function mapMemoryItem(
@@ -481,6 +537,19 @@ export const IntelligenceService = (
       )
       if (response.isFailure) response.throwError()
       return mapSnapshot(response.body)
+    },
+    async declineMentorActionProposal(
+      accessToken: string,
+      sessionId: string,
+      proposalId: string,
+    ): Promise<MentorActionProposal> {
+      const response = await restClient.post<MentorActionProposalDto>(
+        `/intelligence/mentor-sessions/${encodeURIComponent(sessionId)}/action-proposals/${encodeURIComponent(proposalId)}/decline`,
+        undefined,
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return mapMentorActionProposal(response.body)
     },
     async openMentorResponseEvents(
       accessToken: string,
