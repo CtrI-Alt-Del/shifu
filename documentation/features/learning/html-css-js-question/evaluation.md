@@ -14,9 +14,9 @@ last_updated_at: 2026-10-24
 | Type / lint / complexity | Web and Server type, lint, architecture and build gates passed; dedicated quantitative complexity tooling unavailable |
 | Manual checks | VM-01 blocked; login stays at `/login` and no local HTML Activity is available to prove the real journey |
 | Visual checks | VM-02 blocked; Activity screenshots and exported desktop references are unavailable |
-| Independent review | Spec review passed and user approved Spec revision 1; implementation review corrections integrated; final evidence refresh pending |
+| Independent review | Spec review passed and user approved Spec revision 1; implementation review found and verified corrections; final verdict BLOCKED only by VM-01 browser evidence |
 | Blockers | VM-01 authenticated scenario and VM-02 capture/reference evidence unavailable in current local environment |
-| Candidate | `feat/server/SHIFU-86-html-css-js`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d`; feature changes uncommitted at this evaluation revision |
+| Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
 
 # Progress
 
@@ -87,13 +87,13 @@ None.
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `feat/server/SHIFU-86-html-css-js`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d`; feature changes still uncommitted |
-| Completed | CA-01–CA-09 implementation and automated proof; CA-10 UI/keyboard implementation and automated checks; all configured local static/build gates; Spec revision 1 approved; implementation-review corrections integrated |
-| Unfinished | VM-01 real authenticated Activity journey; VM-02 captures/reference comparison; current-head CI after PR publication; final implementation-review evidence refresh |
-| Uncommitted work | User-provided root task documents remain untracked; pre-existing deletion of `SHIFU-88-IMPLEMENTACAO.md` preserved |
+| Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
+| Completed | CA-01–CA-09 implementation and automated proof; CA-10 UI/keyboard implementation and automated checks; all configured local static/build gates; Spec revision 1 approved; implementation-review corrections integrated and checked |
+| Unfinished | VM-01 real authenticated Activity journey; VM-02 captures/reference comparison; current-head CI after PR publication |
+| Uncommitted work | User-provided root task documents remain untracked; evaluation update is pending its own commit |
 | Active processes | Shared Docker Compose services PostgreSQL, Inngest and Mailpit were already running and remain untouched; pre-existing API process not managed by this task; task-started Web must be stopped before handoff |
 | Blockers | Local login remained at `/login`, with no HTML Activity available for the manual journey; Pencil references have no exported image paths; `gh auth status` reports invalid GitHub token although git push credentials work |
-| Next action | Finish reviewer evidence update, commit the implementation and separately authorized deletion, push the branch, and create/attach the PR through the connected GitHub integration |
+| Next action | Commit this evidence update, push both task commits, then create and attach the PR through the connected GitHub integration |
 
 # Delivery
 
