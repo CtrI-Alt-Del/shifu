@@ -205,7 +205,7 @@ describe('useSkillActionCard', () => {
     it('starts on the picker with the containing Objective disabled and only a decline button', () => {
       const { result } = renderCard(pickerProposal())
 
-      expect(result.current.isTitleVisible).toBe(false)
+      expect(result.current.isTitleVisible).not.toBe(false)
       expect(result.current.title).toBe('Adicionar Funções em Python?')
       expect(result.current.destination).toBeUndefined()
       expect(result.current.picker).toEqual({

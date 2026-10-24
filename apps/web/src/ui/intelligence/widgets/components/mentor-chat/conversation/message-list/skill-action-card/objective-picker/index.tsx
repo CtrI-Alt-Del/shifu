@@ -22,13 +22,16 @@ export const ObjectivePicker = ({ candidates, hint, onSelect }: ObjectivePickerP
     <div
       aria-describedby={hintId}
       aria-labelledby={labelId}
-      className='flex flex-col items-start gap-3 max-[480px]:items-stretch'
+      className='flex flex-col items-start gap-2.5 max-[480px]:items-stretch'
       role='group'
     >
-      <p className='text-[13px] leading-normal text-foreground' id={labelId}>
+      <p
+        className='text-[13px] font-medium leading-normal text-secondary-foreground'
+        id={labelId}
+      >
         Objetivo
       </p>
-      <div className='flex flex-col items-start gap-2.5 max-[480px]:items-stretch'>
+      <div className='flex flex-wrap items-start gap-2 max-[480px]:flex-col max-[480px]:items-stretch'>
         {candidates.map((candidate) => (
           <Button
             aria-describedby={
@@ -36,7 +39,7 @@ export const ObjectivePicker = ({ candidates, hint, onSelect }: ObjectivePickerP
             }
             aria-disabled={candidate.isDisabled || undefined}
             aria-pressed={candidate.isSelected}
-            className='h-auto min-h-11 flex-col items-start gap-0.5 whitespace-normal border border-control-border! py-2 text-left text-foreground! aria-disabled:cursor-not-allowed aria-disabled:opacity-50 max-[480px]:w-full'
+            className='h-auto min-h-11 flex-col items-start gap-0.5 whitespace-normal border border-control-border! py-2 text-left text-sm font-medium text-foreground! aria-disabled:cursor-not-allowed aria-disabled:opacity-50 max-[480px]:w-full'
             key={candidate.goalId}
             onClick={() => {
               if (!candidate.isDisabled) onSelect(candidate.goalId)
@@ -56,7 +59,7 @@ export const ObjectivePicker = ({ candidates, hint, onSelect }: ObjectivePickerP
           </Button>
         ))}
       </div>
-      <p className='text-[13px] leading-normal text-muted-foreground' id={hintId}>
+      <p className='text-[13px] leading-normal text-secondary-foreground' id={hintId}>
         {hint}
       </p>
     </div>

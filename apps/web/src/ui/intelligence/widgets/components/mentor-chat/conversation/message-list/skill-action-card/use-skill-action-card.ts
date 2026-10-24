@@ -403,7 +403,6 @@ export function useSkillActionCard(proposal: MentorActionProposal) {
       return {
         icon: describeIcon(proposal.kind, true),
         title: proposalTitle,
-        isTitleVisible: false,
         actions: [recuse],
         picker: {
           candidates: proposal.candidateGoals.map((candidate) => ({
