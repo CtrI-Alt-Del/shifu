@@ -9,6 +9,19 @@ import {
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import { ROUTES } from '../../src/constants/routes'
 import {
+  ACTION_IDS,
+  ADD_JUSTIFICATION,
+  BLOCK_REASON,
+  buildPickerProposal,
+  buildProposal,
+  GOAL_TITLE,
+  installMentorActionsBackend,
+  openMentorActionsPage,
+  OTHER_GOAL_TITLE,
+  outcomeOf,
+  SKILL_NAME,
+} from '../support/mentor-actions-backend'
+import {
   CONVERSATION_TEXTS,
   expectNoHorizontalOverflow,
   installMentorMemoriesBackend,
@@ -725,5 +738,372 @@ test.describe('Mentor page memories', () => {
         .map((call) => call.data.cursor)
         .filter(Boolean),
     ).toEqual([])
+  })
+})
+
+// SHIFU-104: confirmed Mentor actions on the page (mocked BFF transport and response stream).
+test.describe('Mentor page confirmed actions', () => {
+  test.beforeEach(async ({ authenticatedPage: page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+  })
+
+  test('confirms an addition with the keyboard, announces the result and unblocks the composer after the refreshed detail', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toBeVisible()
+    await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+    await expect(card).toContainText(ADD_JUSTIFICATION)
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByText(BLOCK_REASON)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Anexar arquivo ou imagem' }),
+    ).toBeDisabled()
+
+    await card.getByRole('button', { name: 'Recusar' }).focus()
+    await page.keyboard.press('Tab')
+    await expect(card.getByRole('button', { name: 'Adicionar habilidade' })).toBeFocused()
+    await page.keyboard.press('Enter')
+
+    const done = page.getByRole('region', { name: `${SKILL_NAME} adicionada` })
+    await expect(done).toBeVisible()
+    await expect(done.getByRole('status')).toContainText('Adição concluída')
+    await expect(done.getByRole('status')).toBeFocused()
+    await expect(done.getByRole('button')).toHaveCount(0)
+    await expect(done.getByRole('link', { name: 'Ver Objetivo' })).toHaveAttribute(
+      'href',
+      `/learning/goals/${ACTION_IDS.goal}`,
+    )
+
+    const [confirmation] = backend.callsOf('confirmMentorSkillAdditionServer')
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')).toHaveLength(1)
+    expect(confirmation).toMatchObject({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillId: ACTION_IDS.skill,
+        justification: ADD_JUSTIFICATION,
+      },
+    })
+    await expect(page.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+    await expect(page.getByText(BLOCK_REASON)).toHaveCount(0)
+    expect(backend.proposal().status).toBe('completed')
+    await page.screenshot({
+      path: '.playwright-cli/screenshots/shifu-104-page-1440-add-completed.png',
+    })
+  })
+
+  test('keeps the card after leaving and returning and sends nothing without the button', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+    await expect(
+      page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` }),
+    ).toBeVisible()
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Enviar' })).toBeDisabled()
+
+    await openMentorPage(page)
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Nova conversa' }),
+    ).toBeVisible()
+    await openMentorActionsPage(page)
+
+    await expect(
+      page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` }),
+    ).toBeVisible()
+    expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
+    expect(backend.proposal().status).toBe('pending')
+  })
+
+  test('chooses an Objective in the picker, swaps it and confirms the chosen one', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildPickerProposal('add_skill'),
+    })
+    await openMentorActionsPage(page)
+
+    const picker = page.getByRole('group', { name: 'Objetivo' })
+    await expect(picker).toContainText(
+      'Escolha um Objetivo para revisar a proposta de adição.',
+    )
+    const available = picker.getByRole('button', { name: GOAL_TITLE })
+    const containing = picker.getByRole('button', { name: OTHER_GOAL_TITLE })
+    await expect(containing).toHaveAttribute('aria-disabled', 'true')
+    await expect(containing).toHaveAccessibleDescription('Já contém esta Habilidade')
+    await containing.click({ force: true })
+    await expect(picker).toBeVisible()
+
+    await available.focus()
+    await page.keyboard.press('Enter')
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+    await expect(card.getByRole('button', { name: 'Trocar Objetivo' })).toBeVisible()
+    await card.getByRole('button', { name: 'Trocar Objetivo' }).click()
+    await expect(page.getByRole('group', { name: 'Objetivo' })).toBeVisible()
+    await expect(
+      page
+        .getByRole('group', { name: 'Objetivo' })
+        .getByRole('button', { name: GOAL_TITLE }),
+    ).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: GOAL_TITLE }).click()
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} adicionada` }),
+    ).toBeVisible()
+    expect(backend.callsOf('confirmMentorSkillAdditionServer')[0]?.data).toMatchObject({
+      goalId: ACTION_IDS.goal,
+      confirmationId: ACTION_IDS.proposal,
+    })
+  })
+
+  test('declines a proposal, keeps it declined after a reload and unblocks the composer', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('remove_skill'),
+      readsUntilFinal: 1,
+    })
+    await openMentorActionsPage(page)
+    const card = page.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+    await expect(card).toContainText(
+      'Você pediu para retirar esta Habilidade do Objetivo.',
+    )
+    await expect(card).toContainText('Não há restauração.')
+
+    await card.getByRole('button', { name: 'Recusar' }).click()
+
+    const declined = page.getByRole('region', { name: 'Remoção recusada' })
+    await expect(declined).toContainText(`${SKILL_NAME} permanece no Objetivo.`)
+    await expect(declined).toContainText('Nenhuma alteração foi executada.')
+    expect(backend.callsOf('declineMentorActionProposalServer')).toEqual([
+      expect.objectContaining({
+        method: 'POST',
+        data: { sessionId: expect.any(String), proposalId: ACTION_IDS.proposal },
+      }),
+    ])
+    expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
+    await expect(page.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+
+    await openMentorPage(page)
+    await openMentorActionsPage(page)
+    await expect(page.getByRole('region', { name: 'Remoção recusada' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Remover habilidade' })).toHaveCount(0)
+  })
+
+  test('shows the uncertain state after a lost response and verifies with the same confirmation', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    backend.enqueue({ kind: 'abort' })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    const uncertain = page.getByRole('region', {
+      name: `Verificando adição de ${SKILL_NAME}`,
+    })
+    await expect(uncertain).toContainText('Resultado ainda não confirmado')
+    await expect(uncertain.getByRole('button')).toHaveText(['Verificar resultado'])
+    await expect(uncertain).not.toContainText('Não foi possível adicionar')
+
+    await uncertain.getByRole('button', { name: 'Verificar resultado' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} adicionada` }),
+    ).toBeVisible()
+    const confirmations = backend.callsOf('confirmMentorSkillAdditionServer')
+    expect(confirmations).toHaveLength(2)
+    expect(confirmations[1]?.data).toEqual(confirmations[0]?.data)
+  })
+
+  test('offers retry and decline after a safe failure and retries with the same data', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('remove_skill'),
+    })
+    backend.enqueue({ kind: 'failure', statusCode: 503 })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Remover habilidade' }).click()
+
+    const failed = page.getByRole('region', {
+      name: `Não foi possível remover ${SKILL_NAME}`,
+    })
+    await expect(failed).toContainText(
+      'A remoção não foi concluída. Sua proposta foi preservada.',
+    )
+    await expect(failed.getByRole('button')).toHaveText(['Recusar', 'Tentar novamente'])
+
+    await failed.getByRole('button', { name: 'Tentar novamente' }).click()
+
+    await expect(
+      page.getByRole('region', { name: `${SKILL_NAME} removida` }),
+    ).toBeVisible()
+    const confirmations = backend.callsOf('confirmMentorSkillRemovalServer')
+    expect(confirmations).toHaveLength(2)
+    expect(confirmations[0]).toMatchObject({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillExperienceId: ACTION_IDS.experience,
+      },
+    })
+    expect(confirmations[1]?.data).toEqual(confirmations[0]?.data)
+  })
+
+  test('shows a rejection without buttons', async ({ authenticatedPage: page }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+    })
+    backend.enqueue({
+      kind: 'success',
+      outcome: outcomeOf(buildProposal('add_skill'), {
+        outcome: 'rejected',
+        rejectionReason: 'goal_unavailable',
+      }),
+    })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+
+    const rejected = page.getByRole('region', {
+      name: `Não foi possível adicionar ${SKILL_NAME}`,
+    })
+    await expect(rejected).toContainText('Este Objetivo não está mais disponível.')
+    await expect(rejected).toContainText('Nenhuma alteração foi executada.')
+    await expect(rejected.getByRole('button')).toHaveCount(0)
+    await expect(rejected.getByRole('link')).toHaveCount(0)
+  })
+
+  test('offers Tentar novamente when the conversation is not refreshed within the limit', async ({
+    authenticatedPage: page,
+  }) => {
+    const backend = await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+      readsUntilFinal: 1000,
+    })
+    await openMentorActionsPage(page)
+    await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Atualizando a conversa…' }),
+    ).toBeVisible()
+
+    await expect(
+      page.getByText('Ainda não foi possível atualizar a conversa.'),
+    ).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('textbox')).toBeDisabled()
+
+    const readsBefore = backend.callsOf('getMentorSessionServer').length
+    backend.finalizeOnNextRead()
+    await page.getByRole('button', { name: 'Tentar novamente' }).click()
+    expect(backend.callsOf('getMentorSessionServer').length).toBeGreaterThan(readsBefore)
+  })
+
+  test('renders a streamed action event as a card and keeps the conversation blocked', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill'),
+      isLive: true,
+    })
+    await openMentorActionsPage(page)
+
+    const card = page.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+    await expect(card).toBeVisible()
+    await expect(
+      page.getByText('Preparei uma proposta para você confirmar.'),
+    ).toBeVisible()
+    await expect(page.getByRole('textbox')).toBeDisabled()
+    await expect(page.getByText(BLOCK_REASON)).toBeVisible()
+  })
+
+  test('follows the Markdown links of an answer to the routed pages and keeps unknown paths as text', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill', { status: 'declined' }),
+      answer: [
+        'Ainda não encontrei Objetivos seus. [criar um Objetivo](/learning/goals/new).',
+        `[Ver Habilidade](/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}).`,
+        '[Página inventada](/learning/inventada).',
+      ].join(' '),
+    })
+    await openMentorActionsPage(page)
+
+    await expect(page.getByText('Página inventada')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Página inventada' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Ver Habilidade' })).toHaveAttribute(
+      'href',
+      `/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}`,
+    )
+
+    await page.getByRole('link', { name: 'criar um Objetivo' }).click()
+
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.learningGoalsNew}/?$`))
+  })
+
+  test('reaches the Skill page from Ver Habilidade', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildProposal('add_skill', { status: 'declined' }),
+      answer: `[Ver Habilidade](/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}).`,
+    })
+    await openMentorActionsPage(page)
+
+    await page.getByRole('link', { name: 'Ver Habilidade' }).click()
+
+    await expect(page).toHaveURL(
+      new RegExp(`/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}/?$`),
+    )
+  })
+
+  test('stacks the card buttons at full width on a 390 px page', async ({
+    authenticatedPage: page,
+  }) => {
+    await installMentorActionsBackend(page, {
+      proposal: buildPickerProposal('remove_skill'),
+    })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openMentorActionsPage(page)
+
+    const picker = page.getByRole('group', { name: 'Objetivo' })
+    for (const name of [GOAL_TITLE, OTHER_GOAL_TITLE]) {
+      const box = await picker.getByRole('button', { name }).boundingBox()
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44)
+    }
+    await picker.getByRole('button', { name: GOAL_TITLE }).click()
+    const card = page.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+    const decline = await card.getByRole('button', { name: 'Recusar' }).boundingBox()
+    const confirm = await card
+      .getByRole('button', { name: 'Remover habilidade' })
+      .boundingBox()
+    const cardBox = await card.boundingBox()
+    if (!decline || !confirm || !cardBox) throw new Error('The card has no layout box')
+    expect(confirm.y).toBeGreaterThan(decline.y + decline.height - 1)
+    expect(decline.width).toBeGreaterThan(cardBox.width - 60)
+    expect(confirm.width).toBeGreaterThan(cardBox.width - 60)
+    expect(decline.height).toBeGreaterThanOrEqual(44)
+    expect(confirm.height).toBeGreaterThanOrEqual(44)
+    await expectNoHorizontalOverflow(page)
+    await page.screenshot({
+      path: '.playwright-cli/screenshots/shifu-104-page-390-remove-proposal.png',
+    })
   })
 })

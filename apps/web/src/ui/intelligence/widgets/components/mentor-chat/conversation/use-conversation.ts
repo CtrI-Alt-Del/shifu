@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
 import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-memory'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorSummaryMarker } from '@/core/intelligence/mentor-session-summary'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
@@ -10,6 +11,7 @@ export type ConversationItem =
   | { kind: 'summary-marker'; marker: MentorSummaryMarker }
   | { kind: 'summary-failure'; messageId: string }
   | { kind: 'memory-change'; item: MentorConversationMemoryItem }
+  | { kind: 'action'; proposal: MentorActionProposal }
 
 export const useConversation = () => {
   const mentor = useMentorContext()
@@ -54,6 +56,11 @@ export const useConversation = () => {
     const items = memoryItemsBySource.get(item.sourceMessageId) ?? []
     memoryItemsBySource.set(item.sourceMessageId, [...items, item])
   }
+  const actionItemsBySource = new Map<string, MentorActionProposal[]>()
+  for (const proposal of mentor.sessionDetail?.actionItems ?? []) {
+    const proposals = actionItemsBySource.get(proposal.sourceMessageId) ?? []
+    actionItemsBySource.set(proposal.sourceMessageId, [...proposals, proposal])
+  }
   const lastAnswerIdBySource = new Map<string, string>()
   for (const message of visibleMessages) {
     if (message.role === 'mentor' && message.inReplyToMessageId)
@@ -63,6 +70,11 @@ export const useConversation = () => {
     liveSourceMessageId &&
     visibleMessages.some((message) => message.id === liveSourceMessageId)
       ? (memoryItemsBySource.get(liveSourceMessageId) ?? [])
+      : []
+  const trailingActionItems =
+    liveSourceMessageId &&
+    visibleMessages.some((message) => message.id === liveSourceMessageId)
+      ? (actionItemsBySource.get(liveSourceMessageId) ?? [])
       : []
   const conversationItems: ConversationItem[] = []
   if (summaryMarker && !isBoundaryLoaded && !isTriggerLoaded)
@@ -83,6 +95,8 @@ export const useConversation = () => {
           ? null
           : message.id
     if (sourceMessageId && sourceMessageId !== liveSourceMessageId) {
+      for (const proposal of actionItemsBySource.get(sourceMessageId) ?? [])
+        conversationItems.push({ kind: 'action', proposal })
       for (const item of memoryItemsBySource.get(sourceMessageId) ?? [])
         conversationItems.push({ kind: 'memory-change', item })
     }
@@ -158,5 +172,6 @@ export const useConversation = () => {
     visibleMessages,
     conversationItems,
     trailingMemoryItems,
+    trailingActionItems,
   }
 }

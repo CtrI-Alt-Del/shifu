@@ -9,6 +9,16 @@ import {
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
 import {
+  ACTION_IDS,
+  ADD_JUSTIFICATION,
+  BLOCK_REASON,
+  buildProposal,
+  GOAL_TITLE,
+  installMentorActionsBackend,
+  openMentorActionsFab,
+  SKILL_NAME,
+} from '../support/mentor-actions-backend'
+import {
   installMentorMemoriesBackend,
   MEMORY_IDS,
   openMentorFabConversation,
@@ -326,4 +336,111 @@ test('shows the memory marker in the floating Mentor and closes the panel when f
   ).toBeVisible()
   await expect(panel).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Abrir Mentor' })).toBeVisible()
+})
+
+// SHIFU-104: confirmed Mentor actions in the floating Mentor (mocked BFF transport).
+test('confirms a removal in the floating Mentor with the keyboard and unblocks the composer at 1440', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const backend = await installMentorActionsBackend(page, {
+    proposal: buildProposal('remove_skill'),
+  })
+  await openMentorActionsFab(page)
+
+  const panel = page.getByRole('dialog', { name: 'Painel do Mentor' })
+  const card = panel.getByRole('region', { name: `Remover ${SKILL_NAME}?` })
+  await expect(card).toContainText(`Objetivo: ${GOAL_TITLE}`)
+  await expect(panel.getByText(BLOCK_REASON)).toBeVisible()
+  await expect(panel.getByRole('textbox')).toBeDisabled()
+  const order = await card.evaluate((element) => {
+    const text = element.textContent ?? ''
+    return [
+      text.indexOf('Você perderá o diagnóstico'),
+      text.indexOf('Remover habilidade'),
+    ]
+  })
+  expect(order[0]).toBeGreaterThanOrEqual(0)
+  expect(order[0]).toBeLessThan(order[1] ?? 0)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+
+  await card.getByRole('button', { name: 'Recusar' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(card.getByRole('button', { name: 'Remover habilidade' })).toBeFocused()
+  await page.keyboard.press('Enter')
+
+  const done = panel.getByRole('region', { name: `${SKILL_NAME} removida` })
+  await expect(done.getByRole('status')).toContainText('Remoção concluída')
+  await expect(done.getByRole('status')).toBeFocused()
+  await expect(done.getByRole('link', { name: 'Ver Objetivo' })).toHaveAttribute(
+    'href',
+    `/learning/goals/${ACTION_IDS.goal}`,
+  )
+  expect(backend.callsOf('confirmMentorSkillRemovalServer')).toEqual([
+    expect.objectContaining({
+      method: 'POST',
+      data: {
+        goalId: ACTION_IDS.goal,
+        confirmationId: ACTION_IDS.proposal,
+        skillExperienceId: ACTION_IDS.experience,
+      },
+    }),
+  ])
+  await expect(panel.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+  await page.screenshot({
+    path: '.playwright-cli/screenshots/shifu-104-fab-1440-remove-completed.png',
+  })
+
+  await done.getByRole('link', { name: 'Ver Objetivo' }).click()
+
+  await expect(page).toHaveURL(new RegExp(`/learning/goals/${ACTION_IDS.goal}/?$`))
+})
+
+test('stacks the add card buttons at full width in the floating Mentor at 390', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await installMentorActionsBackend(page, { proposal: buildProposal('add_skill') })
+  await openMentorActionsFab(page)
+
+  const panel = page.getByRole('dialog', { name: 'Painel do Mentor' })
+  const card = panel.getByRole('region', { name: `Adicionar ${SKILL_NAME}?` })
+  await expect(card).toContainText(ADD_JUSTIFICATION)
+  const decline = await card.getByRole('button', { name: 'Recusar' }).boundingBox()
+  const confirm = await card
+    .getByRole('button', { name: 'Adicionar habilidade' })
+    .boundingBox()
+  const cardBox = await card.boundingBox()
+  if (!decline || !confirm || !cardBox) throw new Error('The card has no layout box')
+  expect(confirm.y).toBeGreaterThan(decline.y + decline.height - 1)
+  expect(decline.width).toBeGreaterThan(cardBox.width - 60)
+  expect(confirm.width).toBeGreaterThan(cardBox.width - 60)
+  expect(decline.height).toBeGreaterThanOrEqual(44)
+  expect(confirm.height).toBeGreaterThanOrEqual(44)
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  )
+  expect(overflow).toBeLessThanOrEqual(0)
+  await page.screenshot({
+    path: '.playwright-cli/screenshots/shifu-104-fab-390-add-proposal.png',
+  })
+})
+
+test('declines a card in the floating Mentor and releases the composer', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const backend = await installMentorActionsBackend(page, {
+    proposal: buildProposal('add_skill'),
+    readsUntilFinal: 1,
+  })
+  await openMentorActionsFab(page)
+  const panel = page.getByRole('dialog', { name: 'Painel do Mentor' })
+
+  await panel.getByRole('button', { name: 'Recusar' }).click()
+
+  await expect(panel.getByRole('region', { name: 'Adição recusada' })).toBeVisible()
+  await expect(panel.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
+  expect(backend.callsOf('declineMentorActionProposalServer')).toHaveLength(1)
+  expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
 })

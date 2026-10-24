@@ -52,6 +52,9 @@ const contextValue: MentorContextValue = {
   sessionDetail: null,
   summary: { current: null, failureAfterMessageId: null },
   isSummarizingContext: false,
+  blockingActionProposalId: null,
+  isRefreshingActions: false,
+  hasActionRefreshTimedOut: false,
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
   draftAttachments: [],
@@ -96,6 +99,8 @@ const contextValue: MentorContextValue = {
   renameSession: vi.fn(),
   removeSession: vi.fn(),
   refresh: vi.fn(),
+  refreshActions: vi.fn(),
+  onActionResolved: vi.fn(),
 }
 
 describe('MentorChat', () => {

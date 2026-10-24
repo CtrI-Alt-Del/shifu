@@ -1,5 +1,6 @@
 import { useMentorContextProvider } from '../use-mentor-context-provider'
 import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -141,6 +142,7 @@ const detail: MentorSessionDetail = {
   pendingLearnerMessageId: null,
   summary: { current: null, failureAfterMessageId: null },
   memoryItems: [],
+  actionItems: [],
 }
 const readyAttachment = {
   attachmentId: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
@@ -2234,6 +2236,379 @@ describe('useMentorContextProvider memory items', () => {
     await waitFor(() =>
       expect(result.current.sessionDetail?.memoryItems).toEqual([deleted]),
     )
+  })
+})
+
+describe('useMentorContextProvider action proposals', () => {
+  const proposal: MentorActionProposal = {
+    id: 'proposal-a',
+    sourceMessageId: 'learner-a',
+    kind: 'add_skill',
+    skillId: 'skill-a',
+    skillName: 'Funções em Python',
+    goalId: 'goal-a',
+    goalTitle: 'Aprender a programar',
+    skillExperienceId: null,
+    candidateGoals: [],
+    justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+    status: 'pending',
+    outcome: null,
+    rejectionReason: null,
+    resolvedGoalId: null,
+    resolvedSkillExperienceId: null,
+    createdAt: '2026-10-10T00:00:02Z',
+  }
+  const proposalDto = {
+    id: 'proposal-a',
+    source_message_id: 'learner-a',
+    kind: 'add_skill',
+    skill_id: 'skill-a',
+    skill_name: 'Funções em Python',
+    goal_id: 'goal-a',
+    goal_title: 'Aprender a programar',
+    skill_experience_id: null,
+    candidate_goals: [],
+    justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+    status: 'pending',
+    outcome: null,
+    rejection_reason: null,
+    resolved_goal_id: null,
+    resolved_skill_experience_id: null,
+    created_at: '2026-10-10T00:00:02Z',
+  }
+  const finalProposal: MentorActionProposal = {
+    ...proposal,
+    status: 'completed',
+    outcome: 'added',
+    resolvedGoalId: 'goal-a',
+  }
+  const completedResponse: MentorResponseSnapshot = {
+    ...initialResponse,
+    status: 'completed',
+    lastSequence: 3,
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.list.mockResolvedValue(sessionsPage)
+    mocks.location.pathname = '/intelligence'
+  })
+  afterEach(() => {
+    cleanup()
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+
+  function mockDetail(
+    actionItems: MentorActionProposal[],
+    response: MentorResponseSnapshot | null = completedResponse,
+  ) {
+    mocks.detail.mockResolvedValue({
+      ...detail,
+      pendingLearnerMessageId: null,
+      response,
+      actionItems,
+    })
+  }
+
+  async function openConversation(
+    actionItems: MentorActionProposal[],
+    response: MentorResponseSnapshot | null = completedResponse,
+  ) {
+    const view = openResponseProvider(response ?? completedResponse)
+    mockDetail(actionItems, response)
+    await act(() => view.result.current.selectSession(detail.session.id))
+    return view
+  }
+
+  it('blocks the conversation on the first pending proposal and releases it when none is pending', async () => {
+    const second = { ...proposal, id: 'proposal-b' }
+    const { result } = await openConversation([finalProposal, proposal, second])
+
+    expect(result.current.blockingActionProposalId).toBe('proposal-a')
+
+    mockDetail([finalProposal, { ...second, status: 'declined' }])
+    await act(() => result.current.refresh())
+
+    expect(result.current.blockingActionProposalId).toBeNull()
+  })
+
+  it('has no blocking proposal without a conversation or without proposals', async () => {
+    const { result } = await openConversation([])
+
+    expect(result.current.blockingActionProposalId).toBeNull()
+    expect(result.current.isRefreshingActions).toBe(false)
+    expect(result.current.hasActionRefreshTimedOut).toBe(false)
+  })
+
+  it('refuses to send a message or start dictation while a proposal is pending', async () => {
+    const { result } = await openConversation([proposal])
+    act(() => result.current.setDraft('sim'))
+
+    await act(() => result.current.sendFirstMessage())
+    await act(() =>
+      result.current.submitMessage({
+        submissionKey: 'e9cfaab2-fb57-40e6-96aa-e6d7afdd7259',
+        content: 'sim',
+        contextHint: null,
+      }),
+    )
+
+    expect(mocks.submit).not.toHaveBeenCalled()
+    expect(mocks.create).not.toHaveBeenCalled()
+    expect(result.current.canStartDictation).toBe(false)
+  })
+
+  it('adds a streamed action proposal to the detail and blocks the conversation', async () => {
+    const { result } = openResponseProvider()
+    mockDetail([], initialResponse)
+    await act(() => result.current.selectSession(detail.session.id))
+
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'action',
+          block: null,
+          action_proposal: proposalDto,
+        }),
+      ),
+    )
+
+    expect(result.current.sessionDetail?.actionItems).toEqual([proposal])
+    expect(result.current.blockingActionProposalId).toBe('proposal-a')
+  })
+
+  it('keeps the detail state when a streamed proposal is already known', async () => {
+    const { result } = openResponseProvider()
+    mockDetail([finalProposal], initialResponse)
+    await act(() => result.current.selectSession(detail.session.id))
+
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'action',
+          block: null,
+          action_proposal: proposalDto,
+        }),
+      ),
+    )
+
+    expect(result.current.sessionDetail?.actionItems).toEqual([finalProposal])
+    expect(result.current.blockingActionProposalId).toBeNull()
+  })
+
+  it('keeps a streamed proposal through a read that predates it while the answer runs', async () => {
+    const { result } = openResponseProvider()
+    mockDetail([], initialResponse)
+    await act(() => result.current.selectSession(detail.session.id))
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'action',
+          block: null,
+          action_proposal: proposalDto,
+        }),
+      ),
+    )
+
+    await act(() => result.current.refresh())
+
+    expect(result.current.sessionDetail?.actionItems).toEqual([proposal])
+  })
+
+  it('replaces the proposals with the authoritative list of a read after the answer ended', async () => {
+    const { result } = openResponseProvider()
+    mockDetail([], initialResponse)
+    await act(() => result.current.selectSession(detail.session.id))
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 2,
+          kind: 'action',
+          block: null,
+          action_proposal: proposalDto,
+        }),
+      ),
+    )
+    mockDetail([])
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 3,
+          kind: 'completed',
+          status: 'completed',
+          block: null,
+        }),
+      ),
+    )
+
+    await waitFor(() => expect(result.current.sessionDetail?.actionItems).toEqual([]))
+    expect(result.current.blockingActionProposalId).toBeNull()
+  })
+
+  it('keeps the known proposals when an older message page carries other proposals', async () => {
+    const olderProposal = {
+      ...proposal,
+      id: 'proposal-old',
+      status: 'declined' as const,
+      createdAt: '2026-10-09T00:00:00Z',
+    }
+    const { result } = openResponseProvider()
+    mocks.detail.mockImplementation(async ({ data }: { data: { cursor?: string } }) => ({
+      ...detail,
+      pendingLearnerMessageId: null,
+      response: completedResponse,
+      messages: data.cursor
+        ? { items: [], nextCursor: null }
+        : { items: [], nextCursor: 'older' },
+      actionItems: data.cursor ? [olderProposal] : [proposal],
+    }))
+    await act(() => result.current.selectSession(detail.session.id))
+
+    await act(() => result.current.loadOlderMessages())
+
+    expect(result.current.sessionDetail?.actionItems).toEqual([olderProposal, proposal])
+  })
+
+  describe('bounded refresh', () => {
+    async function openBlocked() {
+      const view = await openConversation([proposal])
+      mocks.detail.mockClear()
+      vi.useFakeTimers()
+      return view
+    }
+
+    it('re-reads immediately and then every second until the proposal is final', async () => {
+      const { result } = await openBlocked()
+      mocks.detail
+        .mockResolvedValueOnce({
+          ...detail,
+          response: completedResponse,
+          actionItems: [proposal],
+        })
+        .mockResolvedValueOnce({
+          ...detail,
+          response: completedResponse,
+          actionItems: [finalProposal],
+        })
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+      expect(result.current.isRefreshingActions).toBe(true)
+      expect(result.current.blockingActionProposalId).toBe('proposal-a')
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(999)
+      })
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1)
+      })
+
+      expect(mocks.detail).toHaveBeenCalledTimes(2)
+      expect(result.current.isRefreshingActions).toBe(false)
+      expect(result.current.hasActionRefreshTimedOut).toBe(false)
+      expect(result.current.blockingActionProposalId).toBeNull()
+      expect(result.current.sessionDetail?.actionItems).toEqual([finalProposal])
+    })
+
+    it('stops after one read when the proposal is already final', async () => {
+      const { result } = await openBlocked()
+      mockDetail([finalProposal])
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000)
+      })
+
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+      expect(result.current.isRefreshingActions).toBe(false)
+    })
+
+    it('gives up after ten reads and lets the learner re-read with refreshActions', async () => {
+      const { result } = await openBlocked()
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000)
+      })
+
+      expect(mocks.detail).toHaveBeenCalledTimes(10)
+      expect(result.current.isRefreshingActions).toBe(false)
+      expect(result.current.hasActionRefreshTimedOut).toBe(true)
+      expect(result.current.blockingActionProposalId).toBe('proposal-a')
+
+      mocks.detail.mockClear()
+      mockDetail([finalProposal])
+      await act(async () => result.current.refreshActions())
+
+      expect(mocks.detail).toHaveBeenCalledTimes(1)
+      expect(result.current.hasActionRefreshTimedOut).toBe(false)
+      expect(result.current.isRefreshingActions).toBe(false)
+      expect(result.current.blockingActionProposalId).toBeNull()
+    })
+
+    it('counts a failed read as an attempt and keeps trying', async () => {
+      const { result } = await openBlocked()
+      mocks.detail.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce({
+        ...detail,
+        response: completedResponse,
+        actionItems: [finalProposal],
+      })
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+      expect(result.current.isRefreshingActions).toBe(true)
+      expect(result.current.conversationError).toBeNull()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000)
+      })
+
+      expect(result.current.blockingActionProposalId).toBeNull()
+      expect(result.current.isRefreshingActions).toBe(false)
+    })
+
+    it('clears the private state when a read loses the account scope', async () => {
+      const { result } = await openBlocked()
+      mocks.detail.mockRejectedValueOnce(new Error('A sessão da conta mudou'))
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+
+      expect(result.current.scopeError).toBe(
+        'Não foi possível confirmar sua sessão. Atualize a página.',
+      )
+      expect(result.current.sessionDetail).toBeNull()
+      expect(result.current.isRefreshingActions).toBe(false)
+    })
+
+    it('abandons the refresh when another conversation is opened', async () => {
+      const { result } = await openBlocked()
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+      expect(result.current.isRefreshingActions).toBe(true)
+      act(() => result.current.startNewConversation())
+      mocks.detail.mockClear()
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000)
+      })
+
+      expect(mocks.detail).not.toHaveBeenCalled()
+      expect(result.current.isRefreshingActions).toBe(false)
+      expect(result.current.hasActionRefreshTimedOut).toBe(false)
+    })
+
+    it('does nothing without a selected conversation', async () => {
+      const { result } = openResponseProvider()
+      mocks.detail.mockClear()
+
+      await act(async () => result.current.onActionResolved('proposal-a'))
+
+      expect(mocks.detail).not.toHaveBeenCalled()
+      expect(result.current.isRefreshingActions).toBe(false)
+    })
   })
 })
 
