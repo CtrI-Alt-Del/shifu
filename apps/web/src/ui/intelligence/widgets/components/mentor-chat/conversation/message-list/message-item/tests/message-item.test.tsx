@@ -37,8 +37,6 @@ const makeHookValue = (
   attachments: [],
   visibleLength: {},
   handleOpenAttachment,
-  shouldAnimateEntrance: false,
-  shouldReduceMotion: true,
   copyAccessibleLabel: 'Copiar mensagem',
   copyContent: 'Resposta do Mentor',
   copyError: false,
@@ -300,8 +298,6 @@ describe('MessageItem', () => {
         isLearnerMessage: true,
         isMentorMessage: false,
         speakerLabel: null,
-        shouldAnimateEntrance: true,
-        shouldReduceMotion: false,
       }),
     )
 

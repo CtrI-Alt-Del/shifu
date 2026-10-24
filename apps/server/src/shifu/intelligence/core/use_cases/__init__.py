@@ -101,6 +101,12 @@ from .summarize_mentor_session_context_use_case import (
 from .upload_mentor_attachment_use_case import (
     UploadMentorAttachmentUseCase as UploadMentorAttachmentUseCase,
 )
+from .classify_planning_intent_use_case import (
+    ClassifyPlanningIntentUseCase as ClassifyPlanningIntentUseCase,
+)
+from .retrieve_planning_skills_use_case import (
+    RetrievePlanningSkillsUseCase as RetrievePlanningSkillsUseCase,
+)
 from .update_learner_memories_use_case import (
     UpdateLearnerMemoriesUseCase as UpdateLearnerMemoriesUseCase,
 )

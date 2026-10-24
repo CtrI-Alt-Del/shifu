@@ -34,3 +34,6 @@ from .mentor_sessions_repository import (
 from .planning_sessions_repository import (
     SqlalchemyPlanningSessionsRepository as SqlalchemyPlanningSessionsRepository,
 )
+from .planning_embeddings_repository import (
+    SqlalchemyPlanningEmbeddingsRepository as SqlalchemyPlanningEmbeddingsRepository,
+)

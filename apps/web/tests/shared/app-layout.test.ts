@@ -240,7 +240,7 @@ test.describe('AppLayout', () => {
     await expect(
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }).getByRole('alert'),
     ).toHaveText(/Não foi possível sair agora\. Tente novamente\./)
-    await expect(authenticatedPage).toHaveURL(/\/gamification\/?$/)
+    await expect(authenticatedPage).toHaveURL(/\/gamification\/overview\/?$/)
 
     await authenticatedPage.getByRole('menuitem', { name: 'Sair' }).click()
 

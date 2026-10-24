@@ -529,8 +529,9 @@ test.describe('MemoriesPage', () => {
       nodes.map((node) => node.getAttribute('aria-label')),
     )) as string[]
     await page.getByRole('tab', { name: 'Lista' }).click()
+    // The list renders after the tab switch; read it only once every row is in.
+    await expect(rows(page)).toHaveCount(mapNames.length)
     const listTexts = await rows(page).allInnerTexts()
-    expect(listTexts).toHaveLength(mapNames.length)
     for (const name of mapNames) {
       const content = name.split(': ').slice(1).join(': ')
       expect(listTexts.some((text) => text.includes(content))).toBe(true)

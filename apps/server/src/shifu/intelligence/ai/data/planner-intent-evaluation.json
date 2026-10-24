@@ -1,0 +1,174 @@
+{
+  "calibration": [
+    {
+      "text": "Quero aprender a programar do zero",
+      "label": "learning"
+    },
+    {
+      "text": "Preciso dominar JavaScript para o trabalho",
+      "label": "learning"
+    },
+    {
+      "text": "Me ensina a montar páginas com HTML e CSS",
+      "label": "learning"
+    },
+    {
+      "text": "Quero criar APIs para um aplicativo",
+      "label": "learning"
+    },
+    {
+      "text": "Qual é a previsão do tempo para amanhã em Fortaleza?",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Quero comprar um notebook barato",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Me conta uma piada",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Quero melhorar",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Alguma coisa com computador",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Não quero mais ficar perdido quando leio código",
+      "label": "learning"
+    },
+    {
+      "text": "Não sei exatamente, talvez algo de tecnologia",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Agende uma reunião com o meu chefe amanhã",
+      "label": "out-of-scope"
+    }
+  ],
+  "held_out": [
+    {
+      "text": "Quero aprender lógica de programação",
+      "label": "learning"
+    },
+    {
+      "text": "Preciso entender como funcionam condições e laços",
+      "label": "learning"
+    },
+    {
+      "text": "Quero construir interfaces com React",
+      "label": "learning"
+    },
+    {
+      "text": "Quero aprender front-end para fazer sites",
+      "label": "learning"
+    },
+    {
+      "text": "Não quero front-end, prefiro aprender APIs e back-end",
+      "label": "learning"
+    },
+    {
+      "text": "Quero sair do zero em programação sem nunca ter programado",
+      "label": "learning"
+    },
+    {
+      "text": "Quero me preparar para uma vaga júnior de desenvolvimento web",
+      "label": "learning"
+    },
+    {
+      "text": "Gostaria de estudar JavaScript e depois React",
+      "label": "learning"
+    },
+    {
+      "text": "Quero aprender a estilizar páginas com CSS",
+      "label": "learning"
+    },
+    {
+      "text": "Preciso aprender a consumir e criar APIs HTTP",
+      "label": "learning"
+    },
+    {
+      "text": "Quero aprender a tocar violão",
+      "label": "learning"
+    },
+    {
+      "text": "Nunca programei e quero começar pelo básico",
+      "label": "learning"
+    },
+    {
+      "text": "Quero entender algoritmos para resolver problemas",
+      "label": "learning"
+    },
+    {
+      "text": "Não entendo nada de web e quero mudar isso",
+      "label": "learning"
+    },
+    {
+      "text": "Quero aprender a escrever funções e organizar código",
+      "label": "learning"
+    },
+    {
+      "text": "Quanto custa uma passagem para Lisboa?",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Faça o meu trabalho da faculdade por mim e entregue amanhã",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Qual time ganhou o jogo de ontem?",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Me indica um restaurante italiano",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Pode traduzir este contrato para o inglês?",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Qual é a capital da Austrália?",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Me lembra de pagar a conta de luz",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Escreva um poema para a minha namorada",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "Quero evoluir",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Alguma coisa de informática",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Preciso de ajuda com o meu futuro",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Me ajuda aí",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Quero fazer um curso",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Não sei bem, algo para melhorar no trabalho",
+      "label": "ambiguous"
+    },
+    {
+      "text": "Tecnologia",
+      "label": "ambiguous"
+    }
+  ]
+}

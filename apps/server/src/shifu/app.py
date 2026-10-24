@@ -311,6 +311,7 @@ class FastAPIApp:
             outbox_engine=database_engine,
             route_provider=mentor_route_provider,
             telemetry=mentor_telemetry_provider,
+            curriculum_catalog_provider=curriculum_catalog_provider,
         )
         learning_registry = LearningWorkflowsRegistry(
             settings,
@@ -512,6 +513,12 @@ class FastAPIApp:
         app.state.mentor_goal_destinations_provider = mentor_goal_destinations_provider
         app.state.mentor_route_provider = intelligence_registry.route_provider
         app.state.mentor_catalog_provider = mentor_catalog_provider
+        app.state.planning_intent_classifier_provider = (
+            intelligence_registry.planning_intent_classifier
+        )
+        app.state.planning_skill_retrieval_provider = (
+            intelligence_registry.planning_skill_retrieval
+        )
         app.state.intelligence_workflows_registry = intelligence_registry
         app.state.learning_workflows_registry = learning_registry
         app.state.generate_mentor_title_provider = (

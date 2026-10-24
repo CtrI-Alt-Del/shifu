@@ -3,7 +3,6 @@ from shifu.gamification.core.domain.achievement_criterion_label import (
 )
 from shifu.gamification.core.domain.entities import EarnedAchievement, XpGrant
 from shifu.gamification.core.domain.enums import XpSource
-from shifu.gamification.core.domain.errors import GamificationProfileNotFoundError
 from shifu.gamification.core.domain.structures import XpHistory, XpHistoryEntry
 from shifu.gamification.core.interfaces import GamificationDatabase
 
@@ -28,11 +27,9 @@ class GetXpHistoryUseCase:
         self._database = database
 
     def execute(self, account_id: str) -> XpHistory:
+        # No profile lookup: an account whose profile row has not been created
+        # yet simply has no grants, so it reads the empty initial history.
         with self._database.transaction() as repositories:
-            profile = repositories.profiles.find_by_account_id(account_id)
-            if profile is None:
-                raise GamificationProfileNotFoundError
-
             grants = repositories.xp_grants.find_many_by_account_id(account_id)
             earned = repositories.earned_achievements.find_many_by_account_id(
                 account_id

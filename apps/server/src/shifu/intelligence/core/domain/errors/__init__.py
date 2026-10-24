@@ -37,6 +37,12 @@ from .mentor_title_output_invalid_error import (
 from .mentor_title_unavailable_error import (
     MentorTitleUnavailableError as MentorTitleUnavailableError,
 )
+from .planning_classification_unavailable_error import (
+    PlanningClassificationUnavailableError as PlanningClassificationUnavailableError,
+)
+from .planning_index_unavailable_error import (
+    PlanningIndexUnavailableError as PlanningIndexUnavailableError,
+)
 from .learner_memory_not_found_error import (
     LearnerMemoryNotFoundError as LearnerMemoryNotFoundError,
 )

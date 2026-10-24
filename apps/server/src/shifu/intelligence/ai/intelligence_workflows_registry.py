@@ -76,6 +76,14 @@ from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_p
 from shifu.intelligence.providers.routing.lazy.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
 )
+from shifu.intelligence.providers.planning.intent_classification.openrouter.jev_planning_intent_classifier_provider import (
+    JevPlanningIntentClassifierProvider,
+)
+from shifu.intelligence.providers.planning.lazy_planning_skill_retrieval_provider import (
+    LazyPlanningSkillRetrievalProvider,
+)
+from shifu.intelligence.ai.data.planner_resources import PlannerResources
+from shifu.intelligence.core.domain.errors import PlanningIndexUnavailableError
 from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
     TextrankMentorConversationSummarizerProvider,
 )
@@ -100,7 +108,11 @@ if TYPE_CHECKING:
     from langfuse import Langfuse
     from sqlalchemy.engine import Engine
 
-    from shifu.intelligence.core.domain.structures import MentorInferenceUsage
+    from shifu.intelligence.core.domain.structures import (
+        MentorInferenceUsage,
+        PlanningQuery,
+        PlanningSkillRanking,
+    )
     from shifu.intelligence.core.interfaces import (
         GenerateMentorTitleProvider,
         IntelligenceDatabase,
@@ -111,9 +123,12 @@ if TYPE_CHECKING:
         MentorGenerationLimitProvider,
         MentorRouteProvider,
         MentorTelemetryProvider,
+        PlanningIntentClassifierProvider,
+        PlanningSkillRetrievalProvider,
     )
     from shifu.shared.core.interfaces import (
         CodeRubricAssessorProvider,
+        CurriculumCatalogProvider,
         FileStorageProvider,
         MentorAccessProvider,
         MentorCatalogProvider,
@@ -167,6 +182,12 @@ class _UnavailableReviewerAgent:
         raise ServiceUnavailableError('Mentor response review is unavailable.')
 
 
+class _UnavailablePlanningSkillRetrievalProvider:
+    def retrieve(self, query: PlanningQuery) -> PlanningSkillRanking:
+        del query
+        raise PlanningIndexUnavailableError
+
+
 class _LazyEmbeddingsProvider:
     """Load the pinned local E5 model once, on first use, behind the embeddings port."""
 
@@ -214,6 +235,7 @@ class IntelligenceWorkflowsRegistry:
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
+        curriculum_catalog_provider: CurriculumCatalogProvider | None = None,
         summarizer: MentorConversationSummarizerProvider | None = None,
         learner_memory_analyzer: LearnerMemoryAnalyzerProvider | None = None,
     ) -> None:
@@ -471,6 +493,23 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_client = self._build_code_rubric_provider(
             settings, self._code_rubric_http_client
         )
+        # Planner ports share the decisions client; the index loads on first use only.
+        self._planning_intent_classifier: PlanningIntentClassifierProvider = (
+            JevPlanningIntentClassifierProvider(
+                self._code_rubric_http_client,
+                settings.openrouter_api_key,
+                str(settings.openrouter_decisions_url),
+                settings.jev_model,
+                PlannerResources().manifest.intent_thresholds,
+            )
+        )
+        self._planning_skill_retrieval: PlanningSkillRetrievalProvider = (
+            LazyPlanningSkillRetrievalProvider(
+                self._database, curriculum_catalog_provider
+            )
+            if curriculum_catalog_provider is not None
+            else _UnavailablePlanningSkillRetrievalProvider()
+        )
         database_url = settings.agentos_database_url
         self._runtime = (
             AgentOSRuntime(
@@ -574,6 +613,14 @@ class IntelligenceWorkflowsRegistry:
     @property
     def route_provider(self) -> MentorRouteProvider:
         return self._route_provider
+
+    @property
+    def planning_intent_classifier(self) -> PlanningIntentClassifierProvider:
+        return self._planning_intent_classifier
+
+    @property
+    def planning_skill_retrieval(self) -> PlanningSkillRetrievalProvider:
+        return self._planning_skill_retrieval
 
     @property
     def observability_provider(self) -> LangfuseTelemetryProvider:

@@ -78,7 +78,8 @@ describe('useGoalsListSection routed Goal list consumer', () => {
     const { result } = setup()
     await waitFor(() => expect(result.current.state).toBe('populated'))
     expect(result.current.goals).toEqual([GOAL])
-    expect(result.current.goalsCountLabel).toBe('1 objetivo')
+    expect(result.current.goalsCount).toBe(1)
+    expect(result.current.formatGoalsCountLabel(1)).toBe('1 objetivo')
     expect(mocks.get).toHaveBeenCalledWith('/learning/goals', {
       headers: { Authorization: 'Bearer test-token' },
     })

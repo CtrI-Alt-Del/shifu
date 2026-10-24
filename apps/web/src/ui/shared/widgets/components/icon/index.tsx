@@ -25,11 +25,16 @@ import {
   FileSpreadsheet,
   FileText,
   FileType,
+  Flag,
+  Flame,
+  Footprints,
   History,
   Eye,
   EyeOff,
   GraduationCap,
   House,
+  Info,
+  Layers,
   List,
   LoaderCircle,
   Lock,
@@ -50,6 +55,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
+  TrendingUp,
   Search,
   Trash2,
   Trophy,
@@ -85,11 +91,16 @@ export type IconName =
   | 'file-spreadsheet'
   | 'file-text'
   | 'file-type'
+  | 'flag'
+  | 'flame'
+  | 'footprints'
   | 'history'
   | 'eye'
   | 'eye-off'
   | 'graduation-cap'
   | 'home'
+  | 'info'
+  | 'layers'
   | 'list'
   | 'loader-circle'
   | 'lock'
@@ -110,6 +121,7 @@ export type IconName =
   | 'sliders-horizontal'
   | 'sparkles'
   | 'target'
+  | 'trending-up'
   | 'search'
   | 'trash-2'
   | 'trophy'
@@ -143,11 +155,16 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'file-spreadsheet': FileSpreadsheet,
   'file-text': FileText,
   'file-type': FileType,
+  flag: Flag,
+  flame: Flame,
+  footprints: Footprints,
   history: History,
   eye: Eye,
   'eye-off': EyeOff,
   'graduation-cap': GraduationCap,
   home: House,
+  info: Info,
+  layers: Layers,
   list: List,
   'loader-circle': LoaderCircle,
   lock: Lock,
@@ -168,6 +185,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'sliders-horizontal': SlidersHorizontal,
   sparkles: Sparkles,
   target: Target,
+  'trending-up': TrendingUp,
   search: Search,
   'trash-2': Trash2,
   trophy: Trophy,
