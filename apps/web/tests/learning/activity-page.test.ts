@@ -100,6 +100,7 @@ test('assesses and submits an HTML/CSS/JavaScript question through the protected
   const htmlSource = '<main><h1>Minha página</h1></main>'
   const htmlActivity = {
     ...activity,
+    accountId: 'playwright-account',
     activityRevision: 'html-revision-1',
     questions: [
       {

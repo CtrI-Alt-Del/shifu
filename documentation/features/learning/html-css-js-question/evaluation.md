@@ -10,7 +10,7 @@ last_updated_at: 2026-10-24
 | Field | State |
 | --- | --- |
 | Implementation | CA-01–CA-10 implemented; nested preview entrypoint correction and REST examples integrated |
-| Automated checks | CI-01–CI-08 passed on the integrated working tree; current-head CI pending publication |
+| Automated checks | CI-01–CI-08 passed locally; PR run 212 exposed one integration-test fixture omission, corrected in the current changes; rerun pending publication |
 | Type / lint / complexity | Web and Server type, lint, architecture and build gates passed; dedicated quantitative complexity tooling unavailable |
 | Manual checks | VM-01 partially passed in an authenticated disposable-database journey; final Activity submission was rate-limited and its result page was not reached |
 | Visual checks | VM-02 captures exist at required desktop/mobile viewports; desktop Pencil references are unavailable, so visual comparison remains blocked |
@@ -50,6 +50,7 @@ last_updated_at: 2026-10-24
 | EV-11 | Baseline regression / Automated / existing React and Activity consumers | Passed | Feature branch, 2026-10-23; local Web dependencies | `apps/web/node_modules/.bin/vitest.cmd run` with five Activity/React/result test files from `apps/web`; `TEMP` and `TMP` used an ignored task-local directory | 80 tests passed in 5 files. `pnpm` could not resolve its package-manager version because registry DNS was unavailable; direct installed Vitest binary was used. |
 | EV-12 | Baseline regression / Automated / existing Curriculum and Learning consumers | Passed | Feature branch, 2026-10-23; local Server venv and disposable Testcontainers | `.venv/Scripts/python.exe -m pytest -q` with `test_react_question.py` and six named Learning use-case files from `apps/server`, with Docker access | 240 tests passed with 1 warning in 13.56s. An earlier unelevated attempt failed during fixture setup because Docker named-pipe access was denied; rerun with local Docker access passed. |
 | EV-13 | VM-01 readiness / Manual / CA-03–09 | Partial | Disposable local environment, 2026-10-24 | Guarded fixture prepared an isolated PostgreSQL database; isolated Redis, API, decision stub and Web served the authenticated Playwright journey | Authenticated Activity and preliminary evaluation worked. A later retry after restarting the API had an issuer/JWKS configuration mismatch; this did not invalidate the earlier successful journey. Task-started disposable services are stopped before handoff; shared Compose services remain untouched. |
+| EV-14 | CI / Automated / HTML Activity integration | Corrected; CI rerun pending | PR #44, run 212, commit `99f17f9`; 2026-10-24 | GitHub Actions Web integration job ran 193 Playwright scenarios | 192 passed. The HTML Activity test failed because its mocked protected Activity response omitted `accountId`, making the routed page treat itself as outside online authority and keep submission disabled. Added the server-enriched `accountId` to that mock only. TypeScript and Biome pass locally. Local Playwright rerun was unavailable because Docker Desktop's daemon is not running; current CI will verify the correction. |
 
 Integrated Server selection, run from `apps/server` with Docker access for
 disposable Testcontainers (EV-01, EV-04–EV-07):
@@ -78,6 +79,7 @@ candidate; no product code in those consumers changed afterward.
 | ACH-02 | REST examples omitted the `html_css_js` response/request contract; Implementation Reviewer finding, CA-01/06/07 | Low | REST contract review | Added the discriminator/detail documentation plus preliminary-evaluation and mixed-submission examples to `apps/server/rest-client/learning/activities.rest`. |
 | ACH-03 | Final official browser submission returned 429; EV-09/EV-13 | Blocking for final manual evidence | VM-01 | Authenticated Activity, preliminary evaluation and draft recovery passed in the disposable fixture. The official result page was not reached after API throttling. |
 | ACH-04 | Pencil references Veyl9/EzCt3 are not exported; EV-10 | Blocking for visual comparison | VM-02 | Desktop/mobile Activity screenshots and overflow measurement now exist. The mobile FAB/CTA overlap was corrected in source, but a post-fix capture and reference comparison need fresh authenticated access and exported images. |
+| ACH-05 | CI run 212: HTML Activity Playwright test kept submit disabled; EV-14 | Medium | CI rerun | Added the `accountId` field returned by the real `getActivityAction` to the mocked route response. This restores the online-authority state required by the submit control; no production behavior changed. TypeScript and Biome pass locally; CI rerun pending. |
 
 # Lessons Learned
 
@@ -89,10 +91,10 @@ None.
 | --- | --- |
 | Candidate | `feat/server/SHIFU-86-html-css-js`; implementation commit `0d8fd36`, based on `1488c9437c81016f328fcdff0397b427bbb92f0d` |
 | Completed | CA-01–CA-09 implementation and automated proof; CA-10 UI/keyboard implementation and automated checks; all configured local static/build gates; Spec revision 1 approved; implementation-review corrections integrated and checked |
-| Unfinished | Confirm official submission/result in browser; compare screenshots to exported Pencil references; current-head CI |
+| Unfinished | Confirm official submission/result in browser; compare screenshots to exported Pencil references; verify the integration-test fixture correction on current-head CI |
 | Uncommitted work | No tracked changes remain. The fixture, mobile spacing adjustment, and Evaluation update were committed in `392f73a`; the two user-provided root task documents remain untracked and excluded. |
 | Active processes | Shared Docker Compose services PostgreSQL, Inngest and Mailpit were already running and remain untouched; pre-existing API process not managed by this task; task-started Web was stopped after browser validation |
-| Blockers | Official browser submit returned 429 before producing a result page; Pencil references have no exported image paths; `gh auth status` reports invalid GitHub token although git push credentials work |
+| Blockers | Official browser submit returned 429 before producing a result page; Pencil references have no exported image paths; local Docker daemon is unavailable for rerunning Playwright here |
 | Next action | Review current-head CI on PR #44; repeat only the final submit after the rate-limit window, and compare captures if references are exported |
 
 # Delivery
