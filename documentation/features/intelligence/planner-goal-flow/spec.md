@@ -1,7 +1,7 @@
 ---
 title: Goal Planner backend flow with interview, proposal validation and temporary Redis state
 status: implemented
-revision: 2
+revision: 3
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-91
@@ -140,7 +140,7 @@ PlanningQuestionBatch(id, questions: tuple[PlanningQuestion, ...])      # 1..4, 
 PlanningAnswer(question_id, option_ids: tuple[str, ...])
 PlanningAnsweredQuestion(question: PlanningQuestion, option_ids: tuple[str, ...])  # companion, validates the selection
 PlanningAnsweredBatch(batch_id, items: tuple[PlanningAnsweredQuestion, ...])
-PlanningOperation(id, kind, started_at)
+PlanningOperation(id, kind, started_at, stage: PlanningOperationStage | None = None)
 PlanningProposalSkill(skill_id, name, justification)
 PlanningSkillRelation(skill_id, foundation_skill_id)
 PlanningProposal(title, description, skills, relations)                  # ≥ 1 skill, unique, relations ⊆ skills
@@ -482,4 +482,5 @@ Not applicable: this delivery has no user interface.
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-10-20 | Initial contract | SHIFU-91 and PRD Intelligence v4; Mentor workflow and registry patterns reused |
+| 3 | 2026-10-20 | `PlanningOperation.stage` (`analyzing`, `retrieving`, `interviewing`, `composing`) reported by the workflow through `ReportPlanningProgressUseCase` under the same operation/generation fence and exposed as `Detail.operation.stage`; `.rest` examples for every planner route | SHIFU-92: the interview page represents the real processing stage of the backend (see `../planner-interview/spec.md`) |
 | 2 | 2026-10-20 | `Detail.answered_batch_count` replaces `answered_batches`; companion structures `PlanningAnsweredQuestion` and `PlanningProposalDraftSkill`; entity read-only views `batch` and `answered_batch_count`; CA-15 restated (a restart is refused while an operation runs, so the generation fence is proven through the timeout path); migration id and test support files recorded | Implementation: the HTTP contract maps entity attributes through `from_attributes`, and RF-07 already forbids a restart during processing |

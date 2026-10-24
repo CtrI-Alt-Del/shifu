@@ -31,6 +31,7 @@ from shifu.intelligence.ai.agno.outputs.planning_proposal_output import (
 from shifu.intelligence.ai.agno.workflows import PlanGoalWorkflow
 from shifu.intelligence.core.domain.enums import (
     PlanningIntentKind,
+    PlanningOperationStage,
     PlanningSessionStatus,
 )
 from shifu.intelligence.core.domain.errors import (
@@ -53,6 +54,7 @@ from shifu.intelligence.core.use_cases import (
     CompletePlanningOperationUseCase,
     GetPlanningSessionUseCase,
     PreparePlanningOperationUseCase,
+    ReportPlanningProgressUseCase,
     RestartPlanningUseCase,
     RetrievePlanningSkillsUseCase,
     RetryPlanningUseCase,
@@ -320,6 +322,7 @@ def harness(
     workflow = PlanGoalWorkflow(
         prepare_use_case=PreparePlanningOperationUseCase(sessions, access),
         complete_use_case=CompletePlanningOperationUseCase(sessions, clock),
+        progress_use_case=ReportPlanningProgressUseCase(sessions, clock),
         classify_use_case=ClassifyPlanningIntentUseCase(classifier),
         retrieve_use_case=RetrievePlanningSkillsUseCase(retrieval, catalog),
         interview_agent=interview,
@@ -536,6 +539,11 @@ class TestPlanGoalWorkflow:
         restarted: list[PlanningSession] = []
 
         def restart_then_answer(**_kwargs: object) -> RunOutput:
+            # The workflow reported its stage before asking the interview model.
+            in_flight = harness.sessions.find_by_id(session.id)
+            assert in_flight is not None
+            assert in_flight.operation is not None
+            assert in_flight.operation.stage is PlanningOperationStage.INTERVIEWING
             # A running operation cannot be restarted: the learner first sees it
             # expire, then restarts, and only then does the old run answer.
             expired = GetPlanningSessionUseCase(

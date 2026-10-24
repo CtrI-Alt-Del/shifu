@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from shifu.intelligence.core.domain.enums import PlanningSessionStatus
+from shifu.intelligence.core.domain.enums import (
+    PlanningOperationStage,
+    PlanningSessionStatus,
+)
 from tests.intelligence.server.controllers.planning_test_support import (
     failed_session,
     interviewing_session,
@@ -100,3 +103,26 @@ class TestGetPlanningSessionController:
         assert unknown.status_code == 404
         assert malformed.status_code == 422
         assert sessions_of(planning_client).find_by_id(foreign.id) is not None
+
+    def test_should_expose_the_stage_reported_by_the_running_operation(
+        self, planning_client: TestClient
+    ) -> None:
+        session = started_session()
+        sessions_of(planning_client).add(session)
+
+        before = planning_client.get(f'/intelligence/planning-sessions/{session.id}')
+        operation = session.operation
+        assert operation is not None
+        assert session.report_progress(
+            operation.id, 1, PlanningOperationStage.RETRIEVING, datetime.now(UTC)
+        )
+        assert sessions_of(planning_client).update(session)
+        after = planning_client.get(f'/intelligence/planning-sessions/{session.id}')
+
+        assert before.status_code == 200, before.text
+        assert before.json()['status'] == 'processing'
+        assert before.json()['operation']['kind'] == 'start'
+        assert before.json()['operation']['stage'] is None
+        assert after.status_code == 200, after.text
+        assert after.json()['operation']['stage'] == 'retrieving'
+        assert after.json()['status'] == 'processing'

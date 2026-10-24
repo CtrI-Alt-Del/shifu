@@ -25,6 +25,7 @@ from shifu.intelligence.ai.agno.outputs.planning_proposal_output import (
 )
 from shifu.intelligence.core.domain.enums import (
     PlanningIntentKind,
+    PlanningOperationStage,
     PlanningQuestionKind,
 )
 from shifu.intelligence.core.domain.structures import (
@@ -65,6 +66,7 @@ if TYPE_CHECKING:
         ClassifyPlanningIntentUseCase,
         CompletePlanningOperationUseCase,
         PreparePlanningOperationUseCase,
+        ReportPlanningProgressUseCase,
         RetrievePlanningSkillsUseCase,
     )
     from shifu.shared.core.interfaces import IdentifierProvider
@@ -119,6 +121,7 @@ class PlanGoalWorkflow(Workflow):
         *,
         prepare_use_case: PreparePlanningOperationUseCase,
         complete_use_case: CompletePlanningOperationUseCase,
+        progress_use_case: ReportPlanningProgressUseCase,
         classify_use_case: ClassifyPlanningIntentUseCase,
         retrieve_use_case: RetrievePlanningSkillsUseCase,
         interview_agent: PlanningInterviewAgent,
@@ -128,6 +131,7 @@ class PlanGoalWorkflow(Workflow):
     ) -> None:
         self._prepare = prepare_use_case
         self._complete = complete_use_case
+        self._progress = progress_use_case
         self._classify = classify_use_case
         self._retrieve = retrieve_use_case
         self._interview = interview_agent
@@ -178,6 +182,7 @@ class PlanGoalWorkflow(Workflow):
         workflow = PlanGoalWorkflow(
             prepare_use_case=self._prepare,
             complete_use_case=self._complete,
+            progress_use_case=self._progress,
             classify_use_case=self._classify,
             retrieve_use_case=self._retrieve,
             interview_agent=copy_agent(self._interview),
@@ -202,6 +207,7 @@ class PlanGoalWorkflow(Workflow):
         # The intent of a generation is classified once; answers never change it.
         if context.answered_batches or context.classification is not None:
             return self._store(state, 'continue')
+        self._report(context, PlanningOperationStage.ANALYZING)
         try:
             classification = self._classify.execute(
                 PlanningQuery(intent=context.intent)
@@ -223,6 +229,7 @@ class PlanGoalWorkflow(Workflow):
         context = state.context
         if context is None or state.result is not None:
             return self._store(state, 'done')
+        self._report(context, PlanningOperationStage.RETRIEVING)
         try:
             retrieval = self._retrieve.execute(
                 PlanningQuery(intent=context.intent, answers=context.answers)
@@ -235,6 +242,7 @@ class PlanGoalWorkflow(Workflow):
             return self._finish(state, self._unsupported(state))
         if len(context.answered_batches) >= MAX_BATCHES:
             return self._store(state, 'continue')
+        self._report(context, PlanningOperationStage.INTERVIEWING)
         try:
             output = PlanningInterviewOutput.model_validate(
                 self._run_agent(self._interview, self._interview_payload(state)),
@@ -257,6 +265,8 @@ class PlanGoalWorkflow(Workflow):
         context = state.context
         if context is None or state.result is not None:
             return self._store(state, 'done')
+        if state.drafts == 0:
+            self._report(context, PlanningOperationStage.COMPOSING)
         try:
             output = PlanningProposalOutput.model_validate(
                 self._run_agent(self._proposal, self._proposal_payload(state)),
@@ -322,6 +332,16 @@ class PlanGoalWorkflow(Workflow):
             context.planning_id, context.operation_id, context.generation, result
         )
         return StepOutput(content=result.kind.value if applied else 'discarded')
+
+    def _report(
+        self, context: PlanningOperationContext, stage: PlanningOperationStage
+    ) -> None:
+        try:
+            self._progress.execute(
+                context.planning_id, context.operation_id, context.generation, stage
+            )
+        except Exception:  # noqa: BLE001 - progress is informative; the run goes on.
+            return
 
     @staticmethod
     def _composition_complete(outputs: Sequence[StepOutput]) -> bool:

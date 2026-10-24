@@ -57,7 +57,9 @@ import {
   Target,
   TrendingUp,
   Search,
+  ShieldAlert,
   Trash2,
+  TriangleAlert,
   Trophy,
   UserRound,
   type LucideIcon,
@@ -123,7 +125,9 @@ export type IconName =
   | 'target'
   | 'trending-up'
   | 'search'
+  | 'shield-alert'
   | 'trash-2'
+  | 'triangle-alert'
   | 'trophy'
   | 'user-circle'
   | 'user-round'
@@ -187,7 +191,9 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   target: Target,
   'trending-up': TrendingUp,
   search: Search,
+  'shield-alert': ShieldAlert,
   'trash-2': Trash2,
+  'triangle-alert': TriangleAlert,
   trophy: Trophy,
   'user-circle': CircleUserRound,
   'user-round': UserRound,

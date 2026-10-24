@@ -21,6 +21,7 @@ export const ROUTES = {
   gamificationXpHistory: '/gamification/xp-history',
   intelligence: '/intelligence',
   intelligenceMemories: '/intelligence/memories',
+  intelligencePlanner: '/intelligence/planner/$planningId',
   account: '/account',
   learningActivity:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
@@ -36,6 +37,7 @@ type StaticRouteName = Exclude<
   | 'learningActivity'
   | 'learningAttempt'
   | 'learningDiagnosticResult'
+  | 'intelligencePlanner'
 >
 
 type LearningActivityRouteIds = {
@@ -99,6 +101,10 @@ export function learningDiagnosticResultPath({
   return ROUTES.learningDiagnosticResult
     .replace('$goalId', encodeURIComponent(goalId))
     .replace('$skillId', encodeURIComponent(skillId))
+}
+
+export function intelligencePlannerPath(planningId: string) {
+  return ROUTES.intelligencePlanner.replace('$planningId', encodeURIComponent(planningId))
 }
 
 export type RouteName = StaticRouteName

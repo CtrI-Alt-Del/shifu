@@ -1,6 +1,7 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
 @mentorSessionId = 01J00000000000000000000000
+@planningId = 01J00000000000000000000004
 @goalId = 01J00000000000000000000001
 @skillId = 01J00000000000000000000002
 @attemptId = 01J00000000000000000000003
@@ -122,6 +123,39 @@ GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/events
 Authorization: Bearer {{accessToken}}
 Accept: text/event-stream
 Last-Event-ID: {{lastSequence}}
+
+### Read planning session state (polled while status is processing)
+GET {{baseUrl}}/intelligence/planning-sessions/{{planningId}}
+Authorization: Bearer {{accessToken}}
+
+### Answer the current question batch (202 while the next step is processed)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/answers
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "batch_id": "batch-1",
+  "answers": [
+    { "question_id": "q1", "option_ids": ["o2"] },
+    { "question_id": "q2", "option_ids": ["o1", "o3"] }
+  ]
+}
+
+### Restart the planning with a new intention (new generation, 202)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/restart
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "initial_intent": "Quero aprender a criar APIs web com JavaScript."
+}
+
+### Retry after a recoverable failure (202)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/retry
+Authorization: Bearer {{accessToken}}
+
+### Cancel and discard the planning (204)
+DELETE {{baseUrl}}/intelligence/planning-sessions/{{planningId}}
 
 ### Decline a pending Mentor action proposal (200 with status declined); 404 for an unknown or foreign proposal, 409 when it already has an outcome or was declined
 POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/action-proposals/{{actionProposalId}}/decline

@@ -7,6 +7,7 @@ from shifu.intelligence.core.domain.entities import PlanningSession
 from shifu.intelligence.core.domain.enums import (
     PlanningIntentKind,
     PlanningOperationKind,
+    PlanningOperationStage,
     PlanningQuestionKind,
     PlanningSessionStatus,
 )
@@ -520,3 +521,93 @@ class TestPlanningStructures:
             ).problems(candidates)
             == ()
         )
+
+
+class TestPlanningSessionProgress:
+    def _started(self) -> PlanningSession:
+        return PlanningSession.start(
+            _PLANNING_ID,
+            '01JACCOUNT000000000000TEST',
+            'revision-1',
+            'Quero aprender web',
+            _OPERATION_ID,
+            _NOW,
+        )
+
+    def test_should_record_the_stage_of_the_current_operation(self) -> None:
+        session = self._started()
+        later = _NOW + timedelta(seconds=5)
+
+        accepted = session.report_progress(
+            _OPERATION_ID, 1, PlanningOperationStage.RETRIEVING, later
+        )
+
+        assert accepted is True
+        assert session.operation is not None
+        assert session.operation.stage is PlanningOperationStage.RETRIEVING
+        assert session.operation.id == _OPERATION_ID
+        assert session.operation.started_at == _NOW
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert session.updated_at == later
+
+    def test_should_replace_an_earlier_stage_with_the_latest_one(self) -> None:
+        session = self._started()
+        assert session.report_progress(
+            _OPERATION_ID, 1, PlanningOperationStage.ANALYZING, _NOW
+        )
+
+        assert session.report_progress(
+            _OPERATION_ID, 1, PlanningOperationStage.COMPOSING, _NOW
+        )
+
+        assert session.operation is not None
+        assert session.operation.stage is PlanningOperationStage.COMPOSING
+
+    def test_should_ignore_progress_of_another_operation_or_generation(self) -> None:
+        session = self._started()
+
+        assert (
+            session.report_progress(
+                _NEXT_OPERATION_ID, 1, PlanningOperationStage.ANALYZING, _NOW
+            )
+            is False
+        )
+        assert (
+            session.report_progress(
+                _OPERATION_ID, 2, PlanningOperationStage.ANALYZING, _NOW
+            )
+            is False
+        )
+        assert session.operation is not None
+        assert session.operation.stage is None
+        assert session.updated_at == _NOW
+
+    def test_should_ignore_progress_once_the_operation_completed(self) -> None:
+        session = self._started()
+        assert session.complete(
+            _OPERATION_ID, 1, PlanningOperationResult.for_batch(_batch()), _NOW
+        )
+
+        assert (
+            session.report_progress(
+                _OPERATION_ID, 1, PlanningOperationStage.INTERVIEWING, _NOW
+            )
+            is False
+        )
+        assert session.operation is None
+        assert session.status is PlanningSessionStatus.INTERVIEW
+
+    def test_should_start_without_a_stage_and_clear_it_on_completion(self) -> None:
+        session = self._started()
+        assert session.operation is not None
+        assert session.operation.stage is None
+        assert session.report_progress(
+            _OPERATION_ID, 1, PlanningOperationStage.COMPOSING, _NOW
+        )
+
+        assert session.complete(
+            _OPERATION_ID, 1, PlanningOperationResult.for_proposal(_proposal()), _NOW
+        )
+
+        assert session.operation is None
+        assert session.status is PlanningSessionStatus.PROPOSAL
