@@ -616,14 +616,21 @@ test.describe('Mentor page memories', () => {
     // Items whose source message is in an older, unloaded page are not shown yet.
     await expect(page.getByText('Memória criada')).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Carregar mensagens anteriores' }).click()
-    await expect(
-      page.locator(`[data-message-id="${MESSAGE_IDS.unansweredQuestion}"]`),
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'Carregar mensagens anteriores' }).click()
-    await expect(
-      page.locator(`[data-message-id="${MESSAGE_IDS.firstQuestion}"]`),
-    ).toBeVisible()
+    // The list also loads older pages on its own near the top, so the explicit button can
+    // be replaced between the lookup and the click; retry until the page it loads is shown.
+    const loadOlderUntilVisible = async (messageId: string) =>
+      expect(async () => {
+        const target = page.locator(`[data-message-id="${messageId}"]`)
+        if (!(await target.isVisible())) {
+          await page
+            .getByRole('button', { name: 'Carregar mensagens anteriores' })
+            .click({ timeout: 2_000 })
+        }
+        await expect(target).toBeVisible({ timeout: 2_000 })
+      }).toPass({ timeout: 15_000 })
+
+    await loadOlderUntilVisible(MESSAGE_IDS.unansweredQuestion)
+    await loadOlderUntilVisible(MESSAGE_IDS.firstQuestion)
 
     const items = page
       .getByRole('list', { name: 'Mensagens da conversa' })
