@@ -7,6 +7,7 @@ import type {
   MentorSessionsPage,
 } from '@/rest/services/intelligence-service'
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
+import type { MentorSessionSummaryState } from '@/core/intelligence/mentor-session-summary'
 
 import type {
   SpeechRecognitionStatus,
@@ -49,6 +50,11 @@ export type MentorContextValue = {
   markBlockPresented(attemptId: string, blockKey: string): void
   selectedSessionId: string | null
   sessionDetail: MentorSessionDetail | null
+  summary: MentorSessionSummaryState
+  isSummarizingContext: boolean
+  blockingActionProposalId: string | null
+  isRefreshingActions: boolean
+  hasActionRefreshTimedOut: boolean
   sessionsPage: MentorSessionsPage
   draft: string
   draftAttachments: MentorDraftAttachment[]
@@ -86,10 +92,13 @@ export type MentorContextValue = {
   sendFirstMessage(surface?: 'page' | 'fab'): Promise<void>
   loadMoreSessions(): Promise<void>
   loadOlderMessages(): Promise<void>
+  revealMessage(messageId: string): Promise<boolean>
   openRenameDialog(sessionId: string): void
   openRemoveDialog(sessionId: string): void
   closeDialog(): void
   renameSession(title: string): Promise<void>
   removeSession(): Promise<void>
   refresh(): Promise<void>
+  refreshActions(): void
+  onActionResolved(proposalId: string): void
 }

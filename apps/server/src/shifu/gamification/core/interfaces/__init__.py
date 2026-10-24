@@ -1,3 +1,9 @@
+from .activity_xp_balances_repository import (
+    ActivityXpBalancesRepository as ActivityXpBalancesRepository,
+)
+from .activity_xp_recognitions_repository import (
+    ActivityXpRecognitionsRepository as ActivityXpRecognitionsRepository,
+)
 from .earned_achievements_repository import (
     EarnedAchievementsRepository as EarnedAchievementsRepository,
 )

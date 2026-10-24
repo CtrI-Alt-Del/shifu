@@ -6,13 +6,20 @@ from shifu.intelligence.core.domain.structures import (
     MentorResponseEvent,
     MentorResponseSnapshot,
 )
-from shifu.intelligence.core.domain.enums import MentorResponseStatus
+from shifu.intelligence.core.domain.enums import (
+    MentorResponseEventKind,
+    MentorResponseStatus,
+)
 from shifu.intelligence.database.sqlalchemy.models import (
+    MentorActionProposalModel,
     MentorResponseEventModel,
     MentorResponseAttemptModel,
     MentorSessionModel,
 )
-from shifu.intelligence.database.sqlalchemy.mappers import MentorResponseEventMapper
+from shifu.intelligence.database.sqlalchemy.mappers import (
+    MentorActionProposalMapper,
+    MentorResponseEventMapper,
+)
 
 
 class SqlalchemyMentorResponseEventsRepository:
@@ -37,11 +44,17 @@ class SqlalchemyMentorResponseEventsRepository:
     def find_after(
         self, account_id: str, session_id: str, sequence: int
     ) -> tuple[MentorResponseEvent, ...]:
-        models = self._session.scalars(
-            select(MentorResponseEventModel)
+        # An `action` event is hydrated with the proposal's current state.
+        rows = self._session.execute(
+            select(MentorResponseEventModel, MentorActionProposalModel)
             .join(
                 MentorSessionModel,
                 MentorSessionModel.id == MentorResponseEventModel.session_id,
+            )
+            .outerjoin(
+                MentorActionProposalModel,
+                MentorActionProposalModel.id
+                == MentorResponseEventModel.action_proposal_id,
             )
             .where(
                 MentorSessionModel.account_id == account_id,
@@ -51,7 +64,15 @@ class SqlalchemyMentorResponseEventsRepository:
             )
             .order_by(MentorResponseEventModel.sequence)
         )
-        return tuple(MentorResponseEventMapper.to_structure(model) for model in models)
+        return tuple(
+            MentorResponseEventMapper.to_structure(
+                model,
+                MentorActionProposalMapper.to_item(proposal)
+                if proposal is not None
+                else None,
+            )
+            for model, proposal in rows
+        )
 
     def snapshot(
         self, account_id: str, session_id: str
@@ -96,9 +117,14 @@ class SqlalchemyMentorResponseEventsRepository:
             (event.failure_code for event in reversed(events) if event.failure_code),
             None,
         )
+        status_events = tuple(
+            event for event in events if event.kind is MentorResponseEventKind.STATUS
+        )
+        # The progress of a response is the progress of its latest status event;
+        # a status event without progress clears it.
         progress = (
-            next((event.progress for event in reversed(events) if event.progress), None)
-            if attempt.status == MentorResponseStatus.PROCESSING
+            status_events[-1].progress
+            if status_events and attempt.status == MentorResponseStatus.PROCESSING
             else None
         )
         return MentorResponseSnapshot(

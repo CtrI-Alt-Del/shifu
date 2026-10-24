@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 export type ObjectiveCardProps = {
@@ -15,8 +16,6 @@ export const ObjectiveCard = ({
   skillCount,
   title,
 }: ObjectiveCardProps) => {
-  const skillCountLabel = skillCount === 1 ? '1 Habilidade' : `${skillCount} Habilidades`
-
   return (
     <Link
       className='group flex flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40'
@@ -30,7 +29,11 @@ export const ObjectiveCard = ({
         </p>
       </div>
       <div className='flex items-center justify-between text-sm text-muted-foreground'>
-        <span>{skillCountLabel}</span>
+        <AnimatedNumber
+          delay={0.35}
+          format={(value) => (value === 1 ? '1 Habilidade' : `${value} Habilidades`)}
+          value={skillCount}
+        />
         <Icon
           className='transition-transform group-hover:translate-x-0.5'
           name='arrow-right'

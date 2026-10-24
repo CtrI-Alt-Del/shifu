@@ -6,6 +6,9 @@ from .account_registration import (
 )
 from .auth_credentials import AuthCredentials as AuthCredentials
 from .authentication import Authentication as Authentication
+from .pending_confirmation_status import (
+    PendingConfirmationStatusResult as PendingConfirmationStatusResult,
+)
 from .resend_confirmation import ResendConfirmationResult as ResendConfirmationResult
 from .password_recovery import (
     PasswordRecoveryDeliverySnapshot as PasswordRecoveryDeliverySnapshot,

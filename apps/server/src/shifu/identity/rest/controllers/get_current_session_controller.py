@@ -1,8 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, TypeAdapter
 
 from shifu.identity.pipes import IdentityPipe
 from shifu.shared.core.domain.structures import AuthenticatedUser
@@ -14,18 +13,17 @@ class Response(BaseModel):
     time_zone: str | None
 
 
+_RESPONSE_ADAPTER = TypeAdapter(Response)
+
+
 class GetCurrentSessionController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.get('/session', response_model=Response, status_code=status.HTTP_200_OK)
+        @router.get('/session', response_model=Response, status_code=200)
         def _(
             user: Annotated[
                 AuthenticatedUser,
                 Depends(IdentityPipe.get_authenticated_user),
             ],
-        ) -> Response | JSONResponse:
-            return Response(
-                account_id=user.account_id,
-                display_name=user.display_name,
-                time_zone=user.time_zone,
-            )
+        ) -> Response:
+            return _RESPONSE_ADAPTER.validate_python(user, from_attributes=True)

@@ -17,6 +17,9 @@ from shifu.learning.core.interfaces.concept_states_repository import (
     ConceptStatesRepository,
 )
 from shifu.learning.core.interfaces.goals_repository import GoalsRepository
+from shifu.learning.core.interfaces.mentor_action_receipts_repository import (
+    MentorActionReceiptsRepository,
+)
 from shifu.learning.core.interfaces.skill_experiences_repository import (
     SkillExperiencesRepository,
 )
@@ -33,6 +36,7 @@ class LearningDatabaseRepositories:
     activity_evaluations: ActivityEvaluationsRepository
     concept_observations: ConceptObservationsRepository
     concept_states: ConceptStatesRepository
+    mentor_action_receipts: MentorActionReceiptsRepository
     events: EventsRepository
 
 

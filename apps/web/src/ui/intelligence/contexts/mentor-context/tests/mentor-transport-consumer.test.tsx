@@ -2,7 +2,12 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createElement, type PropsWithChildren } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { RestError } from '@/core/errors/rest-error'
 import { RestResponse } from '@/core/shared/responses/rest-response'
+import { useConfirmMentorSkillAdditionAction } from '@/ui/intelligence/hooks/use-confirm-mentor-skill-addition-action'
+import { useConfirmMentorSkillRemovalAction } from '@/ui/intelligence/hooks/use-confirm-mentor-skill-removal-action'
+import { useDeclineMentorActionProposalAction } from '@/ui/intelligence/hooks/use-decline-mentor-action-proposal-action'
+import { getMentorSessionSummaryServer } from '@/ui/intelligence/widgets/components/mentor-chat/conversation/summary-marker/use-mentor-session-summary-query'
 import { useMentorContextProvider } from '../use-mentor-context-provider'
 
 const ports = vi.hoisted(() => ({
@@ -14,13 +19,25 @@ const ports = vi.hoisted(() => ({
   navigate: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
     validator: (validate: (data: unknown) => unknown) => ({
       handler:
         (handle: (input: { data: unknown }) => unknown) => (input: { data: unknown }) =>
           handle({ data: validate(input.data) }),
     }),
+    middleware: () => ({
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handle: (input: { data: unknown }) => unknown) => (input: { data: unknown }) =>
+            handle({ data: validate(input.data) }),
+      }),
+    }),
   }),
+}))
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 vi.mock('@tanstack/react-start/server', () => ({
   getRequest: () => new Request('http://localhost/mentor'),
@@ -634,4 +651,492 @@ describe('Mentor consumer through authenticated transport', () => {
       ).toBeTruthy()
     },
   )
+  describe('conversation summary', () => {
+    const boundaryMessageId = '01J7T8AC91Z5K8M4JQ8C2D6F0G'
+    const summaryDetail = {
+      ...detail,
+      summary: {
+        current: {
+          version: 2,
+          boundary_message_id: boundaryMessageId,
+          covered_message_count: 21,
+          completed_at: '2026-10-18T14:00:00Z',
+          after_message_id: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
+        },
+        failure_after_message_id: sessionId,
+      },
+    }
+    class ControlledEventSource extends EventTarget {
+      static instances: ControlledEventSource[] = []
+      close = vi.fn()
+      constructor() {
+        super()
+        ControlledEventSource.instances.push(this)
+      }
+      emit(data: Record<string, unknown>) {
+        this.dispatchEvent(
+          new MessageEvent('mentor.response', { data: JSON.stringify(data) }),
+        )
+      }
+    }
+    const statusEvent = (sequence: number, progress: string | null) => ({
+      session_id: sessionId,
+      attempt_id: attemptId,
+      sequence,
+      kind: 'status',
+      status: 'processing',
+      block: null,
+      consultation: null,
+      progress,
+      failure_code: null,
+      created_at: '2026-10-18T14:00:00Z',
+    })
+
+    it('maps the authenticated detail summary and a replayed summarize-context snapshot', async () => {
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: {
+            ...summaryDetail,
+            response: { ...snapshot, blocks: [], progress: 'summarize-context' },
+          },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.summary).toEqual({
+        current: {
+          version: 2,
+          boundaryMessageId,
+          coveredMessageCount: 21,
+          completedAt: '2026-10-18T14:00:00Z',
+          afterMessageId: '01J7T8AC91Z5K8M4JQ8C2D6F0H',
+        },
+        failureAfterMessageId: sessionId,
+      })
+      expect(result.current.response?.progress).toBe('summarize-context')
+      expect(result.current.isSummarizingContext).toBe(true)
+    })
+
+    it('keeps an empty summary when the detail carries none', async () => {
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.summary).toEqual({
+        current: null,
+        failureAfterMessageId: null,
+      })
+      expect(result.current.isSummarizingContext).toBe(false)
+    })
+
+    it('accepts summarize-context and the closing null progress from the response stream', async () => {
+      ControlledEventSource.instances = []
+      vi.stubGlobal('EventSource', ControlledEventSource)
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...detail, response: { ...snapshot, blocks: [], progress: null } },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+      const source = ControlledEventSource.instances[0]
+      if (!source) throw new Error('The response stream was not opened')
+
+      act(() => source.emit(statusEvent(3, 'summarize-context')))
+      expect(result.current.isSummarizingContext).toBe(true)
+      expect(ControlledEventSource.instances).toHaveLength(1)
+
+      act(() => source.emit(statusEvent(4, null)))
+      expect(result.current.isSummarizingContext).toBe(false)
+      expect(result.current.response?.progress).toBeNull()
+      expect(ControlledEventSource.instances).toHaveLength(1)
+    })
+
+    it('reads the summary content through an authenticated GET server function', async () => {
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: {
+            version: 2,
+            text: 'Nesta conversa, os assuntos foram range.',
+            covered_message_count: 21,
+            first_message_id: boundaryMessageId,
+          },
+        }),
+      )
+
+      const content = await getMentorSessionSummaryServer({ data: { sessionId } })
+
+      expect(ports.get).toHaveBeenCalledWith(
+        `/intelligence/mentor-sessions/${sessionId}/summary`,
+        {
+          headers: { Authorization: 'Bearer test-access', 'Cache-Control': 'no-store' },
+        },
+      )
+      expect(content).toEqual({
+        version: 2,
+        text: 'Nesta conversa, os assuntos foram range.',
+        coveredMessageCount: 21,
+        firstMessageId: boundaryMessageId,
+      })
+    })
+  })
+
+  describe('confirmed actions', () => {
+    const goalId = '01J7T8AC91Z5K8M4JQ8C2D6F1A'
+    const proposalId = '01J7T8AC91Z5K8M4JQ8C2D6F1B'
+    const skillId = '01J7T8AC91Z5K8M4JQ8C2D6F1C'
+    const experienceId = '01J7T8AC91Z5K8M4JQ8C2D6F1D'
+    const proposalDto = {
+      id: proposalId,
+      source_message_id: sessionId,
+      kind: 'add_skill',
+      skill_id: skillId,
+      skill_name: 'Funções em Python',
+      goal_id: goalId,
+      goal_title: 'Aprender a programar',
+      skill_experience_id: null,
+      candidate_goals: [
+        {
+          goal_id: goalId,
+          title: 'Aprender a programar',
+          contains_skill: false,
+          skill_experience_id: null,
+        },
+      ],
+      justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+      status: 'pending',
+      outcome: null,
+      rejection_reason: null,
+      resolved_goal_id: null,
+      resolved_skill_experience_id: null,
+      created_at: '2026-10-23T12:00:00Z',
+    }
+    const proposalDomain = {
+      id: proposalId,
+      sourceMessageId: sessionId,
+      kind: 'add_skill',
+      skillId,
+      skillName: 'Funções em Python',
+      goalId,
+      goalTitle: 'Aprender a programar',
+      skillExperienceId: null,
+      candidateGoals: [
+        {
+          goalId,
+          title: 'Aprender a programar',
+          containsSkill: false,
+          skillExperienceId: null,
+        },
+      ],
+      justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+      status: 'pending',
+      outcome: null,
+      rejectionReason: null,
+      resolvedGoalId: null,
+      resolvedSkillExperienceId: null,
+      createdAt: '2026-10-23T12:00:00Z',
+    }
+    const outcomeBody = {
+      confirmationId: proposalId,
+      operation: 'add_skill',
+      outcome: 'added',
+      rejectionReason: null,
+      goalId,
+      skillId,
+      skillExperienceId: experienceId,
+    }
+    class ControlledEventSource extends EventTarget {
+      static instances: ControlledEventSource[] = []
+      close = vi.fn()
+      constructor() {
+        super()
+        ControlledEventSource.instances.push(this)
+      }
+      emit(data: Record<string, unknown>) {
+        this.dispatchEvent(
+          new MessageEvent('mentor.response', { data: JSON.stringify(data) }),
+        )
+      }
+    }
+    const actionEvent = (actionProposal: unknown) => ({
+      session_id: sessionId,
+      attempt_id: attemptId,
+      sequence: 3,
+      kind: 'action',
+      status: 'processing',
+      block: null,
+      consultation: null,
+      action_proposal: actionProposal,
+      progress: null,
+      failure_code: null,
+      created_at: '2026-10-23T12:00:00Z',
+    })
+
+    it('maps the action items of the authenticated session detail and blocks the conversation', async () => {
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: {
+            ...detail,
+            pending_learner_message_id: null,
+            response: null,
+            action_items: [proposalDto],
+          },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.sessionDetail?.actionItems).toEqual([proposalDomain])
+      expect(result.current.blockingActionProposalId).toBe(proposalId)
+    })
+
+    it('defaults to no action items when the detail carries none', async () => {
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+
+      expect(result.current.sessionDetail?.actionItems).toEqual([])
+      expect(result.current.blockingActionProposalId).toBeNull()
+    })
+
+    it('delivers a streamed action event to the conversation', async () => {
+      ControlledEventSource.instances = []
+      vi.stubGlobal('EventSource', ControlledEventSource)
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...detail, response: { ...snapshot, blocks: [], progress: null } },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+      const source = ControlledEventSource.instances[0]
+      if (!source) throw new Error('The response stream was not opened')
+
+      act(() => source.emit(actionEvent(proposalDto)))
+
+      expect(result.current.sessionDetail?.actionItems).toEqual([proposalDomain])
+      expect(result.current.blockingActionProposalId).toBe(proposalId)
+      expect(result.current.response?.lastSequence).toBe(3)
+    })
+
+    it('reconciles instead of accepting a malformed streamed proposal', async () => {
+      ControlledEventSource.instances = []
+      vi.stubGlobal('EventSource', ControlledEventSource)
+      ports.get.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...detail, response: { ...snapshot, blocks: [], progress: null } },
+        }),
+      )
+      const { result } = renderHook(
+        () => useMentorContextProvider('learner@example.com'),
+        { wrapper },
+      )
+      await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+      await act(() => result.current.selectSession(sessionId))
+      const source = ControlledEventSource.instances[0]
+      if (!source) throw new Error('The response stream was not opened')
+
+      act(() => source.emit(actionEvent({ ...proposalDto, status: 'unknown' })))
+
+      await waitFor(() => expect(source.close).toHaveBeenCalled())
+      expect(result.current.sessionDetail?.actionItems).toEqual([])
+    })
+
+    it('confirms an addition through Learning with the proposal id and the snake_case body', async () => {
+      ports.post.mockResolvedValue(
+        new RestResponse({ statusCode: 200, body: outcomeBody }),
+      )
+      const { result } = renderHook(() => useConfirmMentorSkillAdditionAction(), {
+        wrapper,
+      })
+
+      const outcome = await act(() =>
+        result.current.confirmSkillAddition(goalId, {
+          confirmationId: proposalId,
+          skillId,
+          justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+        }),
+      )
+
+      expect(ports.post).toHaveBeenCalledExactlyOnceWith(
+        `/learning/goals/${goalId}/mentor-skill-additions`,
+        {
+          confirmation_id: proposalId,
+          skill_id: skillId,
+          justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+        },
+        { headers: { Authorization: 'Bearer test-access' } },
+      )
+      expect(outcome).toEqual(outcomeBody)
+    })
+
+    it('confirms a removal through Learning with the experience id', async () => {
+      ports.post.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...outcomeBody, operation: 'remove_skill', outcome: 'removed' },
+        }),
+      )
+      const { result } = renderHook(() => useConfirmMentorSkillRemovalAction(), {
+        wrapper,
+      })
+
+      const outcome = await act(() =>
+        result.current.confirmSkillRemoval(goalId, {
+          confirmationId: proposalId,
+          skillExperienceId: experienceId,
+        }),
+      )
+
+      expect(ports.post).toHaveBeenCalledExactlyOnceWith(
+        `/learning/goals/${goalId}/mentor-skill-removals`,
+        { confirmation_id: proposalId, skill_experience_id: experienceId },
+        { headers: { Authorization: 'Bearer test-access' } },
+      )
+      expect(outcome).toMatchObject({ operation: 'remove_skill', outcome: 'removed' })
+    })
+
+    it.each([
+      [
+        'a safe 503 with a body',
+        new RestResponse({ statusCode: 503, body: { message: 'x' } }),
+        503,
+      ],
+      ['a 503 without a body', new RestResponse({ statusCode: 503 }), 0],
+      [
+        'a network error',
+        new RestResponse({ statusCode: 0, errorMessage: 'Network Error' }),
+        0,
+      ],
+      ['a conflict', new RestResponse({ statusCode: 409, body: { message: 'x' } }), 409],
+    ])(
+      'reports %s with the status the card classifies',
+      async (_label, response, statusCode) => {
+        ports.post.mockResolvedValue(response)
+        const { result } = renderHook(() => useConfirmMentorSkillAdditionAction(), {
+          wrapper,
+        })
+
+        const failure = await act(() =>
+          result.current
+            .confirmSkillAddition(goalId, {
+              confirmationId: proposalId,
+              skillId,
+              justification: 'Você pediu ao Mentor para adicionar esta Habilidade.',
+            })
+            .catch((error: unknown) => error),
+        )
+
+        expect(failure).toBeInstanceOf(RestError)
+        expect((failure as RestError).statusCode).toBe(statusCode)
+      },
+    )
+
+    it('rejects an unauthenticated confirmation before calling Learning', async () => {
+      ports.access.mockResolvedValue(null)
+      const { result } = renderHook(() => useConfirmMentorSkillRemovalAction(), {
+        wrapper,
+      })
+
+      await expect(
+        act(() =>
+          result.current.confirmSkillRemoval(goalId, {
+            confirmationId: proposalId,
+            skillExperienceId: experienceId,
+          }),
+        ),
+      ).rejects.toThrow(/sessão expirou/)
+      expect(ports.post).not.toHaveBeenCalled()
+    })
+
+    it('rejects a confirmation with an invalid identifier before calling Learning', async () => {
+      const { result } = renderHook(() => useConfirmMentorSkillAdditionAction(), {
+        wrapper,
+      })
+
+      await expect(
+        act(() =>
+          result.current.confirmSkillAddition('not-a-ulid', {
+            confirmationId: proposalId,
+            skillId,
+            justification: 'Motivo',
+          }),
+        ),
+      ).rejects.toThrow()
+      expect(ports.post).not.toHaveBeenCalled()
+    })
+
+    it('declines a proposal through Intelligence and maps the answer', async () => {
+      ports.post.mockResolvedValue(
+        new RestResponse({
+          statusCode: 200,
+          body: { ...proposalDto, status: 'declined' },
+        }),
+      )
+      const { result } = renderHook(() => useDeclineMentorActionProposalAction(), {
+        wrapper,
+      })
+
+      const declined = await act(() =>
+        result.current.declineActionProposal(sessionId, proposalId),
+      )
+
+      expect(ports.post).toHaveBeenCalledExactlyOnceWith(
+        `/intelligence/mentor-sessions/${sessionId}/action-proposals/${proposalId}/decline`,
+        undefined,
+        { headers: { Authorization: 'Bearer test-access', 'Cache-Control': 'no-store' } },
+      )
+      expect(declined).toEqual({ ...proposalDomain, status: 'declined' })
+    })
+
+    it('reports a decline refused with 409 as a conflict', async () => {
+      ports.post.mockResolvedValue(
+        new RestResponse({
+          statusCode: 409,
+          body: { message: 'Esta ação já foi concluída.' },
+        }),
+      )
+      const { result } = renderHook(() => useDeclineMentorActionProposalAction(), {
+        wrapper,
+      })
+
+      const failure = await act(() =>
+        result.current
+          .declineActionProposal(sessionId, proposalId)
+          .catch((error: unknown) => error),
+      )
+
+      expect(failure).toBeInstanceOf(RestError)
+      expect((failure as RestError).statusCode).toBe(409)
+    })
+  })
 })

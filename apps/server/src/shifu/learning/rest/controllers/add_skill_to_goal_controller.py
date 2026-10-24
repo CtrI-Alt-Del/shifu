@@ -1,9 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field, TypeAdapter
 
-from shifu.learning.core.domain.entities import SkillExperience
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import AddSkillToGoalUseCase
 from shifu.learning.pipes import LearningPipe
@@ -31,13 +30,16 @@ class Response(BaseModel):
     created: list[CreatedSkillExperience]
 
 
+_RESPONSE_ADAPTER = TypeAdapter[Response](Response)
+
+
 class AddSkillToGoalController:
     @staticmethod
     def handle(router: APIRouter) -> None:
         @router.post(
             '/goals/{goal_id}/skills',
             response_model=Response,
-            status_code=status.HTTP_201_CREATED,
+            status_code=201,
         )
         def _(
             goal_id: str,
@@ -75,17 +77,6 @@ class AddSkillToGoalController:
                 foundation_skill_ids=body.foundation_skill_ids,
             )
 
-            return AddSkillToGoalController._to_response(created_experiences)
-
-    @staticmethod
-    def _to_response(created_experiences: list[SkillExperience]) -> Response:
-        return Response(
-            created=[
-                CreatedSkillExperience(
-                    id=experience.id,
-                    skill_id=experience.skill_id,
-                    status=experience.status.value,
-                )
-                for experience in created_experiences
-            ],
-        )
+            return _RESPONSE_ADAPTER.validate_python(
+                {'created': created_experiences}, from_attributes=True
+            )

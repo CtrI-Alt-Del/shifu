@@ -1,16 +1,19 @@
+import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { COMPETENCY_DETAIL_ID_PATTERN } from '@/core/learning/competency-detail'
 import type {
   ChoiceActivityDetail,
   ChoiceAttemptDetail,
 } from '@/core/learning/choice-activity'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -21,7 +24,11 @@ import type {
 } from '@/core/learning/competency-detail'
 import { getCompetencyDetailAction } from '@/ui/learning/widgets/pages/competency-detail-page/use-competency-detail-page'
 
-export type ChoiceResultRouteProps = {
+export type ChoiceResultSlots = {
+  rewardBand?: ReactNode
+}
+
+export type ChoiceResultRouteProps = ChoiceResultSlots & {
   goalId: string
   skillId: string
   competencyId: string
@@ -31,21 +38,23 @@ export type ChoiceResultRouteProps = {
   onSessionExpired: () => void
 }
 
-export type ChoiceResultRenderProps =
-  | { state: 'loading' }
-  | { state: 'private-absence' }
-  | { state: 'error'; onRetryLoad: () => void }
-  | {
-      state: 'result'
-      activity: ChoiceActivityDetail
-      attempt: ChoiceAttemptDetail
-      recommendation?: ActivityRecommendation | null
-      adaptiveDetail?: AvailableCompetencyDetail | null
-      adaptiveLoadError?: boolean
-      detailIds?: { goalId: string; skillId: string; competencyId: string }
-      onRetryEvaluation: () => Promise<void>
-      onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
-    }
+export type ChoiceResultRenderProps = ChoiceResultSlots &
+  (
+    | { state: 'loading' }
+    | { state: 'private-absence' }
+    | { state: 'error'; onRetryLoad: () => void }
+    | {
+        state: 'result'
+        activity: ChoiceActivityDetail
+        attempt: ChoiceAttemptDetail
+        recommendation?: ActivityRecommendation | null
+        adaptiveDetail?: AvailableCompetencyDetail | null
+        adaptiveLoadError?: boolean
+        detailIds?: { goalId: string; skillId: string; competencyId: string }
+        onRetryEvaluation: () => Promise<void>
+        onOpenRecommendation?: (recommendation: ActivityRecommendation) => void
+      }
+  )
 
 export type ChoiceResultPageProps = ChoiceResultRenderProps | ChoiceResultRouteProps
 
@@ -62,44 +71,68 @@ type ChoiceResultRouteIds = Omit<
 type ValidatedAttemptInput = ChoiceResultRouteIds | { kind: 'invalid-request' }
 
 export const getChoiceAttemptAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (input: unknown): ValidatedAttemptInput =>
       isRouteInput(input) ? input : { kind: 'invalid-request' },
   )
-  .handler(async ({ data }): Promise<ChoiceAttemptDetail | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: ValidatedAttemptInput
+      context: RequestTelemetryContext
+    }): Promise<ChoiceAttemptDetail | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).getChoiceAttempt(access.accessToken, data)
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).getChoiceAttempt(access.accessToken, data)
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export const retryChoiceEvaluationAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (input: unknown): ValidatedAttemptInput =>
       isRouteInput(input) ? input : { kind: 'invalid-request' },
   )
-  .handler(async ({ data }): Promise<{ ok: true } | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: ValidatedAttemptInput
+      context: RequestTelemetryContext
+    }): Promise<{ ok: true } | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
 
-      await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).retryChoiceEvaluation(access.accessToken, data)
-      return { ok: true }
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+        await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).retryChoiceEvaluation(access.accessToken, data)
+        return { ok: true }
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export function useChoiceResultPage(props: ChoiceResultPageProps) {
   const routeProps = isRoutePageProps(props) ? props : null

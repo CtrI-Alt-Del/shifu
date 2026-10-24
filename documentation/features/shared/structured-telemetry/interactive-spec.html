@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shifu — Interactive Spec · Structured JSON telemetry</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2375d6c7'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-size='36' font-family='Arial' fill='%230b1020'%3ES%3C/text%3E%3C/svg%3E">
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#121a2b; --muted:#9aa8c0; --ink:#eef4ff; --line:#26334c; --accent:#75d6c7; --accent-2:#9bb7ff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(135deg,#0b1020,#111c30 60%,#0e1728); color:var(--ink); font:16px/1.55 system-ui,-apple-system,Segoe UI,sans-serif; }
+    a { color:var(--accent); }
+    header { padding:2rem clamp(1rem,5vw,4rem) 1.25rem; border-bottom:1px solid var(--line); }
+    header p { color:var(--muted); margin:.35rem 0; }
+    .meta { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem; }
+    .badge { border:1px solid var(--line); border-radius:999px; padding:.25rem .7rem; color:var(--accent-2); font-size:.88rem; }
+    .layout { display:grid; grid-template-columns:minmax(12rem,18rem) 1fr; gap:1.25rem; max-width:1400px; margin:0 auto; padding:1.25rem clamp(1rem,5vw,4rem) 3rem; }
+    nav { position:sticky; top:1rem; align-self:start; background:rgba(18,26,43,.8); border:1px solid var(--line); border-radius:14px; padding:1rem; }
+    nav a { display:block; padding:.4rem .5rem; text-decoration:none; border-radius:7px; }
+    nav a:hover, nav a:focus-visible { background:#1c2b45; outline:none; }
+    main { min-width:0; }
+    section { background:rgba(18,26,43,.88); border:1px solid var(--line); border-radius:14px; margin-bottom:1rem; padding:1.2rem clamp(1rem,3vw,1.6rem); scroll-margin-top:1rem; }
+    h1,h2,h3 { line-height:1.2; }
+    h1 { margin:.1rem 0 .3rem; font-size:clamp(1.8rem,4vw,3rem); }
+    h2 { color:var(--accent); margin-top:0; }
+    h3 { color:var(--accent-2); }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    code { color:#d8e5ff; }
+    pre { overflow:auto; background:#0a0f1b; border:1px solid var(--line); border-radius:9px; padding:.8rem; }
+    table { width:100%; border-collapse:collapse; display:block; overflow-x:auto; }
+    th,td { border-bottom:1px solid var(--line); text-align:left; vertical-align:top; padding:.55rem .5rem; min-width:10rem; }
+    th { color:var(--accent-2); }
+    details { border:1px solid var(--line); border-radius:9px; margin:.7rem 0; padding:.65rem .8rem; }
+    summary { cursor:pointer; color:var(--accent-2); font-weight:650; }
+    .toolbar { display:flex; gap:.6rem; flex-wrap:wrap; margin:1rem 0; }
+    input { background:#0a0f1b; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:.65rem .8rem; min-width:min(100%,28rem); }
+    button { background:#1a2c4a; color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:.65rem .8rem; cursor:pointer; }
+    button:hover,button:focus-visible { border-color:var(--accent); outline:2px solid rgba(117,214,199,.35); outline-offset:2px; }
+    .trace { border-left:3px solid var(--accent); padding-left:.8rem; }
+    .muted { color:var(--muted); }
+    .hidden { display:none; }
+    @media (max-width:800px) { .layout { grid-template-columns:1fr; } nav { position:static; } nav a { display:inline-block; margin:.1rem; } section { padding:1rem; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="muted">Shifu — Interactive Spec · derived reading companion</p>
+    <h1>Structured JSON telemetry for Web/BFF and API</h1>
+    <p>Source: <code>documentation/features/shared/structured-telemetry/spec.md</code> · revision 5 · status <strong>ready</strong> · generated 2026-10-21</p>
+    <div class="meta"><span class="badge">SHIFU-94</span><span class="badge">complete</span><span class="badge">shared infrastructure</span><span class="badge">no implementation evidence yet</span></div>
+  </header>
+  <div class="layout">
+    <nav aria-label="Spec chapters">
+      <label class="muted" for="search">Search contract</label>
+      <div class="toolbar"><input id="search" type="search" placeholder="RF-02, request_id, CloudWatch…"><button id="expand" type="button">Expand all</button></div>
+      <a href="#objective">Objective</a><a href="#scope">Scope</a><a href="#behavior">Behavior Contract</a><a href="#technical">Technical Contract</a><a href="#verification">Verification Contract</a><a href="#alignment">Documentation Alignment</a><a href="#history">Revision History</a>
+    </nav>
+    <main id="content">
+      <section id="objective"><h2>Objective</h2><p>Define a complete, privacy-safe telemetry contract for the Shifu Web/BFF and API services. Every operational log is one structured JSON line suitable for CloudWatch ECS collection, with bounded correlation across HTTP requests, jobs and integrations. This is infrastructure-only and changes no product outcomes, permissions, persistence models or user journeys.</p><p class="trace">Complete mode is required because the contract crosses applications, middleware, jobs, providers, security/privacy controls and staging verification.</p></section>
+      <section id="scope"><h2>Scope</h2><table><thead><tr><th>Area / actor</th><th>Included</th><th>Excluded or deferred</th></tr></thead><tbody>
+        <tr><td>Web/BFF runtime</td><td>JSON provider, request lifecycle, HTTP events, request ID generation/propagation, environment/version settings</td><td>Browser log collection, analytics, metrics, traces</td></tr>
+        <tr><td>FastAPI/Uvicorn runtime</td><td>JSON formatter/provider, HTTP middleware, error/lifecycle/dependency events</td><td>New REST resources, response bodies, direct AWS logging APIs</td></tr>
+        <tr><td>Jobs and integrations</td><td>Run/event correlation, retry/completion/failure events for Inngest, Resend and OpenRouter</td><td>Event/outbox changes, database migrations, provider-only test files</td></tr>
+        <tr><td>Operations/privacy</td><td>Catalog, levels, CloudWatch queries, field allowlist and exact 14-day staging check</td><td>Terraform, ECS/CloudWatch provisioning, IAM and pipelines; staging delivery remains gated by SHIFU-83/85 evidence.</td></tr>
+      </tbody></table><p>No canonical module RP/JN applies. Requirements trace to Jira SHIFU-94 and the canonical privacy policy's technical-log rules; no product IDs are invented. No <code>.rest</code> collection is created because this change adds no REST resource or route contract.</p><p>Required <code>level</code>/<code>event</code> values are validated at the typed boundary; invalid required values are dropped defensively. Unknown keys and invalid optional <code>operation</code>, <code>job</code>, <code>integration</code> or <code>dependency</code> values are omitted while a valid event remains emit-able; callers cannot provide the derived message or provider envelope fields.</p></section>
+      <section id="behavior"><h2>Behavior Contract</h2><details open><summary>Functional requirements RF-01—RF-08</summary><ol>
+        <li><strong>RF-01.</strong> One JSON line per Web/BFF and API event with UTC timestamp, level, service, environment, version, event and safe message.</li>
+        <li><strong>RF-02.</strong> Use <code>X-Request-ID</code>; retain valid UUID v4, replace invalid/missing values, echo responses and forward BFF→API.</li>
+        <li><strong>RF-03.</strong> Jobs/integrations use bounded <code>run_id</code>/<code>event_id</code> with operation, result, duration and retry fields when applicable.</li>
+        <li><strong>RF-04.</strong> Allowlisted technical fields only; exclude credentials, bodies, content, IPs, user agents and user/account identifiers.</li>
+        <li><strong>RF-05.</strong> Unexpected errors contain stable code, exception type and sanitized frames, never raw messages; telemetry failure never changes business results.</li>
+        <li><strong>RF-06.</strong> Explicit environment/log-level/release-version configuration; local INFO default and deployment-controlled temporary DEBUG.</li>
+        <li><strong>RF-07.</strong> Catalog HTTP, errors, auth, goal/attempt/evaluation, jobs, integrations, lifecycle and dependency events.</li>
+        <li><strong>RF-08.</strong> Staging proves parsing, correlation, version and privacy in both CloudWatch groups with 14-day retention.</li>
+      </ol></details><details><summary>Acceptance criteria CA-01—CA-07</summary><ol>
+        <li><strong>CA-01.</strong> Every emitted line parses and contains mandatory fields at the configured level/version. <span class="trace">RF-01/RF-06; CI-01/CI-02.</span></li>
+        <li><strong>CA-02.</strong> Missing, malformed and valid request IDs behave consistently across BFF, API and response headers. <span class="trace">RF-02; CI-03/VM-01.</span></li>
+        <li><strong>CA-03.</strong> Job/integration lifecycle events contain only applicable correlation and safe operation fields. <span class="trace">RF-03; CI-04/VM-02.</span></li>
+        <li><strong>CA-04.</strong> Forbidden fields and values never appear in serialized telemetry. <span class="trace">RF-04; CI-01/CI-05/VM-03.</span></li>
+        <li><strong>CA-05.</strong> Sanitized unexpected errors preserve the original product response/result. <span class="trace">RF-05; CI-05/VM-03.</span></li>
+        <li><strong>CA-06.</strong> Staging CloudWatch queries prove both groups, correlation/version, privacy and exactly 14-day retention. <span class="trace">RF-07/RF-08; CI-07/VM-04.</span></li>
+        <li><strong>CA-07.</strong> Every Auth/Learning owner emits its fixed matrix event exactly once after the terminal outcome; retry dispatch emits no false evaluation completion and business identifiers are absent. <span class="trace">RF-07; CI-08/VM-02.</span></li>
+      </ol></details><details><summary>Business-event ownership matrix</summary><table><thead><tr><th>Event</th><th>Owner / trigger</th><th>Level</th><th>Operation/result</th></tr></thead><tbody>
+        <tr><td><code>auth.login.succeeded</code></td><td>Sign-in after successful auth</td><td>INFO</td><td><code>auth.login</code> / <code>success</code></td></tr>
+        <tr><td><code>auth.login.refused</code></td><td>Sign-in after invalid/refused auth</td><td>WARNING</td><td><code>auth.login</code> / <code>failure</code></td></tr>
+        <tr><td><code>auth.session.revoked</code></td><td>Web Better Auth invalidation</td><td>INFO</td><td><code>auth.session.revoke</code> / <code>success</code></td></tr>
+        <tr><td><code>auth.access.denied</code></td><td>Shared authorization error boundary</td><td>WARNING</td><td><code>auth.access</code> / <code>failure</code></td></tr>
+        <tr><td><code>learning.goal.created</code> / <code>learning.goal.deleted</code></td><td>Goal owner after commit</td><td>INFO</td><td><code>goal.create</code> or <code>goal.delete</code> / <code>success</code></td></tr>
+        <tr><td><code>learning.attempt.submitted</code></td><td>Choice submission after acceptance</td><td>INFO</td><td><code>attempt.submit</code> / <code>success</code></td></tr>
+        <tr><td><code>learning.evaluation.completed</code></td><td>Completed evaluation job after commit</td><td>INFO</td><td><code>evaluation.complete</code> / <code>success</code></td></tr>
+      </tbody></table><p class="trace">Retry dispatch emits no evaluation-completed business event; generic job lifecycle telemetry covers it. Business events contain technical correlation only.</p></details><details><summary>Fixed message catalog</summary><table><thead><tr><th>Events</th><th>Message</th></tr></thead><tbody>
+        <tr><td><code>http.request.completed</code></td><td>HTTP request completed</td></tr>
+        <tr><td><code>http.request.failed</code></td><td>HTTP request failed</td></tr>
+        <tr><td><code>error.unexpected</code></td><td>Unexpected error</td></tr>
+        <tr><td><code>auth.login.succeeded</code> / <code>auth.login.refused</code></td><td>Authentication succeeded / Authentication refused</td></tr>
+        <tr><td><code>auth.session.revoked</code> / <code>auth.access.denied</code></td><td>Session revoked / Access denied</td></tr>
+        <tr><td><code>learning.goal.created</code> / <code>learning.goal.deleted</code></td><td>Learning goal created / Learning goal deleted</td></tr>
+        <tr><td><code>learning.attempt.submitted</code> / <code>learning.evaluation.completed</code></td><td>Learning attempt submitted / Learning evaluation completed</td></tr>
+        <tr><td><code>job.started</code> / <code>job.completed</code> / <code>job.failed</code> / <code>job.retrying</code></td><td>Job started / Job completed / Job failed / Job retrying</td></tr>
+        <tr><td><code>integration.operation.started</code> / <code>integration.operation.completed</code> / <code>integration.operation.failed</code> / <code>integration.operation.retrying</code></td><td>Integration operation started / completed / failed / retrying</td></tr>
+        <tr><td><code>app.startup.completed</code> / <code>app.shutdown.completed</code></td><td>Application startup completed / Application shutdown completed</td></tr>
+        <tr><td><code>app.version.reported</code> / <code>dependency.unavailable</code></td><td>Application version reported / Dependency unavailable</td></tr>
+      </tbody></table></details><pre><code>TelemetryEventInput {
+  level, event, safe_technical_fields...
+}
+TelemetryEvent {
+  timestamp, level, service, environment, version, event, message,
+  request_id?, run_id?, event_id?, method?, route?, status_code?, duration_ms?,
+  operation?, job?, integration?, result?, attempt?, error_code?,
+  exception_type?, stack_trace?
+}</code></pre></section>
+      <section id="technical"><h2>Technical Contract</h2><details open><summary>Architecture mapping and expected tree</summary><ul>
+        <li><code>apps/web/src/core/shared/interfaces/telemetry-provider.ts</code> — TypeScript provider/event contract.</li>
+        <li><code>apps/web/src/provision/telemetry/console-telemetry-provider.ts</code> and <code>apps/web/src/start.ts</code> — JSON provider and TanStack Start request lifecycle.</li>
+        <li><code>apps/web/src/constants/server-env.ts</code>, <code>apps/web/.env.example</code> and existing Axios request boundary — Web configuration and request header propagation.</li>
+        <li><code>createServerRequestClient(context: RequestTelemetryContext)</code> in <code>apps/web/src/rest/axios/server-request-client.ts</code> is the only server-only factory; TanStack handlers use <code>handler(({ data, context }) =&gt; ...)</code>, while browser Axios calls remain context-free.</li>
+        <li><code>apps/server/src/shifu/shared/core/interfaces/telemetry_provider.py</code> — framework-independent Python Protocol.</li>
+        <li><code>apps/server/src/shifu/shared/providers/console_telemetry_provider/__init__.py</code>, <code>apps/server/src/shifu/shared/providers/console_telemetry_provider/console_telemetry_provider.py</code>, <code>apps/server/src/shifu/app.py</code> and <code>apps/server/src/main.py</code> — provider/composition/Uvicorn formatting.</li>
+        <li><code>apps/server/src/shifu/shared/rest/pipes/telemetry_pipe.py</code> — one typed FastAPI dependency that reads the provider from <code>app.state</code>; composition creates it once and passes it to module consumers.</li>
+        <li><code>apps/server/src/shifu/shared/rest/middlewares/telemetry_middleware.py</code> and <code>apps/server/src/shifu/rest/handlers/app_error_handler.py</code> — request IDs, HTTP timing and sanitized failures.</li>
+        <li><code>apps/server/src/shifu/shared/messaging/inngest/job_lifecycle_telemetry.py</code> plus every module <code>*_inngest_messaging.py</code> registrar — one shared lifecycle wrapper for all 15 registered jobs.</li>
+        <li>Stable job catalog: <code>gamification.recognize_skill_completed</code>, <code>gamification.recognize_practice_day_on_diagnostic_completed</code>, <code>gamification.recognize_practice_day_on_activity_evaluated</code>, <code>gamification.recognize_diagnostic_completed</code>, <code>gamification.recognize_competency_mastered</code>, <code>gamification.purge_profile_on_account_deleted</code>, <code>gamification.create_profile_on_account_activated</code>, <code>communication.cancel_communication</code>, <code>communication.deliver_communication</code>, <code>learning.evaluate_choice_activity</code>, <code>intelligence.purge_mentor_attachments_on_account_deleted</code>, <code>identity.record_communication_delivery_state</code>, <code>identity.log_main_page_entered</code>, <code>identity.fan_out_unconfirmed_account_expiry</code>, <code>identity.expire_unconfirmed_account</code>.</li>
+        <li>Integration consumers: <code>apps/server/src/shifu/communication/providers/email/resend/resend_email_delivery_provider.py</code>, <code>apps/server/src/shifu/identity/rest/controllers/resend_email_confirmation_controller.py</code>, <code>apps/server/src/shifu/intelligence/providers/openrouter/mentor_title_model_provider.py</code>, <code>apps/server/src/shifu/intelligence/providers/openrouter/mentor_answer_model_provider.py</code>, <code>apps/server/src/shifu/intelligence/providers/mentor_review_provider/openrouter/openrouter_jev_mentor_review_provider.py</code>, <code>apps/server/src/shifu/intelligence/ai/intelligence_workflows_registry.py</code> and <code>apps/server/src/shifu/learning/ai/agno/workflows/evaluate_code_activity_workflow.py</code> — consuming-boundary integration events.</li>
+        <li>Business owners: <code>apps/server/src/shifu/identity/rest/controllers/sign_in_controller.py</code>, <code>apps/server/src/shifu/identity/rest/controllers/get_current_session_controller.py</code>, <code>apps/server/src/shifu/learning/rest/controllers/create_goal_controller.py</code>, <code>apps/server/src/shifu/learning/rest/controllers/remove_goal_controller.py</code>, <code>apps/server/src/shifu/learning/rest/controllers/submit_choice_activity_controller.py</code>, <code>apps/server/src/shifu/learning/messaging/inngest/jobs/evaluate_choice_activity_job.py</code> and <code>apps/web/src/provision/auth/better-auth/better-auth-provider.ts</code> — module-owned events and safe replacement of unstructured logs; retry dispatch is not a completion owner.</li>
+        <li>Concrete job handlers: <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/recognize_skill_completed_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/recognize_practice_day_on_diagnostic_completed_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/recognize_practice_day_on_activity_evaluated_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/recognize_diagnostic_completed_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/recognize_competency_mastered_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/purge_profile_on_account_deleted_job.py</code>, <code>apps/server/src/shifu/gamification/messaging/inngest/jobs/create_profile_on_account_activated_job.py</code>, <code>apps/server/src/shifu/communication/messaging/inngest/jobs/cancel_communication_job.py</code>, <code>apps/server/src/shifu/communication/messaging/inngest/jobs/deliver_communication_job.py</code>, <code>apps/server/src/shifu/learning/messaging/inngest/jobs/evaluate_choice_activity_job.py</code>, <code>apps/server/src/shifu/intelligence/messaging/inngest/jobs/purge_mentor_attachments_on_account_deleted_job.py</code>, <code>apps/server/src/shifu/identity/messaging/inngest/jobs/record_communication_delivery_state_job.py</code>, <code>apps/server/src/shifu/identity/messaging/inngest/jobs/log_main_page_entered_job.py</code>, <code>apps/server/src/shifu/identity/messaging/inngest/jobs/fan_out_unconfirmed_account_expiry_job.py</code> and <code>apps/server/src/shifu/identity/messaging/inngest/jobs/expire_unconfirmed_account_job.py</code>.</li>
+        <li>Messages are fixed catalog values (HTTP request completed/failed, Unexpected error, Auth, Learning, Job, Integration, Application lifecycle and Dependency unavailable); no caller may provide free text. Routes are templates or <code>unmatched</code>, IDs are capped at 128 safe ASCII characters, and timestamps are RFC3339 UTC with a <code>Z</code> suffix.</li>
+        <li><code>apps/server/src/shifu/shared/constants/environment.py</code>, <code>apps/server/.env.example</code> and <code>apps/web/.env.example</code> — log-level/version configuration, with <code>SHIFU_SERVER_APP_MODE</code> retained in <code>EnvironmentSettings</code>.</li>
+        <li><code>apps/web/tests/shared/structured-telemetry-api.test.ts</code>, the shared-server telemetry tests (including <code>test_job_lifecycle_telemetry.py</code> registry proof), the five concrete module-first job tests, the Resend controller consumer, composed <code>apps/server/tests/intelligence/server/controllers/test_create_mentor_session_controller.py</code> and <code>apps/server/tests/learning/server/agentos/test_learning_code_evaluation_workflow.py</code> — OpenRouter/Jev/AgentOS consuming-boundary proof.</li>
+        <li>Existing job/integration consumers and <code>documentation/telemetry.md</code> — lifecycle catalog, privacy and CloudWatch queries.</li>
+        <li>Every production <code>createServerFn</code> boundary receives typed context: <code>apps/web/src/middlewares/enter-main-page-middleware.ts</code>, <code>apps/web/src/middlewares/require-auth-middleware.ts</code>, <code>apps/web/src/provision/learning/get-goal-detail.ts</code>, Gamification hooks <code>use-practice-calendar-query.ts</code> and <code>use-achievements-query.ts</code>, Intelligence hooks <code>use-cancel-mentor-response-action.ts</code>, <code>use-create-mentor-attachment-batch-action.ts</code>, <code>use-create-mentor-session-action.ts</code>, <code>use-home-goals-query.ts</code>, <code>use-mentor-attachment-batch-query.ts</code>, <code>use-mentor-session-query.ts</code>, <code>use-mentor-sessions-query.ts</code>, <code>use-remove-mentor-attachment-action.ts</code>, <code>use-remove-mentor-session-action.ts</code>, <code>use-rename-mentor-session-action.ts</code>, <code>use-retry-mentor-response-action.ts</code>, <code>use-start-planning-action.ts</code>, <code>use-submit-mentor-message-action.ts</code>, and Learning hooks <code>use-add-skill-to-goal-action.ts</code>, <code>use-diagnostic-leave-guard.ts</code>, <code>use-remove-skill-action.ts</code>, <code>use-skill-catalog-query.ts</code>, <code>use-activity-page.ts</code>, <code>use-choice-result-page.ts</code>, <code>use-competency-detail-page.ts</code>, <code>use-goal-create-page.ts</code>, <code>use-delete-goal-action.ts</code>, <code>use-material-page.ts</code>, <code>use-skill-experience.ts</code> and <code>use-skill-page.ts</code>; only server-side Axios calls forward its ID and browser-only clients remain unchanged.</li>
+      </ul><pre><code>documentation/features/shared/structured-telemetry/spec.md [N]
+documentation/features/shared/structured-telemetry/interactive-spec.html [N]
+apps/web/.env.example [M]
+apps/web/tests/shared/structured-telemetry-api.test.ts [N]
+apps/web/src/start.ts [N]
+apps/web/src/core/shared/interfaces/telemetry-provider.ts [N]
+apps/web/src/core/shared/interfaces/request-telemetry-context.ts [N]
+apps/web/src/provision/telemetry/console-telemetry-provider.ts [N]
+apps/web/src/constants/server-env.ts [M]
+apps/web/src/rest/axios/axios-rest-client.ts [M]
+apps/web/src/rest/axios/utils/request.ts [M]
+apps/web/src/rest/axios/server-request-client.ts [N]
+apps/server/src/shifu/shared/core/interfaces/telemetry_provider.py [N]
+apps/server/src/shifu/shared/providers/console_telemetry_provider/__init__.py [N]
+apps/server/src/shifu/shared/providers/console_telemetry_provider/console_telemetry_provider.py [N]
+apps/server/src/shifu/shared/rest/middlewares/telemetry_middleware.py [N]
+apps/server/src/shifu/shared/rest/pipes/telemetry_pipe.py [N]
+apps/server/src/shifu/shared/messaging/inngest/job_lifecycle_telemetry.py [N]
+apps/server/src/shifu/shared/constants/environment.py [M]
+apps/server/src/shifu/app.py [M]
+apps/server/src/main.py [M]
+apps/server/src/shifu/rest/handlers/app_error_handler.py [M]
+apps/server/tests/shared/server/middlewares/test_telemetry_middleware.py [N]
+apps/server/tests/shared/server/handlers/test_app_error_telemetry.py [N]
+apps/server/tests/shared/server/lifecycle/test_app_lifecycle_telemetry.py [N]
+apps/server/tests/shared/server/messaging/test_job_lifecycle_telemetry.py [N]
+apps/server/tests/shared/server/controllers/test_business_event_telemetry.py [N]
+apps/server/tests/identity/server/controllers/test_sign_in_controller.py [M]
+apps/server/tests/identity/server/controllers/test_get_current_session_controller.py [N]
+apps/server/tests/learning/server/controllers/test_create_goal_controller.py [N]
+apps/server/tests/learning/server/controllers/test_remove_goal_controller.py [M]
+apps/server/tests/learning/server/controllers/test_submit_choice_activity_controller.py [M]
+apps/server/tests/messaging/inngest/jobs/identity/test_log_main_page_entered_job.py [M]
+apps/server/tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py [M]
+apps/server/tests/messaging/inngest/jobs/communication/test_deliver_communication_job.py [M]
+apps/server/tests/messaging/inngest/jobs/gamification/test_recognize_skill_completed_job.py [M]
+apps/server/tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py [M]
+documentation/telemetry.md [N]</code></pre></details><details><summary>Complete public declarations and configuration</summary><pre><code>type TelemetryLevel = 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR';
+type TelemetryEnvironment = 'dev' | 'local' | 'staging' | 'production';
+type TelemetryIntegration = 'inngest' | 'resend' | 'openrouter';
+type TelemetryResult = 'success' | 'failure' | 'retry' | 'unavailable';
+type TelemetryDependency = 'database' | 'inngest' | 'resend' | 'openrouter' | 'better-auth';
+type TelemetryOperation = 'http.request' | 'auth.login' | 'auth.session.revoke' | 'auth.access' | 'goal.create' | 'goal.delete' | 'attempt.submit' | 'evaluation.complete' | 'app.startup' | 'app.shutdown' | 'dependency.check' | 'inngest.dispatch' | 'resend.send' | 'openrouter.generate';
+type TelemetryJob = 'gamification.recognize_skill_completed' | 'gamification.recognize_practice_day_on_diagnostic_completed' | 'gamification.recognize_practice_day_on_activity_evaluated' | 'gamification.recognize_diagnostic_completed' | 'gamification.recognize_competency_mastered' | 'gamification.purge_profile_on_account_deleted' | 'gamification.create_profile_on_account_activated' | 'communication.cancel_communication' | 'communication.deliver_communication' | 'learning.evaluate_choice_activity' | 'intelligence.purge_mentor_attachments_on_account_deleted' | 'identity.record_communication_delivery_state' | 'identity.log_main_page_entered' | 'identity.fan_out_unconfirmed_account_expiry' | 'identity.expire_unconfirmed_account';
+type TelemetryEventName = 'http.request.completed' | 'http.request.failed' | 'error.unexpected' | 'auth.login.succeeded' | 'auth.login.refused' | 'auth.session.revoked' | 'auth.access.denied' | 'learning.goal.created' | 'learning.goal.deleted' | 'learning.attempt.submitted' | 'learning.evaluation.completed' | 'job.started' | 'job.completed' | 'job.failed' | 'job.retrying' | 'integration.operation.started' | 'integration.operation.completed' | 'integration.operation.failed' | 'integration.operation.retrying' | 'app.startup.completed' | 'app.shutdown.completed' | 'app.version.reported' | 'dependency.unavailable';
+type TelemetryErrorCode = 'invalid_credentials' | 'identity_unavailable' | 'service_unavailable' | 'invalid_input' | 'bad_request' | 'unauthorized' | 'forbidden' | 'not_found' | 'conflict' | 'method_not_allowed' | 'content_too_large' | 'unsupported_media_type' | 'validation_error' | 'rate_limited' | 'request_failed' | 'internal_error' | 'job_failed' | 'integration_unavailable' | 'integration_failed';
+type SanitizedStackFrame = { file: string; line?: number; function?: string };
+type TelemetryEventInput = Readonly&lt;{ level: TelemetryLevel; event: TelemetryEventName;
+  request_id?: string; run_id?: string; event_id?: string; method?: string; route?: string;
+  status_code?: number; duration_ms?: number; operation?: TelemetryOperation; job?: TelemetryJob;
+  integration?: TelemetryIntegration; dependency?: TelemetryDependency; result?: TelemetryResult;
+  attempt?: number; error_code?: TelemetryErrorCode; exception_type?: string;
+  stack_trace?: readonly SanitizedStackFrame[]; }&gt;;
+type TelemetryEvent = TelemetryEventInput & Readonly&lt;{ timestamp: string;
+  service: 'shifu-web' | 'shifu-api'; environment: TelemetryEnvironment;
+  version: string; message: string; }&gt;;
+interface TelemetryProvider { emit(event: TelemetryEventInput): void; }
+
+class SanitizedStackFrame(TypedDict):
+    file: Required[str]; line: NotRequired[int]; function: NotRequired[str]
+TelemetryEventName = Literal['http.request.completed', 'http.request.failed', 'error.unexpected', 'auth.login.succeeded', 'auth.login.refused', 'auth.session.revoked', 'auth.access.denied', 'learning.goal.created', 'learning.goal.deleted', 'learning.attempt.submitted', 'learning.evaluation.completed', 'job.started', 'job.completed', 'job.failed', 'job.retrying', 'integration.operation.started', 'integration.operation.completed', 'integration.operation.failed', 'integration.operation.retrying', 'app.startup.completed', 'app.shutdown.completed', 'app.version.reported', 'dependency.unavailable']
+TelemetryErrorCode = Literal['invalid_credentials', 'identity_unavailable', 'service_unavailable', 'invalid_input', 'bad_request', 'unauthorized', 'forbidden', 'not_found', 'conflict', 'method_not_allowed', 'content_too_large', 'unsupported_media_type', 'validation_error', 'rate_limited', 'request_failed', 'internal_error', 'job_failed', 'integration_unavailable', 'integration_failed']
+TelemetryDependency = Literal['database', 'inngest', 'resend', 'openrouter', 'better-auth']
+TelemetryOperation = Literal['http.request', 'auth.login', 'auth.session.revoke', 'auth.access', 'goal.create', 'goal.delete', 'attempt.submit', 'evaluation.complete', 'app.startup', 'app.shutdown', 'dependency.check', 'inngest.dispatch', 'resend.send', 'openrouter.generate']
+TelemetryJob = Literal['gamification.recognize_skill_completed', 'gamification.recognize_practice_day_on_diagnostic_completed', 'gamification.recognize_practice_day_on_activity_evaluated', 'gamification.recognize_diagnostic_completed', 'gamification.recognize_competency_mastered', 'gamification.purge_profile_on_account_deleted', 'gamification.create_profile_on_account_activated', 'communication.cancel_communication', 'communication.deliver_communication', 'learning.evaluate_choice_activity', 'intelligence.purge_mentor_attachments_on_account_deleted', 'identity.record_communication_delivery_state', 'identity.log_main_page_entered', 'identity.fan_out_unconfirmed_account_expiry', 'identity.expire_unconfirmed_account']
+class TelemetryEventInput(TypedDict):
+    level: Required[Literal['DEBUG','INFO','WARNING','ERROR']]
+    event: Required[TelemetryEventName]
+    request_id: NotRequired[str]; run_id: NotRequired[str]; event_id: NotRequired[str]
+    method: NotRequired[str]; route: NotRequired[str]; status_code: NotRequired[int]
+    duration_ms: NotRequired[float]; operation: NotRequired[TelemetryOperation]; job: NotRequired[TelemetryJob]
+    integration: NotRequired[Literal['inngest','resend','openrouter']]
+    dependency: NotRequired[TelemetryDependency]; result: NotRequired[Literal['success','failure','retry','unavailable']]
+    attempt: NotRequired[int]; error_code: NotRequired[TelemetryErrorCode]; exception_type: NotRequired[str]
+    stack_trace: NotRequired[list[SanitizedStackFrame]]
+class TelemetryEvent(TelemetryEventInput, total=False):
+    timestamp: Required[str]; service: Required[Literal['shifu-web','shifu-api']]
+    environment: Required[Literal['dev','local','staging','production']]
+    version: Required[str]; message: Required[str]
+class TelemetryProvider(Protocol):
+    def emit(self, event: TelemetryEventInput) -&gt; None: ...
+
+RequestTelemetryContext = { requestId: string; telemetry: TelemetryProvider }
+SHIFU_WEB_APP_MODE / SHIFU_SERVER_APP_MODE = dev | local | staging | production
+SHIFU_WEB_LOG_LEVEL / SHIFU_SERVER_LOG_LEVEL = DEBUG | INFO | WARNING | ERROR
+SHIFU_RELEASE_VERSION = required in staging/production; local-dev in dev/local
+duration_ms = finite and non-negative; attempt = positive integer from 1
+      </code></pre><p>The active TanStack request context is passed through <code>next({context})</code>; each server function passes the typed <code>requestId</code> to the server-only REST factory. The shared Axios utility accepts only an optional header and never uses global mutable state or AsyncLocalStorage. The provider derives the catalog message and injects timestamp/service/environment/version.</p></details><details><summary>Fixed event catalog and sanitization</summary><p>Events are <code>http.request.completed</code>, <code>http.request.failed</code>, <code>error.unexpected</code>, <code>auth.login.succeeded</code>, <code>auth.login.refused</code>, <code>auth.session.revoked</code>, <code>auth.access.denied</code>, <code>learning.goal.created</code>, <code>learning.goal.deleted</code>, <code>learning.attempt.submitted</code>, <code>learning.evaluation.completed</code>, <code>job.started</code>, <code>job.completed</code>, <code>job.failed</code>, <code>job.retrying</code>, <code>integration.operation.started</code>, <code>integration.operation.completed</code>, <code>integration.operation.failed</code>, <code>integration.operation.retrying</code>, <code>app.startup.completed</code>, <code>app.shutdown.completed</code>, <code>app.version.reported</code> and <code>dependency.unavailable</code>. Jobs use stable registered <code>&lt;module&gt;.&lt;job_name&gt;</code> identifiers; all 15 current registrars are covered by the shared wrapper. Resend is proven through identity/communication consumers and OpenRouter/Jev through intelligence/learning consumers. <code>error_code</code> is lower-snake-case, at most 80 characters and drawn from <code>invalid_credentials</code>, <code>identity_unavailable</code>, <code>service_unavailable</code>, <code>invalid_input</code>, <code>bad_request</code>, <code>unauthorized</code>, <code>forbidden</code>, <code>not_found</code>, <code>conflict</code>, <code>method_not_allowed</code>, <code>content_too_large</code>, <code>unsupported_media_type</code>, <code>validation_error</code>, <code>rate_limited</code>, <code>request_failed</code>, <code>internal_error</code>, <code>job_failed</code>, <code>integration_unavailable</code> and <code>integration_failed</code>; raw exception/provider text is never copied. <code>run_id</code>/<code>event_id</code> are limited to 128 safe ASCII characters; invalid values are omitted. Routes are templates or <code>unmatched</code>, never raw paths. Integrations are Inngest, Resend and OpenRouter. Stack traces contain at most 20 basename-only frames with optional positive line/function fields and no source snippets or raw messages.</p></details><details><summary>Runtime flow and guarantees</summary><p>The middleware validates or generates a request ID, passes typed context through the BFF and forwards it across the existing BFF→API call. HTTP boundaries emit safe timing/status events. Jobs and integrations emit run/event correlation at their consuming boundaries. FastAPI/Uvicorn owns startup/shutdown; Web reports version once on the first server-side request. Error handlers extract stable codes and sanitized frames. Serialization is best effort and cannot alter business outcomes. There is no universal correlation ID, persistence migration, browser analytics or event-contract change.</p></details></section>
+      <section id="verification"><h2>Verification Contract</h2><p class="muted">This draft contract specifies required proof; it contains no implementation evidence.</p><p class="trace">Integration operation values are <code>inngest.dispatch</code>, <code>resend.send</code> and <code>openrouter.generate</code>; <code>result</code> and <code>error_code</code> describe their outcomes. Error codes are lower-snake-case, at most 80 characters and drawn from the fixed safe catalog; raw exception/provider text is never copied.</p><details open><summary>Automated checks CI-01—CI-08</summary><ul>
+        <li><strong>CI-01:</strong> one-line schema, allowlist and sensitive-field exclusion at Web/API consumer boundaries; proof paths are <code>apps/web/src/rest/axios/tests/axios-rest-client.test.ts</code>, <code>apps/server/tests/shared/server/middlewares/test_telemetry_middleware.py</code> and <code>apps/server/tests/shared/server/handlers/test_app_error_telemetry.py</code>.</li>
+        <li><strong>CI-02:</strong> Web lint/architecture/types and API lint/architecture/types.</li>
+        <li><strong>CI-03:</strong> request-ID generation, propagation and response echo, including the Web integration suite against a registered API handler rather than a mocked request.</li>
+        <li><strong>CI-04:</strong> job/integration start, completion, retry and failure events using the disposable Inngest fixture plus the existing Resend controller and OpenRouter/Jev workflow consumer boundaries.</li>
+        <li><strong>CI-05:</strong> error sanitization and telemetry-failure resilience; raw messages are absent and the business result is preserved.</li>
+        <li><strong>CI-06:</strong> Web/API builds after integration. Empty selections are not passes.</li>
+        <li><strong>CI-07:</strong> startup, version, shutdown and dependency-unavailable events use the same schema and never expose configuration secrets; proof uses the API lifecycle boundary, shared middleware and Web integration boundary.</li>
+        <li><strong>CI-08:</strong> composed Auth/Learning controller and completed-evaluation job boundaries prove every business-event matrix row, fixed level/operation/result and absence of business identifiers; the real AgentOS flag is set for the composed Mentor boundary.</li>
+      </ul><pre><code>pnpm --filter web check:lint
+pnpm --filter web check:architecture
+pnpm --filter web check:types
+pnpm --filter web exec vitest run src/rest/axios/tests/axios-rest-client.test.ts
+pnpm --filter web exec playwright test tests/shared/structured-telemetry-api.test.ts
+pnpm --filter web build
+
+cd apps/server
+uv run poe check:lint
+uv run poe check:architecture
+uv run poe check:types
+uv run pytest tests/shared/server/middlewares/test_telemetry_middleware.py tests/shared/server/handlers/test_app_error_telemetry.py tests/shared/server/lifecycle/test_app_lifecycle_telemetry.py tests/shared/server/messaging/test_job_lifecycle_telemetry.py
+SHIFU_RUN_REAL_INNGEST_TESTS=1 uv run pytest tests/messaging/inngest/jobs/identity/test_log_main_page_entered_job.py tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py tests/messaging/inngest/jobs/communication/test_deliver_communication_job.py tests/messaging/inngest/jobs/gamification/test_recognize_skill_completed_job.py tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py
+SHIFU_RUN_REAL_AGENTOS_TESTS=1 uv run pytest tests/identity/server/controllers/test_resend_email_confirmation_controller.py tests/intelligence/server/controllers/test_create_mentor_session_controller.py tests/learning/server/agentos/test_learning_code_evaluation_workflow.py
+uv run poe build</code></pre></details><details><summary>Manual checks VM-01—VM-04</summary><ol>
+        <li><strong>VM-01:</strong> start healthy Web/BFF and API, use the current Playwright auth state or visible login flow, send missing/malformed/valid IDs through an API-calling BFF route, and inspect caller response, API headers and stdout for one bounded ID.</li>
+        <li><strong>VM-02:</strong> exercise successful/refused sign-in, session invalidation and authorization denial, goal create/remove, accepted choice submission and one completed evaluation through composed boundaries, then use <code>apps/server/tests/fixtures/inngest_fixture.py</code> with learning messaging, communication delivery, identity resend-controller, composed Mentor controller and Learning code-evaluation Jev consumers for successful and retry/failure operations; inspect the fixed business matrix and lifecycle JSON events.</li>
+        <li><strong>VM-03:</strong> trigger a synthetic error containing fake password/token/cookie/email/body/raw message and prove only type/code/sanitized frames remain while response semantics stay unchanged.</li>
+        <li><strong>VM-04:</strong> in staging query both CloudWatch groups after HTTP, job, integration and controlled-failure fixtures; confirm parseability, correlation, release version, no forbidden fields and exactly 14-day retention in both groups.</li>
+      </ol></details><p>Visual validation is not applicable: there is no user-facing UI, and browser log collection is out of scope.</p><details><summary>Companion integrity gate</summary><p>This documentation gate is separate from product acceptance. It was served from a temporary local static server and validated with Playwright CLI on Edge after revision 5: chapter links, search filtering, expand/collapse, <code>/</code> focus, visible focus, narrow layout, synchronized revision-5 ready metadata and no page/console errors. Artifacts remain under ignored Playwright directories; the temporary server and session were stopped.</p></details></section>
+      <section id="alignment"><h2>Documentation Alignment</h2><table><thead><tr><th>Authority</th><th>Governs</th><th>Disposition</th></tr></thead><tbody>
+        <tr><td><a href="https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-94">Jira SHIFU-94</a>, verified status Fazendo, updated 2026-10-20T15:07:02.289-0300, reread 2026-10-21T20:26:54-03:00</td><td>Delivery scope, catalog, correlation and staging proof</td><td>Source issue; no Jira mutation is implied.</td></tr>
+        <tr><td><a href="https://joaogoliveiragarcia.atlassian.net/wiki/pages/100106241">Privacy policy</a>, content ID 100106241, version 4, reread 2026-10-21T20:26:54-03:00</td><td>Minimum technical logs, prohibited content and 30-day maximum</td><td>Use opaque technical IDs only; SHIFU-116's v3 reference is reconciled as stale.</td></tr>
+        <tr><td>Architecture, Modules, Rules and Tooling; Rule Packs: <code>typescript-conventions-rules.md</code>, <code>python-conventions-rules.md</code>, <code>core-layer-rules.md</code>, <code>provision-layer-rules.md</code>, <code>server-app-layer-rules.md</code>, <code>rest-layer-rules.md</code>, <code>messaging-layer-rules.md</code>, <code>jobs-testing-rules.md</code>, <code>controllers-testing-rules.md</code>, <code>ai-layer-rules.md</code>, <code>ui-layer-rules.md</code>, <code>web-app-routing-rules.md</code>, <code>widget-testing-rules.md</code></td><td>Ownership, layer boundaries, conventions and commands</td><td>Jira/Confluence reread, independent compatibility review and Edge Playwright companion validation passed; revision 5 is ready for create-plan/implement-spec.</td></tr>
+      </tbody></table></section>
+      <section id="history"><h2>Revision History</h2><table><thead><tr><th>Revision</th><th>Date</th><th>Change</th></tr></thead><tbody><tr><td>1</td><td>2026-10-20</td><td>Initial complete contract based on SHIFU-94, privacy policy v4, repository authorities and accepted decisions.</td></tr><tr><td>2</td><td>2026-10-20</td><td>Completed declarations, paths, catalog, configuration defaults, request context and BFF/API integration proof after independent review. Status remains draft.</td></tr><tr><td>3</td><td>2026-10-20</td><td>Reconciled concrete tree, integration operation values, module-first lifecycle checker and synchronized companion contract. Status remains draft.</td></tr><tr><td>4</td><td>2026-10-20</td><td>Added provider/input envelope split, typed BFF propagation, API-only lifecycle ownership, bounded dynamic fields, complete consumer inventory, discoverable checks, corrected mappings, exact staging retention and a fully synchronized companion. Independent review and the Edge Playwright companion gate passed; status was ready for implement-spec.</td></tr><tr><td>5</td><td>2026-10-21</td><td>Added fixed business-event ownership, TelemetryPipe composition, bounded typed error-code catalog, module-first checks, composed AgentOS boundary, coverage workflow selections and widget-testing rules. Jira/Confluence reread, independent compatibility review and Edge Playwright companion validation passed; status is ready for create-plan/implement-spec.</td></tr></tbody></table></section>
+    </main>
+  </div>
+  <script>
+    const search = document.querySelector('#search');
+    const sections = [...document.querySelectorAll('main section')];
+    const expand = document.querySelector('#expand');
+    let expanded = false;
+    function filter() {
+      const q = search.value.trim().toLowerCase();
+      sections.forEach(s => { s.classList.toggle('hidden', q && !s.innerText.toLowerCase().includes(q)); });
+    }
+    search.addEventListener('input', filter);
+    expand.addEventListener('click', () => { expanded = !expanded; document.querySelectorAll('details').forEach(d => d.open = expanded); expand.textContent = expanded ? 'Collapse all' : 'Expand all'; });
+    document.addEventListener('keydown', e => { if (e.key === '/' && document.activeElement !== search) { e.preventDefault(); search.focus(); } });
+  </script>
+</body>
+</html>

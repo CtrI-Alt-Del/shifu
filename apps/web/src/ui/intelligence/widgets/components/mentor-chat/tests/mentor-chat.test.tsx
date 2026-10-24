@@ -1,12 +1,27 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { MentorChat } from '..'
 import { useMentorChat } from '../use-mentor-chat'
 
+// Entrance motion settles at once, so visibility assertions see the final
+// state; the shared entrance owns its animated cases.
+vi.mock('motion/react', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('motion/react')>()),
+  useReducedMotion: vi.fn(() => true),
+}))
 vi.mock('../use-mentor-chat', () => ({ useMentorChat: vi.fn() }))
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, search: _search, ...props }: AnchorProps) => (
+    <a href={ROUTES[route]} {...props}>
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
@@ -41,6 +56,11 @@ const contextValue: MentorContextValue = {
   markBlockPresented: vi.fn(),
   selectedSessionId: null,
   sessionDetail: null,
+  summary: { current: null, failureAfterMessageId: null },
+  isSummarizingContext: false,
+  blockingActionProposalId: null,
+  isRefreshingActions: false,
+  hasActionRefreshTimedOut: false,
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
   draftAttachments: [],
@@ -78,12 +98,15 @@ const contextValue: MentorContextValue = {
   sendFirstMessage: sendFirstMessageMock,
   loadMoreSessions: vi.fn(),
   loadOlderMessages: vi.fn(),
+  revealMessage: vi.fn(),
   openRenameDialog: vi.fn(),
   openRemoveDialog: vi.fn(),
   closeDialog: vi.fn(),
   renameSession: vi.fn(),
   removeSession: vi.fn(),
   refresh: vi.fn(),
+  refreshActions: vi.fn(),
+  onActionResolved: vi.fn(),
 }
 
 describe('MentorChat', () => {
@@ -108,7 +131,7 @@ describe('MentorChat', () => {
     },
   )
 
-  it('renders real history and composer children with unavailable future actions disabled', () => {
+  it('renders real history and composer children with the Memórias link and unavailable actions disabled', () => {
     useMentorContextMock.mockReturnValue(contextValue)
     useMentorChatMock.mockReturnValue({
       ...contextValue,
@@ -128,9 +151,10 @@ describe('MentorChat', () => {
     expect(
       screen.getByRole('button', { name: 'Gravar ditado. Indisponível no momento' }),
     ).toBeDisabled()
-    expect(
-      screen.getByRole('button', { name: 'Memórias. Indisponível no momento' }),
-    ).toBeDisabled()
+    expect(screen.getByRole('link', { name: 'Memórias' })).toHaveAttribute(
+      'href',
+      ROUTES.intelligenceMemories,
+    )
     expect(
       screen.getByRole('button', { name: 'Cota de uso. Indisponível no momento' }),
     ).toBeDisabled()
@@ -300,9 +324,7 @@ describe('MentorChat', () => {
       screen.getByRole('heading', { name: 'Conversa salva', level: 1 }),
     ).toBeVisible()
     expect(screen.queryByText('Ajuda para continuar aprendendo')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Memórias. Indisponível no momento' }),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Memórias' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Histórico de conversas' }))
     fireEvent.click(screen.getByRole('button', { name: 'Expandir conversa' }))
     fireEvent.click(screen.getByRole('button', { name: 'Fechar painel do Mentor' }))

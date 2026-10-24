@@ -37,6 +37,13 @@ class TestCancelMentorResponseUseCase(MentorResponseTestSetup):
         self.repositories.mentor_messages.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
+    def test_should_remove_the_pending_proposal_of_the_cancelled_attempt(self) -> None:
+        self.subject.execute('account', 'session', 'attempt', self.key)
+
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_called_once_with(
+            'account', 'attempt'
+        )
+
     def test_should_replay_same_cancellation_without_effects(self) -> None:
         self.repositories.mentor_response_attempts.find_submission.return_value = (
             self.attempt,
@@ -45,6 +52,7 @@ class TestCancelMentorResponseUseCase(MentorResponseTestSetup):
         self.subject.execute('account', 'session', 'attempt', self.key)
         self.repositories.mentor_response_attempts.transition.assert_not_called()
         self.repositories.mentor_response_events.discard_partial.assert_not_called()
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_not_called()
 
     @pytest.mark.parametrize(
         'status',
@@ -63,12 +71,14 @@ class TestCancelMentorResponseUseCase(MentorResponseTestSetup):
         with pytest.raises(MentorResponseConflictError):
             self.subject.execute('account', 'session', 'attempt', self.key)
         self.repositories.mentor_response_events.discard_partial.assert_not_called()
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_not_called()
 
     def test_should_reject_lost_compare_and_set(self) -> None:
         self.repositories.mentor_response_attempts.transition.return_value = False
         with pytest.raises(MentorResponseConflictError):
             self.subject.execute('account', 'session', 'attempt', self.key)
         self.repositories.mentor_response_events.discard_partial.assert_not_called()
+        self.repositories.mentor_action_proposals.remove_pending_by_attempt_id.assert_not_called()
 
     def test_should_reject_foreign_attempt(self) -> None:
         self.repositories.mentor_response_attempts.find_by_id_for_update.return_value = replace(

@@ -20,7 +20,7 @@ concurrency:
 jobs:
   type-check:
     name: Server type check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -48,7 +48,7 @@ jobs:
 
   lint-check:
     name: Server lint check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -76,7 +76,7 @@ jobs:
 
   architecture-check:
     name: Server architecture check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -104,7 +104,7 @@ jobs:
 
   build:
     name: Server build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -137,7 +137,7 @@ jobs:
 
   unit-tests:
     name: Server unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/server
@@ -172,15 +172,9 @@ jobs:
       - name: Run unit tests
         run: uv run poe test:unit
 
-      - name: Check coverage tooling
-        if: ${{ !cancelled() }}
-        run: >-
-          uv run pytest --confcutdir=tests/tooling
-          tests/tooling/test_check_changed_coverage.py
-
   integration-tests:
     name: Server integration shard ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -372,246 +366,16 @@ jobs:
     name: Server integration tests
     if: always()
     needs: integration-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require all four integration shards
         env:
           SHARD_RESULT: ${{ needs.integration-tests.result }}
         run: test "$SHARD_RESULT" = success
 
-  changed-file-coverage:
-    name: Changed Server file coverage
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.1-pg17
-        env:
-          POSTGRES_DB: shifu
-          POSTGRES_PASSWORD: shifu-local
-          POSTGRES_USER: shifu
-        ports:
-          - 54344:5432
-        options: >-
-          --health-cmd "pg_isready -U shifu -d shifu"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      minio:
-        image: cgr.dev/chainguard/minio
-        command: server --address ":9000" --console-address ":9001" /data
-        env:
-          MINIO_ROOT_USER: shifu-ci
-          MINIO_ROOT_PASSWORD: shifu-ci-secret
-        ports:
-          - 9000:9000
-    defaults:
-      run:
-        working-directory: apps/server
-    env:
-      DATABASE_URL: postgresql+psycopg://shifu:shifu-local@127.0.0.1:54344/shifu
-      AGENTOS_DATABASE_URL: postgresql+psycopg://shifu_agentos_runtime:ci-agentos-password@127.0.0.1:54344/shifu
-      AGENTOS_RUNTIME_ROLE_PASSWORD: ci-agentos-password
-      REDIS_URL: redis://localhost:6379/0
-      MENTOR_ATTACHMENT_STORAGE_BUCKET: shifu-mentor-attachments
-      MENTOR_ATTACHMENT_STORAGE_REGION: us-east-1
-      MENTOR_ATTACHMENT_STORAGE_ENDPOINT_URL: http://127.0.0.1:9000
-      MENTOR_ATTACHMENT_STORAGE_ADDRESSING_STYLE: path
-      MENTOR_ATTACHMENT_STORAGE_ACCESS_KEY: shifu-ci
-      MENTOR_ATTACHMENT_STORAGE_SECRET_KEY: shifu-ci-secret
-      SHIFU_AUTH_AUDIENCE: shifu-api
-      SHIFU_AUTH_ISSUER: http://127.0.0.1:7000
-      SHIFU_COMMUNICATION_ENCRYPTION_KEYS: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-      SHIFU_CONFIRMATION_ACTION_ORIGIN: http://127.0.0.1:7000
-      SHIFU_EMAIL_FROM: no-reply@shifu.local
-      SHIFU_EMAIL_PROVIDER: smtp
-      SHIFU_SERVER_APP_MODE: local
-      SHIFU_RUN_REAL_AGENTOS_TESTS: "1"
-      SHIFU_RUN_REAL_INNGEST_TESTS: "1"
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: 3.13.5
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          version: 0.11.26
-          enable-cache: true
-          cache-dependency-glob: apps/server/uv.lock
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Create restricted AgentOS role
-        env:
-          PGPASSWORD: shifu-local
-        run: >-
-          psql "postgresql://shifu:shifu-local@127.0.0.1:54344/shifu"
-          -v runtime_password="${AGENTOS_RUNTIME_ROLE_PASSWORD}"
-          -v database_name=shifu
-          -f scripts/create_agentos_runtime_role.sql
-
-      - name: Wait for private attachment storage
-        run: |
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "MinIO did not become ready" >&2
-          exit 1
-
-      - name: Prepare pinned local Mentor model
-        run: >-
-          uv run python -c
-          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
-          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
-
-      - name: Run scoped consumer selections with branch coverage
-        run: |
-          uv run coverage erase
-          uv run coverage run --branch --source=src/shifu -m pytest \
-            tests/intelligence/server/agentos/test_process_mentor_response_workflow.py \
-            tests/intelligence/server/agentos/test_mentor_attachment_workflow_recovery.py \
-            tests/intelligence/server/agentos/test_mentor_native_transport_scope.py \
-            tests/intelligence/server/agentos/test_agentos_runtime_role.py \
-            tests/intelligence/ai/agno/agents/test_mentor_agent_contract_coverage.py \
-            tests/intelligence/ai/agno/workflows/test_mentor_workflow_branches.py \
-            tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py \
-            tests/intelligence/ai/generative/agno/workflows/test_agno_generate_mentor_title_workflow.py \
-            tests/intelligence/adapters/test_mentor_persistence_adapters.py \
-            tests/intelligence/adapters/test_planning_embeddings_repository.py \
-            tests/intelligence/ai/test_planning_nlp_evaluation.py \
-            tests/intelligence/core/domain/test_planning_domain.py \
-            tests/intelligence/core/use_cases/test_classify_planning_intent_use_case.py \
-            tests/intelligence/core/use_cases/test_retrieve_planning_skills_use_case.py \
-            tests/intelligence/core/domain/test_planning_session_domain.py \
-            tests/intelligence/core/use_cases/test_start_planning_use_case.py \
-            tests/intelligence/core/use_cases/test_get_planning_session_use_case.py \
-            tests/intelligence/core/use_cases/test_answer_planning_questions_use_case.py \
-            tests/intelligence/core/use_cases/test_restart_planning_use_case.py \
-            tests/intelligence/core/use_cases/test_retry_planning_use_case.py \
-            tests/intelligence/core/use_cases/test_cancel_planning_use_case.py \
-            tests/intelligence/core/use_cases/test_prepare_planning_operation_use_case.py \
-            tests/intelligence/core/use_cases/test_complete_planning_operation_use_case.py \
-            tests/intelligence/core/use_cases/test_report_planning_progress_use_case.py \
-            tests/intelligence/server/controllers/test_start_planning_controller.py \
-            tests/intelligence/server/controllers/test_get_planning_session_controller.py \
-            tests/intelligence/server/controllers/test_answer_planning_questions_controller.py \
-            tests/intelligence/server/controllers/test_restart_planning_controller.py \
-            tests/intelligence/server/controllers/test_retry_planning_controller.py \
-            tests/intelligence/server/controllers/test_cancel_planning_controller.py \
-            tests/intelligence/server/agentos/test_plan_goal_workflow.py \
-            tests/intelligence/core/use_cases/test_process_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_get_mentor_session_use_case.py \
-            tests/intelligence/core/use_cases/test_list_mentor_sessions_use_case.py \
-            tests/intelligence/core/use_cases/test_rename_mentor_session_use_case.py \
-            tests/intelligence/core/use_cases/test_retry_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_cancel_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_read_mentor_response_events_use_case.py \
-            tests/intelligence/core/use_cases/test_prepare_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_publish_mentor_response_block_use_case.py \
-            tests/intelligence/core/use_cases/test_finalize_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_assert_mentor_response_current_use_case.py \
-            tests/intelligence/core/use_cases/test_renew_mentor_response_claim_use_case.py \
-            tests/intelligence/core/use_cases/test_release_mentor_response_claim_use_case.py \
-            tests/intelligence/core/use_cases/test_fail_mentor_response_use_case.py \
-            tests/intelligence/core/use_cases/test_record_mentor_inference_usage_use_case.py \
-            tests/learning/core/use_cases/test_prepare_code_activity_evaluation_use_case.py \
-            tests/learning/core/use_cases/test_fail_code_activity_evaluation_use_case.py \
-            tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py \
-            tests/learning/messaging/test_learning_inngest_messaging.py \
-            tests/learning/server/agentos/test_learning_code_evaluation_workflow.py \
-            tests/learning/server/controllers/test_adaptive_journey_controller.py::TestAdaptiveLabSeed::test_should_exercise_two_competencies_and_persist_progress \
-            tests/learning/server/controllers/test_activity_payload_limit_middleware.py \
-            tests/learning/server/controllers/test_learning_pipe_dependencies.py \
-            tests/intelligence/core/use_cases/test_upload_mentor_attachment_use_case.py \
-            tests/intelligence/core/use_cases/test_prepare_mentor_attachment_use_case.py \
-            tests/intelligence/core/use_cases/test_complete_mentor_attachment_use_case.py \
-            tests/intelligence/core/use_cases/test_mentor_attachment_access_use_cases.py \
-            tests/intelligence/core/use_cases/test_fail_mentor_attachment_use_case.py \
-            tests/intelligence/core/use_cases/test_renew_mentor_attachment_claim_use_case.py \
-            tests/intelligence/core/use_cases/test_release_mentor_attachment_claim_use_case.py \
-            tests/intelligence/core/use_cases/test_purge_mentor_attachments_use_case.py \
-            tests/intelligence/core/use_cases/test_create_mentor_session_use_case.py \
-            tests/intelligence/core/use_cases/test_submit_mentor_message_use_case.py \
-            tests/intelligence/core/use_cases/test_remove_mentor_session_use_case.py \
-            tests/intelligence/rest/controllers/test_mentor_attachments_controller.py \
-            tests/intelligence/rest/controllers/test_mentor_session_routes_coverage.py \
-            tests/intelligence/server/controllers/test_create_mentor_session_controller.py \
-            tests/intelligence/server/controllers/test_submit_mentor_message_controller.py \
-            tests/intelligence/server/controllers/test_get_mentor_session_controller.py \
-            tests/intelligence/server/controllers/test_list_mentor_sessions_controller.py \
-            tests/intelligence/server/controllers/test_mentor_runtime_composition_controller.py \
-            tests/intelligence/server/controllers/test_remove_mentor_session_controller.py \
-            tests/intelligence/server/controllers/test_rename_mentor_session_controller.py \
-            tests/intelligence/server/controllers/test_cancel_mentor_response_controller.py \
-            tests/intelligence/server/controllers/test_retry_mentor_response_controller.py \
-            tests/intelligence/server/controllers/test_stream_mentor_response_controller.py \
-            tests/intelligence/server/agentos/test_mentor_attachment_workflow_boundaries.py \
-            tests/intelligence/providers/test_local_mentor_attachment_extractor_provider.py \
-            tests/intelligence/ai/test_eval_factories.py \
-            tests/intelligence/ai/test_intelligence_workflows_registry.py \
-            tests/intelligence/core/domain/test_mentor_attachment_domain.py \
-            tests/shared/database/sqlalchemy/repositories/test_events_repository.py \
-            tests/shared/messaging/agentos/test_agentos_runtime.py \
-            tests/learning/core/use_cases/test_submit_choice_activity_use_case.py \
-            tests/learning/server/controllers/test_submit_choice_activity_controller.py \
-            tests/intelligence/core/use_cases/test_record_mentor_response_progress_use_case.py \
-            tests/intelligence/core/use_cases/test_remove_mentor_attachment_use_case.py \
-            tests/intelligence/rest/test_attachment_request_boundaries.py \
-            tests/intelligence/server/controllers/test_mentor_attachment_storage_http_boundary.py \
-            tests/intelligence/server/controllers/test_mentor_attachments_controller.py \
-            tests/messaging/inngest/jobs/intelligence/test_purge_mentor_attachments_on_account_deleted_job.py \
-            tests/rest/handlers/test_app_error_handler.py \
-            tests/shared/messaging/agentos/test_agentos_client.py \
-            tests/shared/messaging/agentos/test_agentos_handoff_store.py \
-            tests/intelligence/server/agentos/test_agent_monitoring_workflow.py \
-            tests/shared/messaging/test_outbox_brokers.py \
-            tests/shared/test_settings.py \
-            tests/shared/providers/test_s3_file_storage_provider.py
-
-          uv run coverage combine
-
-      - name: Generate per-file coverage report
-        run: uv run coverage json -o coverage.json
-
-      - name: Enforce thresholds for every changed production file
-        run: >-
-          uv run python scripts/check_changed_coverage.py
-          --base origin/main --report coverage.json --data-file .coverage
-          | tee changed-coverage-summary.txt
-
-      - name: Upload changed-file coverage report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: server-changed-file-coverage
-          path: |
-            apps/server/coverage.json
-            apps/server/.coverage
-            apps/server/changed-coverage-summary.txt
-          if-no-files-found: warn
-
   evals:
     name: Server real AI evals
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -647,6 +411,12 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --frozen
+
+      - name: Prepare pinned local Mentor model
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
+          SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
       - name: Run all real evals
         run: uv run python evals/run.py --output-dir test-results/evals

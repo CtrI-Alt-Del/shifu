@@ -74,6 +74,9 @@ class FailMentorResponseUseCase:
                 attempt.access_revision,
             ):
                 return current.status
+            repositories.mentor_action_proposals.remove_pending_by_attempt_id(
+                attempt.account_id, attempt_id
+            )
             event = response_event(
                 attempt,
                 self._clock_provider,

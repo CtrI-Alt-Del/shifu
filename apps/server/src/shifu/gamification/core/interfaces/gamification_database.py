@@ -1,6 +1,12 @@
 from contextlib import AbstractContextManager
 from typing import Protocol
 
+from shifu.gamification.core.interfaces.activity_xp_balances_repository import (
+    ActivityXpBalancesRepository,
+)
+from shifu.gamification.core.interfaces.activity_xp_recognitions_repository import (
+    ActivityXpRecognitionsRepository,
+)
 from shifu.gamification.core.interfaces.earned_achievements_repository import (
     EarnedAchievementsRepository,
 )
@@ -27,6 +33,8 @@ class GamificationDatabaseRepositories:
     earned_achievements: EarnedAchievementsRepository
     rewarded_milestones: RewardedMilestonesRepository
     practice_days: PracticeDaysRepository
+    activity_xp_balances: ActivityXpBalancesRepository
+    activity_xp_recognitions: ActivityXpRecognitionsRepository
     events: EventsRepository
 
 

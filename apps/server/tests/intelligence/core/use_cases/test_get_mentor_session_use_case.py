@@ -1,13 +1,40 @@
 from shifu.shared.core.interfaces import MentorAccessProvider
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import create_autospec
 
 import pytest
 
+from shifu.fakers.intelligence.entities import MentorActionProposalFaker
 from shifu.intelligence.core.domain.entities import MentorSession
-from shifu.intelligence.core.domain.errors import MentorSessionNotFoundError
-from shifu.intelligence.core.domain.structures import MentorMessagesPage
+from shifu.intelligence.core.domain.errors import (
+    MentorCursorInvalidError,
+    MentorSessionNotFoundError,
+)
+from shifu.intelligence.core.domain.entities import (
+    MentorResponseAttempt,
+    MentorSessionSummary,
+)
+from shifu.intelligence.core.domain.enums import (
+    LearnerMemoryCategory,
+    LearnerMemoryChangeKind,
+    MentorActionKind,
+    MentorActionProposalOutcome,
+    MentorActionProposalStatus,
+    MentorResponseStatus,
+    MentorSummaryExcerptKind,
+    MentorSummaryFailureCode,
+)
+from shifu.intelligence.core.domain.structures import (
+    MentorConversationMemoryItem,
+    MentorConversationSummaryDraft,
+    MentorMessagesPage,
+    MentorSessionSummaryState,
+    MentorSummaryBoundary,
+    MentorSummaryExcerptSpan,
+    MentorSummaryMarker,
+)
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -39,6 +66,10 @@ class TestGetMentorSessionUseCase:
             items=[], next_cursor=None
         )
         self.repositories.mentor_messages.find_pending_learner_message_id.return_value = None
+        self.repositories.mentor_session_summaries.find_ready.return_value = None
+        self.repositories.mentor_session_summaries.find_failed.return_value = None
+        self.repositories.learner_memory_changes.find_items_by_session.return_value = ()
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = []
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.subject = GetMentorSessionUseCase(self.database, self.access)
 
@@ -61,6 +92,116 @@ class TestGetMentorSessionUseCase:
             'account', 'session', 'older-cursor'
         )
 
+    def test_should_return_the_memory_items_of_the_whole_conversation(self) -> None:
+        items = (
+            MentorConversationMemoryItem(
+                change_id='change-1',
+                source_message_id='learner-1',
+                kind=LearnerMemoryChangeKind.CREATED,
+                category=LearnerMemoryCategory.EXPLANATION_PREFERENCE,
+                memory_id='memory',
+                content='Prefiro exemplos em Python.',
+                previous_content=None,
+                created_at=self.now,
+            ),
+            MentorConversationMemoryItem(
+                change_id='change-2',
+                source_message_id='learner-2',
+                kind=LearnerMemoryChangeKind.UPDATED,
+                category=LearnerMemoryCategory.EXPLANATION_PREFERENCE,
+                memory_id=None,
+                content=None,
+                previous_content=None,
+                created_at=self.now,
+            ),
+        )
+        changes = self.repositories.learner_memory_changes
+        changes.find_items_by_session.return_value = items
+
+        result = self.subject.execute('account', 'session', 'older-cursor')
+
+        assert result.memory_items == items
+        changes.find_items_by_session.assert_called_once_with('account', 'session')
+
+    def test_should_return_every_proposal_of_the_conversation_with_its_current_state(
+        self,
+    ) -> None:
+        pending = MentorActionProposalFaker.fake(
+            session_id='session', learner_message_id='message-1'
+        )
+        completed = MentorActionProposalFaker.fake(
+            session_id='session',
+            learner_message_id='message-2',
+            kind=MentorActionKind.REMOVE_SKILL,
+            status=MentorActionProposalStatus.COMPLETED,
+            outcome=MentorActionProposalOutcome.REMOVED,
+            resolved_goal_id='goal',
+            resolved_skill_experience_id='experience',
+        )
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = [
+            pending,
+            completed,
+        ]
+
+        result = self.subject.execute('account', 'session')
+
+        assert [item.id for item in result.action_items] == [pending.id, completed.id]
+        assert [item.source_message_id for item in result.action_items] == [
+            'message-1',
+            'message-2',
+        ]
+        assert [item.status for item in result.action_items] == [
+            MentorActionProposalStatus.PENDING,
+            MentorActionProposalStatus.COMPLETED,
+        ]
+        assert result.action_items[1].outcome is MentorActionProposalOutcome.REMOVED
+        assert result.action_items[1].resolved_skill_experience_id == 'experience'
+        assert result.action_items[0].justification == pending.justification
+        self.repositories.mentor_action_proposals.find_many_by_session.assert_called_once_with(
+            'account', 'session'
+        )
+
+    def test_should_return_no_action_items_for_a_conversation_without_proposals(
+        self,
+    ) -> None:
+        assert self.subject.execute('account', 'session').action_items == ()
+
+    def test_should_not_read_proposals_for_unowned_session(self) -> None:
+        self.repositories.mentor_sessions.find_by_id.return_value = None
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+
+        self.repositories.mentor_action_proposals.find_many_by_session.assert_not_called()
+
+    def test_should_not_read_memory_items_for_unowned_session(self) -> None:
+        self.repositories.mentor_sessions.find_by_id.return_value = None
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute('foreign-account', 'session')
+
+        self.repositories.learner_memory_changes.find_items_by_session.assert_not_called()
+
+    @pytest.mark.parametrize('error', [ValueError('Invalid cursor'), TypeError('x')])
+    def test_should_translate_a_rejected_cursor_into_a_domain_validation_error(
+        self, error: Exception
+    ) -> None:
+        self.repositories.mentor_messages.find_many.side_effect = error
+
+        with pytest.raises(MentorCursorInvalidError) as raised:
+            self.subject.execute('account', 'session', 'not-a-cursor')
+
+        assert raised.value.message == 'Cursor inválido.'
+        assert raised.value.__cause__ is error
+
+    def test_should_not_hide_unrelated_value_errors_when_no_cursor_was_sent(
+        self,
+    ) -> None:
+        self.repositories.mentor_messages.find_many.side_effect = ValueError('boom')
+
+        with pytest.raises(ValueError, match='boom'):
+            self.subject.execute('account', 'session')
+
     def test_should_return_private_not_found_for_unowned_session(self) -> None:
         self.repositories.mentor_sessions.find_by_id.return_value = None
 
@@ -81,3 +222,169 @@ class TestGetMentorSessionUseCase:
         with pytest.raises(ServiceUnavailableError):
             self.subject.execute('account', 'session')
         self.database.transaction.assert_not_called()
+
+    def summary(self, version: int, *, ready: bool) -> MentorSessionSummary:
+        started = MentorSessionSummary.start(
+            id=f'summary-{version}',
+            account_id='account',
+            session_id='session',
+            attempt_id=f'attempt-{version}',
+            version=version,
+            boundary=MentorSummaryBoundary(message_id='boundary', created_at=self.now),
+            covered_message_count=21,
+            first_message_id='first',
+            now=self.now,
+        )
+        if not ready:
+            return started.fail(MentorSummaryFailureCode.NLP_UNAVAILABLE, self.now)
+        return started.complete(
+            MentorConversationSummaryDraft(
+                topics=('range',),
+                excerpts=(
+                    MentorSummaryExcerptSpan(
+                        message_id='boundary',
+                        start=0,
+                        end=4,
+                        kind=MentorSummaryExcerptKind.DOUBT,
+                    ),
+                ),
+                algorithm_version='v1',
+            ),
+            self.now,
+        )
+
+    def failed_attempt(self, version: int) -> MentorResponseAttempt:
+        return MentorResponseAttempt.create(
+            id=f'attempt-{version}',
+            account_id='account',
+            session_id='session',
+            learner_message_id=f'learner-{version}',
+            status=MentorResponseStatus.COMPLETED,
+            context_hint=None,
+            access_revision='revision',
+            operation_key='operation',
+            created_at=self.now,
+            updated_at=self.now,
+        )
+
+    def test_should_return_an_empty_summary_state_without_summaries(self) -> None:
+        assert self.subject.execute('account', 'session').summary == (
+            MentorSessionSummaryState()
+        )
+
+    def test_should_expose_the_ready_marker_without_offsets(self) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(2)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state == MentorSessionSummaryState(
+            current=MentorSummaryMarker(
+                version=2,
+                boundary_message_id='boundary',
+                covered_message_count=21,
+                completed_at=self.now,
+                after_message_id='learner-2',
+            ),
+            failure_after_message_id=None,
+        )
+
+    def test_should_leave_the_trigger_unknown_when_the_attempt_is_gone(self) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = None
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
+
+    def test_should_leave_the_trigger_unknown_when_the_summary_lost_its_attempt(
+        self,
+    ) -> None:
+        ready = self.summary(2, ready=True)
+        self.repositories.mentor_session_summaries.find_ready.return_value = replace(
+            ready, attempt_id=None
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
+        self.repositories.mentor_response_attempts.find_by_id.assert_not_called()
+
+    def test_should_not_expose_a_trigger_that_belongs_to_another_session(
+        self,
+    ) -> None:
+        self.repositories.mentor_session_summaries.find_ready.return_value = (
+            self.summary(2, ready=True)
+        )
+        self.repositories.mentor_response_attempts.find_by_id.return_value = replace(
+            self.failed_attempt(2), session_id='other-session'
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.after_message_id is None
+
+    def test_should_anchor_the_failure_notice_when_only_a_failed_row_exists(
+        self,
+    ) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(3)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is None
+        assert state.failure_after_message_id == 'learner-3'
+        self.repositories.mentor_response_attempts.find_by_id.assert_called_once_with(
+            'attempt-3'
+        )
+
+    def test_should_keep_both_when_the_failed_row_is_newer_than_the_ready_one(
+        self,
+    ) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_ready.return_value = self.summary(2, ready=True)
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = (
+            self.failed_attempt(3)
+        )
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.current is not None
+        assert state.current.version == 2
+        assert state.failure_after_message_id == 'learner-3'
+
+    def test_should_ignore_a_failed_row_older_than_the_ready_one(self) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_ready.return_value = self.summary(4, ready=True)
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+
+        state = self.subject.execute('account', 'session').summary
+
+        assert state.failure_after_message_id is None
+        # Only the ready row's trigger is looked up; the older failed row is never read.
+        self.repositories.mentor_response_attempts.find_by_id.assert_called_once_with(
+            'attempt-4'
+        )
+
+    def test_should_omit_the_notice_when_the_failed_attempt_is_gone(self) -> None:
+        summaries = self.repositories.mentor_session_summaries
+        summaries.find_failed.return_value = self.summary(3, ready=False)
+        self.repositories.mentor_response_attempts.find_by_id.return_value = None
+
+        assert (
+            self.subject.execute('account', 'session').summary.failure_after_message_id
+            is None
+        )

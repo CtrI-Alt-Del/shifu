@@ -15,7 +15,7 @@ from shifu.intelligence.database.sqlalchemy import SqlalchemyIntelligenceDatabas
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.messaging.inngest.inngest_broker import InngestBroker
 from shifu.shared.pipes import FileStoragePipe, SharedPipe
-from tests.intelligence.server.controllers.conftest import (
+from tests.fixtures.intelligence_fixture import (
     MENTOR_ACCOUNT,
     MentorAttachmentExtractorStub,
     MentorAttachmentStorageStub,
@@ -122,6 +122,41 @@ class TestMentorAttachmentsController:
         )
 
         assert response.status_code == 422
+        assert response.json() == {
+            'code': 'malformed_attachment',
+            'message': 'O arquivo não é válido ou não está disponível.',
+        }
+
+    @pytest.mark.parametrize(
+        ('method', 'path'),
+        [
+            ('GET', '/intelligence/mentor-attachment-batches/not-a-ulid'),
+            (
+                'DELETE',
+                '/intelligence/mentor-attachment-batches/not-a-ulid/attachments/'
+                + '0' * 25
+                + '1',
+            ),
+            (
+                'GET',
+                '/intelligence/mentor-sessions/not-a-ulid/attachments/'
+                + '0' * 25
+                + '1/file',
+            ),
+        ],
+    )
+    def test_registered_routes_reject_malformed_resource_ids(
+        self,
+        mentor_attachment_http_boundary: tuple[TestClient, MentorAttachmentStorageStub],
+        method: str,
+        path: str,
+    ) -> None:
+        client, _storage = mentor_attachment_http_boundary
+
+        response = client.request(method, path)
+
+        assert response.status_code == 422
+        assert response.json()['code'] == 'validation_error'
 
     def test_registered_upload_rejects_a_file_over_the_size_limit_without_writes(
         self,
@@ -148,6 +183,10 @@ class TestMentorAttachmentsController:
             persisted = repositories.mentor_attachments.find_by_batch_id(batch_id)
 
         assert response.status_code == 413
+        assert response.json() == {
+            'code': 'attachment_too_large',
+            'message': 'O arquivo excede o limite de 2 MB.',
+        }
         assert persisted == ()
         assert storage.objects == {}
 
@@ -163,6 +202,7 @@ class TestMentorAttachmentsController:
         )
 
         assert response.status_code == 422
+        assert response.json()['code'] == 'validation_error'
         assert storage.objects == {}
 
     def test_registered_upload_rejects_non_decimal_content_length_after_middleware(
@@ -193,7 +233,10 @@ class TestMentorAttachmentsController:
         )
 
         assert response.status_code == 422
-        assert response.json()['detail']['code'] == 'malformed_attachment'
+        assert response.json() == {
+            'code': 'malformed_attachment',
+            'message': 'O arquivo não é válido ou não está disponível.',
+        }
         assert storage.objects == {}
 
     def test_registered_upload_uses_the_local_extractor_for_text_and_image_validation(

@@ -10,6 +10,8 @@ describe('useRootLayout route classification', () => {
     expect(isPublicRoute('/reset-password')).toBe(true)
     expect(isPublicRoute('/pending-confirmation')).toBe(true)
     expect(isPublicRoute('/confirm-email')).toBe(true)
+    expect(isPublicRoute('/privacy')).toBe(true)
+    expect(isPublicRoute('/privacy/')).toBe(true)
     expect(isPublicRoute('/account')).toBe(false)
     expect(isPublicRoute('/')).toBe(false)
   })

@@ -20,3 +20,6 @@ from .mentor_access_provider import MentorAccessProvider as MentorAccessProvider
 from .mentor_catalog_provider import MentorCatalogProvider as MentorCatalogProvider
 from .mentor_context_provider import MentorContextProvider as MentorContextProvider
 from .outbox_event import OutboxEvent as OutboxEvent
+from .mentor_goal_destinations_provider import (
+    MentorGoalDestinationsProvider as MentorGoalDestinationsProvider,
+)

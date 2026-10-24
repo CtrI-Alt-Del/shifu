@@ -1,9 +1,12 @@
+import { MemoryChangeMarker } from './memory-change-marker'
 import { MessageItem } from './message-list/message-item'
 import { ResponseStatus } from './response-status'
+import { SummaryMarker } from './summary-marker'
 import { Button } from '@/ui/shadcn/button'
 import { EmptyState } from './empty-state'
 import { Composer } from './composer'
 import { MessageList } from './message-list'
+import { SkillActionCard } from './message-list/skill-action-card'
 import { LoadingSkeleton } from './loading-skeleton'
 import { useConversation } from './use-conversation'
 
@@ -14,6 +17,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     response,
     isCancellingResponse,
     isRetryingResponse,
+    isSummarizingContext,
     cancelResponse,
     retryResponse,
     conversationError,
@@ -25,10 +29,11 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     scrollRef,
     selectedSessionId,
     sessionDetail,
-    visibleMessages,
+    conversationItems,
+    trailingMemoryItems,
+    trailingActionItems,
   } = useConversation()
   const messages = sessionDetail?.messages.items ?? []
-  const renderedMessages = visibleMessages ?? messages
 
   return (
     <section aria-label='Conversa com o Mentor' className='flex min-h-0 flex-1 flex-col'>
@@ -56,8 +61,8 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             </Button>
           </div>
         ) : null}
-        {renderedMessages.length ? (
-          <MessageList messages={renderedMessages} surface={surface} />
+        {conversationItems.length ? (
+          <MessageList items={conversationItems} surface={surface} />
         ) : !isReadingMessages && !conversationError ? (
           <EmptyState surface={surface} />
         ) : null}
@@ -78,13 +83,43 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             />
           </ol>
         ) : null}
-        {response ? (
+        {response && isSummarizingContext ? (
+          <div className='space-y-2 py-3'>
+            <SummaryMarker variant='processing' />
+            <Button
+              className='min-h-11'
+              disabled={isCancellingResponse || isRetryingResponse}
+              onClick={() => void cancelResponse()}
+              variant='ghost'
+            >
+              Cancelar resposta
+            </Button>
+          </div>
+        ) : response ? (
           <ResponseStatus
             response={response}
             isPending={isCancellingResponse || isRetryingResponse}
             onCancel={cancelResponse}
             onRetry={retryResponse}
           />
+        ) : null}
+        {trailingActionItems.length > 0 ? (
+          <ul aria-label='Ações propostas nesta resposta' className='mt-4 space-y-4'>
+            {trailingActionItems.map((proposal) => (
+              <li key={proposal.id}>
+                <SkillActionCard proposal={proposal} />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {trailingMemoryItems.length > 0 ? (
+          <ul aria-label='Memórias desta resposta'>
+            {trailingMemoryItems.map((item) => (
+              <li key={item.id}>
+                <MemoryChangeMarker item={item} />
+              </li>
+            ))}
+          </ul>
         ) : null}
         {isReadingOlderMessages && messages.length > 0 ? (
           <p aria-live='polite' className='py-2 text-center text-sm'>

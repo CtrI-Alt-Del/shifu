@@ -24,7 +24,17 @@ test.describe('RegisterPage route with mocked transport', () => {
       'href',
       '/login',
     )
+    const privacyLink = page.getByRole('link', { name: 'Política de privacidade' })
+    await expect(privacyLink).toHaveAttribute('href', '/privacy')
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375)
+    await privacyLink.click()
+    await expect(page).toHaveURL(/\/privacy\/?$/)
+    await expect(
+      page.getByRole('heading', {
+        level: 1,
+        name: 'Política de privacidade',
+      }),
+    ).toBeVisible()
   })
 
   test('preserves valid input and announces client validation failures', async ({

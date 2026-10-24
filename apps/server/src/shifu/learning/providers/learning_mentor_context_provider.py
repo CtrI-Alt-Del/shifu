@@ -1,3 +1,4 @@
+from shifu.learning.core.domain.entities import Goal, SkillExperience
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures.competency_material_detail import (
     CompetencyMaterialDetail,
@@ -15,6 +16,20 @@ from shifu.shared.core.domain.structures import (
     MentorContextSnapshot,
 )
 from shifu.shared.core.interfaces import MentorCatalogProvider
+
+_LIST_LIMIT = 20
+_COUNT_LABELS: tuple[tuple[SkillExperienceStatus, str, str], ...] = (
+    (SkillExperienceStatus.NOT_STARTED, 'não iniciada', 'não iniciadas'),
+    (SkillExperienceStatus.DIAGNOSING, 'em diagnóstico', 'em diagnóstico'),
+    (SkillExperienceStatus.LEARNING, 'em aprendizado', 'em aprendizado'),
+    (SkillExperienceStatus.COMPLETED, 'concluída', 'concluídas'),
+)
+
+
+def _count_label(count: int, singular: str, plural: str) -> str:
+    if count == 0:
+        return ''
+    return f'{count} {singular if count == 1 else plural}'
 
 
 class LearningMentorContextProvider:
@@ -59,18 +74,24 @@ class LearningMentorContextProvider:
             if goal_id is not None and goal is None:
                 raise CompetencyDetailNotFoundError
             facts = tuple(('goals', f'{goal.id}: {goal.title}') for goal in goals)
-            completed = tuple(
-                (
-                    'completed_skills',
-                    f'{experience.skill_id} (Objetivo {owned_goal.id})',
-                )
-                for owned_goal in goals
-                for experience in repositories.skill_experiences.find_many_by_goal_id(
-                    owned_goal.id
-                )
-                if experience.status is SkillExperienceStatus.COMPLETED
+            ordered = sorted(
+                sorted(goals, key=lambda owned: owned.id),
+                key=lambda owned: owned.updated_at,
+                reverse=True,
             )
-            facts += completed
+            experiences = {
+                owned.id: sorted(
+                    repositories.skill_experiences.find_many_by_goal_id(owned.id),
+                    key=lambda item: (item.created_at, item.id),
+                )
+                for owned in ordered
+            }
+            names = {
+                entry.skill_id: entry.title
+                for entry in projection
+                if entry.kind == 'skill'
+            }
+            facts += self._completed_facts(ordered, experiences, names)
             if len(explicit_goals) > 1 or len(explicit_skills) > 1:
                 return self._unresolved(
                     projection,
@@ -84,7 +105,9 @@ class LearningMentorContextProvider:
                     resolved_references=reference_ids,
                 )
             if goal is None:
-                return self._unresolved(projection, facts)
+                return self._unresolved(
+                    projection, facts + self._overview_facts(ordered, experiences)
+                )
             if len(explicit_skills) == 1:
                 selected_skill_id = next(iter(explicit_skills))
                 _, competency_id, material_id, activity_id = self._override_hint(
@@ -102,7 +125,11 @@ class LearningMentorContextProvider:
             if skill_id is not None and experience is None:
                 raise CompetencyDetailNotFoundError
             if experience is None:
-                return self._unresolved(projection, facts, goal.id)
+                return self._unresolved(
+                    projection,
+                    facts + self._goal_skill_facts(goal, experiences[goal.id], names),
+                    goal.id,
+                )
             selected = tuple(
                 entry for entry in projection if entry.skill_id == experience.skill_id
             )
@@ -151,6 +178,69 @@ class LearningMentorContextProvider:
             eligible_references=allowed,
             resolved_references=resolved,
             unavailable_sources=('gamification',),
+        )
+
+    @staticmethod
+    def _bounded(values: list[str]) -> list[str]:
+        if len(values) <= _LIST_LIMIT:
+            return values
+        return [*values[:_LIST_LIMIT], f'e mais {len(values) - _LIST_LIMIT}.']
+
+    @staticmethod
+    def _skill_name(names: dict[str, str], skill_id: str) -> str:
+        return names.get(skill_id) or 'Habilidade sem título'
+
+    def _completed_facts(
+        self,
+        goals: list[Goal],
+        experiences: dict[str, list[SkillExperience]],
+        names: dict[str, str],
+    ) -> tuple[tuple[str, str], ...]:
+        entries = [
+            f'{self._skill_name(names, experience.skill_id)} (Objetivo {goal.title})'
+            for goal in goals
+            for experience in experiences[goal.id]
+            if experience.status is SkillExperienceStatus.COMPLETED
+        ]
+        return tuple(('completed_skills', value) for value in self._bounded(entries))
+
+    def _overview_facts(
+        self,
+        goals: list[Goal],
+        experiences: dict[str, list[SkillExperience]],
+    ) -> tuple[tuple[str, str], ...]:
+        lines = [self._overview_line(goal, experiences[goal.id]) for goal in goals]
+        return tuple(('progress_overview', value) for value in self._bounded(lines))
+
+    @staticmethod
+    def _overview_line(goal: Goal, experiences: list[SkillExperience]) -> str:
+        if not experiences:
+            return f'{goal.title}: nenhuma Habilidade ainda.'
+        counts = [
+            _count_label(
+                sum(1 for item in experiences if item.status is status),
+                singular,
+                plural,
+            )
+            for status, singular, plural in _COUNT_LABELS
+        ]
+        total = len(experiences)
+        noun = 'Habilidade' if total == 1 else 'Habilidades'
+        return f'{goal.title}: {total} {noun} — {", ".join(c for c in counts if c)}.'
+
+    def _goal_skill_facts(
+        self,
+        goal: Goal,
+        experiences: list[SkillExperience],
+        names: dict[str, str],
+    ) -> tuple[tuple[str, str], ...]:
+        lines = [
+            f'{self._skill_name(names, item.skill_id)}: {self._status_label(item.status.value)}'
+            for item in experiences
+        ] or ['Este Objetivo ainda não tem Habilidades.']
+        return (
+            ('goal_progress_title', goal.title),
+            *(('goal_skill_status', value) for value in self._bounded(lines)),
         )
 
     @staticmethod
