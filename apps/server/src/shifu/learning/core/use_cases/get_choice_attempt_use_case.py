@@ -22,6 +22,7 @@ from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
@@ -225,6 +226,7 @@ class GetChoiceAttemptUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                 ),
             ):
                 code_answer = answer if isinstance(answer, CodeAnswer) else None
@@ -305,6 +307,7 @@ class GetChoiceAttemptUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                 ),
             )
         }

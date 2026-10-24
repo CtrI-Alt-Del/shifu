@@ -5,6 +5,7 @@ import type {
   CodeQuestion,
   ChoiceQuestion,
   CodeResultQuestion,
+  HtmlCssJsQuestion,
   ChoiceResultQuestion,
 } from '@/core/learning/choice-activity'
 
@@ -30,6 +31,17 @@ const CODE_QUESTION: CodeQuestion = {
   fixedDependencies: [],
   permittedCommands: [],
   criteria: [{ key: 'input-handling', name: 'Leitura da entrada', weightPercentage: 60 }],
+}
+const HTML_QUESTION: HtmlCssJsQuestion = {
+  key: 'html-question-1',
+  kind: 'html_css_js',
+  prompt: 'Crie uma página semântica.',
+  initialFiles: [{ path: 'index.html', content: '', editable: true }],
+  entrypoint: 'index.html',
+  editablePaths: ['index.html'],
+  fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+  permittedCommands: [],
+  criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
 }
 
 describe('ChoiceResultDetail', () => {
@@ -238,5 +250,39 @@ describe('ChoiceResultDetail', () => {
     expect(
       screen.queryByTitle('Prévia isolada da aplicação React'),
     ).not.toBeInTheDocument()
+  })
+
+  it('renders HTML/CSS/JavaScript history as read-only files and rubric', () => {
+    const result: CodeResultQuestion = {
+      key: HTML_QUESTION.key,
+      kind: 'html_css_js',
+      prompt: HTML_QUESTION.prompt,
+      score: 100,
+      submittedFiles: [{ path: 'index.html', content: '<main>histórico</main>' }],
+      criterionResults: [
+        {
+          key: 'semantic',
+          weightPercentage: 100,
+          level: 100,
+          commentId: 'semantic-complete',
+          comment: 'Estrutura semântica correta.',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(
+      <ChoiceResultDetail question={HTML_QUESTION} questionNumber={4} result={result} />,
+    )
+
+    expect(screen.getByText(/Questão 4 · HTML, CSS e JavaScript/)).toBeVisible()
+    fireEvent.click(screen.getByText(/Questão 4 · HTML, CSS e JavaScript/))
+    expect(screen.getByText('<main>histórico</main>')).toBeVisible()
+    expect(screen.getByText('Somente leitura')).toBeVisible()
+    expect(screen.getByText('HTML semântico · peso 100% · nível 100')).toBeVisible()
+    expect(screen.getByText('Estrutura semântica correta.')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: /Executar|Avaliar/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Prévia isolada da página')).not.toBeInTheDocument()
   })
 })

@@ -6,6 +6,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
+import { HtmlCssJsQuestion } from './html-css-js-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
 
@@ -51,6 +52,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
     handleCodeFilesChange,
     runnerFactory,
     reactRunnerFactory,
+    htmlCssJsRunnerFactory,
     reactDraftStore,
     accountId,
     isOnlineAuthority,
@@ -208,10 +210,14 @@ export const ActivityPage = (props: ActivityPageProps) => {
     'goalId' in props && nextDiagnosticActivity?.competencyId !== props.competencyId
 
   const isReactQuestion = currentQuestion.kind === 'react'
-  const isCodeQuestion = currentQuestion.kind === 'javascript_stdin' || isReactQuestion
+  const isHtmlCssJsQuestion = currentQuestion.kind === 'html_css_js'
+  const isCodeQuestion =
+    currentQuestion.kind === 'javascript_stdin' || isReactQuestion || isHtmlCssJsQuestion
   const isDiagnosticChoice = activity.isDiagnostic && !isCodeQuestion
   const choiceQuestion =
-    currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react' ? (
+    currentQuestion.kind !== 'javascript_stdin' &&
+    currentQuestion.kind !== 'react' &&
+    currentQuestion.kind !== 'html_css_js' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -307,6 +313,39 @@ export const ActivityPage = (props: ActivityPageProps) => {
           skillId={'skillId' in props ? props.skillId : undefined}
           totalQuestions={totalQuestions}
         />
+      ) : isHtmlCssJsQuestion ? (
+        <HtmlCssJsQuestion
+          accountId={accountId}
+          activityId={activity.activityId}
+          activityRevision={activity.activityRevision ?? null}
+          canSubmit={activity.canSubmit}
+          activeQuestionKeys={activeQuestionKeys}
+          activityTitle={activity.title}
+          competencyId={'competencyId' in props ? props.competencyId : undefined}
+          difficulty={activity.difficulty}
+          disabled={Boolean(
+            activity.isDiagnostic ||
+              isQuestionReadOnly ||
+              isSubmitting ||
+              isAssessing ||
+              feedback ||
+              frozenAnswer,
+          )}
+          draftStore={reactDraftStore}
+          goalId={'goalId' in props ? props.goalId : undefined}
+          isDiagnostic={Boolean(activity.isDiagnostic)}
+          isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+          key={currentQuestion.key}
+          onAnswerValidityChange={handleReactAnswerValidityChange}
+          onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+          onFilesChange={handleCodeFilesChange}
+          question={currentQuestion}
+          questionNumber={currentQuestionNumber}
+          runnerFactory={htmlCssJsRunnerFactory}
+          readOnly={Boolean(activity.isDiagnostic || feedback || frozenAnswer)}
+          skillId={'skillId' in props ? props.skillId : undefined}
+          totalQuestions={totalQuestions}
+        />
       ) : isDiagnosticChoice ? (
         <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>
           {choiceQuestion}
@@ -395,7 +434,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
               ) : null}
             </div>
           ) : (currentQuestion.kind !== 'javascript_stdin' &&
-              currentQuestion.kind !== 'react') ||
+              currentQuestion.kind !== 'react' &&
+              currentQuestion.kind !== 'html_css_js') ||
             activity.isDiagnostic ||
             feedback ||
             frozenAnswer ? (
@@ -421,7 +461,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
                         : 'Próxima questão'
                       : !isMixedActivity
                         ? isLastQuestion
-                          ? isReactQuestion
+                          ? isReactQuestion || isHtmlCssJsQuestion
                             ? 'Enviar atividade'
                             : 'Enviar respostas'
                           : 'Próxima questão'
@@ -432,7 +472,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
                           : feedback.status === 'inconclusive'
                             ? 'Reavaliar resposta'
                             : isLastQuestion
-                              ? isReactQuestion
+                              ? isReactQuestion || isHtmlCssJsQuestion
                                 ? 'Enviar atividade'
                                 : 'Enviar respostas'
                               : 'Próxima questão'}

@@ -26,6 +26,7 @@ from shifu.learning.core.interfaces import (
     LearningDatabaseRepositories,
 )
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
+from shifu.learning.core.use_cases.code_answer_validation import CodeAnswerValidation
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -49,6 +50,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactInitialFileSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumHtmlCssJsInitialFileSnapshot,
+    CurriculumHtmlCssJsDependencySnapshot,
+    CurriculumHtmlCssJsPermittedCommandSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -991,6 +996,41 @@ class TestSubmitChoiceActivityAnswerNormalization:
             mixed_snapshot(), (*self._choice(), code)
         )
 
+    @staticmethod
+    def _html_snapshot() -> CurriculumLearningActivitySnapshot:
+        original = mixed_snapshot()
+        question = CurriculumHtmlCssJsQuestionSnapshot(
+            key='q3',
+            prompt='Build a page',
+            initial_files=(
+                CurriculumHtmlCssJsInitialFileSnapshot(
+                    path='index.html', content='<main>starter</main>', editable=True
+                ),
+                CurriculumHtmlCssJsInitialFileSnapshot(
+                    path='styles.css', content='', editable=True
+                ),
+                CurriculumHtmlCssJsInitialFileSnapshot(
+                    path='package.json', content='{}', editable=False
+                ),
+            ),
+            entrypoint='index.html',
+            fixed_dependencies=(
+                CurriculumHtmlCssJsDependencySnapshot(name='vite', version='7.0.0'),
+            ),
+            permitted_commands=(
+                CurriculumHtmlCssJsPermittedCommandSnapshot(
+                    id='dev', executable='npm', arguments=('run', 'dev')
+                ),
+            ),
+            concept_criteria=(),
+        )
+        return replace(original, questions=(*original.questions[:2], question))
+
+    def _submit_html(self, answer: CodeAnswer) -> tuple[ActivityAnswer, ...]:
+        return SubmitChoiceActivityUseCase.normalize_answers(
+            self._html_snapshot(), (*self._choice(), answer)
+        )
+
     def test_should_sort_editable_files_by_path(self) -> None:
         normalized = SubmitChoiceActivityUseCase.normalize_answers(
             mixed_snapshot(),
@@ -1007,6 +1047,118 @@ class TestSubmitChoiceActivityAnswerNormalization:
         assert isinstance(code, CodeAnswer)
         assert code.question_key == 'q3'
         assert [item.path for item in code.files] == ['src/main.js']
+
+    def test_should_normalize_html_project_and_keep_fixed_files_from_snapshot(
+        self,
+    ) -> None:
+        snapshot = self._html_snapshot()
+        question = snapshot.questions[2]
+        part = snapshot.parts[2]
+        assert isinstance(question, CurriculumHtmlCssJsQuestionSnapshot)
+        assert isinstance(part, CurriculumCodeRubricPartSnapshot)
+        answer = CodeAnswer(
+            question_key='q3',
+            kind='html_css_js',
+            files=(
+                CodeSubmittedFile(path='styles.css', content='main { color: red; }'),
+                CodeSubmittedFile(path='index.html', content='<main>finished</main>'),
+            ),
+        )
+
+        normalized = CodeAnswerValidation.normalize(question, answer)
+        assessment = CodeAnswerValidation.build_assessment_input(
+            question,
+            part,
+            answer,
+        )
+
+        assert normalized == CodeAnswer(
+            question_key='q3',
+            kind='html_css_js',
+            files=(
+                CodeSubmittedFile(path='index.html', content='<main>finished</main>'),
+                CodeSubmittedFile(path='styles.css', content='main { color: red; }'),
+            ),
+        )
+        assert assessment.question_kind == 'html_css_js'
+        assert assessment.submitted_paths == ('index.html', 'styles.css')
+        assert ('package.json', '{}') in assessment.project_files
+        assert ('index.html', '<main>finished</main>') in assessment.project_files
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            CodeAnswer(
+                question_key='q3',
+                kind=None,
+                files=(
+                    CodeSubmittedFile(path='index.html', content=''),
+                    CodeSubmittedFile(path='styles.css', content=''),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='html_css_js',
+                files=(
+                    CodeSubmittedFile(path='index.html', content=''),
+                    CodeSubmittedFile(path='styles.css', content=''),
+                    CodeSubmittedFile(path='script.js', content='extra'),
+                ),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='html_css_js',
+                files=(CodeSubmittedFile(path='index.html', content=''),),
+            ),
+            CodeAnswer(
+                question_key='q3',
+                kind='html_css_js',
+                files=(
+                    CodeSubmittedFile(path='index.html', content=''),
+                    CodeSubmittedFile(path='styles.css', content=''),
+                    CodeSubmittedFile(path='package.json', content='{}'),
+                ),
+            ),
+        ),
+        ids=(
+            'missing-kind',
+            'extra-file',
+            'partial-editable-set',
+            'read-only-overwrite',
+        ),
+    )
+    def test_should_reject_html_answers_outside_exact_editable_files(
+        self, answer: CodeAnswer
+    ) -> None:
+        snapshot = self._html_snapshot()
+        question = snapshot.questions[2]
+        assert isinstance(question, CurriculumHtmlCssJsQuestionSnapshot)
+
+        with pytest.raises(ValidationError):
+            CodeAnswerValidation.normalize(question, answer)
+
+    def test_should_enforce_utf8_assessment_input_byte_limit_at_boundary(self) -> None:
+        snapshot = self._html_snapshot()
+        question = snapshot.questions[2]
+        assert isinstance(question, CurriculumHtmlCssJsQuestionSnapshot)
+        answer = CodeAnswer(
+            question_key='q3',
+            kind='html_css_js',
+            files=(
+                CodeSubmittedFile(path='index.html', content='é'),
+                CodeSubmittedFile(path='styles.css', content=''),
+            ),
+        )
+        project = {item.path: item.content for item in question.initial_files}
+        project.update({item.path: item.content for item in answer.files})
+        exact_bytes = sum(
+            len(path.encode('utf-8')) + len(content.encode('utf-8'))
+            for path, content in project.items()
+        )
+
+        CodeAnswerValidation.normalize(question, answer, exact_bytes)
+        with pytest.raises(ValidationError):
+            CodeAnswerValidation.normalize(question, answer, exact_bytes - 1)
 
     def test_should_reject_a_code_answer_carrying_inline_source(self) -> None:
         with pytest.raises(ValidationError):

@@ -71,6 +71,17 @@ type ActivityWire = {
         } | null
         criteria: { key: string; name: string; weight_percentage: number }[]
       }
+    | {
+        key: string
+        kind: 'html_css_js'
+        prompt: string
+        initial_files: { path: string; content: string; editable: boolean }[]
+        entrypoint: string
+        editable_paths: string[]
+        fixed_dependencies: { name: string; version: string }[]
+        permitted_commands: { id: string; executable: string; arguments: string[] }[]
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
   >
   can_submit: boolean
   latest_attempt_id?: string | null
@@ -118,6 +129,23 @@ function mapActivityQuestion(
             maxFiles: question.additional_file_policy.max_files,
           }
         : null,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
+  if (question.kind === 'html_css_js') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      initialFiles: question.initial_files,
+      entrypoint: question.entrypoint,
+      editablePaths: question.editable_paths,
+      fixedDependencies: question.fixed_dependencies,
+      permittedCommands: question.permitted_commands,
       criteria: question.criteria.map((criterion) => ({
         key: criterion.key,
         name: criterion.name,
@@ -209,6 +237,25 @@ type AttemptWire = {
           observation_id: string
         }[]
       }
+    | {
+        question_key: string
+        kind: 'html_css_js'
+        prompt: string
+        submitted_files: { path: string; content: string }[]
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
   >
 }
 
@@ -236,7 +283,9 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
     questions: wire.questions?.map((question): ActivityResultQuestion => {
       if (
         'kind' in question &&
-        (question.kind === 'javascript_stdin' || question.kind === 'react')
+        (question.kind === 'javascript_stdin' ||
+          question.kind === 'react' ||
+          question.kind === 'html_css_js')
       ) {
         return {
           key: question.question_key,
@@ -526,17 +575,25 @@ export const LearningService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
 
       const body = response.body
+      const questions = body.questions.map(mapActivityQuestion)
+      const isDiagnostic = body.is_diagnostic ?? false
+      if (isDiagnostic && questions.some(({ kind }) => kind === 'html_css_js')) {
+        throw new AppError(
+          'Tipo de questão indisponível para Diagnóstico.',
+          'Atividade inválida',
+        )
+      }
 
       return {
         activityId: body.activity_id,
         title: body.title,
         difficulty: body.difficulty,
         activityRevision: body.activity_revision,
-        questions: body.questions.map(mapActivityQuestion),
+        questions,
         canSubmit: body.can_submit,
         latestAttemptId: body.latest_attempt_id ?? null,
         unresolvedAttemptId: body.unresolved_attempt_id ?? null,
-        isDiagnostic: body.is_diagnostic ?? false,
+        isDiagnostic,
       }
     },
 

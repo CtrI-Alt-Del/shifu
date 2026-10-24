@@ -58,7 +58,27 @@ export type ReactQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
-export type ActivityQuestion = ChoiceQuestion | CodeQuestion | ReactQuestion
+export type HtmlCssJsQuestion = {
+  key: string
+  kind: 'html_css_js'
+  prompt: string
+  initialFiles: readonly { path: string; content: string; editable: boolean }[]
+  entrypoint: string
+  editablePaths: readonly string[]
+  fixedDependencies: readonly { name: string; version: string }[]
+  permittedCommands: readonly {
+    id: string
+    executable: string
+    arguments: readonly string[]
+  }[]
+  criteria: readonly { key: string; name: string; weightPercentage: number }[]
+}
+
+export type ActivityQuestion =
+  | ChoiceQuestion
+  | CodeQuestion
+  | ReactQuestion
+  | HtmlCssJsQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -79,7 +99,7 @@ export type ChoiceAnswer = {
 }
 
 export type CodeAnswer = {
-  kind: 'javascript_stdin' | 'react'
+  kind: 'javascript_stdin' | 'react' | 'html_css_js'
   questionKey: string
   files: readonly { path: string; content: string }[]
 }
@@ -126,7 +146,7 @@ export type ChoiceResultQuestion = {
 
 export type CodeResultQuestion = {
   key: string
-  kind: 'javascript_stdin' | 'react'
+  kind: 'javascript_stdin' | 'react' | 'html_css_js'
   prompt: string
   score: number | null
   submittedFiles: readonly { path: string; content: string }[]

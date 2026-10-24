@@ -5,6 +5,7 @@ import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 import { WebContainerCodePracticeRunner } from '@/provision/learning/webcontainer-code-practice-runner'
 import { ReactWebContainerPracticeRunner } from '@/provision/learning/react-webcontainer-practice-runner'
+import { HtmlCssJsWebContainerPracticeRunner } from '@/provision/learning/html-css-js-webcontainer-practice-runner'
 import { getDiagnosticRun } from '@/ui/learning/diagnostic-run-session'
 import { useDiagnosticLeaveGuard } from '@/ui/learning/hooks/use-diagnostic-leave-guard'
 import { ActivityPage } from '@/ui/learning/widgets/pages/activity-page'
@@ -88,6 +89,7 @@ function ActivityIndexRoute() {
       onUnsentAnswersChange={onUnsentAnswersChange}
       runnerFactory={WebContainerCodePracticeRunner}
       reactRunnerFactory={ReactWebContainerPracticeRunner}
+      htmlCssJsRunnerFactory={HtmlCssJsWebContainerPracticeRunner}
     />
   )
 }
