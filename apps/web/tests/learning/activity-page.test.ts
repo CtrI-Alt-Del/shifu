@@ -93,6 +93,113 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   ).toBe(true)
 })
 
+test('assesses and submits an HTML/CSS/JavaScript question through the protected Activity route', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const htmlSource = '<main><h1>Minha página</h1></main>'
+  const htmlActivity = {
+    ...activity,
+    activityRevision: 'html-revision-1',
+    questions: [
+      {
+        key: 'html-1',
+        kind: 'html_css_js',
+        prompt: 'Crie uma página semântica.',
+        initialFiles: [{ path: 'index.html', content: '<main></main>', editable: true }],
+        entrypoint: 'index.html',
+        editablePaths: ['index.html'],
+        fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+        permittedCommands: [],
+        criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+      },
+    ],
+  }
+  const requests: string[] = []
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (!payload.includes(ids.activityId)) return route.fallback()
+    requests.push(payload)
+    if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes('questionKey') || payload.includes('question_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            status: 'conclusive',
+            score: 100,
+            criteria: [
+              {
+                key: 'semantic',
+                weightPercentage: 100,
+                level: '100',
+                commentId: 'complete',
+                comment: 'Estrutura semântica correta.',
+              },
+            ],
+            submittedFiles: [{ path: 'index.html', content: htmlSource }],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: htmlActivity }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(authenticatedPage.getByText(/Prática indisponível/i)).toBeVisible()
+  const editor = authenticatedPage.getByRole('textbox', { name: 'Código: index.html' })
+  await authenticatedPage
+    .context()
+    .grantPermissions(['clipboard-read', 'clipboard-write'])
+  await authenticatedPage.evaluate(
+    async (source) => navigator.clipboard.writeText(source),
+    htmlSource,
+  )
+  await editor.focus()
+  await authenticatedPage.keyboard.press('Control+A')
+  await authenticatedPage.keyboard.press('Control+V')
+  await expect(authenticatedPage.locator('.monaco-editor')).toBeVisible()
+  await authenticatedPage.getByRole('button', { name: 'Avaliar questão' }).click()
+  await expect(authenticatedPage.getByText('Estrutura semântica correta.')).toBeVisible()
+  await authenticatedPage.getByRole('button', { name: 'Enviar atividade' }).click()
+  await expect(authenticatedPage).toHaveURL(
+    new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
+  )
+
+  const previewRequest =
+    requests.find(
+      (request) => request.includes('questionKey') || request.includes('question_key'),
+    ) ?? ''
+  const submissionRequest =
+    requests.find(
+      (request) =>
+        request.includes('submissionKey') || request.includes('submission_key'),
+    ) ?? ''
+  expect(previewRequest).toContain('html_css_js')
+  expect(previewRequest).toContain('html-revision-1')
+  expect(previewRequest).toContain('index.html')
+  expect(submissionRequest).toContain('html_css_js')
+  expect(submissionRequest).toContain(htmlSource)
+})
+
 test('shows Markdown code and accepts a complete multiple-selection answer', async ({
   authenticatedPage,
   bff,

@@ -58,7 +58,7 @@ class AdditionalFilePolicyResponse(BaseModel):
 
 class CodeQuestionResponse(BaseModel):
     key: str
-    kind: Literal['javascript_stdin', 'react']
+    kind: Literal['javascript_stdin', 'react', 'html_css_js']
     prompt: str
     initial_files: tuple[FileResponse, ...]
     entrypoint: str

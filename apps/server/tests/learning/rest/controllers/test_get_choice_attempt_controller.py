@@ -20,7 +20,10 @@ from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
 from shifu.learning.core.domain.enums import SkillExperienceStatus
-from shifu.learning.core.domain.structures import CodeQuestionAssessmentDecisions
+from shifu.learning.core.domain.structures import (
+    CodeAnswer,
+    CodeQuestionAssessmentDecisions,
+)
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import (
     AuthenticatedUser,
@@ -28,6 +31,7 @@ from shifu.shared.core.domain.structures import (
     CodeRubricDecisions,
     CurriculumCodeRubricPartSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider
 from shifu.shared.database.seed_data import (
@@ -44,6 +48,9 @@ from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.learning.rest.controllers.react_controller_fixture import (
     ReactControllerFixture,
+)
+from tests.learning.rest.controllers.html_css_js_controller_fixture import (
+    HtmlCssJsControllerFixture,
 )
 
 if TYPE_CHECKING:
@@ -130,6 +137,65 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetChoiceAttemptController:
+    def test_html_attempt_round_trips_frozen_snapshot_and_submitted_project(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = HtmlCssJsControllerFixture.activity()
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many([activity])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                HtmlCssJsControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{HtmlCssJsControllerFixture.activity_path()}/attempts',
+                json=HtmlCssJsControllerFixture.submission(revision),
+                headers=headers,
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+
+        pending = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{HtmlCssJsControllerFixture.activity_path()}/attempts/{attempt_id}',
+                headers=headers,
+            ),
+        )
+        assert pending.status_code == 200, pending.json()
+        assert pending.json()['status'] == 'pending'
+        html = pending.json()['questions'][0]
+        assert html['kind'] == 'html_css_js'
+        assert html['prompt'] == HtmlCssJsControllerFixture.PROMPT
+        assert html['submitted_files'] == HtmlCssJsControllerFixture.composed_files()
+
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+        assert attempt is not None and attempt.grading_snapshot is not None
+        question = attempt.grading_snapshot.questions[2]
+        assert isinstance(question, CurriculumHtmlCssJsQuestionSnapshot)
+        assert attempt.grading_snapshot.revision == revision
+        code_answer = attempt.answers[2]
+        assert isinstance(code_answer, CodeAnswer)
+        assert code_answer.kind == 'html_css_js'
+        assert [item.path for item in code_answer.files] == [
+            'index.html',
+            'script.js',
+            'styles.css',
+        ]
+
     @pytest.mark.parametrize(
         'legacy_answer',
         (

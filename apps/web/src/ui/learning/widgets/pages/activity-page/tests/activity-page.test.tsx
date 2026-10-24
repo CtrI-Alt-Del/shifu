@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChoiceActivityDetail } from '@/core/learning/choice-activity'
+import type { HtmlCssJsQuestion as HtmlQuestion } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import {
   clearDiagnosticRun,
@@ -11,6 +12,7 @@ import {
 
 import { ActivityPage } from '..'
 import { CodeQuestion } from '../code-question'
+import { HtmlCssJsQuestion } from '../html-css-js-question'
 import type { ActivityPageController } from '../use-activity-page'
 import { useActivityPage } from '../use-activity-page'
 import { createReactDraftStoreMock } from './react-draft-store-mock'
@@ -20,6 +22,9 @@ vi.mock('../use-activity-page', () => ({
   useActivityPage: vi.fn(),
 }))
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
+vi.mock('../html-css-js-question', () => ({
+  HtmlCssJsQuestion: vi.fn(() => <div data-testid='html-css-js-question' />),
+}))
 vi.mock('@/ui/learning/widgets/components/code-editor', () => ({
   CodeEditor: ({ files, readOnly }: CodeEditorProps) => (
     <textarea
@@ -64,6 +69,18 @@ const CODE_QUESTION = {
   criteria: [{ key: 'correct', name: 'Correção', weightPercentage: 100 }],
 } satisfies NonNullable<ActivityPageController['currentQuestion']>
 
+const HTML_CSS_JS_QUESTION: HtmlQuestion = {
+  key: 'web-question-1',
+  kind: 'html_css_js',
+  prompt: 'Crie uma página responsiva.',
+  initialFiles: [{ path: 'index.html', content: '<main></main>', editable: true }],
+  entrypoint: 'index.html',
+  editablePaths: ['index.html'],
+  fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+  permittedCommands: [{ id: 'dev', executable: 'npm', arguments: ['run', 'dev'] }],
+  criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+}
+
 function createControllerMock(
   overrides: Partial<ActivityPageController> = {},
 ): ActivityPageController {
@@ -71,6 +88,7 @@ function createControllerMock(
     activity: ACTIVITY,
     runnerFactory: undefined,
     reactRunnerFactory: undefined,
+    htmlCssJsRunnerFactory: undefined,
     reactDraftStore: createReactDraftStoreMock(),
     accountId: null,
     isOnlineAuthority: false,
@@ -538,6 +556,37 @@ describe('ActivityPage', () => {
     )
   })
 
+  it('composes the HTML/CSS/JavaScript widget with the mixed Activity draft and assessment contracts', () => {
+    const htmlCssJsRunnerFactory = vi.fn(() => ({}) as never)
+    const activity = {
+      ...ACTIVITY,
+      activityRevision: 'revision-html',
+      questions: [HTML_CSS_JS_QUESTION],
+    }
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity,
+        currentQuestion: HTML_CSS_JS_QUESTION,
+        htmlCssJsRunnerFactory,
+        isMixedActivity: true,
+        feedback: null,
+      }),
+    )
+
+    render(<ActivityPage activity={activity} onSubmit={vi.fn()} />)
+
+    expect(screen.getByTestId('html-css-js-question')).toBeVisible()
+    expect(vi.mocked(HtmlCssJsQuestion).mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        question: HTML_CSS_JS_QUESTION,
+        activityRevision: 'revision-html',
+        runnerFactory: htmlCssJsRunnerFactory,
+        draftStore: expect.any(Object),
+        onAssess: expect.any(Function),
+      }),
+    )
+  })
+
   it('keeps the code editor available after preliminary feedback', () => {
     useActivityPageMock.mockReturnValue(
       createControllerMock({
@@ -656,6 +705,55 @@ describe('ActivityPage', () => {
     fireEvent.click(screen.getByText('Arquivos avaliados'))
     expect(screen.getByText('server snapshot')).toBeVisible()
     expect(screen.queryByText('local frozen')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reavaliar resposta' }))
+    expect(handleContinue).toHaveBeenCalledOnce()
+  })
+
+  it('keeps HTML response frozen and retries the same answer after inconclusive feedback', () => {
+    const handleContinue = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'html-revision',
+          questions: [HTML_CSS_JS_QUESTION],
+        },
+        currentQuestion: HTML_CSS_JS_QUESTION,
+        isMixedActivity: true,
+        feedback: {
+          status: 'inconclusive',
+          score: null,
+          submittedFiles: [
+            { path: 'index.html', content: '<main>server snapshot</main>' },
+          ],
+          criteria: [
+            {
+              key: 'semantic',
+              weightPercentage: 100,
+              level: 'inconclusive',
+              commentId: 'unknown',
+              comment: 'Evidência insuficiente.',
+            },
+          ],
+        },
+        frozenAnswer: {
+          kind: 'html_css_js',
+          questionKey: HTML_CSS_JS_QUESTION.key,
+          files: [{ path: 'index.html', content: '<main>resposta congelada</main>' }],
+        },
+        handleContinue,
+      }),
+    )
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    expect(vi.mocked(HtmlCssJsQuestion).mock.lastCall?.[0]).toMatchObject({
+      disabled: true,
+    })
+    expect(
+      screen.getByText(
+        'Não foi possível concluir esta avaliação. Reavalie a mesma resposta.',
+      ),
+    ).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Reavaliar resposta' }))
     expect(handleContinue).toHaveBeenCalledOnce()
   })

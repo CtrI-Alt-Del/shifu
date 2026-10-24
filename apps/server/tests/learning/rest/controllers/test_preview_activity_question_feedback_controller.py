@@ -52,6 +52,9 @@ from tests.fixtures.redis_fixture import RedisFixture
 from tests.learning.rest.controllers.react_controller_fixture import (
     ReactControllerFixture,
 )
+from tests.learning.rest.controllers.html_css_js_controller_fixture import (
+    HtmlCssJsControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -87,7 +90,14 @@ class _FixedCodeRubricAssessorProvider(CodeRubricAssessorProvider):
     def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
         self.requests.append(request)
         return CodeRubricDecisions(
-            criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+            criterion_levels=(
+                CodeCriterionDecision(
+                    key='quality'
+                    if request.question_kind == 'html_css_js'
+                    else 'correctness',
+                    level=75,
+                ),
+            ),
             concept_levels=(),
         )
 
@@ -146,6 +156,59 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestPreviewActivityQuestionFeedbackController:
+    def test_html_preliminary_assesses_composed_project_without_official_effects(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([HtmlCssJsControllerFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                HtmlCssJsControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        counts_before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                f'{HtmlCssJsControllerFixture.activity_path()}/questions/q3/preliminary-evaluations',
+                headers=headers,
+                json={
+                    'activity_revision': detail.json()['activity_revision'],
+                    'answer': {
+                        'kind': 'html_css_js',
+                        'question_key': 'q3',
+                        'files': HtmlCssJsControllerFixture.answer_files(),
+                    },
+                },
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        result = response.json()
+        assert result['status'] == 'conclusive'
+        assert result['submitted_files'] == HtmlCssJsControllerFixture.composed_files()
+        assert 'attempt_id' not in result
+        assessor = cast(
+            '_FixedCodeRubricAssessorProvider',
+            application.state.test_code_rubric_assessor_provider,
+        )
+        assert len(assessor.requests) == 1
+        assert assessor.requests[0].question_kind == 'html_css_js'
+        assert assessor.requests[0].submitted_paths == (
+            'index.html',
+            'script.js',
+            'styles.css',
+        )
+        assert ReactControllerFixture.write_counts(postgres_database) == counts_before
+
     @pytest.mark.parametrize(
         'answer',
         (

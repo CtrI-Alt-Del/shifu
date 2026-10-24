@@ -12,6 +12,7 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     ReactQuestion,
+    HtmlCssJsQuestion,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
@@ -31,6 +32,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptDependencySnapshot,
     CurriculumJavascriptPermittedCommandSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumHtmlCssJsInitialFileSnapshot,
+    CurriculumHtmlCssJsDependencySnapshot,
+    CurriculumHtmlCssJsPermittedCommandSnapshot,
     CurriculumReactInitialFileSnapshot,
     CurriculumReactDependencySnapshot,
     CurriculumReactPermittedCommandSnapshot,
@@ -204,7 +209,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         possible = (
                             (100,)
                             if isinstance(
-                                question, (JavascriptStdinQuestion, ReactQuestion)
+                                question,
+                                (
+                                    JavascriptStdinQuestion,
+                                    ReactQuestion,
+                                    HtmlCssJsQuestion,
+                                ),
                             )
                             else tuple(
                                 score
@@ -227,7 +237,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     all(
                         (
                             isinstance(
-                                question, (JavascriptStdinQuestion, ReactQuestion)
+                                question,
+                                (
+                                    JavascriptStdinQuestion,
+                                    ReactQuestion,
+                                    HtmlCssJsQuestion,
+                                ),
                             )
                             or (
                                 isinstance(
@@ -526,6 +541,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 CurriculumChoiceQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
                 | CurriculumReactQuestionSnapshot
+                | CurriculumHtmlCssJsQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
@@ -693,6 +709,61 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                 )
                                 if policy is not None
                                 else None
+                            ),
+                        )
+                    )
+                elif isinstance(question, HtmlCssJsQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    questions.append(
+                        CurriculumHtmlCssJsQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            initial_files=tuple(
+                                CurriculumHtmlCssJsInitialFileSnapshot(
+                                    path=item.path,
+                                    content=item.content,
+                                    editable=item.editable,
+                                )
+                                for item in question.initial_files
+                            ),
+                            entrypoint=question.entrypoint,
+                            fixed_dependencies=tuple(
+                                CurriculumHtmlCssJsDependencySnapshot(
+                                    name=item.name, version=item.version
+                                )
+                                for item in question.fixed_dependencies
+                            ),
+                            permitted_commands=tuple(
+                                CurriculumHtmlCssJsPermittedCommandSnapshot(
+                                    id=item.id,
+                                    executable=item.executable,
+                                    arguments=item.arguments,
+                                )
+                                for item in question.permitted_commands
+                            ),
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
                             ),
                         )
                     )

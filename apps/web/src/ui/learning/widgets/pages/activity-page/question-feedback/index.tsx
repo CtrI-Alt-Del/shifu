@@ -64,7 +64,9 @@ export const QuestionFeedback = ({
         <ul aria-label='Critérios avaliados' className='space-y-2'>
           {feedback.criteria.map((criterion, index) => {
             const criterionTitle =
-              question.kind === 'javascript_stdin' || question.kind === 'react'
+              question.kind === 'javascript_stdin' ||
+              question.kind === 'react' ||
+              question.kind === 'html_css_js'
                 ? question.criteria.find(({ key }) => key === criterion.key)?.name
                 : undefined
             const scoreClassName =
@@ -100,7 +102,9 @@ export const QuestionFeedback = ({
           })}
         </ul>
       ) : null}
-      {frozenAnswer?.kind === 'javascript_stdin' || frozenAnswer?.kind === 'react' ? (
+      {frozenAnswer?.kind === 'javascript_stdin' ||
+      frozenAnswer?.kind === 'react' ||
+      frozenAnswer?.kind === 'html_css_js' ? (
         <details>
           <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>
             Arquivos avaliados
