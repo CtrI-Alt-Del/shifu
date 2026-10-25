@@ -1,7 +1,8 @@
-import { animate, useReducedMotion } from 'motion/react'
+import { animate } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 
 import type { AnimatedNumberProps } from '.'
+import { useReducedMotionPreference } from '@/ui/shared/hooks/use-reduced-motion-preference'
 
 const COUNT_EASE = [0.16, 1, 0.3, 1] as const
 
@@ -11,7 +12,7 @@ export function useAnimatedNumber({
   duration = 1.1,
   delay = 0,
 }: AnimatedNumberProps) {
-  const prefersReducedMotion = useReducedMotion()
+  const { prefersReducedMotion } = useReducedMotionPreference()
   const [current, setCurrent] = useState(prefersReducedMotion ? value : 0)
   const latest = useRef(current)
 

@@ -15,9 +15,8 @@ import { useSkillActionCard } from '../message-list/skill-action-card/use-skill-
 
 // Entrance motion settles at once, so visibility assertions see the final
 // state; the shared entrance owns its animated cases.
-vi.mock('motion/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('motion/react')>()),
-  useReducedMotion: vi.fn(() => true),
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
 }))
 // The mascot's own hook test covers the animation player.
 vi.mock('@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot', () => ({

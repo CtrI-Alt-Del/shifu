@@ -1,12 +1,11 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { useReducedMotion } from 'motion/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { AnimatedNumber } from '..'
+import { useReducedMotionPreference } from '@/ui/shared/hooks/use-reduced-motion-preference'
 
-vi.mock('motion/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('motion/react')>()),
-  useReducedMotion: vi.fn(() => false),
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: false })),
 }))
 
 const formatXp = (value: number) => `${new Intl.NumberFormat('pt-BR').format(value)} XP`
@@ -24,7 +23,9 @@ describe('AnimatedNumber', () => {
   })
 
   it('shows the final value at once when motion is reduced', () => {
-    vi.mocked(useReducedMotion).mockReturnValueOnce(true)
+    vi.mocked(useReducedMotionPreference).mockReturnValueOnce({
+      prefersReducedMotion: true,
+    })
     render(<AnimatedNumber format={formatXp} value={1240} />)
 
     expect(screen.getByText('1.240 XP')).toBeVisible()

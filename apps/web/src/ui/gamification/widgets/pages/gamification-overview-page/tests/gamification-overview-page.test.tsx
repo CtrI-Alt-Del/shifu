@@ -1,5 +1,4 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import { useReducedMotion } from 'motion/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
@@ -11,12 +10,12 @@ import {
   type GamificationOverviewPageController,
   useGamificationOverviewPage,
 } from '../use-gamification-overview-page'
+import { useReducedMotionPreference } from '@/ui/shared/hooks/use-reduced-motion-preference'
 
-vi.mock('motion/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('motion/react')>()),
-  // Counters and entrance motion settle at once, so text assertions see final
-  // values; the animation cases opt back into motion explicitly.
-  useReducedMotion: vi.fn(() => true),
+// Counters and entrance motion settle at once, so text assertions see final
+// values; the animation cases opt back into motion explicitly.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
 }))
 vi.mock('../use-gamification-overview-page', () => ({
   useGamificationOverviewPage: vi.fn(),
@@ -96,7 +95,7 @@ function makeController(
 describe('GamificationOverviewPage', () => {
   afterEach(() => {
     cleanup()
-    vi.mocked(useReducedMotion).mockReturnValue(true)
+    vi.mocked(useReducedMotionPreference).mockReturnValue({ prefersReducedMotion: true })
   })
 
   beforeEach(() => useGamificationOverviewPageMock.mockReturnValue(makeController()))
@@ -119,7 +118,7 @@ describe('GamificationOverviewPage', () => {
   })
 
   it('grows the level fill from empty to the current percentage', async () => {
-    vi.mocked(useReducedMotion).mockReturnValue(false)
+    vi.mocked(useReducedMotionPreference).mockReturnValue({ prefersReducedMotion: false })
     render(<GamificationOverviewPage />)
 
     const fill = screen.getByRole('progressbar', { name: 'Progresso para o nível 6' })
@@ -129,7 +128,7 @@ describe('GamificationOverviewPage', () => {
   })
 
   it('counts the XP total, remaining XP and streak up to their final values', async () => {
-    vi.mocked(useReducedMotion).mockReturnValue(false)
+    vi.mocked(useReducedMotionPreference).mockReturnValue({ prefersReducedMotion: false })
     render(<GamificationOverviewPage />)
 
     // The entrance fade is still running, so presence is asserted here and

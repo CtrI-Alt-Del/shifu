@@ -1,6 +1,7 @@
-import { type Transition, useReducedMotion } from 'motion/react'
+import type { Transition } from 'motion/react'
 
 import { useFormatXp } from '@/ui/shared/hooks/use-format-xp'
+import { useReducedMotionPreference } from '@/ui/shared/hooks/use-reduced-motion-preference'
 
 // Width is not a transform, so `MotionConfig reducedMotion='user'` would still
 // animate it; the reduced-motion preference is honoured explicitly instead.
@@ -12,7 +13,7 @@ const FILL_TRANSITION: Transition = {
 
 export function useLevelProgressCard() {
   const { formatXp } = useFormatXp()
-  const prefersReducedMotion = useReducedMotion()
+  const { prefersReducedMotion } = useReducedMotionPreference()
 
   return {
     formatXp,

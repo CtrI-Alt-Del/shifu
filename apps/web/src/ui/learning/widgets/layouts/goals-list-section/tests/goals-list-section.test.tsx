@@ -8,9 +8,8 @@ import { GoalsListSection } from '..'
 
 // Entrance motion and counters settle at once, so assertions see the final
 // state; the shared counter owns its animated cases.
-vi.mock('motion/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('motion/react')>()),
-  useReducedMotion: vi.fn(() => true),
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
 }))
 
 vi.mock('@/ui/intelligence/hooks/use-home-goals-query', () => ({

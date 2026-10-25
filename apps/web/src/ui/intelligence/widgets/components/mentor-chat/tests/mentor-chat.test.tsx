@@ -10,9 +10,8 @@ import { useMentorChat } from '../use-mentor-chat'
 
 // Entrance motion settles at once, so visibility assertions see the final
 // state; the shared entrance owns its animated cases.
-vi.mock('motion/react', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('motion/react')>()),
-  useReducedMotion: vi.fn(() => true),
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
 }))
 vi.mock('../use-mentor-chat', () => ({ useMentorChat: vi.fn() }))
 vi.mock('@/ui/shared/widgets/components/anchor', () => ({
