@@ -93,6 +93,8 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   ).toBe(true)
 })
 
+const decodeSerializedMarkup = (payload: string) => payload.replace(/\\{1,2}x3[cC]/g, '<')
+
 test('assesses and submits an HTML/CSS/JavaScript question through the protected Activity route', async ({
   authenticatedPage,
   bff,
@@ -198,7 +200,7 @@ test('assesses and submits an HTML/CSS/JavaScript question through the protected
   expect(previewRequest).toContain('html-revision-1')
   expect(previewRequest).toContain('index.html')
   expect(submissionRequest).toContain('html_css_js')
-  expect(submissionRequest).toContain(htmlSource)
+  expect(decodeSerializedMarkup(submissionRequest)).toContain(htmlSource)
 })
 
 test('shows Markdown code and accepts a complete multiple-selection answer', async ({
