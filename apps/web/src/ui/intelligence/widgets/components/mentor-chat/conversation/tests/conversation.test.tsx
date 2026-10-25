@@ -20,7 +20,7 @@ vi.mock('motion/react', async (importOriginal) => ({
   useReducedMotion: vi.fn(() => true),
 }))
 // The mascot's own hook test covers the animation player.
-vi.mock('../empty-state/mentor-mascot/use-mentor-mascot', () => ({
+vi.mock('@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot', () => ({
   useMentorMascot: vi.fn(() => ({ containerRef: { current: null }, hasFailed: false })),
 }))
 vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))

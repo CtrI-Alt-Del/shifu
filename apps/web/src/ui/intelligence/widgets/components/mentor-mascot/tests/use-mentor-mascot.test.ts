@@ -34,9 +34,13 @@ function createAnimationStub() {
 
 let hookResult: ReturnType<typeof useMentorMascot>
 
-function Harness() {
-  hookResult = useMentorMascot()
+function Harness({ isAnimated }: { isAnimated: boolean }) {
+  hookResult = useMentorMascot({ isAnimated })
   return createElement('div', { ref: hookResult.containerRef })
+}
+
+function renderHarness(isAnimated = true) {
+  return render(createElement(Harness, { isAnimated }))
 }
 
 describe('useMentorMascot', () => {
@@ -49,7 +53,7 @@ describe('useMentorMascot', () => {
   })
 
   it('plays the greeting once inside the mounted container', async () => {
-    const { container } = render(createElement(Harness))
+    const { container } = renderHarness()
 
     await waitFor(() => expect(lottie.loadAnimation).toHaveBeenCalledTimes(1))
     expect(lottie.loadAnimation).toHaveBeenCalledWith(
@@ -67,9 +71,22 @@ describe('useMentorMascot', () => {
     expect(hookResult.hasFailed).toBe(false)
   })
 
+  it('shows the settled mascot without playing when it is static', async () => {
+    renderHarness(false)
+
+    await waitFor(() => expect(lottie.loadAnimation).toHaveBeenCalledTimes(1))
+    expect(lottie.loadAnimation).toHaveBeenCalledWith(
+      expect.objectContaining({ autoplay: false }),
+    )
+
+    act(() => animation.emit('DOMLoaded'))
+
+    expect(animation.goToAndStop).toHaveBeenCalledWith(107, true)
+  })
+
   it('shows the settled mascot without the entrance when motion is reduced', async () => {
     useReducedMotionMock.mockReturnValue(true)
-    render(createElement(Harness))
+    renderHarness()
 
     await waitFor(() => expect(lottie.loadAnimation).toHaveBeenCalledTimes(1))
     expect(lottie.loadAnimation).toHaveBeenCalledWith(
@@ -82,7 +99,7 @@ describe('useMentorMascot', () => {
   })
 
   it('reports a failure when the animation data cannot be loaded', async () => {
-    render(createElement(Harness))
+    renderHarness()
     await waitFor(() => expect(lottie.loadAnimation).toHaveBeenCalledTimes(1))
 
     act(() => animation.emit('data_failed'))
@@ -94,13 +111,13 @@ describe('useMentorMascot', () => {
     lottie.loadAnimation.mockImplementation(() => {
       throw new Error('player unavailable')
     })
-    render(createElement(Harness))
+    renderHarness()
 
     await waitFor(() => expect(hookResult.hasFailed).toBe(true))
   })
 
-  it('destroys the animation when the empty conversation unmounts', async () => {
-    const { unmount } = render(createElement(Harness))
+  it('destroys the animation when the mascot unmounts', async () => {
+    const { unmount } = renderHarness()
     await waitFor(() => expect(lottie.loadAnimation).toHaveBeenCalledTimes(1))
 
     unmount()
