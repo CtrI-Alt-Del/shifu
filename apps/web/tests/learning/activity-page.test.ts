@@ -242,10 +242,32 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
-  const prompt = authenticatedPage.locator('.choice-question-prompt')
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'choice-prompt-enter',
+  const prompt = authenticatedPage.getByRole('heading', {
+    name: /Quais afirmações são verdadeiras\?/,
+  })
+  const promptEntrance = prompt.locator('..')
+  const optionCards = authenticatedPage.locator('.choice-question-option')
+  const optionEntrances = optionCards.locator('..')
+  await expect(optionCards).toHaveCount(4)
+  // The prompt and options rise in and settle fully visible.
+  await expect(promptEntrance).toHaveCSS('opacity', '1')
+  await expect(promptEntrance).toHaveCSS('transform', 'none')
+  for (const index of [0, 1, 2, 3]) {
+    await expect(optionEntrances.nth(index)).toHaveCSS('opacity', '1')
+    await expect(optionEntrances.nth(index)).toHaveCSS('transform', 'none')
+  }
+  // Under reduced motion the question renders in its final state at once.
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(prompt).toBeVisible()
+  expect(await promptEntrance.evaluate((node) => getComputedStyle(node).opacity)).toBe(
+    '1',
   )
+  expect(
+    await optionEntrances.evaluateAll((nodes) =>
+      nodes.map((node) => getComputedStyle(node).opacity),
+    ),
+  ).toEqual(['1', '1', '1', '1'])
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
 
@@ -258,32 +280,6 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
   ).not.toBeChecked()
-  const optionCards = authenticatedPage.locator('.choice-question-option')
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => ({
-        name: getComputedStyle(card).animationName,
-        delay: getComputedStyle(card).animationDelay,
-      })),
-    ),
-  ).toEqual([
-    { name: 'choice-option-enter', delay: '0.08s' },
-    { name: 'choice-option-enter', delay: '0.14s' },
-    { name: 'choice-option-enter', delay: '0.2s' },
-    { name: 'choice-option-enter', delay: '0.26s' },
-  ])
-  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'none',
-  )
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => getComputedStyle(card).animationName),
-    ),
-  ).toEqual(['none', 'none', 'none', 'none'])
-  await expect(
-    authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
-  ).toBeChecked()
   await expect(
     authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
   ).toBeEnabled()

@@ -140,9 +140,23 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
 
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
 
-  await expect(
-    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
-  ).toBeVisible()
+  const resultHeading = authenticatedPage.getByRole('heading', {
+    name: 'Resultado da Atividade',
+  })
+  await expect(resultHeading).toBeVisible()
+  const resultCards = authenticatedPage.locator('.choice-result-card')
+  // The result cards slide in and settle fully visible.
+  await expect(resultCards.first()).toHaveCSS('opacity', '1')
+  await expect(resultCards.first()).toHaveCSS('transform', 'none')
+  // Under reduced motion the result renders in its final state at once.
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  await expect(resultHeading).toBeVisible()
+  const cardOpacities = await resultCards.evaluateAll((cards) =>
+    cards.map((card) => getComputedStyle(card).opacity),
+  )
+  expect(cardOpacities.length).toBeGreaterThan(0)
+  expect(cardOpacities).toEqual(cardOpacities.map(() => '1'))
   const progressHeading = authenticatedPage.getByRole('heading', {
     name: 'Progresso demonstrado da Habilidade',
   })
@@ -165,14 +179,6 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   await expect(
     authenticatedPage.getByText('A soma correta não foi selecionada.'),
   ).toBeVisible()
-  const resultCard = authenticatedPage.locator('.choice-result-card').first()
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'choice-result-reveal',
-  )
-  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'none',
-  )
   expect(calls.some(({ body }) => body.includes(ids.activityId))).toBe(true)
   expect(calls.some(({ body }) => body.includes(ids.attemptId))).toBe(true)
 
