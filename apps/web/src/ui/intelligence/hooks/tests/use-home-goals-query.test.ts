@@ -38,7 +38,7 @@ vi.mock('@tanstack/react-start/server', () => ({
 }))
 
 vi.mock('@/constants/server-env', () => ({
-  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test' },
+  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test', bffSharedSecret: 'bff-secret' },
 }))
 
 vi.mock('@/provision/auth/better-auth/better-auth-provider', () => ({
@@ -80,6 +80,7 @@ describe('useHomeGoalsQuery', () => {
     expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request, 'request-1')
     expect(mocks.getGoals).toHaveBeenCalledWith('access-token')
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
+      defaultHeaders: { 'X-Shifu-Bff-Secret': 'bff-secret' },
       withCredentials: false,
       requestId: 'request-1',
       telemetry: undefined,

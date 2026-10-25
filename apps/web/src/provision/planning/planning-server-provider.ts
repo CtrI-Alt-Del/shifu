@@ -1,10 +1,9 @@
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
-import { SERVER_ENV } from '@/constants/server-env'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { PlanningFailure } from '@/core/intelligence/planning-session'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { IntelligenceService } from '@/rest/services/intelligence-service'
 
 type PlanningOperation<Result> = (
@@ -20,9 +19,7 @@ export async function withPlanningService<Result>(
     const access = await getBetterAuthProvider().getCurrentAccess(request)
     if (!access) return { kind: 'unauthorized' }
 
-    const service = IntelligenceService(
-      AxiosRestClient(SERVER_ENV.shifuServerAppUrl, { withCredentials: false }),
-    )
+    const service = IntelligenceService(createServerRequestClient(undefined))
     return await operation(service, access.accessToken)
   } catch (error) {
     return planningFailure(error)

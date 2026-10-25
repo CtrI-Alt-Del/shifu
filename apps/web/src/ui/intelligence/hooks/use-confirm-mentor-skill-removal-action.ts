@@ -3,12 +3,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useMutation } from '@tanstack/react-query'
 
-import { SERVER_ENV } from '@/constants/server-env'
 import { AppError } from '@/core/errors/app-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { MentorSkillActionOutcome } from '@/core/learning/mentor-skill-action-outcome'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 
 const ID = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)
@@ -32,7 +31,7 @@ export const confirmMentorSkillRemovalServer = createServerFn({ method: 'POST' }
     const { goalId, ...input } = data
     try {
       const outcome = await LearningService(
-        AxiosRestClient(SERVER_ENV.shifuServerAppUrl, { withCredentials: false }),
+        createServerRequestClient(undefined),
       ).removeSkillExperienceFromMentor(access.accessToken, goalId, input)
       return { kind: 'success', outcome }
     } catch (error) {

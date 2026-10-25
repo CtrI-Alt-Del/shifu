@@ -33,7 +33,7 @@ vi.mock('@tanstack/react-start/server', () => ({
 }))
 
 vi.mock('@/constants/server-env', () => ({
-  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test' },
+  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test', bffSharedSecret: 'bff-secret' },
 }))
 
 vi.mock('@/provision/auth/better-auth/better-auth-provider', () => ({
@@ -67,6 +67,7 @@ describe('Gamification server functions', () => {
     expect(overviewResult).toEqual({ kind: 'success', overview: { level: 5 } })
     expect(historyResult).toEqual({ kind: 'success', history: { entries: [] } })
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
+      defaultHeaders: { 'X-Shifu-Bff-Secret': 'bff-secret' },
       withCredentials: false,
     })
     expect(mocks.service.getOverview).toHaveBeenCalledWith('access-token')

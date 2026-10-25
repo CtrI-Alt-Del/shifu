@@ -15,6 +15,11 @@ export function createServerRequestClient(
   const { baseUrl = SERVER_ENV.shifuServerAppUrl, ...clientOptions } = options
   return AxiosRestClient(baseUrl, {
     ...clientOptions,
+    // Every browser call reaches the API through this server, from one address.
+    defaultHeaders: {
+      ...clientOptions.defaultHeaders,
+      'X-Shifu-Bff-Secret': SERVER_ENV.bffSharedSecret,
+    },
     withCredentials: clientOptions.withCredentials ?? false,
     requestId: context?.requestId,
     telemetry: context?.telemetry,

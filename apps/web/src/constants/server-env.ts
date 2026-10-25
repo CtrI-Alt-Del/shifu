@@ -10,6 +10,7 @@ const SERVER_ENV_SCHEMA = z.object({
   telemetryEnvironment: z.enum(TELEMETRY_ENVIRONMENTS),
   telemetryLogLevel: z.enum(TELEMETRY_LEVELS),
   releaseVersion: z.string().min(1),
+  bffSharedSecret: z.string().min(1),
 })
 
 const telemetryEnvironment =
@@ -24,6 +25,12 @@ if (
   throw new AppError('SHIFU_RELEASE_VERSION é obrigatório neste ambiente.')
 }
 
+const bffSharedSecret = process.env.SHIFU_BFF_SHARED_SECRET?.trim()
+
+if (process.env.NODE_ENV === 'production' && !bffSharedSecret) {
+  throw new AppError('SHIFU_BFF_SHARED_SECRET é obrigatório neste ambiente.')
+}
+
 const SERVER_ENV_INPUT = {
   // The FastAPI app is a single deployable serving Identity, Learning and
   // Intelligence alike; this is the existing name for its base URL.
@@ -31,6 +38,8 @@ const SERVER_ENV_INPUT = {
   telemetryEnvironment,
   telemetryLogLevel: process.env.SHIFU_WEB_APP_LOG_LEVEL ?? 'INFO',
   releaseVersion: releaseVersion ?? 'local-dev',
+  // The API skips its per-address request limit for calls carrying this secret.
+  bffSharedSecret: bffSharedSecret || 'shifu-local-bff-shared-secret-change-me',
 }
 
 export const SERVER_ENV = SERVER_ENV_SCHEMA.parse(SERVER_ENV_INPUT)

@@ -3,12 +3,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
-import { SERVER_ENV } from '@/constants/server-env'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
 import type { XpHistory } from '@/core/gamification/xp-history'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { GamificationService } from '@/rest/services/gamification-service'
 
 type XpHistoryResult =
@@ -22,7 +21,7 @@ export const getXpHistory = createServerFn({ method: 'GET' }).handler(
       if (!access) return { kind: 'unauthorized' }
 
       const gamificationService = GamificationService(
-        AxiosRestClient(SERVER_ENV.shifuServerAppUrl, { withCredentials: false }),
+        createServerRequestClient(undefined),
       )
       const history = await gamificationService.getXpHistory(access.accessToken)
       return { kind: 'success', history }
