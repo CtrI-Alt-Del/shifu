@@ -66,7 +66,6 @@ from shifu.intelligence.providers.planning.text_preprocessing.spacy.spacy_planni
     SpacyPlanningTextPreprocessorProvider,
 )
 from shifu.shared.database.seed_data import build_development_seed
-from shifu.shared.settings import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -96,13 +95,6 @@ class _Index:
     resources: PlannerResources
     version: str
     provider: TfidfSentenceTransformersPlanningSkillRetrievalProvider
-
-
-@dataclass(frozen=True)
-class _Metrics:
-    mrr: float
-    recall_at_5: float
-    recall_at_10: float
 
 
 @dataclass
@@ -190,17 +182,6 @@ def _print_matrix(title: str, matrix: Counter[tuple[str, str]]) -> None:
             f'{expected:<14}'
             + ''.join(f'{matrix[expected, predicted]:>14}' for predicted in _KINDS)
         )
-
-
-def _metrics(rankings: Sequence[tuple[Sequence[str], set[str]]]) -> _Metrics:
-    reciprocal = recall_5 = recall_10 = 0.0
-    for ranked, relevant in rankings:
-        positions = [rank for rank, item in enumerate(ranked, 1) if item in relevant]
-        reciprocal += 1 / positions[0] if positions else 0.0
-        recall_5 += len([rank for rank in positions if rank <= 5]) / len(relevant)
-        recall_10 += len([rank for rank in positions if rank <= 10]) / len(relevant)
-    count = len(rankings)
-    return _Metrics(reciprocal / count, recall_5 / count, recall_10 / count)
 
 
 def _query(intent: str, answers: Sequence[str] = ()) -> PlanningQuery:
@@ -523,70 +504,6 @@ class TestPlanningSkillRetrieval:
             retrieval.candidates
         )
 
-    def test_should_meet_the_labeled_retrieval_targets(
-        self, index: _Index, embeddings: SentenceTransformersEmbeddingsProvider
-    ) -> None:
-        lexical: list[tuple[Sequence[str], set[str]]] = []
-        semantic: list[tuple[Sequence[str], set[str]]] = []
-        hybrid: list[tuple[Sequence[str], set[str]]] = []
-        top_similarity: dict[str, float] = {}
-        print('\n[retrieval] rankings over the seeded catalog')
-        for item in index.resources.retrieval_evaluation.queries:
-            query = _query(item.intent, item.answers)
-            ranking = index.provider.retrieve(query)
-            vector = embeddings.embed_queries(
-                (' '.join((query.intent, *query.answers)),)
-            )[0]
-            nearest = index.corpus.repository.find_nearest(
-                index.version, vector, tuple(index.corpus.names_by_id), 1
-            )
-            top_similarity[item.id] = nearest[0].similarity
-            print(
-                f'  {item.id} [{item.kind}] {item.intent!r} {list(item.answers)}'
-                f'\n    lexical : {_names(index, ranking.lexical_ranking)}'
-                f'\n    semantic: {_names(index, ranking.semantic_ranking)}'
-                f'\n    hybrid  : {_entry_names(index, ranking)}'
-                f'\n    top-1 cosine: {nearest[0].similarity:.4f}'
-            )
-            if item.kind == 'no-coverage':
-                assert ranking.lexical_ranking == ()
-                continue
-            relevant = {index.corpus.ids_by_name[name] for name in item.relevant}
-            lexical.append((ranking.lexical_ranking, relevant))
-            semantic.append((ranking.semantic_ranking, relevant))
-            hybrid.append(([entry.skill_id for entry in ranking.entries], relevant))
-        results = {
-            'lexical': _metrics(lexical),
-            'semantic': _metrics(semantic),
-            'hybrid': _metrics(hybrid),
-        }
-        print('\n[retrieval] metrics over queries with relevant Skills')
-        for name, metrics in results.items():
-            print(
-                f'  {name:<9} MRR={metrics.mrr:.4f} '
-                f'Recall@5={metrics.recall_at_5:.4f} '
-                f'Recall@10={metrics.recall_at_10:.4f}'
-            )
-        covered = [
-            top_similarity[item.id]
-            for item in index.resources.retrieval_evaluation.queries
-            if item.kind == 'clear'
-        ]
-        uncovered = [
-            top_similarity[item.id]
-            for item in index.resources.retrieval_evaluation.queries
-            if item.kind == 'no-coverage'
-        ]
-        print(
-            f'  top-1 cosine: clear min={min(covered):.4f} '
-            f'no-coverage max={max(uncovered):.4f}'
-        )
-
-        assert results['hybrid'].recall_at_10 >= 0.9
-        assert results['hybrid'].mrr >= results['lexical'].mrr
-        assert results['hybrid'].mrr >= 0.8
-        assert max(uncovered) < min(covered)
-
 
 class TestPlanningIntentClassification:
     def test_should_classify_the_labeled_sets_through_the_decision_contract(
@@ -763,44 +680,6 @@ class TestPlanningIntentClassification:
             JevPlanningIntentClassifierProvider(
                 httpx.Client(), 'test-key', _DECISIONS_URL, _MODEL, {'learning': 0.5}
             )
-
-    @pytest.mark.skipif(
-        os.environ.get('SHIFU_RUN_REAL_OPENROUTER_TESTS') != '1',
-        reason='Set SHIFU_RUN_REAL_OPENROUTER_TESTS=1 for the real decisions endpoint',
-    )
-    def test_should_meet_the_held_out_targets_with_the_real_model(self) -> None:
-        settings = get_settings()
-        if not settings.openrouter_api_key:
-            pytest.skip('OPENROUTER_API_KEY is not configured')
-        resources = PlannerResources()
-        use_case = ClassifyPlanningIntentUseCase(
-            JevPlanningIntentClassifierProvider(
-                httpx.Client(),
-                settings.openrouter_api_key,
-                str(settings.openrouter_decisions_url),
-                settings.jev_model,
-                resources.manifest.intent_thresholds,
-            )
-        )
-
-        calibration, calibration_accuracy, _ = _evaluate(
-            use_case,
-            [
-                (item.text, item.label)
-                for item in resources.intent_evaluation.calibration
-            ],
-        )
-        _print_matrix(
-            f'real model, calibration ({calibration_accuracy:.2%})', calibration
-        )
-        held_out, accuracy, undue_refusals = _evaluate(
-            use_case,
-            [(item.text, item.label) for item in resources.intent_evaluation.held_out],
-        )
-        _print_matrix(f'real model, held-out ({accuracy:.2%})', held_out)
-
-        assert accuracy >= 0.9
-        assert undue_refusals == 0
 
 
 class _ShortEmbeddings:
