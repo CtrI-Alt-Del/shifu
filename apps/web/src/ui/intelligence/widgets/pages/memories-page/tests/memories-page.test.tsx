@@ -10,6 +10,11 @@ import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { MemoriesPage } from '..'
 import { useMemoriesPage } from '../use-memories-page'
 
+// Entrance motion and counters settle at once, so assertions see the final
+// state; the shared components own their animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('../use-memories-page', () => ({ useMemoriesPage: vi.fn() }))
 vi.mock('@/ui/shared/widgets/components/anchor', () => ({
   Anchor: ({ children, route, search, ...props }: AnchorProps) => {

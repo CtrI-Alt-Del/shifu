@@ -1,8 +1,12 @@
 import { Background, ReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
+import { motion } from 'motion/react'
+
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 import type { LearnerMemory } from '@/core/intelligence/learner-memory'
 import { Button } from '@/ui/shadcn/button'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import { MemoryMapHub } from './memory-map-hub'
@@ -36,19 +40,25 @@ export const MemoryMap = (props: MemoryMapProps) => {
     handleZoomOut,
     handleZoomChange,
   } = useMemoryMap(props)
-  const countLabel = memories.length === 1 ? '1 memória' : `${memories.length} memórias`
 
   return (
-    <section
+    <motion.section
       aria-label='Mapa de memórias'
       className='rounded-[10px] border border-border bg-card p-4 lg:p-6'
       ref={containerRef}
+      variants={ENTRANCE_SECTION}
     >
       <div className='flex items-start justify-between gap-3'>
         <div>
           <h2 className='font-serif text-2xl font-normal'>Mapa de memórias</h2>
           <p className='text-xs text-muted-foreground'>
-            {countLabel} · selecione um nó para ver os detalhes
+            <AnimatedNumber
+              delay={0.2}
+              format={(value) =>
+                `${value === 1 ? '1 memória' : `${value} memórias`} · selecione um nó para ver os detalhes`
+              }
+              value={memories.length}
+            />
           </p>
         </div>
         <fieldset className='flex items-center gap-1 rounded-md border border-control-border bg-muted p-1'>
@@ -111,6 +121,6 @@ export const MemoryMap = (props: MemoryMapProps) => {
       <p className='mt-3 text-xs text-muted-foreground'>
         Selecione uma memória para ver sua origem e gerenciá-la.
       </p>
-    </section>
+    </motion.section>
   )
 }
