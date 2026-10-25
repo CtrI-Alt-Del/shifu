@@ -47,11 +47,14 @@ def _question(
     kind: PlanningQuestionKind = PlanningQuestionKind.SINGLE,
     *,
     unknown: bool = False,
+    other: bool = False,
 ) -> PlanningQuestion:
     options = [
         PlanningOption(id='o1', text='Sites'),
         PlanningOption(id='o2', text='APIs'),
     ]
+    if other:
+        options.append(PlanningOption.other())
     if unknown:
         options.append(PlanningOption.unknown())
     return PlanningQuestion(
@@ -218,6 +221,71 @@ class TestPlanningSessionTransitions:
         )
 
         assert session.answered_batches[0].items[0].selected_texts == ('Sites', 'APIs')
+
+    def test_should_combine_other_with_alternatives_and_keep_the_learner_text(
+        self,
+    ) -> None:
+        question = _question(
+            kind=PlanningQuestionKind.MULTIPLE, unknown=True, other=True
+        )
+        session = _session()
+        assert session.complete(
+            _OPERATION_ID, 1, PlanningOperationResult.for_batch(_batch(question)), _NOW
+        )
+
+        session.submit_answers(
+            'batch-1',
+            (
+                PlanningAnswer(
+                    question_id='q1',
+                    option_ids=('o1', 'outro'),
+                    other_text='  planilhas   no Excel ',
+                ),
+            ),
+            _NEXT_OPERATION_ID,
+            _NOW,
+        )
+
+        item = session.answered_batches[0].items[0]
+        assert item.other_text == 'planilhas no Excel'
+        assert item.selected_texts == ('Sites',)
+        assert item.answer_texts == ('Sites', 'planilhas no Excel')
+
+    @pytest.mark.parametrize(
+        ('option_ids', 'other_text', 'message'),
+        [
+            (('outro',), None, 'Descreva'),
+            (('outro',), '   ', 'Descreva'),
+            (('outro',), 'x' * 201, '200 caracteres'),
+            (('o1',), 'planilhas', 'exige a alternativa'),
+            (('outro', 'nao-sei'), 'planilhas', 'Não sei'),
+        ],
+    )
+    def test_should_reject_an_invalid_open_answer_without_changing_state(
+        self, option_ids: tuple[str, ...], other_text: str | None, message: str
+    ) -> None:
+        question = _question(
+            kind=PlanningQuestionKind.MULTIPLE, unknown=True, other=True
+        )
+        session = _session()
+        assert session.complete(
+            _OPERATION_ID, 1, PlanningOperationResult.for_batch(_batch(question)), _NOW
+        )
+
+        with pytest.raises(PlanningAnswersInvalidError, match=message):
+            session.submit_answers(
+                'batch-1',
+                (
+                    PlanningAnswer(
+                        question_id='q1', option_ids=option_ids, other_text=other_text
+                    ),
+                ),
+                _NEXT_OPERATION_ID,
+                _NOW,
+            )
+
+        assert session.status is PlanningSessionStatus.INTERVIEW
+        assert session.answered_batch_count == 0
 
     def test_should_refuse_answers_restart_and_retry_while_an_operation_runs(
         self,

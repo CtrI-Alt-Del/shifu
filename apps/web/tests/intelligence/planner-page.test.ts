@@ -25,10 +25,20 @@ const firstQuestion: PlanningQuestion = {
   text: 'Você já escreveu algum código antes?',
   kind: 'single',
   options: [
-    { id: 'never', text: 'Nunca', exclusive: false },
-    { id: 'copied', text: 'Já copiei e adaptei alguns scripts', exclusive: false },
-    { id: 'simple', text: 'Escrevo scripts simples sozinho', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'never', text: 'Nunca', exclusive: false, open: false },
+    {
+      id: 'copied',
+      text: 'Já copiei e adaptei alguns scripts',
+      exclusive: false,
+      open: false,
+    },
+    {
+      id: 'simple',
+      text: 'Escrevo scripts simples sozinho',
+      exclusive: false,
+      open: false,
+    },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 const secondQuestion: PlanningQuestion = {
@@ -36,10 +46,10 @@ const secondQuestion: PlanningQuestion = {
   text: 'O que você quer automatizar?',
   kind: 'multiple',
   options: [
-    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false },
-    { id: 'files', text: 'Organização de arquivos', exclusive: false },
-    { id: 'texts', text: 'Tratamento de textos', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false, open: false },
+    { id: 'files', text: 'Organização de arquivos', exclusive: false, open: false },
+    { id: 'texts', text: 'Tratamento de textos', exclusive: false, open: false },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 const thirdQuestion: PlanningQuestion = {
@@ -47,10 +57,20 @@ const thirdQuestion: PlanningQuestion = {
   text: 'Que resultado você quer alcançar com os scripts?',
   kind: 'single',
   options: [
-    { id: 'reports', text: 'Criar relatórios a partir de planilhas', exclusive: false },
-    { id: 'rename', text: 'Organizar e renomear arquivos', exclusive: false },
-    { id: 'combine', text: 'Combinar essas tarefas', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    {
+      id: 'reports',
+      text: 'Criar relatórios a partir de planilhas',
+      exclusive: false,
+      open: false,
+    },
+    {
+      id: 'rename',
+      text: 'Organizar e renomear arquivos',
+      exclusive: false,
+      open: false,
+    },
+    { id: 'combine', text: 'Combinar essas tarefas', exclusive: false, open: false },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 const secondBatchQuestion: PlanningQuestion = {
@@ -58,8 +78,8 @@ const secondBatchQuestion: PlanningQuestion = {
   text: 'Quanto tempo por semana você consegue dedicar?',
   kind: 'single',
   options: [
-    { id: 'little', text: 'Menos de duas horas', exclusive: false },
-    { id: 'some', text: 'Entre duas e cinco horas', exclusive: false },
+    { id: 'little', text: 'Menos de duas horas', exclusive: false, open: false },
+    { id: 'some', text: 'Entre duas e cinco horas', exclusive: false, open: false },
   ],
 }
 
@@ -683,6 +703,58 @@ test('keeps Não sei exclusive inside a multiple-choice question (CA-04)', async
   await expect(
     authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
   ).toBeEnabled()
+})
+
+test('opens a text field for "Outro" and sends the learner text with the answers', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const openQuestion: PlanningQuestion = {
+    ...secondQuestion,
+    options: [
+      ...secondQuestion.options.slice(0, -1),
+      { id: 'outro', text: 'Outro', exclusive: false, open: true },
+      ...secondQuestion.options.slice(-1),
+    ],
+  }
+  const transport = transportFor(
+    interviewSession({ batch: { id: 'batch-1', questions: [openQuestion] } }),
+  )
+  transport.answerResult = processingSession({
+    operation: { kind: 'answer', startedAt: new Date().toISOString(), stage: null },
+    answeredBatchCount: 1,
+  })
+  await mockPlanner(bff, transport)
+  await openPlannerFromHome(authenticatedPage)
+
+  const submit = authenticatedPage.getByRole('button', { name: 'Enviar respostas' })
+  await expect(authenticatedPage.getByLabel('Descreva sua resposta')).toHaveCount(0)
+  await chooseOption(authenticatedPage, 'checkbox', 'Planilhas e relatórios')
+  await chooseOption(authenticatedPage, 'checkbox', 'Outro')
+  const field = authenticatedPage.getByLabel('Descreva sua resposta')
+  await expect(field).toBeFocused()
+  await expect(submit).toBeDisabled()
+
+  await field.fill('  macros no Excel ')
+  await expect(authenticatedPage.getByText('18/200 caracteres')).toBeVisible()
+  await expect(submit).toBeEnabled()
+
+  transport.session = transport.answerResult
+  await submit.click()
+
+  const submissions = callsTo(transport, 'answerPlanningQuestionsServer')
+  expect(submissions).toHaveLength(1)
+  expect(submissions[0]?.data).toEqual({
+    planningId: PLANNING_ID,
+    batchId: 'batch-1',
+    answers: [
+      {
+        questionId: 'q2',
+        optionIds: ['sheets', 'outro'],
+        otherText: 'macros no Excel',
+      },
+    ],
+  })
 })
 
 test('sends the complete batch, mirrors the real processing stages and renders the next batch (CA-06 … CA-09)', async ({

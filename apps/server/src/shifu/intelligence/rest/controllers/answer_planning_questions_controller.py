@@ -23,6 +23,7 @@ class _Answer(BaseModel):
     model_config = ConfigDict(extra='forbid')
     question_id: str = Field(min_length=1, max_length=64)
     option_ids: list[str] = Field(max_length=8)
+    other_text: str | None = Field(default=None, max_length=200)
 
 
 class Request(BaseModel):
@@ -79,6 +80,7 @@ class AnswerPlanningQuestionsController:
                     PlanningAnswer(
                         question_id=answer.question_id,
                         option_ids=tuple(answer.option_ids),
+                        other_text=answer.other_text,
                     )
                     for answer in request.answers
                 ),

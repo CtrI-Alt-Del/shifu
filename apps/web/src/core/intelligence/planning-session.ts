@@ -17,6 +17,8 @@ export type PlanningOption = {
   id: string
   text: string
   exclusive: boolean
+  /** Answered with the learner's own text instead of a fixed alternative. */
+  open: boolean
 }
 export type PlanningQuestion = {
   id: string
@@ -81,9 +83,12 @@ export const PLANNING_GOAL_TITLE_MAX_LENGTH = 240
 export const PLANNING_GOAL_DESCRIPTION_MAX_LENGTH = 4000
 export const CONFIRMATION_KEY_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export const PLANNING_OTHER_TEXT_MAX_LENGTH = 200
 export type PlanningAnswer = {
   questionId: string
   optionIds: string[]
+  /** Sent only when the open "Outro" alternative is selected. */
+  otherText?: string
 }
 export type PlanningAnswersSubmission = {
   batchId: string

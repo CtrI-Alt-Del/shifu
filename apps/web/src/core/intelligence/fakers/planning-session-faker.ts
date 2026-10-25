@@ -16,10 +16,10 @@ export class PlanningQuestionFaker {
       text: `${faker.lorem.sentence().replace(/\.$/, '')}?`,
       kind: 'single',
       options: [
-        { id: 'a', text: faker.word.words(2), exclusive: false },
-        { id: 'b', text: faker.word.words(2), exclusive: false },
-        { id: 'c', text: faker.word.words(2), exclusive: false },
-        { id: 'nao-sei', text: 'Não sei', exclusive: true },
+        { id: 'a', text: faker.word.words(2), exclusive: false, open: false },
+        { id: 'b', text: faker.word.words(2), exclusive: false, open: false },
+        { id: 'c', text: faker.word.words(2), exclusive: false, open: false },
+        { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
       ],
       ...overrides,
     }

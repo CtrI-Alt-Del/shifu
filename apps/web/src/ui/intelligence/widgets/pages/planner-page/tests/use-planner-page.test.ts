@@ -77,9 +77,14 @@ const firstQuestion: PlanningQuestion = {
   text: 'Você já escreveu algum código antes?',
   kind: 'single',
   options: [
-    { id: 'never', text: 'Nunca', exclusive: false },
-    { id: 'copied', text: 'Já copiei e adaptei alguns scripts', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'never', text: 'Nunca', exclusive: false, open: false },
+    {
+      id: 'copied',
+      text: 'Já copiei e adaptei alguns scripts',
+      exclusive: false,
+      open: false,
+    },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 const secondQuestion: PlanningQuestion = {
@@ -87,10 +92,10 @@ const secondQuestion: PlanningQuestion = {
   text: 'O que você quer automatizar?',
   kind: 'multiple',
   options: [
-    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false },
-    { id: 'files', text: 'Organização de arquivos', exclusive: false },
-    { id: 'texts', text: 'Tratamento de textos', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false, open: false },
+    { id: 'files', text: 'Organização de arquivos', exclusive: false, open: false },
+    { id: 'texts', text: 'Tratamento de textos', exclusive: false, open: false },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 const thirdQuestion: PlanningQuestion = {
@@ -98,8 +103,13 @@ const thirdQuestion: PlanningQuestion = {
   text: 'Que resultado você quer alcançar com os scripts?',
   kind: 'single',
   options: [
-    { id: 'reports', text: 'Criar relatórios a partir de planilhas', exclusive: false },
-    { id: 'combine', text: 'Combinar essas tarefas', exclusive: false },
+    {
+      id: 'reports',
+      text: 'Criar relatórios a partir de planilhas',
+      exclusive: false,
+      open: false,
+    },
+    { id: 'combine', text: 'Combinar essas tarefas', exclusive: false, open: false },
   ],
 }
 
@@ -282,6 +292,56 @@ describe('usePlannerPage', () => {
     expect(result.current.selectedOptionIds).toEqual([])
     expect(result.current.steps.map((step) => step.state)).toEqual(['current', 'pending'])
     expect(result.current.stepLabel).toBe('Pergunta 1 de 2 deste conjunto')
+  })
+
+  it('requires the open answer text before the batch counts as answered and sends it trimmed', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    const openQuestion: PlanningQuestion = {
+      ...secondQuestion,
+      options: [
+        ...secondQuestion.options.slice(0, -1),
+        { id: 'outro', text: 'Outro', exclusive: false, open: true },
+        { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
+      ],
+    }
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ batch: { id: 'batch-1', questions: [openQuestion] } }),
+    )
+    mocks.service.answerPlanningQuestions.mockResolvedValue(processingSession())
+    const { result } = renderPlannerPage()
+
+    await waitFor(() => expect(result.current.view).toBe('interview'))
+    act(() => result.current.handleToggleMultiple('sheets', true))
+    act(() => result.current.handleToggleMultiple('outro', true))
+    expect(result.current.selectedOptionIds).toEqual(['sheets', 'outro'])
+    expect(result.current.isOtherSelected).toBe(true)
+    expect(result.current.canSubmit).toBe(false)
+
+    act(() => result.current.handleChangeOtherText('   '))
+    expect(result.current.canSubmit).toBe(false)
+    act(() => result.current.handleChangeOtherText(`  Excel${'!'.repeat(300)}`))
+    expect(result.current.otherText).toHaveLength(200)
+    act(() => result.current.handleChangeOtherText('  planilhas no Excel '))
+    expect(result.current.canSubmit).toBe(true)
+
+    act(() => result.current.handleToggleMultiple('nao-sei', true))
+    expect(result.current.isOtherSelected).toBe(false)
+    act(() => result.current.handleToggleMultiple('outro', true))
+    expect(result.current.otherText).toBe('  planilhas no Excel ')
+
+    await act(async () => {
+      await result.current.handleSubmitAnswers()
+    })
+    expect(mocks.service.answerPlanningQuestions).toHaveBeenCalledWith(
+      'access-token',
+      PLANNING_ID,
+      {
+        batchId: 'batch-1',
+        answers: [
+          { questionId: 'q2', optionIds: ['outro'], otherText: 'planilhas no Excel' },
+        ],
+      },
+    )
   })
 
   it('abandons a planning opened without the composer entry (CA-11)', async () => {

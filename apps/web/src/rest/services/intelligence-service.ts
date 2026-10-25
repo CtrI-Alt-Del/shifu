@@ -254,7 +254,7 @@ type PlanningSessionDto = {
       id: string
       text: string
       kind: PlanningQuestion['kind']
-      options: { id: string; text: string; exclusive: boolean }[]
+      options: { id: string; text: string; exclusive: boolean; open: boolean }[]
     }[]
   } | null
   answered_batch_count: number
@@ -483,6 +483,7 @@ export const IntelligenceService = (
                 id: option.id,
                 text: option.text,
                 exclusive: option.exclusive,
+                open: option.open,
               })),
             })),
           }
@@ -700,6 +701,7 @@ export const IntelligenceService = (
           answers: submission.answers.map((answer) => ({
             question_id: answer.questionId,
             option_ids: answer.optionIds,
+            ...(answer.otherText === undefined ? {} : { other_text: answer.otherText }),
           })),
         },
         auth(accessToken),

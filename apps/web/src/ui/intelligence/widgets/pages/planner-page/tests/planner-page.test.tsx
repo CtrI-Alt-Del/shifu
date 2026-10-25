@@ -37,9 +37,9 @@ const singleQuestion: PlanningQuestion = {
   text: 'Você já escreveu algum código antes?',
   kind: 'single',
   options: [
-    { id: 'never', text: 'Nunca', exclusive: false },
-    { id: 'copied', text: 'Já copiei e adaptei alguns scripts', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'never', text: 'Nunca', exclusive: false, open: false },
+    { id: 'copied', text: 'Já copiei e adaptei alguns scripts', exclusive: false, open: false },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 
@@ -48,9 +48,9 @@ const multipleQuestion: PlanningQuestion = {
   text: 'O que você quer automatizar?',
   kind: 'multiple',
   options: [
-    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false },
-    { id: 'files', text: 'Organização de arquivos', exclusive: false },
-    { id: 'nao-sei', text: 'Não sei', exclusive: true },
+    { id: 'sheets', text: 'Planilhas e relatórios', exclusive: false, open: false },
+    { id: 'files', text: 'Organização de arquivos', exclusive: false, open: false },
+    { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }
 
@@ -68,6 +68,8 @@ function controller(
     stepLabel: 'Pergunta 1 de 3 deste conjunto',
     currentQuestion: singleQuestion,
     selectedOptionIds: [],
+    otherText: '',
+    isOtherSelected: false,
     guidance:
       'Escolha uma alternativa. Você poderá revisar as respostas antes de enviar este conjunto.',
     isFirstStep: true,
@@ -89,6 +91,7 @@ function controller(
     questionHeadingRef: { current: null },
     handleSelectSingle: vi.fn(),
     handleToggleMultiple: vi.fn(),
+    handleChangeOtherText: vi.fn(),
     handleGoToStep: vi.fn(),
     handlePrevious: vi.fn(),
     handleNext: vi.fn(),
@@ -194,6 +197,36 @@ describe('PlannerPage', () => {
     expect(current.handleToggleMultiple).toHaveBeenCalledWith('nao-sei', true)
     fireEvent.click(screen.getByRole('checkbox', { name: 'Planilhas e relatórios' }))
     expect(current.handleToggleMultiple).toHaveBeenCalledWith('sheets', false)
+  })
+
+  it('shows the open answer field only while "Outro" is selected and reports the text', () => {
+    const openQuestion: PlanningQuestion = {
+      ...multipleQuestion,
+      options: [
+        ...multipleQuestion.options.slice(0, -1),
+        { id: 'outro', text: 'Outro', exclusive: false, open: true },
+        ...multipleQuestion.options.slice(-1),
+      ],
+    }
+    renderPage({ currentQuestion: openQuestion, selectedOptionIds: ['sheets'] })
+    expect(screen.queryByLabelText('Descreva sua resposta')).not.toBeInTheDocument()
+    cleanup()
+
+    const current = renderPage({
+      currentQuestion: openQuestion,
+      selectedOptionIds: ['outro'],
+      isOtherSelected: true,
+      otherText: 'Excel',
+    })
+
+    const field = screen.getByLabelText('Descreva sua resposta')
+    expect(screen.getByRole('checkbox', { name: 'Outro' })).toBeChecked()
+    expect(field).toHaveValue('Excel')
+    expect(field).toHaveFocus()
+    expect(field).toHaveAttribute('maxlength', '200')
+    expect(screen.getByText('5/200 caracteres')).toBeInTheDocument()
+    fireEvent.change(field, { target: { value: 'planilhas no Excel' } })
+    expect(current.handleChangeOtherText).toHaveBeenCalledWith('planilhas no Excel')
   })
 
   it('offers the submission on the last step only when the batch is complete (CA-05, CA-06)', () => {

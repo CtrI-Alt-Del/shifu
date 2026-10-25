@@ -142,6 +142,9 @@ class PlanningSession:
                 PlanningAnsweredQuestion(
                     question=question,
                     option_ids=by_question[question.id].option_ids,
+                    other_text=self._normalized_other_text(
+                        by_question[question.id].other_text
+                    ),
                 )
                 for question in batch.questions
             ),
@@ -262,6 +265,10 @@ class PlanningSession:
     def _require_idle(self) -> None:
         if self.operation is not None:
             raise PlanningOperationConflictError
+
+    @staticmethod
+    def _normalized_other_text(text: str | None) -> str | None:
+        return None if text is None else ' '.join(text.split())
 
     @staticmethod
     def _validated_intent(intent: str) -> str:

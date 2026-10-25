@@ -226,6 +226,7 @@ class Harness:
     classifier: Mock
     interview: Mock
     proposal: Mock
+    retrieval: Mock
 
     def start(self, intent: str) -> PlanningSession:
         return StartPlanningUseCase(
@@ -253,7 +254,12 @@ class Harness:
         )
         return self.sessions.find_by_id(session.id)
 
-    def answer(self, session: PlanningSession, option_index: int) -> PlanningSession:
+    def answer(
+        self,
+        session: PlanningSession,
+        option_index: int,
+        other_text: str | None = None,
+    ) -> PlanningSession:
         batch = session.current_batch
         assert batch is not None
         question = batch.questions[0]
@@ -270,6 +276,7 @@ class Harness:
                 PlanningAnswer(
                     question_id=question.id,
                     option_ids=(question.options[option_index].id,),
+                    other_text=other_text,
                 ),
             ),
         )
@@ -339,6 +346,7 @@ def harness(
             classifier=classifier,
             interview=interview,
             proposal=proposal,
+            retrieval=retrieval,
         )
     finally:
         client.close()
@@ -369,6 +377,38 @@ class TestPlanGoalWorkflow:
         assert len(requests) == 2
         assert all(set(request) <= _ALLOWED_PAYLOAD_KEYS for request in requests)
 
+    def test_should_send_the_open_answer_to_the_search_and_the_proposal(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.side_effect = [clarification(), sufficient()]
+        session = harness.start('Quero aprender a fazer sites')
+        interview = harness.run(session)
+        assert interview is not None
+        batch = interview.current_batch
+        assert batch is not None
+        other_index = next(
+            index
+            for index, option in enumerate(batch.questions[0].options)
+            if option.open
+        )
+
+        final = harness.run(
+            harness.answer(interview, other_index, other_text='Landing pages')
+        )
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        assert payloads(harness.proposal)[-1]['answers'] == [
+            {
+                'question': 'O que você quer construir primeiro?',
+                'kind': 'single',
+                'selected': [],
+                'other_text': 'Landing pages',
+            }
+        ]
+        query = harness.retrieval.retrieve.call_args.args[0]
+        assert query.answers == ('Landing pages',)
+
     def test_should_ask_a_batch_and_compose_after_the_answers(
         self, harness: Harness
     ) -> None:
@@ -385,8 +425,10 @@ class TestPlanGoalWorkflow:
         assert [option.text for option in options] == [
             'Páginas e layout',
             'Interatividade',
+            'Outro',
             'Não sei',
         ]
+        assert options[-2].open is True
         assert options[-1].exclusive is True
 
         final = harness.run(harness.answer(interview, 1))
@@ -400,6 +442,7 @@ class TestPlanGoalWorkflow:
                 'question': 'O que você quer construir primeiro?',
                 'kind': 'single',
                 'selected': ['Interatividade'],
+                'other_text': None,
             }
         ]
         assert harness.classifier.classify.call_count == 1

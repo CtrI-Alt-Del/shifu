@@ -1,10 +1,20 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from threading import Barrier
 from typing import TYPE_CHECKING
 
-from shifu.intelligence.core.domain.enums import PlanningSessionStatus
+from shifu.intelligence.core.domain.enums import (
+    PlanningQuestionKind,
+    PlanningSessionStatus,
+)
+from shifu.intelligence.core.domain.structures import (
+    PlanningOperationResult,
+    PlanningOption,
+    PlanningQuestion,
+    PlanningQuestionBatch,
+)
 from tests.intelligence.server.controllers.planning_test_support import (
     interviewing_session,
     planning_events,
@@ -15,12 +25,35 @@ from tests.intelligence.server.controllers.planning_test_support import (
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
 
+    from shifu.intelligence.core.domain.entities import PlanningSession
+
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
 _VALID = {
     'batch_id': 'batch-1',
     'answers': [{'question_id': 'q1', 'option_ids': ['o2']}],
 }
+
+
+def _interviewing_with_other() -> PlanningSession:
+    session = started_session()
+    operation = session.operation
+    assert operation is not None
+    question = PlanningQuestion(
+        id='q1',
+        text='O que você quer construir?',
+        kind=PlanningQuestionKind.MULTIPLE,
+        options=(
+            PlanningOption(id='o1', text='Sites'),
+            PlanningOption(id='o2', text='APIs'),
+            PlanningOption.other(),
+        ),
+    )
+    batch = PlanningQuestionBatch(id='batch-1', questions=(question,))
+    assert session.complete(
+        operation.id, 1, PlanningOperationResult.for_batch(batch), datetime.now(UTC)
+    )
+    return session
 
 
 class TestAnswerPlanningQuestionsController:
@@ -47,6 +80,58 @@ class TestAnswerPlanningQuestionsController:
         stored = sessions_of(planning_client).find_by_id(session.id)
         assert stored is not None
         assert stored.answered_batches[0].items[0].selected_texts == ('APIs',)
+
+    def test_should_accept_an_open_answer_with_the_learner_text(
+        self, planning_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session = _interviewing_with_other()
+        sessions_of(planning_client).add(session)
+
+        response = planning_client.post(
+            f'/intelligence/planning-sessions/{session.id}/answers',
+            json={
+                'batch_id': 'batch-1',
+                'answers': [
+                    {
+                        'question_id': 'q1',
+                        'option_ids': ['o2', 'outro'],
+                        'other_text': 'planilhas no Excel',
+                    }
+                ],
+            },
+        )
+
+        assert response.status_code == 202, response.text
+        assert len(planning_events(postgres_database.engine)) == 1
+        stored = sessions_of(planning_client).find_by_id(session.id)
+        assert stored is not None
+        item = stored.answered_batches[0].items[0]
+        assert item.answer_texts == ('APIs', 'planilhas no Excel')
+
+    def test_should_reject_an_open_answer_without_text_or_over_the_limit(
+        self, planning_client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        session = _interviewing_with_other()
+        sessions_of(planning_client).add(session)
+
+        def answer(other_text: str | None) -> int:
+            return planning_client.post(
+                f'/intelligence/planning-sessions/{session.id}/answers',
+                json={
+                    'batch_id': 'batch-1',
+                    'answers': [
+                        {
+                            'question_id': 'q1',
+                            'option_ids': ['outro'],
+                            'other_text': other_text,
+                        }
+                    ],
+                },
+            ).status_code
+
+        assert answer(None) == 400
+        assert answer('x' * 201) == 422
+        assert planning_events(postgres_database.engine) == []
 
     def test_should_reject_an_invalid_selection_without_side_effects(
         self, planning_client: TestClient, postgres_database: PostgresDatabase

@@ -5,6 +5,7 @@ from shifu.shared.core.domain.structures import structure
 class PlanningAnswer:
     question_id: str
     option_ids: tuple[str, ...]
+    other_text: str | None = None
 
     def __post_init__(self) -> None:
         if not self.question_id.strip():

@@ -1,30 +1,46 @@
 import type { RefObject } from 'react'
 
-import type { PlanningQuestion } from '@/core/intelligence/planning-session'
+import {
+  PLANNING_OTHER_TEXT_MAX_LENGTH,
+  type PlanningQuestion,
+} from '@/core/intelligence/planning-session'
 import { Checkbox } from '@/ui/shadcn/checkbox'
+import { Label } from '@/ui/shadcn/label'
 import { RadioGroup, RadioGroupItem } from '@/ui/shadcn/radio-group'
+import { Textarea } from '@/ui/shadcn/textarea'
 
 export type PlanningQuestionCardProps = {
   question: PlanningQuestion
   selectedOptionIds: string[]
+  otherText: string
+  isOtherSelected: boolean
   guidance: string
   headingRef: RefObject<HTMLHeadingElement | null>
   disabled?: boolean
   onSelectSingle: (optionId: string) => void
   onToggleMultiple: (optionId: string, checked: boolean) => void
+  onChangeOtherText: (text: string) => void
 }
+
+// A stable callback ref focuses the field only when it appears.
+const focusOnMount = (node: HTMLTextAreaElement | null) => node?.focus()
 
 export const PlanningQuestionCard = ({
   question,
   selectedOptionIds,
+  otherText,
+  isOtherSelected,
   guidance,
   headingRef,
   disabled = false,
   onSelectSingle,
   onToggleMultiple,
+  onChangeOtherText,
 }: PlanningQuestionCardProps) => {
   const headingId = `planning-question-${question.id}`
   const guidanceId = `${headingId}-guidance`
+  const otherFieldId = `${headingId}-other`
+  const otherCountId = `${otherFieldId}-count`
 
   return (
     <section aria-labelledby={headingId} className='flex flex-col gap-6'>
@@ -76,6 +92,30 @@ export const PlanningQuestionCard = ({
           ))}
         </fieldset>
       )}
+      {isOtherSelected ? (
+        <div className='flex flex-col gap-1.5'>
+          <Label
+            className='text-[13px] font-semibold text-secondary-foreground'
+            htmlFor={otherFieldId}
+          >
+            Descreva sua resposta
+          </Label>
+          <Textarea
+            aria-describedby={otherCountId}
+            className='min-h-[72px] resize-none px-4 py-3 text-[15px] leading-[1.45]'
+            disabled={disabled}
+            id={otherFieldId}
+            maxLength={PLANNING_OTHER_TEXT_MAX_LENGTH}
+            onChange={(event) => onChangeOtherText(event.target.value)}
+            ref={focusOnMount}
+            rows={2}
+            value={otherText}
+          />
+          <p className='self-end text-xs text-muted-foreground' id={otherCountId}>
+            {otherText.length}/{PLANNING_OTHER_TEXT_MAX_LENGTH} caracteres
+          </p>
+        </div>
+      ) : null}
     </section>
   )
 }

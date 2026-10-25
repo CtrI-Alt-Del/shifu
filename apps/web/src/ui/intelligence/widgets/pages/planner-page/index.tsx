@@ -26,6 +26,8 @@ export const PlannerPage = (props: PlannerPageProps) => {
     stepLabel,
     currentQuestion,
     selectedOptionIds,
+    otherText,
+    isOtherSelected,
     guidance,
     isFirstStep,
     isLastStep,
@@ -43,6 +45,7 @@ export const PlannerPage = (props: PlannerPageProps) => {
     questionHeadingRef,
     handleSelectSingle,
     handleToggleMultiple,
+    handleChangeOtherText,
     handleGoToStep,
     handlePrevious,
     handleNext,
@@ -90,8 +93,11 @@ export const PlannerPage = (props: PlannerPageProps) => {
               disabled={isSubmitting}
               guidance={guidance}
               headingRef={questionHeadingRef}
+              isOtherSelected={isOtherSelected}
+              onChangeOtherText={handleChangeOtherText}
               onSelectSingle={handleSelectSingle}
               onToggleMultiple={handleToggleMultiple}
+              otherText={otherText}
               question={currentQuestion}
               selectedOptionIds={selectedOptionIds}
             />

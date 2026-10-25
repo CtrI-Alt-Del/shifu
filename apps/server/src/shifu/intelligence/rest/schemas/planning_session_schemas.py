@@ -15,6 +15,7 @@ class PlanningSessionSchemas:
         id: str
         text: str
         exclusive: bool
+        open: bool
 
     class Question(BaseModel):
         id: str

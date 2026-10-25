@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
-import type {
-  PlanningGoalCreationRequest,
-  PlanningOperation,
-  PlanningOperationStage,
-  PlanningQuestion,
-  PlanningSession,
+import {
+  PLANNING_OTHER_TEXT_MAX_LENGTH,
+  type PlanningAnswer,
+  type PlanningGoalCreationRequest,
+  type PlanningOperation,
+  type PlanningOperationStage,
+  type PlanningQuestion,
+  type PlanningSession,
 } from '@/core/intelligence/planning-session'
 import { PlanningRequestError } from '@/ui/intelligence/hooks/planning-request-error'
 import { useAnswerPlanningQuestionsAction } from '@/ui/intelligence/hooks/use-answer-planning-questions-action'
@@ -60,12 +62,13 @@ export type PlannerProcessingStage = {
 type PlannerDraft = {
   batchId: string | null
   answers: Record<string, string[]>
+  otherTexts: Record<string, string>
   index: number
 }
 
 type LeaveRoute = 'root' | 'learningGoalsNew'
 
-const EMPTY_DRAFT: PlannerDraft = { batchId: null, answers: {}, index: 0 }
+const EMPTY_DRAFT: PlannerDraft = { batchId: null, answers: {}, otherTexts: {}, index: 0 }
 
 const STAGE_COPY: Record<PlanningOperationStage, PlannerProcessingStage> = {
   analyzing: {
@@ -140,9 +143,15 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   const selectedOptionIds = currentQuestion
     ? (activeDraft.answers[currentQuestion.id] ?? [])
     : []
+  const otherText = currentQuestion
+    ? (activeDraft.otherTexts[currentQuestion.id] ?? '')
+    : ''
+  const isOtherSelected = currentQuestion
+    ? selectedOptionIds.includes(openOptionIdOf(currentQuestion) ?? '')
+    : false
   const isBatchComplete =
     questions.length > 0 &&
-    questions.every((question) => (activeDraft.answers[question.id] ?? []).length > 0)
+    questions.every((question) => isQuestionAnswered(question, activeDraft))
   const isFirstStep = currentIndex === 0
   const isLastStep = questions.length > 0 && currentIndex === questions.length - 1
   const steps: PlannerStep[] = questions.map((question, index) => ({
@@ -151,7 +160,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     state:
       index === currentIndex
         ? 'current'
-        : (activeDraft.answers[question.id] ?? []).length > 0
+        : isQuestionAnswered(question, activeDraft)
           ? 'answered'
           : 'pending',
   }))
@@ -190,9 +199,24 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
 
   function updateAnswers(questionId: string, optionIds: string[]) {
     setDraft({
+      ...activeDraft,
       batchId,
       index: currentIndex,
       answers: { ...activeDraft.answers, [questionId]: optionIds },
+    })
+    setErrorMessage(null)
+  }
+
+  function handleChangeOtherText(text: string) {
+    if (!currentQuestion || isSubmitting) return
+    setDraft({
+      ...activeDraft,
+      batchId,
+      index: currentIndex,
+      otherTexts: {
+        ...activeDraft.otherTexts,
+        [currentQuestion.id]: text.slice(0, PLANNING_OTHER_TEXT_MAX_LENGTH),
+      },
     })
     setErrorMessage(null)
   }
@@ -249,10 +273,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     try {
       const updated = await answerPlanningQuestions({
         batchId: batch.id,
-        answers: batch.questions.map((question) => ({
-          questionId: question.id,
-          optionIds: activeDraft.answers[question.id] ?? [],
-        })),
+        answers: batch.questions.map((question) => answerFor(question, activeDraft)),
       })
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
     } catch (error) {
@@ -395,6 +416,8 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     stepLabel: stepLabelFor(currentIndex, questions.length, isBatchComplete, isLastStep),
     currentQuestion,
     selectedOptionIds,
+    otherText,
+    isOtherSelected,
     guidance: guidanceFor(currentQuestion, isLastStep, isBatchComplete),
     isFirstStep,
     isLastStep,
@@ -417,6 +440,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     questionHeadingRef,
     handleSelectSingle,
     handleToggleMultiple,
+    handleChangeOtherText,
     handleGoToStep,
     handlePrevious,
     handleNext,
@@ -488,6 +512,32 @@ function stepLabelFor(
   return isBatchComplete && !isLastStep
     ? `Revisando pergunta ${position} · conjunto respondido`
     : `Pergunta ${position} deste conjunto`
+}
+
+function openOptionIdOf(question: PlanningQuestion): string | null {
+  return question.options.find((option) => option.open)?.id ?? null
+}
+
+/** A selected "Outro" only counts once the learner wrote something in it. */
+function isQuestionAnswered(question: PlanningQuestion, draft: PlannerDraft): boolean {
+  const selected = draft.answers[question.id] ?? []
+  if (selected.length === 0) return false
+  const openOptionId = openOptionIdOf(question)
+  if (openOptionId === null || !selected.includes(openOptionId)) return true
+  return (draft.otherTexts[question.id] ?? '').trim().length > 0
+}
+
+function answerFor(question: PlanningQuestion, draft: PlannerDraft): PlanningAnswer {
+  const optionIds = draft.answers[question.id] ?? []
+  const openOptionId = openOptionIdOf(question)
+  if (openOptionId === null || !optionIds.includes(openOptionId)) {
+    return { questionId: question.id, optionIds }
+  }
+  return {
+    questionId: question.id,
+    optionIds,
+    otherText: (draft.otherTexts[question.id] ?? '').trim(),
+  }
 }
 
 function guidanceFor(

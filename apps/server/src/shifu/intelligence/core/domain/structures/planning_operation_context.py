@@ -21,10 +21,10 @@ class PlanningOperationContext:
 
     @property
     def answers(self) -> tuple[str, ...]:
-        """Flatten the selected alternatives for the retrieval query."""
+        """Flatten the selected alternatives and open answers for the retrieval query."""
         return tuple(
             text
             for batch in self.answered_batches
             for item in batch.items
-            for text in item.selected_texts
+            for text in item.answer_texts
         )

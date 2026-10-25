@@ -401,6 +401,7 @@ class PlanGoalWorkflow(Workflow):
                 'question': item.question.text,
                 'kind': item.question.kind.value,
                 'selected': list(item.selected_texts),
+                'other_text': item.other_text,
             }
             for batch in context.answered_batches
             for item in batch.items
@@ -443,6 +444,7 @@ class PlanGoalWorkflow(Workflow):
                 )
             if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
                 continue
+            options.append(PlanningOption.other())
             if item.allow_unknown:
                 options.append(PlanningOption.unknown())
             questions.append(

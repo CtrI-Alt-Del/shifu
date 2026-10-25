@@ -5,6 +5,7 @@ import { getRequest } from '@tanstack/react-start/server'
 
 import {
   PLANNING_ID_PATTERN,
+  PLANNING_OTHER_TEXT_MAX_LENGTH,
   type PlanningAnswersSubmission,
 } from '@/core/intelligence/planning-session'
 import { withPlanningService } from '@/provision/planning/planning-server-provider'
@@ -19,7 +20,16 @@ const INPUT = z
     answers: z
       .array(
         z
-          .object({ questionId: IDENTIFIER, optionIds: z.array(IDENTIFIER).max(8) })
+          .object({
+            questionId: IDENTIFIER,
+            optionIds: z.array(IDENTIFIER).max(8),
+            otherText: z
+              .string()
+              .trim()
+              .min(1)
+              .max(PLANNING_OTHER_TEXT_MAX_LENGTH)
+              .optional(),
+          })
           .strict(),
       )
       .min(1)

@@ -37,9 +37,9 @@ class TestGetPlanningSessionController:
         question = body['batch']['questions'][0]
         assert question['kind'] == 'single'
         assert question['options'] == [
-            {'id': 'o1', 'text': 'Sites', 'exclusive': False},
-            {'id': 'o2', 'text': 'APIs', 'exclusive': False},
-            {'id': 'nao-sei', 'text': 'Não sei', 'exclusive': True},
+            {'id': 'o1', 'text': 'Sites', 'exclusive': False, 'open': False},
+            {'id': 'o2', 'text': 'APIs', 'exclusive': False, 'open': False},
+            {'id': 'nao-sei', 'text': 'Não sei', 'exclusive': True, 'open': False},
         ]
         assert body['proposal'] is None
 
