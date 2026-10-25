@@ -1,8 +1,16 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
+import {
+  ENTRANCE_CARD,
+  ENTRANCE_RISE,
+  ENTRANCE_SECTION,
+} from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { SkillCompetencyList } from '@/ui/learning/widgets/pages/skill-page/skill-competency-list'
 import { SkillRecommendationCard } from '@/ui/learning/widgets/pages/skill-page/skill-recommendation'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import {
   type DiagnosticResultPageProps,
@@ -80,107 +88,131 @@ export const DiagnosticResultPage = (props: DiagnosticResultPageProps) => {
   )
 
   return (
-    <main className='w-full mx-auto max-w-7xl space-y-8 px-5 py-8 pb-24 sm:pb-8'>
-      <header className='mx-auto w-full space-y-3'>
-        <h1 className='font-serif text-4xl font-semibold'>Seu ponto de partida</h1>
-        <p className='max-w-2xl text-muted-foreground'>
-          {isDirectCompletion
-            ? 'Todas as Competências já estavam dominadas. Este diagnóstico concluiu a Habilidade sem indicar evolução.'
-            : 'Este resumo consolidado mostra a base observada para cada Competência. Respostas e correções individuais não são exibidas.'}
-        </p>
-      </header>
-
-      <section
-        aria-labelledby='diagnostic-result-summary'
-        className='mx-auto w-full rounded-md border border-border bg-card p-5 sm:p-6'
-      >
-        <h2 className='font-serif text-2xl font-semibold' id='diagnostic-result-summary'>
-          Resultado geral
-        </h2>
-        <p className='mt-3 text-2xl font-semibold tabular-nums'>
-          {overallResult === null ? 'Sem evidência' : `${Math.round(overallResult)}%`}
-        </p>
-        <p className='mt-2 text-sm text-muted-foreground'>
-          Progresso demonstrado em todos os Conceitos da Habilidade. O status de cada
-          Competência considera os Conceitos avaliados.
-        </p>
-      </section>
-
-      <section
-        aria-labelledby='diagnostic-result-competencies'
-        className='mx-auto w-full space-y-4'
-      >
-        <h2
-          className='text-sm font-medium text-secondary-foreground'
-          id='diagnostic-result-competencies'
-        >
-          Ponto de partida por Competência (0–100)
-        </h2>
-        {hasBlockedCompetencies ? (
-          <p className='text-sm text-muted-foreground'>
-            O status de aprendizagem indica a evidência observada. “Bloqueada” indica que
-            o conteúdo desta Competência ainda não foi liberado.
-            {recommendation ? ' A recomendação abaixo é uma Atividade disponível.' : ''}
+    <main className='w-full mx-auto max-w-7xl px-5 py-8 pb-24 sm:pb-8'>
+      <MotionEntrance className='space-y-8'>
+        <motion.header className='mx-auto w-full space-y-3' variants={ENTRANCE_RISE}>
+          <h1 className='font-serif text-4xl font-semibold'>Seu ponto de partida</h1>
+          <p className='max-w-2xl text-muted-foreground'>
+            {isDirectCompletion
+              ? 'Todas as Competências já estavam dominadas. Este diagnóstico concluiu a Habilidade sem indicar evolução.'
+              : 'Este resumo consolidado mostra a base observada para cada Competência. Respostas e correções individuais não são exibidas.'}
           </p>
-        ) : null}
-        <div className='rounded-md border border-control-border bg-card p-1.5 sm:p-2'>
-          <SkillCompetencyList
-            competencies={competencies}
-            focusCompetencyName={focusCompetencyName}
-            goalId={props.goalId}
-            skillId={props.skillId}
-          />
-        </div>
-      </section>
+        </motion.header>
 
-      {recommendation ? (
-        <section className='mx-auto w-full space-y-3'>
-          <h2 className='font-serif text-2xl font-semibold'>Próximo passo recomendado</h2>
-          <p className='text-sm text-muted-foreground'>
-            {recommendation.reason}
-            {recommendation.targetConceptName
-              ? ` Conceito em foco: ${recommendation.targetConceptName}.`
-              : ''}
-          </p>
-          {recommendation.gap ? (
-            <p className='text-sm text-muted-foreground'>{recommendation.gap}</p>
-          ) : null}
-          <SkillRecommendationCard
-            goalId={props.goalId}
-            recommendation={recommendation}
-            skillId={props.skillId}
-            viewSkillAction
-          />
-        </section>
-      ) : diagnostic.initialRecommendationGap ? (
-        <section
-          aria-labelledby='diagnostic-result-recommendation-gap'
-          className='mx-auto w-full space-y-3'
+        <motion.section
+          aria-labelledby='diagnostic-result-summary'
+          className='mx-auto w-full rounded-md border border-border bg-card p-5 sm:p-6'
+          variants={ENTRANCE_CARD}
         >
           <h2
             className='font-serif text-2xl font-semibold'
-            id='diagnostic-result-recommendation-gap'
+            id='diagnostic-result-summary'
           >
-            Próximo passo indisponível
+            Resultado geral
           </h2>
-          <p className='text-sm text-muted-foreground'>
-            Não foi possível recomendar uma atividade de aprendizagem com o conteúdo
-            disponível neste momento.
+          <p className='mt-3 text-2xl font-semibold tabular-nums'>
+            {overallResult === null ? (
+              'Sem evidência'
+            ) : (
+              <AnimatedNumber
+                delay={0.2}
+                format={(value) => `${value}%`}
+                value={Math.round(overallResult)}
+              />
+            )}
           </p>
-        </section>
-      ) : null}
+          <p className='mt-2 text-sm text-muted-foreground'>
+            Progresso demonstrado em todos os Conceitos da Habilidade. O status de cada
+            Competência considera os Conceitos avaliados.
+          </p>
+        </motion.section>
 
-      {!recommendation ? (
-        <div className='w-full'>
-          <Link
-            className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 font-semibold text-foreground hover:bg-muted'
-            params={props}
-            to='/learning/goals/$goalId/skills/$skillId'
+        <motion.section
+          aria-labelledby='diagnostic-result-competencies'
+          className='mx-auto w-full space-y-4'
+          variants={ENTRANCE_SECTION}
+        >
+          <h2
+            className='text-sm font-medium text-secondary-foreground'
+            id='diagnostic-result-competencies'
           >
-            Ver Habilidade
-          </Link>
-        </div>
-      ) : null}
+            Ponto de partida por Competência (0–100)
+          </h2>
+          {hasBlockedCompetencies ? (
+            <p className='text-sm text-muted-foreground'>
+              O status de aprendizagem indica a evidência observada. “Bloqueada” indica
+              que o conteúdo desta Competência ainda não foi liberado.
+              {recommendation ? ' A recomendação abaixo é uma Atividade disponível.' : ''}
+            </p>
+          ) : null}
+          <motion.div
+            className='rounded-md border border-control-border bg-card p-1.5 sm:p-2'
+            variants={ENTRANCE_CARD}
+          >
+            <SkillCompetencyList
+              competencies={competencies}
+              focusCompetencyName={focusCompetencyName}
+              goalId={props.goalId}
+              skillId={props.skillId}
+            />
+          </motion.div>
+        </motion.section>
+
+        {recommendation ? (
+          <motion.section
+            className='mx-auto w-full space-y-3'
+            variants={ENTRANCE_SECTION}
+          >
+            <h2 className='font-serif text-2xl font-semibold'>
+              Próximo passo recomendado
+            </h2>
+            <p className='text-sm text-muted-foreground'>
+              {recommendation.reason}
+              {recommendation.targetConceptName
+                ? ` Conceito em foco: ${recommendation.targetConceptName}.`
+                : ''}
+            </p>
+            {recommendation.gap ? (
+              <p className='text-sm text-muted-foreground'>{recommendation.gap}</p>
+            ) : null}
+            <SkillRecommendationCard
+              goalId={props.goalId}
+              recommendation={recommendation}
+              skillId={props.skillId}
+              viewSkillAction
+            />
+          </motion.section>
+        ) : diagnostic.initialRecommendationGap ? (
+          <motion.section
+            aria-labelledby='diagnostic-result-recommendation-gap'
+            className='mx-auto w-full space-y-3'
+            variants={ENTRANCE_SECTION}
+          >
+            <h2
+              className='font-serif text-2xl font-semibold'
+              id='diagnostic-result-recommendation-gap'
+            >
+              Próximo passo indisponível
+            </h2>
+            <p className='text-sm text-muted-foreground'>
+              Não foi possível recomendar uma atividade de aprendizagem com o conteúdo
+              disponível neste momento.
+            </p>
+          </motion.section>
+        ) : null}
+
+        {!recommendation ? (
+          <motion.div className='w-full' variants={ENTRANCE_RISE}>
+            <Link
+              className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 font-semibold text-foreground hover:bg-muted'
+              params={props}
+              to='/learning/goals/$goalId/skills/$skillId'
+            >
+              Ver Habilidade
+            </Link>
+          </motion.div>
+        ) : null}
+      </MotionEntrance>
     </main>
   )
 }

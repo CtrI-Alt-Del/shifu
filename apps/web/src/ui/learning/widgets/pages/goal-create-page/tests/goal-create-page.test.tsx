@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { GoalCreatePage } from '..'
 import { useGoalCreatePage } from '../use-goal-create-page'
 
+// Entrances settle at once, so assertions see the final state; the shared
+// MotionEntrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
+
 vi.mock('../use-goal-create-page', () => ({ useGoalCreatePage: vi.fn() }))
 
 const useGoalCreatePageMock = vi.mocked(useGoalCreatePage)
@@ -38,6 +44,7 @@ describe('GoalCreatePage', () => {
 
     expect(screen.getByLabelText('Título do Objetivo *')).toHaveValue('Aprender lógica')
     expect(screen.getByText(/diagnóstico começa quando você iniciar/i)).toBeVisible()
+    expect(screen.getByRole('checkbox', { name: 'Lógica' })).toBeVisible()
     fireEvent.click(screen.getByRole('checkbox', { name: 'Lógica' }))
     expect(handleToggleSkill).toHaveBeenCalledWith(SKILL_ID)
     expect(screen.getByRole('button', { name: 'Criar Objetivo' })).toBeEnabled()

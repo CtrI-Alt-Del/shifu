@@ -20,6 +20,9 @@ vi.mock('../use-activity-page', () => ({
   useActivityPage: vi.fn(),
 }))
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('@/ui/learning/widgets/components/code-editor', () => ({
   CodeEditor: ({ files, readOnly }: CodeEditorProps) => (
     <textarea
@@ -120,7 +123,11 @@ describe('ActivityPage', () => {
   beforeEach(() => {
     vi.mocked(CodeQuestion).mockClear()
     useActivityPageMock.mockReturnValue(createControllerMock())
-    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
       value: vi.fn(),

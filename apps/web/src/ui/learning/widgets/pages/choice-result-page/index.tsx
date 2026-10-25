@@ -1,6 +1,7 @@
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
 import './choice-result-page.css'
 
@@ -9,8 +10,17 @@ import type {
   ActivityResultQuestion,
 } from '@/core/learning/choice-activity'
 import type { CompetencyProgressStatus } from '@/core/learning/competency-detail'
+import {
+  ENTRANCE_CARD,
+  ENTRANCE_FILL,
+  ENTRANCE_RISE,
+  ENTRANCE_SECTION,
+  ENTRANCE_STAGGER,
+} from '@/constants/motion-variants'
 import { AdaptiveRecommendation } from '@/ui/learning/widgets/pages/competency-detail-page/adaptive-recommendation'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceResultDetail } from './choice-result-detail'
 import { type ChoiceResultPageProps, useChoiceResultPage } from './use-choice-result-page'
@@ -21,6 +31,11 @@ const SCORE_FORMATTER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 
 const PROGRESS_FORMATTER = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 1,
 })
+// `AnimatedNumber` counts whole numbers, so fractional figures count in
+// their smallest shown unit (hundredths of a score, tenths of a percentage)
+// and are scaled back when formatted.
+const SCORE_SCALE = 100
+const PROGRESS_SCALE = 10
 
 const PROGRESS_STATUS_LABELS: Record<CompetencyProgressStatus, string> = {
   learning: 'Em aprendizado',
@@ -236,149 +251,179 @@ export const ChoiceResultPage = (props: ChoiceResultPageProps) => {
   ).length
 
   return (
-    <main className='mx-auto w-full max-w-7xl space-y-3 pb-8'>
-      <header className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'>
-        <div>
-          <h1 className='font-serif text-3xl font-normal text-foreground sm:text-4xl'>
-            Resultado da Atividade
-          </h1>
-          <p className='mt-1 text-sm text-muted-foreground'>{activity.title}</p>
-        </div>
-        {attempt.score !== undefined && attempt.score !== null ? (
-          <output
-            aria-label={`Nota da Atividade ${formattedScore} de 100`}
-            className='flex items-end gap-1 text-success'
-          >
-            <span className='font-mono text-4xl font-semibold leading-none'>
-              {formattedScore}
-            </span>
-            <span className='pb-0.5 font-mono text-sm text-muted-foreground'>/ 100</span>
-            <span className='sr-only'>
-              {' '}
-              {correctQuestionCount} de {resultQuestions.length}{' '}
-              {resultQuestions.length === 1 ? 'questão correta' : 'questões corretas'}
-            </span>
-          </output>
-        ) : null}
-      </header>
-
-      {rewardBand}
-
-      {attempt.progressBefore !== undefined &&
-      attempt.progressBefore !== null &&
-      attempt.progressAfter !== undefined &&
-      attempt.progressAfter !== null ? (
-        <section
-          aria-labelledby='choice-result-progress-title'
-          className='flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:gap-4'
-        >
-          <div className='min-w-0 sm:w-60 sm:shrink-0'>
-            <h2
-              className='text-xs font-medium text-muted-foreground'
-              id='choice-result-progress-title'
-            >
-              Progresso demonstrado da Habilidade
-            </h2>
-            <div className='mt-1 flex flex-wrap items-center gap-2'>
-              <p className='text-sm font-medium text-foreground'>
-                <span className='sr-only'>Antes: </span>
-                {PROGRESS_FORMATTER.format(attempt.progressBefore)}%
-                <span aria-hidden='true'> → </span>
-                <span className='sr-only'>Agora: </span>
-                {PROGRESS_FORMATTER.format(attempt.progressAfter)}%
-              </p>
-              {attempt.statusAfter ? (
-                <span className='text-xs text-muted-foreground'>
-                  {PROGRESS_STATUS_LABELS[attempt.statusAfter]}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <div className='min-w-0 flex-1'>
-            <div
-              aria-label='Progresso demonstrado da Habilidade após a avaliação'
-              aria-valuemax={100}
-              aria-valuemin={0}
-              aria-valuenow={attempt.progressAfter}
-              aria-valuetext={`${PROGRESS_FORMATTER.format(attempt.progressAfter)}%`}
-              className='h-1.5 w-full overflow-hidden rounded-full bg-muted'
-              role='progressbar'
-            >
-              <div
-                className='h-full rounded-full bg-success'
-                style={{ width: `${attempt.progressAfter}%` }}
-              />
-            </div>
-            <p className='mt-1.5 text-xs leading-relaxed text-muted-foreground'>
-              O progresso considera suas respostas nesta Atividade e as evidências
-              anteriores. Não é a nota acima.
-            </p>
-          </div>
-        </section>
-      ) : null}
-
-      <section aria-label='Detalhes por questão' className='space-y-1'>
-        {resultQuestions.map((result, index) => (
-          <ChoiceResultDetail
-            key={result.key}
-            question={questionByKey.get(result.key)}
-            questionNumber={index + 1}
-            result={result}
-          />
-        ))}
-      </section>
-
-      {pageProps.adaptiveDetail?.adaptive ? (
-        <AdaptiveRecommendation detail={pageProps.adaptiveDetail} />
-      ) : null}
-
-      {pageProps.adaptiveLoadError && pageProps.detailIds ? (
-        <section className='rounded-md border border-border bg-card p-4'>
-          <p className='text-sm text-muted-foreground'>
-            Não foi possível carregar a próxima recomendação agora. Seu resultado está
-            salvo.
-          </p>
-          <Link
-            className='mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline'
-            params={pageProps.detailIds}
-            to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
-          >
-            Ver Competência e próxima recomendação
-          </Link>
-        </section>
-      ) : null}
-
-      {recommendation &&
-      !pageProps.adaptiveDetail?.adaptive &&
-      !pageProps.adaptiveLoadError ? (
-        <section
-          aria-label='Próxima Atividade recomendada'
-          className='flex flex-wrap items-center justify-between gap-4 rounded-md border border-border bg-card p-4'
+    <main className='mx-auto w-full max-w-7xl pb-8'>
+      <MotionEntrance className='space-y-3'>
+        <motion.header
+          className='flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between'
+          variants={ENTRANCE_RISE}
         >
           <div>
-            <p className='font-semibold text-foreground'>
-              {recommendation.type === 'reinforcement'
-                ? 'Atividade de reforço recomendada'
-                : 'Nova Atividade recomendada'}
-            </p>
-            <p className='text-sm text-muted-foreground'>
-              Dificuldade:{' '}
-              {
-                { easy: 'Fácil', medium: 'Média', hard: 'Difícil' }[
-                  recommendation.difficulty
-                ]
-              }
-            </p>
+            <h1 className='font-serif text-3xl font-normal text-foreground sm:text-4xl'>
+              Resultado da Atividade
+            </h1>
+            <p className='mt-1 text-sm text-muted-foreground'>{activity.title}</p>
           </div>
-          {onOpenRecommendation ? (
-            <Button onClick={() => onOpenRecommendation(recommendation)} type='button'>
-              Próxima Atividade
-            </Button>
+          {attempt.score !== undefined && attempt.score !== null ? (
+            <output
+              aria-label={`Nota da Atividade ${formattedScore} de 100`}
+              className='flex items-end gap-1 text-success'
+            >
+              <AnimatedNumber
+                className='font-mono text-4xl font-semibold leading-none'
+                delay={0.2}
+                format={(value) => SCORE_FORMATTER.format(value / SCORE_SCALE)}
+                value={Math.round(Number(attempt.score) * SCORE_SCALE)}
+              />
+              <span className='pb-0.5 font-mono text-sm text-muted-foreground'>
+                / 100
+              </span>
+              <span className='sr-only'>
+                {' '}
+                {correctQuestionCount} de {resultQuestions.length}{' '}
+                {resultQuestions.length === 1 ? 'questão correta' : 'questões corretas'}
+              </span>
+            </output>
           ) : null}
-        </section>
-      ) : null}
+        </motion.header>
 
-      {backToCompetencyLink}
+        {rewardBand}
+
+        {attempt.progressBefore !== undefined &&
+        attempt.progressBefore !== null &&
+        attempt.progressAfter !== undefined &&
+        attempt.progressAfter !== null ? (
+          <motion.section
+            aria-labelledby='choice-result-progress-title'
+            className='flex flex-col gap-3 rounded-md border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:gap-4'
+            variants={ENTRANCE_CARD}
+          >
+            <div className='min-w-0 sm:w-60 sm:shrink-0'>
+              <h2
+                className='text-xs font-medium text-muted-foreground'
+                id='choice-result-progress-title'
+              >
+                Progresso demonstrado da Habilidade
+              </h2>
+              <div className='mt-1 flex flex-wrap items-center gap-2'>
+                <p className='text-sm font-medium text-foreground'>
+                  <span className='sr-only'>Antes: </span>
+                  {PROGRESS_FORMATTER.format(attempt.progressBefore)}%
+                  <span aria-hidden='true'> → </span>
+                  <span className='sr-only'>Agora: </span>
+                  <AnimatedNumber
+                    delay={0.2}
+                    format={(value) =>
+                      `${PROGRESS_FORMATTER.format(value / PROGRESS_SCALE)}%`
+                    }
+                    value={Math.round(attempt.progressAfter * PROGRESS_SCALE)}
+                  />
+                </p>
+                {attempt.statusAfter ? (
+                  <span className='text-xs text-muted-foreground'>
+                    {PROGRESS_STATUS_LABELS[attempt.statusAfter]}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className='min-w-0 flex-1'>
+              <div
+                aria-label='Progresso demonstrado da Habilidade após a avaliação'
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={attempt.progressAfter}
+                aria-valuetext={`${PROGRESS_FORMATTER.format(attempt.progressAfter)}%`}
+                className='h-1.5 w-full overflow-hidden rounded-full bg-muted'
+                role='progressbar'
+              >
+                <motion.div
+                  className='h-full rounded-full bg-success'
+                  custom={attempt.progressAfter}
+                  variants={ENTRANCE_FILL}
+                />
+              </div>
+              <p className='mt-1.5 text-xs leading-relaxed text-muted-foreground'>
+                O progresso considera suas respostas nesta Atividade e as evidências
+                anteriores. Não é a nota acima.
+              </p>
+            </div>
+          </motion.section>
+        ) : null}
+
+        <motion.section
+          aria-label='Detalhes por questão'
+          className='space-y-1'
+          variants={ENTRANCE_STAGGER}
+        >
+          {resultQuestions.map((result, index) => (
+            <ChoiceResultDetail
+              key={result.key}
+              question={questionByKey.get(result.key)}
+              questionNumber={index + 1}
+              result={result}
+            />
+          ))}
+        </motion.section>
+
+        {pageProps.adaptiveDetail?.adaptive ? (
+          <motion.div variants={ENTRANCE_SECTION}>
+            <AdaptiveRecommendation detail={pageProps.adaptiveDetail} />
+          </motion.div>
+        ) : null}
+
+        {pageProps.adaptiveLoadError && pageProps.detailIds ? (
+          <motion.section
+            className='rounded-md border border-border bg-card p-4'
+            variants={ENTRANCE_CARD}
+          >
+            <p className='text-sm text-muted-foreground'>
+              Não foi possível carregar a próxima recomendação agora. Seu resultado está
+              salvo.
+            </p>
+            <Link
+              className='mt-3 inline-flex min-h-11 items-center font-semibold text-primary underline-offset-4 hover:underline'
+              params={pageProps.detailIds}
+              to='/learning/goals/$goalId/skills/$skillId/competencies/$competencyId'
+            >
+              Ver Competência e próxima recomendação
+            </Link>
+          </motion.section>
+        ) : null}
+
+        {recommendation &&
+        !pageProps.adaptiveDetail?.adaptive &&
+        !pageProps.adaptiveLoadError ? (
+          <motion.section
+            aria-label='Próxima Atividade recomendada'
+            className='flex flex-wrap items-center justify-between gap-4 rounded-md border border-border bg-card p-4'
+            variants={ENTRANCE_CARD}
+          >
+            <div>
+              <p className='font-semibold text-foreground'>
+                {recommendation.type === 'reinforcement'
+                  ? 'Atividade de reforço recomendada'
+                  : 'Nova Atividade recomendada'}
+              </p>
+              <p className='text-sm text-muted-foreground'>
+                Dificuldade:{' '}
+                {
+                  { easy: 'Fácil', medium: 'Média', hard: 'Difícil' }[
+                    recommendation.difficulty
+                  ]
+                }
+              </p>
+            </div>
+            {onOpenRecommendation ? (
+              <Button onClick={() => onOpenRecommendation(recommendation)} type='button'>
+                Próxima Atividade
+              </Button>
+            ) : null}
+          </motion.section>
+        ) : null}
+
+        {backToCompetencyLink ? (
+          <motion.div variants={ENTRANCE_RISE}>{backToCompetencyLink}</motion.div>
+        ) : null}
+      </MotionEntrance>
     </main>
   )
 }

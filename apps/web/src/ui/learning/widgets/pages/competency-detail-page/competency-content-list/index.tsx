@@ -1,7 +1,10 @@
+import { motion } from 'motion/react'
+
 import type {
   AvailableCompetencyDetail,
   CompetencyDetailItem,
 } from '@/core/learning/competency-detail'
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 
 import {
   CompetencyContentRow,
@@ -24,9 +27,10 @@ export const CompetencyContentList = ({
   const recommendationMaterialId = detail.adaptive?.materialId
 
   return (
-    <ol
+    <motion.ol
       aria-label='Conteúdos da Competência'
-      className='competency-detail-page__content relative space-y-3 before:absolute before:bottom-8 before:left-[22px] before:top-8 before:w-px before:bg-border lg:space-y-3 lg:before:left-6'
+      className='relative space-y-3 before:absolute before:bottom-8 before:left-[22px] before:top-8 before:w-px before:bg-border lg:space-y-3 lg:before:left-6'
+      variants={ENTRANCE_SECTION}
     >
       {detail.items.map((item: CompetencyDetailItem) => {
         const rowProps: CompetencyContentRowProps = {
@@ -42,6 +46,6 @@ export const CompetencyContentList = ({
 
         return <CompetencyContentRow key={`${item.kind}-${item.id}`} {...rowProps} />
       })}
-    </ol>
+    </motion.ol>
   )
 }

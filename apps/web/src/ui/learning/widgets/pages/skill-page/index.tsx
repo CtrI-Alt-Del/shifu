@@ -1,9 +1,17 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
+import {
+  ENTRANCE_CARD,
+  ENTRANCE_SECTION,
+  ENTRANCE_STAGGER,
+} from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { useDiagnosticLeaveGuard } from '@/ui/learning/hooks/use-diagnostic-leave-guard'
 import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { SkillExperience } from './skill-experience'
 import { SkillPageLoading } from './skill-page-loading'
@@ -114,8 +122,11 @@ export const SkillPage = (props: SkillPageProps) => {
 
   return (
     <main className='mx-auto w-full max-w-7xl space-y-8 pb-10'>
-      <div className='mx-auto w-full max-w-7xl space-y-8'>
-        <header className='flex items-start justify-between gap-4'>
+      <MotionEntrance className='mx-auto w-full max-w-7xl space-y-8'>
+        <motion.header
+          className='flex items-start justify-between gap-4'
+          variants={ENTRANCE_SECTION}
+        >
           <div>
             <Link
               className='inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground'
@@ -130,9 +141,12 @@ export const SkillPage = (props: SkillPageProps) => {
             <h1 className='mt-2 font-serif text-4xl font-semibold'>{skillName}</h1>
           </div>
           <SkillActionsMenu onRemove={handleOpenRemovalDialog} skillName={skillName} />
-        </header>
+        </motion.header>
         {diagnostic.status === 'not-started' ? (
-          <section className='rounded-md border border-border bg-card p-6'>
+          <motion.section
+            className='rounded-md border border-border bg-card p-6'
+            variants={ENTRANCE_SECTION}
+          >
             <h2 className='font-serif text-2xl font-semibold'>Comece pelo diagnóstico</h2>
             <p className='mt-3 text-muted-foreground'>
               O diagnóstico percorre todas as Competências desta Habilidade. Você verá
@@ -151,10 +165,13 @@ export const SkillPage = (props: SkillPageProps) => {
             >
               {isStarting ? 'Iniciando...' : 'Iniciar Habilidade'}
             </Button>
-          </section>
+          </motion.section>
         ) : null}
         {diagnostic.status === 'diagnosing' ? (
-          <section className='rounded-md border border-border bg-card p-6'>
+          <motion.section
+            className='rounded-md border border-border bg-card p-6'
+            variants={ENTRANCE_SECTION}
+          >
             <p className='text-xs font-bold uppercase tracking-[0.12em] text-primary'>
               Diagnóstico em andamento
             </p>
@@ -215,10 +232,14 @@ export const SkillPage = (props: SkillPageProps) => {
             ) : (
               <output className='mt-5 block'>Preparando a próxima Atividade...</output>
             )}
-          </section>
+          </motion.section>
         ) : null}
         {diagnostic.status === 'learning' || diagnostic.status === 'completed' ? (
-          <section aria-labelledby='diagnostic-summary-title' className='space-y-5'>
+          <motion.section
+            aria-labelledby='diagnostic-summary-title'
+            className='space-y-5'
+            variants={ENTRANCE_SECTION}
+          >
             <div>
               <p className='text-xs font-bold uppercase tracking-[0.12em] text-primary'>
                 Diagnóstico concluído
@@ -234,20 +255,27 @@ export const SkillPage = (props: SkillPageProps) => {
                 exibidas.
               </p>
             </div>
-            <ul className='space-y-3'>
+            <motion.ul className='space-y-3' variants={ENTRANCE_STAGGER}>
               {diagnostic.competencies.map((competency) => (
-                <li
+                <motion.li
                   className='rounded-md border border-border bg-card p-5'
                   key={competency.competencyId}
+                  variants={ENTRANCE_CARD}
                 >
                   <div className='flex flex-col justify-between gap-3 sm:flex-row sm:items-center'>
                     <div>
                       <h3 className='font-semibold'>{competency.competencyName}</h3>
                     </div>
                     <p className='font-mono text-xl font-semibold'>
-                      {competency.progress === null
-                        ? 'Sem evidência'
-                        : `${Math.round(competency.progress)}%`}
+                      {competency.progress === null ? (
+                        'Sem evidência'
+                      ) : (
+                        <AnimatedNumber
+                          delay={0.3}
+                          format={(value) => `${value}%`}
+                          value={Math.round(competency.progress)}
+                        />
+                      )}
                     </p>
                   </div>
                   <p className='mt-2 text-sm text-muted-foreground'>
@@ -268,9 +296,9 @@ export const SkillPage = (props: SkillPageProps) => {
                   >
                     Ver Competência
                   </Link>
-                </li>
+                </motion.li>
               ))}
-            </ul>
+            </motion.ul>
             <Link
               className='inline-flex min-h-11 items-center text-sm font-semibold text-primary underline-offset-4 hover:underline'
               params={{ goalId: props.goalId, skillId: props.skillId }}
@@ -291,9 +319,9 @@ export const SkillPage = (props: SkillPageProps) => {
                 Continuar aprendizagem
               </Link>
             ) : null}
-          </section>
+          </motion.section>
         ) : null}
-      </div>
+      </MotionEntrance>
       <ConfirmationDialog
         cancelLabel='Cancelar'
         confirmLabel='Remover habilidade'

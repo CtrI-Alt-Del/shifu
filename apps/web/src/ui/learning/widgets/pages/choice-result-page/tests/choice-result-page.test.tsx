@@ -19,6 +19,9 @@ import { useChoiceResultPage } from '../use-choice-result-page'
 vi.mock('../use-choice-result-page', () => ({
   useChoiceResultPage: vi.fn(),
 }))
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 
 type LinkMockProps = Omit<ComponentProps<'a'>, 'href'> & {
   params?: Record<string, string>
@@ -286,6 +289,13 @@ describe('ChoiceResultPage', () => {
       }),
     ).toHaveAttribute('aria-valuetext', '67%')
     expect(
+      screen
+        .getByRole('progressbar', {
+          name: 'Progresso demonstrado da Habilidade após a avaliação',
+        })
+        .querySelector('div'),
+    ).toHaveStyle({ width: '67%' })
+    expect(
       screen.getByText(
         'O progresso considera suas respostas nesta Atividade e as evidências anteriores. Não é a nota acima.',
       ),
@@ -370,7 +380,9 @@ describe('ChoiceResultPage', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Nota da Atividade 72,5 de 100')).toBeVisible()
+    expect(screen.getByLabelText('Nota da Atividade 72,5 de 100')).toHaveTextContent(
+      /^72,5\s*\/ 100/,
+    )
   })
 
   it('keeps mixed result summaries independent and supports opening choice and code details', () => {

@@ -1,3 +1,8 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_RISE, ENTRANCE_SECTION } from '@/constants/motion-variants'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
+
 import { GoalDetailFeedback } from './goal-detail-feedback'
 import { GoalAddSkillLink, GoalDetailHeader } from './goal-detail-header'
 import { GoalSkillGraph } from './goal-skill-graph'
@@ -40,7 +45,9 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
   if (!detail) return null
 
   return (
-    <div className='mx-auto w-full max-w-7xl space-y-7 pb-6'>
+    // The goal loads in the browser, so its ready branch runs the shared
+    // Motion entrance; loading and error feedback appear without one.
+    <MotionEntrance className='mx-auto w-full max-w-7xl space-y-7 pb-6'>
       <GoalDetailHeader
         description={detail.description}
         title={detail.title}
@@ -51,20 +58,29 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
         onCancelRemoval={handleCancelRemoval}
         onConfirmRemoval={handleConfirmRemoval}
       />
-      <div className='flex flex-wrap items-center justify-between gap-4'>
+      <motion.div
+        className='flex flex-wrap items-center justify-between gap-4'
+        variants={ENTRANCE_RISE}
+      >
         <GoalViewSwitcher onViewChange={handleViewChange} view={view} />
         <GoalAddSkillLink goalId={props.goalId} />
-      </div>
+      </motion.div>
       {state === 'empty' ? (
-        <GoalDetailFeedback goalId={props.goalId} state='empty' />
+        <motion.div variants={ENTRANCE_SECTION}>
+          <GoalDetailFeedback goalId={props.goalId} state='empty' />
+        </motion.div>
       ) : view === 'graph' ? (
-        <GoalSkillGraph
-          goalId={props.goalId}
-          relations={detail.relations}
-          skills={detail.skills}
-          title={detail.title}
-          onRemoveSkill={handleOpenSkillRemoval}
-        />
+        // The graph enters as one block: React Flow positions its nodes with its
+        // own transforms after the asynchronous layout, so they are not staggered.
+        <motion.div variants={ENTRANCE_SECTION}>
+          <GoalSkillGraph
+            goalId={props.goalId}
+            relations={detail.relations}
+            skills={detail.skills}
+            title={detail.title}
+            onRemoveSkill={handleOpenSkillRemoval}
+          />
+        </motion.div>
       ) : (
         <GoalSkillList
           goalId={props.goalId}
@@ -91,6 +107,6 @@ export const GoalDetailPage = (props: GoalDetailPageProps) => {
         restoreFocusRef={skillRemovalTriggerRef}
         title='Remover Habilidade?'
       />
-    </div>
+    </MotionEntrance>
   )
 }

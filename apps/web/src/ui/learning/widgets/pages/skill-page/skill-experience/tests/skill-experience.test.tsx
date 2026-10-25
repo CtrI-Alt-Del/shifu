@@ -12,6 +12,11 @@ type LinkMockProps = Omit<ComponentProps<'a'>, 'href'> & {
   to: string
 }
 
+// Entrance motion and counters settle at once, so assertions see the final
+// state; the shared components own their own animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, params, to, ...props }: LinkMockProps) => (
     <a data-params={JSON.stringify(params)} href={to} {...props}>
@@ -152,6 +157,19 @@ describe('SkillExperience', () => {
     expect(items[1]).toHaveTextContent('Em foco')
     expect(items[2]).toHaveTextContent('Funções')
     expect(items[2]).toHaveTextContent('Bloqueada')
+  })
+
+  it('shows each progress figure and fill at its final value under reduced motion', () => {
+    renderExperience()
+
+    const released = screen.getByRole('link', { name: /Variáveis e tipos/ })
+    expect(released).toHaveTextContent('92%')
+    const fill = released.querySelector<HTMLElement>('[aria-hidden="true"] > span')
+    expect(fill?.style.width).toBe('92%')
+    const blocked = screen.getByRole('button', { name: /Funções/ })
+    expect(
+      blocked.querySelector<HTMLElement>('[aria-hidden="true"] > span')?.style.width,
+    ).toBe('35%')
   })
 
   it('shows the status matching the displayed progress range', () => {

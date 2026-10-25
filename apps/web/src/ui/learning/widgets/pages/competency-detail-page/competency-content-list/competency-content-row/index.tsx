@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
 import type { CompetencyDetailItem } from '@/core/learning/competency-detail'
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { DIFFICULTY_STYLES } from '@/ui/learning/widgets/components/difficulty-badge/difficulty-badge-styles'
 
@@ -58,7 +60,7 @@ export const CompetencyContentRow = ({
 
   if (item.kind === 'material') {
     return (
-      <li className='relative flex gap-4 lg:gap-5'>
+      <motion.li className='relative flex gap-4 lg:gap-5' variants={ENTRANCE_ROW}>
         <span className='relative z-10 grid size-11 shrink-0 place-items-center rounded-full border border-control-border bg-muted text-muted-foreground lg:size-12'>
           <Icon name='book-open' size={20} />
         </span>
@@ -83,7 +85,7 @@ export const CompetencyContentRow = ({
             size={18}
           />
         </Link>
-      </li>
+      </motion.li>
     )
   }
 
@@ -93,7 +95,7 @@ export const CompetencyContentRow = ({
   }`
 
   return (
-    <li className='relative flex gap-4 lg:gap-5'>
+    <motion.li className='relative flex gap-4 lg:gap-5' variants={ENTRANCE_ROW}>
       <span
         className={`relative z-10 grid size-11 shrink-0 place-items-center rounded-full border lg:size-12 ${
           isRecommended
@@ -156,6 +158,6 @@ export const CompetencyContentRow = ({
           />
         )}
       </Link>
-    </li>
+    </motion.li>
   )
 }

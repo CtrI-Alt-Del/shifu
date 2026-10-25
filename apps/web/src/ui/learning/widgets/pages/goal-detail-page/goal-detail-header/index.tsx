@@ -1,4 +1,7 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
+
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
@@ -25,7 +28,10 @@ export const GoalDetailHeader = ({
   onCancelRemoval,
   onConfirmRemoval,
 }: GoalDetailHeaderProps) => (
-  <header className='flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'>
+  <motion.header
+    className='flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between'
+    variants={ENTRANCE_SECTION}
+  >
     <div className='min-w-0 max-w-4xl'>
       <h1 className='break-words font-serif text-4xl font-normal tracking-tight sm:text-[40px]'>
         {title}
@@ -57,7 +63,7 @@ export const GoalDetailHeader = ({
       onConfirm={onConfirmRemoval}
       onCancel={onCancelRemoval}
     />
-  </header>
+  </motion.header>
 )
 
 export const GoalAddSkillLink = ({ goalId }: { goalId: string }) => (
