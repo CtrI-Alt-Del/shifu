@@ -71,6 +71,7 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
+from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
 from shifu.gamification.core.domain.entities import (
     EarnedAchievement,
@@ -2608,6 +2609,15 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
+    # Backend roadmap Skills with placeholder content, to exercise the Planner.
+    roadmap = build_roadmap_skills_seed(
+        {
+            'logic': SEED_SKILL_LOGIC_ID,
+            'javascript': SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+            'apis': SEED_GRAPH_APIS_SKILL_ID,
+        }
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
         account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
@@ -2619,44 +2629,51 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         tombstoned_mentor_session_ids=(SEED_REMOVED_MENTOR_SESSION_ID,),
         accounts=(account,),
         account_action_tokens=(),
-        skills=tuple(skill for skill in skills if skill.id in retained_skill_ids),
+        skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
+        + roadmap.skills,
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
             if foundation.skill_id in retained_skill_ids
             and foundation.foundation_skill_id in retained_skill_ids
-        ),
+        )
+        + roadmap.skill_foundations,
         competencies=tuple(
             competency
             for competency in competencies
             if competency.id in ready_competency_ids
         )
-        + logic_curriculum.competencies,
+        + logic_curriculum.competencies
+        + roadmap.competencies,
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
         )
-        + logic_curriculum.concepts,
+        + logic_curriculum.concepts
+        + roadmap.concepts,
         materials=tuple(
             material
             for material in materials
             if material.skill_id in ready_skill_ids
             and material.skill_id != SEED_SKILL_LOGIC_ID
         )
-        + logic_curriculum.materials,
+        + logic_curriculum.materials
+        + roadmap.materials,
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
         )
-        + logic_curriculum.activities,
+        + logic_curriculum.activities
+        + roadmap.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
         )
-        + logic_curriculum.curriculum_sequences,
+        + logic_curriculum.curriculum_sequences
+        + roadmap.curriculum_sequences,
         goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
         skill_experiences=tuple(
             experience
