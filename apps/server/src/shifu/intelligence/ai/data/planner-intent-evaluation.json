@@ -47,6 +47,18 @@
     {
       "text": "Agende uma reunião com o meu chefe amanhã",
       "label": "out-of-scope"
+    },
+    {
+      "text": "asdasdasd",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "kkkkkkkkkk",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "hsjdk sjdkf ksjdf",
+      "label": "out-of-scope"
     }
   ],
   "held_out": [
@@ -169,6 +181,22 @@
     {
       "text": "Tecnologia",
       "label": "ambiguous"
+    },
+    {
+      "text": "jfhjyjkyfgjgdhjghj",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "qwertyuiop",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "123456789",
+      "label": "out-of-scope"
+    },
+    {
+      "text": "???!!!",
+      "label": "out-of-scope"
     }
   ]
 }

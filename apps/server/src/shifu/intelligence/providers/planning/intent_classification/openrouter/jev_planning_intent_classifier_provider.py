@@ -41,12 +41,15 @@ class JevPlanningIntentClassifierProvider:
             'O pedido claramente não é sobre aprender algo: compras, previsão do '
             'tempo, piadas, tarefas pessoais, lembretes, perguntas factuais soltas '
             'ou pedidos para que o sistema faça um trabalho ou produza um conteúdo '
-            'no lugar do aprendiz.'
+            'no lugar do aprendiz. Também inclui texto sem sentido: letras ou '
+            'teclas digitadas ao acaso, sequências repetidas, só números ou só '
+            'símbolos, sem nenhuma palavra que expresse um pedido.'
         ),
         PlanningIntentKind.AMBIGUOUS: (
-            'Não dá para saber se há intenção de aprendizagem nem qual é o tema: o '
-            'pedido é vago, incompleto ou genérico demais e precisa de '
-            'esclarecimento antes de qualquer decisão.'
+            'O pedido é escrito com palavras compreensíveis, mas não dá para saber '
+            'se há intenção de aprendizagem nem qual é o tema: é vago, incompleto '
+            'ou genérico demais e precisa de esclarecimento antes de qualquer '
+            'decisão. Texto sem sentido nunca é ambíguo.'
         ),
     }
     _INSTRUCTIONS: ClassVar[str] = (
