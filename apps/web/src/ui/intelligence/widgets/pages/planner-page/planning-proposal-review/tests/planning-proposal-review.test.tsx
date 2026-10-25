@@ -11,6 +11,11 @@ import {
   usePlanningProposalReview,
 } from '../use-planning-proposal-review'
 
+// Entrance motion settles at once, so assertions see the final state; the
+// shared entrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('../use-planning-proposal-review', () => ({
   usePlanningProposalReview: vi.fn(),
 }))

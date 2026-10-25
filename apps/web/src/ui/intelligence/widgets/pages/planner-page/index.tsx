@@ -1,6 +1,10 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_CARD, ENTRANCE_POP, ENTRANCE_RISE } from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { PlanningIntentSummary } from './planning-intent-summary'
 import { PlanningOutcome } from './planning-outcome'
@@ -81,33 +85,45 @@ export const PlannerPage = (props: PlannerPageProps) => {
         ) : null}
 
         {view === 'interview' && intent && currentQuestion ? (
-          <>
-            <PlanningIntentSummary intent={intent} />
-            <PlanningStepTrail
-              disabled={isSubmitting}
-              label={stepLabel}
-              onSelectStep={handleGoToStep}
-              steps={steps}
-            />
-            <PlanningQuestionCard
-              disabled={isSubmitting}
-              guidance={guidance}
-              headingRef={questionHeadingRef}
-              isOtherSelected={isOtherSelected}
-              onChangeOtherText={handleChangeOtherText}
-              onSelectSingle={handleSelectSingle}
-              onToggleMultiple={handleToggleMultiple}
-              otherText={otherText}
-              question={currentQuestion}
-              selectedOptionIds={selectedOptionIds}
-            />
+          // Each view runs its own entrance, so moving from the interview to the
+          // analysis and then to the proposal plays a fresh one each time.
+          <MotionEntrance className='flex flex-col gap-6' key='interview'>
+            <motion.div variants={ENTRANCE_RISE}>
+              <PlanningIntentSummary intent={intent} />
+            </motion.div>
+            <motion.div variants={ENTRANCE_RISE}>
+              <PlanningStepTrail
+                disabled={isSubmitting}
+                label={stepLabel}
+                onSelectStep={handleGoToStep}
+                steps={steps}
+              />
+            </motion.div>
+            {/* Keyed by question, so every new step brings its card in again. */}
+            <motion.div key={currentQuestion.id} variants={ENTRANCE_CARD}>
+              <PlanningQuestionCard
+                disabled={isSubmitting}
+                guidance={guidance}
+                headingRef={questionHeadingRef}
+                isOtherSelected={isOtherSelected}
+                onChangeOtherText={handleChangeOtherText}
+                onSelectSingle={handleSelectSingle}
+                onToggleMultiple={handleToggleMultiple}
+                otherText={otherText}
+                question={currentQuestion}
+                selectedOptionIds={selectedOptionIds}
+              />
+            </motion.div>
             {errorMessage ? (
               <p className='flex items-center gap-2 text-sm text-selo-text' role='alert'>
                 <Icon className='shrink-0' name='circle-alert' size={16} />
                 {errorMessage}
               </p>
             ) : null}
-            <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+            <motion.div
+              className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
+              variants={ENTRANCE_RISE}
+            >
               <Button
                 className='order-2 self-center sm:order-1 sm:self-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
                 disabled={isCancelling || isSubmitting}
@@ -153,22 +169,32 @@ export const PlannerPage = (props: PlannerPageProps) => {
                   </Button>
                 )}
               </div>
-            </div>
-          </>
+            </motion.div>
+          </MotionEntrance>
         ) : null}
 
         {view === 'processing' && intent && processingStage ? (
-          <>
-            <h1 className='font-serif text-3xl leading-[1.45] text-foreground lg:text-4xl'>
+          <MotionEntrance className='flex flex-col gap-6' key='processing'>
+            <motion.h1
+              className='font-serif text-3xl leading-[1.45] text-foreground lg:text-4xl'
+              variants={ENTRANCE_RISE}
+            >
               {PAGE_TITLE}
-            </h1>
-            <PlanningIntentSummary intent={intent} />
-            <PlanningProcessingNotice
-              support={processingStage.support}
-              title={processingStage.title}
-              tone='processing'
-            />
-            <div className='flex items-center justify-between gap-3'>
+            </motion.h1>
+            <motion.div variants={ENTRANCE_RISE}>
+              <PlanningIntentSummary intent={intent} />
+            </motion.div>
+            <motion.div variants={ENTRANCE_CARD}>
+              <PlanningProcessingNotice
+                support={processingStage.support}
+                title={processingStage.title}
+                tone='processing'
+              />
+            </motion.div>
+            <motion.div
+              className='flex items-center justify-between gap-3'
+              variants={ENTRANCE_RISE}
+            >
               <Button
                 className='lg:min-h-[38px] lg:px-[18px] lg:text-sm'
                 disabled={isCancelling}
@@ -187,8 +213,8 @@ export const PlannerPage = (props: PlannerPageProps) => {
                 <Icon className='animate-spin' name='loader-circle' size={16} />
                 {processingStage.busyLabel}
               </Button>
-            </div>
-          </>
+            </motion.div>
+          </MotionEntrance>
         ) : null}
 
         {view === 'failed' && intent ? (
@@ -235,63 +261,71 @@ export const PlannerPage = (props: PlannerPageProps) => {
         ) : null}
 
         {view === 'out-of-scope' ? (
-          <PlanningOutcome
-            actions={
-              <>
-                <Button
-                  className={COMPACT_ACTION}
-                  disabled={isCancelling}
-                  onClick={handleCreateManually}
-                  type='button'
-                  variant='outline'
-                >
-                  Criar manualmente
-                </Button>
-                <Button
-                  className={COMPACT_ACTION}
-                  disabled={isCancelling}
-                  onClick={handleReformulate}
-                  type='button'
-                >
-                  Reformular
-                </Button>
-              </>
-            }
-            description='O planejador ajuda a criar objetivos de aprendizagem. Esse pedido está fora desse escopo. Descreva o que você quer aprender ou desenvolver.'
-            icon='compass'
-            title='Vamos planejar sua aprendizagem'
-            tone='neutral'
-          />
+          <MotionEntrance key='out-of-scope'>
+            <motion.div variants={ENTRANCE_POP}>
+              <PlanningOutcome
+                actions={
+                  <>
+                    <Button
+                      className={COMPACT_ACTION}
+                      disabled={isCancelling}
+                      onClick={handleCreateManually}
+                      type='button'
+                      variant='outline'
+                    >
+                      Criar manualmente
+                    </Button>
+                    <Button
+                      className={COMPACT_ACTION}
+                      disabled={isCancelling}
+                      onClick={handleReformulate}
+                      type='button'
+                    >
+                      Reformular
+                    </Button>
+                  </>
+                }
+                description='O planejador ajuda a criar objetivos de aprendizagem. Esse pedido está fora desse escopo. Descreva o que você quer aprender ou desenvolver.'
+                icon='compass'
+                title='Vamos planejar sua aprendizagem'
+                tone='neutral'
+              />
+            </motion.div>
+          </MotionEntrance>
         ) : null}
 
         {view === 'unsupported' ? (
-          <PlanningOutcome
-            actions={
-              <>
-                <Button
-                  className={COMPACT_ACTION}
-                  disabled={isCancelling}
-                  onClick={handleReformulate}
-                  type='button'
-                  variant='outline'
-                >
-                  Reformular
-                </Button>
-                <Button
-                  className={COMPACT_ACTION}
-                  disabled={isCancelling}
-                  onClick={handleCreateManually}
-                  type='button'
-                >
-                  Criar manualmente
-                </Button>
-              </>
-            }
-            description='Nenhuma combinação do Currículo representa bem o que você descreveu. Você pode reformular a intenção ou montar o Objetivo por conta própria.'
-            icon='compass'
-            title='Ainda não temos Habilidades para isso'
-            tone='alert'
-          />
+          <MotionEntrance key='unsupported'>
+            <motion.div variants={ENTRANCE_POP}>
+              <PlanningOutcome
+                actions={
+                  <>
+                    <Button
+                      className={COMPACT_ACTION}
+                      disabled={isCancelling}
+                      onClick={handleReformulate}
+                      type='button'
+                      variant='outline'
+                    >
+                      Reformular
+                    </Button>
+                    <Button
+                      className={COMPACT_ACTION}
+                      disabled={isCancelling}
+                      onClick={handleCreateManually}
+                      type='button'
+                    >
+                      Criar manualmente
+                    </Button>
+                  </>
+                }
+                description='Nenhuma combinação do Currículo representa bem o que você descreveu. Você pode reformular a intenção ou montar o Objetivo por conta própria.'
+                icon='compass'
+                title='Ainda não temos Habilidades para isso'
+                tone='alert'
+              />
+            </motion.div>
+          </MotionEntrance>
         ) : null}
 
         {view === 'validation-failed' ? (
@@ -345,19 +379,21 @@ export const PlannerPage = (props: PlannerPageProps) => {
         ) : null}
 
         {view === 'proposal' && intent && proposal ? (
-          <PlanningProposalReview
-            goalCreation={goalCreation}
-            intent={intent}
-            isCancelling={isCancelling}
-            isRestarting={isRestarting}
-            key={`${props.planningId}:${generation}`}
-            onCancel={() => void handleCancel()}
-            onCreateGoal={(request) => void handleCreateGoal(request)}
-            onRestart={handleRestart}
-            planningId={props.planningId}
-            proposal={proposal}
-            restartErrorMessage={restartErrorMessage}
-          />
+          <MotionEntrance key={`proposal:${generation}`}>
+            <PlanningProposalReview
+              goalCreation={goalCreation}
+              intent={intent}
+              isCancelling={isCancelling}
+              isRestarting={isRestarting}
+              key={`${props.planningId}:${generation}`}
+              onCancel={() => void handleCancel()}
+              onCreateGoal={(request) => void handleCreateGoal(request)}
+              onRestart={handleRestart}
+              planningId={props.planningId}
+              proposal={proposal}
+              restartErrorMessage={restartErrorMessage}
+            />
+          </MotionEntrance>
         ) : null}
 
         {view === 'not-found' ? (

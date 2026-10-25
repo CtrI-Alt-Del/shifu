@@ -1,3 +1,6 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import type { PlanningProposalSkill } from '@/core/intelligence/planning-session'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
@@ -11,11 +14,12 @@ export const ProposalSkillList = ({ skills }: ProposalSkillListProps) => (
     className='overflow-hidden rounded-[10px] border border-border bg-surface-alt p-1.5'
   >
     {skills.map((skill, index) => (
-      <li
+      <motion.li
         className={`flex gap-3 rounded-md px-4 py-3.5 ${
           index < skills.length - 1 ? 'border-b border-border' : ''
         }`}
         key={skill.skillId}
+        variants={ENTRANCE_ROW}
       >
         <span className='grid size-[34px] shrink-0 place-items-center rounded-md bg-jade-tint text-jade-text'>
           <Icon name='graduation-cap' size={16} />
@@ -28,7 +32,7 @@ export const ProposalSkillList = ({ skills }: ProposalSkillListProps) => (
             {skill.justification}
           </p>
         </div>
-      </li>
+      </motion.li>
     ))}
   </ul>
 )

@@ -7,6 +7,11 @@ import type { PlanningQuestion } from '@/core/intelligence/planning-session'
 import { PlannerPage } from '..'
 import { type PlannerPageController, usePlannerPage } from '../use-planner-page'
 
+// Entrance motion settles at once, so assertions see the final state; the
+// shared entrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('../use-planner-page', () => ({
   usePlannerPage: vi.fn(),
 }))
@@ -38,7 +43,12 @@ const singleQuestion: PlanningQuestion = {
   kind: 'single',
   options: [
     { id: 'never', text: 'Nunca', exclusive: false, open: false },
-    { id: 'copied', text: 'Já copiei e adaptei alguns scripts', exclusive: false, open: false },
+    {
+      id: 'copied',
+      text: 'Já copiei e adaptei alguns scripts',
+      exclusive: false,
+      open: false,
+    },
     { id: 'nao-sei', text: 'Não sei', exclusive: true, open: false },
   ],
 }

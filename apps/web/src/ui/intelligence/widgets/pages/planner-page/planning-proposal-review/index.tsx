@@ -1,3 +1,10 @@
+import { motion } from 'motion/react'
+
+import {
+  ENTRANCE_RISE,
+  ENTRANCE_SECTION,
+  ENTRANCE_STAGGER,
+} from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { Input } from '@/ui/shadcn/input'
 import { Label } from '@/ui/shadcn/label'
@@ -58,8 +65,12 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
   const isCreating = goalCreation.status === 'creating'
 
   return (
-    <section aria-labelledby='planning-review-title' className='flex flex-col gap-5'>
-      <div className='flex flex-col gap-5'>
+    <motion.section
+      aria-labelledby='planning-review-title'
+      className='flex flex-col gap-5'
+      variants={ENTRANCE_STAGGER}
+    >
+      <motion.div className='flex flex-col gap-5' variants={ENTRANCE_RISE}>
         <h1
           className='font-serif text-3xl leading-[1.3] text-foreground lg:text-4xl'
           id='planning-review-title'
@@ -77,9 +88,9 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
           Esta proposta considera o que você quer alcançar e as respostas deste
           planejamento.
         </p>
-      </div>
+      </motion.div>
 
-      <div className='flex flex-col gap-1.5'>
+      <motion.div className='flex flex-col gap-1.5' variants={ENTRANCE_RISE}>
         <Label
           className='text-[13px] font-semibold text-secondary-foreground'
           htmlFor='planning-review-title-field'
@@ -106,9 +117,9 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
             {titleError}
           </p>
         ) : null}
-      </div>
+      </motion.div>
 
-      <div className='flex flex-col gap-1.5'>
+      <motion.div className='flex flex-col gap-1.5' variants={ENTRANCE_RISE}>
         <Label
           className='text-[13px] font-semibold text-secondary-foreground'
           htmlFor='planning-review-description-field'
@@ -138,9 +149,9 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
             {descriptionError}
           </p>
         ) : null}
-      </div>
+      </motion.div>
 
-      <div className='flex flex-col gap-2'>
+      <motion.div className='flex flex-col gap-2' variants={ENTRANCE_RISE}>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
           <h2 className='text-lg font-semibold leading-[1.45] text-foreground'>
             Habilidades sugeridas
@@ -162,24 +173,34 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         <p className='text-[13px] leading-[1.45] text-secondary-foreground'>
           {relationSummary}
         </p>
-      </div>
+      </motion.div>
 
-      {view === 'graph' ? (
-        <ProposalSkillGraph
-          relations={proposal.relations}
-          skills={proposal.skills}
-          title={title.trim() || proposal.title}
-        />
-      ) : (
-        <ProposalSkillList skills={proposal.skills} />
-      )}
+      {/* The graph enters as one block: React Flow positions its own nodes.
+        Keyed by view, so switching Grafo/Lista plays the entrance again. */}
+      <motion.div key={view} variants={ENTRANCE_SECTION}>
+        {view === 'graph' ? (
+          <ProposalSkillGraph
+            relations={proposal.relations}
+            skills={proposal.skills}
+            title={title.trim() || proposal.title}
+          />
+        ) : (
+          <ProposalSkillList skills={proposal.skills} />
+        )}
+      </motion.div>
 
-      <p className='text-[13px] leading-[1.45] text-secondary-foreground'>
+      <motion.p
+        className='text-[13px] leading-[1.45] text-secondary-foreground'
+        variants={ENTRANCE_RISE}
+      >
         Quer mudar as habilidades ou o foco? Reinicie o planejamento com uma nova
         intenção.
-      </p>
+      </motion.p>
 
-      <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+      <motion.div
+        className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
+        variants={ENTRANCE_RISE}
+      >
         <Button
           className='order-2 self-center sm:order-1 sm:self-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
           disabled={isBusy || isFrozen}
@@ -216,7 +237,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
             {createGoalLabel}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       <RestartPlanningDialog
         errorMessage={restartErrorMessage}
@@ -227,6 +248,6 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         onSubmit={(initialIntent) => void handleSubmitRestart(initialIntent)}
         restoreFocusRef={restartTriggerRef}
       />
-    </section>
+    </motion.section>
   )
 }
