@@ -1,5 +1,23 @@
 from fastapi import APIRouter
 
+from shifu.intelligence.rest.controllers.answer_planning_questions_controller import (
+    AnswerPlanningQuestionsController,
+)
+from shifu.intelligence.rest.controllers.cancel_planning_controller import (
+    CancelPlanningController,
+)
+from shifu.intelligence.rest.controllers.confirm_planning_controller import (
+    ConfirmPlanningController,
+)
+from shifu.intelligence.rest.controllers.get_planning_session_controller import (
+    GetPlanningSessionController,
+)
+from shifu.intelligence.rest.controllers.restart_planning_controller import (
+    RestartPlanningController,
+)
+from shifu.intelligence.rest.controllers.retry_planning_controller import (
+    RetryPlanningController,
+)
 from shifu.intelligence.rest.controllers.cancel_mentor_response_controller import (
     CancelMentorResponseController,
 )
@@ -20,6 +38,9 @@ from shifu.intelligence.rest.controllers.upload_mentor_attachment_controller imp
 )
 from shifu.intelligence.rest.controllers.create_mentor_session_controller import (
     CreateMentorSessionController,
+)
+from shifu.intelligence.rest.controllers.decline_mentor_action_proposal_controller import (
+    DeclineMentorActionProposalController,
 )
 from shifu.intelligence.rest.controllers.edit_learner_memory_controller import (
     EditLearnerMemoryController,
@@ -67,6 +88,12 @@ class IntelligenceRouter:
     def register() -> APIRouter:
         router = APIRouter(prefix='/intelligence', tags=['intelligence'])
         StartPlanningController.handle(router)
+        GetPlanningSessionController.handle(router)
+        AnswerPlanningQuestionsController.handle(router)
+        RestartPlanningController.handle(router)
+        RetryPlanningController.handle(router)
+        CancelPlanningController.handle(router)
+        ConfirmPlanningController.handle(router)
         CreateMentorSessionController.handle(router)
         ListMentorSessionsController.handle(router)
         GetMentorSessionController.handle(router)
@@ -77,6 +104,7 @@ class IntelligenceRouter:
         CancelMentorResponseController.handle(router)
         RetryMentorResponseController.handle(router)
         StreamMentorResponseController.handle(router)
+        DeclineMentorActionProposalController.handle(router)
         CreateMentorAttachmentBatchController.handle(router)
         UploadMentorAttachmentController.handle(router)
         GetMentorAttachmentBatchController.handle(router)

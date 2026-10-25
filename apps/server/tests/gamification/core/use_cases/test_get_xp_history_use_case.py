@@ -9,7 +9,6 @@ from shifu.fakers.gamification.entities import (
     XpGrantFaker,
 )
 from shifu.gamification.core.domain.enums import AchievementCriterionKind, XpSource
-from shifu.gamification.core.domain.errors import GamificationProfileNotFoundError
 from shifu.gamification.core.domain.entities import XpGrant
 from shifu.gamification.core.domain.structures import AchievementCriterion, XpOrigin
 from shifu.gamification.core.interfaces import (
@@ -64,11 +63,15 @@ class TestGetXpHistoryUseCase:
         self.repositories.earned_achievements.find_many_by_account_id.return_value = ()
         self.subject = GetXpHistoryUseCase(self.database)
 
-    def test_should_raise_when_the_account_has_no_profile(self) -> None:
+    def test_should_return_an_empty_history_when_the_account_has_no_profile(
+        self,
+    ) -> None:
         self.repositories.profiles.find_by_account_id.return_value = None
 
-        with pytest.raises(GamificationProfileNotFoundError):
-            self.subject.execute(ACCOUNT_ID)
+        history = self.subject.execute(ACCOUNT_ID)
+
+        assert history.entries == ()
+        assert history.total_xp == 0
 
     def test_should_return_an_empty_history_when_no_grant_exists(self) -> None:
         history = self.subject.execute(ACCOUNT_ID)
@@ -226,9 +229,6 @@ class TestGetXpHistoryUseCase:
 
         self.subject.execute(ACCOUNT_ID)
 
-        self.repositories.profiles.find_by_account_id.assert_called_once_with(
-            ACCOUNT_ID
-        )
         self.repositories.xp_grants.find_many_by_account_id.assert_called_once_with(
             ACCOUNT_ID
         )

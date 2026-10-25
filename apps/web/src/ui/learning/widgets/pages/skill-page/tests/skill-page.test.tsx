@@ -12,6 +12,11 @@ type LinkMockProps = Omit<ComponentProps<'a'>, 'href'> & {
   to: string
 }
 
+// Entrance motion and counters settle at once, so assertions see the final
+// state; the shared components own their own animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, params, to, ...props }: LinkMockProps) => (
     <a data-params={JSON.stringify(params)} href={to} {...props}>

@@ -1,6 +1,8 @@
+import { motion } from 'motion/react'
 import { useState } from 'react'
 
 import type { SkillCompetencySummary } from '@/core/learning/skill-experience'
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 
 import { SkillCompetencyRow } from './skill-competency-row'
 
@@ -20,11 +22,14 @@ export const SkillCompetencyList = ({
   const [blocked, setBlocked] = useState<SkillCompetencySummary | null>(null)
 
   return (
-    <section aria-labelledby='skill-competencies-title'>
+    <motion.section
+      aria-labelledby='skill-competencies-title'
+      variants={ENTRANCE_SECTION}
+    >
       <h2 className='sr-only' id='skill-competencies-title'>
         Competências desta Habilidade
       </h2>
-      <ul className='skill-experience-page__competencies flex flex-col rounded-[10px] bg-surface-alt p-1.5'>
+      <ul className='flex flex-col rounded-[10px] bg-surface-alt p-1.5'>
         {competencies.map((competency) => (
           <SkillCompetencyRow
             competency={competency}
@@ -48,6 +53,6 @@ export const SkillCompetencyList = ({
             }`
           : 'Uma Competência bloqueada explica o requisito de liberação sem sair desta página.'}
       </p>
-    </section>
+    </motion.section>
   )
 }

@@ -4,6 +4,9 @@ from .gamification_profile_faker import (
     GamificationProfileFaker as GamificationProfileFaker,
 )
 from .activity_xp_balance_faker import ActivityXpBalanceFaker as ActivityXpBalanceFaker
+from .activity_xp_recognition_faker import (
+    ActivityXpRecognitionFaker as ActivityXpRecognitionFaker,
+)
 from .xp_grant_faker import XpGrantFaker as XpGrantFaker
 from .practice_day_faker import PracticeDayFaker as PracticeDayFaker
 from .rewarded_milestone_faker import RewardedMilestoneFaker as RewardedMilestoneFaker

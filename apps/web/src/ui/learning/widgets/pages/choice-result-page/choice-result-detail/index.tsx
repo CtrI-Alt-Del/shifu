@@ -1,8 +1,11 @@
+import { motion } from 'motion/react'
+
 import type {
   ActivityQuestion,
   ActivityResultQuestion,
   CodeResultQuestion,
 } from '@/core/learning/choice-activity'
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 
@@ -29,9 +32,10 @@ export const ChoiceResultDetail = ({
         ? question
         : undefined
     return (
-      <details
+      <motion.details
         aria-labelledby={`choice-result-question-${questionNumber}`}
         className='choice-result-card group rounded-md border border-border bg-muted'
+        variants={ENTRANCE_ROW}
       >
         <summary
           className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
@@ -156,7 +160,7 @@ export const ChoiceResultDetail = ({
             </section>
           ) : null}
         </div>
-      </details>
+      </motion.details>
     )
   }
 
@@ -177,9 +181,10 @@ export const ChoiceResultDetail = ({
   )
 
   return (
-    <details
+    <motion.details
       aria-labelledby={`choice-result-question-${questionNumber}`}
       className='choice-result-card group rounded-md border border-border bg-muted'
+      variants={ENTRANCE_ROW}
     >
       <summary
         className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
@@ -267,7 +272,7 @@ export const ChoiceResultDetail = ({
           {result.explanation}
         </p>
       </div>
-    </details>
+    </motion.details>
   )
 }
 

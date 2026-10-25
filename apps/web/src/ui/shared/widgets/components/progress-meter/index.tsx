@@ -1,3 +1,10 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_FILL_TRANSITION } from '@/constants/motion-variants'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
+
+import { useProgressMeter } from './use-progress-meter'
+
 export type ProgressMeterProps = {
   label?: string
   compact?: boolean
@@ -5,16 +12,10 @@ export type ProgressMeterProps = {
   value: number
 }
 
-export const ProgressMeter = ({
-  label,
-  compact = false,
-  tone = 'primary',
-  value,
-}: ProgressMeterProps) => {
-  const boundedValue = Math.min(100, Math.max(0, value))
-  const displayValue = Math.round(boundedValue)
-  const toneClassName = tone === 'success' ? 'text-success' : 'text-primary'
-  const fillClassName = tone === 'success' ? 'bg-success' : 'bg-primary'
+export const ProgressMeter = (props: ProgressMeterProps) => {
+  const { label, compact = false } = props
+  const { boundedValue, displayValue, toneClassName, fillClassName, fillInitial } =
+    useProgressMeter(props)
 
   return (
     <div>
@@ -25,9 +26,15 @@ export const ProgressMeter = ({
           }
         >
           <span className='font-semibold text-foreground'>{label}</span>
-          <span className={`font-bold ${toneClassName}`}>{displayValue}%</span>
+          <AnimatedNumber
+            className={`font-bold ${toneClassName}`}
+            delay={0.2}
+            format={(current) => `${current}%`}
+            value={displayValue}
+          />
         </div>
       ) : null}
+      {/* aria values report the final figure at once; only the drawing grows. */}
       <div
         aria-label={label}
         aria-valuemax={100}
@@ -37,9 +44,11 @@ export const ProgressMeter = ({
         className={`${compact ? 'h-1' : 'h-2.5'} overflow-hidden rounded-full bg-muted`}
         role='progressbar'
       >
-        <div
-          className={`h-full rounded-full transition-[width] ${fillClassName}`}
-          style={{ width: `${boundedValue}%` }}
+        <motion.div
+          animate={{ width: `${boundedValue}%` }}
+          className={`h-full rounded-full ${fillClassName}`}
+          initial={fillInitial}
+          transition={ENTRANCE_FILL_TRANSITION}
         />
       </div>
     </div>

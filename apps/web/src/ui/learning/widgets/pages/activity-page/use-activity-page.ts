@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import {
   COMPETENCY_DETAIL_ID_PATTERN,
   type ActivityDifficulty,
@@ -25,7 +27,7 @@ import type { ReactQuestionDraftStore } from '@/core/learning/react-question-dra
 import { IndexedDbReactQuestionDraftStore } from '@/provision/learning/indexed-db-react-question-draft-store'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -117,6 +119,7 @@ class MissingActivityError extends RestError {
 }
 
 export const getActivityAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: unknown): ValidatedInput => {
     if (!isRecord(input)) return { kind: 'invalid-request' }
     if (
@@ -139,17 +142,24 @@ export const getActivityAction = createServerFn({ method: 'GET' })
   .handler(
     async ({
       data,
+      context,
+    }: {
+      data: ValidatedInput
+      context: RequestTelemetryContext
     }): Promise<(ChoiceActivityDetail & { accountId: string }) | GetActivityFailure> => {
       if ('kind' in data) return data
 
       let authenticatedAccountId: string | undefined
       try {
-        const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
         if (!access) return { kind: 'unauthorized' }
         authenticatedAccountId = access.accountId
 
         const learningService = LearningService(
-          AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         )
         try {
           const activity = await learningService.getChoiceActivity(
@@ -223,6 +233,7 @@ export const getActivityAction = createServerFn({ method: 'GET' })
   )
 
 export const submitActivityAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -235,26 +246,40 @@ export const submitActivityAction = createServerFn({ method: 'POST' })
       return { ids: input, submission: input.submission }
     },
   )
-  .handler(async ({ data }): Promise<ChoiceSubmissionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | { ids: ActivityRouteIds; submission: ChoiceSubmission }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<ChoiceSubmissionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).submitChoiceActivity(
-        access.accessToken,
-        data.ids,
-        data.submission,
-        data.ids.diagnosticRunId,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).submitChoiceActivity(
+          access.accessToken,
+          data.ids,
+          data.submission,
+          data.ids.diagnosticRunId,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export const submitDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -304,14 +329,28 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   .handler(
     async ({
       data,
+      context,
+    }: {
+      data:
+        | {
+            goalId: string
+            skillId: string
+            diagnosticRunId: string
+            submission: { submissionKey: string; items: DiagnosticSubmissionItem[] }
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
     }): Promise<{ status: 'pending'; replayed: boolean } | ActionFailure> => {
       if ('kind' in data) return data
 
       try {
-        const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
         if (!access) return { kind: 'unauthorized' }
         return await LearningService(
-          AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         ).submitDiagnostic(
           access.accessToken,
           data.goalId,
@@ -326,6 +365,7 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   )
 
 export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -360,25 +400,43 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
       }
     },
   )
-  .handler(async ({ data }): Promise<PreliminaryQuestionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | {
+            ids: ActivityRouteIds
+            questionKey: string
+            activityRevision: string
+            answer: ActivityAnswer
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<PreliminaryQuestionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).previewActivityQuestion(
-        access.accessToken,
-        data.ids,
-        data.questionKey,
-        data.activityRevision,
-        data.answer,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).previewActivityQuestion(
+          access.accessToken,
+          data.ids,
+          data.questionKey,
+          data.activityRevision,
+          data.answer,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export function useActivityPage(props: ActivityPageProps) {
   const reactDraftStore = useMemo(

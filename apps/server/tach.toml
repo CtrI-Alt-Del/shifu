@@ -53,3 +53,7 @@ depends_on = [
 [[modules]]
 path = "shifu.mentor_indexes"
 depends_on = ["shifu.composition", "shifu.intelligence"]
+
+[[modules]]
+path = "shifu.planning_indexes"
+depends_on = ["shifu.composition", "shifu.intelligence"]

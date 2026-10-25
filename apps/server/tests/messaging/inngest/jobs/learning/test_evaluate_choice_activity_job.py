@@ -2,13 +2,15 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 import atexit
+import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import time
 from threading import Thread
-from typing import ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
+import pytest
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.engine import Engine
 
@@ -68,15 +70,30 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
-from shifu.learning.core.use_cases import RemoveSkillFromGoalUseCase
+from shifu.learning.core.use_cases import (
+    EvaluateChoiceActivityUseCase,
+    RemoveSkillFromGoalUseCase,
+)
+from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
+    EvaluateChoiceActivityJob,
+    _emit_telemetry,  # pyright: ignore[reportPrivateUsage]
+)
 from shifu.learning.database.sqlalchemy.models import (
     CompetencyProgressModel,
 )
 from shifu.shared.database.sqlalchemy.models import EventModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryEventInput
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.fixtures.inngest_fixture import InngestFixture
+
+if TYPE_CHECKING:
+    from shifu.learning.core.interfaces import LearningDatabase
+    from shifu.shared.core.interfaces import ClockProvider
+    from shifu.learning.messaging.inngest.jobs.evaluate_choice_activity_job import (
+        EvaluationJobPayload,
+    )
 
 
 class _DecisionsHandler(BaseHTTPRequestHandler):
@@ -118,6 +135,20 @@ class _DecisionsHandler(BaseHTTPRequestHandler):
         del format, args
 
 
+class _TelemetrySink:
+    def __init__(self) -> None:
+        self.events: list[TelemetryEventInput] = []
+
+    def emit(self, event: TelemetryEventInput) -> None:
+        self.events.append(event)
+
+
+class _FailingTelemetrySink:
+    def emit(self, event: TelemetryEventInput) -> None:
+        del event
+        raise RuntimeError('telemetry sink unavailable')
+
+
 def _stop_decisions_api() -> None:
     _DECISIONS_SERVER.shutdown()
     _DECISIONS_SERVER.server_close()
@@ -146,6 +177,54 @@ os.environ['OPENROUTER_DECISIONS_URL'] = (
 atexit.register(_stop_decisions_api)
 
 
+def test_evaluate_skips_completion_telemetry_when_effect_is_not_committed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def execute(
+        _self: EvaluateChoiceActivityUseCase,
+        _attempt_id: str,
+        _run_id: str,
+    ) -> bool:
+        return False
+
+    monkeypatch.setattr(EvaluateChoiceActivityUseCase, 'execute', execute)
+    provider = _TelemetrySink()
+    payload = cast(
+        'EvaluationJobPayload',
+        {
+            'attempt_id': 'attempt-1',
+            'run_id': 'run-1',
+            'skill_experience_id': 'experience-1',
+            'activity_id': 'activity-1',
+            'kind': 'learning',
+            'requested_at': '2026-01-01T00:00:00Z',
+        },
+    )
+
+    asyncio.run(
+        EvaluateChoiceActivityJob._evaluate(  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+            cast('LearningDatabase', object()),
+            cast('ClockProvider', object()),
+            None,
+            None,
+            262144,
+            payload,
+            provider,
+            'run-1',
+            'event-1',
+        )
+    )
+
+    assert provider.events == []
+
+
+def test_evaluate_telemetry_sink_failure_does_not_escape() -> None:
+    _emit_telemetry(
+        _FailingTelemetrySink(),
+        {'level': 'INFO', 'event': 'learning.evaluation.completed'},
+    )
+
+
 class TestEvaluateChoiceActivityJob:
     def test_registered_job_processes_outbox_duplicate_stale_failure_and_deletion(
         self,
@@ -157,7 +236,7 @@ class TestEvaluateChoiceActivityJob:
             now = SystemClockProvider().now()
 
             delivery_started_at = time.monotonic()
-            valid_attempt, valid_evaluation, valid_event = _add_attempt(
+            valid_attempt, _valid_evaluation, valid_event = _add_attempt(
                 database,
                 provider,
                 ids,
@@ -167,10 +246,17 @@ class TestEvaluateChoiceActivityJob:
                 valid_answers=True,
                 publish_to_outbox=True,
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_completed attempt_id={valid_attempt.id} '
-                f'run_id={valid_evaluation.run_id}',
+            _wait_for_telemetry_event(
+                inngest_fixture,
+                'learning.evaluation.completed',
+                1,
                 timeout=10,
+            )
+            assert (
+                _count_telemetry_events(
+                    inngest_fixture, 'learning.evaluation.completed'
+                )
+                == 1
             )
             assert time.monotonic() - delivery_started_at < 10
             completed = _evaluation(database, valid_attempt.id)
@@ -183,6 +269,7 @@ class TestEvaluateChoiceActivityJob:
             assert _outbox_status(engine, valid_event.name) == 'published'
 
             duplicate = ActivitySubmissionRequestedEvent(payload=valid_event.payload)
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
             inngest_fixture.publish(
                 duplicate.name,
                 cast(
@@ -191,11 +278,16 @@ class TestEvaluateChoiceActivityJob:
                 ),
                 event_id=ids.generate(),
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_stale_run attempt_id={valid_attempt.id} '
-                f'run_id={valid_evaluation.run_id}'
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
             )
             assert _evaluated_event_count(engine) == 1
+            assert (
+                _count_telemetry_events(
+                    inngest_fixture, 'learning.evaluation.completed'
+                )
+                == 1
+            )
             assert _evaluation(database, valid_attempt.id).score == 100
             assert _progress_current(engine) == progress_after_completion
 
@@ -218,6 +310,7 @@ class TestEvaluateChoiceActivityJob:
                 requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
             )
             stale_event = ActivitySubmissionRequestedEvent(payload=stale_payload)
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
             inngest_fixture.publish(
                 stale_event.name,
                 cast(
@@ -226,16 +319,15 @@ class TestEvaluateChoiceActivityJob:
                 ),
                 event_id=ids.generate(),
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_stale_run attempt_id={stale_attempt.id} '
-                f'run_id={stale_payload.run_id}'
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
             )
             still_pending = _evaluation(database, stale_attempt.id)
             assert still_pending.status is ActivityEvaluationStatus.PENDING
             assert still_pending.run_id == stale_evaluation.run_id
             assert still_pending.score is None
 
-            failed_attempt, failed_evaluation, _ = _add_attempt(
+            failed_attempt, _failed_evaluation, _ = _add_attempt(
                 database,
                 provider,
                 ids,
@@ -245,9 +337,14 @@ class TestEvaluateChoiceActivityJob:
                 valid_answers=False,
                 publish_to_outbox=True,
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_failure_handled attempt_id={failed_attempt.id} '
-                f'run_id={failed_evaluation.run_id}'
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
+            )
+            _wait_for_evaluation_status(
+                database,
+                failed_attempt.id,
+                ActivityEvaluationStatus.FAILED,
             )
             failed = _evaluation(database, failed_attempt.id)
             assert failed.status is ActivityEvaluationStatus.FAILED
@@ -304,7 +401,7 @@ class TestEvaluateChoiceActivityJob:
                 diagnostic_experience.diagnostic_run_id = diagnostic_run_id
                 repositories.skill_experiences.update(diagnostic_experience)
 
-            diagnostic_attempt, diagnostic_evaluation, diagnostic_event = _add_attempt(
+            diagnostic_attempt, _diagnostic_evaluation, diagnostic_event = _add_attempt(
                 database,
                 provider,
                 ids,
@@ -316,9 +413,10 @@ class TestEvaluateChoiceActivityJob:
                 kind=ActivityAttemptKind.DIAGNOSTIC,
                 diagnostic_run_id=diagnostic_run_id,
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_completed attempt_id={diagnostic_attempt.id} '
-                f'run_id={diagnostic_evaluation.run_id}'
+            _wait_for_telemetry_event(
+                inngest_fixture,
+                'learning.evaluation.completed',
+                2,
             )
             provisional = _evaluation(database, diagnostic_attempt.id)
             assert provisional.status is ActivityEvaluationStatus.COMPLETED
@@ -358,6 +456,10 @@ class TestEvaluateChoiceActivityJob:
                     requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
                 )
             )
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
+            completed_events = _count_telemetry_events(
+                inngest_fixture, 'learning.evaluation.completed'
+            )
             inngest_fixture.publish(
                 stale_diagnostic_event.name,
                 cast(
@@ -366,18 +468,22 @@ class TestEvaluateChoiceActivityJob:
                 ),
                 event_id=ids.generate(),
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_stale_run '
-                f'attempt_id={stale_diagnostic_attempt.id} '
-                f'run_id={stale_diagnostic_evaluation.run_id}'
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
             )
             stale_diagnostic = _evaluation(database, stale_diagnostic_attempt.id)
             assert stale_diagnostic.status is ActivityEvaluationStatus.PENDING
             assert stale_diagnostic.score is None
             assert _progress_current(engine) == progress_after_completion
             assert _evaluated_event_count(engine) == 1
+            assert (
+                _count_telemetry_events(
+                    inngest_fixture, 'learning.evaluation.completed'
+                )
+                == completed_events
+            )
 
-            failed_diagnostic_attempt, failed_diagnostic_evaluation, _ = _add_attempt(
+            failed_diagnostic_attempt, _failed_diagnostic_evaluation, _ = _add_attempt(
                 database,
                 provider,
                 ids,
@@ -389,10 +495,14 @@ class TestEvaluateChoiceActivityJob:
                 kind=ActivityAttemptKind.DIAGNOSTIC,
                 diagnostic_run_id=diagnostic_experience.diagnostic_run_id,
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_failure_handled '
-                f'attempt_id={failed_diagnostic_attempt.id} '
-                f'run_id={failed_diagnostic_evaluation.run_id}'
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
+            )
+            _wait_for_evaluation_status(
+                database,
+                failed_diagnostic_attempt.id,
+                ActivityEvaluationStatus.FAILED,
             )
             failed_diagnostic = _evaluation(database, failed_diagnostic_attempt.id)
             assert failed_diagnostic.status is ActivityEvaluationStatus.FAILED
@@ -426,6 +536,7 @@ class TestEvaluateChoiceActivityJob:
                 requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
             )
             deleted_event = ActivitySubmissionRequestedEvent(payload=deleted_payload)
+            started_events = _count_telemetry_events(inngest_fixture, 'job.started')
             inngest_fixture.publish(
                 deleted_event.name,
                 cast(
@@ -434,9 +545,8 @@ class TestEvaluateChoiceActivityJob:
                 ),
                 event_id=ids.generate(),
             )
-            inngest_fixture.wait_for_log(
-                f'choice_activity_job_stale_run attempt_id={deleted_attempt.id} '
-                f'run_id={deleted_payload.run_id}'
+            _wait_for_telemetry_event(
+                inngest_fixture, 'job.started', started_events + 1
             )
             assert _experience_count(engine, experience.id) == 0
             assert _evaluated_event_count(engine) == 1
@@ -695,6 +805,63 @@ def _seed(
     )
     assert provider.get_choice_activity(activity.id) is not None
     return learning_database, provider, ids, activity, experience, account.id
+
+
+def _count_telemetry_events(
+    inngest_fixture: InngestFixture,
+    event_name: str,
+) -> int:
+    count = 0
+    for line in inngest_fixture.output:
+        try:
+            raw_event: object = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(raw_event, dict):
+            continue
+        event = cast('dict[str, object]', raw_event)
+        if event.get('event') == event_name and (
+            not event_name.startswith('job.')
+            or event.get('job') == 'learning.evaluate_choice_activity'
+        ):
+            count += 1
+    return count
+
+
+def _wait_for_telemetry_event(
+    inngest_fixture: InngestFixture,
+    event_name: str,
+    occurrence: int,
+    *,
+    timeout: float = 30.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _count_telemetry_events(inngest_fixture, event_name) >= occurrence:
+            return
+        time.sleep(0.1)
+    raise AssertionError(
+        f'Expected {occurrence} {event_name} telemetry event(s); '
+        f'captured output: {inngest_fixture.output!r}'
+    )
+
+
+def _wait_for_evaluation_status(
+    database: SqlalchemyLearningDatabase,
+    attempt_id: str,
+    expected_status: ActivityEvaluationStatus,
+    *,
+    timeout: float = 30.0,
+) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _evaluation(database, attempt_id).status is expected_status:
+            return
+        time.sleep(0.1)
+    raise AssertionError(
+        f'Expected evaluation {attempt_id} to reach {expected_status}; '
+        f'actual status: {_evaluation(database, attempt_id).status}'
+    )
 
 
 def _seed_mixed(

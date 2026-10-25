@@ -239,9 +239,16 @@ class TestPurgeLearnerMemoriesOnAccountDeletedJob:
             inngest_fixture, ids, account_id, unexpected='must be rejected'
         )
 
-        inngest_fixture.wait_for_log(
-            f'learner_memory_account_deletion_payload_rejected event_id={event_id}'
+        failure_log = inngest_fixture.wait_for_log(
+            f'"event":"job.failed","event_id":"{event_id}",'
+            '"exception_type":"NonRetriableError",'
+            '"job":"intelligence.purge_learner_memories_on_account_deleted"'
         )
+        assert (
+            '"job":"intelligence.purge_learner_memories_on_account_deleted"'
+            in failure_log
+        )
+        assert '"exception_type":"NonRetriableError"' in failure_log
         with inngest_fixture.inspection_session() as session:
             assert session.get(LearnerMemoryModel, memory_id) is not None
             assert _row_counts(session, account_id) == {

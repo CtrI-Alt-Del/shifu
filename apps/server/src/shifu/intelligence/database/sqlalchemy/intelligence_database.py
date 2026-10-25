@@ -8,6 +8,7 @@ from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyLearnerMemoriesRepository,
     SqlalchemyLearnerMemoryChangesRepository,
+    SqlalchemyMentorActionProposalsRepository,
     SqlalchemyMentorAttachmentBatchesRepository,
     SqlalchemyMentorAttachmentChunksRepository,
     SqlalchemyMentorAttachmentsRepository,
@@ -16,7 +17,9 @@ from shifu.intelligence.database.sqlalchemy.repositories import (
     SqlalchemyMentorResponseEventsRepository,
     SqlalchemyMentorSessionsRepository,
     SqlalchemyMentorSessionSummariesRepository,
-    SqlalchemyPlanningSessionsRepository,
+)
+from shifu.intelligence.database.sqlalchemy.repositories.planning_embeddings_repository import (
+    SqlalchemyPlanningEmbeddingsRepository,
 )
 from shifu.intelligence.database.sqlalchemy.repositories.mentor_embeddings_repository import (
     SqlalchemyMentorEmbeddingsRepository,
@@ -46,7 +49,7 @@ class SqlalchemyIntelligenceDatabase:
             expire_on_commit=False,
         ) as session:
             repositories = IntelligenceDatabaseRepositories(
-                planning_sessions=SqlalchemyPlanningSessionsRepository(session),
+                planning_embeddings=SqlalchemyPlanningEmbeddingsRepository(session),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,
@@ -75,6 +78,9 @@ class SqlalchemyIntelligenceDatabase:
                     session, self._id_provider
                 ),
                 learner_memory_changes=SqlalchemyLearnerMemoryChangesRepository(
+                    session
+                ),
+                mentor_action_proposals=SqlalchemyMentorActionProposalsRepository(
                     session
                 ),
             )

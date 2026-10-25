@@ -1,3 +1,6 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 import type { GoalSkillDetail } from '@/core/learning/goal-detail'
 
 import { GoalSkillRow } from './goal-skill-row'
@@ -9,9 +12,10 @@ export type GoalSkillListProps = {
 }
 
 export const GoalSkillList = ({ goalId, skills, onRemoveSkill }: GoalSkillListProps) => (
-  <ul
+  <motion.ul
     aria-label='Habilidades do objetivo'
     className='divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-surface-alt px-2'
+    variants={ENTRANCE_SECTION}
   >
     {skills.map((skill) => (
       <GoalSkillRow
@@ -21,5 +25,5 @@ export const GoalSkillList = ({ goalId, skills, onRemoveSkill }: GoalSkillListPr
         skill={skill}
       />
     ))}
-  </ul>
+  </motion.ul>
 )

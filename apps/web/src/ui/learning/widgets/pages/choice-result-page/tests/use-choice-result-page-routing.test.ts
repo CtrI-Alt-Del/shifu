@@ -13,12 +13,28 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
+    middleware: () => ({
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          (context: { data: unknown }) =>
+            handler({
+              data: validate(context.data),
+              context: { requestId: 'test-request-id' },
+            } as never),
+      }),
+    }),
     validator: (validate: (data: unknown) => unknown) => ({
       handler:
         (handler: (context: { data: unknown }) => Promise<unknown>) =>
         (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
+          handler({
+            data: validate(context.data),
+            context: { requestId: 'test-request-id' },
+          } as never),
     }),
   }),
 }))
@@ -272,4 +288,46 @@ describe('useChoiceResultPage routed result consumers', () => {
       expect(result.current.hasRetryError).toBe(false)
     },
   )
+
+  it('refreshes the pending attempt when the tab becomes visible again', async () => {
+    respondWithAttempt(attemptWire('pending'))
+    const { result } = setup()
+    await waitFor(() => expect(result.current.pageState).toBe('result'))
+    const attemptReadsBefore = mocks.get.mock.calls.filter(
+      ([path]) => path === ATTEMPT_PATH,
+    ).length
+
+    document.dispatchEvent(new Event('visibilitychange'))
+
+    await waitFor(() =>
+      expect(
+        mocks.get.mock.calls.filter(([path]) => path === ATTEMPT_PATH).length,
+      ).toBeGreaterThan(attemptReadsBefore),
+    )
+  })
+
+  it('reloads the activity and the attempt through the shared retry-load handler', async () => {
+    const { result } = setup()
+    await waitFor(() => expect(result.current.pageState).toBe('result'))
+    mocks.get.mockClear()
+
+    await act(async () => result.current.handleRetryLoad())
+
+    expect(mocks.get).toHaveBeenCalledWith(ATTEMPT_PATH, expect.anything())
+    expect(mocks.get).toHaveBeenCalledWith(learningActivityPath(IDS), expect.anything())
+  })
+
+  it('exposes an error-state retry that reloads the activity and the attempt', async () => {
+    respondWithAttempt({}, 503)
+    const { result } = setup()
+    await waitFor(() => expect(result.current.pageState).toBe('error'))
+    respondWithAttempt(attemptWire())
+    mocks.get.mockClear()
+
+    const { renderProps } = result.current
+    if (renderProps.state !== 'error') throw new Error('unreachable')
+    await act(async () => renderProps.onRetryLoad())
+
+    await waitFor(() => expect(result.current.pageState).toBe('result'))
+  })
 })

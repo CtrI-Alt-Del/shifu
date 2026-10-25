@@ -1,9 +1,11 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
 import type {
   AvailableCompetencyDetail,
   CompetencyProgressStatus,
 } from '@/core/learning/competency-detail'
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ProgressMeter } from '@/ui/shared/widgets/components/progress-meter'
 
@@ -28,7 +30,7 @@ export const CompetencyDetailHeader = ({
   const statusLabel = STATUS_LABELS[detail.status]
 
   return (
-    <header className='space-y-5'>
+    <motion.header className='space-y-5' variants={ENTRANCE_SECTION}>
       <Link
         aria-label='Voltar para a Habilidade'
         className='inline-flex min-h-11 items-center gap-2 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground'
@@ -126,6 +128,6 @@ export const CompetencyDetailHeader = ({
           ) : null}
         </div>
       )}
-    </header>
+    </motion.header>
   )
 }

@@ -1,7 +1,11 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_RISE, ENTRANCE_SECTION } from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
 import { getDiagnosticRun } from '@/ui/learning/diagnostic-run-session'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
@@ -239,8 +243,11 @@ export const ActivityPage = (props: ActivityPageProps) => {
     ) : null
   const activeQuestionKeys = activity.questions.map(({ key }) => key)
 
+  // The entrance plays once per page visit. Its question area and action bar
+  // stay mounted between questions, so moving to the next question does not
+  // replay it; only the choice prompt and options rise in again, as before.
   return (
-    <div
+    <MotionEntrance
       className={
         isCodeQuestion
           ? 'flex min-h-0 w-full max-w-none flex-1 flex-col lg:-mt-2 lg:-mb-1 lg:min-h-[calc(100dvh-7.25rem)]'
@@ -250,109 +257,114 @@ export const ActivityPage = (props: ActivityPageProps) => {
       }
     >
       {isDiagnosticChoice ? (
-        <header className='max-w-4xl space-y-3'>
+        <motion.header className='max-w-4xl space-y-3' variants={ENTRANCE_RISE}>
           <h1 className='font-serif text-4xl font-semibold'>Diagnóstico</h1>
           <h2 className='text-xl font-semibold'>{activity.title}</h2>
           <p className='max-w-2xl text-sm text-muted-foreground'>
             O resultado aparecerá apenas no resumo consolidado. Materiais de apoio e dicas
             não estão disponíveis nesta Atividade.
           </p>
-        </header>
+        </motion.header>
       ) : activity.isDiagnostic ? (
-        <header className='mb-6'>
+        <motion.header className='mb-6' variants={ENTRANCE_RISE}>
           <p className='rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground'>
             Diagnóstico em andamento. O resultado aparecerá apenas no resumo consolidado
             da Habilidade. Material de apoio e dicas não estão disponíveis nesta
             Atividade.
           </p>
-        </header>
+        </motion.header>
       ) : null}
 
-      {currentQuestion.kind === 'javascript_stdin' ? (
-        <CodeQuestion
-          isDiagnostic={activity.isDiagnostic}
-          activityTitle={activity.title}
-          difficulty={activity.difficulty}
-          key={currentQuestion.key}
-          question={currentQuestion}
-          questionNumber={currentQuestionNumber}
-          totalQuestions={totalQuestions}
-          disabled={Boolean(isQuestionReadOnly || isSubmitting || isAssessing)}
-          onFilesChange={handleCodeFilesChange}
-          onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
-          runnerFactory={runnerFactory}
-        />
-      ) : isReactQuestion ? (
-        <ReactQuestion
-          accountId={accountId}
-          activityId={activity.activityId}
-          activityRevision={activity.activityRevision ?? null}
-          canSubmit={activity.canSubmit}
-          activeQuestionKeys={activeQuestionKeys}
-          activityTitle={activity.title}
-          competencyId={'competencyId' in props ? props.competencyId : undefined}
-          difficulty={activity.difficulty}
-          disabled={Boolean(
-            isQuestionReadOnly ||
-              isSubmitting ||
-              isAssessing ||
-              Boolean(isReactQuestion && (feedback || frozenAnswer)),
-          )}
-          goalId={'goalId' in props ? props.goalId : undefined}
-          isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
-          isDiagnostic={Boolean(activity.isDiagnostic)}
-          key={currentQuestion.key}
-          onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
-          onFilesChange={handleCodeFilesChange}
-          onAnswerValidityChange={handleReactAnswerValidityChange}
-          question={currentQuestion}
-          questionNumber={currentQuestionNumber}
-          runnerFactory={reactRunnerFactory}
-          draftStore={reactDraftStore}
-          readOnly={Boolean(feedback || frozenAnswer)}
-          skillId={'skillId' in props ? props.skillId : undefined}
-          totalQuestions={totalQuestions}
-        />
-      ) : isHtmlCssJsQuestion ? (
-        <HtmlCssJsQuestion
-          accountId={accountId}
-          activityId={activity.activityId}
-          activityRevision={activity.activityRevision ?? null}
-          canSubmit={activity.canSubmit}
-          activeQuestionKeys={activeQuestionKeys}
-          activityTitle={activity.title}
-          competencyId={'competencyId' in props ? props.competencyId : undefined}
-          difficulty={activity.difficulty}
-          disabled={Boolean(
-            activity.isDiagnostic ||
+      <motion.div
+        className={isCodeQuestion ? 'flex min-h-0 min-w-0 flex-1 flex-col' : undefined}
+        variants={ENTRANCE_SECTION}
+      >
+        {currentQuestion.kind === 'javascript_stdin' ? (
+          <CodeQuestion
+            isDiagnostic={activity.isDiagnostic}
+            activityTitle={activity.title}
+            difficulty={activity.difficulty}
+            key={currentQuestion.key}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            totalQuestions={totalQuestions}
+            disabled={Boolean(isQuestionReadOnly || isSubmitting || isAssessing)}
+            onFilesChange={handleCodeFilesChange}
+            onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+            runnerFactory={runnerFactory}
+          />
+        ) : isReactQuestion ? (
+          <ReactQuestion
+            accountId={accountId}
+            activityId={activity.activityId}
+            activityRevision={activity.activityRevision ?? null}
+            canSubmit={activity.canSubmit}
+            activeQuestionKeys={activeQuestionKeys}
+            activityTitle={activity.title}
+            competencyId={'competencyId' in props ? props.competencyId : undefined}
+            difficulty={activity.difficulty}
+            disabled={Boolean(
               isQuestionReadOnly ||
-              isSubmitting ||
-              isAssessing ||
-              feedback ||
-              frozenAnswer,
-          )}
-          draftStore={reactDraftStore}
-          goalId={'goalId' in props ? props.goalId : undefined}
-          isDiagnostic={Boolean(activity.isDiagnostic)}
-          isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
-          key={currentQuestion.key}
-          onAnswerValidityChange={handleReactAnswerValidityChange}
-          onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
-          onFilesChange={handleCodeFilesChange}
-          question={currentQuestion}
-          questionNumber={currentQuestionNumber}
-          runnerFactory={htmlCssJsRunnerFactory}
-          readOnly={Boolean(activity.isDiagnostic || feedback || frozenAnswer)}
-          skillId={'skillId' in props ? props.skillId : undefined}
-          totalQuestions={totalQuestions}
-        />
-      ) : isDiagnosticChoice ? (
-        <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>
-          {choiceQuestion}
-        </section>
-      ) : (
-        choiceQuestion
-      )}
+                isSubmitting ||
+                isAssessing ||
+                Boolean(isReactQuestion && (feedback || frozenAnswer)),
+            )}
+            goalId={'goalId' in props ? props.goalId : undefined}
+            isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+            isDiagnostic={Boolean(activity.isDiagnostic)}
+            key={currentQuestion.key}
+            onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+            onFilesChange={handleCodeFilesChange}
+            onAnswerValidityChange={handleReactAnswerValidityChange}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            runnerFactory={reactRunnerFactory}
+            draftStore={reactDraftStore}
+            readOnly={Boolean(feedback || frozenAnswer)}
+            skillId={'skillId' in props ? props.skillId : undefined}
+            totalQuestions={totalQuestions}
+          />
+        ) : isHtmlCssJsQuestion ? (
+          <HtmlCssJsQuestion
+            accountId={accountId}
+            activityId={activity.activityId}
+            activityRevision={activity.activityRevision ?? null}
+            canSubmit={activity.canSubmit}
+            activeQuestionKeys={activeQuestionKeys}
+            activityTitle={activity.title}
+            competencyId={'competencyId' in props ? props.competencyId : undefined}
+            difficulty={activity.difficulty}
+            disabled={Boolean(
+              activity.isDiagnostic ||
+                isQuestionReadOnly ||
+                isSubmitting ||
+                isAssessing ||
+                feedback ||
+                frozenAnswer,
+            )}
+            draftStore={reactDraftStore}
+            goalId={'goalId' in props ? props.goalId : undefined}
+            isDiagnostic={Boolean(activity.isDiagnostic)}
+            isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+            key={currentQuestion.key}
+            onAnswerValidityChange={handleReactAnswerValidityChange}
+            onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+            onFilesChange={handleCodeFilesChange}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            runnerFactory={htmlCssJsRunnerFactory}
+            readOnly={Boolean(activity.isDiagnostic || feedback || frozenAnswer)}
+            skillId={'skillId' in props ? props.skillId : undefined}
+            totalQuestions={totalQuestions}
+          />
+        ) : isDiagnosticChoice ? (
+          <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>
+            {choiceQuestion}
+          </section>
+        ) : (
+          choiceQuestion
+        )}
+      </motion.div>
       {isMixedActivity && !activity.isDiagnostic && feedback ? (
         <QuestionFeedback
           feedback={feedback}
@@ -361,125 +373,130 @@ export const ActivityPage = (props: ActivityPageProps) => {
         />
       ) : null}
 
-      {!isCodeQuestion ||
-      activity.isDiagnostic ||
-      hasFeedbackError ||
-      hasSubmissionError ||
-      feedback ||
-      frozenAnswer ? (
-        <div
-          aria-live='polite'
-          className={
-            isDiagnosticChoice
-              ? 'flex flex-col gap-3 pt-1 sm:items-end'
-              : 'space-y-3 pt-1'
-          }
-        >
-          {hasFeedbackError ? (
-            <p role='alert'>Não foi possível avaliar. Tente novamente.</p>
-          ) : null}
-          {hasSubmissionError ? (
-            <p
-              className='rounded-md border border-selo-text bg-accent p-3 text-sm text-selo-text'
-              role='alert'
-            >
-              Não foi possível enviar suas respostas. Tente novamente.
-            </p>
-          ) : null}
-          {isDiagnosticProcessing ? (
-            <div aria-live='polite' className='mt-6 space-y-3 text-sm'>
-              <p className='flex items-center gap-2'>
-                {isDiagnosticLoading ? (
-                  <Icon
-                    aria-hidden='true'
-                    className='shrink-0 motion-safe:animate-spin'
-                    name='loader-circle'
-                    size={16}
-                  />
-                ) : null}
-                {diagnosticStatus === 'failed'
-                  ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
-                  : diagnosticCompletionError
-                    ? 'Não foi possível consolidar o resultado.'
-                    : isCompletingDiagnostic
-                      ? 'Consolidando o resultado…'
-                      : 'Avaliando o diagnóstico…'}
+      <motion.div variants={ENTRANCE_RISE}>
+        {!isCodeQuestion ||
+        activity.isDiagnostic ||
+        hasFeedbackError ||
+        hasSubmissionError ||
+        feedback ||
+        frozenAnswer ? (
+          <div
+            aria-live='polite'
+            className={
+              isDiagnosticChoice
+                ? 'flex flex-col gap-3 pt-1 sm:items-end'
+                : 'space-y-3 pt-1'
+            }
+          >
+            {hasFeedbackError ? (
+              <p role='alert'>Não foi possível avaliar. Tente novamente.</p>
+            ) : null}
+            {hasSubmissionError ? (
+              <p
+                className='rounded-md border border-selo-text bg-accent p-3 text-sm text-selo-text'
+                role='alert'
+              >
+                Não foi possível enviar suas respostas. Tente novamente.
               </p>
-              {diagnosticStatus === 'failed' ? (
-                <Button
-                  disabled={isRetryingDiagnostic}
-                  onClick={() => void handleRetryDiagnostic()}
-                  type='button'
-                >
-                  {isRetryingDiagnostic
-                    ? 'Tentando novamente…'
-                    : 'Tentar avaliação novamente'}
-                </Button>
-              ) : null}
-              {diagnosticCompletionError ? (
-                <Button
-                  onClick={() => void handleRetryDiagnosticCompletion()}
-                  type='button'
-                >
-                  Tentar novamente
-                </Button>
-              ) : null}
-              {hasDiagnosticStatusError ? (
-                <Button onClick={() => void handleRetryDiagnosticStatus()} type='button'>
-                  Atualizar avaliação
-                </Button>
-              ) : null}
-              {diagnosticRetryError ? (
-                <p role='alert'>Não foi possível tentar novamente agora.</p>
-              ) : null}
-            </div>
-          ) : (currentQuestion.kind !== 'javascript_stdin' &&
-              currentQuestion.kind !== 'react' &&
-              currentQuestion.kind !== 'html_css_js') ||
-            activity.isDiagnostic ||
-            feedback ||
-            frozenAnswer ? (
-            <Button
-              className='mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
-              disabled={!canContinue}
-              onClick={handleContinue}
-              type='button'
-            >
-              {isAssessing
-                ? 'Avaliando questão…'
-                : isSubmitting
-                  ? 'Enviando respostas…'
-                  : hasSubmissionError
-                    ? 'Tentar enviar novamente'
-                    : activity.isDiagnostic
-                      ? isLastQuestion
-                        ? isLastDiagnosticActivity
-                          ? 'Enviar diagnóstico'
-                          : isNextCompetency
-                            ? 'Próxima competência'
-                            : 'Próxima questão'
-                        : 'Próxima questão'
-                      : !isMixedActivity
+            ) : null}
+            {isDiagnosticProcessing ? (
+              <div aria-live='polite' className='mt-6 space-y-3 text-sm'>
+                <p className='flex items-center gap-2'>
+                  {isDiagnosticLoading ? (
+                    <Icon
+                      aria-hidden='true'
+                      className='shrink-0 motion-safe:animate-spin'
+                      name='loader-circle'
+                      size={16}
+                    />
+                  ) : null}
+                  {diagnosticStatus === 'failed'
+                    ? 'A avaliação falhou no Shifu. Sua resposta foi preservada.'
+                    : diagnosticCompletionError
+                      ? 'Não foi possível consolidar o resultado.'
+                      : isCompletingDiagnostic
+                        ? 'Consolidando o resultado…'
+                        : 'Avaliando o diagnóstico…'}
+                </p>
+                {diagnosticStatus === 'failed' ? (
+                  <Button
+                    disabled={isRetryingDiagnostic}
+                    onClick={() => void handleRetryDiagnostic()}
+                    type='button'
+                  >
+                    {isRetryingDiagnostic
+                      ? 'Tentando novamente…'
+                      : 'Tentar avaliação novamente'}
+                  </Button>
+                ) : null}
+                {diagnosticCompletionError ? (
+                  <Button
+                    onClick={() => void handleRetryDiagnosticCompletion()}
+                    type='button'
+                  >
+                    Tentar novamente
+                  </Button>
+                ) : null}
+                {hasDiagnosticStatusError ? (
+                  <Button
+                    onClick={() => void handleRetryDiagnosticStatus()}
+                    type='button'
+                  >
+                    Atualizar avaliação
+                  </Button>
+                ) : null}
+                {diagnosticRetryError ? (
+                  <p role='alert'>Não foi possível tentar novamente agora.</p>
+                ) : null}
+              </div>
+            ) : (currentQuestion.kind !== 'javascript_stdin' &&
+                currentQuestion.kind !== 'react' &&
+                currentQuestion.kind !== 'html_css_js') ||
+              activity.isDiagnostic ||
+              feedback ||
+              frozenAnswer ? (
+              <Button
+                className='mt-6 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:w-auto sm:min-w-44'
+                disabled={!canContinue}
+                onClick={handleContinue}
+                type='button'
+              >
+                {isAssessing
+                  ? 'Avaliando questão…'
+                  : isSubmitting
+                    ? 'Enviando respostas…'
+                    : hasSubmissionError
+                      ? 'Tentar enviar novamente'
+                      : activity.isDiagnostic
                         ? isLastQuestion
-                          ? isReactQuestion || isHtmlCssJsQuestion
-                            ? 'Enviar atividade'
-                            : 'Enviar respostas'
+                          ? isLastDiagnosticActivity
+                            ? 'Enviar diagnóstico'
+                            : isNextCompetency
+                              ? 'Próxima competência'
+                              : 'Próxima questão'
                           : 'Próxima questão'
-                        : !feedback
-                          ? frozenAnswer
-                            ? 'Tentar avaliação novamente'
-                            : 'Avaliar resposta'
-                          : feedback.status === 'inconclusive'
-                            ? 'Reavaliar resposta'
-                            : isLastQuestion
-                              ? isReactQuestion || isHtmlCssJsQuestion
-                                ? 'Enviar atividade'
-                                : 'Enviar respostas'
-                              : 'Próxima questão'}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+                        : !isMixedActivity
+                          ? isLastQuestion
+                            ? isReactQuestion || isHtmlCssJsQuestion
+                              ? 'Enviar atividade'
+                              : 'Enviar respostas'
+                            : 'Próxima questão'
+                          : !feedback
+                            ? frozenAnswer
+                              ? 'Tentar avaliação novamente'
+                              : 'Avaliar resposta'
+                            : feedback.status === 'inconclusive'
+                              ? 'Reavaliar resposta'
+                              : isLastQuestion
+                                ? isReactQuestion || isHtmlCssJsQuestion
+                                  ? 'Enviar atividade'
+                                  : 'Enviar respostas'
+                                : 'Próxima questão'}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </motion.div>
+    </MotionEntrance>
   )
 }

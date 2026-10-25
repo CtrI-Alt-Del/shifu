@@ -267,7 +267,7 @@ class TestGetXpHistoryController:
         assert [entry['title'] for entry in body['entries']] == ['Outra Habilidade']
         assert body['totalXp'] == 10
 
-    def test_should_return_not_found_without_a_gamification_profile(
+    def test_should_return_an_empty_history_without_a_gamification_profile(
         self, client: TestClient
     ) -> None:
         response = client.get(
@@ -275,7 +275,8 @@ class TestGetXpHistoryController:
             headers={'Authorization': 'Bearer test-access-token'},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == 200
+        assert response.json() == {'totalXp': 0, 'entries': []}
 
     def test_should_reject_an_unauthenticated_request(self, client: TestClient) -> None:
         response = client.get('/gamification/xp-history')

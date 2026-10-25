@@ -54,6 +54,9 @@ class LocalMentorRouteProvider:
     )
     _ELLIPTICAL_MAX_CONTENT_TOKENS: ClassVar[int] = 6
     _EXPANSION_TOPIC_LIMIT: ClassVar[int] = 3
+    _ACTION_INTENTS: ClassVar[frozenset[MentorIntent]] = frozenset(
+        {MentorIntent.ADD_SKILL, MentorIntent.REMOVE_SKILL}
+    )
     _FACTS: ClassVar[dict[MentorIntent, tuple[tuple[str, str], ...]]] = {
         MentorIntent.CONSULT_PROGRESS: (
             ('progress_summary', 'Progresso'),
@@ -108,9 +111,15 @@ class LocalMentorRouteProvider:
         topics: tuple[str, ...] = (),
     ) -> MentorRouteResult:
         started = perf_counter()
-        matches, answer_ids, generation, unanswered, block_matches, expanded = (
-            self._semantic(content, topics)
-        )
+        (
+            matches,
+            answer_ids,
+            generation,
+            unanswered,
+            block_matches,
+            expanded,
+            has_action,
+        ) = self._semantic(content, topics)
         proposed: tuple[str, ...] = ()
         if self._catalog is not None and context.eligible_references:
             try:
@@ -139,7 +148,8 @@ class LocalMentorRouteProvider:
             clarification = 'Qual Objetivo e Habilidade você quer consultar?'
             generation = ()
             unanswered = ()
-        if generation or (not blocks and clarification is None):
+        # An action part is answered by the Core, not by an abstention.
+        if generation or (not blocks and clarification is None and not has_action):
             blocks.append(
                 MentorResponseBlock(
                     block_key=hashlib.sha256(b'local-abstention').hexdigest()[:32],
@@ -178,6 +188,7 @@ class LocalMentorRouteProvider:
         tuple[str, ...],
         dict[MentorIntent, MentorIntentMatch],
         int,
+        bool,
     ]:
         parts = self._parts(content)
         matches: dict[MentorIntent, MentorIntentMatch] = {}
@@ -186,13 +197,26 @@ class LocalMentorRouteProvider:
         unanswered: list[str] = []
         block_matches: dict[MentorIntent, MentorIntentMatch] = {}
         expanded = 0
+        has_action = False
         try:
             with self._telemetry.scope('classify'):
-                vectors = self._embeddings.embed_queries(
-                    tuple(self._semantic_query(text) for text in (content, *parts))
+                queries = tuple(
+                    self._semantic_query(text) for text in (content, *parts)
+                )
+                vectors = self._embeddings.embed_queries(queries)
+                # The split drops each "?"; the request check needs it back.
+                requests = (
+                    queries[0],
+                    *(
+                        f'{query}?' if asked else query
+                        for query, asked in zip(
+                            queries[1:], self._asked(content, parts), strict=True
+                        )
+                    ),
                 )
                 classified = tuple(
-                    self._classifier.classify(vector) for vector in vectors
+                    self._classifier.classify(vector, request)
+                    for vector, request in zip(vectors, requests, strict=True)
                 )
             for labels in classified:
                 self._merge_matches(matches, labels)
@@ -200,6 +224,11 @@ class LocalMentorRouteProvider:
                 parts, vectors[1:], classified[1:], strict=True
             ):
                 if self._preprocessor.is_negated_request(part):
+                    continue
+                if any(match.intent in self._ACTION_INTENTS for match in labels):
+                    # The Core answers an add/remove request: no FAQ, fact or
+                    # generation for this part, and never the model fallback.
+                    has_action = True
                     continue
                 with self._telemetry.scope('retrieve'):
                     references = self._retrieval.retrieve(
@@ -217,7 +246,7 @@ class LocalMentorRouteProvider:
                     if not references:
                         unanswered.append(part)
         except ServiceUnavailableError:
-            return {}, [], (content,), (content,), {}, expanded
+            return {}, [], (content,), (content,), {}, expanded, False
         return (
             matches,
             list(dict.fromkeys(answer_ids)),
@@ -225,6 +254,7 @@ class LocalMentorRouteProvider:
             tuple(dict.fromkeys(unanswered)),
             block_matches,
             expanded,
+            has_action,
         )
 
     def _is_elliptical(self, part: str) -> bool:
@@ -285,6 +315,19 @@ class LocalMentorRouteProvider:
                 # Removing an introduction exposes a new sentence boundary.
                 return query[0].upper() + query[1:] if query != content else query
             query = normalized
+
+    @staticmethod
+    def _asked(content: str, parts: tuple[str, ...]) -> tuple[bool, ...]:
+        """Whether each part of `_parts` ended in a question mark."""
+        chunks = re.split(
+            r'(\?|;|\n|\be também\b|\balém disso\b)', content, flags=re.IGNORECASE
+        )
+        asked = tuple(
+            index + 1 < len(chunks) and chunks[index + 1] == '?'
+            for index in range(0, len(chunks), 2)
+            if chunks[index].strip()
+        )
+        return asked if len(asked) == len(parts) else (False,) * len(parts)
 
     @staticmethod
     def _parts(content: str) -> tuple[str, ...]:

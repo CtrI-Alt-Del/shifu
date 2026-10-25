@@ -1,0 +1,87 @@
+from datetime import timedelta
+from unittest.mock import create_autospec
+
+import pytest
+
+from shifu.intelligence.core.domain.enums import PlanningSessionStatus
+from shifu.intelligence.core.domain.errors import PlanningSessionNotFoundError
+from shifu.intelligence.core.domain.structures.planning_operation_result import (
+    OPERATION_TIMEOUT_CODE,
+)
+from shifu.intelligence.core.interfaces import PlanningSessionsRepository
+from shifu.intelligence.core.use_cases import GetPlanningSessionUseCase
+from shifu.shared.core.interfaces import ClockProvider
+from tests.intelligence.core.use_cases.planning_test_setup import (
+    ACCOUNT_ID,
+    NOW,
+    OTHER_ACCOUNT_ID,
+    PLANNING_ID,
+    interviewing_session,
+    started_session,
+)
+
+_TIMEOUT = timedelta(minutes=3)
+
+
+class TestGetPlanningSessionUseCase:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.sessions = create_autospec(PlanningSessionsRepository, instance=True)
+        self.sessions.update.return_value = True
+        self.clock = create_autospec(ClockProvider, instance=True)
+        self.clock.now.return_value = NOW + timedelta(seconds=30)
+        self.use_case = GetPlanningSessionUseCase(self.sessions, self.clock, _TIMEOUT)
+
+    def test_should_return_the_owner_planning_without_writing(self) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result is session
+        assert result.status is PlanningSessionStatus.PROCESSING
+        self.sessions.find_by_id.assert_called_once_with(PLANNING_ID)
+        self.sessions.update.assert_not_called()
+
+    @pytest.mark.parametrize('stored', [None, 'other-account'])
+    def test_should_hide_missing_and_foreign_plannings(
+        self, stored: str | None
+    ) -> None:
+        self.sessions.find_by_id.return_value = (
+            started_session(OTHER_ACCOUNT_ID) if stored else None
+        )
+
+        with pytest.raises(PlanningSessionNotFoundError):
+            self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        self.sessions.update.assert_not_called()
+
+    def test_should_report_a_timed_out_operation_as_a_recoverable_failure(
+        self,
+    ) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+        self.clock.now.return_value = NOW + _TIMEOUT
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result.status is PlanningSessionStatus.FAILED
+        assert result.failure_code == OPERATION_TIMEOUT_CODE
+        assert result.operation is None
+        assert result.intent == 'Quero aprender web'
+        self.sessions.update.assert_called_once_with(session)
+
+    def test_should_expose_the_newer_state_when_the_timeout_write_loses(
+        self,
+    ) -> None:
+        stale = started_session()
+        fresh = interviewing_session()
+        self.sessions.find_by_id.side_effect = [stale, fresh]
+        self.sessions.update.return_value = False
+        self.clock.now.return_value = NOW + _TIMEOUT
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result is fresh
+        assert result.status is PlanningSessionStatus.INTERVIEW
+        assert self.sessions.find_by_id.call_count == 2

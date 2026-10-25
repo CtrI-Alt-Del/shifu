@@ -1,6 +1,7 @@
 @baseUrl = http://localhost:7777
 @accessToken = replace-with-local-test-token
 @mentorSessionId = 01J00000000000000000000000
+@planningId = 01J00000000000000000000004
 @goalId = 01J00000000000000000000001
 @skillId = 01J00000000000000000000002
 @attemptId = 01J00000000000000000000003
@@ -9,6 +10,8 @@
 @cancelSubmissionKey = d4475f31-38a7-4e7c-870e-927780aec502
 @retrySubmissionKey = e4475f31-38a7-4e7c-870e-927780aec503
 @submissionKey = 2a7e963f-d7dd-4cc9-9a46-8c650193f7a6
+@actionProposalId = 01J00000000000000000000004
+@pendingSubmissionKey = 7c1d9e52-3b0a-4f6e-8a2d-927780aec504
 
 ### Start planning session
 POST {{baseUrl}}/intelligence/planning-sessions
@@ -33,7 +36,7 @@ Content-Type: application/json
 GET {{baseUrl}}/intelligence/mentor-sessions?search=python
 Authorization: Bearer {{accessToken}}
 
-### Open a Mentor conversation (includes summary.current with after_message_id, the learner message that triggered the summary, summary.failure_after_message_id, and memory_items: one item per memory creation or update, anchored to source_message_id; content and previous_content are null after the memory is deleted)
+### Open a Mentor conversation (includes summary.current with after_message_id, the learner message that triggered the summary, summary.failure_after_message_id, memory_items: one item per memory creation or update, anchored to source_message_id; content and previous_content are null after the memory is deleted, and action_items: every Mentor action proposal of the conversation with its current status, outcome and rejection_reason, oldest first)
 GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}
 Authorization: Bearer {{accessToken}}
 
@@ -68,7 +71,7 @@ Content-Type: application/json
   }
 }
 
-### Submit next text; repeat exact payload for 200 replay
+### Submit next text; repeat exact payload for 200 replay (also allowed while a proposal is pending, because it stores no new message)
 POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/messages
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
@@ -76,6 +79,17 @@ Content-Type: application/json
 {
   "submission_key": "{{nextSubmissionKey}}",
   "content": "Explique o conceito e mostre meu progresso.",
+  "context_hint": null
+}
+
+### Submit a new message while an action proposal is pending is 409 (Confirme ou recuse a ação proposta para continuar.); nothing is stored
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/messages
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{pendingSubmissionKey}}",
+  "content": "sim",
   "context_hint": null
 }
 
@@ -104,8 +118,56 @@ Content-Type: application/json
 
 { "submission_key": "{{retrySubmissionKey}}" }
 
-### Approved complete blocks only; replay begins after cursor
+### Approved complete blocks only; replay begins after cursor (an event with kind action carries the proposal with its current state in data.action_proposal and no block)
 GET {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/events
 Authorization: Bearer {{accessToken}}
 Accept: text/event-stream
 Last-Event-ID: {{lastSequence}}
+
+### Read planning session state (polled while status is processing)
+GET {{baseUrl}}/intelligence/planning-sessions/{{planningId}}
+Authorization: Bearer {{accessToken}}
+
+### Answer the current question batch (202 while the next step is processed)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/answers
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "batch_id": "batch-1",
+  "answers": [
+    { "question_id": "q1", "option_ids": ["o2"] },
+    { "question_id": "q2", "option_ids": ["o1", "o3"] }
+  ]
+}
+
+### Restart the planning with a new intention (new generation, 202)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/restart
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "initial_intent": "Quero aprender a criar APIs web com JavaScript."
+}
+
+### Retry after a recoverable failure (202)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/retry
+Authorization: Bearer {{accessToken}}
+
+### Cancel and discard the planning (204)
+DELETE {{baseUrl}}/intelligence/planning-sessions/{{planningId}}
+
+### Decline a pending Mentor action proposal (200 with status declined); 404 for an unknown or foreign proposal, 409 when it already has an outcome or was declined
+POST {{baseUrl}}/intelligence/mentor-sessions/{{mentorSessionId}}/action-proposals/{{actionProposalId}}/decline
+Authorization: Bearer {{accessToken}}
+
+### Confirm the active proposal and create the Goal in Learning (same key replays)
+POST {{baseUrl}}/intelligence/planning-sessions/{{planningId}}/confirm
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_key": "3f0c2b9e-8d1a-4c57-9b2e-6a1d4f8c0e21",
+  "title": "Automatizar tarefas do dia a dia com Python",
+  "description": "Quero parar de fazer planilha na mão e escrever scripts que resolvam isso por mim."
+}

@@ -11,7 +11,9 @@ from shifu.learning.database.sqlalchemy.repositories import (
     SqlalchemyCompetencyProgressesRepository,
     SqlalchemyConceptObservationsRepository,
     SqlalchemyConceptStatesRepository,
+    SqlalchemyGoalConfirmationsRepository,
     SqlalchemyGoalsRepository,
+    SqlalchemyMentorActionReceiptsRepository,
     SqlalchemySkillExperiencesRepository,
 )
 from shifu.shared.core.interfaces import IdentifierProvider
@@ -40,12 +42,16 @@ class SqlalchemyLearningDatabase:
         ) as session:
             repositories = LearningDatabaseRepositories(
                 goals=SqlalchemyGoalsRepository(session),
+                goal_confirmations=SqlalchemyGoalConfirmationsRepository(session),
                 skill_experiences=SqlalchemySkillExperiencesRepository(session),
                 competency_progresses=SqlalchemyCompetencyProgressesRepository(session),
                 activity_attempts=SqlalchemyActivityAttemptsRepository(session),
                 activity_evaluations=SqlalchemyActivityEvaluationsRepository(session),
                 concept_observations=SqlalchemyConceptObservationsRepository(session),
                 concept_states=SqlalchemyConceptStatesRepository(session),
+                mentor_action_receipts=SqlalchemyMentorActionReceiptsRepository(
+                    session
+                ),
                 events=SqlalchemyEventsRepository(
                     session,
                     self._engine,

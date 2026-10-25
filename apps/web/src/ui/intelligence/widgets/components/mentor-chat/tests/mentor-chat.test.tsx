@@ -8,6 +8,11 @@ import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { MentorChat } from '..'
 import { useMentorChat } from '../use-mentor-chat'
 
+// Entrance motion settles at once, so visibility assertions see the final
+// state; the shared entrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('../use-mentor-chat', () => ({ useMentorChat: vi.fn() }))
 vi.mock('@/ui/shared/widgets/components/anchor', () => ({
   Anchor: ({ children, route, search: _search, ...props }: AnchorProps) => (
@@ -52,6 +57,9 @@ const contextValue: MentorContextValue = {
   sessionDetail: null,
   summary: { current: null, failureAfterMessageId: null },
   isSummarizingContext: false,
+  blockingActionProposalId: null,
+  isRefreshingActions: false,
+  hasActionRefreshTimedOut: false,
   sessionsPage: { items: [], nextCursor: null },
   draft: '',
   draftAttachments: [],
@@ -96,6 +104,8 @@ const contextValue: MentorContextValue = {
   renameSession: vi.fn(),
   removeSession: vi.fn(),
   refresh: vi.fn(),
+  refreshActions: vi.fn(),
+  onActionResolved: vi.fn(),
 }
 
 describe('MentorChat', () => {

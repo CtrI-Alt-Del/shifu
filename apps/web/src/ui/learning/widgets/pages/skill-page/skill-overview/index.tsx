@@ -1,7 +1,11 @@
+import { motion } from 'motion/react'
+
 import {
   SKILL_STATUS_LABELS,
   type SkillExperienceStatus,
 } from '@/core/learning/skill-experience'
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { SkillActionsMenu } from '@/ui/learning/widgets/components/skill-actions-menu'
 
@@ -20,7 +24,10 @@ export const SkillOverview = ({
   onRemove,
 }: SkillOverviewProps) => {
   return (
-    <header className='flex items-start justify-between gap-3'>
+    <motion.header
+      className='flex items-start justify-between gap-3'
+      variants={ENTRANCE_SECTION}
+    >
       <div className='flex min-w-0 flex-col gap-3'>
         <h1 className='font-serif text-[40px] leading-[1.15] text-foreground'>
           {skillName}
@@ -35,12 +42,20 @@ export const SkillOverview = ({
               Progresso demonstrado
             </span>
             <strong className='text-lg font-bold tabular-nums text-jade-text'>
-              {overallResult === null ? 'Sem evidência' : `${Math.round(overallResult)}%`}
+              {overallResult === null ? (
+                'Sem evidência'
+              ) : (
+                <AnimatedNumber
+                  delay={0.3}
+                  format={(value) => `${value}%`}
+                  value={Math.round(overallResult)}
+                />
+              )}
             </strong>
           </span>
         </div>
       </div>
       <SkillActionsMenu onRemove={onRemove} skillName={skillName} />
-    </header>
+    </motion.header>
   )
 }

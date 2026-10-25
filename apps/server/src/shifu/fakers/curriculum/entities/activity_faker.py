@@ -9,6 +9,7 @@ from shifu.curriculum.core.domain.enums import (
 )
 from shifu.curriculum.core.domain.structures import (
     ActivityQuestion,
+    ChoiceConceptCriterion,
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
@@ -25,7 +26,24 @@ class ActivityFaker:
     _id_provider: IdProviderFaker = IdProviderFaker()
 
     @staticmethod
-    def _fake_questions(faker: Faker) -> tuple[ActivityQuestion, ...]:
+    def _fake_questions(
+        faker: Faker, concept_id: str | None
+    ) -> tuple[ActivityQuestion, ...]:
+        # A Concept criterion turns the answer into evidence for that Concept.
+        criteria = (
+            (
+                ChoiceConceptCriterion(
+                    concept_id=concept_id,
+                    criterion='Identifica a alternativa correta do enunciado.',
+                    examples='A alternativa marcada como correta.',
+                    limits='A escolha não mede implementação de código.',
+                    correct_score=100,
+                    incorrect_score=0,
+                ),
+            )
+            if concept_id
+            else ()
+        )
         return tuple(
             SingleChoiceQuestion(
                 key=key,
@@ -40,6 +58,7 @@ class ActivityFaker:
                 ),
                 correct_explanation='Boa resposta: você identificou a alternativa correta.',
                 incorrect_explanation='Revise o conceito e tente novamente em outra atividade.',
+                concept_criteria=criteria,
             )
             for key in ('question-one', 'question-two', 'question-three')
         )
@@ -72,6 +91,7 @@ class ActivityFaker:
         objective: str | None = None,
         questions: tuple[ActivityQuestion, ...] | None = None,
         evaluation_rule: EvaluationRule | None = None,
+        concept_id: str | None = None,
     ) -> Activity:
         return Activity(
             id=id or cls._id_provider.generate(),
@@ -80,7 +100,7 @@ class ActivityFaker:
             difficulty=difficulty,
             title=title or cls._faker.sentence(nb_words=6).rstrip('.'),
             objective=objective or cls._faker.paragraph(),
-            questions=questions or cls._fake_questions(cls._faker),
+            questions=questions or cls._fake_questions(cls._faker, concept_id),
             evaluation_rule=evaluation_rule or cls._fake_evaluation_rule(),
         )
 

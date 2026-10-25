@@ -8,6 +8,7 @@ import type {
 } from '@/core/intelligence/mentor-session-summary'
 import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-faker'
 import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-memory'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
@@ -570,6 +571,258 @@ describe('useConversation memory markers', () => {
     const { result } = renderHook(() => useConversation())
 
     expect(describeItems(result.current.conversationItems)).toEqual(['q1'])
+  })
+})
+
+describe('useConversation action items', () => {
+  afterEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+  })
+
+  function buildTurnMessage(
+    id: string,
+    role: MentorMessage['role'],
+    inReplyToMessageId: string | null = null,
+  ): MentorMessage {
+    return {
+      id,
+      sessionId: 'session',
+      role,
+      content: `Mensagem ${id}`,
+      inReplyToMessageId,
+      createdAt: '',
+      attachments: [],
+    }
+  }
+
+  function buildProposal(
+    id: string,
+    sourceMessageId: string,
+    overrides: Partial<MentorActionProposal> = {},
+  ): MentorActionProposal {
+    return {
+      id,
+      sourceMessageId,
+      kind: 'add_skill',
+      skillId: 'skill',
+      skillName: 'Funções em Python',
+      goalId: 'goal',
+      goalTitle: 'Aprender a programar',
+      skillExperienceId: null,
+      candidateGoals: [],
+      justification: null,
+      status: 'pending',
+      outcome: null,
+      rejectionReason: null,
+      resolvedGoalId: null,
+      resolvedSkillExperienceId: null,
+      createdAt: '',
+      ...overrides,
+    }
+  }
+
+  function mockTurns(input: {
+    messages: MentorMessage[]
+    actionItems?: MentorActionProposal[]
+    memoryItems?: MentorConversationMemoryItem[]
+    response?: MentorResponseSnapshot | null
+  }) {
+    useMentorContextMock.mockReturnValue({
+      selectedSessionId: 'session',
+      sessionDetail: {
+        session: {
+          id: 'session',
+          title: 'Conversa',
+          createdAt: '',
+          updatedAt: '',
+          lastActivityAt: '',
+        },
+        messages: { items: input.messages, nextCursor: null },
+        pendingLearnerMessageId: null,
+        response: input.response ?? null,
+        summary: NO_SUMMARY,
+        memoryItems: input.memoryItems ?? [],
+        actionItems: input.actionItems,
+      },
+      response: input.response ?? null,
+      summary: NO_SUMMARY,
+      isSummarizingContext: false,
+      isReadingMessages: false,
+      loadOlderMessages: vi.fn(),
+    } as unknown as MentorContextValue)
+  }
+
+  function liveResponse(
+    learnerMessageId: string,
+    withBlock: boolean,
+  ): MentorResponseSnapshot {
+    return {
+      attemptId: 'attempt',
+      learnerMessageId,
+      status: withBlock ? 'processing' : 'failed',
+      blocks: withBlock
+        ? [
+            {
+              blockKey: 'b1',
+              ordinal: 0,
+              intent: 'add_skill',
+              content: 'Preparei uma proposta para você confirmar.',
+              sources: [],
+            },
+          ]
+        : [],
+      consultations: [],
+      lastSequence: 3,
+      failureCode: null,
+    }
+  }
+
+  function describeItems(items: ReturnType<typeof useConversation>['conversationItems']) {
+    return items.map((item) =>
+      item.kind === 'message'
+        ? item.message.id
+        : item.kind === 'action'
+          ? `action:${item.proposal.id}`
+          : item.kind === 'memory-change'
+            ? `memory:${item.item.id}`
+            : item.kind,
+    )
+  }
+
+  it('places the card right after the answer of the turn that produced it', () => {
+    mockTurns({
+      messages: [
+        buildTurnMessage('q1', 'learner'),
+        buildTurnMessage('a1', 'mentor', 'q1'),
+        buildTurnMessage('q2', 'learner'),
+      ],
+      actionItems: [buildProposal('p1', 'q1')],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual([
+      'q1',
+      'a1',
+      'action:p1',
+      'q2',
+    ])
+    expect(result.current.trailingActionItems).toEqual([])
+  })
+
+  it('places the card right after the learner message when no answer is shown', () => {
+    mockTurns({
+      messages: [buildTurnMessage('q1', 'learner'), buildTurnMessage('q2', 'learner')],
+      actionItems: [buildProposal('p1', 'q1')],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual([
+      'q1',
+      'action:p1',
+      'q2',
+    ])
+  })
+
+  it('shows the card of the turn before the memory markers of the same turn', () => {
+    mockTurns({
+      messages: [
+        buildTurnMessage('q1', 'learner'),
+        buildTurnMessage('a1', 'mentor', 'q1'),
+      ],
+      actionItems: [buildProposal('p1', 'q1')],
+      memoryItems: [
+        LearnerMemoryFaker.fakeConversationItem({ id: 'm1', sourceMessageId: 'q1' }),
+      ],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual([
+      'q1',
+      'a1',
+      'action:p1',
+      'memory:m1',
+    ])
+  })
+
+  it('anchors the card after the last answer when a turn has several replies', () => {
+    mockTurns({
+      messages: [
+        buildTurnMessage('q1', 'learner'),
+        buildTurnMessage('a1', 'mentor', 'q1'),
+        buildTurnMessage('a2', 'mentor', 'q1'),
+      ],
+      actionItems: [buildProposal('p1', 'q1')],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual([
+      'q1',
+      'a1',
+      'a2',
+      'action:p1',
+    ])
+  })
+
+  it('moves the card of a live answered turn to the trailing slot', () => {
+    const live = buildProposal('p2', 'q2')
+    mockTurns({
+      messages: [
+        buildTurnMessage('q1', 'learner'),
+        buildTurnMessage('a1', 'mentor', 'q1'),
+        buildTurnMessage('q2', 'learner'),
+      ],
+      actionItems: [buildProposal('p1', 'q1'), live],
+      response: liveResponse('q2', true),
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual([
+      'q1',
+      'a1',
+      'action:p1',
+      'q2',
+    ])
+    expect(result.current.trailingActionItems).toEqual([live])
+  })
+
+  it('keeps the card after the learner message when the response has no blocks', () => {
+    mockTurns({
+      messages: [buildTurnMessage('q1', 'learner')],
+      actionItems: [buildProposal('p1', 'q1')],
+      response: liveResponse('q1', false),
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual(['q1', 'action:p1'])
+    expect(result.current.trailingActionItems).toEqual([])
+  })
+
+  it('does not show a card whose source message is not loaded', () => {
+    mockTurns({
+      messages: [buildTurnMessage('q1', 'learner')],
+      actionItems: [buildProposal('p1', 'q-older')],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual(['q1'])
+    expect(result.current.trailingActionItems).toEqual([])
+  })
+
+  it('tolerates a detail without action items', () => {
+    mockTurns({ messages: [buildTurnMessage('q1', 'learner')] })
+
+    const { result } = renderHook(() => useConversation())
+
+    expect(describeItems(result.current.conversationItems)).toEqual(['q1'])
+    expect(result.current.trailingActionItems).toEqual([])
   })
 })
 

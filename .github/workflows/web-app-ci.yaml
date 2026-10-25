@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'apps/web/**'
+      # Lottie scenes the web app imports from the studio package
+      - 'packages/studio/package.json'
+      - 'packages/studio/public/projects/**'
       - '.github/workflows/web-app-ci.yaml'
       - '.node-version'
       - '.npmrc'

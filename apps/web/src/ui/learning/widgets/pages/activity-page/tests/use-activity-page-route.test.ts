@@ -34,10 +34,16 @@ const mocks = vi.hoisted(() => ({
   kill: vi.fn(),
   serverReady: undefined as undefined | ((port: number, url: string) => void),
 }))
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => {
     let validate: (data: unknown) => unknown = (data) => data
     const builder = {
+      middleware: () => builder,
       validator: (validator: (data: unknown) => unknown) => {
         validate = validator
         return builder
@@ -45,7 +51,10 @@ vi.mock('@tanstack/react-start', () => ({
       handler:
         (handler: (context: { data: unknown }) => unknown) =>
         (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
+          handler({
+            data: validate(context.data),
+            context: { requestId: 'test-request-id' },
+          } as never),
     }
     return builder
   },
@@ -247,7 +256,11 @@ describe('ActivityPage routed React composition', () => {
     vi.stubGlobal('crossOriginIsolated', true)
     storage = installDraftBrowserStorage()
     vi.stubGlobal('scrollTo', vi.fn())
-    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    vi.stubGlobal('matchMedia', () => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
     HTMLElement.prototype.scrollIntoView = vi.fn()
   })
   afterEach(() => {

@@ -342,10 +342,47 @@ The same rule applies to other established boundaries:
 - mock `Icon` rather than Lucide when icon rendering is irrelevant;
 - mock `useUrlPathname` rather than `useLocation`;
 - mock a domain query hook rather than a generic `useQuery` result;
-- mock a domain realtime hook rather than the provider client.
+- mock a domain realtime hook rather than the provider client;
+- mock `useReducedMotionPreference` rather than Motion's `useReducedMotion`.
 
 Mock the library directly only when the unit under test is the application wrapper
 itself.
+
+## Animated widgets are tested at their final state
+
+Entrances and counters start hidden or at zero, so assertions written against the
+finished interface must not race them. Page and widget suites that render shared
+entrances or `AnimatedNumber` default the preference to reduced motion:
+
+```ts
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
+```
+
+- Under that default, `MotionEntrance` renders every variant child in its final
+  state and counters show their final figure, so `toBeVisible` and exact text
+  assertions hold.
+- A case that covers the animation itself opts back in with
+  `vi.mocked(useReducedMotionPreference).mockReturnValue({ prefersReducedMotion: false })`
+  and restores the default in `afterEach`. While an entrance is running, assert
+  presence with `toBeInTheDocument` and wait for the final value with `waitFor`.
+- Keep one reduced-motion case for each widget that handles the preference
+  explicitly, such as a progress fill outside the entrance tree, asserting the
+  final state on first render.
+- Counters render the number in its own element. Match a sentence split by a
+  counter on its containing element, for example a `p` whose `textContent` equals
+  the sentence, or pass the whole sentence through the counter's `format`.
+- `AnimatedNumber` and `MotionEntrance` own their animated cases in their own
+  suites. Consumer suites do not re-test timing or easing.
+- A suite that stubs `window.matchMedia` must return a complete media query list,
+  including `addEventListener` and `removeEventListener`. `MotionConfig
+  reducedMotion='user'` subscribes to the query even when the preference hook is
+  mocked, and a partial stub crashes the render.
+
+Browser validation of animated pages samples the live state over time rather
+than one screenshot. Check that content settles at its final values and that it
+appears at once under `page.emulateMedia({ reducedMotion: 'reduce' })`.
 
 Do not mock the owning widget's internal children merely to bypass difficult
 setup. If a dialog, menu, table, or form is part of the widget's public behavior,

@@ -19,6 +19,9 @@ import { useChoiceResultPage } from '../use-choice-result-page'
 vi.mock('../use-choice-result-page', () => ({
   useChoiceResultPage: vi.fn(),
 }))
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 
 type LinkMockProps = Omit<ComponentProps<'a'>, 'href'> & {
   params?: Record<string, string>
@@ -286,6 +289,13 @@ describe('ChoiceResultPage', () => {
       }),
     ).toHaveAttribute('aria-valuetext', '67%')
     expect(
+      screen
+        .getByRole('progressbar', {
+          name: 'Progresso demonstrado da Habilidade após a avaliação',
+        })
+        .querySelector('div'),
+    ).toHaveStyle({ width: '67%' })
+    expect(
       screen.getByText(
         'O progresso considera suas respostas nesta Atividade e as evidências anteriores. Não é a nota acima.',
       ),
@@ -370,7 +380,9 @@ describe('ChoiceResultPage', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Nota da Atividade 72,5 de 100')).toBeVisible()
+    expect(screen.getByLabelText('Nota da Atividade 72,5 de 100')).toHaveTextContent(
+      /^72,5\s*\/ 100/,
+    )
   })
 
   it('keeps mixed result summaries independent and supports opening choice and code details', () => {
@@ -431,5 +443,84 @@ describe('ChoiceResultPage', () => {
     expect(screen.getByText('Revise a condição do laço.')).toBeVisible()
     expect(screen.getByText('A lógica atende ao caso principal.')).toBeVisible()
     expect(screen.getByText('Lógica · peso 100% · nível 75')).toBeVisible()
+  })
+
+  it('renders the reward slot as an opaque node between the header and the progress block', () => {
+    const rewardBand = <div data-testid='stub-reward-band'>stub reward band</div>
+
+    render(
+      <ChoiceResultPage
+        activity={ACTIVITY}
+        attempt={COMPLETED_ATTEMPT}
+        onRetryEvaluation={vi.fn()}
+        rewardBand={rewardBand}
+        state='result'
+      />,
+    )
+
+    const band = screen.getByTestId('stub-reward-band')
+    expect(band).toBeVisible()
+    const header = screen.getByRole('heading', { name: 'Resultado da Atividade' })
+    const progress = screen.getByRole('heading', {
+      name: 'Progresso demonstrado da Habilidade',
+    })
+    expect(
+      header.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(
+      progress.compareDocumentPosition(band) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy()
+  })
+
+  it('never renders the reward slot on a branch with no confirmed reward to show', () => {
+    const rewardBand = <div data-testid='stub-reward-band'>stub reward band</div>
+
+    const { rerender } = render(
+      <ChoiceResultPage rewardBand={rewardBand} state='loading' />,
+    )
+    expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
+
+    rerender(<ChoiceResultPage rewardBand={rewardBand} state='private-absence' />)
+    expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
+
+    rerender(
+      <ChoiceResultPage onRetryLoad={vi.fn()} rewardBand={rewardBand} state='error' />,
+    )
+    expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
+
+    const pendingAttempt: ChoiceAttemptDetail = {
+      ...COMPLETED_ATTEMPT,
+      status: 'pending',
+      score: null,
+      questions: undefined,
+    }
+    rerender(
+      <ChoiceResultPage
+        activity={ACTIVITY}
+        attempt={pendingAttempt}
+        onRetryEvaluation={vi.fn()}
+        rewardBand={rewardBand}
+        state='result'
+      />,
+    )
+    expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
+
+    const failedAttempt: ChoiceAttemptDetail = {
+      ...COMPLETED_ATTEMPT,
+      status: 'failed',
+      retryAllowed: false,
+      score: null,
+      questions: undefined,
+    }
+    rerender(
+      <ChoiceResultPage
+        activity={ACTIVITY}
+        attempt={failedAttempt}
+        onRetryEvaluation={vi.fn()}
+        rewardBand={rewardBand}
+        state='result'
+      />,
+    )
+    expect(screen.queryByTestId('stub-reward-band')).not.toBeInTheDocument()
   })
 })

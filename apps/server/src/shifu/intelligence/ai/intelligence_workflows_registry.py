@@ -15,16 +15,24 @@ from shifu.intelligence.ai.agno.agents import (
     MentorReviewerAgent,
     MentorTitleAgent,
     MentorWriterAgent,
+    PlanningInterviewAgent,
+    PlanningProposalAgent,
 )
 from shifu.intelligence.ai.agno.workflows import (
     AgnoGenerateMentorTitleWorkflow,
     AgnoPrepareMentorAttachmentWorkflow,
     AgnoProcessMentorResponseWorkflow,
     AgnoPurgeMentorAttachmentsWorkflow,
+    PlanGoalWorkflow,
 )
 from shifu.intelligence.ai.data.learner_memory_resources import LearnerMemoryResources
 from shifu.intelligence.core.use_cases import (
     AssertMentorResponseCurrentUseCase,
+    ClassifyPlanningIntentUseCase,
+    CompletePlanningOperationUseCase,
+    PreparePlanningOperationUseCase,
+    ReportPlanningProgressUseCase,
+    RetrievePlanningSkillsUseCase,
     CompleteMentorAttachmentUseCase,
     FailMentorAttachmentUseCase,
     FailMentorResponseUseCase,
@@ -32,8 +40,10 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
     PurgeLearnerMemoriesForAccountUseCase,
+    PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
     PurgeMentorSummariesForAccountUseCase,
+    RecordMentorActionOutcomeUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
     ReleaseMentorAttachmentClaimUseCase,
@@ -74,6 +84,17 @@ from shifu.intelligence.providers.telemetry.langfuse.langfuse_mentor_telemetry_p
 from shifu.intelligence.providers.routing.lazy.lazy_mentor_route_provider import (
     LazyMentorRouteProvider,
 )
+from shifu.intelligence.providers.planning.intent_classification.openrouter.jev_planning_intent_classifier_provider import (
+    JevPlanningIntentClassifierProvider,
+)
+from shifu.intelligence.providers.planning.lazy_planning_skill_retrieval_provider import (
+    LazyPlanningSkillRetrievalProvider,
+)
+from shifu.intelligence.providers.planning.redis.redis_planning_sessions_repository import (
+    RedisPlanningSessionsRepository,
+)
+from shifu.intelligence.ai.data.planner_resources import PlannerResources
+from shifu.intelligence.core.domain.errors import PlanningIndexUnavailableError
 from shifu.intelligence.providers.summarization.textrank.textrank_mentor_conversation_summarizer_provider import (
     TextrankMentorConversationSummarizerProvider,
 )
@@ -98,7 +119,11 @@ if TYPE_CHECKING:
     from langfuse import Langfuse
     from sqlalchemy.engine import Engine
 
-    from shifu.intelligence.core.domain.structures import MentorInferenceUsage
+    from shifu.intelligence.core.domain.structures import (
+        MentorInferenceUsage,
+        PlanningQuery,
+        PlanningSkillRanking,
+    )
     from shifu.intelligence.core.interfaces import (
         GenerateMentorTitleProvider,
         IntelligenceDatabase,
@@ -109,13 +134,23 @@ if TYPE_CHECKING:
         MentorGenerationLimitProvider,
         MentorRouteProvider,
         MentorTelemetryProvider,
+        PlanningIntentClassifierProvider,
+        PlanningSessionsRepository,
+        PlanningSkillRetrievalProvider,
+    )
+    from shifu.shared.core.domain.structures import (
+        SkillCatalogEntry,
+        SkillCatalogPage,
+        SkillFoundationEntry,
     )
     from shifu.shared.core.interfaces import (
         CodeRubricAssessorProvider,
+        CurriculumCatalogProvider,
         FileStorageProvider,
         MentorAccessProvider,
         MentorCatalogProvider,
         MentorContextProvider,
+        MentorGoalDestinationsProvider,
         OutboxEvent,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
@@ -125,6 +160,7 @@ if TYPE_CHECKING:
 _MENTOR_EVENT = 'intelligence/mentor.response.requested'
 _ATTACHMENT_PREPARE_EVENT = 'intelligence/mentor-attachment.preparation.requested'
 _ATTACHMENT_CLEANUP_EVENT = 'intelligence/mentor-attachment.cleanup.requested'
+_PLANNING_EVENT = 'intelligence/planning.operation.requested'
 
 
 class _UnavailableTitleAgent:
@@ -162,6 +198,38 @@ class _UnavailableAttachmentAnswerAgent:
 class _UnavailableReviewerAgent:
     def review(self, *_args: object, **_kwargs: object) -> object:
         raise ServiceUnavailableError('Mentor response review is unavailable.')
+
+
+class _UnavailablePlanningSkillRetrievalProvider:
+    def retrieve(self, query: PlanningQuery) -> PlanningSkillRanking:
+        del query
+        raise PlanningIndexUnavailableError
+
+
+class _UnavailablePlanningAgent:
+    def run(self, *_args: object, **_kwargs: object) -> object:
+        raise ServiceUnavailableError('Planner generation is unavailable.')
+
+
+class _UnavailableCurriculumCatalogProvider:
+    def search_skills(
+        self, query: str | None, cursor: str | None, limit: int
+    ) -> SkillCatalogPage:
+        del query, cursor, limit
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def find_skill_by_id(self, skill_id: str) -> SkillCatalogEntry | None:
+        del skill_id
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def list_skills(self) -> tuple[SkillCatalogEntry, ...]:
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
+
+    def find_direct_foundations_for_many(
+        self, skill_ids: list[str]
+    ) -> dict[str, list[SkillFoundationEntry]]:
+        del skill_ids
+        raise ServiceUnavailableError('Curriculum catalog is unavailable.')
 
 
 class _LazyEmbeddingsProvider:
@@ -205,11 +273,13 @@ class IntelligenceWorkflowsRegistry:
         access_provider: MentorAccessProvider,
         context_provider: MentorContextProvider,
         catalog_provider: MentorCatalogProvider,
+        mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
+        curriculum_catalog_provider: CurriculumCatalogProvider | None = None,
         summarizer: MentorConversationSummarizerProvider | None = None,
         learner_memory_analyzer: LearnerMemoryAnalyzerProvider | None = None,
     ) -> None:
@@ -373,9 +443,14 @@ class IntelligenceWorkflowsRegistry:
             self._learner_memory_similarity_provider,
             self._memory_resources.manifest.relevance_threshold,
             generation_limit,
+            mentor_goal_destinations_provider,
         )
         publish_response_block = PublishMentorResponseBlockUseCase(
-            self._database, self._clock_provider, access_provider, context_provider
+            self._database,
+            self._clock_provider,
+            access_provider,
+            context_provider,
+            self._identifier_provider,
         )
         assert_response_current = AssertMentorResponseCurrentUseCase(
             self._database, self._clock_provider, access_provider
@@ -421,6 +496,12 @@ class IntelligenceWorkflowsRegistry:
         self._purge_learner_memories_use_case = PurgeLearnerMemoriesForAccountUseCase(
             self._database
         )
+        self._purge_mentor_action_proposals_use_case = (
+            PurgeMentorActionProposalsForAccountUseCase(self._database)
+        )
+        self._record_mentor_action_outcome_use_case = RecordMentorActionOutcomeUseCase(
+            self._database, self._clock_provider
+        )
         process_workflow = AgnoProcessMentorResponseWorkflow(
             summarize_use_case=summarize_context,
             update_memories_use_case=update_memories,
@@ -456,6 +537,62 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_client = self._build_code_rubric_provider(
             settings, self._code_rubric_http_client
         )
+        # Planner ports share the decisions client; the index loads on first use only.
+        self._planning_intent_classifier: PlanningIntentClassifierProvider = (
+            JevPlanningIntentClassifierProvider(
+                self._code_rubric_http_client,
+                settings.openrouter_api_key,
+                str(settings.openrouter_decisions_url),
+                settings.jev_model,
+                PlannerResources().manifest.intent_thresholds,
+            )
+        )
+        self._planning_skill_retrieval: PlanningSkillRetrievalProvider = (
+            LazyPlanningSkillRetrievalProvider(
+                self._database, curriculum_catalog_provider
+            )
+            if curriculum_catalog_provider is not None
+            else _UnavailablePlanningSkillRetrievalProvider()
+        )
+        self._planning_redis_client: Redis = self._build_planning_redis_client(
+            settings.redis_url
+        )
+        self._planning_sessions: PlanningSessionsRepository = (
+            RedisPlanningSessionsRepository(
+                self._planning_redis_client, settings.planning_session_ttl_seconds
+            )
+        )
+        plan_goal_workflow = PlanGoalWorkflow(
+            prepare_use_case=PreparePlanningOperationUseCase(
+                self._planning_sessions, access_provider
+            ),
+            complete_use_case=CompletePlanningOperationUseCase(
+                self._planning_sessions, self._clock_provider
+            ),
+            progress_use_case=ReportPlanningProgressUseCase(
+                self._planning_sessions, self._clock_provider
+            ),
+            classify_use_case=ClassifyPlanningIntentUseCase(
+                self._planning_intent_classifier
+            ),
+            retrieve_use_case=RetrievePlanningSkillsUseCase(
+                self._planning_skill_retrieval,
+                curriculum_catalog_provider
+                if curriculum_catalog_provider is not None
+                else cast(
+                    'CurriculumCatalogProvider', _UnavailableCurriculumCatalogProvider()
+                ),
+            ),
+            interview_agent=PlanningInterviewAgent()
+            if PlanningInterviewAgent.enabled()
+            else cast('PlanningInterviewAgent', _UnavailablePlanningAgent()),
+            proposal_agent=PlanningProposalAgent()
+            if PlanningProposalAgent.enabled()
+            else cast('PlanningProposalAgent', _UnavailablePlanningAgent()),
+            identifier_provider=self._identifier_provider,
+            handoffs=self._handoffs,
+        )
+        self._workflows = (*self._workflows, plan_goal_workflow)
         database_url = settings.agentos_database_url
         self._runtime = (
             AgentOSRuntime(
@@ -533,6 +670,18 @@ class IntelligenceWorkflowsRegistry:
         return self._purge_learner_memories_use_case
 
     @property
+    def purge_mentor_action_proposals_use_case(
+        self,
+    ) -> PurgeMentorActionProposalsForAccountUseCase:
+        return self._purge_mentor_action_proposals_use_case
+
+    @property
+    def record_mentor_action_outcome_use_case(
+        self,
+    ) -> RecordMentorActionOutcomeUseCase:
+        return self._record_mentor_action_outcome_use_case
+
+    @property
     def learner_memory_analyzer_provider(self) -> LearnerMemoryAnalyzerProvider:
         return self._learner_memory_analyzer_provider
 
@@ -549,6 +698,18 @@ class IntelligenceWorkflowsRegistry:
         return self._route_provider
 
     @property
+    def planning_intent_classifier(self) -> PlanningIntentClassifierProvider:
+        return self._planning_intent_classifier
+
+    @property
+    def planning_skill_retrieval(self) -> PlanningSkillRetrievalProvider:
+        return self._planning_skill_retrieval
+
+    @property
+    def planning_sessions(self) -> PlanningSessionsRepository:
+        return self._planning_sessions
+
+    @property
     def observability_provider(self) -> LangfuseTelemetryProvider:
         if self._runtime is not None:
             return self._runtime.observability
@@ -559,6 +720,7 @@ class IntelligenceWorkflowsRegistry:
             _MENTOR_EVENT,
             _ATTACHMENT_PREPARE_EVENT,
             _ATTACHMENT_CLEANUP_EVENT,
+            _PLANNING_EVENT,
         }:
             return None
         return 'agentos:intelligence'
@@ -568,6 +730,8 @@ class IntelligenceWorkflowsRegistry:
         event: OutboxEvent,
     ) -> tuple[str, Mapping[str, str]] | None:
         payload = event.payload
+        if event.name == _PLANNING_EVENT:
+            return IntelligenceWorkflowsRegistry._project_planning_event(event)
         if event.name == _MENTOR_EVENT:
             attempt_id = payload.get('attempt_id')
             if isinstance(attempt_id, str) and attempt_id:
@@ -612,6 +776,31 @@ class IntelligenceWorkflowsRegistry:
                 return 'intelligence-purge-mentor-attachments', fields
         return None
 
+    @staticmethod
+    def _project_planning_event(
+        event: OutboxEvent,
+    ) -> tuple[str, Mapping[str, str]] | None:
+        payload = event.payload
+        planning_id = payload.get('planning_id')
+        operation_id = payload.get('operation_id')
+        generation = payload.get('generation')
+        if (
+            not isinstance(planning_id, str)
+            or not isinstance(operation_id, str)
+            or type(generation) is not int
+            or generation <= 0
+        ):
+            return None
+        return (
+            PlanGoalWorkflow.ID,
+            {
+                'planning_id': planning_id,
+                'operation_id': operation_id,
+                'generation': str(generation),
+                'event_id': event.id,
+            },
+        )
+
     @asynccontextmanager
     async def lifespan(self) -> AsyncGenerator[None]:
         if self._runtime is None:
@@ -637,10 +826,17 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_http_client.close()
         if self._generation_limit_client is not None:
             self._generation_limit_client.close()
+        self._planning_redis_client.close()
 
     @staticmethod
     def _build_code_rubric_client() -> httpx.Client:
         return httpx.Client()
+
+    @staticmethod
+    def _build_planning_redis_client(redis_url: str) -> Redis:
+        return Redis.from_url(  # pyright: ignore[reportUnknownMemberType] - redis-py defers option typing.
+            redis_url, decode_responses=True
+        )
 
     @staticmethod
     def _build_code_rubric_provider(

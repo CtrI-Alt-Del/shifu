@@ -1,6 +1,14 @@
 import { GoalDetailFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
 import type { BffFixtureContract } from '../fixtures/bff-fixture'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import {
+  ACTION_IDS,
+  ADD_JUSTIFICATION,
+  buildProposal,
+  installMentorActionsBackend,
+  SKILL_NAME,
+} from '../support/mentor-actions-backend'
+import { SESSION_TITLE } from '../support/mentor-memories-backend'
 
 const ids = LearningRouteIdsFaker.fake()
 
@@ -536,4 +544,78 @@ test('removes a Skill from Grafo and preserves the selected view', async ({
   ).toHaveAttribute('data-state', 'active')
   await expect(trigger).not.toBeVisible()
   expect(removalRequests).toBe(1)
+})
+
+test('shows the justification of a Skill added from the Mentor, read-only, after the cached Objective is invalidated', async ({
+  authenticatedPage: page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const existing = {
+    skillExperienceId: ACTION_IDS.otherExperience,
+    skillId: ACTION_IDS.otherGoal,
+    name: 'Lógica de programação',
+    status: 'learning' as const,
+    progress: 60,
+    inclusionReason: null,
+  }
+  const backend = await installMentorActionsBackend(page, {
+    proposal: buildProposal('add_skill'),
+    goalDetail: ({ isAdded }) =>
+      GoalDetailFaker.fake({
+        goalId: ACTION_IDS.goal,
+        title: 'Aprender a programar',
+        description: 'Construa uma base sólida.',
+        skills: isAdded
+          ? [
+              existing,
+              {
+                skillExperienceId: ACTION_IDS.experience,
+                skillId: ACTION_IDS.skill,
+                name: SKILL_NAME,
+                status: 'not-started',
+                progress: null,
+                inclusionReason: ADD_JUSTIFICATION,
+              },
+            ]
+          : [existing],
+        relations: [],
+      }),
+  })
+  await navigateAuthenticatedPage(page, `/learning/goals/${ACTION_IDS.goal}/`)
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Aprender a programar' }),
+  ).toBeVisible()
+  await page.getByRole('tab', { name: 'Lista' }).click()
+  await expect(page.getByRole('link', { name: SKILL_NAME })).toHaveCount(0)
+  const readsBefore = backend.callsOf('getGoalDetail').length
+
+  await page.getByRole('button', { name: 'Abrir Mentor' }).click()
+  await page.getByRole('button', { name: 'Histórico de conversas' }).click()
+  await page.getByRole('button', { name: SESSION_TITLE, exact: true }).click()
+  await page.getByRole('button', { name: 'Adicionar habilidade' }).click()
+  await expect(
+    page.getByRole('region', { name: `${SKILL_NAME} adicionada` }),
+  ).toBeVisible()
+
+  expect(backend.callsOf('confirmMentorSkillAdditionServer')[0]).toMatchObject({
+    method: 'POST',
+    data: {
+      goalId: ACTION_IDS.goal,
+      confirmationId: ACTION_IDS.proposal,
+      skillId: ACTION_IDS.skill,
+      justification: ADD_JUSTIFICATION,
+    },
+  })
+  await expect
+    .poll(() => backend.callsOf('getGoalDetail').length)
+    .toBeGreaterThan(readsBefore)
+  const row = page
+    .locator('li')
+    .filter({ has: page.getByRole('link', { name: SKILL_NAME }) })
+  await expect(row).toContainText(ADD_JUSTIFICATION)
+  await expect(row.getByRole('textbox')).toHaveCount(0)
+  await expect(row.getByRole('link', { name: SKILL_NAME })).toHaveAttribute(
+    'href',
+    `/learning/goals/${ACTION_IDS.goal}/skills/${ACTION_IDS.skill}`,
+  )
 })

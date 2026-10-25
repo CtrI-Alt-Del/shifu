@@ -1,3 +1,12 @@
+import { motion } from 'motion/react'
+
+import {
+  ENTRANCE_CARD,
+  ENTRANCE_RISE,
+  ENTRANCE_SECTION,
+} from '@/constants/motion-variants'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
+
 import { MaterialContent } from './material-content'
 import { MaterialFeedback } from './material-feedback'
 import { MaterialHeader } from './material-header'
@@ -47,29 +56,37 @@ export const MaterialPage = (props: MaterialPageProps) => {
   const { recommendation } = detail
 
   return (
-    <article className='mx-auto max-w-7xl space-y-8'>
-      <MaterialHeader
-        competencyId={detail.competencyId}
-        competencyName={detail.competencyName}
-        goalId={detail.goalId}
-        materialTitle={detail.materialTitle}
-        skillId={detail.skillId}
-        skillName={detail.skillName}
-      />
-      <MaterialContent content={detail.content} />
-      <p className='text-sm text-muted-foreground'>
-        A leitura é opcional e não altera seu progresso. Você pode praticar a qualquer
-        momento.
-      </p>
-      {recommendation ? (
-        <MaterialRecommendation
-          competencyName={detail.competencyName}
-          hasFailure={hasActivityFailure}
-          isPending={isOpeningActivity}
-          onOpen={() => void handleOpenRecommendation(recommendation.activityId)}
-          recommendation={recommendation}
-        />
-      ) : null}
+    <article className='mx-auto max-w-7xl'>
+      <MotionEntrance className='space-y-8'>
+        <motion.div variants={ENTRANCE_SECTION}>
+          <MaterialHeader
+            competencyId={detail.competencyId}
+            competencyName={detail.competencyName}
+            goalId={detail.goalId}
+            materialTitle={detail.materialTitle}
+            skillId={detail.skillId}
+            skillName={detail.skillName}
+          />
+        </motion.div>
+        <motion.div variants={ENTRANCE_SECTION}>
+          <MaterialContent content={detail.content} />
+        </motion.div>
+        <motion.p className='text-sm text-muted-foreground' variants={ENTRANCE_RISE}>
+          A leitura é opcional e não altera seu progresso. Você pode praticar a qualquer
+          momento.
+        </motion.p>
+        {recommendation ? (
+          <motion.div variants={ENTRANCE_CARD}>
+            <MaterialRecommendation
+              competencyName={detail.competencyName}
+              hasFailure={hasActivityFailure}
+              isPending={isOpeningActivity}
+              onOpen={() => void handleOpenRecommendation(recommendation.activityId)}
+              recommendation={recommendation}
+            />
+          </motion.div>
+        ) : null}
+      </MotionEntrance>
     </article>
   )
 }

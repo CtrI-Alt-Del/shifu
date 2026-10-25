@@ -5,6 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryFilters, type MemoryFiltersProps } from '..'
 import { useMemoryFilters } from '../use-memory-filters'
 
+// Entrance motion and counters settle at once, so assertions see the final
+// state; the shared components own their animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 vi.mock('../use-memory-filters', () => ({
   MEMORY_SEARCH_MAX_LENGTH: 100,
   useMemoryFilters: vi.fn(),

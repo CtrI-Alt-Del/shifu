@@ -11,8 +11,28 @@ import { useGoalsListSection } from '../use-goals-list-section'
 const mocks = vi.hoisted(() => ({ getCurrentAccess: vi.fn(), get: vi.fn() }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
-    handler: (handler: () => Promise<unknown>) => () => handler(),
+    middleware: () => ({
+      handler:
+        (handler: (context: { context: { requestId: string } }) => Promise<unknown>) =>
+        () =>
+          handler({ context: { requestId: 'test-request-id' } }),
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          (context: { data: unknown }) =>
+            handler({
+              data: validate(context.data),
+              context: { requestId: 'test-request-id' },
+            } as never),
+      }),
+    }),
+    handler:
+      (handler: (context: { context: { requestId: string } }) => Promise<unknown>) =>
+      () =>
+        handler({ context: { requestId: 'test-request-id' } }),
   }),
 }))
 vi.mock('@tanstack/react-start/server', () => ({
@@ -58,7 +78,8 @@ describe('useGoalsListSection routed Goal list consumer', () => {
     const { result } = setup()
     await waitFor(() => expect(result.current.state).toBe('populated'))
     expect(result.current.goals).toEqual([GOAL])
-    expect(result.current.goalsCountLabel).toBe('1 objetivo')
+    expect(result.current.goalsCount).toBe(1)
+    expect(result.current.formatGoalsCountLabel(1)).toBe('1 objetivo')
     expect(mocks.get).toHaveBeenCalledWith('/learning/goals', {
       headers: { Authorization: 'Bearer test-token' },
     })

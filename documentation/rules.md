@@ -70,6 +70,7 @@ actual scope:
 | Task | Rules to load |
 | --- | --- |
 | Build or change a widget | UI Layer; add Widget Testing when tests change |
+| Add or change a page's entrance or number animations | UI Layer + Widget Testing, because animated suites default to reduced motion |
 | Add or change a web application route | UI Layer + Web App Routing; add Widget Testing when navigation behavior is tested |
 | Change an internal layout widget | UI Layer + Widget Testing, because behavior is tested at the owning layout boundary |
 | Add a domain-specific query/action hook | UI Layer; add Widget Testing for the consuming widget/page or route behavior, not for a dedicated query/action-hook test |

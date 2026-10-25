@@ -78,6 +78,9 @@ class CancelMentorResponseUseCase:
                 ):
                     raise MentorResponseConflictError
                 repositories.mentor_response_events.discard_partial(attempt.id)
+                repositories.mentor_action_proposals.remove_pending_by_attempt_id(
+                    account_id, attempt.id
+                )
                 repositories.mentor_response_attempts.add_submission(
                     account_id, session_id, submission_key, attempt.id, fingerprint
                 )

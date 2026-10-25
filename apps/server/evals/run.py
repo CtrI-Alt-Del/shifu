@@ -11,9 +11,14 @@ if __package__ in {None, ''}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from evals.classify_learner_memory_eval import ClassifyLearnerMemoryEval
+from evals.classify_mentor_intent_eval import ClassifyMentorIntentEval
+from evals.classify_planning_intent_eval import ClassifyPlanningIntentEval
 from evals.generate_mentor_title_eval import GenerateMentorTitleEval
+from evals.plan_goal_interview_eval import PlanGoalInterviewEval
+from evals.plan_goal_proposal_eval import PlanGoalProposalEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
+from evals.retrieve_planning_skills_eval import RetrievePlanningSkillsEval
 from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 
 if TYPE_CHECKING:
@@ -29,6 +34,11 @@ EVAL_CLASSES = (
     PrepareMentorAttachmentEval,
     SummarizeMentorSessionEval,
     ClassifyLearnerMemoryEval,
+    ClassifyMentorIntentEval,
+    ClassifyPlanningIntentEval,
+    RetrievePlanningSkillsEval,
+    PlanGoalInterviewEval,
+    PlanGoalProposalEval,
 )
 EVAL_BY_SELECTOR = {eval_class.selector: eval_class for eval_class in EVAL_CLASSES}
 DEFAULT_OUTPUT_DIR = Path('test-results/evals')

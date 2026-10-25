@@ -24,6 +24,9 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('../use-diagnostic-result-page', () => ({
   useDiagnosticResultPage: vi.fn(),
 }))
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
 
 const useDiagnosticResultPageMock = vi.mocked(useDiagnosticResultPage)
 const IDS = {
@@ -154,6 +157,9 @@ describe('DiagnosticResultPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Seu ponto de partida' })).toBeVisible()
     expect(screen.getAllByText('58%')).toHaveLength(2)
+    expect(
+      screen.getByRole('heading', { name: 'Resultado geral' }).nextElementSibling,
+    ).toHaveTextContent(/^58%$/)
     expect(screen.getByRole('button', { name: /Funções/ })).toHaveTextContent(
       'Sem evidência',
     )
