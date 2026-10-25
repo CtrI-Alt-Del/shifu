@@ -1,4 +1,4 @@
-import type { Variants } from 'motion/react'
+import type { Transition, Variants } from 'motion/react'
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const
 
@@ -66,13 +66,21 @@ export const ENTRANCE_MEDAL: Variants = {
   },
 }
 
+// Timing for a progress fill growing from empty. Bars outside an entrance tree
+// (such as the shared `ProgressMeter`) use it with an explicit `initial`.
+export const ENTRANCE_FILL_TRANSITION: Transition = {
+  duration: 0.8,
+  delay: 0.2,
+  ease: EASE_OUT,
+}
+
 // Progress fills grow once their card has entered; pass the final percentage
 // through the `custom` prop.
 export const ENTRANCE_FILL: Variants = {
   hidden: { width: '0%' },
   visible: (percentage: number) => ({
     width: `${percentage}%`,
-    transition: { duration: 0.8, delay: 0.2, ease: EASE_OUT },
+    transition: ENTRANCE_FILL_TRANSITION,
   }),
 }
 
