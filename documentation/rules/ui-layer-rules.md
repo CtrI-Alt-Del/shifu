@@ -868,6 +868,69 @@ Headings use the documented serif family; body copy, controls, and navigation us
 the documented sans family. Preserve accessible names, visible keyboard focus,
 semantic elements, and non-color indicators for state.
 
+## Pages use the shared entrance and number animations
+
+Every routed page gives its main content an entrance animation and animates its
+summary figures. Use the shared motion boundary so all pages share one rhythm:
+
+| Piece | Location | Purpose |
+| --- | --- | --- |
+| Entrance variants | `apps/web/src/constants/motion-variants.ts` | Every `ENTRANCE_*` timing: section rise, card, pop, row, slide, medal, progress fill and chat cascade |
+| `MotionEntrance` | `apps/web/src/ui/shared/widgets/components/motion-entrance` | Starts one entrance tree and skips it under reduced motion |
+| `AnimatedNumber` | `apps/web/src/ui/shared/widgets/components/animated-number` | Counts a figure up to its final value |
+| `useReducedMotionPreference` | `apps/web/src/ui/shared/hooks/use-reduced-motion-preference.ts` | The only reader of the viewer's reduced-motion setting |
+
+Compose an entrance like this:
+
+```tsx
+<MotionEntrance className='space-y-8'>
+  <motion.section variants={ENTRANCE_SECTION}>
+    <motion.div variants={ENTRANCE_STAGGER}>
+      {cards.map((card) => (
+        <motion.article key={card.id} variants={ENTRANCE_CARD} />
+      ))}
+    </motion.div>
+  </motion.section>
+</MotionEntrance>
+```
+
+- Wrap the page's ready branch in `MotionEntrance`. Descendants opt in only by
+  declaring `variants` from `motion-variants`; they do not set their own
+  `initial` or `animate`, so the whole page cascades as one tree.
+- Reuse the existing `ENTRANCE_*` variants. When a page needs a new movement, add
+  a named variant to `motion-variants.ts` instead of writing inline durations,
+  easings or offsets in a widget.
+- Give content that loads after the page has entered its own `MotionEntrance`,
+  such as a list filled by a query, so it animates when it arrives.
+- Animate server-rendered first-paint content with CSS keyframes in the page's
+  stylesheet, as the home page intro does. Motion waits for hydration and would
+  leave that content invisible until JavaScript loads.
+- Use `ENTRANCE_FAST_STAGGER` for long collections such as calendar days or record
+  rows. A tab should settle within about 1.5 s of its data appearing; children
+  start while their parent is still entering rather than after it finishes.
+- Show numeric summary figures, such as XP totals, counts, streaks and records,
+  through `AnimatedNumber` with the pt-BR formatter. Pass the whole sentence
+  through `format` (for example ``(value) => `${value} de 12 obtidas` ``) so the
+  text stays in one element.
+- Grow progress fills from empty with `ENTRANCE_FILL` and the final percentage in
+  `custom`, or with an explicit `initial` width that becomes `false` under
+  reduced motion.
+- Chat-like lists cascade newest first with `ENTRANCE_MESSAGE_LIST` and bring each
+  message in from its speaker's side with `ENTRANCE_MESSAGE`.
+- Hover feedback stays small, such as `whileHover={{ y: -3 }}` on a card.
+
+Reduced motion is part of the contract. Read the preference only through
+`useReducedMotionPreference`; never import Motion's `useReducedMotion` in a
+widget. `MotionEntrance` renders the final state on first paint under reduced
+motion. Any animation outside that tree, such as a width animation, which
+`MotionConfig reducedMotion='user'` does not stop, must handle the preference
+explicitly. CSS entrances set `animation: none` inside
+`@media (prefers-reduced-motion: reduce)`.
+
+Animation only complements the content. Essential information stays textual
+and accessible, accessible names and `aria-*` values report final values at
+once, and loading and error states are never delayed by an entrance.
+
 ## Composite input focus states
 
 When an input is visually contained by a composite field wrapper, render one
@@ -907,3 +970,8 @@ descriptions cannot collide with the close action.
   user-visible controls. Render `Todos`, `Ativo` or `Inativo` as appropriate,
   verify the closed control displays that pt-BR label, and keep the raw value
   only at the state, URL, form or transport boundary.
+- Do not ship a routed page without the shared entrance, and do not hand-write
+  `transition`, `initial` or `animate` values in a widget when an `ENTRANCE_*`
+  variant covers the movement. Do not animate server-rendered first-paint content
+  with Motion, and do not read Motion's `useReducedMotion` outside
+  `useReducedMotionPreference`.
