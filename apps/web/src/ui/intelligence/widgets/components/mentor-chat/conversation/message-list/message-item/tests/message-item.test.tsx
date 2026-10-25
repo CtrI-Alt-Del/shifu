@@ -14,9 +14,23 @@ import { ROUTES } from '@/constants/routes'
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
 import { MessageItem } from '..'
 import { useMessageItem } from '../use-message-item'
+import { useMentorMascot } from '@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot'
 
 vi.mock('../use-message-item', () => ({ useMessageItem: vi.fn() }))
+vi.mock('@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot', () => ({
+  useMentorMascot: vi.fn(),
+}))
 const useMessageItemMock = vi.mocked(useMessageItem)
+const useMentorMascotMock = vi.mocked(useMentorMascot)
+const mentorMessage = {
+  id: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+  sessionId: 'session',
+  role: 'mentor' as const,
+  content: 'Separe pequenos blocos de estudo.',
+  createdAt: '2026-10-14T12:01:00Z',
+  inReplyToMessageId: null,
+  attachments: [],
+}
 const handleOpenAttachment = vi.fn()
 const handleCopyMessage = vi.fn()
 const attachment: MentorAttachment = {
@@ -64,8 +78,68 @@ describe('MessageItem', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useMessageItemMock.mockReturnValue(makeHookValue())
+    useMentorMascotMock.mockReturnValue({
+      containerRef: { current: null },
+      hasFailed: false,
+    })
   })
   afterEach(cleanup)
+
+  it('greets with the mascot on the live answer and shows it settled on past answers', () => {
+    useMessageItemMock.mockReturnValue(makeHookValue({ hasResponse: true }))
+    const { rerender } = render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).toHaveBeenLastCalledWith({ isAnimated: true })
+    expect(screen.getByText('Mentor').previousElementSibling).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+
+    useMessageItemMock.mockReturnValue(makeHookValue({ hasResponse: false }))
+    rerender(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).toHaveBeenLastCalledWith({ isAnimated: false })
+    expect(screen.getByText('Mentor').previousElementSibling).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+  })
+
+  it('keeps the Mentor label without a mascot when the animation cannot load', () => {
+    useMentorMascotMock.mockReturnValue({
+      containerRef: { current: null },
+      hasFailed: true,
+    })
+    render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(screen.getByText('Mentor')).toBeVisible()
+    expect(screen.getByText('Mentor').previousElementSibling).toBeNull()
+  })
+
+  it('shows no mascot on learner messages', () => {
+    useMessageItemMock.mockReturnValue(
+      makeHookValue({
+        isLearnerMessage: true,
+        isMentorMessage: false,
+        speakerLabel: null,
+      }),
+    )
+    render(
+      <ol>
+        <MessageItem message={{ ...mentorMessage, role: 'learner' }} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).not.toHaveBeenCalled()
+  })
 
   it('exposes a stable message id and a programmatically focusable root for reveal', () => {
     useMessageItemMock.mockReturnValue(
