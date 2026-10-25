@@ -76,6 +76,9 @@ shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic current
 [tool.poe.tasks."db:seed"]
 cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 
+[tool.poe.tasks."db:index:planning"]
+cmd = "uv run --env-file .env.local python -m shifu.planning_indexes"
+
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"
 
