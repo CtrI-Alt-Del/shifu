@@ -66,7 +66,7 @@ class HttpExampleResponse(BaseModel):
 
 class CodeQuestionResponse(BaseModel):
     key: str
-    kind: Literal['javascript_stdin', 'react', 'react_fastify']
+    kind: Literal['javascript_stdin', 'react', 'html_css_js', 'react_fastify']
     prompt: str
     initial_files: tuple[FileResponse, ...]
     entrypoint: str

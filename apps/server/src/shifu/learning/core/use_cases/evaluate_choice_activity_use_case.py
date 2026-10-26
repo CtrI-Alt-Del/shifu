@@ -69,6 +69,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
@@ -362,6 +363,7 @@ class EvaluateChoiceActivityUseCase:
             CurriculumChoiceQuestionSnapshot
             | CurriculumJavascriptStdinQuestionSnapshot
             | CurriculumReactQuestionSnapshot
+            | CurriculumHtmlCssJsQuestionSnapshot
             | CurriculumReactFastifyQuestionSnapshot,
             ...,
         ],
@@ -384,6 +386,7 @@ class EvaluateChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
@@ -742,6 +745,7 @@ class EvaluateChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
@@ -771,6 +775,7 @@ class EvaluateChoiceActivityUseCase:
         question: CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
@@ -780,6 +785,7 @@ class EvaluateChoiceActivityUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
                 CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
@@ -812,6 +818,7 @@ class EvaluateChoiceActivityUseCase:
         part: CurriculumCodeRubricPartSnapshot,
         question: CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],

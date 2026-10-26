@@ -23,7 +23,7 @@ class SkillFaker:
     ) -> Skill:
         return Skill(
             id=id or cls._id_provider.generate(),
-            name=name or cls._faker.sentence(nb_words=3).rstrip('.'),
+            name=name or cls._faker.unique.sentence(nb_words=3).rstrip('.'),
             description=description or cls._faker.paragraph(),
         )
 

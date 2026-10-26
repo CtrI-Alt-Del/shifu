@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Never, cast
 
 from shifu.learning.core.domain.entities import ActivityAttempt
 from shifu.learning.core.domain.enums import ActivityAttemptKind
@@ -17,6 +17,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
@@ -74,6 +75,7 @@ class ActivityAttemptMapper:
                     'multiple_selection',
                     'javascript_stdin',
                     'react',
+                    'html_css_js',
                     'react_fastify',
                 }
                 for question in questions
@@ -86,9 +88,13 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'javascript_stdin'
                     else CurriculumReactQuestionSnapshot
                     if question.get('kind') == 'react'
+                    else CurriculumHtmlCssJsQuestionSnapshot
+                    if question.get('kind') == 'html_css_js'
                     else CurriculumReactFastifyQuestionSnapshot
                     if question.get('kind') == 'react_fastify'
-                    else CurriculumChoiceQuestionSnapshot,
+                    else CurriculumChoiceQuestionSnapshot
+                    if question.get('kind') in {'single_choice', 'multiple_selection'}
+                    else _unknown_question_kind(question.get('kind')),
                 )
                 for question in normalized['questions']
             )
@@ -107,7 +113,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -219,3 +225,7 @@ class ActivityAttemptMapper:
             diagnostic_run_id=attempt.diagnostic_run_id,
             time_zone=attempt.time_zone,
         )
+
+
+def _unknown_question_kind(kind: object) -> Never:
+    raise TypeError(f'Unsupported stored question kind: {kind!r}')

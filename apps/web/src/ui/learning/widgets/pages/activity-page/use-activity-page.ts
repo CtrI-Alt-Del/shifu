@@ -23,6 +23,7 @@ import type {
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
+import type { HtmlCssJsPracticeRunner } from '@/core/learning/html-css-js-practice-runner'
 import type { ReactQuestionDraftStore } from '@/core/learning/react-question-draft/react-question-draft-store'
 import { IndexedDbReactQuestionDraftStore } from '@/provision/learning/indexed-db-react-question-draft-store'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
@@ -60,6 +61,7 @@ export type ActivityRouteProps = {
   runnerFactory?: () => CodePracticeRunner
   reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  htmlCssJsRunnerFactory?: () => HtmlCssJsPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
 }
 
@@ -69,6 +71,7 @@ type InjectedActivityProps = {
   runnerFactory?: () => CodePracticeRunner
   reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  htmlCssJsRunnerFactory?: () => HtmlCssJsPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
   onPreview?: (
     questionKey: string,
@@ -831,11 +834,14 @@ export function useActivityPage(props: ActivityPageProps) {
       !currentQuestion ||
       (currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify') ||
       isSubmitting ||
       isSubmissionLocked ||
       isAssessing ||
-      ((currentQuestion.kind === 'react' || currentQuestion.kind === 'react_fastify') &&
+      ((currentQuestion.kind === 'react' ||
+        currentQuestion.kind === 'html_css_js' ||
+        currentQuestion.kind === 'react_fastify') &&
         Boolean(feedback || frozenAnswer))
     )
       return
@@ -849,7 +855,11 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
-    if (currentQuestion.kind === 'react' || currentQuestion.kind === 'react_fastify')
+    if (
+      currentQuestion.kind === 'react' ||
+      currentQuestion.kind === 'html_css_js' ||
+      currentQuestion.kind === 'react_fastify'
+    )
       setIsReactAnswerValid(files.length > 0)
     setFeedback(null)
     setFrozenAnswer(null)
@@ -865,6 +875,7 @@ export function useActivityPage(props: ActivityPageProps) {
       !currentQuestion ||
       (currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify')
     )
       return
@@ -886,6 +897,7 @@ export function useActivityPage(props: ActivityPageProps) {
         !reevaluate &&
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify') ||
       !activity.activityRevision
     )
@@ -936,9 +948,13 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       (!activity.isDiagnostic && !activity.canSubmit) ||
       !isLastQuestion ||
-      ((currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify') &&
+      ((currentQuestion?.kind === 'react' ||
+        currentQuestion?.kind === 'html_css_js' ||
+        currentQuestion?.kind === 'react_fastify') &&
         !isReactAnswerValid) ||
-      ((currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify') &&
+      ((currentQuestion?.kind === 'react' ||
+        currentQuestion?.kind === 'html_css_js' ||
+        currentQuestion?.kind === 'react_fastify') &&
         !injected &&
         !isOnlineAuthority) ||
       (!activity.isDiagnostic &&
@@ -1101,6 +1117,7 @@ export function useActivityPage(props: ActivityPageProps) {
       if (
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
         hasValidSelection
       ) {
@@ -1138,6 +1155,7 @@ export function useActivityPage(props: ActivityPageProps) {
     activity,
     runnerFactory: props.runnerFactory,
     reactRunnerFactory: props.reactRunnerFactory,
+    htmlCssJsRunnerFactory: props.htmlCssJsRunnerFactory,
     reactFastifyRunnerFactory: props.reactFastifyRunnerFactory,
     reactDraftStore,
     accountId,
@@ -1157,7 +1175,9 @@ export function useActivityPage(props: ActivityPageProps) {
               currentQuestion?.kind === 'react_fastify'
             ? hasDiagnosticAnswer
             : hasValidSelection
-        : currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify'
+        : currentQuestion?.kind === 'react' ||
+            currentQuestion?.kind === 'html_css_js' ||
+            currentQuestion?.kind === 'react_fastify'
           ? isReactAnswerValid && (injected || isOnlineAuthority)
           : feedback !== null || frozenAnswer !== null || hasValidSelection),
     feedback,
@@ -1311,6 +1331,7 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
   if (
     value.kind === 'javascript_stdin' ||
     value.kind === 'react' ||
+    value.kind === 'html_css_js' ||
     value.kind === 'react_fastify'
   ) {
     return (

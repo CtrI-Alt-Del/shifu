@@ -179,9 +179,10 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
 
-  await expect(
-    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
-  ).toBeVisible()
+  const resultHeading = authenticatedPage.getByRole('heading', {
+    name: 'Resultado da Atividade',
+  })
+  await expect(resultHeading).toBeVisible()
   const progressHeading = authenticatedPage.getByRole('heading', {
     name: 'Progresso demonstrado da Habilidade',
   })
@@ -823,6 +824,87 @@ test.describe('ChoiceResultPage route coverage', () => {
       await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
     })
   })
+})
+
+test('renders the HTML/CSS/JavaScript attempt as historical read-only content', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const htmlQuestion = {
+    key: 'html-1',
+    kind: 'html_css_js',
+    prompt: 'Crie uma página semântica.',
+    initialFiles: [{ path: 'index.html', content: '<main></main>', editable: true }],
+    entrypoint: 'index.html',
+    editablePaths: ['index.html'],
+    fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+    permittedCommands: [{ id: 'dev', executable: 'npm', arguments: ['run', 'dev'] }],
+    criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+  }
+  const htmlActivity = { ...activity, questions: [htmlQuestion] }
+  const htmlAttempt = {
+    ...completedAttempt,
+    questions: [
+      {
+        key: 'html-1',
+        kind: 'html_css_js',
+        prompt: htmlQuestion.prompt,
+        score: 85,
+        submittedFiles: [{ path: 'index.html', content: '<main>página final</main>' }],
+        criterionResults: [
+          {
+            key: 'semantic',
+            weightPercentage: 100,
+            level: 85,
+            commentId: 'semantic-good',
+            comment: 'A estrutura usa os elementos esperados.',
+          },
+        ],
+        conceptObservations: [],
+      },
+    ],
+  }
+
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (payload.includes(ids.attemptId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: htmlAttempt }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: htmlActivity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+  const htmlDisclosure = authenticatedPage.locator('summary').filter({
+    hasText: 'Questão 1 · HTML, CSS e JavaScript',
+  })
+  await expect(htmlDisclosure).toBeVisible()
+  await htmlDisclosure.click()
+  await expect(authenticatedPage.getByText('página final')).toBeVisible()
+  await expect(authenticatedPage.getByText('Somente leitura')).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('HTML semântico · peso 100% · nível 85'),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('A estrutura usa os elementos esperados.'),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByTitle('Prévia isolada da página')).toHaveCount(0)
+  await expect(
+    authenticatedPage.getByRole('button', { name: /Executar|Avaliar/ }),
+  ).toHaveCount(0)
 })
 
 test('shows immutable integrated files in the routed historical result on mobile', async ({

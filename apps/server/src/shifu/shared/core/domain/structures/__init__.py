@@ -76,6 +76,18 @@ from .curriculum_javascript_stdin_question_snapshot import (
 from .curriculum_learning_activity_snapshot import (
     CurriculumLearningActivitySnapshot as CurriculumLearningActivitySnapshot,
 )
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsQuestionSnapshot as CurriculumHtmlCssJsQuestionSnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsInitialFileSnapshot as CurriculumHtmlCssJsInitialFileSnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsDependencySnapshot as CurriculumHtmlCssJsDependencySnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsPermittedCommandSnapshot as CurriculumHtmlCssJsPermittedCommandSnapshot,
+)
 from .curriculum_react_question_snapshot import (
     CurriculumReactAdditionalFilePolicySnapshot as CurriculumReactAdditionalFilePolicySnapshot,
 )

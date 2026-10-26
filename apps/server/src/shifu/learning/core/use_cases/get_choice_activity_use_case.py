@@ -17,6 +17,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
@@ -91,6 +92,7 @@ class GetChoiceActivityUseCase:
                     (
                         CurriculumJavascriptStdinQuestionSnapshot,
                         CurriculumReactQuestionSnapshot,
+                        CurriculumHtmlCssJsQuestionSnapshot,
                         CurriculumReactFastifyQuestionSnapshot,
                     ),
                 )
@@ -259,6 +261,7 @@ class GetChoiceActivityUseCase:
                         (
                             CurriculumJavascriptStdinQuestionSnapshot,
                             CurriculumReactQuestionSnapshot,
+                            CurriculumHtmlCssJsQuestionSnapshot,
                             CurriculumReactFastifyQuestionSnapshot,
                         ),
                     )

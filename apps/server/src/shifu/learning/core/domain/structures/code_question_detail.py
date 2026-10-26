@@ -1,4 +1,7 @@
 from shifu.shared.core.domain.structures import (
+    CurriculumHtmlCssJsDependencySnapshot,
+    CurriculumHtmlCssJsInitialFileSnapshot,
+    CurriculumHtmlCssJsPermittedCommandSnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactDependencySnapshot,
     CurriculumReactInitialFileSnapshot,
@@ -24,17 +27,23 @@ class CodeQuestionDetail:
     kind: str
     prompt: str
     initial_files: tuple[
-        CurriculumJavascriptInitialFileSnapshot | CurriculumReactInitialFileSnapshot,
+        CurriculumJavascriptInitialFileSnapshot
+        | CurriculumReactInitialFileSnapshot
+        | CurriculumHtmlCssJsInitialFileSnapshot,
         ...,
     ]
     entrypoint: str
     editable_paths: tuple[str, ...]
     fixed_dependencies: tuple[
-        CurriculumJavascriptDependencySnapshot | CurriculumReactDependencySnapshot, ...
+        CurriculumJavascriptDependencySnapshot
+        | CurriculumReactDependencySnapshot
+        | CurriculumHtmlCssJsDependencySnapshot,
+        ...,
     ]
     permitted_commands: tuple[
         CurriculumJavascriptPermittedCommandSnapshot
-        | CurriculumReactPermittedCommandSnapshot,
+        | CurriculumReactPermittedCommandSnapshot
+        | CurriculumHtmlCssJsPermittedCommandSnapshot,
         ...,
     ]
     criteria: tuple[CodeQuestionCriterionDetail, ...]

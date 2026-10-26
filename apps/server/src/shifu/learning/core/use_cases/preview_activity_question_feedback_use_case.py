@@ -25,6 +25,7 @@ from shifu.shared.core.domain.structures import (
     CodeRubricDecisions,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
@@ -91,6 +92,7 @@ class PreviewActivityQuestionFeedbackUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
                 CurriculumReactFastifyQuestionSnapshot,
             ),
         ):

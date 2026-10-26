@@ -11,6 +11,9 @@ from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
 from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsQuestionSnapshot,
+)
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot,
 )
@@ -26,6 +29,7 @@ class CurriculumLearningActivitySnapshot:
         CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot,
         ...,
     ]
@@ -71,6 +75,7 @@ class CurriculumLearningActivitySnapshot:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
@@ -82,6 +87,7 @@ class CurriculumLearningActivitySnapshot:
                 question,
                 (
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):

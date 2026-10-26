@@ -28,6 +28,7 @@ export const ChoiceResultDetail = ({
     const codeQuestion =
       question?.kind === 'javascript_stdin' ||
       question?.kind === 'react' ||
+      question?.kind === 'html_css_js' ||
       question?.kind === 'react_fastify'
         ? question
         : undefined
@@ -44,11 +45,13 @@ export const ChoiceResultDetail = ({
           <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
             <span className='text-sm font-semibold text-success'>
               Questão {questionNumber} ·{' '}
-              {result.kind === 'react' || result.kind === 'react_fastify'
-                ? result.kind === 'react_fastify'
-                  ? 'React + Fastify'
-                  : 'React'
-                : 'JavaScript · entrada padrão'}
+              {result.kind === 'react'
+                ? 'React'
+                : result.kind === 'html_css_js'
+                  ? 'HTML, CSS e JavaScript'
+                  : result.kind === 'react_fastify'
+                    ? 'React + Fastify'
+                    : 'JavaScript · entrada padrão'}
             </span>
             <span aria-hidden='true' className='text-muted-foreground'>
               ·
@@ -169,6 +172,7 @@ export const ChoiceResultDetail = ({
     question &&
     question.kind !== 'javascript_stdin' &&
     question.kind !== 'react' &&
+    question.kind !== 'html_css_js' &&
     question.kind !== 'react_fastify'
       ? question
       : undefined
@@ -287,6 +291,7 @@ function isCodeResultQuestion(
     'kind' in result &&
     (result.kind === 'javascript_stdin' ||
       result.kind === 'react' ||
+      result.kind === 'html_css_js' ||
       result.kind === 'react_fastify')
   )
 }

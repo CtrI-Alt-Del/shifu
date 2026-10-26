@@ -64,6 +64,9 @@ from tests.fixtures.redis_fixture import RedisFixture
 from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
 )
+from tests.learning.rest.controllers.html_css_js_controller_fixture import (
+    HtmlCssJsControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -630,6 +633,51 @@ class TestGetChoiceActivityController:
             {'key': 'correctness', 'name': 'Correção', 'weight_percentage': 100}
         ]
         assert 'Fixed comment' not in str(body)
+        assert 'is_correct' not in str(body)
+
+    def test_returns_persisted_html_css_js_project_and_public_rubric(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = HtmlCssJsControllerFixture.activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                HtmlCssJsControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'html_css_js',
+        ]
+        html = body['questions'][2]
+        assert html['prompt'] == HtmlCssJsControllerFixture.PROMPT
+        assert html['entrypoint'] == 'index.html'
+        assert html['editable_paths'] == ['index.html', 'styles.css', 'script.js']
+        assert [item['path'] for item in html['initial_files']] == [
+            'index.html',
+            'styles.css',
+            'script.js',
+            'package.json',
+        ]
+        assert html['fixed_dependencies'] == [{'name': 'vite', 'version': '7.0.0'}]
+        assert html['permitted_commands'] == [
+            {'id': 'dev', 'executable': 'npm', 'arguments': ['run', 'dev']}
+        ]
+        assert html['criteria'] == [
+            {'key': 'quality', 'name': 'Qualidade visual', 'weight_percentage': 100}
+        ]
+        assert 'Private comment' not in str(body)
         assert 'is_correct' not in str(body)
 
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
