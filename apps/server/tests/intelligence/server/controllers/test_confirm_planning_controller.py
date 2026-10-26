@@ -12,6 +12,7 @@ from shifu.intelligence.core.domain.structures import (
     PlanningProposal,
     PlanningProposalSkill,
 )
+from shifu.shared.settings import get_settings
 from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_SKILL_ID,
     SEED_ADAPTIVE_SKILL_ID,
@@ -26,6 +27,8 @@ from tests.intelligence.server.controllers.planning_test_support import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from fastapi.testclient import TestClient
     from httpx import Response
 
@@ -138,6 +141,15 @@ def _goal_count(database: PostgresDatabase) -> int:
         return int(
             connection.execute(text('SELECT COUNT(*) FROM learning_goals')).scalar_one()
         )
+
+
+@pytest.fixture(autouse=True)
+def _require_ready_skills(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    # A local `.env.local` may relax readiness; these tests assert the real rule.
+    monkeypatch.setenv('LEARNING_REQUIRE_READY_SKILLS', 'true')
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture(autouse=True)

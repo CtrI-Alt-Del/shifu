@@ -106,7 +106,7 @@ def _python_with_gap(skill_id: str) -> CurriculumSkillSnapshot:
 
 
 class _Setup:
-    def __init__(self) -> None:
+    def __init__(self, *, require_ready_skills: bool = True) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
         self.database.transaction.return_value.__enter__.return_value = (
@@ -120,7 +120,7 @@ class _Setup:
         identifiers = create_autospec(IdentifierProvider, instance=True)
         identifiers.generate.side_effect = (f'id-{index}' for index in range(1, 100))
         self.subject = CreatePlannedGoalUseCase(
-            self.database, self.curriculum, clock, identifiers
+            self.database, self.curriculum, clock, identifiers, require_ready_skills
         )
 
 
@@ -244,6 +244,31 @@ class TestCreatePlannedGoalUseCase:
 
     def test_should_refuse_an_unknown_skill(self) -> None:
         setup = _Setup()
+        setup.curriculum.get_skill_content.side_effect = None
+        setup.curriculum.get_skill_content.return_value = None
+
+        with pytest.raises(CurriculumGapError):
+            setup.subject.execute(confirmation())
+
+        setup.repositories.goals.add_many.assert_not_called()
+
+    def test_should_accept_a_skill_without_content_when_readiness_is_relaxed(
+        self,
+    ) -> None:
+        setup = _Setup(require_ready_skills=False)
+        setup.curriculum.get_skill_content.side_effect = _python_with_gap
+
+        creation = setup.subject.execute(confirmation())
+
+        assert creation.replayed is False
+        setup.repositories.goals.add_many.assert_called_once()
+        assert setup.repositories.skill_experiences.add_many.call_count == 2
+        setup.repositories.goal_confirmations.add.assert_called_once()
+
+    def test_should_still_refuse_an_unknown_skill_when_readiness_is_relaxed(
+        self,
+    ) -> None:
+        setup = _Setup(require_ready_skills=False)
         setup.curriculum.get_skill_content.side_effect = None
         setup.curriculum.get_skill_content.return_value = None
 

@@ -61,6 +61,8 @@ class Settings(BaseSettings):
         'https://openrouter.ai/api/alpha/decisions'
     )
     jev_model: Literal['typesafe/jev-1.13'] = 'typesafe/jev-1.13'
+    # Development may turn this off to plan Goals with Skills that have no content.
+    learning_require_ready_skills: bool = True
     planning_session_ttl_seconds: int = Field(default=7200, ge=60, le=86_400)
     planning_operation_timeout_seconds: int = Field(default=180, ge=10, le=3600)
     max_activity_payload_bytes: int = Field(

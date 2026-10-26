@@ -47,11 +47,14 @@ class CreatePlannedGoalUseCase:
         curriculum: CurriculumContentProvider,
         clock: ClockProvider,
         identifiers: IdentifierProvider,
+        require_ready_skills: bool = True,
     ) -> None:
         self._database = database
         self._curriculum = curriculum
         self._clock = clock
         self._identifiers = identifiers
+        # Development may plan Skills whose content is not written yet.
+        self._require_ready_skills = require_ready_skills
 
     def execute(self, confirmation: PlannedGoalConfirmation) -> PlannedGoalCreation:
         title = confirmation.title.strip()
@@ -139,7 +142,9 @@ class CreatePlannedGoalUseCase:
         catalogs: list[CurriculumSkillSnapshot] = []
         for skill_id, _ in skills:
             catalog = self._curriculum.get_skill_content(skill_id)
-            if catalog is None or catalog.id != skill_id or not catalog.v2_eligible:
+            if catalog is None or catalog.id != skill_id:
+                raise CurriculumGapError
+            if self._require_ready_skills and not catalog.v2_eligible:
                 raise CurriculumGapError
             catalogs.append(catalog)
         return tuple(catalogs)

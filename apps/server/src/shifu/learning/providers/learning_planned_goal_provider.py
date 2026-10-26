@@ -26,10 +26,11 @@ class LearningPlannedGoalProvider:
         curriculum: CurriculumContentProvider,
         clock: ClockProvider,
         identifiers: IdentifierProvider,
+        require_ready_skills: bool = True,
     ) -> None:
         self._database = database
         self._create = CreatePlannedGoalUseCase(
-            database, curriculum, clock, identifiers
+            database, curriculum, clock, identifiers, require_ready_skills
         )
 
     def create(self, confirmation: PlannedGoalConfirmation) -> PlannedGoalCreation:

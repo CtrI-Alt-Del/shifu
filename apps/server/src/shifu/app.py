@@ -525,7 +525,11 @@ class FastAPIApp:
         )
         app.state.planning_sessions_repository = intelligence_registry.planning_sessions
         app.state.planned_goal_provider = LearningPlannedGoalProvider(
-            learning_database, curriculum_content_provider, clock_provider, id_provider
+            learning_database,
+            curriculum_content_provider,
+            clock_provider,
+            id_provider,
+            require_ready_skills=settings.learning_require_ready_skills,
         )
         app.state.planning_operation_timeout = timedelta(
             seconds=settings.planning_operation_timeout_seconds
