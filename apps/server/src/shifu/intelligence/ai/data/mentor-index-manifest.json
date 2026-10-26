@@ -27,11 +27,12 @@
   "faq_reranker_model": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
   "faq_reranker_revision": "1427fd652930e4ba29e8149678df786c240d8825",
   "faq_rerank_document_format": "question_variations_answer_v1",
-  "faq_query_policy_version": 2,
+  "faq_query_policy_version": 3,
   "faq_candidate_cosine_threshold": 0.85,
   "faq_rerank_limit": 6,
   "faq_rerank_score_threshold": 3.0,
   "faq_rerank_margin": 2.0,
+  "faq_tie_limit": 2,
   "calibration_status": "calibrated_synthetic_v1",
   "review_thresholds": {
     "request_adherence": 0.75,

@@ -22,6 +22,7 @@ from evals.retrieve_planning_skills_eval import (
     RetrievePlanningSkillsE5Eval,
     RetrievePlanningSkillsEval,
 )
+from evals.route_mentor_faq_eval import RouteMentorFaqEval
 from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 
 if TYPE_CHECKING:
@@ -38,6 +39,7 @@ EVAL_CLASSES = (
     SummarizeMentorSessionEval,
     ClassifyLearnerMemoryEval,
     ClassifyMentorIntentEval,
+    RouteMentorFaqEval,
     ClassifyPlanningIntentEval,
     RetrievePlanningSkillsEval,
     RetrievePlanningSkillsE5Eval,

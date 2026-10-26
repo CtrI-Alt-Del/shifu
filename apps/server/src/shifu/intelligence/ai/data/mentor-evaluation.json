@@ -1033,5 +1033,15 @@
       "text": "Qual é a capital da França",
       "intents": []
     }
+  ],
+  "faq_regression": [
+    {
+      "text": "Oi boa noite eu queria saber qual é a diferença entre habilidade e competência dentro da plataforma do shifu",
+      "answer_ids": ["shifu_competency", "shifu_skill"]
+    },
+    {
+      "text": "Qual é a diferença entre habilidade e competência no shifu",
+      "answer_ids": ["shifu_competency", "shifu_skill"]
+    }
   ]
 }

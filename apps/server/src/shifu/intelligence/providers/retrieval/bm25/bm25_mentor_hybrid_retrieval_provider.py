@@ -126,15 +126,21 @@ class Bm25MentorHybridRetrievalProvider:
         ordered = sorted(
             zip(candidates, scores, strict=True), key=lambda item: (-item[1], item[0])
         )
-        winner, score = ordered[0]
-        runner_up = ordered[1][1] if len(ordered) > 1 else 0.0
-        if (
-            winner not in semantic[:3]
-            or score < manifest.faq_rerank_score_threshold
-            or score - runner_up < manifest.faq_rerank_margin
+        score = ordered[0][1]
+        # Answers within the margin of the winner tie: a comparison such as
+        # "Habilidade e Competência" legitimately matches each of them. Every tied
+        # answer must still pass the score threshold on its own.
+        tied = tuple(
+            (reference, value)
+            for reference, value in ordered
+            if score - value < manifest.faq_rerank_margin
+        )
+        if len(tied) > manifest.faq_tie_limit or any(
+            reference not in semantic[:3] or value < manifest.faq_rerank_score_threshold
+            for reference, value in tied
         ):
             return ()
-        return (winner,)
+        return tuple(reference for reference, _ in tied)
 
     def retrieve_curriculum(
         self,
@@ -178,7 +184,7 @@ class Bm25MentorHybridRetrievalProvider:
             for entry in entries
         ]
         if not any(corpus):
-            return tuple(semantic[:limit])
+            return ()
         scores = cast(
             'list[float]',
             BM25Okapi(corpus)
@@ -196,12 +202,16 @@ class Bm25MentorHybridRetrievalProvider:
                 if scores[index] > 0
             )
         )
+        # Cosine alone ranks every eligible entry, even for unrelated questions; an
+        # entry is relevant only when it shares a term with the learner's message.
+        relevant = set(lexical)
         fused: dict[str, float] = {}
         for ranking in (semantic, lexical):
             for rank, reference in enumerate(ranking, start=1):
-                fused[reference] = fused.get(reference, 0) + 1 / (
-                    self._resources.manifest.rrf_k + rank
-                )
+                if reference in relevant:
+                    fused[reference] = fused.get(reference, 0) + 1 / (
+                        self._resources.manifest.rrf_k + rank
+                    )
         return tuple(
             sorted(fused, key=lambda reference: (-fused[reference], reference))[:limit]
         )

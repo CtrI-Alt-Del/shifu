@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     )
 
 
-class _InMemoryMentorEmbeddingsRepository:
+class InMemoryMentorEmbeddingsRepository:
     """The `find_nearest` of the database repository, over vectors held in memory.
 
     Same contract as `SqlalchemyMentorEmbeddingsRepository`: an unknown or inactive
@@ -294,7 +294,7 @@ class ClassifyMentorIntentEval(Eval):
     def classify_samples(self) -> tuple[Sample, ...]:
         resources = MentorResources()
         embeddings = SentenceTransformersEmbeddingsProvider()
-        repository = _InMemoryMentorEmbeddingsRepository()
+        repository = InMemoryMentorEmbeddingsRepository()
         prepare_indexes(
             embeddings, repository, _EmptyMentorCatalogProvider(), resources
         )
