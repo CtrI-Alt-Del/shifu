@@ -1,6 +1,6 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   PlanningProposalSkill,
@@ -35,6 +35,8 @@ const relations: PlanningSkillRelation[] = [
 ]
 
 describe('useProposalSkillGraph', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.layout.mockResolvedValue({
