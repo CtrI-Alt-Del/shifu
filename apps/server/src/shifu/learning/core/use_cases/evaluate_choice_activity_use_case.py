@@ -70,6 +70,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -362,7 +363,8 @@ class EvaluateChoiceActivityUseCase:
             CurriculumChoiceQuestionSnapshot
             | CurriculumJavascriptStdinQuestionSnapshot
             | CurriculumReactQuestionSnapshot
-            | CurriculumHtmlCssJsQuestionSnapshot,
+            | CurriculumHtmlCssJsQuestionSnapshot
+            | CurriculumReactFastifyQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -385,6 +387,7 @@ class EvaluateChoiceActivityUseCase:
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
                 code_result = code_results.get(question.key)
@@ -743,6 +746,7 @@ class EvaluateChoiceActivityUseCase:
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
         }
@@ -771,7 +775,8 @@ class EvaluateChoiceActivityUseCase:
         question: CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
-        | CurriculumHtmlCssJsQuestionSnapshot,
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
@@ -781,6 +786,7 @@ class EvaluateChoiceActivityUseCase:
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
                 CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
@@ -812,7 +818,8 @@ class EvaluateChoiceActivityUseCase:
         part: CurriculumCodeRubricPartSnapshot,
         question: CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
-        | CurriculumHtmlCssJsQuestionSnapshot,
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> CodeRubricResult:

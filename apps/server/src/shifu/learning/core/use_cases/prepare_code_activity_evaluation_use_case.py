@@ -16,6 +16,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 
 
@@ -60,6 +61,7 @@ class PrepareCodeActivityEvaluationUseCase:
                         CurriculumJavascriptStdinQuestionSnapshot,
                         CurriculumReactQuestionSnapshot,
                         CurriculumHtmlCssJsQuestionSnapshot,
+                        CurriculumReactFastifyQuestionSnapshot,
                     ),
                 ):
                     continue

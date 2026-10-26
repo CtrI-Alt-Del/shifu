@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from fastapi.testclient import TestClient
-
 from shifu.app import FastAPIApp
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.identity.core.domain.enums import (
@@ -21,7 +20,6 @@ from shifu.shared.constants import ENVIRONMENT
 
 if TYPE_CHECKING:
     from httpx import Response
-
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
@@ -210,3 +208,13 @@ class TestRegisterAccountController:
         assert duplicate.status_code == 202
         assert duplicate.json()['is_decoy'] is True
         assert len(gateway.requests) == 1
+
+    def test_framework_validation_uses_public_identity_input_code(
+        self, client: TestClient
+    ) -> None:
+        response = client.post('/identity/registrations', json={})
+        assert response.status_code == 422
+        assert response.json() == {
+            'code': 'invalid_input',
+            'message': 'Os dados enviados são inválidos.',
+        }

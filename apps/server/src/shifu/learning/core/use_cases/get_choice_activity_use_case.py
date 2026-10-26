@@ -18,6 +18,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
@@ -92,6 +93,7 @@ class GetChoiceActivityUseCase:
                         CurriculumJavascriptStdinQuestionSnapshot,
                         CurriculumReactQuestionSnapshot,
                         CurriculumHtmlCssJsQuestionSnapshot,
+                        CurriculumReactFastifyQuestionSnapshot,
                     ),
                 )
                 for item in snapshot.questions
@@ -182,7 +184,13 @@ class GetChoiceActivityUseCase:
                         kind=question.kind,
                         prompt=question.prompt,
                         initial_files=question.initial_files,
-                        entrypoint=question.entrypoint,
+                        entrypoint=(
+                            question.frontend_entrypoint
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else question.entrypoint
+                        ),
                         editable_paths=tuple(
                             item.path
                             for item in question.initial_files
@@ -201,9 +209,50 @@ class GetChoiceActivityUseCase:
                             and part.question_key == question.key
                             for item in part.criteria
                         ),
+                        frontend_entrypoint=(
+                            question.frontend_entrypoint
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else None
+                        ),
+                        api_entrypoint=(
+                            question.api_entrypoint
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else None
+                        ),
+                        frontend_command_id=(
+                            question.frontend_command_id
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else None
+                        ),
+                        api_command_id=(
+                            question.api_command_id
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else None
+                        ),
+                        http_examples=(
+                            question.http_examples
+                            if isinstance(
+                                question, CurriculumReactFastifyQuestionSnapshot
+                            )
+                            else ()
+                        ),
                         additional_file_policy=(
                             question.additional_file_policy
-                            if isinstance(question, CurriculumReactQuestionSnapshot)
+                            if isinstance(
+                                question,
+                                (
+                                    CurriculumReactQuestionSnapshot,
+                                    CurriculumReactFastifyQuestionSnapshot,
+                                ),
+                            )
                             else None
                         ),
                     )
@@ -213,6 +262,7 @@ class GetChoiceActivityUseCase:
                             CurriculumJavascriptStdinQuestionSnapshot,
                             CurriculumReactQuestionSnapshot,
                             CurriculumHtmlCssJsQuestionSnapshot,
+                            CurriculumReactFastifyQuestionSnapshot,
                         ),
                     )
                     else ChoiceQuestionDetail(

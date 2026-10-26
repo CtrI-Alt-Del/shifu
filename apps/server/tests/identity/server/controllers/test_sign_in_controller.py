@@ -3,17 +3,21 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, cast
 
+import pytest
+from fastapi.testclient import TestClient
+from shifu.app import FastAPIApp
 from shifu.identity.core.domain.errors import InvalidCredentialsError
 from shifu.identity.core.use_cases import SignInUseCase
-from shifu.shared.core.domain.errors import AuthorizationError
+from shifu.identity.pipes import IdentityPipe
+from shifu.shared.constants import ENVIRONMENT
+from shifu.shared.core.domain.errors import AppError, AuthorizationError
 from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
+from tests.fixtures.telemetry_boundary_fixture import TelemetryBoundaryFixture
 
 if TYPE_CHECKING:
-    import pytest
-
     from fastapi import Request as FastAPIRequest
-    from fastapi.testclient import TestClient
     from httpx import Response
+    from tests.fixtures.postgres_fixture import PostgresDatabase
 
 
 class TestSignInController:
@@ -140,3 +144,41 @@ class TestSignInController:
         assert datetime.fromisoformat(profile['created_at']).utcoffset() == timedelta(0)
         assert 'confirmed_at' not in profile
         assert 'time_zone' not in profile
+
+    @pytest.mark.parametrize('failure_type', [AppError, RuntimeError])
+    def test_identity_dependency_failure_uses_safe_identity_response(
+        self, postgres_database: PostgresDatabase, failure_type: type[Exception]
+    ) -> None:
+        provider = TelemetryBoundaryFixture()
+        app = FastAPIApp.register(postgres_database.engine, telemetry_provider=provider)
+
+        def unavailable_database() -> None:
+            raise failure_type('password=secret-token')
+
+        app.dependency_overrides[IdentityPipe.get_database] = unavailable_database
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                '/identity/sign-in',
+                headers={'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret},
+                json={'email': 'learner@example.test', 'password': 'password'},
+            )
+
+        assert response.status_code == 503
+        assert response.json() == {
+            'code': 'identity_unavailable',
+            'message': 'O serviço de identidade está temporariamente indisponível.',
+        }
+        assert 'password=secret-token' not in str(provider.events)
+
+    def test_invalid_credentials_uses_the_public_sign_in_response(
+        self, client: TestClient
+    ) -> None:
+        response = client.post(
+            '/identity/sign-in',
+            json={'email': 'missing@example.test', 'password': 'wrong-password'},
+        )
+        assert response.status_code == 401
+        assert response.json() == {
+            'code': 'invalid_credentials',
+            'message': 'O e-mail ou a senha são inválidos.',
+        }

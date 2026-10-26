@@ -22,6 +22,7 @@ import {
   Expand,
   File,
   FileJson,
+  FilePlus2,
   FileSpreadsheet,
   FileText,
   FileType,
@@ -90,6 +91,7 @@ export type IconName =
   | 'copy'
   | 'expand'
   | 'file'
+  | 'file-plus'
   | 'file-json'
   | 'file-spreadsheet'
   | 'file-text'
@@ -157,6 +159,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   copy: Copy,
   expand: Expand,
   file: File,
+  'file-plus': FilePlus2,
   'file-json': FileJson,
   'file-spreadsheet': FileSpreadsheet,
   'file-text': FileText,

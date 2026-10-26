@@ -74,11 +74,38 @@ export type HtmlCssJsQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
+export type ReactFastifyHttpMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'PATCH'
+  | 'DELETE'
+  | 'HEAD'
+  | 'OPTIONS'
+
+export type ReactFastifyHttpExample = {
+  key: string
+  title: string
+  method: ReactFastifyHttpMethod
+  path: string
+  body: string | null
+}
+
+export type ReactFastifyQuestion = Omit<ReactQuestion, 'kind' | 'entrypoint'> & {
+  kind: 'react_fastify'
+  frontendEntrypoint: string
+  apiEntrypoint: string
+  frontendCommandId: string
+  apiCommandId: string
+  httpExamples: readonly ReactFastifyHttpExample[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
   | ReactQuestion
   | HtmlCssJsQuestion
+  | ReactFastifyQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -99,7 +126,7 @@ export type ChoiceAnswer = {
 }
 
 export type CodeAnswer = {
-  kind: 'javascript_stdin' | 'react' | 'html_css_js'
+  kind: 'javascript_stdin' | 'react' | 'html_css_js' | 'react_fastify'
   questionKey: string
   files: readonly { path: string; content: string }[]
 }
@@ -146,7 +173,7 @@ export type ChoiceResultQuestion = {
 
 export type CodeResultQuestion = {
   key: string
-  kind: 'javascript_stdin' | 'react' | 'html_css_js'
+  kind: 'javascript_stdin' | 'react' | 'html_css_js' | 'react_fastify'
   prompt: string
   score: number | null
   submittedFiles: readonly { path: string; content: string }[]

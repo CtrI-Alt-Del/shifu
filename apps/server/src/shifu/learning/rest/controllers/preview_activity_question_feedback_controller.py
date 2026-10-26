@@ -40,6 +40,7 @@ class AnswerRequest(BaseModel):
         'javascript_stdin',
         'react',
         'html_css_js',
+        'react_fastify',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
@@ -47,7 +48,7 @@ class AnswerRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js'}:
+        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -127,7 +128,12 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind in {'javascript_stdin', 'react', 'html_css_js'}:
+            if payload.kind in {
+                'javascript_stdin',
+                'react',
+                'html_css_js',
+                'react_fastify',
+            }:
                 answer = CodeAnswer(
                     question_key=payload.question_key,
                     kind=payload.kind,

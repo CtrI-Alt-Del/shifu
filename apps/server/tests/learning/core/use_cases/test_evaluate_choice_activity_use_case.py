@@ -55,6 +55,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumSkillSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -499,10 +500,12 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.competency_progresses.update.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
+    @pytest.mark.parametrize('react', (True, 'integrated'), ids=('react', 'integrated'))
     def test_should_leave_mixed_attempt_pending_when_code_decisions_are_missing(
         self,
+        react: bool | str,
     ) -> None:
-        self._set_mixed_attempt(react=True)
+        self._set_mixed_attempt(react=react)
 
         with pytest.raises(EvaluationUnavailableError):
             self.subject.execute(self.attempt.id, 'run-1')
@@ -512,8 +515,11 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.concept_observations.add_many.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
-    def test_should_ignore_mixed_attempt_when_preflight_run_is_stale(self) -> None:
-        self._set_mixed_attempt(react=True)
+    @pytest.mark.parametrize('react', (True, 'integrated'), ids=('react', 'integrated'))
+    def test_should_ignore_mixed_attempt_when_preflight_run_is_stale(
+        self, react: bool | str
+    ) -> None:
+        self._set_mixed_attempt(react=react)
         decisions = CodeRubricDecisions(
             criterion_levels=(CodeCriterionDecision(key='correctness', level=50),),
             concept_levels=(),
@@ -531,10 +537,12 @@ class TestEvaluateChoiceActivityUseCase:
         self.repositories.skill_experiences.find_by_id_for_update.assert_not_called()
         self.repositories.activity_evaluations.update.assert_not_called()
 
+    @pytest.mark.parametrize('react', (True, 'integrated'), ids=('react', 'integrated'))
     def test_should_ignore_mixed_attempt_when_preflight_evaluation_is_completed(
         self,
+        react: bool | str,
     ) -> None:
-        self._set_mixed_attempt(react=True)
+        self._set_mixed_attempt(react=react)
         self.evaluation.complete(Decimal('90'), NOW, ())
         decisions = CodeRubricDecisions(
             criterion_levels=(CodeCriterionDecision(key='correctness', level=50),),
@@ -552,7 +560,7 @@ class TestEvaluateChoiceActivityUseCase:
         self.clock.now.assert_not_called()
         self.repositories.activity_evaluations.update.assert_not_called()
 
-    def _set_mixed_attempt(self, *, react: bool = False) -> None:
+    def _set_mixed_attempt(self, *, react: bool | str = False) -> None:
         path = 'src/main.tsx' if react else 'src/main.js'
         self.attempt = ActivityAttempt.create(
             id='attempt-1',
@@ -565,7 +573,18 @@ class TestEvaluateChoiceActivityUseCase:
                 SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
                 CodeAnswer(
                     question_key='q3',
-                    files=(CodeSubmittedFile(path=path, content='submitted'),),
+                    files=(
+                        CodeSubmittedFile(path=path, content='submitted'),
+                        *(
+                            (
+                                CodeSubmittedFile(
+                                    path='routes/api.js', content='api submitted'
+                                ),
+                            )
+                            if react == 'integrated'
+                            else ()
+                        ),
+                    ),
                 ),
             ),
             submitted_at=NOW,
@@ -681,10 +700,12 @@ class TestEvaluateChoiceActivityUseCase:
         assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
         assert self.evaluation.effect_applied_at == NOW
 
+    @pytest.mark.parametrize('react', (True, 'integrated'), ids=('react', 'integrated'))
     def test_should_grade_saved_react_project_and_preserve_frozen_result(
         self,
+        react: bool | str,
     ) -> None:
-        self._set_mixed_attempt(react=True)
+        self._set_mixed_attempt(react=react)
         decisions = CodeRubricDecisions(
             criterion_levels=(CodeCriterionDecision(key='correctness', level=50),),
             concept_levels=(),
@@ -716,13 +737,15 @@ class TestEvaluateChoiceActivityUseCase:
         )
         self.repositories.events.add.assert_called_once()
 
-    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'react', (False, True, 'integrated'), ids=('javascript', 'react', 'integrated')
+    )
     @pytest.mark.parametrize(
         'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
     )
     @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
     def test_should_apply_configured_utf8_project_limit_when_grading_saved_code(
-        self, react: bool, limit: int, extra_byte: int
+        self, react: bool | str, limit: int, extra_byte: int
     ) -> None:
         self._set_mixed_attempt(react=react)
         snapshot = mixed_snapshot(react=react)
@@ -732,6 +755,8 @@ class TestEvaluateChoiceActivityUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         )
         self.attempt = replace(

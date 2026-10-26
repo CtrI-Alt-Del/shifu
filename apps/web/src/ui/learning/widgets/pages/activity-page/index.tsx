@@ -11,6 +11,7 @@ import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
 import { HtmlCssJsQuestion } from './html-css-js-question'
+import { ReactFastifyQuestion } from './react-fastify-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
 
@@ -57,6 +58,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
     runnerFactory,
     reactRunnerFactory,
     htmlCssJsRunnerFactory,
+    reactFastifyRunnerFactory,
     reactDraftStore,
     accountId,
     isOnlineAuthority,
@@ -213,7 +215,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const isNextCompetency =
     'goalId' in props && nextDiagnosticActivity?.competencyId !== props.competencyId
 
-  const isReactQuestion = currentQuestion.kind === 'react'
+  const isReactQuestion =
+    currentQuestion.kind === 'react' || currentQuestion.kind === 'react_fastify'
   const isHtmlCssJsQuestion = currentQuestion.kind === 'html_css_js'
   const isCodeQuestion =
     currentQuestion.kind === 'javascript_stdin' || isReactQuestion || isHtmlCssJsQuestion
@@ -221,7 +224,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const choiceQuestion =
     currentQuestion.kind !== 'javascript_stdin' &&
     currentQuestion.kind !== 'react' &&
-    currentQuestion.kind !== 'html_css_js' ? (
+    currentQuestion.kind !== 'html_css_js' &&
+    currentQuestion.kind !== 'react_fastify' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -294,36 +298,69 @@ export const ActivityPage = (props: ActivityPageProps) => {
             runnerFactory={runnerFactory}
           />
         ) : isReactQuestion ? (
-          <ReactQuestion
-            accountId={accountId}
-            activityId={activity.activityId}
-            activityRevision={activity.activityRevision ?? null}
-            canSubmit={activity.canSubmit}
-            activeQuestionKeys={activeQuestionKeys}
-            activityTitle={activity.title}
-            competencyId={'competencyId' in props ? props.competencyId : undefined}
-            difficulty={activity.difficulty}
-            disabled={Boolean(
-              isQuestionReadOnly ||
-                isSubmitting ||
-                isAssessing ||
-                Boolean(isReactQuestion && (feedback || frozenAnswer)),
-            )}
-            goalId={'goalId' in props ? props.goalId : undefined}
-            isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
-            isDiagnostic={Boolean(activity.isDiagnostic)}
-            key={currentQuestion.key}
-            onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
-            onFilesChange={handleCodeFilesChange}
-            onAnswerValidityChange={handleReactAnswerValidityChange}
-            question={currentQuestion}
-            questionNumber={currentQuestionNumber}
-            runnerFactory={reactRunnerFactory}
-            draftStore={reactDraftStore}
-            readOnly={Boolean(feedback || frozenAnswer)}
-            skillId={'skillId' in props ? props.skillId : undefined}
-            totalQuestions={totalQuestions}
-          />
+          currentQuestion.kind === 'react_fastify' ? (
+            <ReactFastifyQuestion
+              accountId={accountId}
+              activityId={activity.activityId}
+              activityRevision={activity.activityRevision ?? null}
+              canSubmit={activity.canSubmit}
+              activeQuestionKeys={activeQuestionKeys}
+              activityTitle={activity.title}
+              competencyId={'competencyId' in props ? props.competencyId : undefined}
+              difficulty={activity.difficulty}
+              disabled={Boolean(
+                isQuestionReadOnly ||
+                  isSubmitting ||
+                  isAssessing ||
+                  Boolean(isReactQuestion && (feedback || frozenAnswer)),
+              )}
+              goalId={'goalId' in props ? props.goalId : undefined}
+              isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+              isDiagnostic={Boolean(activity.isDiagnostic)}
+              key={currentQuestion.key}
+              onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+              onFilesChange={handleCodeFilesChange}
+              onAnswerValidityChange={handleReactAnswerValidityChange}
+              question={currentQuestion}
+              questionNumber={currentQuestionNumber}
+              runnerFactory={reactFastifyRunnerFactory}
+              draftStore={reactDraftStore}
+              readOnly={Boolean(feedback || frozenAnswer)}
+              skillId={'skillId' in props ? props.skillId : undefined}
+              totalQuestions={totalQuestions}
+            />
+          ) : (
+            <ReactQuestion
+              accountId={accountId}
+              activityId={activity.activityId}
+              activityRevision={activity.activityRevision ?? null}
+              canSubmit={activity.canSubmit}
+              activeQuestionKeys={activeQuestionKeys}
+              activityTitle={activity.title}
+              competencyId={'competencyId' in props ? props.competencyId : undefined}
+              difficulty={activity.difficulty}
+              disabled={Boolean(
+                isQuestionReadOnly ||
+                  isSubmitting ||
+                  isAssessing ||
+                  Boolean(isReactQuestion && (feedback || frozenAnswer)),
+              )}
+              goalId={'goalId' in props ? props.goalId : undefined}
+              isOnlineAuthority={Boolean('activity' in props || isOnlineAuthority)}
+              isDiagnostic={Boolean(activity.isDiagnostic)}
+              key={currentQuestion.key}
+              onAssess={activity.isDiagnostic ? undefined : handleAssessCode}
+              onFilesChange={handleCodeFilesChange}
+              onAnswerValidityChange={handleReactAnswerValidityChange}
+              question={currentQuestion}
+              questionNumber={currentQuestionNumber}
+              runnerFactory={reactRunnerFactory}
+              draftStore={reactDraftStore}
+              readOnly={Boolean(feedback || frozenAnswer)}
+              skillId={'skillId' in props ? props.skillId : undefined}
+              totalQuestions={totalQuestions}
+            />
+          )
         ) : isHtmlCssJsQuestion ? (
           <HtmlCssJsQuestion
             accountId={accountId}
@@ -451,7 +488,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
               </div>
             ) : (currentQuestion.kind !== 'javascript_stdin' &&
                 currentQuestion.kind !== 'react' &&
-                currentQuestion.kind !== 'html_css_js') ||
+                currentQuestion.kind !== 'html_css_js' &&
+                currentQuestion.kind !== 'react_fastify') ||
               activity.isDiagnostic ||
               feedback ||
               frozenAnswer ? (

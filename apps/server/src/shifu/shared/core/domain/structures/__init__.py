@@ -136,3 +136,10 @@ from .mentor_context_snapshot import MentorContextSnapshot as MentorContextSnaps
 from .mentor_goal_destination import MentorGoalDestination as MentorGoalDestination
 
 from .mentor_goal_destinations import MentorGoalDestinations as MentorGoalDestinations
+
+from .curriculum_react_fastify_http_example_snapshot import (
+    CurriculumReactFastifyHttpExampleSnapshot as CurriculumReactFastifyHttpExampleSnapshot,
+)
+from .curriculum_react_fastify_question_snapshot import (
+    CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
+)

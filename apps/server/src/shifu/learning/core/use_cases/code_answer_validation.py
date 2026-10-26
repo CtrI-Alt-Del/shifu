@@ -8,12 +8,14 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 
 type CodeQuestionSnapshot = (
     CurriculumJavascriptStdinQuestionSnapshot
     | CurriculumReactQuestionSnapshot
     | CurriculumHtmlCssJsQuestionSnapshot
+    | CurriculumReactFastifyQuestionSnapshot
 )
 
 
@@ -41,7 +43,13 @@ class CodeAnswerValidation:
         additional_paths = set(provided) - editable_paths
         if additional_paths & initial_paths:
             raise ValidationError
-        if not isinstance(question, CurriculumReactQuestionSnapshot):
+        if isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+            ),
+        ):
             if additional_paths:
                 raise ValidationError
         else:

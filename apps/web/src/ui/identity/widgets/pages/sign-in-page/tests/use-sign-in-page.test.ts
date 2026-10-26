@@ -38,6 +38,7 @@ describe('useSignInPage', () => {
       signIn: signInMock,
     })
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToActivity: vi.fn(),
       navigateToGoalDetail: vi.fn(),

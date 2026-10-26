@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import create_autospec
@@ -54,6 +54,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsInitialFileSnapshot,
     CurriculumHtmlCssJsDependencySnapshot,
     CurriculumHtmlCssJsPermittedCommandSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumSkillSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -196,6 +197,58 @@ def react_activity_snapshot() -> CurriculumLearningActivitySnapshot:
 
 
 class TestSubmitChoiceActivityUseCase:
+    @pytest.mark.parametrize(
+        'boundary', ('path-exact', 'path-above', 'segment-exact', 'segment-above')
+    )
+    def test_integrated_path_and_segment_length_boundaries(self, boundary: str) -> None:
+        snapshot = mixed_snapshot(react='integrated')
+        self.provider.get_learning_activity.return_value = snapshot
+        prefix = 'src/components/'
+        if boundary.startswith('path'):
+            fixed = prefix + '/'.join(('a' * 64, 'b' * 64, 'c' * 64)) + '/'
+            path = fixed + 'd' * (240 - len(fixed) - 4) + '.tsx'
+            if boundary == 'path-above':
+                path = path.replace('.tsx', 'd.tsx')
+            assert len(path) == (240 if boundary == 'path-exact' else 241)
+        else:
+            path = prefix + 'x' * (60 if boundary == 'segment-exact' else 61) + '.tsx'
+            assert len(path.split('/')[-1]) == (
+                64 if boundary == 'segment-exact' else 65
+            )
+        answer = CodeAnswer(
+            question_key='q3',
+            kind='react_fastify',
+            files=(
+                CodeSubmittedFile(path='src/main.tsx', content='frontend'),
+                CodeSubmittedFile(path='routes/api.js', content='api'),
+                CodeSubmittedFile(path=path, content='additional'),
+            ),
+        )
+        args = (
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'integrated-path-boundary',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                answer,
+            ),
+            snapshot.revision,
+        )
+        if boundary.endswith('above'):
+            with pytest.raises(ValidationError):
+                self.subject.execute(*args)
+            self.repositories.activity_attempts.add.assert_not_called()
+            self.repositories.events.add.assert_not_called()
+        else:
+            self.subject.execute(*args)
+            saved = self.repositories.activity_attempts.add.call_args.args[0]
+            assert path in {item.path for item in saved.answers[-1].files}
+            self.repositories.events.add.assert_called_once()
+
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
@@ -436,7 +489,66 @@ class TestSubmitChoiceActivityUseCase:
             ),
         )
         assert attempt.grading_snapshot is snapshot
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactQuestionSnapshot)
+        assert question.kind == 'react'
+        assert question.additional_file_policy is not None
+        with pytest.raises(FrozenInstanceError):
+            question.prompt = 'changed'  # type: ignore[misc]
+        assert snapshot.questions[-1] is question
         self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'path',
+        (
+            '/src/components/Button.tsx',
+            '../Button.tsx',
+            'src/../components/Button.tsx',
+            'src\\components\\Button.tsx',
+            'src//components/Button.tsx',
+            'src/components/.hidden.tsx',
+            'src/components/éxito.tsx',
+            f'src/components/{"a" * 65}.tsx',
+            f'src/{"a" * 235}.tsx',
+            'src/components/package.json',
+            'src/components/tsconfig.json',
+            'src/components/tsconfig.app.json',
+            'src/components/vite.config.tsx',
+            'src/components-old/Button.tsx',
+            'src/Other.tsx',
+            'src/components/Button.js',
+        ),
+    )
+    def test_should_reject_noncanonical_additional_react_paths_before_writes(
+        self,
+        path: str,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'unsafe-react-path',
+                (
+                    *answers()[:2],
+                    CodeAnswer(
+                        question_key='q3',
+                        kind='react',
+                        files=(
+                            CodeSubmittedFile(path='src/main.tsx', content='main'),
+                            CodeSubmittedFile(path=path, content='extra'),
+                        ),
+                    ),
+                ),
+                snapshot.revision,
+            )
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_reject_tampered_react_file_policy_without_side_effects(
         self,
@@ -511,6 +623,181 @@ class TestSubmitChoiceActivityUseCase:
         )
         self.repositories.activity_evaluations.add.assert_called_once()
         self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'additional_path',
+        (
+            '../escape.tsx',
+            'src/components/../escape.tsx',
+            'src/components/\x00.tsx',
+            'src/components/.hidden.tsx',
+            'src/components/package.json',
+            'src/components/vite.config.js',
+            'src/components/node_modules/a.tsx',
+            'src/components/a\\b.tsx',
+            'src//components/a.tsx',
+            'src/components/' + 'x' * 65 + '.tsx',
+            'src/components/a.tsx/child.tsx',
+        ),
+    )
+    def test_should_reject_integrated_invalid_paths_without_any_persistence(
+        self, additional_path: str
+    ) -> None:
+        snapshot = mixed_snapshot(react='integrated')
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactFastifyQuestionSnapshot)
+        self.provider.get_learning_activity.return_value = snapshot
+        code = CodeAnswer(
+            question_key='q3',
+            kind='react_fastify',
+            files=(
+                CodeSubmittedFile(path='src/main.tsx', content='frontend'),
+                CodeSubmittedFile(path='routes/api.js', content='api'),
+                CodeSubmittedFile(path='src/components/a.tsx', content='component'),
+                CodeSubmittedFile(path=additional_path, content='untrusted'),
+            ),
+        )
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'invalid-integrated',
+                (
+                    ChoiceAnswerSubmission(
+                        question_key='q1', selected_option_keys=('a',)
+                    ),
+                    ChoiceAnswerSubmission(
+                        question_key='q2', selected_option_keys=('a',)
+                    ),
+                    code,
+                ),
+                snapshot.revision,
+            )
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize('max_files', (None, 1, 32))
+    @pytest.mark.parametrize('extra', (0, 1))
+    def test_should_enforce_integrated_optional_additional_file_count(
+        self, max_files: int | None, extra: int
+    ) -> None:
+        snapshot = mixed_snapshot(react='integrated')
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactFastifyQuestionSnapshot)
+        policy = (
+            None
+            if max_files is None
+            else CurriculumReactAdditionalFilePolicySnapshot(
+                allowed_directories=('src/components', 'routes'),
+                allowed_extensions=('.tsx', '.js'),
+                max_files=max_files,
+            )
+        )
+        snapshot = replace(
+            snapshot,
+            questions=(
+                *snapshot.questions[:-1],
+                replace(question, additional_file_policy=policy),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+        count = (max_files or 0) + extra
+        code = CodeAnswer(
+            question_key='q3',
+            kind='react_fastify',
+            files=(
+                CodeSubmittedFile(path='src/main.tsx', content='frontend'),
+                CodeSubmittedFile(path='routes/api.js', content='api'),
+                *(
+                    CodeSubmittedFile(
+                        path=f'src/components/F{index}.tsx', content='additional'
+                    )
+                    for index in range(count)
+                ),
+            ),
+        )
+        arguments = (
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'integrated-count',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                code,
+            ),
+            snapshot.revision,
+        )
+        if extra:
+            with pytest.raises(ValidationError):
+                self.subject.execute(*arguments)
+            self.repositories.activity_attempts.add.assert_not_called()
+            self.repositories.events.add.assert_not_called()
+        else:
+            result = self.subject.execute(*arguments)
+            assert not result.replayed
+            saved = self.repositories.activity_attempts.add.call_args.args[0]
+            assert saved.grading_snapshot == snapshot
+            assert saved.answers[-1].kind == 'react_fastify'
+            assert len(saved.answers[-1].files) == 2 + count
+            self.repositories.activity_attempts.add.assert_called_once()
+            self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'invalid', ('partial', 'wrong-kind', 'inline', 'fixed', 'duplicate')
+    )
+    def test_should_reject_integrated_malformed_answers_without_side_effects(
+        self, invalid: str
+    ) -> None:
+        snapshot = mixed_snapshot(react='integrated')
+        self.provider.get_learning_activity.return_value = snapshot
+        files = (
+            CodeSubmittedFile(path='src/main.tsx', content='frontend'),
+            CodeSubmittedFile(path='routes/api.js', content='api'),
+        )
+        if invalid == 'partial':
+            files = files[:1]
+        if invalid == 'fixed':
+            files = (
+                *files,
+                CodeSubmittedFile(path='src/fixed.css', content='tampered'),
+            )
+        if invalid == 'duplicate':
+            files = (*files, files[-1])
+        code = CodeAnswer(
+            question_key='q3',
+            kind='react' if invalid == 'wrong-kind' else 'react_fastify',
+            files=files,
+            source_code='inline' if invalid == 'inline' else None,
+        )
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'invalid-integrated',
+                (
+                    ChoiceAnswerSubmission(
+                        question_key='q1', selected_option_keys=('a',)
+                    ),
+                    ChoiceAnswerSubmission(
+                        question_key='q2', selected_option_keys=('a',)
+                    ),
+                    code,
+                ),
+                snapshot.revision,
+            )
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     @pytest.mark.parametrize(
         'code_answer',
@@ -600,13 +887,15 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
 
-    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'react', (False, True, 'integrated'), ids=('javascript', 'react', 'integrated')
+    )
     @pytest.mark.parametrize(
         'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
     )
     @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
     def test_should_apply_configured_utf8_project_limit_to_submit_and_replay(
-        self, react: bool, limit: int, extra_byte: int
+        self, react: bool | str, limit: int, extra_byte: int
     ) -> None:
         snapshot = mixed_snapshot(react=react)
         question = snapshot.questions[-1]
@@ -615,6 +904,7 @@ class TestSubmitChoiceActivityUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         )
         self.provider.get_learning_activity.return_value = snapshot

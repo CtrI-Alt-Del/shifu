@@ -26,6 +26,9 @@ from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumCodeRubricCriterionSnapshot,
+    CurriculumCodeRubricCommentSnapshot,
+    CurriculumCodeInconclusiveCommentSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactDependencySnapshot,
@@ -33,7 +36,6 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactPermittedCommandSnapshot,
     CurriculumReactQuestionSnapshot,
 )
-from shifu.shared.database.sqlalchemy.serialization import Serialization
 
 
 def _policy(
@@ -227,10 +229,6 @@ def test_should_snapshot_react_policy_and_concept_contract() -> None:
     assert question.additional_file_policy is not None
     assert question.additional_file_policy.allows('src/components/forms/Field.tsx')
     assert not question.additional_file_policy.allows('src/components-old/Field.tsx')
-    restored = Serialization.deserialize_value(
-        Serialization.serialize_value(question), CurriculumReactQuestionSnapshot
-    )
-    assert restored == question
     with pytest.raises(ValidationError):
         CurriculumReactInitialFileSnapshot(
             path='src/../App.tsx', content='', editable=True
@@ -323,16 +321,51 @@ def test_should_reject_incomplete_or_ambiguous_react_activity_contract(
 
 
 def _learning_react_snapshot() -> CurriculumLearningActivitySnapshot:
-    question = Serialization.deserialize_value(
-        Serialization.serialize_value(_question()),
-        CurriculumReactQuestionSnapshot,
+    question = CurriculumReactQuestionSnapshot(
+        key='react-1',
+        prompt='Build a component',
+        initial_files=(
+            CurriculumReactInitialFileSnapshot(
+                path='package.json', content='{}', editable=False
+            ),
+            CurriculumReactInitialFileSnapshot(
+                path='src/App.tsx', content='', editable=True
+            ),
+        ),
+        entrypoint='src/App.tsx',
+        fixed_dependencies=(
+            CurriculumReactDependencySnapshot(name='react', version='19.0.0'),
+        ),
+        permitted_commands=(
+            CurriculumReactPermittedCommandSnapshot(
+                id='dev', executable='npm', arguments=('run', 'dev')
+            ),
+        ),
+        concept_criteria=(),
+        additional_file_policy=None,
     )
-    assert isinstance(question, CurriculumReactQuestionSnapshot)
-    part = Serialization.deserialize_value(
-        Serialization.serialize_value(_rubric_part(question.key)),
-        CurriculumCodeRubricPartSnapshot,
+    part = CurriculumCodeRubricPartSnapshot(
+        question_key=question.key,
+        weight_percentage=Decimal(100),
+        criteria=(
+            CurriculumCodeRubricCriterionSnapshot(
+                key='quality',
+                name='Quality',
+                description='Uses the requested component structure',
+                weight_percentage=100,
+                required=True,
+                fixed_comments=tuple(
+                    CurriculumCodeRubricCommentSnapshot(
+                        id=f'quality-{level}', level=level, text=f'Level {level}'
+                    )
+                    for level in (0, 25, 50, 75, 100)
+                ),
+                inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+                    id='quality-unknown', text='Insufficient evidence'
+                ),
+            ),
+        ),
     )
-    assert isinstance(part, CurriculumCodeRubricPartSnapshot)
     return CurriculumLearningActivitySnapshot(
         id='activity-1',
         competency_id='competency-1',

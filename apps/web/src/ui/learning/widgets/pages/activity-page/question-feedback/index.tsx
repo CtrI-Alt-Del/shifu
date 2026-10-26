@@ -66,7 +66,8 @@ export const QuestionFeedback = ({
             const criterionTitle =
               question.kind === 'javascript_stdin' ||
               question.kind === 'react' ||
-              question.kind === 'html_css_js'
+              question.kind === 'html_css_js' ||
+              question.kind === 'react_fastify'
                 ? question.criteria.find(({ key }) => key === criterion.key)?.name
                 : undefined
             const scoreClassName =
@@ -104,7 +105,8 @@ export const QuestionFeedback = ({
       ) : null}
       {frozenAnswer?.kind === 'javascript_stdin' ||
       frozenAnswer?.kind === 'react' ||
-      frozenAnswer?.kind === 'html_css_js' ? (
+      frozenAnswer?.kind === 'html_css_js' ||
+      frozenAnswer?.kind === 'react_fastify' ? (
         <details>
           <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>
             Arquivos avaliados

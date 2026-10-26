@@ -1,6 +1,21 @@
 from __future__ import annotations
+import asyncio
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import create_autospec
+import pytest
+from shifu.intelligence.ai.intelligence_workflows_registry import (
+    IntelligenceWorkflowsRegistry,
+)
+from shifu.intelligence.core.domain.errors import PlanningIndexUnavailableError
+from shifu.intelligence.core.domain.structures import PlanningQuery
+from shifu.shared.core.interfaces import (
+    MentorAccessProvider,
+    MentorContextProvider,
+    MentorCatalogProvider,
+    MentorGoalDestinationsProvider,
+)
+from shifu.shared.settings import get_settings
 from typing import TYPE_CHECKING
 
 from shifu.intelligence.core.domain.enums import (
@@ -16,6 +31,8 @@ from tests.intelligence.server.controllers.planning_test_support import (
 )
 
 if TYPE_CHECKING:
+    from tests.fixtures.redis_fixture import RedisFixture
+    from tests.fixtures.postgres_fixture import PostgresDatabase
     from fastapi.testclient import TestClient
 
 
@@ -126,3 +143,28 @@ class TestGetPlanningSessionController:
         assert after.status_code == 200, after.text
         assert after.json()['operation']['stage'] == 'retrieving'
         assert after.json()['status'] == 'processing'
+
+
+class TestPlanningUnavailableCompositionContract:
+    """Defensive public composition only; this does not claim registered execution."""
+
+    def test_should_fail_closed_when_the_registry_has_no_curriculum_catalog(
+        self, postgres_database: PostgresDatabase, redis_fixture: RedisFixture
+    ) -> None:
+        registry = IntelligenceWorkflowsRegistry(
+            get_settings(),
+            None,
+            create_autospec(MentorAccessProvider, instance=True),
+            create_autospec(MentorContextProvider, instance=True),
+            create_autospec(MentorCatalogProvider, instance=True),
+            create_autospec(MentorGoalDestinationsProvider, instance=True),
+            outbox_engine=postgres_database.engine,
+            curriculum_catalog_provider=None,
+        )
+        try:
+            with pytest.raises(PlanningIndexUnavailableError):
+                registry.planning_skill_retrieval.retrieve(
+                    PlanningQuery(intent='Quero aprender React')
+                )
+        finally:
+            asyncio.run(registry.close())

@@ -56,3 +56,8 @@ from .skill_foundation import SkillFoundation as SkillFoundation
 from .test_cases_evaluation_part import (
     TestCasesEvaluationPart as TestCasesEvaluationPart,
 )
+
+from .react_fastify_http_example import (
+    ReactFastifyHttpExample as ReactFastifyHttpExample,
+)
+from .react_fastify_question import ReactFastifyQuestion as ReactFastifyQuestion

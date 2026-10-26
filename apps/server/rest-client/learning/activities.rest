@@ -10,6 +10,7 @@
 @codeQuestionKey = replace-with-stdin-question-key
 @reactQuestionKey = replace-with-react-question-key
 @htmlCssJsQuestionKey = replace-with-html-css-js-question-key
+@reactFastifyQuestionKey = replace-with-integrated-question-key
 
 ### GET Activity — choice or mixed question sequence
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}
@@ -136,3 +137,47 @@ Content-Type: application/json
 POST {{baseUrl}}/learning/goals/{{adaptiveGoalId}}/skills/{{adaptiveSkillId}}/competencies/{{adaptiveCompetencyId}}/activities/{{firstDiagnosticActivityId}}/attempts/{{diagnosticAttemptId}}/retry
 Authorization: Bearer {{accessToken}}
 X-Diagnostic-Run-Id: {{diagnosticRunId}}
+
+### POST preliminary feedback — one integrated frontend/API answer, no attempt
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/questions/{{reactFastifyQuestionKey}}/preliminary-evaluations
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "activity_revision": "{{activityRevision}}",
+  "answer": {
+    "kind": "react_fastify",
+    "question_key": "{{reactFastifyQuestionKey}}",
+    "files": [
+      { "path": "src/App.jsx", "content": "export default function App() { return <main>Tarefas</main> }" },
+      { "path": "routes/api.js", "content": "import Fastify from 'fastify'; const api = Fastify(); api.get('/api/tasks', async () => [{id: 1, title: 'Aprender', done: false}]); await api.listen({port: 3000, host: '0.0.0.0'});" }
+    ]
+  }
+}
+
+### POST complete integrated Activity — replace all question keys/files from GET
+### 201 for creation, 200 for identical replay, 409 for same key with changed answers.
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{submissionKey}}",
+  "activity_revision": "{{activityRevision}}",
+  "answers": [
+    { "kind": "single_choice", "question_key": "question-one", "selected_option_keys": ["a"] },
+    { "kind": "single_choice", "question_key": "question-two", "selected_option_keys": ["a"] },
+    { "kind": "react_fastify", "question_key": "{{reactFastifyQuestionKey}}", "files": [
+      { "path": "src/App.jsx", "content": "export default function App() { return <main>Tarefas</main> }" },
+      { "path": "routes/api.js", "content": "import Fastify from 'fastify'; const api = Fastify(); api.get('/api/tasks', async () => []); await api.listen({port: 3000, host: '0.0.0.0'});" }
+    ] }
+  ]
+}
+
+### GET integrated attempt — saved snapshot/response, without starting practice
+GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}
+Authorization: Bearer {{accessToken}}
+
+### POST recovery — same saved integrated answer and attempt, no replacement files
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts/{{attemptId}}/retry
+Authorization: Bearer {{accessToken}}

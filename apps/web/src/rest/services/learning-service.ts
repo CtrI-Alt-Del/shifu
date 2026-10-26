@@ -60,7 +60,18 @@ type ActivityWire = {
       }
     | {
         key: string
-        kind: 'react'
+        kind: 'react' | 'react_fastify'
+        frontend_entrypoint?: string
+        api_entrypoint?: string
+        frontend_command_id?: string
+        api_command_id?: string
+        http_examples?: {
+          key: string
+          title: string
+          method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'
+          path: string
+          body: string | null
+        }[]
         prompt: string
         initial_files: { path: string; content: string; editable: boolean }[]
         entrypoint: string
@@ -115,16 +126,24 @@ function mapActivityQuestion(
       })),
     }
   }
-  if (question.kind === 'react') {
+  if (question.kind === 'react' || question.kind === 'react_fastify') {
     return {
       key: question.key,
-      kind: question.kind,
       prompt: question.prompt,
       initialFiles: question.initial_files,
-      entrypoint: question.entrypoint,
       editablePaths: question.editable_paths,
       fixedDependencies: question.fixed_dependencies,
       permittedCommands: question.permitted_commands,
+      ...(question.kind === 'react_fastify'
+        ? {
+            kind: 'react_fastify' as const,
+            frontendEntrypoint: question.frontend_entrypoint ?? question.entrypoint,
+            apiEntrypoint: question.api_entrypoint ?? '',
+            frontendCommandId: question.frontend_command_id ?? '',
+            apiCommandId: question.api_command_id ?? '',
+            httpExamples: question.http_examples ?? [],
+          }
+        : { kind: 'react' as const, entrypoint: question.entrypoint }),
       additionalFilePolicy: question.additional_file_policy
         ? {
             allowedDirectories: question.additional_file_policy.allowed_directories,
@@ -223,7 +242,7 @@ type AttemptWire = {
       }
     | {
         question_key: string
-        kind: 'react'
+        kind: 'react' | 'react_fastify'
         prompt: string
         submitted_files: { path: string; content: string }[]
         score: number | null
@@ -288,7 +307,8 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         'kind' in question &&
         (question.kind === 'javascript_stdin' ||
           question.kind === 'react' ||
-          question.kind === 'html_css_js')
+          question.kind === 'html_css_js' ||
+          question.kind === 'react_fastify')
       ) {
         return {
           key: question.question_key,

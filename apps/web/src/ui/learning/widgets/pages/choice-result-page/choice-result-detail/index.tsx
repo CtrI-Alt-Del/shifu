@@ -28,7 +28,8 @@ export const ChoiceResultDetail = ({
     const codeQuestion =
       question?.kind === 'javascript_stdin' ||
       question?.kind === 'react' ||
-      question?.kind === 'html_css_js'
+      question?.kind === 'html_css_js' ||
+      question?.kind === 'react_fastify'
         ? question
         : undefined
     return (
@@ -48,7 +49,9 @@ export const ChoiceResultDetail = ({
                 ? 'React'
                 : result.kind === 'html_css_js'
                   ? 'HTML, CSS e JavaScript'
-                  : 'JavaScript · entrada padrão'}
+                  : result.kind === 'react_fastify'
+                    ? 'React + Fastify'
+                    : 'JavaScript · entrada padrão'}
             </span>
             <span aria-hidden='true' className='text-muted-foreground'>
               ·
@@ -169,7 +172,8 @@ export const ChoiceResultDetail = ({
     question &&
     question.kind !== 'javascript_stdin' &&
     question.kind !== 'react' &&
-    question.kind !== 'html_css_js'
+    question.kind !== 'html_css_js' &&
+    question.kind !== 'react_fastify'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -287,6 +291,7 @@ function isCodeResultQuestion(
     'kind' in result &&
     (result.kind === 'javascript_stdin' ||
       result.kind === 'react' ||
-      result.kind === 'html_css_js')
+      result.kind === 'html_css_js' ||
+      result.kind === 'react_fastify')
   )
 }

@@ -152,6 +152,7 @@ describe('usePlannerPage', () => {
     vi.clearAllMocks()
     navigateToMock.mockResolvedValue(undefined)
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock as unknown as ReturnType<
         typeof useNavigation
       >['navigateTo'],

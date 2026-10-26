@@ -14,6 +14,9 @@ from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
 from .curriculum_html_css_js_question_snapshot import (
     CurriculumHtmlCssJsQuestionSnapshot,
 )
+from .curriculum_react_fastify_question_snapshot import (
+    CurriculumReactFastifyQuestionSnapshot,
+)
 
 
 @structure
@@ -26,7 +29,8 @@ class CurriculumLearningActivitySnapshot:
         CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
-        | CurriculumHtmlCssJsQuestionSnapshot,
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
         ...,
     ]
     parts: tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]
@@ -72,6 +76,7 @@ class CurriculumLearningActivitySnapshot:
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
             if requires_code_rubric != isinstance(
@@ -80,6 +85,10 @@ class CurriculumLearningActivitySnapshot:
                 raise ValidationError
             if self.activity_type == 'diagnostic' and isinstance(
                 question,
-                (CurriculumReactQuestionSnapshot, CurriculumHtmlCssJsQuestionSnapshot),
+                (
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                ),
             ):
                 raise ValidationError

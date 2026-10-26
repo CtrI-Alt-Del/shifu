@@ -1,6 +1,6 @@
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactFlowInstance } from '@xyflow/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   PlanningProposalSkill,
@@ -33,22 +33,10 @@ const relations: PlanningSkillRelation[] = [
   { skillId: 'automation', foundationSkillId: 'unknown' },
   { skillId: 'python', foundationSkillId: 'python' },
 ]
-// The hook lays the graph out again whenever it receives new Skill or relation
-// references, so every render reads the same arrays, as the page passes them.
-const noRelations: PlanningSkillRelation[] = []
-const longSkill: PlanningProposalSkill = {
-  skillId: 'long',
-  name: 'Automação de arquivos e planilhas com Python',
-  justification:
-    'Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas do dia a dia.',
-}
-const skillsWithLongCopy = [skills[0], skills[1], longSkill]
-const circular: PlanningSkillRelation[] = [
-  { skillId: 'logic', foundationSkillId: 'python' },
-  { skillId: 'python', foundationSkillId: 'logic' },
-]
 
 describe('useProposalSkillGraph', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.layout.mockResolvedValue({
@@ -118,8 +106,19 @@ describe('useProposalSkillGraph', () => {
   })
 
   it('sizes the layout boxes from the copy and survives circular relations', async () => {
+    const longSkill: PlanningProposalSkill = {
+      skillId: 'long',
+      name: 'Automação de arquivos e planilhas com Python',
+      justification:
+        'Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas do dia a dia.',
+    }
+    const circular: PlanningSkillRelation[] = [
+      { skillId: 'logic', foundationSkillId: 'python' },
+      { skillId: 'python', foundationSkillId: 'logic' },
+    ]
+    const circularSkills = [skills[0], skills[1], longSkill]
     const { result } = renderHook(() =>
-      useProposalSkillGraph('Título', skillsWithLongCopy, circular),
+      useProposalSkillGraph('Título', circularSkills, circular),
     )
 
     await waitFor(() => expect(result.current.nodes).toHaveLength(4))
@@ -130,12 +129,14 @@ describe('useProposalSkillGraph', () => {
       'logic-python',
       `${PROPOSAL_ROOT_ID}-long`,
     ])
+    expect(mocks.layout).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to a two-column grid when the layout engine fails and reports it', async () => {
     mocks.layout.mockRejectedValue(new Error('layout failed'))
+    const emptyRelations: PlanningSkillRelation[] = []
     const { result } = renderHook(() =>
-      useProposalSkillGraph('Título', skills, noRelations),
+      useProposalSkillGraph('Título', skills, emptyRelations),
     )
 
     await waitFor(() => expect(result.current.isLayoutError).toBe(true))
@@ -146,6 +147,7 @@ describe('useProposalSkillGraph', () => {
     expect(second.position).toEqual({ x: 408, y: first.position.y })
     expect(third.position.x).toBe(0)
     expect(third.position.y).toBeGreaterThan(first.position.y)
+    expect(mocks.layout).toHaveBeenCalledTimes(1)
   })
 
   it('clamps the zoom between the configured bounds and forwards it to the flow', async () => {
@@ -154,8 +156,9 @@ describe('useProposalSkillGraph', () => {
       setViewport: vi.fn(),
       getNodes: () => [],
     }
+    const emptyRelations: PlanningSkillRelation[] = []
     const { result } = renderHook(() =>
-      useProposalSkillGraph('Título', skills, noRelations),
+      useProposalSkillGraph('Título', skills, emptyRelations),
     )
     await waitFor(() => expect(result.current.nodes).toHaveLength(4))
 
@@ -179,5 +182,6 @@ describe('useProposalSkillGraph', () => {
     expect(flow.zoomTo).toHaveBeenLastCalledWith(0.25)
     act(() => result.current.handleRestore())
     expect(flow.setViewport).not.toHaveBeenCalled()
+    expect(mocks.layout).toHaveBeenCalledTimes(1)
   })
 })

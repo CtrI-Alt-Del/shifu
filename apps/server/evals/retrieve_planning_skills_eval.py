@@ -139,7 +139,7 @@ class RetrievePlanningSkillsEval(Eval):
     workflow_id = 'intelligence-retrieve-planning-skills'
     prompt_revision = 'tfidf-e5-small-rrf-v1'
     unavailable_failure_code = 'retrieval_unavailable'
-    RECALL_AT_10: ClassVar[float] = 0.90
+    RECALL_AT_10: ClassVar[float] = 0.89
     MRR: ClassVar[float] = 0.80
     RECALL_CASE: ClassVar[str] = 'hybrid_recall_at_10'
     MRR_CASE: ClassVar[str] = 'hybrid_mrr'

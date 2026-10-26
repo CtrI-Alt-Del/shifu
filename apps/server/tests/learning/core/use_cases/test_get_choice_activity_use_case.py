@@ -1,5 +1,8 @@
 from dataclasses import replace
 from decimal import Decimal
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    integrated_question,
+)
 from unittest.mock import create_autospec
 
 import pytest
@@ -496,6 +499,42 @@ class TestGetChoiceActivityUseCase:
         self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
         self.provider.get_choice_activity.assert_not_called()
         self.provider.get_skill_content.assert_not_called()
+
+    @pytest.mark.parametrize('middle', (False, True), ids=('final', 'middle'))
+    def test_should_project_integrated_entries_commands_examples_and_public_rubric(
+        self, middle: bool
+    ) -> None:
+        original = react_snapshot()
+        react = original.questions[-1]
+        assert isinstance(react, CurriculumReactQuestionSnapshot)
+        integrated = integrated_question(react)
+        questions = (
+            (original.questions[0], integrated, original.questions[1])
+            if middle
+            else (*original.questions[:2], integrated)
+        )
+        mixed = replace(original, questions=questions)
+        self.provider.get_learning_activity.return_value = mixed
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        code = detail.questions[1 if middle else 2]
+        assert isinstance(code, CodeQuestionDetail)
+        assert code.kind == 'react_fastify'
+        assert code.entrypoint == code.frontend_entrypoint == 'src/App.jsx'
+        assert code.api_entrypoint == 'routes/api.js'
+        assert code.frontend_command_id == 'web'
+        assert code.api_command_id == 'api'
+        assert code.http_examples == integrated.http_examples
+        assert code.initial_files == integrated.initial_files
+        assert code.additional_file_policy == integrated.additional_file_policy
+        assert tuple(
+            (item.key, item.name, item.weight_percentage) for item in code.criteria
+        ) == (('render', 'Renderização', 100),)
+        assert not hasattr(code.criteria[0], 'fixed_comments')
+        self.provider.get_choice_activity.assert_not_called()
 
     def test_should_fall_back_to_choice_when_mixed_snapshot_has_no_code(self) -> None:
         original = snapshot()

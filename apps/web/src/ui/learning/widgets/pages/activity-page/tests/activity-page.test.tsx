@@ -92,6 +92,7 @@ function createControllerMock(
     runnerFactory: undefined,
     reactRunnerFactory: undefined,
     htmlCssJsRunnerFactory: undefined,
+    reactFastifyRunnerFactory: undefined,
     reactDraftStore: createReactDraftStoreMock(),
     accountId: null,
     isOnlineAuthority: false,
