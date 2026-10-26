@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 // Test-integrity check: a test file is allowed only for a use case, controller,
 // job, workflow (in-process, with mocked agents), hook, widget, page, layout or
-// API handler. Anything else is a violation.
+// API handler, or an explicitly documented domain/preparation/capability/security
+// conformance boundary. Anything else is a violation.
 //
 //   node scripts/check-test-integrity.mjs          fail on any other test file
 //   node scripts/check-test-integrity.mjs --list   also print every allowed file
@@ -26,6 +27,12 @@ const ignoredDirectories = new Set([
 // First matching rule wins. Paths are relative to the app and use "/".
 const serverRules = [
   ['use case', /^tests\/[^/]+\/core\/use_cases\//],
+  ['domain conformance', /^tests\/[^/]+\/core\/domain\/test_[a-z0-9_]+\.py$/],
+  [
+    'preparation',
+    /^tests\/intelligence\/preparation\/test_prepare_planning_indexes\.py$/,
+  ],
+  ['capability', /^tests\/intelligence\/capabilities\/test_planning_capabilities\.py$/],
   ['use case', /^tests\/core\/[^/]+\/use_cases\//],
   ['api handler', /^tests\/(?:[^/]+\/)?rest\/handlers\//],
   ['controller', /^tests\/(?:[^/]+\/)?rest\//],
@@ -36,6 +43,10 @@ const serverRules = [
 ]
 
 const webSourceRules = [
+  [
+    'security contract',
+    /^rest\/security\/tests\/server-request-origin-contract\.test\.ts$/,
+  ],
   ['api handler', /(?:^|\/)routes\/api\//],
   ['page', /(?:^|\/)routes\//],
   ['layout', /(?:^|\/)widgets\/layouts\//],
@@ -93,7 +104,7 @@ function checkServer() {
       file: `apps/server/${relative}`,
       kind: classify(serverRules, relative),
       reason:
-        'server tests are allowed only for use cases, controllers, jobs, workflows and API handlers',
+        'server tests require a use-case, controller, job, workflow, API-handler or documented domain/preparation/capability boundary',
     }
   })
 }
@@ -107,7 +118,7 @@ function checkWeb() {
       file: `apps/web/src/${relative}`,
       kind: inTestsDirectory ? classify(webSourceRules, relative) : null,
       reason: inTestsDirectory
-        ? 'web tests are allowed only for hooks, widgets, pages, layouts and API handlers'
+        ? 'web tests require an owning UI/API boundary or the documented server-request security contract'
         : 'web unit tests must live in a tests/ directory next to their owner',
     }
   })

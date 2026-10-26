@@ -7,10 +7,13 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 
 type CodeQuestionSnapshot = (
-    CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot
+    CurriculumJavascriptStdinQuestionSnapshot
+    | CurriculumReactQuestionSnapshot
+    | CurriculumReactFastifyQuestionSnapshot
 )
 
 
@@ -72,7 +75,7 @@ class CodeAnswerValidation:
                 CodeSubmittedFile(path=path, content=content)
                 for path, content in sorted(provided.items())
             ),
-            kind='react' if question.kind == 'react' else None,
+            kind=question.kind if question.kind in {'react', 'react_fastify'} else None,
         )
 
     @staticmethod

@@ -1,7 +1,5 @@
 from unittest.mock import create_autospec
-
 import pytest
-
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
     PlanningSessionStatus,
@@ -30,6 +28,18 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     PLANNING_ID,
     failed_session,
     interviewing_session,
+)
+from shifu.intelligence.core.domain.structures import (
+    PlanningAnswer,
+    PlanningOperationResult,
+)
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    BOUNDARY_NEXT_OPERATION_ID,
+    boundary_interviewing,
+    boundary_complete,
+    boundary_answer,
+    boundary_retry,
 )
 
 
@@ -100,3 +110,38 @@ class TestRetryPlanningUseCase:
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
 
         self.sessions.update.assert_not_called()
+
+
+class TestRetryPlanningMigratedTransitions:
+    @pytest.mark.parametrize(
+        'result',
+        [PlanningOperationResult.failed(), PlanningOperationResult.validation_failed()],
+    )
+    def test_should_retry_only_after_a_failure_and_keep_the_context(
+        self, result: PlanningOperationResult
+    ) -> None:
+        session = boundary_interviewing()
+        boundary_answer(
+            session,
+            'batch-1',
+            (PlanningAnswer(question_id='q1', option_ids=('o1',)),),
+            BOUNDARY_NEXT_OPERATION_ID,
+            BOUNDARY_NOW,
+        )
+        assert boundary_complete(
+            session, BOUNDARY_NEXT_OPERATION_ID, 1, result, BOUNDARY_NOW
+        )
+        assert session.message is not None
+        assert session.failure_code is not None
+        boundary_retry(session, 'op-3', BOUNDARY_NOW)
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert session.operation is not None
+        assert session.operation.kind is PlanningOperationKind.RETRY
+        assert session.answered_batch_count == 1
+        assert session.message is None
+        assert session.failure_code is None
+
+    def test_should_refuse_a_retry_without_a_failure(self) -> None:
+        session = boundary_interviewing()
+        with pytest.raises(PlanningStateConflictError):
+            boundary_retry(session, BOUNDARY_NEXT_OPERATION_ID, BOUNDARY_NOW)

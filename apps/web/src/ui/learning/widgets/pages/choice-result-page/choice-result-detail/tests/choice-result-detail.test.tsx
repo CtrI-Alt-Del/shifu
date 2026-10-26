@@ -239,4 +239,36 @@ describe('ChoiceResultDetail', () => {
       screen.queryByTitle('Prévia isolada da aplicação React'),
     ).not.toBeInTheDocument()
   })
+  it('shows integrated immutable frontend API and additional files from the persisted result without practice', () => {
+    const result: CodeResultQuestion = {
+      key: 'integrated',
+      kind: 'react_fastify',
+      prompt: 'Projeto original',
+      score: 100,
+      submittedFiles: [
+        { path: 'src/App.tsx', content: 'original frontend' },
+        { path: 'server.js', content: 'original API' },
+        { path: 'routes/tasks.js', content: 'additional route' },
+      ],
+      criterionResults: [
+        {
+          key: 'integration',
+          weightPercentage: 100,
+          level: 100,
+          commentId: 'correct',
+          comment: 'Integração correta',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={1} result={result} />)
+    fireEvent.click(screen.getByText(/Questão 1 · React \+ Fastify/))
+    expect(screen.getByText('original frontend')).toBeVisible()
+    expect(screen.getByText('original API')).toBeVisible()
+    expect(screen.getByText('additional route')).toBeVisible()
+    expect(screen.getByText('Somente leitura')).toBeVisible()
+    expect(screen.getByText('Integração correta')).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Prévia isolada React + Fastify')).not.toBeInTheDocument()
+  })
 })

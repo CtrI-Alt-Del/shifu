@@ -117,8 +117,14 @@ for scenarios intended to prove that composition.
 
 ## Workflows are tested in process, with mocked agents
 
-No test file enters a registered AgentOS workflow through its runtime, and no fixture
-starts an AgentOS registry. A workflow test lives under
+Do not create a dedicated fixture to start an AgentOS registry or a test that sends
+directly to its queue to verify a workflow. Controller tests may start the registries
+as part of the application's normal lifespan through the shared TestClient. Those
+tests prove HTTP behavior, persistence, and destination selection. A manual journey
+may verify real registered execution. Changes to the workflow itself use the
+in-process boundary below.
+
+A workflow test lives under
 `apps/server/tests/<module>/ai/workflows/test_<name>_workflow.py`, builds the Agno
 `Workflow` with its real use cases over the disposable PostgreSQL and Redis, replaces
 every agent with a `unittest.mock.Mock` specced from the agent class, and runs it with

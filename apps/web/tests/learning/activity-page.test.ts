@@ -127,15 +127,22 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
     await route.fallback()
   })
 
+  await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
 
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
-  const prompt = authenticatedPage.locator('.choice-question-prompt')
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'choice-prompt-enter',
-  )
+  const prompt = authenticatedPage.getByRole('heading', { name: /Considere o código/ })
+  await expect
+    .poll(() =>
+      prompt.evaluate((node) => {
+        const style = getComputedStyle(node.parentElement ?? node)
+        const transform = new DOMMatrixReadOnly(style.transform)
+        return { opacity: Number(style.opacity), offset: transform.m42 }
+      }),
+    )
+    .toEqual({ opacity: 1, offset: 0 })
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
 
@@ -149,28 +156,49 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
     authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
   ).not.toBeChecked()
   const optionCards = authenticatedPage.locator('.choice-question-option')
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => ({
-        name: getComputedStyle(card).animationName,
-        delay: getComputedStyle(card).animationDelay,
-      })),
-    ),
-  ).toEqual([
-    { name: 'choice-option-enter', delay: '0.08s' },
-    { name: 'choice-option-enter', delay: '0.14s' },
-    { name: 'choice-option-enter', delay: '0.2s' },
-    { name: 'choice-option-enter', delay: '0.26s' },
-  ])
+  await expect(optionCards).toHaveCount(4)
+  await expect
+    .poll(() =>
+      optionCards.evaluateAll((cards) =>
+        cards.every((card) => {
+          const style = getComputedStyle(card.parentElement ?? card)
+          return (
+            Number(style.opacity) === 1 &&
+            new DOMMatrixReadOnly(style.transform).m42 === 0
+          )
+        }),
+      ),
+    )
+    .toBe(true)
   await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'none',
+  authenticatedPage.once('dialog', (dialog) => dialog.accept())
+  await authenticatedPage.reload()
+  await authenticatedPage.waitForFunction(
+    () => '__TSR_ROUTER__' in window && document.body.dataset.hydrated === 'true',
   )
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(prompt).toBeVisible()
+  expect(
+    await prompt.evaluate((node) => {
+      const style = getComputedStyle(node.parentElement ?? node)
+      return {
+        opacity: Number(style.opacity),
+        offset: new DOMMatrixReadOnly(style.transform).m42,
+      }
+    }),
+  ).toEqual({ opacity: 1, offset: 0 })
   expect(
     await optionCards.evaluateAll((cards) =>
-      cards.map((card) => getComputedStyle(card).animationName),
+      cards.every((card) => {
+        const style = getComputedStyle(card.parentElement ?? card)
+        return (
+          Number(style.opacity) === 1 && new DOMMatrixReadOnly(style.transform).m42 === 0
+        )
+      }),
     ),
-  ).toEqual(['none', 'none', 'none', 'none'])
+  ).toBe(true)
+  await authenticatedPage.getByText('tem_cracha é True.').click()
+  await authenticatedPage.getByText('pode_entrar é False.').click()
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
   ).toBeChecked()
@@ -695,4 +723,117 @@ test.describe('ActivityPage route coverage', () => {
       expect(submission).toContain("process.stdin.once('data'")
     })
   })
+})
+
+test('keeps the integrated route usable on mobile when practice is unavailable', async ({
+  authenticatedPage,
+  bff,
+  activeAccount,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  await authenticatedPage.addInitScript(() => {
+    Object.defineProperty(window, 'crossOriginIsolated', {
+      value: false,
+      configurable: true,
+    })
+  })
+  const integrated = {
+    ...activity,
+    activityRevision: 'integrated-browser-v1',
+    accountId: activeAccount.accountId,
+    questions: [
+      {
+        key: 'integrated',
+        kind: 'react_fastify',
+        prompt: 'Conecte a lista à API',
+        initialFiles: [
+          {
+            path: 'src/App.tsx',
+            content: 'export default function App() {\n  return null\n}',
+            editable: true,
+          },
+          { path: 'server.js', content: 'console.log("API")', editable: true },
+        ],
+        editablePaths: ['src/App.tsx', 'server.js'],
+        frontendEntrypoint: 'src/App.tsx',
+        apiEntrypoint: 'server.js',
+        frontendCommandId: 'web',
+        apiCommandId: 'api',
+        fixedDependencies: [],
+        permittedCommands: [],
+        additionalFilePolicy: {
+          allowedDirectories: ['src'],
+          allowedExtensions: ['.tsx'],
+          maxFiles: 2,
+        },
+        httpExamples: [
+          {
+            key: 'list',
+            title: 'Listar tarefas',
+            method: 'GET',
+            path: '/api/tasks',
+            body: null,
+          },
+        ],
+        criteria: [
+          { key: 'integration', name: 'Integração com a API', weightPercentage: 100 },
+        ],
+      },
+    ],
+  }
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: integrated }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(
+    authenticatedPage.getByRole('region', { name: 'Questão React + Fastify' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('Peso 100%')).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Avaliar questão' }),
+  ).toBeEnabled()
+  const editor = authenticatedPage.locator('.monaco-editor').first()
+  await expect
+    .poll(async () => (await editor.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(300)
+  await expect(editor.locator('.view-line').filter({ hasText: /return/ })).toBeVisible()
+  expect(await editor.locator('.view-line').count()).toBeGreaterThanOrEqual(3)
+  await authenticatedPage.getByRole('tab', { name: 'Arquivos' }).click()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Novo arquivo' }),
+  ).toHaveCount(1)
+  await authenticatedPage
+    .getByRole('textbox', { name: 'Caminho do novo arquivo' })
+    .fill('src/Badge.tsx')
+  await authenticatedPage.getByRole('button', { name: 'Novo arquivo' }).click()
+  await expect(
+    authenticatedPage.getByRole('treeitem', { name: 'Badge.tsx' }),
+  ).toBeVisible()
+  await authenticatedPage.getByRole('tab', { name: 'HTTP' }).click()
+  await expect(
+    authenticatedPage.getByRole('textbox', { name: 'Rota da API' }),
+  ).toHaveValue('/api/tasks')
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar requisição' }),
+  ).toBeDisabled()
+  await authenticatedPage.getByRole('tab', { name: 'Terminal' }).click()
+  await expect(
+    authenticatedPage.getByRole('textbox', { name: 'Comando permitido' }),
+  ).toBeVisible()
+  expect(
+    await authenticatedPage.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.activityId}/?$`))
 })

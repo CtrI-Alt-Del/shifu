@@ -1,7 +1,5 @@
 from unittest.mock import create_autospec
-
 import pytest
-
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
     PlanningSessionStatus,
@@ -35,6 +33,17 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     PLANNING_ID,
     proposal,
     started_session,
+)
+from shifu.intelligence.core.domain.enums import PlanningIntentKind
+from shifu.intelligence.core.domain.structures import PlanningAnswer
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    BOUNDARY_NEXT_OPERATION_ID,
+    boundary_proposal,
+    boundary_interviewing,
+    boundary_complete,
+    boundary_answer,
+    boundary_restart,
 )
 
 
@@ -119,3 +128,37 @@ class TestRestartPlanningUseCase:
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
 
         self.access.authorize.assert_not_called()
+
+
+class TestRestartPlanningMigratedTransitions:
+    def test_should_restart_into_a_new_generation_and_discard_the_context(self) -> None:
+        session = boundary_interviewing()
+        boundary_answer(
+            session,
+            'batch-1',
+            (PlanningAnswer(question_id='q1', option_ids=('o1',)),),
+            BOUNDARY_NEXT_OPERATION_ID,
+            BOUNDARY_NOW,
+        )
+        assert boundary_complete(
+            session,
+            BOUNDARY_NEXT_OPERATION_ID,
+            1,
+            PlanningOperationResult.for_proposal(
+                boundary_proposal(), classification=PlanningIntentKind.LEARNING
+            ),
+            BOUNDARY_NOW,
+        )
+        boundary_restart(
+            session, '  Agora quero APIs ', 'revision-2', 'op-3', BOUNDARY_NOW
+        )
+        assert session.generation == 2
+        assert session.intent == 'Agora quero APIs'
+        assert session.access_revision == 'revision-2'
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert session.operation is not None
+        assert session.operation.kind is PlanningOperationKind.RESTART
+        assert session.answered_batches == ()
+        assert session.proposal is None
+        assert session.classification is None
+        assert session.consulted_curriculum is False

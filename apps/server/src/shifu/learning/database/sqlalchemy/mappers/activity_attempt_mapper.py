@@ -17,6 +17,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -66,6 +67,18 @@ class ActivityAttemptMapper:
             for question in questions
         ]
         if 'schema_version' in normalized and 'revision' in normalized:
+            if any(
+                question.get('kind')
+                not in {
+                    'single_choice',
+                    'multiple_selection',
+                    'javascript_stdin',
+                    'react',
+                    'react_fastify',
+                }
+                for question in questions
+            ):
+                raise TypeError('Stored activity question kind is unsupported.')
             mixed_questions = tuple(
                 Serialization.deserialize_value(
                     question,
@@ -73,6 +86,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'javascript_stdin'
                     else CurriculumReactQuestionSnapshot
                     if question.get('kind') == 'react'
+                    else CurriculumReactFastifyQuestionSnapshot
+                    if question.get('kind') == 'react_fastify'
                     else CurriculumChoiceQuestionSnapshot,
                 )
                 for question in normalized['questions']
@@ -92,7 +107,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(

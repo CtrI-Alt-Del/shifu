@@ -1,7 +1,5 @@
 from unittest.mock import create_autospec
-
 import pytest
-
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
     PlanningSessionStatus,
@@ -30,6 +28,13 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     NOW,
     OPERATION_ID,
     PLANNING_ID,
+)
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    BOUNDARY_PLANNING_ID,
+    BOUNDARY_OPERATION_ID,
+    boundary_session,
+    boundary_start,
 )
 
 
@@ -103,3 +108,28 @@ class TestStartPlanningUseCase:
 
         self.sessions.add.assert_not_called()
         self.database.transaction.assert_not_called()
+
+
+class TestStartPlanningMigratedTransitions:
+    def test_should_start_processing_with_a_normalized_intent(self) -> None:
+        session = boundary_session()
+        assert session.intent == 'Quero aprender web'
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert session.generation == 1
+        assert session.version == 0
+        assert session.operation is not None
+        assert session.operation.kind is PlanningOperationKind.START
+        assert session.batch is None
+        assert session.answered_batch_count == 0
+
+    @pytest.mark.parametrize('intent', ['', '   ', 'x' * 4001])
+    def test_should_reject_a_blank_or_oversized_intent(self, intent: str) -> None:
+        with pytest.raises(ValueError, match='intent'):
+            boundary_start(
+                BOUNDARY_PLANNING_ID,
+                'account-1',
+                'rev',
+                intent,
+                BOUNDARY_OPERATION_ID,
+                BOUNDARY_NOW,
+            )

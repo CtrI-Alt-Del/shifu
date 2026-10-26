@@ -1,3 +1,4 @@
+import type { ReactFastifyPracticeRunner } from '@/core/learning/react-fastify-practice-runner'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
@@ -57,6 +58,7 @@ export type ActivityRouteProps = {
   onUnsentAnswersChange: (hasUnsentAnswers: boolean) => void
   onSessionExpired: () => void
   runnerFactory?: () => CodePracticeRunner
+  reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
 }
@@ -65,6 +67,7 @@ type InjectedActivityProps = {
   activity: ChoiceActivityDetail
   onSubmit: (submission: ChoiceSubmission) => Promise<ChoiceSubmissionResult>
   runnerFactory?: () => CodePracticeRunner
+  reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
   onPreview?: (
@@ -826,11 +829,14 @@ export function useActivityPage(props: ActivityPageProps) {
   function handleCodeFilesChange(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
-      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react') ||
+      (currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'react_fastify') ||
       isSubmitting ||
       isSubmissionLocked ||
       isAssessing ||
-      (currentQuestion.kind === 'react' && Boolean(feedback || frozenAnswer))
+      ((currentQuestion.kind === 'react' || currentQuestion.kind === 'react_fastify') &&
+        Boolean(feedback || frozenAnswer))
     )
       return
     const answer: CodeAnswer = {
@@ -843,7 +849,8 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
-    if (currentQuestion.kind === 'react') setIsReactAnswerValid(files.length > 0)
+    if (currentQuestion.kind === 'react' || currentQuestion.kind === 'react_fastify')
+      setIsReactAnswerValid(files.length > 0)
     setFeedback(null)
     setFrozenAnswer(null)
     setHasFeedbackError(false)
@@ -856,7 +863,9 @@ export function useActivityPage(props: ActivityPageProps) {
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
-      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react')
+      (currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'react_fastify')
     )
       return
 
@@ -876,7 +885,8 @@ export function useActivityPage(props: ActivityPageProps) {
       (feedback &&
         !reevaluate &&
         currentQuestion.kind !== 'javascript_stdin' &&
-        currentQuestion.kind !== 'react') ||
+        currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'react_fastify') ||
       !activity.activityRevision
     )
       return
@@ -926,8 +936,11 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       (!activity.isDiagnostic && !activity.canSubmit) ||
       !isLastQuestion ||
-      (currentQuestion?.kind === 'react' && !isReactAnswerValid) ||
-      (currentQuestion?.kind === 'react' && !injected && !isOnlineAuthority) ||
+      ((currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify') &&
+        !isReactAnswerValid) ||
+      ((currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify') &&
+        !injected &&
+        !isOnlineAuthority) ||
       (!activity.isDiagnostic &&
         isMixedActivity &&
         (!feedback || feedback.status !== 'conclusive')) ||
@@ -1088,6 +1101,7 @@ export function useActivityPage(props: ActivityPageProps) {
       if (
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'react_fastify' &&
         hasValidSelection
       ) {
         void assess({
@@ -1124,6 +1138,7 @@ export function useActivityPage(props: ActivityPageProps) {
     activity,
     runnerFactory: props.runnerFactory,
     reactRunnerFactory: props.reactRunnerFactory,
+    reactFastifyRunnerFactory: props.reactFastifyRunnerFactory,
     reactDraftStore,
     accountId,
     isOnlineAuthority,
@@ -1138,10 +1153,11 @@ export function useActivityPage(props: ActivityPageProps) {
           (!injected && !activity.activityRevision)
           ? false
           : currentQuestion?.kind === 'javascript_stdin' ||
-              currentQuestion?.kind === 'react'
+              currentQuestion?.kind === 'react' ||
+              currentQuestion?.kind === 'react_fastify'
             ? hasDiagnosticAnswer
             : hasValidSelection
-        : currentQuestion?.kind === 'react'
+        : currentQuestion?.kind === 'react' || currentQuestion?.kind === 'react_fastify'
           ? isReactAnswerValid && (injected || isOnlineAuthority)
           : feedback !== null || frozenAnswer !== null || hasValidSelection),
     feedback,
@@ -1292,7 +1308,11 @@ function isLegacyChoiceAnswer(
 
 function isActivityAnswer(value: unknown, questionKey: string): value is ActivityAnswer {
   if (!isRecord(value) || value.questionKey !== questionKey) return false
-  if (value.kind === 'javascript_stdin' || value.kind === 'react') {
+  if (
+    value.kind === 'javascript_stdin' ||
+    value.kind === 'react' ||
+    value.kind === 'react_fastify'
+  ) {
     return (
       Array.isArray(value.files) &&
       value.files.every(

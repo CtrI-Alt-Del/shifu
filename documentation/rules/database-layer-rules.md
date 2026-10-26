@@ -197,3 +197,16 @@ and after each test while preserving migration metadata. REST tests must not sil
 fall back to the developer's Compose database. Controlled doubles are reserved for a
 deliberate infrastructure-failure seam or an external service that cannot run
 reliably; they do not replace repository coverage.
+
+## Offline preparation and capability integration
+
+Planning's public offline preparation/CLI and runtime retrieval/classification
+have separate integration boundaries defined by AI Layer Rules. The preparation
+entrypoint owns reproducible corpus/index lifecycle proof under
+`tests/intelligence/preparation/test_prepare_planning_indexes.py`. The consuming
+public use cases own real local NLP/persistence integration under
+`tests/intelligence/capabilities/test_planning_capabilities.py`. Use disposable
+PostgreSQL and controlled external transport. Keep these separate from
+infrastructure-free use-case unit tests and mocked-agent workflow tests. They
+must not become one test module per repository/provider or call private helpers.
+Persisted state is inspected through fresh sessions or public repository contracts.

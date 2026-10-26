@@ -50,7 +50,13 @@ class AnswerRequest(BaseModel):
 
     question_key: str
     kind: (
-        Literal['single_choice', 'multiple_selection', 'javascript_stdin', 'react']
+        Literal[
+            'single_choice',
+            'multiple_selection',
+            'javascript_stdin',
+            'react',
+            'react_fastify',
+        ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
@@ -58,7 +64,7 @@ class AnswerRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react'}:
+        if self.kind in {'javascript_stdin', 'react', 'react_fastify'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -153,7 +159,7 @@ class SubmitChoiceActivityController:
                                 for item in (answer.files or ())
                             ),
                         )
-                        if answer.kind in {'javascript_stdin', 'react'}
+                        if answer.kind in {'javascript_stdin', 'react', 'react_fastify'}
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

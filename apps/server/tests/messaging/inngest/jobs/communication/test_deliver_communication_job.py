@@ -1,14 +1,13 @@
 """Real-runtime coverage for the Communication delivery consumer."""
 
-from typing import TYPE_CHECKING, cast
 import json
 import re
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 import pytest
-from sqlalchemy import select
-
 from shifu.communication.core.domain.enums import CommunicationType
 from shifu.communication.core.domain.events import (
     CommunicationQueuedEvent,
@@ -18,6 +17,15 @@ from shifu.communication.database.sqlalchemy.models import (
     CommunicationModel,
     DeliveryAttemptModel,
 )
+from shifu.fakers.shared.id_provider_faker import IdProviderFaker
+from sqlalchemy import select
+from tests.fixtures.telemetry_boundary_fixture import (
+    read_job_telemetry,
+    telemetry_inngest_app_target,
+)
+
+inngest_app_target = telemetry_inngest_app_target
+
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
@@ -153,3 +161,75 @@ class TestDeliverCommunicationJob:
         assert persisted.status == 'sent'
         assert persisted.attempt_count == 1
         assert len(attempts) == 1
+
+    def test_mapping_failure_emits_failure_retry_and_recovers_on_real_runtime(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        assert inngest_fixture.runtime_environment is not None
+        control = Path(
+            inngest_fixture.runtime_environment['SHIFU_TEST_TELEMETRY_CONTROL']
+        )
+        identifier = IdProviderFaker().generate()
+        # A missing communication normally completes without a write. The public
+        # SDK middleware injects a mapping failure before the first durable step.
+        # This proves wrapper failure/retry behavior, not database-step telemetry.
+        event = CommunicationQueuedEvent(
+            payload=CommunicationQueuedPayload(communication_id=identifier)
+        )
+        control.write_text('mapping-failure')
+        try:
+            inngest_fixture.publish(
+                event.name, {'communication_id': identifier}, identifier
+            )
+            inngest_fixture.wait_for_log(
+                f'"event":"job.retrying","event_id":"{identifier}"', timeout=90
+            )
+        finally:
+            control.unlink(missing_ok=True)
+        inngest_fixture.wait_for_log(
+            f'"event":"job.completed","event_id":"{identifier}"', timeout=90
+        )
+        events = [
+            entry
+            for entry in read_job_telemetry(inngest_fixture.runtime_environment)
+            if entry.get('event_id') == identifier
+        ]
+        names = [entry['event'] for entry in events]
+        assert names[:3] == ['job.started', 'job.failed', 'job.retrying']
+        assert names[-1] == 'job.completed'
+        assert names.count('job.completed') == 1
+        failure = next(entry for entry in events if entry['event'] == 'job.failed')
+        assert failure.get('error_code') == 'job_failed'
+        assert failure.get('exception_type') == 'RuntimeError'
+        retry = next(entry for entry in events if entry['event'] == 'job.retrying')
+        assert retry.get('result') == 'retry'
+        completed = events[-1]
+        attempt = completed.get('attempt')
+        # Inngest's attempt counter belongs to the current callback/step. A
+        # later successful step resets it, even within this same recovered run.
+        assert isinstance(attempt, int) and attempt >= 1
+        callback_attempts = [entry.get('attempt') for entry in events]
+        assert all(isinstance(value, int) and value >= 1 for value in callback_attempts)
+        retried_starts = [
+            entry.get('attempt') for entry in events if entry['event'] == 'job.started'
+        ]
+        assert any(isinstance(value, int) and value >= 2 for value in retried_starts)
+        assert failure.get('attempt') == 1
+        assert retry.get('attempt') == 1
+        assert completed.get('result') == 'success'
+        assert all(
+            entry.get('job') == 'communication.deliver_communication'
+            for entry in events
+        )
+        assert all(entry.get('run_id') == completed.get('run_id') for entry in events)
+        assert all(entry.get('event_id') == identifier for entry in events)
+        with inngest_fixture.inspection_session() as session:
+            assert session.get(CommunicationModel, identifier) is None
+            assert (
+                session.scalars(
+                    select(DeliveryAttemptModel).where(
+                        DeliveryAttemptModel.communication_id == identifier
+                    )
+                ).all()
+                == []
+            )
