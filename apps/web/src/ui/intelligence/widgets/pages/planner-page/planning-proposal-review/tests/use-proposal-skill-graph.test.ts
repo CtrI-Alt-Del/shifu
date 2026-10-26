@@ -33,6 +33,20 @@ const relations: PlanningSkillRelation[] = [
   { skillId: 'automation', foundationSkillId: 'unknown' },
   { skillId: 'python', foundationSkillId: 'python' },
 ]
+// The hook lays the graph out again whenever it receives new Skill or relation
+// references, so every render reads the same arrays, as the page passes them.
+const noRelations: PlanningSkillRelation[] = []
+const longSkill: PlanningProposalSkill = {
+  skillId: 'long',
+  name: 'Automação de arquivos e planilhas com Python',
+  justification:
+    'Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas do dia a dia.',
+}
+const skillsWithLongCopy = [skills[0], skills[1], longSkill]
+const circular: PlanningSkillRelation[] = [
+  { skillId: 'logic', foundationSkillId: 'python' },
+  { skillId: 'python', foundationSkillId: 'logic' },
+]
 
 describe('useProposalSkillGraph', () => {
   beforeEach(() => {
@@ -104,18 +118,8 @@ describe('useProposalSkillGraph', () => {
   })
 
   it('sizes the layout boxes from the copy and survives circular relations', async () => {
-    const longSkill: PlanningProposalSkill = {
-      skillId: 'long',
-      name: 'Automação de arquivos e planilhas com Python',
-      justification:
-        'Para aplicar a lógica e o Python ao que você pediu: ler, transformar e gerar arquivos e planilhas do dia a dia.',
-    }
-    const circular: PlanningSkillRelation[] = [
-      { skillId: 'logic', foundationSkillId: 'python' },
-      { skillId: 'python', foundationSkillId: 'logic' },
-    ]
     const { result } = renderHook(() =>
-      useProposalSkillGraph('Título', [skills[0], skills[1], longSkill], circular),
+      useProposalSkillGraph('Título', skillsWithLongCopy, circular),
     )
 
     await waitFor(() => expect(result.current.nodes).toHaveLength(4))
@@ -130,7 +134,9 @@ describe('useProposalSkillGraph', () => {
 
   it('falls back to a two-column grid when the layout engine fails and reports it', async () => {
     mocks.layout.mockRejectedValue(new Error('layout failed'))
-    const { result } = renderHook(() => useProposalSkillGraph('Título', skills, []))
+    const { result } = renderHook(() =>
+      useProposalSkillGraph('Título', skills, noRelations),
+    )
 
     await waitFor(() => expect(result.current.isLayoutError).toBe(true))
     const [root, first, second, third] = result.current.nodes
@@ -148,7 +154,9 @@ describe('useProposalSkillGraph', () => {
       setViewport: vi.fn(),
       getNodes: () => [],
     }
-    const { result } = renderHook(() => useProposalSkillGraph('Título', skills, []))
+    const { result } = renderHook(() =>
+      useProposalSkillGraph('Título', skills, noRelations),
+    )
     await waitFor(() => expect(result.current.nodes).toHaveLength(4))
 
     act(() => {
