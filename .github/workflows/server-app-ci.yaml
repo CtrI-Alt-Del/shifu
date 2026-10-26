@@ -295,6 +295,7 @@ jobs:
             find tests -type f \
               \( -path 'tests/*/server/test_*.py' \
               -o -path 'tests/*/server/*/test_*.py' \
+              -o -path 'tests/*/rest/handlers/test_*.py' \
               -o -path 'tests/rest/test_*.py' \
               -o -path 'tests/rest/*/test_*.py' \) -print0 | sort -zu
           )

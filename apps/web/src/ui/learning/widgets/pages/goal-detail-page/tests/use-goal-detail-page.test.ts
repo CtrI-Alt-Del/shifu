@@ -66,6 +66,7 @@ describe('useGoalDetailPage', () => {
     useGoalDetailQueryMock.mockReset()
     useDeleteGoalActionMock.mockReset()
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToGoalDetail: vi.fn(),
       navigateToActivity: vi.fn(),

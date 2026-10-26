@@ -46,6 +46,12 @@ export class RestResponse<ResponseBody> {
     throw new RestError(
       this.errorMessage ?? 'Não foi possível concluir a solicitação.',
       this.statusCode,
+      typeof this._body === 'object' &&
+        this._body !== null &&
+        'code' in this._body &&
+        typeof this._body.code === 'string'
+        ? this._body.code
+        : undefined,
     )
   }
 }

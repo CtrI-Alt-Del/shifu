@@ -43,3 +43,13 @@ from .resolve_password_reset_link_use_case import (
 from .retry_password_recovery_use_case import (
     RetryPasswordRecoveryUseCase as RetryPasswordRecoveryUseCase,
 )
+
+from .get_account_profile_use_case import (
+    GetAccountProfileUseCase as GetAccountProfileUseCase,
+)
+
+from .update_account_profile_use_case import (
+    UpdateAccountProfileUseCase as UpdateAccountProfileUseCase,
+)
+
+from .change_password_use_case import ChangePasswordUseCase as ChangePasswordUseCase

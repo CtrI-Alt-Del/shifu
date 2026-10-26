@@ -69,10 +69,8 @@ class JwksJwtAuthenticationProvider:
             with self._identity_database.transaction() as repositories:
                 account = repositories.accounts.find_by_id(account_id)
 
-            if (
-                account is None
-                or account.status.value != 'active'
-                or account.access_version != access_version
+            if account is None or not account.accepts_access(
+                cast('str', claims['sid']), access_version
             ):
                 self._reject()
 
@@ -80,6 +78,9 @@ class JwksJwtAuthenticationProvider:
                 account_id=account.id,
                 display_name=account.display_name,
                 time_zone=account.time_zone,
+                session_id=cast('str', claims['sid']),
+                token_access_version=access_version,
+                account_access_version=account.access_version,
             )
         except AuthorizationError:
             raise

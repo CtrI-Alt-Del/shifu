@@ -4,18 +4,26 @@ import pytest
 
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
+    PlanningQuestionKind,
     PlanningSessionStatus,
 )
 from shifu.intelligence.core.domain.errors import (
     PlanningAnswersInvalidError,
     PlanningOperationConflictError,
     PlanningSessionNotFoundError,
+    PlanningStateConflictError,
 )
 from shifu.intelligence.core.domain.events import (
     PlanningOperationRequestedEvent,
     PlanningOperationRequestedPayload,
 )
-from shifu.intelligence.core.domain.structures import PlanningAnswer
+from shifu.intelligence.core.domain.structures import (
+    PlanningAnswer,
+    PlanningQuestion,
+    PlanningQuestionBatch,
+    PlanningOption,
+    PlanningOperationResult,
+)
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -27,6 +35,7 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NEXT_OPERATION_ID,
     NOW,
+    OPERATION_ID,
     OTHER_ACCOUNT_ID,
     PLANNING_ID,
     interviewing_session,
@@ -126,3 +135,140 @@ class TestAnswerPlanningQuestionsUseCase:
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'batch-1', _VALID)
 
         self.sessions.update.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ('batch_id', 'answers', 'error'),
+        [
+            ('missing', _VALID, PlanningStateConflictError),
+            ('batch-1', (), PlanningAnswersInvalidError),
+            (
+                'batch-1',
+                (PlanningAnswer(question_id='q9', option_ids=('o1',)),),
+                PlanningAnswersInvalidError,
+            ),
+            (
+                'batch-1',
+                (PlanningAnswer(question_id='q1', option_ids=()),),
+                PlanningAnswersInvalidError,
+            ),
+            (
+                'batch-1',
+                (PlanningAnswer(question_id='q1', option_ids=('o1', 'o2')),),
+                PlanningAnswersInvalidError,
+            ),
+            (
+                'batch-1',
+                (
+                    PlanningAnswer(question_id='q1', option_ids=('o1',)),
+                    PlanningAnswer(question_id='q1', option_ids=('o2',)),
+                ),
+                PlanningAnswersInvalidError,
+            ),
+        ],
+    )
+    def test_should_reject_mismatched_or_duplicate_batches_without_mutating_history(
+        self, batch_id: str, answers: tuple[PlanningAnswer, ...], error: type[Exception]
+    ) -> None:
+        session = interviewing_session()
+        self.sessions.find_by_id.return_value = session
+
+        with pytest.raises(error):
+            self.use_case.execute(ACCOUNT_ID, PLANNING_ID, batch_id, answers)
+
+        assert session.status is PlanningSessionStatus.INTERVIEW
+        assert session.operation is None
+        assert session.answered_batches == ()
+        self.sessions.update.assert_not_called()
+        self.database.transaction.assert_not_called()
+
+    def _multiple_choice(self) -> None:
+        session = started_session()
+        question = PlanningQuestion(
+            id='q1',
+            text='O que construir?',
+            kind=PlanningQuestionKind.MULTIPLE,
+            options=(
+                PlanningOption(id='o1', text='Sites'),
+                PlanningOption(id='o2', text='APIs'),
+                PlanningOption.other(),
+                PlanningOption.unknown(),
+            ),
+        )
+        assert session.complete(
+            OPERATION_ID,
+            1,
+            PlanningOperationResult.for_batch(
+                PlanningQuestionBatch(id='batch-1', questions=(question,))
+            ),
+            NOW,
+        )
+        self.sessions.find_by_id.return_value = session
+
+    def test_should_record_normalized_open_text_beside_the_selected_alternatives(
+        self,
+    ) -> None:
+        self._multiple_choice()
+
+        result = self.use_case.execute(
+            ACCOUNT_ID,
+            PLANNING_ID,
+            'batch-1',
+            (
+                PlanningAnswer(
+                    question_id='q1',
+                    option_ids=('o1', 'outro'),
+                    other_text='  planilhas   no Excel ',
+                ),
+            ),
+        )
+
+        item = result.answered_batches[0].items[0]
+        assert item.other_text == 'planilhas no Excel'
+        assert item.selected_texts == ('Sites',)
+        assert item.answer_texts == ('Sites', 'planilhas no Excel')
+        self.sessions.update.assert_called_once_with(result)
+
+    @pytest.mark.parametrize(
+        ('options', 'text', 'message'),
+        [
+            (('outro',), None, 'Descreva'),
+            (('outro',), '   ', 'Descreva'),
+            (('outro',), 'x' * 201, '200 caracteres'),
+            (('o1',), 'planilhas', 'exige a alternativa'),
+            (('outro', 'nao-sei'), 'planilhas', 'Não sei'),
+            (('o1', 'nao-sei'), None, 'Não sei'),
+        ],
+    )
+    def test_should_reject_invalid_open_answers_without_writes(
+        self, options: tuple[str, ...], text: str | None, message: str
+    ) -> None:
+        self._multiple_choice()
+
+        with pytest.raises(PlanningAnswersInvalidError, match=message):
+            self.use_case.execute(
+                ACCOUNT_ID,
+                PLANNING_ID,
+                'batch-1',
+                (
+                    PlanningAnswer(
+                        question_id='q1', option_ids=options, other_text=text
+                    ),
+                ),
+            )
+
+        self.sessions.update.assert_not_called()
+        self.database.transaction.assert_not_called()
+
+    def test_should_allow_multiple_choices_without_the_exclusive_unknown_option(
+        self,
+    ) -> None:
+        self._multiple_choice()
+
+        result = self.use_case.execute(
+            ACCOUNT_ID,
+            PLANNING_ID,
+            'batch-1',
+            (PlanningAnswer(question_id='q1', option_ids=('o1', 'o2')),),
+        )
+
+        assert result.answered_batches[0].items[0].selected_texts == ('Sites', 'APIs')

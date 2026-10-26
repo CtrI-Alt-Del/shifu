@@ -91,6 +91,7 @@ describe('useMaterialPage', () => {
     refetchMock.mockReset()
     useQueryMock.mockReset()
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToActivity: navigateToActivityMock,
       navigateToGoalDetail: vi.fn(),
