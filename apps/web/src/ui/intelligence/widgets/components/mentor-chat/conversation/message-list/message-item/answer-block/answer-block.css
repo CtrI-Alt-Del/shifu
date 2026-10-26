@@ -1,3 +1,21 @@
+.mentor-answer-code table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.mentor-answer-code :is(th, td) {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.mentor-answer-code th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
 .mentor-answer-code .code-line {
   display: block;
 }

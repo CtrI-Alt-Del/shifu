@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import Markdown from 'react-markdown'
 import rehypePrism from 'rehype-prism-plus'
+import remarkGfm from 'remark-gfm'
 import { ROUTES } from '@/constants/routes'
 import './answer-block.css'
 import { useAnswerBlock } from './use-answer-block'
@@ -30,9 +31,25 @@ export const AnswerBlock = ({ content }: AnswerBlockProps) => {
           'h3',
           'hr',
           'span',
+          'del',
+          'table',
+          'thead',
+          'tbody',
+          'tr',
+          'th',
+          'td',
         ]}
+        remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypePrism, { ignoreMissing: true }]]}
         components={{
+          table: ({ children }) => (
+            <section aria-label='Tabela'>
+              {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must scroll wide tables horizontally. */}
+              <div className='max-w-full overflow-x-auto' tabIndex={0}>
+                <table>{children}</table>
+              </div>
+            </section>
+          ),
           pre: ({ children }) => (
             <section aria-label='Trecho de código'>
               {/* biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard users must scroll long code horizontally. */}
