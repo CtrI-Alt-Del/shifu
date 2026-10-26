@@ -113,6 +113,9 @@ last_updated_at: 2026-10-25
 | EV-63 | Hook de commit / Automated | Passed | C4; Node24.20.0 | raiz: pnpm lint |775arquivos, Exit0,15avisos preexistentes e sem correções automáticas. Log shifu97-precommit-lint.log. Verificação antecipada do comando real do hook, não nova seleção de testes. |
 | EV-64 | Autoridade e sincronização final / Automated | Passed | C4; origin/main8ee992a750bd526aafcf1b5db396677a3ebdc3c1 | Atlassian Shifu getConfluenceContent83001345 summary+metadata; git fetch origin main; git log HEAD..origin/main |Identity permanece “Shifu — PRD — Identity”, content83001345, versão2 de04/10/2026. Leitura completa da mesma versão retida. Main inalterada e já incorporada; nenhuma prova reaberta por sincronização. |
 
+| EV-65 | Publicação inicial / Automated | Passed | Headba45dc9ceed16996f2352f6e2f79226cf6a50e60 | Hooks executados; git push -u origin codex/shifu-97-account-spec; gh pr create; readback REST/GraphQL e attach_artifact |PR46 criado/associado à tarefa, main correta,2commits exatos, nenhuma conversa de review, reviewDecision vazio. Comando antigo gh não expõe headRefOid/jobs em JSON; conferido head pela API REST e checks por API jobs. Server40252996521 e Web40252996482 em andamento. |
+| EV-66 | Coleta do handler migrado / Automated correction | Passed | Correção após head inicial; sem mudança de produto | Incluído padrão tests/*/rest/handlers/test_*.py no test:integration do pyproject e na coleta do workflow Server; TOML/YAML e seleção find conferidos |Handler já aprovado12casos em EV-48. O caminho permitido não era selecionado pelo comando legado. Mantidas todas as seleções anteriores e shards; nenhuma suíte verde repetida. Correção necessária para manter as novas garantias executáveis no CI. |
+
 Inventário obrigatório executado. Referências em design/handoff.md. Capturas C1 retidas em C2 porque as correções posteriores afetam apenas descoberta de token no Server e suporte/assertivas de testes; o código renderizado e seus dados não mudaram.
 
 | VM / CA | Surface / route / state | Viewport | Reference | Candidate | Artifact | Result / review |
@@ -198,7 +201,7 @@ ACH-10 é separado dessa manutenção: a avaliação existente falhou sob mínim
 
 | Field | Result |
 | --- | --- |
-| Publication | Autorizada pela invocação explícita conclude-spec. Sincronização origin/main concluída sem mudanças EV-42. Primeiro commit7567db1d criado com94paths da funcionalidade/documentação e hooks aprovados. Commit de manutenção em preparação. Push/PR ainda pendentes; CI do head será exigido. |
+| Publication | Autorizada pela invocação explícita conclude-spec. Sincronização origin/main concluída sem mudanças EV-42. PR46 publicado: https://github.com/CtrI-Alt-Del/shifu/pull/46; base main; branch codex/shifu-97-account-spec; commits7567db1df1e6f363a2722253d2d14a29221df91a e ba45dc9ceed16996f2352f6e2f79226cf6a50e60. CI inicial em andamento; sem review threads e sem decisão de review. Correção de coleta do handler será publicada na mesma branch. |
 | Source verification | Identity content83001345 v2 lida integralmente nesta sessão; versão confirmada21:39UTC |
 | Documentation Alignment | Contrato revisão1 aprovado. Exemplos REST alinhados com métodos, paths, schemas e status dos3endpoints. Design/handoff e referências preservados; nenhum contrato de produto ou PRD alterado. Revisor C1 confirmou demais contratos e exemplos. |
 | Revision History | Sem alteração material do contrato |
