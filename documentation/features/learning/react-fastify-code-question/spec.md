@@ -1,6 +1,6 @@
 ---
 title: Questões integradas React + Fastify em Atividades de aprendizagem
-status: implemented
+status: completed
 revision: 3
 source:
   type: issue
@@ -749,3 +749,5 @@ O usuário aprovou o recorte integrado e o desenho de dois processos internos, a
 | 3 | 2026-10-25 | Permitir origem própria validada da prévia com allow-same-origin e incluir correção preservadora das14 falhas de integridade na mesma worktree | Q5=A e instrução explícita do usuário para Q6; achados ACH-04/09 de runtime e baseline |
 
 Sincronização da entrega com main0f1ee09a em2026-10-25: preservados perfil/segurança/autenticação de SHIFU-97 e a união dos cenários de manutenção. O usuário confirmou mínimoRecall89%, já aprovado no commitba45dc9c de main e aplicado somente ao gate existente de recuperação. O contrato RF/CA desta questão integrada permanece na revisão3. Evaluation preserva a falha histórica sob90%, a aceitação de89% e a verificação do candidato integrado.
+
+Conclusão: revisão3 comprovada após main0f1ee09a e candidato4bea0918. CI23/23Passed e nenhuma conversa bloqueante no PR45. Estado final e provas em evaluation.md. Esta atualização não altera o contrato.

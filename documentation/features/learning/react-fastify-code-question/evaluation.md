@@ -1,6 +1,6 @@
 ---
 title: Questões integradas React + Fastify — avaliação
-status: ready
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-10-25
 ---
@@ -9,14 +9,14 @@ last_updated_at: 2026-10-25
 
 | Field | State |
 | --- | --- |
-| Implementation | Complete. Revisão3 implementada na mesma worktree. CA-01–13 completos e verificados. Prévia funcional e manutenção preservadora dos14caminhos concluídas. |
-| Automated checks | CI-01–09 locais aprovados. Merge: HTTP186Passed, Planning186unit, Submit100unit, jobs5+1 em runs distintos, integridade406. Retrieval real3Passed com mínimo0.89. Browser32Passed1.6min. EV-36–42. |
+| Implementation | Complete. Spec revisão3 completed, CA-01–13 Complete/Passed. |
+| Automated checks | CI-01–09 e23checks remotos aplicáveis Passed. Pós-merge:186HTTP,32browser, Planning186unit, Submit100unit, jobs5+1em runs distintos, integridade406, retrieval real3. EV-36–46. |
 | Type / lint / complexity | Gates configurados Server/Web Passed após merge. Tipos, lint, complexidade qualitativa, arquitetura e build em EV-37. Quantitativa dedicada Not applicable conforme CI-07. |
 | Manual checks | VM-01 atualizado após main Passed em EV-40. VM-02 retido por identidade/restauração/sincronização inalteradas. Login novo comprovado em EV-40. |
 | Visual checks | VM-03/04 Passed. Dez estados exigidos aprovados pelo Visual Reviewer. Capturas afetadas atualizadas para revisão 3, com adaptação mobile e resultado oficial após terminar a animação. |
 | Independent review | Auditoria de código e visual pós-merge sem novo achado. Visual10/10 retido em EV-41. Parecer final Implementation Reviewer PASS em EV-43, sem achados abertos. |
-| Blockers | Nenhuma decisão de escopo pendente. Recall89% autorizado incorporado e checker real Passed. Checks locais atuais completos. Resta CI do próximo head publicado. |
-| Candidate | Spec revisão3, branch codex/shifu-90-spec. Main0f1ee09a incorporado pelo merge5837ab8d. Correção focal de teste Communication e Evaluation pendentes de commit. PR45 ainda head efa34742 até publicação. |
+| Blockers | Nenhum achado aberto. CI do candidato4bea0918Passed. Registro documental final será publicado e seu CI também conferido antes da resposta final. |
+| Candidate | codex/shifu-90-spec, main0f1ee09a incorporado em5837ab8d, correção4bea0918. PR45 aberto sem conflitos e sem conversas de review pendentes. Atualização final restrita a Spec/Evaluation. |
 
 # Progress
 
@@ -104,6 +104,11 @@ EV-01–16 preservam o histórico da revisão 2 e do início da revisão 3. Seus
 
 | EV-43 | Revisão independente pós-merge / Review | Passed | Merge5837ab8d com correção final Communication, Spec revisão3 | Implementation Reviewer focal e Visual Reviewer em paralelo, sem terceiro reviewer ou repetição de testes | PASS sem achados. Confirma regras/seletores/asserções preservados, Identity/Auth/migration iguais ao main recebido, Recall autorizado, integração186HTTP/32browser/jobs5+1, prova manual e gates atuais. Visual10/10retido em EV-41. Orchestrator aceita ambas revisões. |
 
+| EV-44 | CI remoto pós-merge / Automated | Failed | Head4bea0918, Server40257456886/job121362262846/artifact12623152704 | gh api autenticado: logs e relatório process-mentor-response | Retrieval real3Passed no CI. Outra falha: general_answer_says_the_context_was_not_checked, scorer_rejected,8/9Mentor. Nenhuma mudança em Mentor/eval/scorer/projeção/lock contra main ou head2d2729f. Caso idêntico passou no artefato real anterior1.876s, agora falhou2.910s. Modelo remoto sem seed/temperature fixados; resposta não está no relatório por privacidade, portanto sinônimo recusado versus falha semântica ainda não distinguíveis. Uma repetição diagnóstica somente do job no mesmo SHA, sem alterar scorer, autorizada por variação concreta entre runs. Falha original preservada, não considerada Passed. |
+
+| EV-45 | Repetição diagnóstica de EV-44 / Automated | Passed | Mesmo head4bea0918, Server40257456886 tentativa2/job121364719994 | gh api POST actions/jobs/121362262846/rerun após conclusão do workflow | Job real AI evals Passed sem alterar código, prompt, scorer, modelo, limiares ou conjunto. Fonte idêntica já tinha caso Passed anterior; rejeição isolada da primeira execução preservada em EV-44. Log shifu90-merged-ci-evals-retry.log. Uma única repetição efetivamente iniciada. ACH-26 Resolved como variação observada da inferência remota, sem afirmar a formulação exata da resposta não registrada. |
+| EV-46 | Conclusão publicada / Review | Passed | PR45/head4bea09183d90f6f750aaa9354735bf0be7559463, revisão3 | gh api por SHA, workflows e reviewThreads; reconciliar sete seções | Todos23checks aplicáveis Passed, zero pending/failure/cancelled. Server40257456886, Web40257456644, Email40257456602. ReviewThreads vazio, reviewDecision vazio, zero threads resolvidas. Falhas anteriores preservadas. Final factual em Spec/Evaluation não altera código/provas e acompanha commit documental com nova conferência de CI. |
+
 ## Inventário Manual e Visual
 
 Rotas usam o caminho publicado em logs/shifu90-scenario.json. A Atividade final é 093; o resultado atual é a tentativa 01M5TNJESDMKE1P2977A2C5W0F. A tentativa terminada em 174 pertence à prova histórica da revisão 2. Todos os caminhos abaixo de screenshots/ e snapshots/ são relativos a apps/web/.playwright-cli/. Capturas atuais pertencem ao candidato após a correção da altura mobile e remoção de diagnósticos. Nenhum screenshot foi adicionado ao Git.
@@ -161,7 +166,9 @@ Rotas usam o caminho publicado em logs/shifu90-scenario.json. A Atividade final 
 | ACH-24 | União de main0f1ee09a com entrega produziu20conflitos de testes/seletores. | high | Integração pós-merge | Resolved. Intenções e asserções de ambos preservadas, revisão focal e EV-35–41. |
 | ACH-25 | Consulta GraphQL precoce e expectativa incorreta sobre marcador retrying no cenário Communication incorporado. | medium | CI-09 jobs | Resolved. Espera pelo início observado e prova terminal do engine distinguem marcador de retry de nova execução. EV-39. Nenhuma produção alterada. |
 
-Todos os ACH-01–25 estão encerrados localmente. ACH-22/23 foram abertos na execução remota posterior. As falhas históricas e suas correções permanecem neste registro; nenhuma foi convertida em aprovação sem prova posterior.
+| ACH-26 | CI Mentor general_answer_says_the_context_was_not_checked recusado pelo scorer, enquanto retrieval atualizado passou. | high | CI remoto real AI evals | Resolved. Repetição única do mesmo job no mesmo SHA Passed, EV-45. Nenhuma alteração de prompt/scorer/modelo ou limiar. Pedido antecipado403 não iniciou execução. Falha histórica preservada. |
+
+ACH-01–26 encerrados. Resultados históricos preservados com sua resolução. ACH-22/23 foram abertos na execução remota posterior. As falhas históricas e suas correções permanecem neste registro; nenhuma foi convertida em aprovação sem prova posterior.
 
 ## Resultados intermediários preservados
 
@@ -269,6 +276,32 @@ A porta7777 já estava ocupada por outro trabalho. Foi preservada. Os testes usa
 
 EV-24 usou a configuração temporária ignorada que importa playwright.config.ts e fixa caminhos absolutos. API descartável já iniciada foi reutilizada; Playwright iniciou/encerrou apenas seus processos Web e upstream. CI=true desativou devtools. Variáveis adicionais: SHIFU_SERVER_APP_PORT=17790, SHIFU_MENTOR_STREAM_TEST_PROXY_PORT=18792 e PLAYWRIGHT_BASE_URL=http://127.0.0.1:17090. Estado privado de autenticação e ambiente não foram impressos nem adicionados ao Git.
 
+
+### Reprodução HTTP após incorporar main
+
+EV-36 usou a seguinte seleção em apps/server. O teste de submissão unitário e os jobs possuem provas separadas. A configuração Redis apenas permite importar a app, pois as fixtures usam recursos descartáveis.
+
+```sh
+REDIS_URL=redis://127.0.0.1:1/0 uv run pytest \
+ tests/intelligence/preparation/test_prepare_planning_indexes.py \
+ tests/intelligence/capabilities/test_planning_capabilities.py \
+ tests/intelligence/server/controllers/test_get_planning_session_controller.py \
+ tests/learning/server/controllers/test_start_skill_controller.py \
+ tests/learning/server/controllers/test_search_skill_catalog_controller.py \
+ tests/learning/server/controllers/test_get_choice_activity_controller.py \
+ tests/learning/server/controllers/test_get_choice_attempt_controller.py \
+ tests/learning/server/controllers/test_preview_activity_question_feedback_controller.py \
+ tests/learning/server/controllers/test_submit_choice_activity_controller.py \
+ tests/shared/server/controllers/test_check_health_controller.py \
+ tests/learning/server/controllers/test_remove_goal_controller.py \
+ tests/identity/server/controllers/test_sign_in_controller.py \
+ tests/identity/server/controllers/test_register_account_controller.py \
+ tests/identity/server/controllers/test_main_page_entered_controller.py \
+ tests/shared/rest/handlers/test_app_error_handler.py
+```
+
+EV-42 carregou ambiente privado do suporte sem imprimi-lo, importou playwright.config.ts e definiu SHIFU_SERVER_APP_PORT=17790, SHIFU_MENTOR_STREAM_TEST_PROXY_PORT=18792, SHIFU_IDENTITY_ACCOUNT_TEST_PROXY_PORT=18793, PLAYWRIGHT_BASE_URL=http://127.0.0.1:17090 e CI=true. A porta17791 dos jobs permaneceu separada.
+
 # Lessons Learned
 
 - ACH-09/EV-10: inicialização do SDK e portas prontas não provam renderização. O browser recusou service worker em origem opaca. A compatibilidade de isolamento deve ser provada antes de congelar essa decisão. Decisão Q5=A registrada na revisão 3. A prova atual de origem distinta, isolamento e serviço disponível está em EV-18/20. Não exige política global nova.
@@ -279,28 +312,31 @@ EV-24 usou a configuração temporária ignorada que importa playwright.config.t
 
 | Field | Detail |
 | --- | --- |
-| Candidate | codex/shifu-90-spec, main0f1ee09a incorporado pelo merge5837ab8d. Spec revisão3 implemented. Correção final Communication e Evaluation acompanham o próximo commit. |
-| Completed | CA-01–13 Complete/Passed. CI-01–09 locais atuais. HTTP186, browser32, Planning186unit, Submit100unit, jobs5+1em runs distintos, integridade406. Tipos/lint/complexidade qualitativa/arquitetura/build aprovados. VM-01 renovado após Authmain; VM-02 e dez visuais retidos justificadamente. |
-| Unfinished | Publicar candidato integrado no PR45 e verificar CI do head atual. Sem decisão de escopo pendente. |
-| Uncommitted work | Exatos: apps/server/tests/messaging/inngest/jobs/communication/test_deliver_communication_job.py e este evaluation.md. Todos pertencem à entrega e serão publicados. Nenhum segredo, estado de navegador, screenshot ou log será adicionado. Checkout original com alterações alheias preservado. |
-| Active processes | Browser shifu90-merge fechado. Web47309 encerrado. Seleção browser40840 concluída32Passed e processos geridos encerrados. Suporte56871 encerrado após provas. API17790/inferência18790/PG/Redis próprios limpos pelo suporte. Jobs reais e API17791 encerrados pelas fixtures. Nenhum serviço compartilhado parado. |
-| Blockers | Nenhum bloqueio local. Publicação/CI do novo head pendentes. |
-| Next action | Commit exato da correção e evidência factual, push na mesma branch, atualizar PR45 e aguardar CI atual. |
+| Candidate | codex/shifu-90-spec. Main0f1ee09a incorporado pelo merge5837ab8d. Correção e provas em4bea0918. Spec revisão3 e Evaluation completed após CI e reviews. Registro final somente documental em publicação. |
+| Completed | CA-01–13 Complete/Passed, CI-01–09 e VM-01–04 atuais. Revisões independentes PASS. CI23/23Passed no candidato4bea0918, nenhuma conversa bloqueante. EV-36–46. |
+| Unfinished | Conferir CI do último commit exclusivamente documental antes da resposta final. Nenhuma implementação ou decisão de escopo pendente. |
+| Uncommitted work | Somente Spec/Evaluation de conclusão, publicados no mesmo PR. Código integral e correções já publicados. Segredos, ambientes, estado de navegador, capturas e logs ignorados não entram no Git. Checkout original com alterações alheias preservado. |
+| Active processes | Nenhum. Browser shifu90-merge, Web47309 e suporte56871 encerrados. API17790/inferência18790/PG/Redis próprios limpos pelo suporte, ambiente privado removido. Playwright40840 e jobs encerrados por suas fixtures. ss confirmou livres17090/17790/17791/18790/18792/18793. Nenhum serviço compartilhado parado. |
+| Blockers | Nenhum bloqueio de implementação ou review. CI do commit documental final em acompanhamento. |
+| Next action | Publicar registro factual final e conferir CI atual. Não fazer merge na main, deploy ou alteração Atlassian. |
 
 # Delivery
 
 | RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
 | --- | --- | --- | --- |
-| Learning RP-09/11/12/13/14/18/24/25/29, JN-07/08/11/13; Curriculum RP-03/JN-03 | RF-01–11 / CA-01–13 | EV-02–43, com limites por critério | implemented no recorte selecionado. CA-01–13 possuem provas atuais. CI-09 completo. Os requisitos completos dos módulos não são declarados entregues por esta fatia; checkboxes canônicos permanecem inalterados. |
+| Learning RP-09/11/12/13/14/18/24/25/29, JN-07/08/11/13; Curriculum RP-03/JN-03 | RF-01–11 / CA-01–13 | EV-02–46, com limites por critério | implemented no recorte selecionado. CA-01–13 possuem provas atuais. CI-09 completo. Os requisitos completos dos módulos não são declarados entregues por esta fatia; checkboxes canônicos permanecem inalterados. |
 
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/45 | 2d2729f73d010c3edea77cc71c4c387d662f5956 | Pending. Server/Web/Email em execução. Sem conversas abertas na inspeção inicial; reviewDecision vazio. | [Server](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104827), [Web](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104778), [Email](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104790) |
+| https://github.com/CtrI-Alt-Del/shifu/pull/45 | 2d2729f73d010c3edea77cc71c4c387d662f5956 | Histórico Failed. Web teardown e Recall anterior, resoluções EV-33/38/45. | [Server](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104827), [Web](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104778), [Email](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40252104790) |
+
+| https://github.com/CtrI-Alt-Del/shifu/pull/45 | efa34742c92bf1cc0426ff1096438e924d43bd30 | Histórico:22Passed, apenas retrieval Failed pelo mínimo anterior. | Server40252621269/Web40252621163/Email40252621186 |
+| https://github.com/CtrI-Alt-Del/shifu/pull/45 | 4bea09183d90f6f750aaa9354735bf0be7559463 | Passed23/23, zero conversas abertas e reviewDecision vazio. Primeira tentativa MentorFailed preservada EV-44, repetição únicaPassed EV-45. | [Server](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40257456886), [Web](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40257456644), [Email](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40257456602) |
 
 | Field | Result |
 | --- | --- |
-| Publication | PR45 publicado: https://github.com/CtrI-Alt-Del/shifu/pull/45. Base main, head codex/shifu-90-spec, commit2d2729f73d010c3edea77cc71c4c387d662f5956. Server/Web/Email CI em andamento. Spec implemented e Evaluation ready até comprovar checks do head atual. |
+| Publication | PR45 publicado na mesma branch, base main. Candidato4bea0918Passed23/23. Conclusão factual de revisão3 em Spec/Evaluation será publicada no commit documental final, com conferência dos checks desse head antes da resposta final. Sem merge/deploy ou escrita Atlassian. |
 | Source verification | Learning83066881v26 e Curriculum83034113v13, leituras completas atuais reutilizadas. Metadados reconfirmados via Atlassian Shifu MCP nesta publicação: Learning83066881v26 e Curriculum83034113v13, títulos/status atuais inalterados. Leituras completas anteriores da mesma conversa reutilizadas. |
 | Documentation Alignment | Emendas AI/Jobs aprovadas preservadas. Manutenção Q6 reconcilia Core/UseCase/AI/Database/Provision/Controller/Widget Rules, checker e seletores Poe/CI. Tooling descreve os limites permanentes. REST examples atualizados e conferidos pelo reviewer. Nenhum PRD, Pencil, Jira ou Confluence alterado. |
 | Revision History | Revisão3 incorpora Q5=A para origem própria validada e Q6 para preservar/migrar os14testes nesta worktree. Emenda auditada e implementada. |
@@ -315,3 +351,5 @@ Publicação confirmada: PR45, título [SHIFU-90] Questões integradas React e F
 Sincronização posterior autorizada: usuário informou main atualizada e mínimoRecall89%. Fetch origin/main encontrou0f1ee09a, merge de PR46/SHIFU-97. Além do limiar0.90→0.89, vieram perfil/segurança de conta, autenticação, migration própria de Identity, fixtures e outra migração dos14testes. Foram20conflitos de testes/seletores. Preservada a união das asserções/scenarios, sem escolher arquivos inteiros de um lado. As três conformidades de domínio aprovadas na revisão3 permanecem junto aos novos consumidores de main. ProductionIdentity/auth e migration de main preservadas.
 
 Verificação pós-merge: EV-36–42 substituem somente provas afetadas por main. MínimoRecall0.89 veio de main por instrução do usuário e3checks reais passaram sem alterar ranking. Todos os13critérios continuam implementados. Head anterior efa34742 teve22checksPassed e apenas Server real AI evalsFailed pelo mínimo anterior. Seus runs Server40252621269/Web40252621163/Email40252621186 são históricos. Nenhuma conversa de review encontrada e reviewDecision vazio na nova inspeção.
+
+Conclusão após incorporação de main: RF-01–11/CA-01–13 implementados e verificados, Spec revisão3 completed. Checks locais afetados e CI atual23/23Passed. ACH-01–26 encerrados. MínimoRecall89% veio de main por decisão explícita do usuário, sem alegar melhora de ranking. Fonte Learning83066881v26/Curriculum83034113v13 preservada. Registro final apenas documental, sem alteração de contrato/produto. Nenhum recurso próprio em execução e nenhuma mudança alheia incluída.
