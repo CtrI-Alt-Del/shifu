@@ -3,7 +3,7 @@ import { LearnerMemoryFaker } from '@/core/intelligence/fakers/learner-memory-fa
 import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { createElement, useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -2106,6 +2106,51 @@ describe('useMentorContextProvider memory items', () => {
       expect(mocks.detail).toHaveBeenCalledTimes(1)
     },
   )
+
+  it('refetches open learner memory queries when the response ends', async () => {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    const listMemories = vi.fn().mockResolvedValue([])
+    const readMemory = vi.fn().mockResolvedValue(null)
+    vi.stubGlobal('EventSource', ControlledEventSource)
+    ControlledEventSource.instances = []
+    mockDetailWithItems([])
+    const { result } = renderHook(
+      () => {
+        useQuery({
+          queryKey: ['learner-memories', 'aluna@example.com'],
+          queryFn: listMemories,
+        })
+        useQuery({
+          queryKey: ['learner-memory', 'aluna@example.com', 'm'],
+          queryFn: readMemory,
+        })
+        return useMentorContextProvider('aluna@example.com')
+      },
+      {
+        wrapper: ({ children }: { children: React.ReactNode }) =>
+          createElement(QueryClientProvider, { client }, children),
+      },
+    )
+    await act(() => result.current.selectSession(detail.session.id))
+    await waitFor(() => expect(listMemories).toHaveBeenCalledTimes(1))
+    expect(readMemory).toHaveBeenCalledTimes(1)
+
+    act(() => getEventSource(0).emit(responseEvent({ sequence: 2, block: null })))
+    expect(listMemories).toHaveBeenCalledTimes(1)
+    act(() =>
+      getEventSource(0).emit(
+        responseEvent({
+          sequence: 3,
+          kind: 'completed',
+          status: 'completed',
+          block: null,
+        }),
+      ),
+    )
+
+    await waitFor(() => expect(listMemories).toHaveBeenCalledTimes(2))
+    expect(readMemory).toHaveBeenCalledTimes(2)
+  })
 
   it('does not re-read the detail for non-terminal events', async () => {
     const { result } = openResponseProvider()

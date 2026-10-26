@@ -129,11 +129,15 @@ export function useMemoryMap({
     return [...hubEdges, ...conceptEdges]
   }, [isDesktop, memories, selectedMemoryId])
 
+  // Positions depend only on which memories are shown and their order. Selecting a
+  // memory or refetching the same list must keep the learner's pan and zoom.
+  const layoutKey = memories.map((memory) => memory.id).join('|')
+
   useEffect(
     function refitOnLayoutChange() {
       const instance = instanceRef.current
       const container = containerRef.current
-      if (!instance || !container || nodes.length === 0) return
+      if (!instance || !container || layoutKey === '') return
       const observer =
         typeof ResizeObserver === 'undefined'
           ? null
@@ -142,7 +146,7 @@ export function useMemoryMap({
       void instance.fitView(FIT_OPTIONS)
       return () => observer?.disconnect()
     },
-    [nodes],
+    [layoutKey],
   )
 
   function fitMap() {

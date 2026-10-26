@@ -33,6 +33,9 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ports.location,
   useNavigate: () => ports.navigate,
 }))
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: () => Promise.resolve() }),
+}))
 vi.mock('@/ui/intelligence/hooks/use-create-mentor-session-action', () => ({
   useCreateMentorSessionAction: () => ({
     createMentorSession: ports.create,

@@ -169,7 +169,7 @@ describe('useMemoriesPage', () => {
     expect(mocks.service.listLearnerMemories).toHaveBeenCalledTimes(2)
   })
 
-  it('writes each filter change to the URL with replace and keeps the other values', async () => {
+  it('writes each filter change to the URL with replace, keeps the other values and the scroll', async () => {
     setSearch({
       q: 'python',
       category: 'declared_knowledge',
@@ -189,6 +189,7 @@ describe('useMemoriesPage', () => {
         memory: FIRST_ID,
       },
       replace: true,
+      resetScroll: false,
     })
 
     act(() => result.current.handleCategoryChange(null))

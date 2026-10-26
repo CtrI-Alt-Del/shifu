@@ -13,6 +13,7 @@ import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-resp
 import { useSubmitMentorMessageAction } from '@/ui/intelligence/hooks/use-submit-mentor-message-action'
 import { useCancelMentorResponseAction } from '@/ui/intelligence/hooks/use-cancel-mentor-response-action'
 import { useRetryMentorResponseAction } from '@/ui/intelligence/hooks/use-retry-mentor-response-action'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -107,6 +108,7 @@ export function useMentorContextProvider(
   const controlKeys = useRef(new Map<string, string>())
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
   // biome-ignore lint/correctness/useExhaustiveDependencies: route/account changes invalidate the active dictation scope.
   useEffect(
     function cancelOnNavigation() {
@@ -921,8 +923,13 @@ export function useMentorContextProvider(
             : current.actionItems,
       }
     })
-    if (TERMINAL_EVENT_KINDS.includes(event.kind) && selectedSessionId)
+    if (TERMINAL_EVENT_KINDS.includes(event.kind) && selectedSessionId) {
       void readDetail(selectedSessionId)
+      // The answer run may have created or updated memories: an open Memórias page
+      // refetches them instead of waiting for a reload.
+      void queryClient.invalidateQueries({ queryKey: ['learner-memories'] })
+      void queryClient.invalidateQueries({ queryKey: ['learner-memory'] })
+    }
   }
   async function reconcileResponse() {
     if (!selectedSessionId) return null
