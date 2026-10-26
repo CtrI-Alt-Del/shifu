@@ -235,7 +235,7 @@ class TestDeliverCommunicationJob:
                 == []
             )
 
-    def test_invalid_registered_event_fails_terminally_without_retry_or_delivery(
+    def test_invalid_registered_event_reports_failure_without_runtime_retry_or_delivery(
         self, inngest_fixture: 'InngestFixture'
     ) -> None:
         event_id = IdProviderFaker().generate()
@@ -248,6 +248,14 @@ class TestDeliverCommunicationJob:
             event_id,
         )
         assert len(submitted_ids) == 1
+        started = json.loads(
+            inngest_fixture.wait_for_log(
+                f'"event":"job.started","event_id":"{event_id}"', timeout=90
+            )
+        )
+        assert isinstance(started['run_id'], str) and started['run_id']
+        # The publish acknowledgment precedes asynchronous event/run storage.
+        # Observe the registered job before querying that run's persisted status.
         # Known invalid input raises NonRetriableError inside a durable step.
         # Inspect the actual terminal state instead of claiming a wrapper retry.
         query = """
@@ -275,6 +283,7 @@ class TestDeliverCommunicationJob:
             pytest.fail(f'Invalid communication did not fail terminally: {runs!r}')
 
         assert len(runs) == 1
+        assert cast('dict[str, object]', runs[0])['id'] == started['run_id']
         events = [
             entry
             for entry in read_job_telemetry(inngest_fixture.runtime_environment)
@@ -291,9 +300,21 @@ class TestDeliverCommunicationJob:
             for entry in events
         )
         assert all(entry.get('attempt') == 1 for entry in events)
-        assert all(
-            entry['event'] not in {'job.completed', 'job.retrying'} for entry in events
-        )
+        assert [entry['event'] for entry in events] == [
+            'job.started',
+            'job.failed',
+            'job.retrying',
+        ]
+        failed = events[1]
+        assert failed.get('error_code') == 'job_failed'
+        assert failed.get('exception_type') == 'NonRetriableError'
+        assert failed.get('result') == 'failure'
+        # The existing wrapper emits retry intent for every early exception.
+        # This marker does not prove a retry: the engine failed terminally after
+        # exactly one started callback, with no delivery or persistence effect.
+        retrying = events[2]
+        assert retrying.get('error_code') == 'job_failed'
+        assert retrying.get('result') == 'retry'
         assert 'secret' not in str(events)
         assert 'must-not-be-copied' not in str(events)
         assert inngest_fixture.mailpit_messages() == []
