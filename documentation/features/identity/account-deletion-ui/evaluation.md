@@ -14,7 +14,7 @@ last_updated_at: 2026-10-25
 | Tipos / lint / complexidade | Passed separadamente em EV-10. Lint mantém11avisos fora da mudança e diagnóstico interno de diretório scripts ausente. Métricas quantitativas não configuradas/não exigidas. |
 | Manual / Visual | VM-01 e VM-02 aprovados. Login real, desktop/mobile e quatro capturas verificadas. |
 | Revisão independente | Implementação e visual aprovadas após correção ACH-01. |
-| Bloqueios | Nenhum nesta fatia. Exclusão real permanece fora do escopo. Código publicado com6/6checksCIaprovados. |
+| Bloqueios | Nenhum nesta fatia. Exclusão real permanece fora do escopo. Código da UI publicado com6/6checksCIaprovados em93a065fe; manutenção posterior do teste de infraestrutura de UI descrita emEV-12/13. |
 | Candidato | codex/shifu-98-deletion-ui; base7db714aa, main incorporado em0f1ee09a sem mudança de árvore; código93a065fe; registro documental posterior no worktree /home/petros/.codex/worktrees/shifu-98-deletion-ui/shifu. |
 
 # Progress
@@ -43,12 +43,17 @@ last_updated_at: 2026-10-25
 
 | EV-11 | CI remoto / Automated | Passed | PR47, candidato de código93a065fe357522645c272fe97398b0171e48a703. Web6/6checks aprovados: tipos, lint, arquitetura, unitários165arquivos e integração260/260em6.2min, build. Run https://github.com/CtrI-Alt-Del/shifu/actions/runs/40257540991. Log local shifu98-ci-93a065fe.log. Main0f1ee09a incorporado sem mudanças de árvore, resultados locais preservados. Revisão GitHub:0threads,reviewDecisionnull; revisões independentes locais EV-09 aprovadas. Este registro documental não muda código, contratos, configuração ou fixtures. |
 
+| EV-12 | CI remoto posterior / Automated | Failed histórico | Head31061e1b, que só acrescentou documentação. Unitários165arquivos/1373testes passaram, mas Vitest encerrou com1exceção não tratada window is not defined de React após teardown, atribuída a use-proposal-skill-graph.test.ts. Run40258308760, job121364865000. Log shifu98-ci-31061e1b-unit.log. Investigação identificou arrays criados a cada renderHook que reativavam layout assíncrono e ausência de cleanup explícito. |
+| EV-13 | Correção de limpeza do teste / Automated | Passed local | Manutenção restrita a apps/web/src/ui/intelligence/widgets/pages/planner-page/planning-proposal-review/tests/use-proposal-skill-graph.test.ts. Arrays locais estáveis e afterEach(cleanup); todas as asserções preservadas. Suite focada4/4aprovada em3execuções separadas, sem erros não tratados; Biome focado e tipos Web aprovados. Revisão independente sem achados. Sem mudança de produção, contrato, dependências ou configuração. CI do head final é acompanhado no PR47. |
+
 # Findings
 
 | ACH | Problema | Gravidade | Estado / correção |
 | --- | --- | --- | --- |
 | ACH-01 | Implementação independente identificou ausência de ícone lateral, ação de fechar superior e separador no cabeçalho exigido pelas regras UI. | P2 | Resolved: ícone à esquerda, título/descrição agrupados, botão Fechar superior e separador. Handoff alinhado. EV-09/10 aprovados e revisões independentes resolvidas. |
 | ACH-02 | Teste de navegador pressupunha foco no link e tentava clicar o input visualmente oculto do checkbox. | Teste | Corrigido para foco real na senha e teclado Espaço. EV-07 passa; EV-09 revalidou foco e fechamento após mudança de cabeçalho. |
+
+| ACH-03 | Teste antigo do grafo do Planejador mantinha hooks montados e dependências novas a cada render, repetindo layout assíncrono até o ambiente ser descartado. CI posterior falhou mesmo com todas as asserções aprovadas. | CI / teste | Correção implementada e verificada emEV-13; sem alteração de produção. Falha históricaEV-12preservada. Resultado do head final acompanhado no PR. |
 
 # Lessons Learned
 
@@ -58,10 +63,10 @@ Montagem condicional do painel evita guardar a senha ao trocar de aba sem depend
 
 | Campo | Detalhe |
 | --- | --- |
-| Candidato | codex/shifu-98-deletion-ui, código93a065fe357522645c272fe97398b0171e48a703, main0f1ee09a incorporado sem mudança de árvore; registro documental posterior na mesma branch. |
+| Candidato | codex/shifu-98-deletion-ui, códigoUI93a065fe357522645c272fe97398b0171e48a703, main0f1ee09a incorporado sem mudança de árvore; registro documental31061e1b e manutenção pontual de teste em commit posterior na mesma branch. |
 | Concluído | CA-01–04, CI-01–06, VM-01/02, integridade e revisões independentes. |
 | Pendente | Nenhum nesta entrega parcial. Integração de exclusão real pertence ao restante da SHIFU-98. |
-| Arquivos locais | account-page/index.tsx,use-account-page.ts,tests/account-page.test.tsx,tests/use-account-page.test.ts; deletion-panel/**; apps/web/tests/identity/account-page.test.ts; documentation/features/identity/account-deletion-ui/**. Somente trabalho desta entrega, incluído nos commits autorizados de implementação e registro de publicação. Sem alterações alheias. |
+| Arquivos locais | account-page/index.tsx,use-account-page.ts,tests/account-page.test.tsx,tests/use-account-page.test.ts; deletion-panel/**; apps/web/tests/identity/account-page.test.ts; documentation/features/identity/account-deletion-ui/**. Somente trabalho desta entrega e manutenção pontual de use-proposal-skill-graph.test.ts necessária para corrigir a falha de CI. Incluídos nos commits autorizados; sem alterações alheias. |
 | Processos | Nenhum ativo. Encerradas API7798, Web7098, navegador shifu98 e processos de integração7108/proxy7799. Conta isolada limpa. Containers próprios shifu98-ui-postgres54998 e shifu98-ui-redis6398 encerrados/removidos. Arquivos temporários de ambiente e storage removidos. Serviços compartilhados7000/7777 e Docker preservados. |
 | Próxima ação | Revisão humana do PR47. Após o registro documental, acompanhar os checks do head no próprio PR, sem repetir validação local não afetada. Integração do servidor permanece fora deste recorte. |
 
@@ -74,7 +79,7 @@ Montagem condicional do painel evita guardar a senha ao trocar de aba sem depend
 
 | Campo | Resultado |
 | --- | --- |
-| Publicação | Publicado https://github.com/CtrI-Alt-Del/shifu/pull/47, main←codex/shifu-98-deletion-ui. Código93a065fe, CI6/6aprovado no run40257540991. Registro documental posterior incluído na mesma branch; estado dos checks do head atual disponível no PR. Sem merge/deploy ou escrita Jira/Confluence. |
+| Publicação | Publicado https://github.com/CtrI-Alt-Del/shifu/pull/47, main←codex/shifu-98-deletion-ui. Código93a065fe, CI6/6aprovado no run40257540991. Registro documental31061e1b revelou falha no teardown de teste preexistente (EV-12), corrigida por manutenção pontual (EV-13). Estado dos checks do head final disponível no PR. Sem merge/deploy ou escrita Jira/Confluence. |
 | Fonte | Identity Confluence83001345v2. Sem mudança de requisitos ou escrita externa. SHIFU-98 permanece pendente em seu escopo integral. |
 | Documentação | Spec revisão1 implemented; Evaluation ready. Handoff documenta cabeçalho vigente, ação desabilitada e adaptações mobile. SHIFU-97 e seus registros no worktree anterior preservados. |
 | Limites | Não existe execução de exclusão nem verificação remota da senha. Avisos de desenvolvimento do Vite/TanStack e11avisos preexistentes de lint não foram alterados. O comando global de lint também referencia apps/web/scripts inexistente e emite diagnóstico interno com exit0; validação focada dos arquivos alterados não tem esse diagnóstico. Capturas não provam exclusão; conta continua ativa, conforme esperado. |
