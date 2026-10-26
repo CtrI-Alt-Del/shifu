@@ -185,7 +185,7 @@ ACH-10 é separado dessa manutenção: a avaliação existente falhou sob mínim
 | Candidate | Revisão1; codex/shifu-97-account-spec; base8ee992a; C4-0ce885b3f67b1dea; /home/petros/.codex/worktrees/shifu-97-account-spec/shifu |
 | Completed | Código integrado; CI-01–12/14 atuais, CI-13 arquitetura/build/integridade passam; manutenção de testes C3 concluída; VM-01/02 reais em ambos viewports; VM-03/04 quatro estados aprovados pelo revisor visual. Sem commit. |
 | Unfinished | Publicar commits/PR autorizados e aguardar CI do head. Critérios da conta, manutenção, revisão e novo mínimo de recall verificados. Nenhuma correção local pendente. |
-| Uncommitted work |128caminhos de código/testes sob apps/server e apps/web; migração b16c32618ca8; Spec/Evaluation/handoff e2referências PNG sob documentation/features/identity/account-profile-security. Tudo desta entrega; worktree original preservado. Lista exata atual em apps/web/.playwright-cli/logs/shifu97-candidate-approved.txt. |
+| Uncommitted work |128caminhos de código/testes do candidato sob apps/server e apps/web; migração b16c32618ca8; Spec/Evaluation/handoff e2referências PNG sob documentation/features/identity/account-profile-security. Primeiro recorte já commitado em7567db1d; manutenção restante desta entrega. Worktree original preservado. Lista exata atual em apps/web/.playwright-cli/logs/shifu97-candidate-approved.txt. |
 | Active processes | Nenhum processo da tarefa permanece ativo. API7797 sessão50178 encerrada; Web7097/proxy7798 encerrados pelo runner. Containers próprios shifu97-maintenance-postgres34629/redis35021 removidos, sem volumes, além da limpeza anterior EV-41. Fixtures encerraram seus containers. Arquivos de ambiente/conta/storage próprios removidos. Serviços compartilhados preservados; evidências locais ignoradas mantidas. |
 | Blockers | ACH-01:14testes preexistentes fora dos limites permitidos. Log e caminhos em Findings. Não remover/enfraquecer provas para fechar gate. |
 | Next action | Criar commits por intenção, publicar PR e observar CI remoto atual. Reutilizar provas inalteradas C1–C3. O limiar0.89 solicitado pelo usuário está verificado em C4; sem necessidade de nova aprovação para publicação. |
@@ -198,7 +198,7 @@ ACH-10 é separado dessa manutenção: a avaliação existente falhou sob mínim
 
 | Field | Result |
 | --- | --- |
-| Publication | Autorizada pela invocação explícita conclude-spec. Sincronização origin/main concluída sem mudanças EV-42. Commit/PR autorizados e agora pendentes; nenhum commit, push ou PR ainda. CI de PR será exigido para cada head publicado. |
+| Publication | Autorizada pela invocação explícita conclude-spec. Sincronização origin/main concluída sem mudanças EV-42. Primeiro commit7567db1d criado com94paths da funcionalidade/documentação e hooks aprovados. Commit de manutenção em preparação. Push/PR ainda pendentes; CI do head será exigido. |
 | Source verification | Identity content83001345 v2 lida integralmente nesta sessão; versão confirmada21:39UTC |
 | Documentation Alignment | Contrato revisão1 aprovado. Exemplos REST alinhados com métodos, paths, schemas e status dos3endpoints. Design/handoff e referências preservados; nenhum contrato de produto ou PRD alterado. Revisor C1 confirmou demais contratos e exemplos. |
 | Revision History | Sem alteração material do contrato |

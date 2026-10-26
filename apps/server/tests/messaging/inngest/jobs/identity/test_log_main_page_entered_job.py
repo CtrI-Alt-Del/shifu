@@ -1,7 +1,15 @@
+import json
 from typing import TYPE_CHECKING
+
+import pytest
 
 if TYPE_CHECKING:
     from tests.fixtures.inngest_fixture import InngestFixture
+
+
+@pytest.fixture(scope='session')
+def inngest_app_target() -> tuple[str, bool]:
+    return 'tests.shared.job_telemetry_application:create_app', True
 
 
 class TestLogMainPageEnteredJob:
@@ -38,3 +46,19 @@ class TestLogMainPageEnteredJob:
         )
 
         assert '"job":"identity.log_main_page_entered"' in log_line
+
+        completed = json.loads(log_line)
+        started_line = inngest_fixture.wait_for_log(
+            f'"event":"job.started","event_id":"{event_id}"', timeout=30
+        )
+        started = json.loads(started_line)
+        assert completed['run_id'] == started['run_id']
+        assert completed['run_id']
+        assert completed['event_id'] == started['event_id'] == event_id
+        assert completed['attempt'] >= 1
+        assert started['attempt'] >= 1
+        assert completed['result'] == 'success'
+        assert 'account_id' not in completed
+        assert event.payload.account_id not in log_line
+        # The fixture sink raises after recording every job.started event.
+        # Completion through durable execution proves instrumentation cannot fail it.

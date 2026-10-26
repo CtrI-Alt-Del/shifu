@@ -1,3 +1,4 @@
+from datetime import timedelta
 from unittest.mock import create_autospec
 
 import pytest
@@ -90,3 +91,33 @@ class TestReportPlanningProgressUseCase:
             )
             is False
         )
+
+    def test_should_replace_the_stage_without_restarting_the_operation(self) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+        self.clock.now.return_value = NOW + timedelta(seconds=5)
+        assert self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 1, PlanningOperationStage.ANALYZING
+        )
+
+        assert self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 1, PlanningOperationStage.COMPOSING
+        )
+
+        assert session.operation is not None
+        assert session.operation.stage is PlanningOperationStage.COMPOSING
+        assert session.operation.started_at == NOW
+        assert session.updated_at == NOW + timedelta(seconds=5)
+
+    def test_should_discard_progress_from_a_stale_generation(self) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+
+        assert not self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 2, PlanningOperationStage.RETRIEVING
+        )
+
+        assert session.operation is not None
+        assert session.operation.stage is None
+        assert session.updated_at == NOW
+        self.sessions.update.assert_not_called()

@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select, update
+
+from shifu.curriculum.database.sqlalchemy.models import ActivityModel
 
 from shifu.app import FastAPIApp
 from shifu.curriculum.database.logic_programming_seed import (
@@ -134,6 +137,23 @@ def client(application: FastAPI) -> Iterator[TestClient]:
         yield test_client
 
 
+def _replace_persisted_value(
+    document: object, path: tuple[str | int, ...], value: object
+) -> None:
+    node = document
+    for segment in path[:-1]:
+        node = (
+            cast('list[object]', node)[segment]
+            if isinstance(segment, int)
+            else cast('dict[str, object]', node)[segment]
+        )
+    last = path[-1]
+    if isinstance(last, int):
+        cast('list[object]', node)[last] = value
+    else:
+        cast('dict[str, object]', node)[last] = value
+
+
 class TestGetChoiceActivityController:
     @pytest.mark.parametrize(
         'scenario',
@@ -234,6 +254,138 @@ class TestGetChoiceActivityController:
 
         assert response.status_code == 404, response.json()
         assert response.json()['code'] == 'not_found'
+
+    @pytest.mark.parametrize(
+        'invalid',
+        (
+            'policy-directory',
+            'policy-extension',
+            'policy-zero',
+            'policy-overflow',
+            'policy-boolean',
+            'missing-entrypoint',
+            'initial-collision',
+            'duplicate-initial',
+            'initial-configuration',
+            'initial-traversal',
+            'initial-hidden',
+            'no-required-criterion',
+            'wrong-rubric',
+            'diagnostic-react',
+            'empty',
+            'duplicate-question',
+            'missing-rubric',
+            'duplicate-required',
+        ),
+    )
+    def test_should_reject_malformed_persisted_react_content(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        invalid: str,
+    ) -> None:
+        activity = ReactControllerFixture.activity()
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+        # Raw JSON is deliberate malformed legacy persistence. Normal writers
+        # cannot construct these values. The registered reader must fail closed.
+        with postgres_database.engine.begin() as connection:
+            row = connection.execute(
+                select(ActivityModel.questions, ActivityModel.evaluation_rule).where(
+                    ActivityModel.id == activity.id
+                )
+            ).one()
+            questions = cast('list[dict[str, object]]', row[0])
+            rule = cast('dict[str, object]', row[1])
+            react = questions[-1]
+            initial = cast('list[dict[str, object]]', react['initial_files'])
+            parts = cast('list[dict[str, object]]', rule['parts'])
+            criteria = cast('list[dict[str, object]]', parts[-1]['criteria'])
+            policy_path: tuple[str | int, ...] = (
+                'questions',
+                2,
+                'additional_file_policy',
+            )
+            changes: dict[str, tuple[tuple[str | int, ...], object]] = {
+                'policy-directory': (
+                    (*policy_path, 'allowed_directories'),
+                    ['src/../components'],
+                ),
+                'policy-extension': ((*policy_path, 'allowed_extensions'), ['.exe']),
+                'policy-zero': ((*policy_path, 'max_files'), 0),
+                'policy-overflow': ((*policy_path, 'max_files'), 33),
+                'policy-boolean': ((*policy_path, 'max_files'), True),
+                'missing-entrypoint': (
+                    ('questions', 2, 'entrypoint'),
+                    'src/Missing.jsx',
+                ),
+                'initial-collision': (
+                    ('questions', 2, 'initial_files'),
+                    [*initial, {'path': 'src', 'content': '', 'editable': False}],
+                ),
+                'duplicate-initial': (
+                    ('questions', 2, 'initial_files'),
+                    [*initial, dict(initial[0])],
+                ),
+                'initial-configuration': (
+                    ('questions', 2, 'initial_files', 0, 'path'),
+                    'src/vite.config.tsx',
+                ),
+                'initial-traversal': (
+                    ('questions', 2, 'initial_files', 0, 'path'),
+                    'src/../App.jsx',
+                ),
+                'initial-hidden': (
+                    ('questions', 2, 'initial_files', 0, 'path'),
+                    'src/.hidden.jsx',
+                ),
+                'no-required-criterion': (
+                    ('evaluation_rule', 'parts', 2, 'criteria'),
+                    [{**criterion, 'required': False} for criterion in criteria],
+                ),
+                'wrong-rubric': (
+                    ('evaluation_rule', 'parts', 2),
+                    {'question_key': 'q3', 'weight_percentage': 40},
+                ),
+                'diagnostic-react': (('activity_type',), 'diagnostic'),
+                'empty': (('questions',), []),
+                'duplicate-question': (('questions',), [*questions, dict(react)]),
+                'missing-rubric': (('evaluation_rule', 'parts'), parts[:-1]),
+                'duplicate-required': (
+                    ('required_concept_ids',),
+                    ['duplicate', 'duplicate'],
+                ),
+            }
+            values: dict[str, object] = {
+                'questions': questions,
+                'evaluation_rule': rule,
+                'activity_type': 'learning',
+                'required_concept_ids': [],
+            }
+            path, value = changes[invalid]
+            _replace_persisted_value(values, path, value)
+            connection.execute(
+                update(ActivityModel)
+                .where(ActivityModel.id == activity.id)
+                .values(**values)
+            )
+
+        response = client.get(
+            ReactControllerFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        if invalid == 'policy-boolean':
+            # The persistence decoder normalizes its declared integer before
+            # constructing the policy. Verify the public canonical value.
+            assert response.status_code == 200, response.text
+            policy = response.json()['questions'][-1]['additional_file_policy']
+            assert policy['max_files'] == 1
+            assert type(policy['max_files']) is int
+            return
+        assert response.status_code == 400, (invalid, response.text)
+        assert response.json()['code'] == 'validation_error'
+        assert ReactControllerFixture.INITIAL_SOURCE not in response.text
 
     def test_catalog_hides_skills_with_missing_curriculum_sequences(
         self,

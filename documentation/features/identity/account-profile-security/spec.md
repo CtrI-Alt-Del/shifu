@@ -747,4 +747,3 @@ O usuário aprovou o contrato escrito ao invocar implement-spec em 25/10/2026. A
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-10-25 | Contrato inicial de perfil e segurança, sessão preservada atomicamente, fuso sugerido sem gravação automática e cobertura focada | SHIFU-97; PRD Identity v2; escopo aprovado e recomendações aceitas pelo usuário |
-

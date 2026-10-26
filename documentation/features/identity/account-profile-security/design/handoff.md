@@ -53,4 +53,3 @@ O código já declara os tokens de cor e as famílias no CSS global. Espaçament
 - A entrada usa MotionEntrance e variantes compartilhadas. Movimento reduzido mostra o estado final imediatamente.
 
 Estados negativos, carregamento, falha, resultado incerto e recuperação pertencem à cobertura automatizada. Não exigem outros percursos manuais nem quadros estáticos novos.
-

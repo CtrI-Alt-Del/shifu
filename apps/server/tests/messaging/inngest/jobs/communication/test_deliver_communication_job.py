@@ -153,3 +153,42 @@ class TestDeliverCommunicationJob:
         assert persisted.status == 'sent'
         assert persisted.attempt_count == 1
         assert len(attempts) == 1
+
+    def test_invalid_registered_event_reports_failure_and_retry_without_delivery(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        from shifu.fakers.shared.id_provider_faker import IdProviderFaker
+
+        event_id = IdProviderFaker().generate()
+        event = CommunicationQueuedEvent(
+            payload=CommunicationQueuedPayload(communication_id='missing-communication')
+        )
+        inngest_fixture.publish(
+            event.name,
+            {'communication_id': '', 'secret': 'must-not-be-copied'},
+            event_id,
+        )
+        failed = json.loads(
+            inngest_fixture.wait_for_log(
+                f'"event":"job.failed","event_id":"{event_id}"', timeout=90
+            )
+        )
+        retrying = json.loads(
+            inngest_fixture.wait_for_log(
+                f'"event":"job.retrying","event_id":"{event_id}"', timeout=30
+            )
+        )
+
+        assert failed['job'] == 'communication.deliver_communication'
+        assert failed['error_code'] == 'job_failed'
+        assert failed['exception_type']
+        assert failed['result'] == 'failure'
+        assert failed['attempt'] == 1
+        assert retrying['run_id'] == failed['run_id']
+        assert retrying['result'] == 'retry'
+        assert 'secret' not in str(failed)
+        assert 'must-not-be-copied' not in str(retrying)
+        assert inngest_fixture.mailpit_messages() == []
+        with inngest_fixture.inspection_session() as session:
+            assert session.scalars(select(DeliveryAttemptModel)).all() == []
+            assert session.scalars(select(CommunicationModel)).all() == []
