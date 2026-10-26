@@ -19,6 +19,9 @@ from .fail_mentor_attachment_use_case import (
 from .fail_mentor_response_use_case import (
     FailMentorResponseUseCase as FailMentorResponseUseCase,
 )
+from .fail_stale_mentor_response_use_case import (
+    FailStaleMentorResponseUseCase as FailStaleMentorResponseUseCase,
+)
 from .finalize_mentor_response_use_case import (
     FinalizeMentorResponseUseCase as FinalizeMentorResponseUseCase,
 )

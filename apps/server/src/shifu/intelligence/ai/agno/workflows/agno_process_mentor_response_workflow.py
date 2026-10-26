@@ -267,7 +267,11 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             return StepOutput(content='memories-skipped')
         return StepOutput(content='memories-done')
 
-    def _prepare_and_publish(self, step_input: StepInput) -> StepOutput:
+    async def _prepare_and_publish(self, step_input: StepInput) -> StepOutput:
+        """Run the database, NLP and publishing work off the event loop."""
+        return await to_thread(self._prepare_and_publish_blocking, step_input)
+
+    def _prepare_and_publish_blocking(self, step_input: StepInput) -> StepOutput:
         try:
             raw = step_input.input
             request = (
@@ -338,13 +342,23 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
             prepared.attempt_id, owner, block, prepared.context
         )
 
-    def _write_and_review(self, step_input: StepInput) -> StepOutput:
+    async def _write_and_review(self, step_input: StepInput) -> StepOutput:
+        """Run the blocking model calls off the event loop."""
+        return await to_thread(self._write_and_review_blocking, step_input)
+
+    def _write_and_review_blocking(self, step_input: StepInput) -> StepOutput:
         try:
             reference = self._read_reference(step_input.get_last_step_content())
             request = self._request_for_step(step_input)
             state = self._consume_or_recover(reference, request)
         except Exception:  # noqa: BLE001 - opaque handoff errors are sanitized.
-            raise ServiceUnavailableError(_UNAVAILABLE) from None
+            status = self._fail_unrecoverable_step(step_input)
+            try:
+                return self._store(
+                    _ExecutionState(prepared=None, status=status), 'done'
+                )
+            except Exception:  # noqa: BLE001 - the attempt is already closed.
+                raise ServiceUnavailableError(_UNAVAILABLE) from None
         return self._write_state(state)
 
     def _write_state(self, state: _ExecutionState) -> StepOutput:
@@ -546,13 +560,17 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         except (ValidationError, ValueError, TypeError):
             return True
 
-    def _publish_and_finalize(self, step_input: StepInput) -> StepOutput:
+    async def _publish_and_finalize(self, step_input: StepInput) -> StepOutput:
+        """Run the publishing and finalization transactions off the event loop."""
+        return await to_thread(self._publish_and_finalize_blocking, step_input)
+
+    def _publish_and_finalize_blocking(self, step_input: StepInput) -> StepOutput:
         try:
             reference = self._read_reference(step_input.get_last_step_content())
             request = self._request_for_step(step_input)
             state = self._consume_or_recover(reference, request)
         except Exception:  # noqa: BLE001 - opaque handoff errors are sanitized.
-            raise ServiceUnavailableError(_UNAVAILABLE) from None
+            return StepOutput(content=self._fail_unrecoverable_step(step_input).value)
         if (
             state.prepared is None
             or state.status is not MentorResponseStatus.PROCESSING
@@ -673,6 +691,21 @@ class AgnoProcessMentorResponseWorkflow(Workflow):
         finally:
             stop.set()
             worker.join(timeout=5)
+
+    def _fail_unrecoverable_step(self, step_input: StepInput) -> MentorResponseStatus:
+        """Close the attempt of a step whose state cannot be read or rebuilt.
+
+        Without this the attempt would stay processing and keep the conversation
+        blocked. An unreadable run input names no attempt, so it still raises.
+        """
+        try:
+            request = self._request_for_step(step_input)
+        except Exception:  # noqa: BLE001 - opaque input errors are sanitized.
+            raise ServiceUnavailableError(_UNAVAILABLE) from None
+        owner = request.event_id or request.attempt_id
+        status = self._fail_response(request.attempt_id, owner)
+        self._release_claim_safely(request.attempt_id, owner)
+        return status
 
     def _fail_response(self, attempt_id: str, owner: str) -> MentorResponseStatus:
         try:

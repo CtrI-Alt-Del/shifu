@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import json
+import time
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 from uuid import uuid4
@@ -620,8 +621,19 @@ class Harness:
             )
 
 
+class ForgetfulHandoffStore(AgentOSHandoffStore):
+    """A handoff store that loses every reference, as after a worker restart."""
+
+    def read_input(self, reference: str, *, capability: str) -> object:
+        raise KeyError(reference)
+
+
 def build_harness(
-    fixture: IntelligenceFixture, redis_fixture: RedisFixture, *, limit_per_hour: int
+    fixture: IntelligenceFixture,
+    redis_fixture: RedisFixture,
+    *,
+    limit_per_hour: int,
+    handoffs: AgentOSHandoffStore | None = None,
 ) -> Harness:
     database = fixture.database
     clock = SystemClockProvider()
@@ -718,7 +730,7 @@ def build_harness(
         reviewer_agent=reviewer,
         finalizer=FinalizeMentorResponseUseCase(database, identifiers, clock, access),
         identifier_provider=identifiers,
-        handoffs=AgentOSHandoffStore(),
+        handoffs=handoffs or AgentOSHandoffStore(),
         telemetry=telemetry,
     )
     return Harness(
@@ -854,6 +866,69 @@ class TestAgnoProcessMentorResponseWorkflow:
         assert snapshot.status is MentorResponseStatus.FAILED
         assert snapshot.blocks == ()
         harness.reviewer.review.assert_not_called()
+
+    def test_keeps_the_event_loop_free_while_the_model_answers(
+        self, harness: Harness
+    ) -> None:
+        session_id, attempt_id = harness.submit()
+
+        def slow_writer(*_args: object, **_kwargs: object) -> RunOutput:
+            time.sleep(0.4)
+            return written(FIRST_ANSWER)
+
+        harness.writer.run.side_effect = slow_writer
+
+        async def run_and_measure() -> float:
+            run = asyncio.ensure_future(
+                harness.workflow.arun(input=json.dumps({'attempt_id': attempt_id}))
+            )
+            longest_gap = 0.0
+            last_tick = time.perf_counter()
+            while not run.done():
+                await asyncio.sleep(0.01)
+                now = time.perf_counter()
+                longest_gap = max(longest_gap, now - last_tick)
+                last_tick = now
+            await run
+            return longest_gap
+
+        longest_gap = asyncio.run(run_and_measure())
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert harness.snapshot(session_id).blocks[0].content == FIRST_ANSWER
+        # A step running on the loop would freeze every tick for the whole model call.
+        assert longest_gap < 0.2
+
+    def test_fails_the_attempt_when_its_step_state_cannot_be_rebuilt(
+        self, intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+    ) -> None:
+        harness = build_harness(
+            intelligence_fixture,
+            redis_fixture,
+            limit_per_hour=30,
+            handoffs=ForgetfulHandoffStore(),
+        )
+        session_id, attempt_id = harness.submit()
+        calls = 0
+
+        def route_once(
+            content: str, context: MentorContextSnapshot, topics: tuple[str, ...] = ()
+        ) -> MentorRouteResult:
+            nonlocal calls
+            calls += 1
+            if calls > 1:
+                raise RuntimeError('route unavailable during recovery')
+            return unanswered_route(content, context, topics)
+
+        harness.route.route.side_effect = route_once
+
+        harness.run(attempt_id)
+
+        snapshot = harness.snapshot(session_id)
+        assert harness.status(attempt_id) is MentorResponseStatus.FAILED
+        assert snapshot.status is MentorResponseStatus.FAILED
+        assert harness.events(session_id)[-1].kind is MentorResponseEventKind.FAILED
+        harness.writer.run.assert_not_called()
 
     def test_publishes_nothing_generated_when_cancelled_during_review(
         self, harness: Harness

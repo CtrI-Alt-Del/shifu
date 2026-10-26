@@ -7,7 +7,6 @@ from shifu.intelligence.core.domain.enums import (
 )
 from shifu.intelligence.core.interfaces import IntelligenceDatabase
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
-    assert_response_access,
     claim_for_failure,
     response_event,
 )
@@ -84,10 +83,10 @@ class FailMentorResponseUseCase:
                 MentorResponseEventKind.FAILED,
                 MentorResponseStatus.FAILED,
             )
-            try:
-                assert_response_access(self._access_provider, attempt)
-            except Exception:  # noqa: BLE001 - failure state is closed without provider details
-                return MentorResponseStatus.FAILED
+            # The terminal event carries only the generic failure code. It is
+            # appended even when the attempt's access revision is stale: the learner
+            # can still read the session with a newer revision, and without it the
+            # conversation would show a response in progress forever.
             repositories.mentor_response_events.append(
                 replace(event, failure_code=failure_code_value)
             )

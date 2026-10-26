@@ -134,7 +134,7 @@ class TestFailMentorResponseUseCase(MentorResponsePhaseTestSetup):
         )
         self.repositories.mentor_response_events.append.assert_not_called()
 
-    def test_should_keep_terminal_failure_when_access_is_revoked_before_event(
+    def test_should_emit_the_terminal_event_when_the_attempt_access_is_stale(
         self,
     ) -> None:
         from shifu.shared.core.domain.errors import ServiceUnavailableError
@@ -145,4 +145,7 @@ class TestFailMentorResponseUseCase(MentorResponsePhaseTestSetup):
             self.subject.execute('attempt', 'owner', 'service_unavailable')
             is MentorResponseStatus.FAILED
         )
-        self.repositories.mentor_response_events.append.assert_not_called()
+        event = self.repositories.mentor_response_events.append.call_args.args[0]
+        assert event.kind is MentorResponseEventKind.FAILED
+        assert event.status is MentorResponseStatus.FAILED
+        assert event.failure_code == 'service_unavailable'

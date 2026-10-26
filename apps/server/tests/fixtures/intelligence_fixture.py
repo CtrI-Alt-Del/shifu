@@ -242,11 +242,16 @@ class IntelligenceFixture:
             body['pending_learner_message_id'],
         )
 
-    def start_processing(self, attempt_id: str) -> None:
-        """Claim and move a queued attempt to processing like the answer workflow."""
-        now = datetime.now(UTC)
+    def start_processing(
+        self, attempt_id: str, claimed_at: datetime | None = None
+    ) -> None:
+        """Claim and move a queued attempt to processing like the answer workflow.
+
+        An old ``claimed_at`` leaves the five-minute claim already expired, as when
+        the execution that held it stopped without closing the attempt.
+        """
         with self.database.transaction() as repositories:
-            self._claim(repositories, attempt_id, now)
+            self._claim(repositories, attempt_id, claimed_at or datetime.now(UTC))
 
     def append_status(
         self, session_id: str, attempt_id: str, progress: MentorWorkflowStep | None
