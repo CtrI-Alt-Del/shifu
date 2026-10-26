@@ -1252,6 +1252,41 @@ class TestPrepareMentorGeneration(_PrepareSubjectSetup):
         self.generation_limit.try_acquire.assert_called_once_with(*self._SLOT)
         self.attachment_context_use_case.execute.assert_not_called()
 
+    def test_should_name_the_catalog_skill_outside_every_objective_as_a_topic(
+        self,
+    ) -> None:
+        # Learning cannot open the Skill as context, but the writer still has to
+        # know the question is about the Curriculum, not an unrelated fact.
+        entry = MentorCatalogEntry(
+            reference_id='01J7N3V8WX8Y6QKR4A5C6D7EG',
+            kind='skill',
+            skill_id='skill',
+            competency_id=None,
+            title='React',
+            description=None,
+            concept_ids=(),
+            source_version='v1',
+        )
+        context = self.context_provider.read.return_value
+
+        def read(
+            _account_id: str, references: tuple[str, ...], **_hints: object
+        ) -> object:
+            if entry.reference_id in references:
+                raise NotFoundError
+            return context
+
+        self.context_provider.read.side_effect = read
+        self.catalog_provider.search.return_value = (entry,)
+        self._say('o que é React?')
+        self._route_unanswered('o que é React')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert prepared.attachment_request.curriculum_topics == ('React',)
+        assert prepared.attachment_request.context == context
+
     def test_should_keep_the_local_blocks_first_and_send_only_the_unanswered_parts(
         self,
     ) -> None:

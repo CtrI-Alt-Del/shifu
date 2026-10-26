@@ -177,7 +177,7 @@ class PrepareMentorResponseUseCase:
             learner.content, explicit, continuity
         )
         context = self._context_provider.read(attempt.account_id, references, **hints)
-        context, named_clarification = self._resolve_named_context(
+        context, named_clarification, curriculum_topics = self._resolve_named_context(
             attempt, learner.content, context, hints
         )
         with self._database.transaction() as repositories:
@@ -262,6 +262,7 @@ class PrepareMentorResponseUseCase:
                 approved_blocks=approved,
                 correction=None,
                 attachment_context=None,
+                curriculum_topics=curriculum_topics,
                 summary=summary,
                 memories=self._relevant_memories(attempt.account_id, learner),
             )
@@ -613,12 +614,13 @@ class PrepareMentorResponseUseCase:
         content: str,
         context: MentorContextSnapshot,
         hints: dict[str, str | None],
-    ) -> tuple[MentorContextSnapshot, str | None]:
+    ) -> tuple[MentorContextSnapshot, str | None, tuple[str, ...]]:
         goals = self._named_goals(content, context)
         if len(goals) > 1:
             return (
                 context,
                 'Encontrei mais de um Objetivo com esse nome. Qual Objetivo você quer consultar?',
+                (),
             )
         if goals:
             assert_response_access(self._access_provider, attempt)
@@ -626,11 +628,10 @@ class PrepareMentorResponseUseCase:
         matches = self._catalog_provider.search(
             attempt.account_id, content, context.eligible_references
         )
-        explicit = tuple(
-            entry.reference_id
-            for entry in matches
-            if self._contains_title(content, entry.title)
+        named = tuple(
+            entry for entry in matches if self._contains_title(content, entry.title)
         )
+        explicit = tuple(entry.reference_id for entry in named)
         if explicit:
             assert_response_access(self._access_provider, attempt)
             # A named Skill outside the Objective is no context to open; an add
@@ -639,7 +640,9 @@ class PrepareMentorResponseUseCase:
                 context = self._context_provider.read(
                     attempt.account_id, (*goals, *explicit), **hints
                 )
-        return context, None
+        # The titles tell the writer the question is about the Curriculum, even
+        # when the Skill is outside every Objective of the learner.
+        return context, None, tuple(dict.fromkeys(entry.title for entry in named))
 
     @classmethod
     def _named_goals(

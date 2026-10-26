@@ -56,6 +56,8 @@ def project_general_request(request: MentorGenerationRequest) -> dict[str, objec
             'text': request.summary.text,
             'topics': list(request.summary.topics),
         }
+    if request.curriculum_topics:
+        projection['curriculum_topics'] = list(request.curriculum_topics)
     if request.memories:
         projection['memories'] = [
             {

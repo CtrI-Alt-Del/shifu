@@ -86,6 +86,9 @@ class MentorReviewerAgent(MentorAgent):
                 Exemplos genéricos de código são permitidos. Sem request.attachment_context,
                 uma orientação breve e focada em aprendizagem a um pedido sem relação com
                 aprendizagem, explicando o que o Mentor pode ajudar, é aderente.
+                Um tema listado em request.curriculum_topics é uma Habilidade do
+                Currículo e, portanto, assunto de aprendizagem: rejeite uma recusa
+                ou um redirecionamento que não o explique.
                 fact_fidelity: orientação educacional geral pode usar conhecimento correto.
                 Quando candidate.content atribuir uma afirmação ao anexo ou à página,
                 compare-a com o conteúdo dos chunks correspondentes. Rejeite a afirmação

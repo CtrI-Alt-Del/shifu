@@ -58,7 +58,9 @@
     "question": "Como o Shifu ajuda no aprendizado?",
     "variations": [
       "Qual é a proposta da plataforma de aprendizagem Shifu?",
-      "Como funciona a plataforma de aprendizagem Shifu?"
+      "Como funciona a plataforma de aprendizagem Shifu?",
+      "O que é o Shifu?",
+      "O que é a plataforma Shifu?"
     ],
     "answer": "O Shifu organiza o aprendizado por Objetivos e Habilidades. Você faz um diagnóstico, pratica Atividades e acompanha os resultados; materiais de apoio e o Mentor ajudam durante o estudo.",
     "topics": ["shifu", "product"]
