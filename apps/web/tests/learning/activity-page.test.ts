@@ -1,9 +1,44 @@
+import type { Page } from '@playwright/test'
+import { ROUTES } from '@/constants/routes'
 import {
   ChoiceActivityDetailFaker,
   ChoiceQuestionFaker,
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+
+type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
+type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
+
+async function sampleEntrance(page: Page, selector: string) {
+  await page.evaluate((targetSelector) => {
+    const state = window as EntranceWindow
+    state.__learningEntranceFrames = new Promise<EntranceFrame[]>((resolve) => {
+      const frames: EntranceFrame[] = []
+      function sample() {
+        const targets = [...document.querySelectorAll(targetSelector)]
+        if (targets.length > 0) {
+          frames.push(
+            targets.map((target) => {
+              const style = getComputedStyle(target)
+              const matrix = new DOMMatrixReadOnly(
+                style.transform === 'none' ? undefined : style.transform,
+              )
+              return { opacity: Number(style.opacity), x: matrix.m41, y: matrix.m42 }
+            }),
+          )
+        }
+        if (frames.length === 90) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+  }, selector)
+}
+
+async function entranceFrames(page: Page) {
+  return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
+}
 
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
@@ -127,15 +162,47 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
     await route.fallback()
   })
 
+  const entranceSelector =
+    'section[aria-labelledby="choice-question-q1"] > div:has(> #choice-question-q1), fieldset[aria-labelledby="choice-question-q1"] > div'
+  await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
 
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
-  const prompt = authenticatedPage.locator('.choice-question-prompt')
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'choice-prompt-enter',
+  const normalFrames = await entranceFrames(authenticatedPage)
+  expect(normalFrames).toHaveLength(90)
+  for (let target = 0; target < 5; target += 1) {
+    expect(
+      normalFrames?.some(
+        (frame) => frame[target].opacity > 0 && frame[target].opacity < 1,
+      ),
+    ).toBe(true)
+    expect(normalFrames?.some((frame) => frame[target].y > 0)).toBe(true)
+  }
+  expect(normalFrames?.at(-1)).toEqual(
+    Array.from({ length: 5 }, () => ({ opacity: 1, x: 0, y: 0 })),
   )
+
+  // Remount under reduced motion and observe its first paint, rather than
+  // inspecting a finished normal entrance after changing the preference.
+  await navigateAuthenticatedPage(authenticatedPage, ROUTES.privacy)
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  const reducedFrames = await entranceFrames(authenticatedPage)
+  expect(reducedFrames).toHaveLength(90)
+  expect(
+    reducedFrames?.every(
+      (frame) =>
+        frame.length === 5 &&
+        frame.every((target) => target.opacity === 1 && target.x === 0 && target.y === 0),
+    ),
+  ).toBe(true)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: /Quais afirmações são verdadeiras/ }),
+  ).toBeVisible()
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
 
@@ -148,29 +215,6 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
   ).not.toBeChecked()
-  const optionCards = authenticatedPage.locator('.choice-question-option')
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => ({
-        name: getComputedStyle(card).animationName,
-        delay: getComputedStyle(card).animationDelay,
-      })),
-    ),
-  ).toEqual([
-    { name: 'choice-option-enter', delay: '0.08s' },
-    { name: 'choice-option-enter', delay: '0.14s' },
-    { name: 'choice-option-enter', delay: '0.2s' },
-    { name: 'choice-option-enter', delay: '0.26s' },
-  ])
-  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'none',
-  )
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => getComputedStyle(card).animationName),
-    ),
-  ).toEqual(['none', 'none', 'none', 'none'])
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
   ).toBeChecked()

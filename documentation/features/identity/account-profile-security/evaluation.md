@@ -9,14 +9,14 @@ last_updated_at: 2026-10-25
 
 | Field | State |
 | --- | --- |
-| Implementation | Complete em código; CA-01–15 verificados; pronta para publicação; CI remoto pendente |
+| Implementation | Complete em código; CA-01–15 verificados; publicada no PR46; correções de CI verificadas, aguardando novo head |
 | Automated checks | CI-01–14 atuais; recuperação3/3 passou no mínimo0.89 aprovado pelo usuário; classificação2/2 retida |
 | Type / lint / complexity | Passed; CI-10 / CI-11 / CI-12; consumidores corrigidos rechecados por escopo |
 | Manual checks | 2/2 Passed; EV-26/27 |
 | Visual checks | 4/4 estados Passed; EV-28/29; revisão visual independente C1 |
 | Independent review | Visual C1 Passed4/4; implementação C2 Passed nas correções ACH-06–09; demais contratos C1 retidos; ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| Blockers | Nenhum bloqueio local; publicação/CI remoto pendentes |
-| Candidate | codex/shifu-97-account-spec; base8ee992a750bd526aafcf1b5db396677a3ebdc3c1; C4-0ce885b3f67b1dea; 128 caminhos de código/testes; diff não commitado |
+| Blockers | Nenhum bloqueio local; novo CI do PR deve confirmar as correções de ACH-11/12 |
+| Candidate | codex/shifu-97-account-spec; base8ee992a750bd526aafcf1b5db396677a3ebdc3c1; head a1a92ffa38450fed97cd8dd8e3b7d0f50fde3c39 +3correções verificadas de testes/proxy; commit de atualização em preparação |
 
 # Progress
 
@@ -116,6 +116,16 @@ last_updated_at: 2026-10-25
 | EV-65 | Publicação inicial / Automated | Passed | Headba45dc9ceed16996f2352f6e2f79226cf6a50e60 | Hooks executados; git push -u origin codex/shifu-97-account-spec; gh pr create; readback REST/GraphQL e attach_artifact |PR46 criado/associado à tarefa, main correta,2commits exatos, nenhuma conversa de review, reviewDecision vazio. Comando antigo gh não expõe headRefOid/jobs em JSON; conferido head pela API REST e checks por API jobs. Server40252996521 e Web40252996482 em andamento. |
 | EV-66 | Coleta do handler migrado / Automated correction | Passed | Correção após head inicial; sem mudança de produto | Incluído padrão tests/*/rest/handlers/test_*.py no test:integration do pyproject e na coleta do workflow Server; TOML/YAML e seleção find conferidos |Handler já aprovado12casos em EV-48. O caminho permitido não era selecionado pelo comando legado. Mantidas todas as seleções anteriores e shards; nenhuma suíte verde repetida. Correção necessária para manter as novas garantias executáveis no CI. |
 
+| EV-67 | Recheck mínimo independente / Automated advisory | Passed | C4 + coleta de CI | Mesmo revisor inspecionou a linha0.90→0.89 e os3padrões find, sem suítes |Autorização e resultado3/3 consistentes; seleções anteriores e shards preservados. Sem novo achado de implementação. |
+| EV-68 | Heads iniciais / Automated CI | Not applicable | Headba45dc9ceed16996f2352f6e2f79226cf6a50e60 substituído pora1a92ffa38450fed97cd8dd8e3b7d0f50fde3c39 | Cancelados apenas runs próprios40252996482 e40252996521 do head anterior, após publicação da coleta corrigida |Ambos Cancelled, sem alegar aprovação do conjunto anterior. Nenhum rerun do mesmo SHA nem cancelamento de outra tarefa. gh pr edit antigo falhou por Projects classic descontinuado; body atualizado/readback via gh api PATCH. |
+| EV-69 | CI do head publicado / Automated | Failed | a1a92ffa38450fed97cd8dd8e3b7d0f50fde3c39; PR46 | Workflows Server40253109999, Web40253109973 e Email40253110013;23checks observados via gh api |22Passed; somente WebintegrationFailed, com256passed/3failed6.4min. Server completo passa, inclusive4shards, migração e todos os evals reais. Email6/6pass. Web falha em Mentor Last-Event-ID/abort e2assertivas antigas de CSSanimação em Learning. Metadados shifu97-ci-a1a92ffa-checks.json e log shifu97-ci-web-failure.log. |
+
+| EV-70 | Cancelamento do stream / Automated | Passed | Correção de3linhas no proxy de testes; UI/Server produção inalterados; runtime próprio33965/35507 | raiz: pnpm --filter web exec playwright test tests/intelligence/mentor-response-stream-api.test.ts tests/identity/account-auth-api.test.ts --grep 'Mentor response\|keeps a canonical save successful and uses a neutral menu during a later Identity outage' --workers=1; Web7097/proxy7798/Mentor7799/API7797 |16passed15.7s:15do arquivo Mentor e1outage da conta. Cancelamento original mantém closed=true,1chamada,ended=false,cancelCalls=0. Normal streaming, autorização, fragmentação e erros preservados. Log shifu97-stream-proxy-recheck.log. Resolve ACH-11. |
+| EV-71 | Animações Learning / Automated | Passed | Somente2testes; Motion de produção inalterado | raiz: pnpm --filter web exec playwright test tests/learning/activity-page.test.ts tests/learning/choice-result-page.test.ts --grep 'shows Markdown code and accepts a complete multiple-selection answer\|renders actual result route from safe Activity and Attempt contracts' --workers=1; mesmo runtime isolado |2passed19.9s.90quadros capturados antes da montagem observam opacidade/deslocamento e estado final; remontagem pela rota de privacidade com movimento reduzido exige estado final desde o primeiro quadro. Assertivas funcionais/privacidade/navegação preservadas. Log shifu97-learning-motion-recheck.log. Resolve ACH-12. |
+| EV-72 | Estática das correções CI / Automated | Passed |3arquivos de teste/suporte Web | pnpm --filter web check:types; Biome dos3arquivos; node --check tests/support/identity-account-upstream.mjs; git diff --check |Sem diagnósticos de tipos, lint ou complexidade configurada. Log shifu97-ci-correction-web-types.log; source/testes inspecionados pelo Orchestrator. Nenhum build/visual/Server reaberto localmente, pois produção e dependências não mudaram. |
+| EV-73 | Revisão das correções CI / Automated advisory | Passed | Diff3arquivos após a1a92ffa | Mesmo revisor independente retomou apenas ACH-11/12, sem suítes |Interrupção do upstream preserva encerramento normal; testes de Motion verificam comportamento visível e movimento reduzido sem remover garantias. Sem achados novos. Capturas/revisão visual C1 retidas. |
+| EV-74 | Limpeza do recheck / Automated | Passed | Runtime próprio iniciado para correções | Encerrada API sessão61552, Web/proxies pelo runner; docker stop/rm shifu97-ci-postgres e shifu97-ci-redis; arquivos de ambiente ignorados removidos |Nenhum processo/container/conta/storage da tarefa permanece. Serviços compartilhados preservados. Evidências locais ignoradas mantidas. |
+
 Inventário obrigatório executado. Referências em design/handoff.md. Capturas C1 retidas em C2 porque as correções posteriores afetam apenas descoberta de token no Server e suporte/assertivas de testes; o código renderizado e seus dados não mudaram.
 
 | VM / CA | Surface / route / state | Viewport | Reference | Candidate | Artifact | Result / review |
@@ -141,6 +151,8 @@ Inventário obrigatório executado. Referências em design/handoff.md. Capturas 
 | ACH-09 | Suite handler cria base.extend fora da fábrica canônica de fixtures. | Medium | CI-09 / Rules | Resolved; accountRequest no móduloIdentity, consumo por playwright.ts; request genérico preservado.13casos atuais passam EV-37 e cenário final passa EV-38. |
 | ACH-01 | Gate global de integridade falha em14 testes preexistentes, confirmados em HEAD. EV-05. | Bloqueio de gate | CI-13 | Resolved; usuário ampliou manutenção, garantias públicas migradas a consumidores e397arquivos passam EV-57; checker/regras inalterados. |
 | ACH-10 | Avaliação existente de recuperação perde Lógica/JavaScript em q07/q10/q14 após expansão de7para65habilidades em61e753e8. Recall@10=0.8974<0.90. EV-55/56. | Bloqueio de qualidade | Gate de eval existente do Server, aplicável à publicação | Resolved por decisão explícita do usuário EV-61: mínimo0.89;3gates passam EV-62. Ranking/queries/rótulos/catálogo completos preservados. A perda de posições diagnosticada continua registrada como limitação aceita, não corrigida. |
+| ACH-11 | Proxy de testes da conta repassa o stream, mas não propaga fechamento prematuro da resposta ao upstream. GET já recebeu corpo completo, então request.aborted não dispara. CI EV-69. | Bloqueio de CI | Webintegration / stream Mentor | Resolved; close de resposta incompleta destrói upstream;16/16pass EV-70 e revisão EV-73. Sem mudança de produto. |
+| ACH-12 | Testes de Activity/ChoiceResult ainda esperam classe/animação CSS de implementação anterior ao Motion. CI EV-69. | Bloqueio de CI | Webintegration /2cenários Learning | Resolved; provas reais de opacidade/translação e movimento reduzido substituem classes CSS removidas por0d07330a/SHIFU-89.2/2pass EV-71, revisão EV-73; UI produção inalterada. |
 
 
 Os14arquivos de ACH-01 existiam no HEAD inicial. Após autorização explícita, foram substituídos na manutenção abaixo e removidos:
@@ -187,9 +199,9 @@ ACH-10 é separado dessa manutenção: a avaliação existente falhou sob mínim
 | --- | --- |
 | Candidate | Revisão1; codex/shifu-97-account-spec; base8ee992a; C4-0ce885b3f67b1dea; /home/petros/.codex/worktrees/shifu-97-account-spec/shifu |
 | Completed | Código integrado; CI-01–12/14 atuais, CI-13 arquitetura/build/integridade passam; manutenção de testes C3 concluída; VM-01/02 reais em ambos viewports; VM-03/04 quatro estados aprovados pelo revisor visual. Sem commit. |
-| Unfinished | Publicar commits/PR autorizados e aguardar CI do head. Critérios da conta, manutenção, revisão e novo mínimo de recall verificados. Nenhuma correção local pendente. |
+| Unfinished | Publicar commits/PR autorizados e aguardar CI do head. Critérios da conta, manutenção, revisão e novo mínimo de recall verificados. Correções do proxy e das2assertivas de animação aprovadas EV-70–73; publicar e aguardar novo CI. |
 | Uncommitted work |128caminhos de código/testes do candidato sob apps/server e apps/web; migração b16c32618ca8; Spec/Evaluation/handoff e2referências PNG sob documentation/features/identity/account-profile-security. Primeiro recorte já commitado em7567db1d; manutenção restante desta entrega. Worktree original preservado. Lista exata atual em apps/web/.playwright-cli/logs/shifu97-candidate-approved.txt. |
-| Active processes | Nenhum processo da tarefa permanece ativo. API7797 sessão50178 encerrada; Web7097/proxy7798 encerrados pelo runner. Containers próprios shifu97-maintenance-postgres34629/redis35021 removidos, sem volumes, além da limpeza anterior EV-41. Fixtures encerraram seus containers. Arquivos de ambiente/conta/storage próprios removidos. Serviços compartilhados preservados; evidências locais ignoradas mantidas. |
+| Active processes | Nenhum. API61552 e containers próprios33965/35507 encerrados/removidos EV-74. Web/proxies encerrados pelos runners; ambientes, contas e storage próprios removidos. Serviços compartilhados preservados. |
 | Blockers | ACH-01:14testes preexistentes fora dos limites permitidos. Log e caminhos em Findings. Não remover/enfraquecer provas para fechar gate. |
 | Next action | Criar commits por intenção, publicar PR e observar CI remoto atual. Reutilizar provas inalteradas C1–C3. O limiar0.89 solicitado pelo usuário está verificado em C4; sem necessidade de nova aprovação para publicação. |
 

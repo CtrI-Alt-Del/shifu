@@ -79,6 +79,9 @@ const server = createServer((request, response) => {
     response.end()
   })
   request.on('aborted', () => upstream.destroy())
+  response.on('close', () => {
+    if (!response.writableFinished) upstream.destroy()
+  })
   request.pipe(upstream)
 })
 server.listen(port, '127.0.0.1')

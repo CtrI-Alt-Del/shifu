@@ -1,3 +1,5 @@
+import type { Page } from '@playwright/test'
+import { ROUTES } from '@/constants/routes'
 import {
   ChoiceActivityDetailFaker,
   ChoiceAttemptDetailFaker,
@@ -6,6 +8,39 @@ import {
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+
+type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
+type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
+
+async function sampleEntrance(page: Page, selector: string) {
+  await page.evaluate((targetSelector) => {
+    const state = window as EntranceWindow
+    state.__learningEntranceFrames = new Promise<EntranceFrame[]>((resolve) => {
+      const frames: EntranceFrame[] = []
+      function sample() {
+        const targets = [...document.querySelectorAll(targetSelector)]
+        if (targets.length > 0) {
+          frames.push(
+            targets.map((target) => {
+              const style = getComputedStyle(target)
+              const matrix = new DOMMatrixReadOnly(
+                style.transform === 'none' ? undefined : style.transform,
+              )
+              return { opacity: Number(style.opacity), x: matrix.m41, y: matrix.m42 }
+            }),
+          )
+        }
+        if (frames.length === 90) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+  }, selector)
+}
+
+async function entranceFrames(page: Page) {
+  return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
+}
 
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
@@ -138,6 +173,9 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
     await route.fallback()
   })
 
+  const entranceSelector = 'details[aria-labelledby="choice-result-question-1"]'
+  await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
 
   await expect(
@@ -165,14 +203,29 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
   await expect(
     authenticatedPage.getByText('A soma correta não foi selecionada.'),
   ).toBeVisible()
-  const resultCard = authenticatedPage.locator('.choice-result-card').first()
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'choice-result-reveal',
-  )
+  const normalFrames = await entranceFrames(authenticatedPage)
+  expect(normalFrames).toHaveLength(90)
+  expect(normalFrames?.some(([card]) => card.opacity > 0 && card.opacity < 1)).toBe(true)
+  expect(normalFrames?.some(([card]) => card.x < 0)).toBe(true)
+  expect(normalFrames?.at(-1)).toEqual([{ opacity: 1, x: 0, y: 0 }])
+
+  await navigateAuthenticatedPage(authenticatedPage, ROUTES.privacy)
   await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'none',
-  )
+  await sampleEntrance(authenticatedPage, entranceSelector)
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  const reducedFrames = await entranceFrames(authenticatedPage)
+  expect(reducedFrames).toHaveLength(90)
+  expect(
+    reducedFrames?.every(([card]) => card.opacity === 1 && card.x === 0 && card.y === 0),
+  ).toBe(true)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('progressbar', {
+      name: 'Progresso demonstrado da Habilidade após a avaliação',
+    }),
+  ).toHaveAttribute('aria-valuenow', '3')
   expect(calls.some(({ body }) => body.includes(ids.activityId))).toBe(true)
   expect(calls.some(({ body }) => body.includes(ids.attemptId))).toBe(true)
 
