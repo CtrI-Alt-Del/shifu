@@ -12,6 +12,7 @@ from shifu.curriculum.core.domain.structures import (
     EvaluationRule,
     JavascriptStdinQuestion,
     ReactQuestion,
+    ReactFastifyQuestion,
     MultipleSelectionQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
@@ -57,11 +58,18 @@ class ActivityMapper:
         | CodeQuestion
         | JavascriptStdinQuestion
         | ReactQuestion
+        | ReactFastifyQuestion
     ):
         if data.get('kind') == 'javascript_stdin':
             return cast(
                 'JavascriptStdinQuestion',
                 Serialization.deserialize_value(data, JavascriptStdinQuestion),
+            )
+
+        if data.get('kind') == 'react_fastify':
+            return cast(
+                'ReactFastifyQuestion',
+                Serialization.deserialize_value(data, ReactFastifyQuestion),
             )
 
         if data.get('kind') == 'react':
@@ -120,7 +128,8 @@ class ActivityMapper:
             | MultipleSelectionQuestion
             | CodeQuestion
             | JavascriptStdinQuestion
-            | ReactQuestion,
+            | ReactQuestion
+            | ReactFastifyQuestion,
             ...,
         ],
     ) -> (

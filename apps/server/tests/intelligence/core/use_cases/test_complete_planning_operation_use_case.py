@@ -7,9 +7,22 @@ from shifu.intelligence.core.domain.enums import (
     PlanningSessionStatus,
 )
 from shifu.intelligence.core.domain.structures import PlanningOperationResult
+from shifu.intelligence.core.domain.structures.planning_operation_result import (
+    VALIDATION_EXHAUSTED_CODE,
+)
 from shifu.intelligence.core.interfaces import PlanningSessionsRepository
 from shifu.intelligence.core.use_cases import CompletePlanningOperationUseCase
 from shifu.shared.core.interfaces import ClockProvider
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NEXT_OPERATION_ID,
+    BOUNDARY_NOW,
+    BOUNDARY_OPERATION_ID,
+    boundary_batch,
+    boundary_complete,
+    boundary_proposal,
+    boundary_session,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     NEXT_OPERATION_ID,
     NOW,
@@ -140,3 +153,85 @@ class TestCompletePlanningOperationUseCase:
         assert session.batch is None
         assert session.proposal is None
         self.sessions.update.assert_called_once_with(session)
+
+
+class TestCompletePlanningOperationMigratedTransitions:
+    @pytest.mark.parametrize(
+        ('operation_id', 'generation'),
+        [(BOUNDARY_NEXT_OPERATION_ID, 1), (BOUNDARY_OPERATION_ID, 2)],
+    )
+    def test_should_discard_results_that_miss_the_operation_or_generation_fence(
+        self, operation_id: str, generation: int
+    ) -> None:
+        session = boundary_session()
+        assert not boundary_complete(
+            session,
+            operation_id,
+            generation,
+            PlanningOperationResult.for_batch(boundary_batch()),
+            BOUNDARY_NOW,
+        )
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert session.operation is not None
+
+    def test_should_discard_a_second_result_for_the_same_operation(self) -> None:
+        session = boundary_session()
+        assert boundary_complete(
+            session,
+            BOUNDARY_OPERATION_ID,
+            1,
+            PlanningOperationResult.for_batch(boundary_batch()),
+            BOUNDARY_NOW,
+        )
+        assert not boundary_complete(
+            session,
+            BOUNDARY_OPERATION_ID,
+            1,
+            PlanningOperationResult.for_proposal(boundary_proposal()),
+            BOUNDARY_NOW,
+        )
+        assert session.status is PlanningSessionStatus.INTERVIEW
+
+    @pytest.mark.parametrize(
+        ('result', 'status', 'failure_code'),
+        [
+            (
+                PlanningOperationResult.out_of_scope(
+                    classification=PlanningIntentKind.OUT_OF_SCOPE
+                ),
+                PlanningSessionStatus.OUT_OF_SCOPE,
+                None,
+            ),
+            (
+                PlanningOperationResult.unsupported(),
+                PlanningSessionStatus.UNSUPPORTED,
+                None,
+            ),
+            (
+                PlanningOperationResult.validation_failed(),
+                PlanningSessionStatus.VALIDATION_FAILED,
+                VALIDATION_EXHAUSTED_CODE,
+            ),
+            (
+                PlanningOperationResult.failed(),
+                PlanningSessionStatus.FAILED,
+                'service_unavailable',
+            ),
+        ],
+    )
+    def test_should_expose_distinguishable_outcomes_with_a_learner_message(
+        self,
+        result: PlanningOperationResult,
+        status: PlanningSessionStatus,
+        failure_code: str | None,
+    ) -> None:
+        session = boundary_session()
+        assert boundary_complete(
+            session, BOUNDARY_OPERATION_ID, 1, result, BOUNDARY_NOW
+        )
+        assert session.status is status
+        assert session.message
+        assert session.failure_code == failure_code
+        assert session.operation is None
+        assert session.batch is None
+        assert session.proposal is None

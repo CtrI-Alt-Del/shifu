@@ -1,9 +1,13 @@
+import {
+  GamificationTransportFixture,
+  type ControlledRestResponses,
+} from '../fixtures/gamification-transport-fixture'
 import { ROUTES } from '@/constants/routes'
 import type { Achievement } from '@/core/gamification/achievement'
 import type { AchievementsOverview } from '@/core/gamification/achievements-overview'
 import type { GamificationOverview } from '@/core/gamification/overview'
 
-import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
 
 function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
@@ -629,3 +633,117 @@ test('invokes the XP history server function and renders its records newest firs
 // /login mid-test. Reaching the real controller properly would need a
 // dedicated controlled upstream (the `tests/support/mentor-stream-upstream.mjs`
 // pattern); that is more infrastructure than this one gap currently justifies.
+
+// Real Better Auth and concrete REST services. The selected upstream responses
+// are controlled by the opt-in local proxy, not by _serverFn interception.
+test.describe('Gamification routed REST transport', () => {
+  for (const operation of [
+    {
+      path: ROUTES.gamificationOverview,
+      endpoint: '/gamification/overview',
+      visible: '260 XP para alcançar o nível 6',
+      error: 'Não foi possível carregar sua visão geral',
+    },
+    {
+      path: ROUTES.gamificationAchievements,
+      endpoint: '/gamification/achievements',
+      visible: '3 de 12 obtidas',
+      error: 'Não foi possível carregar suas conquistas',
+    },
+    {
+      path: ROUTES.gamificationCalendar,
+      endpoint: 'calendar',
+      visible: 'Maior sequência: 3 dias',
+      error: 'Não foi possível carregar seu calendário',
+    },
+    {
+      path: ROUTES.gamificationXpHistory,
+      endpoint: '/gamification/xp-history',
+      visible: '160 XP',
+      error: 'Não foi possível carregar seu histórico',
+    },
+  ]) {
+    for (const fails of [false, true]) {
+      test(`${operation.endpoint} ${fails ? 'exposes a failed HTTP response' : 'maps authenticated HTTP data'}`, async ({
+        page,
+        request,
+        activeAccount,
+      }) => {
+        const transport = GamificationTransportFixture(request, activeAccount.accountId)
+        const now = new Date()
+        const year = now.getFullYear()
+        const month = now.getMonth() + 1
+        const calendarPath = `/gamification/calendar?year=${year}&month=${month}`
+        const endpoint =
+          operation.endpoint === 'calendar' ? calendarPath : operation.endpoint
+        const responses: ControlledRestResponses = {
+          '/gamification/overview': { body: gamificationOverview },
+          '/gamification/achievements': { body: overview },
+          [calendarPath]: {
+            body: {
+              year,
+              month,
+              today: `${year}-${String(month).padStart(2, '0')}-01`,
+              days: [],
+              streak: { current: 1, longest: 3 },
+              earliestPracticeDate: null,
+            },
+          },
+          '/gamification/xp-history': { body: { totalXp: 160, entries: [] } },
+        }
+        if (fails)
+          responses[endpoint] = {
+            status: 503,
+            body: {
+              code: 'service_unavailable',
+              message: 'Serviço temporariamente indisponível.',
+            },
+          }
+        await transport.register(responses)
+        try {
+          const signIn = await page.request.post('/api/auth/sign-in/identity', {
+            data: { email: activeAccount.email, password: signInPassword },
+            headers: { 'x-forwarded-for': activeAccount.ipAddress },
+          })
+          expect(signIn.status()).toBe(200)
+          await page.goto(operation.path)
+          await expect(page).toHaveURL(new RegExp(`${operation.path}/?$`))
+          if (fails)
+            await expect(
+              page.getByRole('heading', { name: operation.error }),
+            ).toBeVisible()
+          else
+            await expect(
+              page.getByText(operation.visible, { exact: true }).first(),
+            ).toBeVisible()
+          await expect
+            .poll(
+              async () =>
+                (await transport.observations()).filter(
+                  (entry) => entry.path === endpoint,
+                ).length,
+            )
+            .toBeGreaterThan(0)
+          const observed = (await transport.observations()).filter(
+            (entry) => entry.path === endpoint,
+          )
+          expect(observed).toEqual(
+            expect.arrayContaining([
+              {
+                method: 'GET',
+                path: endpoint,
+                authorization: true,
+                cookie: false,
+                bffMark: true,
+                accountId: activeAccount.accountId,
+                status: fails ? 503 : 200,
+              },
+            ]),
+          )
+        } finally {
+          await transport.dispose()
+        }
+      })
+    }
+  }
+})

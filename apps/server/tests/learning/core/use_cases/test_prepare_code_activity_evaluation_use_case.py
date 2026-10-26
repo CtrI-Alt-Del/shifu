@@ -35,6 +35,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
@@ -379,13 +380,15 @@ def test_should_reject_code_project_over_the_configured_input_limit() -> None:
 
 
 class TestPrepareCodeActivityEvaluationConfiguredLimit:
-    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'react', (False, True, 'integrated'), ids=('javascript', 'react', 'integrated')
+    )
     @pytest.mark.parametrize(
         'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
     )
     @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
     def test_should_apply_configured_utf8_project_limit_to_saved_projects(
-        self, react: bool, limit: int, extra_byte: int
+        self, react: bool | str, limit: int, extra_byte: int
     ) -> None:
         snapshot = mixed_snapshot(react=react)
         question = snapshot.questions[-1]
@@ -394,6 +397,8 @@ class TestPrepareCodeActivityEvaluationConfiguredLimit:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         )
         answer = code_answer_at_size(question, limit + extra_byte)
@@ -416,7 +421,9 @@ class TestPrepareCodeActivityEvaluationConfiguredLimit:
             assert len(result.questions) == 1
             assert result.questions[0].assessment_input.question_kind == question.kind
             assert result.questions[0].assessment_input.project_files[-1] == (
-                question.entrypoint,
+                question.frontend_entrypoint
+                if isinstance(question, CurriculumReactFastifyQuestionSnapshot)
+                else question.entrypoint,
                 answer.files[0].content,
             )
         cast('Mock', repositories.events.add).assert_not_called()

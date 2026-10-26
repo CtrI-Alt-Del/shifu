@@ -1,3 +1,4 @@
+import { ReactFastifyWebContainerPracticeRunner } from '@/provision/learning/react-fastify-webcontainer-practice-runner'
 import { useCallback, useRef } from 'react'
 import { createFileRoute, useBlocker, useNavigate } from '@tanstack/react-router'
 
@@ -88,6 +89,7 @@ function ActivityIndexRoute() {
       onUnsentAnswersChange={onUnsentAnswersChange}
       runnerFactory={WebContainerCodePracticeRunner}
       reactRunnerFactory={ReactWebContainerPracticeRunner}
+      reactFastifyRunnerFactory={ReactFastifyWebContainerPracticeRunner}
     />
   )
 }

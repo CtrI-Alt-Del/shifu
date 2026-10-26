@@ -12,6 +12,7 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     ReactQuestion,
+    ReactFastifyQuestion,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
@@ -31,6 +32,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptDependencySnapshot,
     CurriculumJavascriptPermittedCommandSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
+    CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumReactInitialFileSnapshot,
     CurriculumReactDependencySnapshot,
     CurriculumReactPermittedCommandSnapshot,
@@ -204,7 +207,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         possible = (
                             (100,)
                             if isinstance(
-                                question, (JavascriptStdinQuestion, ReactQuestion)
+                                question,
+                                (
+                                    JavascriptStdinQuestion,
+                                    ReactQuestion,
+                                    ReactFastifyQuestion,
+                                ),
                             )
                             else tuple(
                                 score
@@ -227,7 +235,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     all(
                         (
                             isinstance(
-                                question, (JavascriptStdinQuestion, ReactQuestion)
+                                question,
+                                (
+                                    JavascriptStdinQuestion,
+                                    ReactQuestion,
+                                    ReactFastifyQuestion,
+                                ),
                             )
                             or (
                                 isinstance(
@@ -526,6 +539,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 CurriculumChoiceQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
                 | CurriculumReactQuestionSnapshot
+                | CurriculumReactFastifyQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
@@ -651,6 +665,84 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                 for item in question.initial_files
                             ),
                             entrypoint=question.entrypoint,
+                            fixed_dependencies=tuple(
+                                CurriculumReactDependencySnapshot(
+                                    name=item.name, version=item.version
+                                )
+                                for item in question.fixed_dependencies
+                            ),
+                            permitted_commands=tuple(
+                                CurriculumReactPermittedCommandSnapshot(
+                                    id=item.id,
+                                    executable=item.executable,
+                                    arguments=item.arguments,
+                                )
+                                for item in question.permitted_commands
+                            ),
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                            additional_file_policy=(
+                                CurriculumReactAdditionalFilePolicySnapshot(
+                                    allowed_directories=policy.allowed_directories,
+                                    allowed_extensions=policy.allowed_extensions,
+                                    max_files=policy.max_files,
+                                )
+                                if policy is not None
+                                else None
+                            ),
+                        )
+                    )
+                elif isinstance(question, ReactFastifyQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    policy = question.additional_file_policy
+                    questions.append(
+                        CurriculumReactFastifyQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            initial_files=tuple(
+                                CurriculumReactInitialFileSnapshot(
+                                    path=item.path,
+                                    content=item.content,
+                                    editable=item.editable,
+                                )
+                                for item in question.initial_files
+                            ),
+                            frontend_entrypoint=question.frontend_entrypoint,
+                            api_entrypoint=question.api_entrypoint,
+                            frontend_command_id=question.frontend_command_id,
+                            api_command_id=question.api_command_id,
+                            http_examples=tuple(
+                                CurriculumReactFastifyHttpExampleSnapshot(
+                                    key=item.key,
+                                    title=item.title,
+                                    method=item.method,
+                                    path=item.path,
+                                    body=item.body,
+                                )
+                                for item in question.http_examples
+                            ),
                             fixed_dependencies=tuple(
                                 CurriculumReactDependencySnapshot(
                                     name=item.name, version=item.version

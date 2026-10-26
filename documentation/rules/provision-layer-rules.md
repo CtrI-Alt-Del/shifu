@@ -164,3 +164,37 @@ boundaries when compatibility or persistence must be proved. Sandbox and
 authentication behavior still requires negative-path coverage for isolation,
 invalid credentials, timeouts, rollback, and secret handling, but that evidence
 must not be implemented as a provider-owned test.
+
+## Unreachable defensive-state conformance
+
+The shared AppError API-handler suite may directly check the telemetry pipe's
+rejection of malformed internal request-state values that registered HTTP cannot
+produce. Keep those few cases beside the real registered-handler scenarios and
+label their narrower proof. They do not establish HTTP composition or authorize
+a pipe-owned suite. All reachable telemetry behavior uses real owning controllers
+or jobs.
+
+## Defensive registry composition contract
+
+The owning Planning controller suite may retain one labeled conformance case
+for the public registry constructor with its optional Curriculum catalog absent.
+Construct the registry without starting a worker, access its public Core
+`planning_skill_retrieval` port and assert the typed unavailable error. Other
+ports may be autospecced. Close the registry and all resources in teardown.
+This proves only unavailable composition that HTTP admission/read cannot observe;
+it is neither registered workflow execution nor concrete NLP adapter coverage.
+Do not import the private unavailable adapter, create a registry-owned suite or
+runtime fixture, or send directly to a queue. Reachable behavior continues through
+registered HTTP and the Spec's real execution journey.
+
+## Defensive Planning configuration guards
+
+The Planning preparation/capability boundaries may preserve three explicitly
+labeled public-constructor conformance guards that validated application inputs
+cannot reach: missing negation tokens, an empty/duplicate lexical catalog, and
+classifier thresholds outside the closed calibrated set. Keep them within the
+capability-owned integration modules, not provider-owned files. They prove only
+fail-closed composition before execution, not entrypoint/use-case traversal or
+NLP quality. All reachable preparation and runtime scenarios retain their public
+consumer boundaries and real local adapters. Close controlled HTTP clients even
+when construction raises. This is not a general exception for provider methods.

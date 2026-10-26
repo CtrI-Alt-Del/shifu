@@ -23,6 +23,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
@@ -160,6 +161,7 @@ class LearningWorkflowsRegistry:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
             for question in snapshot.questions

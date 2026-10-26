@@ -6,6 +6,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptDependencySnapshot,
     CurriculumJavascriptInitialFileSnapshot,
     CurriculumJavascriptPermittedCommandSnapshot,
+    CurriculumReactFastifyHttpExampleSnapshot,
     structure,
 )
 
@@ -38,3 +39,8 @@ class CodeQuestionDetail:
     ]
     criteria: tuple[CodeQuestionCriterionDetail, ...]
     additional_file_policy: CurriculumReactAdditionalFilePolicySnapshot | None = None
+    frontend_entrypoint: str | None = None
+    api_entrypoint: str | None = None
+    frontend_command_id: str | None = None
+    api_command_id: str | None = None
+    http_examples: tuple[CurriculumReactFastifyHttpExampleSnapshot, ...] = ()

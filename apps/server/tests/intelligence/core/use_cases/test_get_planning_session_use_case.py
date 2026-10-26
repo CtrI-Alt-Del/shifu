@@ -6,11 +6,18 @@ import pytest
 from shifu.intelligence.core.domain.enums import PlanningSessionStatus
 from shifu.intelligence.core.domain.errors import PlanningSessionNotFoundError
 from shifu.intelligence.core.domain.structures.planning_operation_result import (
+    FAILED_MESSAGE,
     OPERATION_TIMEOUT_CODE,
 )
 from shifu.intelligence.core.interfaces import PlanningSessionsRepository
 from shifu.intelligence.core.use_cases import GetPlanningSessionUseCase
 from shifu.shared.core.interfaces import ClockProvider
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    boundary_expire,
+    boundary_session,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NOW,
@@ -19,6 +26,7 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     interviewing_session,
     started_session,
 )
+
 
 _TIMEOUT = timedelta(minutes=3)
 
@@ -110,3 +118,21 @@ class TestGetPlanningSessionUseCase:
             self.sessions.update.reset_mock()
             assert self.use_case.execute(ACCOUNT_ID, PLANNING_ID) is result
             self.sessions.update.assert_not_called()
+
+
+class TestGetPlanningSessionMigratedTransitions:
+    def test_should_expire_only_a_processing_operation_older_than_the_timeout(
+        self,
+    ) -> None:
+        session = boundary_session()
+        timeout = timedelta(minutes=3)
+        assert not boundary_expire(
+            session, BOUNDARY_NOW + timedelta(minutes=2), timeout
+        )
+        assert session.status is PlanningSessionStatus.PROCESSING
+        assert boundary_expire(session, BOUNDARY_NOW + timeout, timeout)
+        assert session.status is PlanningSessionStatus.FAILED
+        assert session.failure_code == OPERATION_TIMEOUT_CODE
+        assert session.message == FAILED_MESSAGE
+        assert session.operation is None
+        assert not boundary_expire(session, BOUNDARY_NOW + timedelta(hours=1), timeout)

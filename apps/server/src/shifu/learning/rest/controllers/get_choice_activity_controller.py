@@ -56,9 +56,17 @@ class AdditionalFilePolicyResponse(BaseModel):
     max_files: int
 
 
+class HttpExampleResponse(BaseModel):
+    key: str
+    title: str
+    method: Literal['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']
+    path: str
+    body: str | None = None
+
+
 class CodeQuestionResponse(BaseModel):
     key: str
-    kind: Literal['javascript_stdin', 'react']
+    kind: Literal['javascript_stdin', 'react', 'react_fastify']
     prompt: str
     initial_files: tuple[FileResponse, ...]
     entrypoint: str
@@ -67,6 +75,11 @@ class CodeQuestionResponse(BaseModel):
     permitted_commands: tuple[CommandResponse, ...]
     criteria: tuple[CriterionResponse, ...]
     additional_file_policy: AdditionalFilePolicyResponse | None = None
+    frontend_entrypoint: str | None = None
+    api_entrypoint: str | None = None
+    frontend_command_id: str | None = None
+    api_command_id: str | None = None
+    http_examples: tuple[HttpExampleResponse, ...] = ()
 
 
 class Response(BaseModel):

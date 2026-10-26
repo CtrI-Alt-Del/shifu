@@ -295,9 +295,11 @@ jobs:
             find tests -type f \
               \( -path 'tests/*/server/test_*.py' \
               -o -path 'tests/*/server/*/test_*.py' \
-              -o -path 'tests/*/rest/handlers/test_*.py' \
               -o -path 'tests/rest/test_*.py' \
-              -o -path 'tests/rest/*/test_*.py' \) -print0 | sort -zu
+              -o -path 'tests/rest/*/test_*.py' \
+              -o -path 'tests/*/rest/handlers/test_*.py' \
+              -o -path 'tests/intelligence/preparation/test_prepare_planning_indexes.py' \
+              -o -path 'tests/intelligence/capabilities/test_planning_capabilities.py' \) -print0 | sort -zu
           )
           mapfile -d '' job_files < <(
             find tests/messaging/inngest/jobs -type f -name 'test_*.py' -print0 \

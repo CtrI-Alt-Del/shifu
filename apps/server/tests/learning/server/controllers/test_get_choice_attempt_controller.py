@@ -41,8 +41,9 @@ from shifu.shared.database.seed_data import (
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
-from tests.learning.rest.controllers.react_controller_fixture import (
+from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
 )
 
@@ -130,6 +131,81 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestGetChoiceAttemptController:
+    def test_integrated_history_preserves_snapshot_after_curriculum_changes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = ReactFastifyActivityFixture.activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = ReactFastifyActivityFixture.activity_path()
+        detail = client.get(path, headers=headers)
+        assert detail.status_code == 200, detail.text
+        revision = detail.json()['activity_revision']
+        created = client.post(
+            path + '/attempts',
+            headers=headers,
+            json=ReactFastifyActivityFixture.submission(revision),
+        )
+        assert created.status_code == 201, created.text
+        attempt_id = created.json()['attempt_id']
+        question = activity.questions[2]
+        activity.questions = (
+            *activity.questions[:2],
+            replace(question, prompt='Novo projeto curricular'),
+        )
+        with Session(postgres_database.engine) as session, session.begin():
+            session.merge(ActivityMapper.to_model(activity))
+        with SqlalchemyLearningDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        EvaluateChoiceActivityUseCase(
+            SqlalchemyLearningDatabase(postgres_database.engine),
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(
+            attempt_id,
+            evaluation.run_id,
+            (
+                CodeQuestionAssessmentDecisions(
+                    question_key='q3',
+                    decisions=CodeRubricDecisions(
+                        criterion_levels=(
+                            CodeCriterionDecision(key='correctness', level=75),
+                        ),
+                        concept_levels=(),
+                    ),
+                ),
+            ),
+        )
+        result = client.get(path + '/attempts/' + attempt_id, headers=headers)
+        assert result.status_code == 200, result.text
+        body = result.json()
+        assert body['status'] == 'completed'
+        assert body['score'] == '90.00'
+        integrated = body['questions'][2]
+        assert integrated['kind'] == 'react_fastify'
+        assert integrated['prompt'] == question.prompt
+        assert 'Novo projeto curricular' not in str(body)
+        assert {
+            item['path']: item['content'] for item in integrated['submitted_files']
+        } == {
+            'index.html': ReactFastifyActivityFixture.FIXED_HTML,
+            **{
+                item['path']: item['content']
+                for item in ReactFastifyActivityFixture.answer_files()
+            },
+        }
+
     @pytest.mark.parametrize(
         'legacy_answer',
         (

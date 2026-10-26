@@ -203,8 +203,12 @@ Event timestamp strings use UTC ISO 8601 with a `Z` suffix. Answer-key fields su
 `is_correct` stay in domain contracts only; client projections must remove them when
 the product rules keep the answer hidden.
 
-Dedicated core unit tests are reserved for use cases under
-`apps/server/tests/<module>/core/use_cases`. Domain declarations, decorators, enums,
-events, errors, fakers, and interface protocols are exercised through use-case tests
-and validated by typing, architecture checks, package construction, and applicable
-adapter or boundary tests; do not create direct unit-test suites for them.
+Core unit tests normally belong to use cases under
+`apps/server/tests/<module>/core/use_cases`. Focused conformance tests under
+`apps/server/tests/<module>/core/domain` may cover factories, invariants,
+transitions and immutability when no use case owns those behaviors, as specified
+by Use Case Testing Rules. Once a consuming use case owns a behavior, migrate
+its scenarios to that consumer without losing assertions. Declarations without
+behavior, decorators, enums, errors, fakers and interface protocols do not gain
+standalone suites merely from this exception. Typing, architecture checks,
+package construction and applicable adapter boundaries cover their other contracts.

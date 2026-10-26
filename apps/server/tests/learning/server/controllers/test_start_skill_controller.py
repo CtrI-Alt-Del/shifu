@@ -14,6 +14,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.learning.database.sqlalchemy.models import SkillExperienceModel
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import AuthenticatedUser
+from shifu.shared.constants import ENVIRONMENT
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_SKILL_ID,
@@ -138,6 +139,81 @@ class TestStartSkillController:
         assert unauthenticated.status_code == 401
 
     def test_should_start_every_seeded_roadmap_skill_through_http(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        # Exercise the supported BFF transport, as the shared HTTP fixture does.
+        # This catalog sweep tests skill eligibility, not the public IP quota.
+        headers = {
+            **_AUTHORIZATION,
+            'x-shifu-bff-secret': ENVIRONMENT.bff_shared_secret,
+        }
+        seed = build_development_seed()
+        skills = [skill for skill in seed.skills if skill.id.startswith('01SHFRM')]
+        assert len(skills) >= 50
+        ids = {skill.id for skill in seed.skills}
+        names = [skill.name for skill in seed.skills]
+        assert len(ids) == len(seed.skills)
+        assert len(names) == len(set(names))
+        assert all(
+            item.skill_id in ids and item.foundation_skill_id in ids
+            for item in seed.skill_foundations
+        )
+        created = _post(
+            client,
+            '/learning/goals',
+            headers,
+            {
+                'title': 'Mapa completo',
+                'description': 'Validar todas as habilidades oficiais.',
+                'skillIds': [skill.id for skill in skills],
+            },
+        )
+        assert created.status_code == 201, created.text
+        goal_id = str(created.json()['goalId'])
+        for skill in skills:
+            response = _post(
+                client,
+                f'/learning/goals/{goal_id}/skills/{skill.id}/start',
+                headers,
+                {'entry_key': str(uuid4())},
+            )
+            assert response.status_code == 200, (skill.name, response.text)
+            assert response.json()['status'] == 'diagnosing'
+        with postgres_database.engine.connect() as connection:
+            persisted = connection.execute(
+                select(
+                    SkillExperienceModel.skill_id, SkillExperienceModel.status
+                ).where(SkillExperienceModel.goal_id == goal_id)
+            ).all()
+        assert {row.skill_id for row in persisted} == {skill.id for skill in skills}
+        assert all(row.status == 'diagnosing' for row in persisted)
+
+    def test_should_reject_graph_only_skill_without_learning_content(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        response = _post(
+            client,
+            '/learning/goals',
+            _AUTHORIZATION,
+            {
+                'title': 'Mapa visual',
+                'description': 'Sem conteúdo pedagógico.',
+                'skillIds': [SEED_GRAPH_HTML_CSS_SKILL_ID],
+            },
+        )
+        assert response.status_code == 409, response.text
+        assert response.json()['code'] == 'curriculum_gap'
+        with postgres_database.engine.connect() as connection:
+            assert (
+                connection.execute(
+                    select(SkillExperienceModel.id).where(
+                        SkillExperienceModel.skill_id == SEED_GRAPH_HTML_CSS_SKILL_ID
+                    )
+                ).all()
+                == []
+            )
+
+    def test_should_start_every_available_roadmap_skill_in_an_individual_goal(
         self,
         client: TestClient,
         postgres_database: PostgresDatabase,

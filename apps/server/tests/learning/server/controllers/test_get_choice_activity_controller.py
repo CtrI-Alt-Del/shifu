@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
@@ -7,7 +8,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
-
+from sqlalchemy.orm import Session
 from shifu.curriculum.database.sqlalchemy.models import ActivityModel
 
 from shifu.app import FastAPIApp
@@ -58,8 +59,9 @@ from shifu.shared.database.seed_data import (
     build_development_seed,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
-from tests.learning.rest.controllers.react_controller_fixture import (
+from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
 )
 
@@ -155,6 +157,115 @@ def _replace_persisted_value(
 
 
 class TestGetChoiceActivityController:
+    @pytest.mark.parametrize(
+        'scenario',
+        [
+            'dependency-range',
+            'same-entrypoint',
+            'command-reference',
+            'external-http',
+            'encoded-traversal',
+            'policy-zero',
+            'policy-over-32',
+            'diagnostic',
+            'unknown-kind',
+        ],
+    )
+    def test_invalid_persisted_integrated_curriculum_is_rejected_without_writes(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        scenario: str,
+    ) -> None:
+        # Deliberately malformed persisted content verifies public safe hydration.
+        activity = ReactFastifyActivityFixture.activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+        with Session(postgres_database.engine) as session, session.begin():
+            model = session.get(ActivityModel, activity.id)
+            assert model is not None
+            questions = deepcopy(cast('list[dict[str, object]]', model.questions))
+            question = questions[2]
+            if scenario == 'dependency-range':
+                dependencies = cast(
+                    'list[dict[str, object]]', question['fixed_dependencies']
+                )
+                dependencies[0]['version'] = '^19.2.0'
+            elif scenario == 'same-entrypoint':
+                question['api_entrypoint'] = question['frontend_entrypoint']
+            elif scenario == 'command-reference':
+                question['api_command_id'] = 'missing'
+            elif scenario in {'external-http', 'encoded-traversal'}:
+                examples = cast('list[dict[str, object]]', question['http_examples'])
+                examples[0]['path'] = (
+                    'https://shifu.example/api/tasks'
+                    if scenario == 'external-http'
+                    else '/api/%2e%2e/private'
+                )
+            elif scenario in {'policy-zero', 'policy-over-32'}:
+                policy = cast('dict[str, object]', question['additional_file_policy'])
+                policy['max_files'] = 0 if scenario == 'policy-zero' else 33
+            elif scenario == 'diagnostic':
+                model.activity_type = 'diagnostic'
+            else:
+                question['kind'] = 'unknown'
+            model.questions = questions
+        before = ReactControllerFixture.write_counts(postgres_database)
+        response = client.get(
+            ReactFastifyActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert response.status_code == 400, response.text
+        assert response.json()['code'] == 'validation_error'
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize('with_policy', [True, False])
+    @pytest.mark.parametrize('integrated_last', [True, False])
+    def test_integrated_project_survives_curriculum_persistence_and_public_projection(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+        integrated_last: bool,
+    ) -> None:
+        activity = ReactFastifyActivityFixture.activity(
+            with_policy=with_policy, integrated_last=integrated_last
+        )
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+        response = client.get(
+            ReactFastifyActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        question = next(
+            item for item in body['questions'] if item['kind'] == 'react_fastify'
+        )
+        assert question['frontend_entrypoint'] == 'src/App.jsx'
+        assert question['api_entrypoint'] == 'api.js'
+        assert question['entrypoint'] == question['frontend_entrypoint']
+        assert question['frontend_command_id'] == 'web'
+        assert question['api_command_id'] == 'api'
+        assert [item['method'] for item in question['http_examples']] == [
+            'GET',
+            'PATCH',
+        ]
+        assert [item['path'] for item in question['initial_files']] == [
+            'src/App.jsx',
+            'api.js',
+            'index.html',
+        ]
+        assert (question['additional_file_policy'] is not None) is with_policy
+        assert question['criteria'][0]['name'] == 'Correção'
+        assert 'fixed_comments' not in str(body)
+        assert 'is_correct' not in str(body)
+        assert [item['kind'] for item in body['questions']].count('single_choice') == 2
+
     @pytest.mark.parametrize(
         'scenario',
         (
@@ -474,6 +585,11 @@ class TestGetChoiceActivityController:
         )
 
         assert response.status_code == 200, response.json()
+        with database.transaction() as repositories:
+            restored = repositories.activities.find_by_id(activity.id)
+        assert restored is not None
+        assert restored.questions == activity.questions
+        assert restored.evaluation_rule == activity.evaluation_rule
         body = response.json()
         assert body['activity_id'] == activity.id
         assert body['activity_revision']

@@ -92,3 +92,16 @@ depend on execution order or leak configured return values to another scenario.
 Run focused tests through `uv run pytest <path>` from `apps/server`. Before delivery,
 run the complete core test selection plus Ruff and strict type checking configured by
 the server project.
+
+## Offline preparation and capability integration
+
+Planning's public offline preparation/CLI and runtime retrieval/classification
+have separate integration boundaries defined by AI Layer Rules. The preparation
+entrypoint owns reproducible corpus/index lifecycle proof under
+`tests/intelligence/preparation/test_prepare_planning_indexes.py`. The consuming
+public use cases own real local NLP/persistence integration under
+`tests/intelligence/capabilities/test_planning_capabilities.py`. Use disposable
+PostgreSQL and controlled external transport. Keep these separate from
+infrastructure-free use-case unit tests and mocked-agent workflow tests. They
+must not become one test module per repository/provider or call private helpers.
+Persisted state is inspected through fresh sessions or public repository contracts.

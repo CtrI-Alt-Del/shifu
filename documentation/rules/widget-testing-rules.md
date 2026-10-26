@@ -470,3 +470,14 @@ model.
 When authenticated profiles replace the temporary fixed value, update the hook
 test to cover profile selection rather than deleting the assertion without a
 replacement.
+
+## Server-request security contract
+
+`apps/web/src/rest/security/tests/server-request-origin-contract.test.ts` is a
+narrow transport-security conformance boundary for server-origin marking,
+credential forwarding and resistance to forged internal BFF options. Those
+internal options are not browser input and cannot be proved by browser requests.
+The suite may exercise the shared server request client with a controlled HTTP
+transport. It must not become a general service/provider suite. Public API,
+streaming and page behavior still requires its registered consumer integration;
+this conformance proof never replaces it. REST services have no exception.

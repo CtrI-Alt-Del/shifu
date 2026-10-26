@@ -48,8 +48,9 @@ from shifu.learning.database.sqlalchemy.models import (
     ActivityEvaluationModel,
 )
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
-from tests.learning.rest.controllers.react_controller_fixture import (
+from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
 )
 
@@ -146,6 +147,51 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestPreviewActivityQuestionFeedbackController:
+    def test_integrated_preliminary_assessment_uses_both_programs_without_official_writes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([ReactFastifyActivityFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = client.get(
+            ReactFastifyActivityFixture.activity_path(), headers=headers
+        )
+        assert detail.status_code == 200, detail.text
+        before = ReactControllerFixture.write_counts(postgres_database)
+        response = client.post(
+            ReactFastifyActivityFixture.activity_path()
+            + '/questions/q3/preliminary-evaluations',
+            headers=headers,
+            json={
+                'activity_revision': detail.json()['activity_revision'],
+                'answer': {
+                    'kind': 'react_fastify',
+                    'question_key': 'q3',
+                    'files': ReactFastifyActivityFixture.answer_files(),
+                },
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()['status'] == 'conclusive'
+        assert response.json()['score'] == '75'
+        request = application.state.test_code_rubric_assessor_provider.requests[-1]
+        assert request.question_kind == 'react_fastify'
+        assert (
+            dict(request.project_files)['api.js']
+            == ReactFastifyActivityFixture.API_SOURCE
+        )
+        assert (
+            dict(request.project_files)['index.html']
+            == ReactFastifyActivityFixture.FIXED_HTML
+        )
+        assert 'routes/example.js' in request.submitted_paths
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
     @pytest.mark.parametrize(
         'answer',
         (

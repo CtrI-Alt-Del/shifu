@@ -49,8 +49,9 @@ from shifu.shared.database.seed_data import (
 )
 from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
-from tests.learning.rest.controllers.react_controller_fixture import (
+from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
 )
 
@@ -129,6 +130,72 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestSubmitChoiceActivityController:
+    @pytest.mark.parametrize('with_policy', [True, False])
+    def test_integrated_submission_is_immutable_replayed_and_sent_to_learning(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        with_policy: bool,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many(
+                [ReactFastifyActivityFixture.activity(with_policy=with_policy)]
+            )
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = ReactFastifyActivityFixture.activity_path()
+        detail = client.get(path, headers=headers)
+        assert detail.status_code == 200, detail.text
+        body = ReactFastifyActivityFixture.submission(
+            detail.json()['activity_revision'], with_additional=with_policy
+        )
+        created = client.post(path + '/attempts', headers=headers, json=body)
+        assert created.status_code == 201, created.text
+        attempt_id = created.json()['attempt_id']
+        with SqlalchemyLearningDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+        assert attempt is not None and attempt.grading_snapshot is not None
+        question = attempt.grading_snapshot.questions[2]
+        assert question.kind == 'react_fastify'
+        answer = attempt.answers[2]
+        assert isinstance(answer, CodeAnswer)
+        assert answer.kind == 'react_fastify'
+        assert {item.path: item.content for item in answer.files}[
+            'api.js'
+        ] == ReactFastifyActivityFixture.API_SOURCE
+        with SqlalchemyLearningDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            events = repositories.events.find_unrouted(now=datetime.now(UTC), limit=100)
+        event = next(
+            item for item in events if item.payload.get('attempt_id') == attempt_id
+        )
+        assert (
+            application.state.learning_workflows_registry.destination_for_event(event)
+            == 'agentos:learning'
+        )
+        assert set(event.payload) >= {'attempt_id', 'run_id'}
+        assert 'files' not in event.payload
+        counts = ReactControllerFixture.write_counts(postgres_database)
+        replay = client.post(path + '/attempts', headers=headers, json=body)
+        assert replay.status_code == 200, replay.text
+        assert replay.json() == created.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == counts
+        history = client.get(path + '/attempts/' + attempt_id, headers=headers)
+        assert history.status_code == 200, history.text
+        integrated = next(
+            item
+            for item in history.json()['questions']
+            if item['kind'] == 'react_fastify'
+        )
+        assert {
+            item['path']: item['content'] for item in integrated['submitted_files']
+        }['api.js'] == ReactFastifyActivityFixture.API_SOURCE
+
     @pytest.mark.parametrize(
         'answer',
         (
