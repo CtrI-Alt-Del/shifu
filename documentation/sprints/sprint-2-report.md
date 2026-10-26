@@ -205,7 +205,13 @@ Catorze das 27 tasks (52%) foram resolvidas nos dois últimos dias. As tasks SHI
 
 ## Gráfico Burndown
 
-Não anexei o gráfico do Jira. Ele não está acessível por esta consulta. Para completar o relatório, exporte o burndown do quadro 331 e salve em `documentation/media/burndown-sprint-2.png`.
+![Gráfico de burndown da Sprint 2](../media/burndown-sprint-2.png)
+
+O gráfico do Jira usa **Quantidade de tickets** e cobre 05/10 a 25/10/2026. Ele começa em 56 tickets e termina com cerca de 29 tickets restantes. A linha de orientação chegaria a zero no fim da sprint.
+
+- **Início:** o gráfico parte de 56 tickets, e a sprint tem hoje 55. Um ticket saiu da sprint durante o período. Não identifiquei qual.
+- **Curva:** o trabalho restante cai devagar até cerca de 18/10 e fica bem acima da linha ideal na maior parte da sprint. A queda se concentra a partir de 23/10, o que combina com o ritmo de conclusão das tasks descrito acima.
+- **Fim:** o gráfico não chega a zero, porque as 27 histórias e a SHIFU-86 não estavam em `Concluído` no Jira. O fechamento em 55 de 55 tickets vem da decisão do solicitante, e não da curva do Jira.
 
 ## Riscos e observações para o fechamento
 
