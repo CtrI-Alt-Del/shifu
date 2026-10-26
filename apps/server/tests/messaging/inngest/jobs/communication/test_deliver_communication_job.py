@@ -2,6 +2,7 @@
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from urllib.parse import quote
@@ -233,3 +234,69 @@ class TestDeliverCommunicationJob:
                 ).all()
                 == []
             )
+
+    def test_invalid_registered_event_fails_terminally_without_retry_or_delivery(
+        self, inngest_fixture: 'InngestFixture'
+    ) -> None:
+        event_id = IdProviderFaker().generate()
+        event = CommunicationQueuedEvent(
+            payload=CommunicationQueuedPayload(communication_id='missing-communication')
+        )
+        submitted_ids = inngest_fixture.publish(
+            event.name,
+            {'communication_id': '', 'secret': 'must-not-be-copied'},
+            event_id,
+        )
+        assert len(submitted_ids) == 1
+        # Known invalid input raises NonRetriableError inside a durable step.
+        # Inspect the actual terminal state instead of claiming a wrapper retry.
+        query = """
+            query InvalidCommunicationRun($id: ULID!) {
+                eventV2(id: $id) { runs { id status } }
+            }
+        """
+        deadline = time.monotonic() + 90
+        runs: list[object] = []
+        while time.monotonic() < deadline:
+            data = inngest_fixture.query_inngest(query, {'id': submitted_ids[0]})
+            observed = data.get('eventV2')
+            assert isinstance(observed, dict)
+            current: object = cast('dict[str, object]', observed).get('runs')
+            assert isinstance(current, list)
+            runs = cast('list[object]', current)
+            if runs and all(
+                isinstance(run, dict)
+                and cast('dict[str, object]', run).get('status') == 'FAILED'
+                for run in runs
+            ):
+                break
+            time.sleep(0.1)
+        else:
+            pytest.fail(f'Invalid communication did not fail terminally: {runs!r}')
+
+        assert len(runs) == 1
+        events = [
+            entry
+            for entry in read_job_telemetry(inngest_fixture.runtime_environment)
+            if entry.get('event_id') == event_id
+        ]
+        assert events
+        assert events[0]['event'] == 'job.started'
+        assert all(
+            entry.get('run_id') == cast('dict[str, object]', runs[0])['id']
+            for entry in events
+        )
+        assert all(
+            entry.get('job') == 'communication.deliver_communication'
+            for entry in events
+        )
+        assert all(entry.get('attempt') == 1 for entry in events)
+        assert all(
+            entry['event'] not in {'job.completed', 'job.retrying'} for entry in events
+        )
+        assert 'secret' not in str(events)
+        assert 'must-not-be-copied' not in str(events)
+        assert inngest_fixture.mailpit_messages() == []
+        with inngest_fixture.inspection_session() as session:
+            assert session.scalars(select(DeliveryAttemptModel)).all() == []
+            assert session.scalars(select(CommunicationModel)).all() == []

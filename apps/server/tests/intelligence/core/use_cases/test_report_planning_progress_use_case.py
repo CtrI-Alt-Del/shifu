@@ -1,12 +1,29 @@
+from datetime import timedelta
 from unittest.mock import create_autospec
+
 import pytest
+
+from shifu.intelligence.core.domain.entities import PlanningSession
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationStage,
     PlanningSessionStatus,
 )
+from shifu.intelligence.core.domain.structures import PlanningOperationResult
 from shifu.intelligence.core.interfaces import PlanningSessionsRepository
 from shifu.intelligence.core.use_cases import ReportPlanningProgressUseCase
 from shifu.shared.core.interfaces import ClockProvider
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NEXT_OPERATION_ID,
+    BOUNDARY_NOW,
+    BOUNDARY_OPERATION_ID,
+    BOUNDARY_PLANNING_ID,
+    boundary_batch,
+    boundary_complete,
+    boundary_progress,
+    boundary_proposal,
+    boundary_start,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     NEXT_OPERATION_ID,
     NOW,
@@ -14,20 +31,6 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     PLANNING_ID,
     interviewing_session,
     started_session,
-)
-from datetime import timedelta
-from shifu.intelligence.core.domain.entities import PlanningSession
-from shifu.intelligence.core.domain.structures import PlanningOperationResult
-from tests.fixtures.curriculum_planning_boundary_fixture import (
-    BOUNDARY_NOW,
-    BOUNDARY_PLANNING_ID,
-    BOUNDARY_OPERATION_ID,
-    BOUNDARY_NEXT_OPERATION_ID,
-    boundary_batch,
-    boundary_proposal,
-    boundary_start,
-    boundary_complete,
-    boundary_progress,
 )
 
 
@@ -102,6 +105,36 @@ class TestReportPlanningProgressUseCase:
             )
             is False
         )
+
+    def test_should_replace_the_stage_without_restarting_the_operation(self) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+        self.clock.now.return_value = NOW + timedelta(seconds=5)
+        assert self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 1, PlanningOperationStage.ANALYZING
+        )
+
+        assert self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 1, PlanningOperationStage.COMPOSING
+        )
+
+        assert session.operation is not None
+        assert session.operation.stage is PlanningOperationStage.COMPOSING
+        assert session.operation.started_at == NOW
+        assert session.updated_at == NOW + timedelta(seconds=5)
+
+    def test_should_discard_progress_from_a_stale_generation(self) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+
+        assert not self.use_case.execute(
+            PLANNING_ID, OPERATION_ID, 2, PlanningOperationStage.RETRIEVING
+        )
+
+        assert session.operation is not None
+        assert session.operation.stage is None
+        assert session.updated_at == NOW
+        self.sessions.update.assert_not_called()
 
 
 class TestReportPlanningProgressMigratedTransitions:

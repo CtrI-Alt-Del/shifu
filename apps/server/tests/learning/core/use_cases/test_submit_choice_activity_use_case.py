@@ -1,4 +1,4 @@
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import create_autospec
@@ -484,7 +484,66 @@ class TestSubmitChoiceActivityUseCase:
             ),
         )
         assert attempt.grading_snapshot is snapshot
+        question = snapshot.questions[-1]
+        assert isinstance(question, CurriculumReactQuestionSnapshot)
+        assert question.kind == 'react'
+        assert question.additional_file_policy is not None
+        with pytest.raises(FrozenInstanceError):
+            question.prompt = 'changed'  # type: ignore[misc]
+        assert snapshot.questions[-1] is question
         self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'path',
+        (
+            '/src/components/Button.tsx',
+            '../Button.tsx',
+            'src/../components/Button.tsx',
+            'src\\components\\Button.tsx',
+            'src//components/Button.tsx',
+            'src/components/.hidden.tsx',
+            'src/components/éxito.tsx',
+            f'src/components/{"a" * 65}.tsx',
+            f'src/{"a" * 235}.tsx',
+            'src/components/package.json',
+            'src/components/tsconfig.json',
+            'src/components/tsconfig.app.json',
+            'src/components/vite.config.tsx',
+            'src/components-old/Button.tsx',
+            'src/Other.tsx',
+            'src/components/Button.js',
+        ),
+    )
+    def test_should_reject_noncanonical_additional_react_paths_before_writes(
+        self,
+        path: str,
+    ) -> None:
+        snapshot = react_activity_snapshot()
+        self.provider.get_learning_activity.return_value = snapshot
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                ACCOUNT_ID,
+                GOAL_ID,
+                SKILL_ID,
+                COMPETENCY_ID,
+                ACTIVITY_ID,
+                'unsafe-react-path',
+                (
+                    *answers()[:2],
+                    CodeAnswer(
+                        question_key='q3',
+                        kind='react',
+                        files=(
+                            CodeSubmittedFile(path='src/main.tsx', content='main'),
+                            CodeSubmittedFile(path=path, content='extra'),
+                        ),
+                    ),
+                ),
+                snapshot.revision,
+            )
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_reject_tampered_react_file_policy_without_side_effects(
         self,

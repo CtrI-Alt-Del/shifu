@@ -213,6 +213,110 @@ class TestStartSkillController:
                 == []
             )
 
+    def test_should_start_every_available_roadmap_skill_in_an_individual_goal(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        redis_fixture: RedisFixture,
+    ) -> None:
+        response = client.get('/learning/available-skills', headers=_AUTHORIZATION)
+        assert response.status_code == 200, response.text
+        skills = response.json()['skills']
+        roadmap = [item for item in skills if item['id'].startswith('01SHFRM')]
+        assert len(roadmap) >= 50
+        assert all(
+            item['available'] and item['unavailableReason'] is None for item in roadmap
+        )
+        names = [item['name'] for item in skills]
+        assert len(names) == len(set(names))
+
+        for skill in roadmap:
+            # Each skill is an independent learner scenario. The fixture owns
+            # this disposable Redis; avoid sharing one IP budget across all of them.
+            redis_fixture.client.flushdb()  # pyright: ignore[reportUnknownMemberType]
+            created = _post(
+                client,
+                '/learning/goals',
+                _AUTHORIZATION,
+                {
+                    'title': 'Roadmap boundary coverage',
+                    'description': 'Exercise seeded content through the learner API.',
+                    'skillIds': [skill['id']],
+                },
+            )
+            assert created.status_code == 201, created.text
+            goal_id = created.json()['goalId']
+            entry_key = str(uuid4())
+            started = _post(
+                client,
+                f'/learning/goals/{goal_id}/skills/{skill["id"]}/start',
+                _AUTHORIZATION,
+                {'entry_key': entry_key},
+            )
+            assert started.status_code == 200, (skill['name'], started.text)
+            assert started.json() == {
+                'status': 'diagnosing',
+                'diagnosticRunId': entry_key,
+            }
+            with postgres_database.engine.connect() as connection:
+                row = connection.execute(
+                    select(
+                        SkillExperienceModel.status,
+                        SkillExperienceModel.diagnostic_run_id,
+                    ).where(
+                        SkillExperienceModel.goal_id == goal_id,
+                        SkillExperienceModel.skill_id == skill['id'],
+                    )
+                ).one()
+            assert tuple(row) == ('diagnosing', entry_key)
+
+    def test_should_keep_graph_only_content_unavailable_and_foundations_resolvable(
+        self, client: TestClient
+    ) -> None:
+        available = client.get('/learning/available-skills', headers=_AUTHORIZATION)
+        assert available.status_code == 200
+        skills = available.json()['skills']
+        by_id = {item['id']: item for item in skills}
+        graph = by_id[SEED_GRAPH_HTML_CSS_SKILL_ID]
+        assert graph['available'] is False
+        assert graph['unavailableReason']
+        rejected = _post(
+            client,
+            '/learning/goals',
+            _AUTHORIZATION,
+            {
+                'title': 'Graph only',
+                'description': 'No assessable content.',
+                'skillIds': [SEED_GRAPH_HTML_CSS_SKILL_ID],
+            },
+        )
+        assert rejected.status_code == 409, rejected.text
+
+        goal_id = _create_goal(client)
+        cursor = None
+        seen: set[str] = set()
+        while True:
+            params: dict[str, str | int] = {'limit': 100}
+            if cursor is not None:
+                params['cursor'] = cursor
+            page = client.get(
+                f'/learning/goals/{goal_id}/skills/catalog',
+                headers=_AUTHORIZATION,
+                params=params,
+            )
+            assert page.status_code == 200, page.text
+            body = page.json()
+            for item in body['items']:
+                assert item['id'] not in seen
+                seen.add(item['id'])
+                for foundation in item['foundations']:
+                    assert foundation['skillId'] in by_id
+                    assert foundation['name'] == by_id[foundation['skillId']]['name']
+            cursor = body['nextCursor']
+            if cursor is None:
+                break
+        assert seen == set(by_id)
+
 
 def _create_goal(client: TestClient) -> str:
     response = _post(

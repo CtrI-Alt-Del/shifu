@@ -1,6 +1,9 @@
 from unittest.mock import create_autospec
+
 import pytest
+
 from shifu.intelligence.core.domain.enums import (
+    PlanningIntentKind,
     PlanningOperationKind,
     PlanningSessionStatus,
 )
@@ -12,7 +15,10 @@ from shifu.intelligence.core.domain.events import (
     PlanningOperationRequestedEvent,
     PlanningOperationRequestedPayload,
 )
-from shifu.intelligence.core.domain.structures import PlanningOperationResult
+from shifu.intelligence.core.domain.structures import (
+    PlanningAnswer,
+    PlanningOperationResult,
+)
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -25,25 +31,25 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     MentorAccessProvider,
 )
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NEXT_OPERATION_ID,
+    BOUNDARY_NOW,
+    boundary_answer,
+    boundary_complete,
+    boundary_interviewing,
+    boundary_proposal,
+    boundary_restart,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NEXT_OPERATION_ID,
     NOW,
     OPERATION_ID,
     PLANNING_ID,
+    interviewing_session,
     proposal,
     started_session,
-)
-from shifu.intelligence.core.domain.enums import PlanningIntentKind
-from shifu.intelligence.core.domain.structures import PlanningAnswer
-from tests.fixtures.curriculum_planning_boundary_fixture import (
-    BOUNDARY_NOW,
-    BOUNDARY_NEXT_OPERATION_ID,
-    boundary_proposal,
-    boundary_interviewing,
-    boundary_complete,
-    boundary_answer,
-    boundary_restart,
 )
 
 
@@ -128,6 +134,37 @@ class TestRestartPlanningUseCase:
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
 
         self.access.authorize.assert_not_called()
+
+    def test_should_discard_prior_answers_classification_and_catalog_context(
+        self,
+    ) -> None:
+        session = interviewing_session()
+        session.submit_answers(
+            'batch-1',
+            (PlanningAnswer(question_id='q1', option_ids=('o1',)),),
+            NEXT_OPERATION_ID,
+            NOW,
+        )
+        assert session.complete(
+            NEXT_OPERATION_ID,
+            1,
+            PlanningOperationResult.for_proposal(
+                proposal(), classification=PlanningIntentKind.LEARNING
+            ),
+            NOW,
+        )
+        self.sessions.find_by_id.return_value = session
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID, '  Agora quero APIs ')
+
+        assert result.generation == 2
+        assert result.intent == 'Agora quero APIs'
+        assert result.access_revision == 'revision-2'
+        assert result.answered_batches == ()
+        assert result.proposal is None
+        assert result.classification is None
+        assert result.consulted_curriculum is False
+        self.sessions.update.assert_called_once_with(result)
 
 
 class TestRestartPlanningMigratedTransitions:

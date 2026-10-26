@@ -58,6 +58,8 @@ class TestLogMainPageEnteredJob:
         assert completed['attempt'] == 1
         assert isinstance(completed['run_id'], str) and completed['run_id']
         assert completed['event_id'] == event_id
+        assert completed['result'] == 'success'
+        assert 'account_id' not in completed
         events = [
             entry
             for entry in read_job_telemetry(inngest_fixture.runtime_environment)

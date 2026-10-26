@@ -1,14 +1,23 @@
 from datetime import timedelta
 from unittest.mock import create_autospec
+
 import pytest
+
 from shifu.intelligence.core.domain.enums import PlanningSessionStatus
 from shifu.intelligence.core.domain.errors import PlanningSessionNotFoundError
 from shifu.intelligence.core.domain.structures.planning_operation_result import (
+    FAILED_MESSAGE,
     OPERATION_TIMEOUT_CODE,
 )
 from shifu.intelligence.core.interfaces import PlanningSessionsRepository
 from shifu.intelligence.core.use_cases import GetPlanningSessionUseCase
 from shifu.shared.core.interfaces import ClockProvider
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    boundary_expire,
+    boundary_session,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NOW,
@@ -16,14 +25,6 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
     PLANNING_ID,
     interviewing_session,
     started_session,
-)
-from shifu.intelligence.core.domain.structures.planning_operation_result import (
-    FAILED_MESSAGE,
-)
-from tests.fixtures.curriculum_planning_boundary_fixture import (
-    BOUNDARY_NOW,
-    boundary_session,
-    boundary_expire,
 )
 
 
@@ -92,6 +93,31 @@ class TestGetPlanningSessionUseCase:
         assert result is fresh
         assert result.status is PlanningSessionStatus.INTERVIEW
         assert self.sessions.find_by_id.call_count == 2
+
+    @pytest.mark.parametrize(
+        'elapsed', [timedelta(minutes=2), timedelta(minutes=3), timedelta(hours=1)]
+    )
+    def test_should_expire_exactly_at_the_timeout_and_only_once(
+        self, elapsed: timedelta
+    ) -> None:
+        session = started_session()
+        self.sessions.find_by_id.return_value = session
+        self.clock.now.return_value = NOW + elapsed
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        if elapsed < _TIMEOUT:
+            assert result.status is PlanningSessionStatus.PROCESSING
+            self.sessions.update.assert_not_called()
+        else:
+            assert result.status is PlanningSessionStatus.FAILED
+            assert result.failure_code == OPERATION_TIMEOUT_CODE
+            assert result.message
+            assert result.operation is None
+            self.sessions.update.assert_called_once_with(result)
+            self.sessions.update.reset_mock()
+            assert self.use_case.execute(ACCOUNT_ID, PLANNING_ID) is result
+            self.sessions.update.assert_not_called()
 
 
 class TestGetPlanningSessionMigratedTransitions:

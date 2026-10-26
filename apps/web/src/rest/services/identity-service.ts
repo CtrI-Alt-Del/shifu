@@ -94,6 +94,43 @@ export const IdentityService = (restClient: RestClient) => {
       return response.body
     },
 
+    async getAccountProfile(accessToken: string): Promise<IdentityProfile> {
+      const response = await restClient.get<IdentityProfile>('/identity/accounts/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async updateAccountProfile(
+      accessToken: string,
+      input: { displayName: string; timeZone: string },
+    ): Promise<IdentityProfile> {
+      const response = await restClient.patch<IdentityProfile>(
+        '/identity/accounts/me',
+        {
+          display_name: input.displayName,
+          time_zone: input.timeZone,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
+    async changeAccountPassword(
+      accessToken: string,
+      input: { currentPassword: string; newPassword: string },
+    ): Promise<{ changed: true }> {
+      const response = await restClient.post<{ changed: true }>(
+        '/identity/accounts/me/password',
+        {
+          current_password: input.currentPassword,
+          new_password: input.newPassword,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      )
+      if (response.isFailure) response.throwError()
+      return response.body
+    },
     async publishMainPageEntered(accessToken: string): Promise<void> {
       const response = await restClient.post<void>(
         '/identity/main-page-entries',

@@ -1,5 +1,7 @@
 from unittest.mock import create_autospec
+
 import pytest
+
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
     PlanningSessionStatus,
@@ -22,19 +24,20 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     MentorAccessProvider,
 )
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NOW,
+    BOUNDARY_OPERATION_ID,
+    BOUNDARY_PLANNING_ID,
+    boundary_session,
+    boundary_start,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCESS_REVISION,
     ACCOUNT_ID,
     NOW,
     OPERATION_ID,
     PLANNING_ID,
-)
-from tests.fixtures.curriculum_planning_boundary_fixture import (
-    BOUNDARY_NOW,
-    BOUNDARY_PLANNING_ID,
-    BOUNDARY_OPERATION_ID,
-    boundary_session,
-    boundary_start,
 )
 
 
@@ -74,6 +77,9 @@ class TestStartPlanningUseCase:
         assert session.intent == 'Quero aprender web'
         assert session.status is PlanningSessionStatus.PROCESSING
         assert session.generation == 1
+        assert session.version == 0
+        assert session.batch is None
+        assert session.answered_batch_count == 0
         assert session.operation is not None
         assert session.operation.id == OPERATION_ID
         assert session.operation.kind is PlanningOperationKind.START
@@ -105,6 +111,16 @@ class TestStartPlanningUseCase:
 
         with pytest.raises(AuthorizationError):
             self.use_case.execute(ACCOUNT_ID, 'Quero aprender web')
+
+        self.sessions.add.assert_not_called()
+        self.database.transaction.assert_not_called()
+
+    @pytest.mark.parametrize('intent', ['', '   ', 'x' * 4001])
+    def test_should_reject_invalid_intent_without_storing_or_publishing(
+        self, intent: str
+    ) -> None:
+        with pytest.raises(ValueError, match='intent'):
+            self.use_case.execute(ACCOUNT_ID, intent)
 
         self.sessions.add.assert_not_called()
         self.database.transaction.assert_not_called()

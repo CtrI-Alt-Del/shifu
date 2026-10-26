@@ -1,5 +1,7 @@
 from unittest.mock import create_autospec
+
 import pytest
+
 from shifu.intelligence.core.domain.enums import (
     PlanningOperationKind,
     PlanningSessionStatus,
@@ -13,6 +15,10 @@ from shifu.intelligence.core.domain.events import (
     PlanningOperationRequestedEvent,
     PlanningOperationRequestedPayload,
 )
+from shifu.intelligence.core.domain.structures import (
+    PlanningAnswer,
+    PlanningOperationResult,
+)
 from shifu.intelligence.core.interfaces import (
     IntelligenceDatabase,
     IntelligenceDatabaseRepositories,
@@ -20,26 +26,24 @@ from shifu.intelligence.core.interfaces import (
 )
 from shifu.intelligence.core.use_cases import RetryPlanningUseCase
 from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+
+from tests.fixtures.curriculum_planning_boundary_fixture import (
+    BOUNDARY_NEXT_OPERATION_ID,
+    BOUNDARY_NOW,
+    boundary_answer,
+    boundary_complete,
+    boundary_interviewing,
+    boundary_retry,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NEXT_OPERATION_ID,
     NOW,
+    OPERATION_ID,
     OTHER_ACCOUNT_ID,
     PLANNING_ID,
     failed_session,
     interviewing_session,
-)
-from shifu.intelligence.core.domain.structures import (
-    PlanningAnswer,
-    PlanningOperationResult,
-)
-from tests.fixtures.curriculum_planning_boundary_fixture import (
-    BOUNDARY_NOW,
-    BOUNDARY_NEXT_OPERATION_ID,
-    boundary_interviewing,
-    boundary_complete,
-    boundary_answer,
-    boundary_retry,
 )
 
 
@@ -110,6 +114,35 @@ class TestRetryPlanningUseCase:
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
 
         self.sessions.update.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'failure',
+        [PlanningOperationResult.failed(), PlanningOperationResult.validation_failed()],
+    )
+    def test_should_preserve_answer_history_and_clear_the_failure_when_retrying(
+        self, failure: PlanningOperationResult
+    ) -> None:
+        session = interviewing_session()
+        session.submit_answers(
+            'batch-1',
+            (PlanningAnswer(question_id='q1', option_ids=('o1',)),),
+            NEXT_OPERATION_ID,
+            NOW,
+        )
+        assert session.complete(NEXT_OPERATION_ID, 1, failure, NOW)
+        self.sessions.find_by_id.return_value = session
+        self.identifiers.generate.return_value = OPERATION_ID
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID)
+
+        assert result.status is PlanningSessionStatus.PROCESSING
+        assert result.operation is not None
+        assert result.operation.kind is PlanningOperationKind.RETRY
+        assert result.answered_batch_count == 1
+        assert result.answered_batches[0].items[0].selected_texts == ('Sites',)
+        assert result.message is None
+        assert result.failure_code is None
+        self.sessions.update.assert_called_once_with(result)
 
 
 class TestRetryPlanningMigratedTransitions:

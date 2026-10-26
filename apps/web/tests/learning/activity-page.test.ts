@@ -1,9 +1,44 @@
+import type { Page } from '@playwright/test'
+import { ROUTES } from '@/constants/routes'
 import {
   ChoiceActivityDetailFaker,
   ChoiceQuestionFaker,
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+
+type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
+type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
+
+async function sampleEntrance(page: Page, selector: string) {
+  await page.evaluate((targetSelector) => {
+    const state = window as EntranceWindow
+    state.__learningEntranceFrames = new Promise<EntranceFrame[]>((resolve) => {
+      const frames: EntranceFrame[] = []
+      function sample() {
+        const targets = [...document.querySelectorAll(targetSelector)]
+        if (targets.length > 0) {
+          frames.push(
+            targets.map((target) => {
+              const style = getComputedStyle(target)
+              const matrix = new DOMMatrixReadOnly(
+                style.transform === 'none' ? undefined : style.transform,
+              )
+              return { opacity: Number(style.opacity), x: matrix.m41, y: matrix.m42 }
+            }),
+          )
+        }
+        if (frames.length === 90) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+  }, selector)
+}
+
+async function entranceFrames(page: Page) {
+  return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
+}
 
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
@@ -127,22 +162,47 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
     await route.fallback()
   })
 
+  const entranceSelector =
+    'section[aria-labelledby="choice-question-q1"] > div:has(> #choice-question-q1), fieldset[aria-labelledby="choice-question-q1"] > div'
   await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
 
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
-  const prompt = authenticatedPage.getByRole('heading', { name: /Considere o código/ })
-  await expect
-    .poll(() =>
-      prompt.evaluate((node) => {
-        const style = getComputedStyle(node.parentElement ?? node)
-        const transform = new DOMMatrixReadOnly(style.transform)
-        return { opacity: Number(style.opacity), offset: transform.m42 }
-      }),
-    )
-    .toEqual({ opacity: 1, offset: 0 })
+  const normalFrames = await entranceFrames(authenticatedPage)
+  expect(normalFrames).toHaveLength(90)
+  for (let target = 0; target < 5; target += 1) {
+    expect(
+      normalFrames?.some(
+        (frame) => frame[target].opacity > 0 && frame[target].opacity < 1,
+      ),
+    ).toBe(true)
+    expect(normalFrames?.some((frame) => frame[target].y > 0)).toBe(true)
+  }
+  expect(normalFrames?.at(-1)).toEqual(
+    Array.from({ length: 5 }, () => ({ opacity: 1, x: 0, y: 0 })),
+  )
+
+  // Remount under reduced motion and observe its first paint, rather than
+  // inspecting a finished normal entrance after changing the preference.
+  await navigateAuthenticatedPage(authenticatedPage, ROUTES.privacy)
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  const reducedFrames = await entranceFrames(authenticatedPage)
+  expect(reducedFrames).toHaveLength(90)
+  expect(
+    reducedFrames?.every(
+      (frame) =>
+        frame.length === 5 &&
+        frame.every((target) => target.opacity === 1 && target.x === 0 && target.y === 0),
+    ),
+  ).toBe(true)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: /Quais afirmações são verdadeiras/ }),
+  ).toBeVisible()
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
 
@@ -155,50 +215,6 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
   ).not.toBeChecked()
-  const optionCards = authenticatedPage.locator('.choice-question-option')
-  await expect(optionCards).toHaveCount(4)
-  await expect
-    .poll(() =>
-      optionCards.evaluateAll((cards) =>
-        cards.every((card) => {
-          const style = getComputedStyle(card.parentElement ?? card)
-          return (
-            Number(style.opacity) === 1 &&
-            new DOMMatrixReadOnly(style.transform).m42 === 0
-          )
-        }),
-      ),
-    )
-    .toBe(true)
-  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  authenticatedPage.once('dialog', (dialog) => dialog.accept())
-  await authenticatedPage.reload()
-  await authenticatedPage.waitForFunction(
-    () => '__TSR_ROUTER__' in window && document.body.dataset.hydrated === 'true',
-  )
-  await navigateAuthenticatedPage(authenticatedPage, activityPath)
-  await expect(prompt).toBeVisible()
-  expect(
-    await prompt.evaluate((node) => {
-      const style = getComputedStyle(node.parentElement ?? node)
-      return {
-        opacity: Number(style.opacity),
-        offset: new DOMMatrixReadOnly(style.transform).m42,
-      }
-    }),
-  ).toEqual({ opacity: 1, offset: 0 })
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.every((card) => {
-        const style = getComputedStyle(card.parentElement ?? card)
-        return (
-          Number(style.opacity) === 1 && new DOMMatrixReadOnly(style.transform).m42 === 0
-        )
-      }),
-    ),
-  ).toBe(true)
-  await authenticatedPage.getByText('tem_cracha é True.').click()
-  await authenticatedPage.getByText('pode_entrar é False.').click()
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
   ).toBeChecked()

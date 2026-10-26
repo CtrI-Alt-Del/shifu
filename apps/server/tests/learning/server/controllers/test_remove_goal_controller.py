@@ -380,8 +380,8 @@ class TestRemoveGoalController:
                 'request_id': request_id,
             }
         ]
-        assert goal.account_id not in str(events)
-        assert goal.id not in str(events)
+        assert goal.account_id not in str(provider.events)
+        assert goal.id not in str(provider.events)
         http = [
             event for event in provider.events if event['event'].startswith('http.')
         ]

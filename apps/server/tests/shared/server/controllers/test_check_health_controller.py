@@ -4,12 +4,14 @@ from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.shared.telemetry_support import FailingTelemetry
 from shifu.app import FastAPIApp
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.providers.cache.redis.redis_cache_provider import RedisCacheProvider
 from tests.fixtures.telemetry_boundary_fixture import TelemetryBoundaryFixture
 
 if TYPE_CHECKING:
+    from fastapi import FastAPI
     from httpx import Response
     from tests.fixtures.postgres_fixture import PostgresDatabase
 
@@ -73,8 +75,8 @@ class TestCheckHealthController:
         provider = TelemetryBoundaryFixture()
         with TestClient(
             FastAPIApp.register(postgres_database.engine, telemetry_provider=provider)
-        ):
-            pass
+        ) as client:
+            assert client.get('/health').status_code == 200
 
         events = [
             event for event in provider.events if event['event'].startswith('app.')
@@ -134,7 +136,7 @@ class TestCheckHealthController:
                 )
             ),
         ):
-            pass
+            pytest.fail('An unhealthy application must never accept requests')
 
         assert provider.events == [
             {
@@ -146,3 +148,15 @@ class TestCheckHealthController:
             }
         ]
         assert 'redis://user:password@host' not in str(provider.events)
+
+    @pytest.mark.parametrize('provider', [FailingTelemetry(), None])
+    def test_optional_or_failing_telemetry_preserves_http_result(
+        self, client: TestClient, provider: FailingTelemetry | None
+    ) -> None:
+        cast('FastAPI', client.app).state.telemetry_provider = provider
+
+        response = client.get('/health')
+
+        assert response.status_code == 200
+        assert response.json() == {'status': 'ok', 'name': 'Shifu API'}
+        assert UUID(response.headers['X-Request-ID']).version == 4

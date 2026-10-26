@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 
-function handleAuthRequest(
+async function handleAuthRequest(
   request: Request,
   context: RequestTelemetryContext | undefined,
 ) {
@@ -27,7 +27,11 @@ function handleAuthRequest(
     init.duplex = 'half'
   }
 
-  return getBetterAuthProvider().handler(new Request(request.url, init))
+  const response = await getBetterAuthProvider().handler(new Request(request.url, init))
+  if (pathname === '/api/auth/account' || pathname.startsWith('/api/auth/account/')) {
+    response.headers.set('Cache-Control', 'no-store')
+  }
+  return response
 }
 
 export const Route = createFileRoute('/api/auth/$')({
