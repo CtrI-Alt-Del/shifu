@@ -107,6 +107,7 @@ describe('useGamificationAchievementsPage', () => {
     refetchOverviewMock.mockReset()
     useAchievementsQueryMock.mockReset()
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToGoalDetail: vi.fn(),
       navigateToActivity: vi.fn(),

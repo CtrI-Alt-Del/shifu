@@ -4,12 +4,13 @@ import {
   type BetterAuthPlugin,
   type GenericEndpointContext,
 } from 'better-auth'
-import { APIError, createAuthEndpoint } from 'better-auth/api'
+import { APIError, createAuthEndpoint, getSessionFromCtx } from 'better-auth/api'
 import { deleteSessionCookie, setSessionCookie } from 'better-auth/cookies'
 import { jwt } from 'better-auth/plugins'
 import { Pool, types as pgTypes } from 'pg'
 import { z } from 'zod'
 
+import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { ROUTES } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
@@ -88,7 +89,15 @@ const BetterAuthProvider = () => {
 
   const requestIdentityService = (request?: Request) =>
     createIdentityService(request?.headers.get('X-Request-ID') ?? undefined)
-  const identityPlugin = createIdentityPlugin(requestIdentityService)
+  const identityPlugin = createIdentityPlugin(requestIdentityService, async (headers) => {
+    const result = await auth.api.getToken({ headers })
+    if (!result?.token)
+      throw APIError.from('UNAUTHORIZED', {
+        code: 'unauthorized',
+        message: 'Entre novamente para continuar.',
+      })
+    return result.token
+  })
   const auth = betterAuth({
     appName: 'Shifu',
     baseURL: config.baseURL,
@@ -96,6 +105,7 @@ const BetterAuthProvider = () => {
     secret: config.secret,
     database: pool,
     emailAndPassword: { enabled: false },
+    disabledPaths: ['/update-session', '/update-user', '/change-password'],
     user: {
       modelName: 'better_auth_users',
       fields: {
@@ -122,6 +132,7 @@ const BetterAuthProvider = () => {
           type: 'number',
           required: true,
           fieldName: 'access_version',
+          input: false,
         },
       },
     },
@@ -233,6 +244,22 @@ const BetterAuthProvider = () => {
         ? createIdentityService(requestId)
         : identityService
       const currentSession = await currentIdentityService.getCurrentSession(accessToken)
+      if (session.user.name !== currentSession.display_name) {
+        try {
+          const context = await auth.$context
+          await context.internalAdapter.updateUser(session.user.id, {
+            name: currentSession.display_name,
+          })
+        } catch {
+          telemetry.emit({
+            level: 'WARNING',
+            event: 'dependency.unavailable',
+            operation: 'dependency.check',
+            dependency: 'better-auth',
+            result: 'unavailable',
+          })
+        }
+      }
       return {
         accountId: currentSession.account_id,
         displayName: currentSession.display_name,
@@ -248,7 +275,7 @@ const BetterAuthProvider = () => {
       ) {
         return {
           accountId: session.user.id,
-          displayName: session.user.name,
+          displayName: 'Minha conta',
           email: session.user.email,
           timeZone: null,
           accessToken,
@@ -325,10 +352,91 @@ const BetterAuthProvider = () => {
 
 function createIdentityPlugin(
   requestIdentityService: (request?: Request) => ReturnType<typeof IdentityService>,
+  getAccessToken: (headers: Headers) => Promise<string>,
 ) {
   return {
     id: 'shifu-identity-sign-in',
     endpoints: {
+      accountProfile: createAuthEndpoint(
+        '/account',
+        { method: 'GET', requireHeaders: true },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          const session = await requireAccountSession(context)
+          try {
+            const token = await getAccessToken(context.headers)
+            const profile = await requestIdentityService(
+              context.request,
+            ).getAccountProfile(token)
+            const safeProfile = toAccountProfile(profile)
+            await reconcileTechnicalName(
+              context,
+              session.user.id,
+              session.user.name,
+              safeProfile.displayName,
+            )
+            return context.json(safeProfile)
+          } catch (error) {
+            throwAccountError(error)
+          }
+        },
+      ),
+      updateAccountProfile: createAuthEndpoint(
+        '/account/profile',
+        {
+          method: 'POST',
+          requireHeaders: true,
+          body: z.object({ displayName: z.string(), timeZone: z.string() }).strict(),
+        },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          const session = await requireAccountSession(context)
+          try {
+            const token = await getAccessToken(context.headers)
+            const profile = await requestIdentityService(
+              context.request,
+            ).updateAccountProfile(token, context.body)
+            const safeProfile = toAccountProfile(profile)
+            await reconcileTechnicalName(
+              context,
+              session.user.id,
+              session.user.name,
+              safeProfile.displayName,
+            )
+            return context.json(safeProfile)
+          } catch (error) {
+            throwAccountError(error)
+          }
+        },
+      ),
+      changeAccountPassword: createAuthEndpoint(
+        '/account/password',
+        {
+          method: 'POST',
+          requireHeaders: true,
+          body: z
+            .object({ currentPassword: z.string(), newPassword: z.string() })
+            .strict(),
+        },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          await requireAccountSession(context)
+          const token = await getAccessToken(context.headers)
+          try {
+            const result = await requestIdentityService(
+              context.request,
+            ).changeAccountPassword(token, context.body)
+            if (result.changed !== true)
+              throw APIError.from('SERVICE_UNAVAILABLE', {
+                code: 'result_uncertain',
+                message: 'Não foi possível confirmar a troca.',
+              })
+            return context.json({ changed: true })
+          } catch (error) {
+            throwAccountError(error, true)
+          }
+        },
+      ),
       requestPasswordRecovery: createAuthEndpoint(
         '/password-recovery',
         { method: 'POST', body: passwordRecoveryBody },
@@ -1010,4 +1118,98 @@ let provider: ReturnType<typeof BetterAuthProvider> | undefined
 export const getBetterAuthProvider = () => {
   provider ??= BetterAuthProvider()
   return provider
+}
+
+async function requireAccountSession(context: GenericEndpointContext) {
+  const session = await getSessionFromCtx(context, { disableRefresh: true })
+  if (!session)
+    throw APIError.from('UNAUTHORIZED', {
+      code: 'unauthorized',
+      message: 'Entre novamente para continuar.',
+    })
+  return session
+}
+
+async function reconcileTechnicalName(
+  context: GenericEndpointContext,
+  accountId: string,
+  technicalName: string,
+  canonicalName: string,
+) {
+  if (technicalName === canonicalName) return
+  try {
+    await context.context.internalAdapter.updateUser(accountId, { name: canonicalName })
+  } catch {
+    telemetry.emit({
+      level: 'WARNING',
+      event: 'dependency.unavailable',
+      operation: 'dependency.check',
+      dependency: 'better-auth',
+      result: 'unavailable',
+    })
+  }
+}
+
+function toAccountProfile(
+  profile: Awaited<ReturnType<IdentityService['getAccountProfile']>>,
+) {
+  const parsed = z
+    .object({
+      account_id: z.string().min(1),
+      display_name: z.string().min(1),
+      email: z.string().min(1),
+      time_zone: z.string().nullable(),
+    })
+    .safeParse(profile)
+  if (!parsed.success)
+    throw APIError.from('SERVICE_UNAVAILABLE', {
+      code: 'invalid_response',
+      message: 'Não foi possível carregar a conta.',
+    })
+  return {
+    accountId: parsed.data.account_id,
+    displayName: parsed.data.display_name,
+    email: parsed.data.email,
+    timeZone: parsed.data.time_zone,
+  }
+}
+
+function throwAccountError(error: unknown, passwordChange = false): never {
+  if (error instanceof APIError) throw error
+  if (error instanceof RestError) {
+    if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
+      throw APIError.from('UNAUTHORIZED', {
+        code: 'unauthorized',
+        message: 'Entre novamente para continuar.',
+      })
+    if (
+      error.statusCode === HTTP_STATUS_CODE.forbidden &&
+      error.code === 'invalid_current_password'
+    )
+      throw APIError.from('FORBIDDEN', {
+        code: error.code,
+        message: 'A senha atual está incorreta.',
+      })
+    if (
+      error.statusCode === HTTP_STATUS_CODE.badRequest &&
+      ['invalid_display_name', 'invalid_time_zone', 'invalid_new_password'].includes(
+        error.code ?? '',
+      )
+    )
+      throw APIError.from('BAD_REQUEST', {
+        code: error.code ?? 'invalid_input',
+        message: 'Confira o campo informado.',
+      })
+    if (error.statusCode > 0)
+      throw APIError.from('SERVICE_UNAVAILABLE', {
+        code: 'identity_unavailable',
+        message: 'Não foi possível concluir agora. Tente novamente.',
+      })
+  }
+  throw APIError.from('SERVICE_UNAVAILABLE', {
+    code: passwordChange ? 'result_uncertain' : 'identity_unavailable',
+    message: passwordChange
+      ? 'Não foi possível confirmar a troca.'
+      : 'Não foi possível carregar a conta.',
+  })
 }

@@ -52,6 +52,18 @@ export function useAccountMenu() {
     setIsOpen((open) => !open)
   }
 
+  async function handleOpenAccount() {
+    if (status === 'pending') return
+    setIsOpen(false)
+    try {
+      await navigateTo('account')
+    } catch {
+      setErrorMessage('Não foi possível abrir sua conta agora. Tente novamente.')
+      setStatus('error')
+      setIsOpen(true)
+    }
+  }
+
   async function handleSignOut() {
     if (isLogoutInFlightRef.current) return
 
@@ -74,6 +86,7 @@ export function useAccountMenu() {
     alertRef,
     errorMessage,
     handleSignOut,
+    handleOpenAccount,
     handleToggle,
     isOpen,
     menuId,

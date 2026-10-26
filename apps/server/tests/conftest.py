@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from tests.fixtures.redis_fixture import RedisFixture
 
 pytest_plugins = (
+    'tests.fixtures.account_security_fixture',
     'tests.fixtures.inngest_fixture',
     'tests.fixtures.intelligence_fixture',
     'tests.fixtures.learning_fixture',

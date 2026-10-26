@@ -102,3 +102,25 @@ Content-Type: application/json
 {
   "token": "replace-with-43-character-base64url-recovery-token"
 }
+
+
+### Read canonical account profile (replace JWT and shared secret locally)
+GET {{baseUrl}}/identity/accounts/me
+Authorization: Bearer {{accessToken}}
+x-shifu-bff-secret: {{bffSharedSecret}}
+
+### Update own profile
+PATCH {{baseUrl}}/identity/accounts/me
+Authorization: Bearer {{accessToken}}
+x-shifu-bff-secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{"display_name": "Aprendiz", "time_zone": "America/Sao_Paulo"}
+
+### Change own password with current session preserved
+POST {{baseUrl}}/identity/accounts/me/password
+Authorization: Bearer {{accessToken}}
+x-shifu-bff-secret: {{bffSharedSecret}}
+Content-Type: application/json
+
+{"current_password": "replace-locally-current", "new_password": "replace-locally-new"}

@@ -21,6 +21,7 @@ function createController(
     alertRef: { current: null },
     errorMessage: null,
     handleSignOut: handleSignOutMock,
+    handleOpenAccount: vi.fn(),
     handleToggle: handleToggleMock,
     isOpen: false,
     menuId: 'account-menu-test',
@@ -39,7 +40,7 @@ describe('AccountMenu', () => {
     useAccountMenuMock.mockReturnValue(createController())
   })
 
-  it('renders the account summary and keeps only Sair enabled', () => {
+  it('renders the account summary and enables account navigation and Sair', () => {
     useAccountMenuMock.mockReturnValue(createController({ isOpen: true }))
 
     render(
@@ -54,9 +55,9 @@ describe('AccountMenu', () => {
     expect(screen.getByText('thiago@exemplo.com')).toBeVisible()
 
     const accountItem = screen.getByRole('menuitem', { name: 'Sua conta' })
-    expect(accountItem).toBeDisabled()
-    expect(accountItem).toHaveAttribute('aria-disabled', 'true')
-    expect(accountItem).toHaveAttribute('tabindex', '-1')
+    expect(accountItem).toBeEnabled()
+    expect(accountItem).not.toHaveAttribute('aria-disabled')
+
     expect(screen.getByRole('menuitem', { name: 'Sair' })).toBeEnabled()
   })
 
@@ -67,8 +68,12 @@ describe('AccountMenu', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Fechar menu da conta' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Sua conta' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Sair' }))
 
+    expect(
+      useAccountMenuMock.mock.results.at(-1)?.value.handleOpenAccount,
+    ).toHaveBeenCalledOnce()
     expect(handleToggleMock).toHaveBeenCalledOnce()
     expect(handleSignOutMock).toHaveBeenCalledOnce()
   })
@@ -98,7 +103,7 @@ describe('AccountMenu', () => {
       <AccountMenu account={{ displayName: 'Thiago', email: 'thiago@exemplo.com' }} />,
     )
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Pressione Sair para tentar novamente.',
+      'Não foi possível sair agora. Tente novamente.',
     )
     expect(screen.getByRole('menuitem', { name: 'Sair' })).toBeEnabled()
 

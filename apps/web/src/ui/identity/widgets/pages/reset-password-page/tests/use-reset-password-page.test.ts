@@ -38,6 +38,7 @@ describe('useResetPasswordPage', () => {
       resetPassword: resetPasswordMock,
     })
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToActivity: vi.fn(),
       navigateToGoalDetail: vi.fn(),

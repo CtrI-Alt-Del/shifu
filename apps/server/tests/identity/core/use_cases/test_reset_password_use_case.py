@@ -1,5 +1,5 @@
 from datetime import UTC, datetime, timedelta
-from unittest.mock import create_autospec
+from unittest.mock import call, create_autospec
 
 import pytest
 
@@ -27,6 +27,9 @@ class TestResetPasswordUseCase:
     def setup(self) -> None:
         self.identity_database = create_autospec(IdentityDatabase, instance=True)
         self.repositories = create_autospec(IdentityDatabaseRepositories, instance=True)
+        self.repositories.account_action_tokens.find_account_id_by_hash.return_value = (
+            'account-id'
+        )
         self.identity_database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -135,7 +138,7 @@ class TestResetPasswordUseCase:
         result = self.subject.execute('raw-token', 'new-password', 'new-password')
 
         assert result.result == expected
-        self.repositories.accounts.find_by_id.assert_not_called()
+        self.repositories.accounts.update.assert_not_called()
         self.repositories.accounts.update.assert_not_called()
         self.password_hashing_provider.hash.assert_not_called()
 
@@ -158,7 +161,7 @@ class TestResetPasswordUseCase:
 
         assert result.result == 'expired'
         assert token.status is AccountActionTokenStatus.EXPIRED
-        self.repositories.accounts.find_by_id.assert_not_called()
+        self.repositories.accounts.update.assert_not_called()
         self.password_hashing_provider.hash.assert_not_called()
 
     @pytest.mark.parametrize(
@@ -176,3 +179,57 @@ class TestResetPasswordUseCase:
         self.identity_database.transaction.assert_not_called()
         self.token_provider.hash.assert_not_called()
         self.password_hashing_provider.hash.assert_not_called()
+
+    def test_should_clear_retained_session_and_lock_account_before_token(self) -> None:
+        account = AccountFaker.fake(
+            id='account-id',
+            access_version=4,
+            retained_session_id='initiator',
+            retained_session_access_version=3,
+        )
+        token = AccountActionToken(
+            id='token-id',
+            account_id=account.id,
+            type=AccountActionTokenType.PASSWORD_RECOVERY,
+            status=AccountActionTokenStatus.PENDING,
+            token_hash=self.token_hash,
+            issued_at=self.now,
+            expires_at=self.now + timedelta(hours=1),
+            updated_at=self.now,
+        )
+        self.repositories.accounts.find_by_id.return_value = account
+        self.repositories.account_action_tokens.find_by_hash.return_value = token
+        self.repositories.account_action_tokens.find_many_pending_by_account_id_and_type.return_value = []
+
+        result = self.subject.execute('raw-token', 'new-password', 'new-password')
+
+        assert result.result == 'reset'
+        assert account.access_version == 5
+        assert account.retained_session_id is None
+        assert account.retained_session_access_version is None
+        calls = self.repositories.mock_calls
+        assert calls[0] == call.account_action_tokens.find_account_id_by_hash(
+            self.token_hash
+        )
+        assert calls[1] == call.accounts.find_by_id(account.id)
+        assert calls[2] == call.account_action_tokens.find_by_hash(self.token_hash)
+
+    def test_should_reject_changed_owner_after_preliminary_discovery(self) -> None:
+        token = AccountActionToken(
+            id='token-id',
+            account_id='different-account',
+            type=AccountActionTokenType.PASSWORD_RECOVERY,
+            status=AccountActionTokenStatus.PENDING,
+            token_hash=self.token_hash,
+            issued_at=self.now,
+            expires_at=self.now + timedelta(hours=1),
+            updated_at=self.now,
+        )
+        self.repositories.account_action_tokens.find_by_hash.return_value = token
+
+        result = self.subject.execute('raw-token', 'new-password', 'new-password')
+
+        assert result.result == 'invalid'
+        self.password_hashing_provider.hash.assert_not_called()
+        self.repositories.accounts.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()

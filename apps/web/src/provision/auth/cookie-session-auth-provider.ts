@@ -1,6 +1,16 @@
+import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AuthError } from '@/core/errors/auth-error'
 
 import { ROUTES, type RouteName } from '@/constants/routes'
+
+export type AccountProfile = {
+  accountId: string
+  displayName: string
+  email: string
+  timeZone: string | null
+}
+export type UpdateAccountProfileInput = { displayName: string; timeZone: string }
+export type ChangeAccountPasswordInput = { currentPassword: string; newPassword: string }
 
 export type SignInInput = {
   email: string
@@ -39,6 +49,20 @@ export type ConfirmEmailResult = {
 }
 
 export const CookieSessionAuthProvider = () => {
+  async function getAccountProfile(): Promise<AccountProfile> {
+    return requestAccount('/api/auth/account')
+  }
+  async function updateAccountProfile(
+    input: UpdateAccountProfileInput,
+  ): Promise<AccountProfile> {
+    return requestAccount('/api/auth/account/profile', input)
+  }
+  async function changeAccountPassword(
+    input: ChangeAccountPasswordInput,
+  ): Promise<{ changed: true }> {
+    return requestAccount('/api/auth/account/password', input, true)
+  }
+
   async function signIn(input: SignInInput): Promise<SignInResult> {
     let response: Response
 
@@ -259,6 +283,9 @@ export const CookieSessionAuthProvider = () => {
   }
 
   return {
+    getAccountProfile,
+    updateAccountProfile,
+    changeAccountPassword,
     confirmEmail,
     exitPendingConfirmation,
     getPendingConfirmationStatus,
@@ -322,4 +349,113 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isRoutePath(value: unknown): value is (typeof ROUTES)[RouteName] {
   return Object.values(ROUTES).includes(value as (typeof ROUTES)[RouteName])
+}
+
+async function requestAccount(
+  path: string,
+  input?: UpdateAccountProfileInput,
+): Promise<AccountProfile>
+async function requestAccount(
+  path: string,
+  input: ChangeAccountPasswordInput,
+  passwordChange: true,
+): Promise<{ changed: true }>
+async function requestAccount(
+  path: string,
+  input?: UpdateAccountProfileInput | ChangeAccountPasswordInput,
+  passwordChange = false,
+): Promise<AccountProfile | { changed: true }> {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method: input ? 'POST' : 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: input ? { 'Content-Type': 'application/json' } : undefined,
+      body: input ? JSON.stringify(input) : undefined,
+    })
+  } catch {
+    throw accountTransportError(passwordChange)
+  }
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    throw accountTransportError(passwordChange, response.status)
+  }
+  if (!response.ok) {
+    if (response.status === HTTP_STATUS_CODE.unauthorized)
+      throw new AuthError('authentication-rejected', 'Entre novamente para continuar.', {
+        statusCode: 401,
+      })
+    if (
+      isRecord(body) &&
+      body.code === 'invalid_current_password' &&
+      response.status === HTTP_STATUS_CODE.forbidden
+    ) {
+      throw new AuthError('invalid-current-password', 'A senha atual está incorreta.', {
+        statusCode: 403,
+      })
+    }
+    const fields = {
+      invalid_display_name: 'displayName',
+      invalid_time_zone: 'timeZone',
+      invalid_new_password: 'newPassword',
+    } as const
+    if (
+      isRecord(body) &&
+      typeof body.code === 'string' &&
+      Object.hasOwn(fields, body.code)
+    ) {
+      const field = fields[body.code as keyof typeof fields]
+      throw new AuthError('validation-failed', 'Confira o campo informado.', {
+        field,
+        statusCode: response.status,
+      })
+    }
+    if (isRecord(body) && body.code === 'result_uncertain')
+      throw accountTransportError(passwordChange, response.status)
+    throw new AuthError(
+      response.status >= 500 ? 'unavailable' : 'invalid-response',
+      'Não foi possível concluir agora. Tente novamente.',
+      { statusCode: response.status },
+    )
+  }
+  if (
+    passwordChange &&
+    isRecord(body) &&
+    body.changed === true &&
+    Object.keys(body).length === 1
+  )
+    return { changed: true }
+  if (
+    !passwordChange &&
+    isRecord(body) &&
+    typeof body.accountId === 'string' &&
+    typeof body.displayName === 'string' &&
+    typeof body.email === 'string' &&
+    (body.timeZone === null || typeof body.timeZone === 'string') &&
+    Object.keys(body).length === 4
+  ) {
+    return {
+      accountId: body.accountId,
+      displayName: body.displayName,
+      email: body.email,
+      timeZone: body.timeZone,
+    }
+  }
+  throw accountTransportError(passwordChange, response.status)
+}
+function accountTransportError(passwordChange: boolean, statusCode = 0) {
+  return new AuthError(
+    passwordChange
+      ? 'result-uncertain'
+      : statusCode === 0 || statusCode >= 500
+        ? 'unavailable'
+        : 'invalid-response',
+    passwordChange
+      ? 'Não foi possível confirmar a troca. Verifique seu acesso antes de tentar novamente.'
+      : 'Não foi possível carregar os dados da conta.',
+    { statusCode },
+  )
 }
