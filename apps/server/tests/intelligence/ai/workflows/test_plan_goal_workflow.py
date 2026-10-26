@@ -36,6 +36,7 @@ from shifu.intelligence.core.domain.enums import (
 )
 from shifu.intelligence.core.domain.errors import (
     PlanningClassificationUnavailableError,
+    PlanningIndexUnavailableError,
 )
 from shifu.intelligence.core.domain.structures import (
     PlanningAnswer,
@@ -605,3 +606,123 @@ class TestPlanGoalWorkflow:
         assert final.status is PlanningSessionStatus.PROCESSING
         assert final.intent == 'Quero aprender React'
         assert final.proposal is None
+
+    def test_should_fail_closed_without_an_index_and_without_calling_any_agent(
+        self, harness: Harness
+    ) -> None:
+        harness.retrieval.retrieve.side_effect = PlanningIndexUnavailableError()
+        session = harness.start('Quero aprender React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.FAILED
+        assert final.failure_code == 'service_unavailable'
+        assert final.proposal is None
+        assert final.batch is None
+        assert final.message
+        assert harness.model_calls() == 0
+
+    @pytest.mark.parametrize('kind', tuple(PlanningIntentKind))
+    def test_should_consume_only_the_three_closed_intent_decisions(
+        self, harness: Harness, kind: PlanningIntentKind
+    ) -> None:
+        harness.classifier.classify.return_value = classification(kind)
+        session = harness.start('Quero aprender web')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.classification is kind
+        if kind is PlanningIntentKind.OUT_OF_SCOPE:
+            assert final.status is PlanningSessionStatus.OUT_OF_SCOPE
+            assert final.message
+            assert harness.model_calls() == 0
+        else:
+            assert final.status is PlanningSessionStatus.PROPOSAL
+            assert final.proposal is not None
+
+    def test_should_return_every_draft_problem_to_the_next_composition_attempt(
+        self, harness: Harness
+    ) -> None:
+        invalid = PlanningProposalOutput(
+            supported=True,
+            title=' ',
+            description='',
+            skills=[
+                PlanningProposalSkillOutput(skill_id=HTML_ID, justification='ok'),
+                PlanningProposalSkillOutput(skill_id=HTML_ID, justification='ok'),
+                PlanningProposalSkillOutput(skill_id='skill-z', justification='ok'),
+                PlanningProposalSkillOutput(skill_id=REACT_ID, justification=' '),
+            ],
+        )
+        harness.proposal.run.side_effect = [completed(invalid), web_proposal()]
+        session = harness.start('Quero aprender React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        assert payloads(harness.proposal)[1]['problems'] == [
+            'O título está ausente.',
+            'A descrição está ausente.',
+            'A Habilidade "HTML e CSS" está duplicada.',
+            'A Habilidade "skill-z" não existe entre as candidatas.',
+            'A Habilidade "React" está sem justificativa.',
+        ]
+
+    @pytest.mark.parametrize(
+        'questions',
+        [
+            [],
+            [{'text': 'Q', 'kind': 'single', 'allow_unknown': False, 'options': ['A']}],
+            [
+                {
+                    'text': 'Q',
+                    'kind': 'single',
+                    'allow_unknown': False,
+                    'options': ['A', 'a'],
+                }
+            ],
+            [
+                {
+                    'text': 'Q',
+                    'kind': 'single',
+                    'allow_unknown': False,
+                    'options': [str(i) for i in range(7)],
+                }
+            ],
+            [
+                {
+                    'text': 'Q',
+                    'kind': 'single',
+                    'allow_unknown': False,
+                    'options': ['A', 'B'],
+                }
+            ]
+            * 5,
+        ],
+    )
+    def test_should_never_publish_malformed_question_batches(
+        self, harness: Harness, questions: list[dict[str, object]]
+    ) -> None:
+        harness.interview.run.return_value = RunOutput(
+            content={'needs_clarification': True, 'questions': questions},
+            status=RunStatus.completed,
+        )
+        session = harness.start('Quero aprender web')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.batch is None
+        if len(questions) == 1 and questions[0]['options'] == ['A', 'a']:
+            # Duplicate alternatives are removed. A batch with fewer than two
+            # remaining choices is discarded and the composer may proceed.
+            assert final.status is PlanningSessionStatus.PROPOSAL
+            assert final.proposal is not None
+            harness.proposal.run.assert_called_once()
+        else:
+            assert final.status is PlanningSessionStatus.FAILED
+            assert final.proposal is None
+            harness.proposal.run.assert_not_called()

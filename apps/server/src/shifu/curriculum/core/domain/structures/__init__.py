@@ -17,6 +17,12 @@ from .react_question import ReactInitialFile as ReactInitialFile
 from .react_question import ReactDependency as ReactDependency
 from .react_question import ReactPermittedCommand as ReactPermittedCommand
 from .react_question import ReactAdditionalFilePolicy as ReactAdditionalFilePolicy
+from .html_css_js_question import HtmlCssJsQuestion as HtmlCssJsQuestion
+from .html_css_js_question import HtmlCssJsInitialFile as HtmlCssJsInitialFile
+from .html_css_js_question import HtmlCssJsDependency as HtmlCssJsDependency
+from .html_css_js_question import (
+    HtmlCssJsPermittedCommand as HtmlCssJsPermittedCommand,
+)
 from .code_rubric_criterion import CodeRubricCriterion as CodeRubricCriterion
 from .code_rubric_criterion import CodeRubricComment as CodeRubricComment
 from .code_rubric_criterion import CodeInconclusiveComment as CodeInconclusiveComment
@@ -50,3 +56,8 @@ from .skill_foundation import SkillFoundation as SkillFoundation
 from .test_cases_evaluation_part import (
     TestCasesEvaluationPart as TestCasesEvaluationPart,
 )
+
+from .react_fastify_http_example import (
+    ReactFastifyHttpExample as ReactFastifyHttpExample,
+)
+from .react_fastify_question import ReactFastifyQuestion as ReactFastifyQuestion

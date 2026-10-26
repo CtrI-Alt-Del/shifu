@@ -5,5 +5,10 @@ import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
 
 export const Route = createFileRoute('/account/')({
   beforeLoad: () => requireAuthMiddleware(),
-  component: AccountPage,
+  component: AccountRoute,
 })
+
+function AccountRoute() {
+  const { email } = Route.useRouteContext()
+  return <AccountPage accountEmail={email} />
+}

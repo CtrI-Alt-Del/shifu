@@ -30,9 +30,13 @@ describe('useAccountMenu', () => {
       registerAccount: vi.fn(),
       resendConfirmation: vi.fn(),
       signIn: vi.fn(),
+      getAccountProfile: vi.fn(),
+      updateAccountProfile: vi.fn(),
+      changeAccountPassword: vi.fn(),
       signOut: signOutMock,
     })
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToGoalDetail: vi.fn(),
       navigateToActivity: vi.fn(),
@@ -74,6 +78,14 @@ describe('useAccountMenu', () => {
     fireEvent.pointerDown(document.body)
     expect(result.current.isOpen).toBe(false)
     menu.remove()
+  })
+
+  it('closes the account menu and delegates canonical account navigation', async () => {
+    const { result } = renderHook(() => useAccountMenu())
+    act(() => result.current.handleToggle())
+    await act(async () => result.current.handleOpenAccount())
+    expect(result.current.isOpen).toBe(false)
+    expect(navigateToMock).toHaveBeenCalledWith('account')
   })
 
   it('prevents duplicate logout requests and navigates after success', async () => {

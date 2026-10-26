@@ -60,7 +60,18 @@ type ActivityWire = {
       }
     | {
         key: string
-        kind: 'react'
+        kind: 'react' | 'react_fastify'
+        frontend_entrypoint?: string
+        api_entrypoint?: string
+        frontend_command_id?: string
+        api_command_id?: string
+        http_examples?: {
+          key: string
+          title: string
+          method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS'
+          path: string
+          body: string | null
+        }[]
         prompt: string
         initial_files: { path: string; content: string; editable: boolean }[]
         entrypoint: string
@@ -72,6 +83,17 @@ type ActivityWire = {
           allowed_extensions: string[]
           max_files: number
         } | null
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
+    | {
+        key: string
+        kind: 'html_css_js'
+        prompt: string
+        initial_files: { path: string; content: string; editable: boolean }[]
+        entrypoint: string
+        editable_paths: string[]
+        fixed_dependencies: { name: string; version: string }[]
+        permitted_commands: { id: string; executable: string; arguments: string[] }[]
         criteria: { key: string; name: string; weight_percentage: number }[]
       }
   >
@@ -104,7 +126,39 @@ function mapActivityQuestion(
       })),
     }
   }
-  if (question.kind === 'react') {
+  if (question.kind === 'react' || question.kind === 'react_fastify') {
+    return {
+      key: question.key,
+      prompt: question.prompt,
+      initialFiles: question.initial_files,
+      editablePaths: question.editable_paths,
+      fixedDependencies: question.fixed_dependencies,
+      permittedCommands: question.permitted_commands,
+      ...(question.kind === 'react_fastify'
+        ? {
+            kind: 'react_fastify' as const,
+            frontendEntrypoint: question.frontend_entrypoint ?? question.entrypoint,
+            apiEntrypoint: question.api_entrypoint ?? '',
+            frontendCommandId: question.frontend_command_id ?? '',
+            apiCommandId: question.api_command_id ?? '',
+            httpExamples: question.http_examples ?? [],
+          }
+        : { kind: 'react' as const, entrypoint: question.entrypoint }),
+      additionalFilePolicy: question.additional_file_policy
+        ? {
+            allowedDirectories: question.additional_file_policy.allowed_directories,
+            allowedExtensions: question.additional_file_policy.allowed_extensions,
+            maxFiles: question.additional_file_policy.max_files,
+          }
+        : null,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
+  if (question.kind === 'html_css_js') {
     return {
       key: question.key,
       kind: question.kind,
@@ -114,13 +168,6 @@ function mapActivityQuestion(
       editablePaths: question.editable_paths,
       fixedDependencies: question.fixed_dependencies,
       permittedCommands: question.permitted_commands,
-      additionalFilePolicy: question.additional_file_policy
-        ? {
-            allowedDirectories: question.additional_file_policy.allowed_directories,
-            allowedExtensions: question.additional_file_policy.allowed_extensions,
-            maxFiles: question.additional_file_policy.max_files,
-          }
-        : null,
       criteria: question.criteria.map((criterion) => ({
         key: criterion.key,
         name: criterion.name,
@@ -195,7 +242,26 @@ type AttemptWire = {
       }
     | {
         question_key: string
-        kind: 'react'
+        kind: 'react' | 'react_fastify'
+        prompt: string
+        submitted_files: { path: string; content: string }[]
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
+    | {
+        question_key: string
+        kind: 'html_css_js'
         prompt: string
         submitted_files: { path: string; content: string }[]
         score: number | null
@@ -239,7 +305,10 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
     questions: wire.questions?.map((question): ActivityResultQuestion => {
       if (
         'kind' in question &&
-        (question.kind === 'javascript_stdin' || question.kind === 'react')
+        (question.kind === 'javascript_stdin' ||
+          question.kind === 'react' ||
+          question.kind === 'html_css_js' ||
+          question.kind === 'react_fastify')
       ) {
         return {
           key: question.question_key,
@@ -543,17 +612,25 @@ export const LearningService = (restClient: RestClient) => {
       if (response.isFailure) response.throwError()
 
       const body = response.body
+      const questions = body.questions.map(mapActivityQuestion)
+      const isDiagnostic = body.is_diagnostic ?? false
+      if (isDiagnostic && questions.some(({ kind }) => kind === 'html_css_js')) {
+        throw new AppError(
+          'Tipo de questão indisponível para Diagnóstico.',
+          'Atividade inválida',
+        )
+      }
 
       return {
         activityId: body.activity_id,
         title: body.title,
         difficulty: body.difficulty,
         activityRevision: body.activity_revision,
-        questions: body.questions.map(mapActivityQuestion),
+        questions,
         canSubmit: body.can_submit,
         latestAttemptId: body.latest_attempt_id ?? null,
         unresolvedAttemptId: body.unresolved_attempt_id ?? null,
-        isDiagnostic: body.is_diagnostic ?? false,
+        isDiagnostic,
       }
     },
 

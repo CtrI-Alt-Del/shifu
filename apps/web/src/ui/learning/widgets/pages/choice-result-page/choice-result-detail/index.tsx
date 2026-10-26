@@ -26,7 +26,10 @@ export const ChoiceResultDetail = ({
 }: ChoiceResultDetailProps) => {
   if (isCodeResultQuestion(result)) {
     const codeQuestion =
-      question?.kind === 'javascript_stdin' || question?.kind === 'react'
+      question?.kind === 'javascript_stdin' ||
+      question?.kind === 'react' ||
+      question?.kind === 'html_css_js' ||
+      question?.kind === 'react_fastify'
         ? question
         : undefined
     return (
@@ -42,7 +45,13 @@ export const ChoiceResultDetail = ({
           <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
             <span className='text-sm font-semibold text-success'>
               Questão {questionNumber} ·{' '}
-              {result.kind === 'react' ? 'React' : 'JavaScript · entrada padrão'}
+              {result.kind === 'react'
+                ? 'React'
+                : result.kind === 'html_css_js'
+                  ? 'HTML, CSS e JavaScript'
+                  : result.kind === 'react_fastify'
+                    ? 'React + Fastify'
+                    : 'JavaScript · entrada padrão'}
             </span>
             <span aria-hidden='true' className='text-muted-foreground'>
               ·
@@ -160,7 +169,11 @@ export const ChoiceResultDetail = ({
 
   const formattedScore = SCORE_FORMATTER.format(Number(result.score))
   const choiceQuestion =
-    question && question.kind !== 'javascript_stdin' && question.kind !== 'react'
+    question &&
+    question.kind !== 'javascript_stdin' &&
+    question.kind !== 'react' &&
+    question.kind !== 'html_css_js' &&
+    question.kind !== 'react_fastify'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -275,6 +288,10 @@ function isCodeResultQuestion(
   result: ActivityResultQuestion,
 ): result is CodeResultQuestion {
   return (
-    'kind' in result && (result.kind === 'javascript_stdin' || result.kind === 'react')
+    'kind' in result &&
+    (result.kind === 'javascript_stdin' ||
+      result.kind === 'react' ||
+      result.kind === 'html_css_js' ||
+      result.kind === 'react_fastify')
   )
 }

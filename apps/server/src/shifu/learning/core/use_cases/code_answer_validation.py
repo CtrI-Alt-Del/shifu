@@ -7,10 +7,15 @@ from shifu.shared.core.domain.structures import (
     CurriculumCodeRubricPartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 
 type CodeQuestionSnapshot = (
-    CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot
+    CurriculumJavascriptStdinQuestionSnapshot
+    | CurriculumReactQuestionSnapshot
+    | CurriculumHtmlCssJsQuestionSnapshot
+    | CurriculumReactFastifyQuestionSnapshot
 )
 
 
@@ -29,6 +34,7 @@ class CodeAnswerValidation:
         if (
             answer.source_code is not None
             or (answer.kind is not None and answer.kind != question.kind)
+            or (question.kind == 'html_css_js' and answer.kind != question.kind)
             or len(provided) != len(answer.files)
             or not editable_paths.issubset(provided)
         ):
@@ -37,7 +43,13 @@ class CodeAnswerValidation:
         additional_paths = set(provided) - editable_paths
         if additional_paths & initial_paths:
             raise ValidationError
-        if isinstance(question, CurriculumJavascriptStdinQuestionSnapshot):
+        if isinstance(
+            question,
+            (
+                CurriculumJavascriptStdinQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+            ),
+        ):
             if additional_paths:
                 raise ValidationError
         else:
@@ -72,7 +84,7 @@ class CodeAnswerValidation:
                 CodeSubmittedFile(path=path, content=content)
                 for path, content in sorted(provided.items())
             ),
-            kind='react' if question.kind == 'react' else None,
+            kind=question.kind if question.kind != 'javascript_stdin' else None,
         )
 
     @staticmethod

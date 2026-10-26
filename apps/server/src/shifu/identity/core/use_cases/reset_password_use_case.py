@@ -52,26 +52,31 @@ class ResetPasswordUseCase:
                 password_confirmation=password_confirmation or '',
             )
         )
-        now = self._clock_provider.now()
         token_hash = self._action_token_provider.hash(token)
         with self._identity_database.transaction() as repositories:
             token_repository = self._token_repository(repositories)
+            account_id = token_repository.find_account_id_by_hash(token_hash)
+            if account_id is None:
+                return PasswordResetResult(result='invalid')
+            account = repositories.accounts.find_by_id(account_id)
             action_token = token_repository.find_by_hash(token_hash)
-            if action_token is None:
+            if action_token is None or action_token.account_id != account_id:
                 return PasswordResetResult(result='invalid')
 
             if action_token.type is not AccountActionTokenType.PASSWORD_RECOVERY:
                 return PasswordResetResult(result='invalid')
 
-            if action_token.status is AccountActionTokenStatus.USED:
-                return PasswordResetResult(result='used')
+            terminal_result = {
+                AccountActionTokenStatus.USED: PasswordResetResult(result='used'),
+                AccountActionTokenStatus.EXPIRED: PasswordResetResult(result='expired'),
+                AccountActionTokenStatus.INVALIDATED: PasswordResetResult(
+                    result='invalid'
+                ),
+            }.get(action_token.status)
+            if terminal_result is not None:
+                return terminal_result
 
-            if action_token.status is AccountActionTokenStatus.EXPIRED:
-                return PasswordResetResult(result='expired')
-
-            if action_token.status is AccountActionTokenStatus.INVALIDATED:
-                return PasswordResetResult(result='invalid')
-
+            now = self._clock_provider.now()
             if now >= action_token.expires_at:
                 action_token.expire(now)
                 token_repository.update(action_token)
@@ -82,7 +87,6 @@ class ResetPasswordUseCase:
                 )
                 return PasswordResetResult(result='expired')
 
-            account = repositories.accounts.find_by_id(action_token.account_id)
             if account is None or account.status not in {
                 AccountStatus.ACTIVE,
                 AccountStatus.PENDING_CONFIRMATION,

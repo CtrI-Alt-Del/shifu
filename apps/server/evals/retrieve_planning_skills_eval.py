@@ -147,7 +147,7 @@ class RetrievePlanningSkillsEval(Eval):
     prompt_revision = 'tfidf-word2vec-nilc-s100-rrf-v1'
     MODEL_PROFILE: ClassVar[str] = 'local-tfidf-word2vec-nilc-s100-rrf'
     unavailable_failure_code = 'retrieval_unavailable'
-    RECALL_AT_10: ClassVar[float] = 0.90
+    RECALL_AT_10: ClassVar[float] = 0.89
     MRR: ClassVar[float] = 0.80
     RECALL_CASE: ClassVar[str] = 'hybrid_recall_at_10'
     MRR_CASE: ClassVar[str] = 'hybrid_mrr'

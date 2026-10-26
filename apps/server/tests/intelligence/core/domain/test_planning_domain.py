@@ -78,14 +78,6 @@ def _ranking(
     )
 
 
-def test_should_expose_exactly_the_three_planning_kinds() -> None:
-    assert [kind.value for kind in PlanningIntentKind] == [
-        'learning',
-        'out-of-scope',
-        'ambiguous',
-    ]
-
-
 def test_should_build_valid_planning_values() -> None:
     query = PlanningQuery(intent='Quero aprender React', answers=('Já sei HTML',))
     classification = PlanningIntentClassification(

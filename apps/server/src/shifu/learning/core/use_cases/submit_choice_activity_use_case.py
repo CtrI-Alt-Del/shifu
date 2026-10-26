@@ -42,6 +42,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -114,6 +116,8 @@ class SubmitChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
             for item in snapshot.questions
@@ -313,6 +317,8 @@ class SubmitChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
                 if not isinstance(answer, CodeAnswer):

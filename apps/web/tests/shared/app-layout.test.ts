@@ -138,7 +138,7 @@ test.describe('AppLayout', () => {
     await expect(menu).toBeVisible()
     await expect(menu.getByText('Playwright Learner')).toBeVisible()
     await expect(menu.getByText(/@/)).toBeVisible()
-    await expect(menu.getByRole('menuitem', { name: 'Sua conta' })).toBeDisabled()
+    await expect(menu.getByRole('menuitem', { name: 'Sua conta' })).toBeEnabled()
     await expect(menu.getByRole('menuitem', { name: 'Sair' })).toBeEnabled()
 
     await authenticatedPage.keyboard.press('Escape')
@@ -155,6 +155,23 @@ test.describe('AppLayout', () => {
     await gamificationMain.click({ position: { x: 20, y: 20 } })
 
     await expect(menu).not.toBeVisible()
+    await authenticatedPage.route('**/api/auth/account', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: 'a',
+          displayName: 'Playwright Learner',
+          email: 'playwright@shifu.local',
+          timeZone: 'UTC',
+        }),
+      }),
+    )
+    await trigger.click()
+    await menu.getByRole('menuitem', { name: 'Sua conta' }).click()
+    await expect(authenticatedPage).toHaveURL(/\/account\/?$/)
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Sua conta' }),
+    ).toBeVisible()
   })
 
   test('shows logout progress, ignores a duplicate request and reaches Entrar', async ({
@@ -279,6 +296,23 @@ test.describe('AppLayout', () => {
       authenticatedPage.getByRole('menu', { name: 'Menu da conta' }),
     ).not.toBeVisible()
     await expect(accountTrigger).toBeFocused()
+    await authenticatedPage.route('**/api/auth/account', (route) =>
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          accountId: 'a',
+          displayName: 'Playwright Learner',
+          email: 'playwright@shifu.local',
+          timeZone: 'UTC',
+        }),
+      }),
+    )
+    await accountTrigger.click()
+    await authenticatedPage.getByRole('menuitem', { name: 'Sua conta' }).click()
+    await expect(authenticatedPage).toHaveURL(/\/account\/?$/)
+    await expect(
+      authenticatedPage.getByRole('heading', { name: 'Sua conta' }),
+    ).toBeVisible()
   })
 })
 

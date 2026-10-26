@@ -1,3 +1,6 @@
+import type { Page } from '@playwright/test'
+import { ROUTES } from '@/constants/routes'
+import { GamificationTransportFixture } from '../fixtures/gamification-transport-fixture'
 import {
   ChoiceActivityDetailFaker,
   ChoiceAttemptDetailFaker,
@@ -5,7 +8,40 @@ import {
   ChoiceResultQuestionFaker,
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
-import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
+
+type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
+type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
+
+async function sampleEntrance(page: Page, selector: string) {
+  await page.evaluate((targetSelector) => {
+    const state = window as EntranceWindow
+    state.__learningEntranceFrames = new Promise<EntranceFrame[]>((resolve) => {
+      const frames: EntranceFrame[] = []
+      function sample() {
+        const targets = [...document.querySelectorAll(targetSelector)]
+        if (targets.length > 0) {
+          frames.push(
+            targets.map((target) => {
+              const style = getComputedStyle(target)
+              const matrix = new DOMMatrixReadOnly(
+                style.transform === 'none' ? undefined : style.transform,
+              )
+              return { opacity: Number(style.opacity), x: matrix.m41, y: matrix.m42 }
+            }),
+          )
+        }
+        if (frames.length === 90) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+  }, selector)
+}
+
+async function entranceFrames(page: Page) {
+  return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
+}
 
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
@@ -138,11 +174,15 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
     await route.fallback()
   })
 
+  const entranceSelector = 'details[aria-labelledby="choice-result-question-1"]'
+  await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, attemptPath)
 
-  await expect(
-    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
-  ).toBeVisible()
+  const resultHeading = authenticatedPage.getByRole('heading', {
+    name: 'Resultado da Atividade',
+  })
+  await expect(resultHeading).toBeVisible()
   const progressHeading = authenticatedPage.getByRole('heading', {
     name: 'Progresso demonstrado da Habilidade',
   })
@@ -166,13 +206,65 @@ test('renders actual result route from safe Activity and Attempt contracts, prot
     authenticatedPage.getByText('A soma correta não foi selecionada.'),
   ).toBeVisible()
   const resultCard = authenticatedPage.locator('.choice-result-card').first()
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'choice-result-reveal',
-  )
+  await expect(resultCard).toHaveAttribute('open', '')
+  await expect
+    .poll(() =>
+      resultCard.evaluate((card) => {
+        const style = getComputedStyle(card, '::details-content')
+        return {
+          opacity: Number(style.opacity),
+          offset: new DOMMatrixReadOnly(style.transform).m42,
+        }
+      }),
+    )
+    .toEqual({ opacity: 1, offset: 0 })
+  expect(
+    await resultCard.evaluate((card) =>
+      getComputedStyle(card, '::details-content')
+        .transitionDuration.split(',')
+        .some((duration) => Number.parseFloat(duration) > 0),
+    ),
+  ).toBe(true)
+  const normalFrames = await entranceFrames(authenticatedPage)
+  expect(normalFrames).toHaveLength(90)
+  expect(normalFrames?.some(([card]) => card.opacity > 0 && card.opacity < 1)).toBe(true)
+  expect(normalFrames?.some(([card]) => card.x < 0)).toBe(true)
+  expect(normalFrames?.at(-1)).toEqual([{ opacity: 1, x: 0, y: 0 }])
+
+  await navigateAuthenticatedPage(authenticatedPage, ROUTES.privacy)
   await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await resultCard.evaluate((card) => getComputedStyle(card).animationName)).toBe(
-    'none',
-  )
+  await sampleEntrance(authenticatedPage, entranceSelector)
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  const reducedFrames = await entranceFrames(authenticatedPage)
+  expect(reducedFrames).toHaveLength(90)
+  expect(
+    reducedFrames?.every(([card]) => card.opacity === 1 && card.x === 0 && card.y === 0),
+  ).toBe(true)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('progressbar', {
+      name: 'Progresso demonstrado da Habilidade após a avaliação',
+    }),
+  ).toHaveAttribute('aria-valuenow', '3')
+  await resultCard.locator('summary').click()
+  await expect(resultCard).toHaveAttribute('open', '')
+  expect(
+    await resultCard.evaluate(
+      (card) => getComputedStyle(card, '::details-content').transitionDuration,
+    ),
+  ).toBe('0s')
+  await resultCard.locator('summary').click()
+  await expect(
+    authenticatedPage.getByText('A soma correta não foi selecionada.'),
+  ).not.toBeVisible()
+  await resultCard.locator('summary').focus()
+  await authenticatedPage.keyboard.press('Enter')
+  await expect(resultCard).toHaveAttribute('open', '')
+  await expect(
+    authenticatedPage.getByText('A soma correta não foi selecionada.'),
+  ).toBeVisible()
   expect(calls.some(({ body }) => body.includes(ids.activityId))).toBe(true)
   expect(calls.some(({ body }) => body.includes(ids.attemptId))).toBe(true)
 
@@ -732,4 +824,298 @@ test.describe('ChoiceResultPage route coverage', () => {
       await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
     })
   })
+})
+
+test('renders the HTML/CSS/JavaScript attempt as historical read-only content', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const htmlQuestion = {
+    key: 'html-1',
+    kind: 'html_css_js',
+    prompt: 'Crie uma página semântica.',
+    initialFiles: [{ path: 'index.html', content: '<main></main>', editable: true }],
+    entrypoint: 'index.html',
+    editablePaths: ['index.html'],
+    fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+    permittedCommands: [{ id: 'dev', executable: 'npm', arguments: ['run', 'dev'] }],
+    criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+  }
+  const htmlActivity = { ...activity, questions: [htmlQuestion] }
+  const htmlAttempt = {
+    ...completedAttempt,
+    questions: [
+      {
+        key: 'html-1',
+        kind: 'html_css_js',
+        prompt: htmlQuestion.prompt,
+        score: 85,
+        submittedFiles: [{ path: 'index.html', content: '<main>página final</main>' }],
+        criterionResults: [
+          {
+            key: 'semantic',
+            weightPercentage: 100,
+            level: 85,
+            commentId: 'semantic-good',
+            comment: 'A estrutura usa os elementos esperados.',
+          },
+        ],
+        conceptObservations: [],
+      },
+    ],
+  }
+
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (payload.includes(ids.attemptId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: htmlAttempt }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: htmlActivity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+  const htmlDisclosure = authenticatedPage.locator('summary').filter({
+    hasText: 'Questão 1 · HTML, CSS e JavaScript',
+  })
+  await expect(htmlDisclosure).toBeVisible()
+  await htmlDisclosure.click()
+  await expect(authenticatedPage.getByText('página final')).toBeVisible()
+  await expect(authenticatedPage.getByText('Somente leitura')).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('HTML semântico · peso 100% · nível 85'),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('A estrutura usa os elementos esperados.'),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByTitle('Prévia isolada da página')).toHaveCount(0)
+  await expect(
+    authenticatedPage.getByRole('button', { name: /Executar|Avaliar/ }),
+  ).toHaveCount(0)
+})
+
+test('shows immutable integrated files in the routed historical result on mobile', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  const integratedAttempt = {
+    ...completedAttempt,
+    score: 100,
+    questions: [
+      {
+        key: 'integrated',
+        kind: 'react_fastify',
+        prompt: 'Resposta integrada preservada',
+        score: 100,
+        submittedFiles: [
+          { path: 'src/App.tsx', content: 'frontend histórico' },
+          { path: 'server.js', content: 'API histórica' },
+          { path: 'routes/tasks.js', content: 'rota adicional histórica' },
+        ],
+        criterionResults: [
+          {
+            key: 'integration',
+            weightPercentage: 100,
+            level: 100,
+            commentId: 'correct',
+            comment: 'Integração correta',
+          },
+        ],
+        conceptObservations: [],
+      },
+    ],
+  }
+  await bff.route(async (route) => {
+    const url = route.request().url()
+    const payload = decodeURIComponent(`${url} ${route.request().postData() ?? ''}`)
+    if (serverFnExport(url)?.startsWith('getCompetencyDetailAction_')) {
+      await route.fulfill({
+        body: JSON.stringify({ result: adaptiveDetail }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.attemptId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: integratedAttempt }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: activity }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+  await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: 'Resultado da Atividade' }),
+  ).toBeVisible()
+  await authenticatedPage
+    .locator('summary')
+    .filter({ hasText: 'React + Fastify' })
+    .click()
+  await expect(
+    authenticatedPage.getByText('frontend histórico', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('API histórica', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('rota adicional histórica', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByText('Somente leitura', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Avaliar questão' }),
+  ).toHaveCount(0)
+  await expect(authenticatedPage.locator('iframe')).toHaveCount(0)
+  expect(
+    await authenticatedPage.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+})
+
+// The reward service is exercised through its actual result-route consumer.
+// The opt-in upstream controls JSON responses; Identity/Better Auth remain real.
+test.describe('Activity XP reward routed REST transport', () => {
+  for (const fails of [false, true]) {
+    test(`reward ${fails ? 'preserves the saved result after an HTTP failure' : 'maps authenticated HTTP data'}`, async ({
+      page,
+      request,
+      activeAccount,
+    }) => {
+      const transport = GamificationTransportFixture(request, activeAccount.accountId)
+      const rewardPath = `/gamification/activities/${ids.activityId}/attempts/${ids.attemptId}/xp-reward`
+      await transport.register({
+        [activityPath]: {
+          body: {
+            activity_id: ids.activityId,
+            competency_id: ids.competencyId,
+            title: 'Somar os números pares',
+            type: 'practice',
+            difficulty: 'easy',
+            questions: [
+              {
+                key: 'q1',
+                kind: 'single_choice',
+                prompt: 'Qual é o resultado?',
+                options: [
+                  { key: 'a', text: '4' },
+                  { key: 'b', text: '6' },
+                ],
+              },
+            ],
+            latest_attempt_id: ids.attemptId,
+            can_submit: false,
+            activity_revision: 'reward-transport',
+          },
+        },
+        [attemptPath]: {
+          body: {
+            attempt_id: ids.attemptId,
+            activity_id: ids.activityId,
+            status: 'completed',
+            submitted_at: '2026-09-23T12:00:00Z',
+            retry_allowed: false,
+            score: 100,
+            progress_before: 0,
+            progress_after: 100,
+            status_before: 'learning',
+            status_after: 'mastered',
+            questions: [],
+            next_action: null,
+          },
+        },
+        [competencyPath]: {
+          status: 404,
+          body: { code: 'not_found', message: 'Recurso não encontrado.' },
+        },
+        [rewardPath]: fails
+          ? {
+              status: 503,
+              body: {
+                code: 'service_unavailable',
+                message: 'Serviço temporariamente indisponível.',
+              },
+            }
+          : {
+              body: {
+                activityId: ids.activityId,
+                attemptId: ids.attemptId,
+                state: 'granted',
+                additionalXp: 6,
+                grantedXp: 6,
+                maximumXp: 20,
+              },
+            },
+      })
+      try {
+        const signIn = await page.request.post('/api/auth/sign-in/identity', {
+          data: { email: activeAccount.email, password: signInPassword },
+          headers: { 'x-forwarded-for': activeAccount.ipAddress },
+        })
+        expect(signIn.status()).toBe(200)
+        await page.goto(attemptPath)
+        await expect(page).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+        const band = page.getByRole('region', {
+          name: 'Recompensa de XP desta Atividade',
+        })
+        if (fails)
+          await expect(band).toContainText(
+            'Não foi possível confirmar o XP agora. Seu resultado continua salvo.',
+          )
+        else {
+          await expect(band).toContainText('+6 XP')
+          await expect(band).toContainText('6 de 20 XP confirmados nesta Atividade.')
+        }
+        await expect
+          .poll(
+            async () =>
+              (await transport.observations()).filter(
+                (entry) => entry.path === rewardPath,
+              ).length,
+          )
+          .toBeGreaterThan(0)
+        expect(
+          (await transport.observations()).filter((entry) => entry.path === rewardPath),
+        ).toEqual(
+          expect.arrayContaining([
+            {
+              method: 'GET',
+              path: rewardPath,
+              authorization: true,
+              cookie: false,
+              bffMark: true,
+              accountId: activeAccount.accountId,
+              status: fails ? 503 : 200,
+            },
+          ]),
+        )
+      } finally {
+        await transport.dispose()
+      }
+    })
+  }
 })

@@ -44,6 +44,13 @@ export type ReactQuestionDraftStore = {
   ): Promise<number>
 }
 
+// Frontend project drafts share the version-one React IndexedDB record format.
+// These aliases let HTML/CSS/JavaScript reuse generations and tombstones without
+// migrating or dropping draft records already saved by React questions.
+export type FrontendQuestionDraftKey = ReactQuestionDraftKey
+export type FrontendQuestionDraft = ReactQuestionDraft
+export type FrontendQuestionDraftStore = ReactQuestionDraftStore
+
 const FORBIDDEN_ADDITIONAL_FILES = new Set([
   'package.json',
   'package-lock.json',

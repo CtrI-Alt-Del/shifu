@@ -25,6 +25,8 @@ from shifu.shared.core.domain.structures import (
     CodeRubricDecisions,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -90,6 +92,8 @@ class PreviewActivityQuestionFeedbackUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
             if not isinstance(answer, CodeAnswer):

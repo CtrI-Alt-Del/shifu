@@ -7,6 +7,7 @@ if (!port || !identityOrigin)
     'The controlled Mentor upstream requires a port and real Identity origin',
   )
 const scenarios = new Map()
+const gamificationScenarios = new Map()
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://127.0.0.1:${port}`)
   if (url.pathname === '/__mentor-control/health') {
@@ -138,6 +139,71 @@ const server = createServer(async (request, response) => {
       setImmediate(writeFragment)
     }
     writeFragment()
+    return
+  }
+  const gamificationControl =
+    /^\/__gamification-control\/([0-9A-Z]{26})(?:\/(observations))?$/.exec(url.pathname)
+  if (gamificationControl) {
+    const accountId = gamificationControl[1]
+    if (request.method === 'POST' && !gamificationControl[2]) {
+      let text = ''
+      for await (const chunk of request) text += chunk
+      const config = JSON.parse(text)
+      gamificationScenarios.set(accountId, { ...config, observations: [] })
+      response.end('registered')
+      return
+    }
+    if (request.method === 'DELETE') {
+      gamificationScenarios.delete(accountId)
+      response.end('removed')
+      return
+    }
+    const scenario = gamificationScenarios.get(accountId)
+    if (request.method === 'GET' && gamificationControl[2] && scenario) {
+      response.setHeader('Content-Type', 'application/json')
+      response.end(JSON.stringify(scenario.observations))
+      return
+    }
+    response.writeHead(404)
+    response.end()
+    return
+  }
+  const configuredPath = `${url.pathname}${url.search}`
+  if (
+    (url.pathname.startsWith('/gamification/') ||
+      url.pathname.startsWith('/learning/')) &&
+    [...gamificationScenarios.values()].some((scenario) =>
+      Object.hasOwn(scenario.responses, configuredPath),
+    )
+  ) {
+    const authorization = request.headers.authorization ?? ''
+    const access = await fetch(`${identityOrigin}/identity/session`, {
+      headers: { Authorization: authorization },
+    })
+    if (!access.ok) {
+      response.writeHead(access.status)
+      response.end()
+      return
+    }
+    const identity = await access.json()
+    const scenario = gamificationScenarios.get(identity.account_id)
+    const configured = scenario?.responses[configuredPath]
+    if (!configured) {
+      response.writeHead(404)
+      response.end()
+      return
+    }
+    scenario.observations.push({
+      method: request.method,
+      path: configuredPath,
+      authorization: authorization.startsWith('Bearer '),
+      cookie: Boolean(request.headers.cookie),
+      bffMark: Boolean(request.headers['x-shifu-bff-secret']),
+      accountId: identity.account_id,
+      status: configured.status ?? 200,
+    })
+    response.writeHead(configured.status ?? 200, { 'Content-Type': 'application/json' })
+    response.end(JSON.stringify(configured.body))
     return
   }
   // Identity remains real: forward method, cookie/auth headers and exact body.

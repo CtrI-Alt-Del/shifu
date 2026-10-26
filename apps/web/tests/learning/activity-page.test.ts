@@ -1,9 +1,44 @@
+import type { Page } from '@playwright/test'
+import { ROUTES } from '@/constants/routes'
 import {
   ChoiceActivityDetailFaker,
   ChoiceQuestionFaker,
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+
+type EntranceFrame = Array<{ opacity: number; x: number; y: number }>
+type EntranceWindow = Window & { __learningEntranceFrames?: Promise<EntranceFrame[]> }
+
+async function sampleEntrance(page: Page, selector: string) {
+  await page.evaluate((targetSelector) => {
+    const state = window as EntranceWindow
+    state.__learningEntranceFrames = new Promise<EntranceFrame[]>((resolve) => {
+      const frames: EntranceFrame[] = []
+      function sample() {
+        const targets = [...document.querySelectorAll(targetSelector)]
+        if (targets.length > 0) {
+          frames.push(
+            targets.map((target) => {
+              const style = getComputedStyle(target)
+              const matrix = new DOMMatrixReadOnly(
+                style.transform === 'none' ? undefined : style.transform,
+              )
+              return { opacity: Number(style.opacity), x: matrix.m41, y: matrix.m42 }
+            }),
+          )
+        }
+        if (frames.length === 90) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    })
+  }, selector)
+}
+
+async function entranceFrames(page: Page) {
+  return page.evaluate(() => (window as EntranceWindow).__learningEntranceFrames)
+}
 
 const ids = LearningRouteIdsFaker.fake()
 const activityPath = `/learning/goals/${ids.goalId}/skills/${ids.skillId}/competencies/${ids.competencyId}/activities/${ids.activityId}`
@@ -93,6 +128,116 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   ).toBe(true)
 })
 
+const decodeSerializedMarkup = (payload: string) => payload.replace(/\\{1,2}x3[cC]/g, '<')
+
+test('assesses and submits an HTML/CSS/JavaScript question through the protected Activity route', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  const htmlSource = '<main><h1>Minha página</h1></main>'
+  const htmlActivity = {
+    ...activity,
+    accountId: 'playwright-account',
+    activityRevision: 'html-revision-1',
+    questions: [
+      {
+        key: 'html-1',
+        kind: 'html_css_js',
+        prompt: 'Crie uma página semântica.',
+        initialFiles: [{ path: 'index.html', content: '<main></main>', editable: true }],
+        entrypoint: 'index.html',
+        editablePaths: ['index.html'],
+        fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+        permittedCommands: [],
+        criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+      },
+    ],
+  }
+  const requests: string[] = []
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (!payload.includes(ids.activityId)) return route.fallback()
+    requests.push(payload)
+    if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes('questionKey') || payload.includes('question_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            status: 'conclusive',
+            score: 100,
+            criteria: [
+              {
+                key: 'semantic',
+                weightPercentage: 100,
+                level: '100',
+                commentId: 'complete',
+                comment: 'Estrutura semântica correta.',
+              },
+            ],
+            submittedFiles: [{ path: 'index.html', content: htmlSource }],
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: htmlActivity }),
+      contentType: 'application/json',
+    })
+  })
+
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(authenticatedPage.getByText(/Prática indisponível/i)).toBeVisible()
+  const editor = authenticatedPage.getByRole('textbox', { name: 'Código: index.html' })
+  await authenticatedPage
+    .context()
+    .grantPermissions(['clipboard-read', 'clipboard-write'])
+  await authenticatedPage.evaluate(
+    async (source) => navigator.clipboard.writeText(source),
+    htmlSource,
+  )
+  await editor.focus()
+  await authenticatedPage.keyboard.press('Control+A')
+  await authenticatedPage.keyboard.press('Control+V')
+  await expect(authenticatedPage.locator('.monaco-editor')).toBeVisible()
+  await authenticatedPage.getByRole('button', { name: 'Avaliar questão' }).click()
+  await expect(authenticatedPage.getByText('Estrutura semântica correta.')).toBeVisible()
+  await authenticatedPage.getByRole('button', { name: 'Enviar atividade' }).click()
+  await expect(authenticatedPage).toHaveURL(
+    new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
+  )
+
+  const previewRequest =
+    requests.find(
+      (request) => request.includes('questionKey') || request.includes('question_key'),
+    ) ?? ''
+  const submissionRequest =
+    requests.find(
+      (request) =>
+        request.includes('submissionKey') || request.includes('submission_key'),
+    ) ?? ''
+  expect(previewRequest).toContain('html_css_js')
+  expect(previewRequest).toContain('html-revision-1')
+  expect(previewRequest).toContain('index.html')
+  expect(submissionRequest).toContain('html_css_js')
+  expect(decodeSerializedMarkup(submissionRequest)).toContain(htmlSource)
+})
+
 test('shows Markdown code and accepts a complete multiple-selection answer', async ({
   authenticatedPage,
   bff,
@@ -127,15 +272,47 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
     await route.fallback()
   })
 
+  const entranceSelector =
+    'section[aria-labelledby="choice-question-q1"] > div:has(> #choice-question-q1), fieldset[aria-labelledby="choice-question-q1"] > div'
+  await authenticatedPage.emulateMedia({ reducedMotion: 'no-preference' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
   await navigateAuthenticatedPage(authenticatedPage, activityPath)
 
   await expect(authenticatedPage.locator('pre code')).toHaveText(
     /pode_entrar = tem_cracha and tem_senha/,
   )
-  const prompt = authenticatedPage.locator('.choice-question-prompt')
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'choice-prompt-enter',
+  const normalFrames = await entranceFrames(authenticatedPage)
+  expect(normalFrames).toHaveLength(90)
+  for (let target = 0; target < 5; target += 1) {
+    expect(
+      normalFrames?.some(
+        (frame) => frame[target].opacity > 0 && frame[target].opacity < 1,
+      ),
+    ).toBe(true)
+    expect(normalFrames?.some((frame) => frame[target].y > 0)).toBe(true)
+  }
+  expect(normalFrames?.at(-1)).toEqual(
+    Array.from({ length: 5 }, () => ({ opacity: 1, x: 0, y: 0 })),
   )
+
+  // Remount under reduced motion and observe its first paint, rather than
+  // inspecting a finished normal entrance after changing the preference.
+  await navigateAuthenticatedPage(authenticatedPage, ROUTES.privacy)
+  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
+  await sampleEntrance(authenticatedPage, entranceSelector)
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  const reducedFrames = await entranceFrames(authenticatedPage)
+  expect(reducedFrames).toHaveLength(90)
+  expect(
+    reducedFrames?.every(
+      (frame) =>
+        frame.length === 5 &&
+        frame.every((target) => target.opacity === 1 && target.x === 0 && target.y === 0),
+    ),
+  ).toBe(true)
+  await expect(
+    authenticatedPage.getByRole('heading', { name: /Quais afirmações são verdadeiras/ }),
+  ).toBeVisible()
   await authenticatedPage.getByText('tem_cracha é True.').click()
   await authenticatedPage.getByText('pode_entrar é False.').click()
 
@@ -148,32 +325,6 @@ test('shows Markdown code and accepts a complete multiple-selection answer', asy
   await expect(
     authenticatedPage.getByRole('checkbox', { name: 'tem_senha é True.' }),
   ).not.toBeChecked()
-  const optionCards = authenticatedPage.locator('.choice-question-option')
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => ({
-        name: getComputedStyle(card).animationName,
-        delay: getComputedStyle(card).animationDelay,
-      })),
-    ),
-  ).toEqual([
-    { name: 'choice-option-enter', delay: '0.08s' },
-    { name: 'choice-option-enter', delay: '0.14s' },
-    { name: 'choice-option-enter', delay: '0.2s' },
-    { name: 'choice-option-enter', delay: '0.26s' },
-  ])
-  await authenticatedPage.emulateMedia({ reducedMotion: 'reduce' })
-  expect(await prompt.evaluate((node) => getComputedStyle(node).animationName)).toBe(
-    'none',
-  )
-  expect(
-    await optionCards.evaluateAll((cards) =>
-      cards.map((card) => getComputedStyle(card).animationName),
-    ),
-  ).toEqual(['none', 'none', 'none', 'none'])
-  await expect(
-    authenticatedPage.getByRole('checkbox', { name: 'tem_cracha é True.' }),
-  ).toBeChecked()
   await expect(
     authenticatedPage.getByRole('button', { name: 'Enviar respostas' }),
   ).toBeEnabled()
@@ -695,4 +846,117 @@ test.describe('ActivityPage route coverage', () => {
       expect(submission).toContain("process.stdin.once('data'")
     })
   })
+})
+
+test('keeps the integrated route usable on mobile when practice is unavailable', async ({
+  authenticatedPage,
+  bff,
+  activeAccount,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+  await authenticatedPage.addInitScript(() => {
+    Object.defineProperty(window, 'crossOriginIsolated', {
+      value: false,
+      configurable: true,
+    })
+  })
+  const integrated = {
+    ...activity,
+    activityRevision: 'integrated-browser-v1',
+    accountId: activeAccount.accountId,
+    questions: [
+      {
+        key: 'integrated',
+        kind: 'react_fastify',
+        prompt: 'Conecte a lista à API',
+        initialFiles: [
+          {
+            path: 'src/App.tsx',
+            content: 'export default function App() {\n  return null\n}',
+            editable: true,
+          },
+          { path: 'server.js', content: 'console.log("API")', editable: true },
+        ],
+        editablePaths: ['src/App.tsx', 'server.js'],
+        frontendEntrypoint: 'src/App.tsx',
+        apiEntrypoint: 'server.js',
+        frontendCommandId: 'web',
+        apiCommandId: 'api',
+        fixedDependencies: [],
+        permittedCommands: [],
+        additionalFilePolicy: {
+          allowedDirectories: ['src'],
+          allowedExtensions: ['.tsx'],
+          maxFiles: 2,
+        },
+        httpExamples: [
+          {
+            key: 'list',
+            title: 'Listar tarefas',
+            method: 'GET',
+            path: '/api/tasks',
+            body: null,
+          },
+        ],
+        criteria: [
+          { key: 'integration', name: 'Integração com a API', weightPercentage: 100 },
+        ],
+      },
+    ],
+  }
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (payload.includes(ids.activityId)) {
+      await route.fulfill({
+        body: JSON.stringify({ result: integrated }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fallback()
+  })
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  await expect(
+    authenticatedPage.getByRole('region', { name: 'Questão React + Fastify' }),
+  ).toBeVisible()
+  await expect(authenticatedPage.getByText('Peso 100%')).toBeVisible()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Avaliar questão' }),
+  ).toBeEnabled()
+  const editor = authenticatedPage.locator('.monaco-editor').first()
+  await expect
+    .poll(async () => (await editor.boundingBox())?.height ?? 0)
+    .toBeGreaterThanOrEqual(300)
+  await expect(editor.locator('.view-line').filter({ hasText: /return/ })).toBeVisible()
+  expect(await editor.locator('.view-line').count()).toBeGreaterThanOrEqual(3)
+  await authenticatedPage.getByRole('tab', { name: 'Arquivos' }).click()
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Novo arquivo' }),
+  ).toHaveCount(1)
+  await authenticatedPage
+    .getByRole('textbox', { name: 'Caminho do novo arquivo' })
+    .fill('src/Badge.tsx')
+  await authenticatedPage.getByRole('button', { name: 'Novo arquivo' }).click()
+  await expect(
+    authenticatedPage.getByRole('treeitem', { name: 'Badge.tsx' }),
+  ).toBeVisible()
+  await authenticatedPage.getByRole('tab', { name: 'HTTP' }).click()
+  await expect(
+    authenticatedPage.getByRole('textbox', { name: 'Rota da API' }),
+  ).toHaveValue('/api/tasks')
+  await expect(
+    authenticatedPage.getByRole('button', { name: 'Enviar requisição' }),
+  ).toBeDisabled()
+  await authenticatedPage.getByRole('tab', { name: 'Terminal' }).click()
+  await expect(
+    authenticatedPage.getByRole('textbox', { name: 'Comando permitido' }),
+  ).toBeVisible()
+  expect(
+    await authenticatedPage.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true)
+  await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.activityId}/?$`))
 })

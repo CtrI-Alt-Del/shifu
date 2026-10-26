@@ -5,6 +5,7 @@ import type {
   CodeQuestion,
   ChoiceQuestion,
   CodeResultQuestion,
+  HtmlCssJsQuestion,
   ChoiceResultQuestion,
 } from '@/core/learning/choice-activity'
 
@@ -30,6 +31,17 @@ const CODE_QUESTION: CodeQuestion = {
   fixedDependencies: [],
   permittedCommands: [],
   criteria: [{ key: 'input-handling', name: 'Leitura da entrada', weightPercentage: 60 }],
+}
+const HTML_QUESTION: HtmlCssJsQuestion = {
+  key: 'html-question-1',
+  kind: 'html_css_js',
+  prompt: 'Crie uma página semântica.',
+  initialFiles: [{ path: 'index.html', content: '', editable: true }],
+  entrypoint: 'index.html',
+  editablePaths: ['index.html'],
+  fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
+  permittedCommands: [],
+  criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
 }
 
 describe('ChoiceResultDetail', () => {
@@ -238,5 +250,72 @@ describe('ChoiceResultDetail', () => {
     expect(
       screen.queryByTitle('Prévia isolada da aplicação React'),
     ).not.toBeInTheDocument()
+  })
+
+  it('renders HTML/CSS/JavaScript history as read-only files and rubric', () => {
+    const result: CodeResultQuestion = {
+      key: HTML_QUESTION.key,
+      kind: 'html_css_js',
+      prompt: HTML_QUESTION.prompt,
+      score: 100,
+      submittedFiles: [{ path: 'index.html', content: '<main>histórico</main>' }],
+      criterionResults: [
+        {
+          key: 'semantic',
+          weightPercentage: 100,
+          level: 100,
+          commentId: 'semantic-complete',
+          comment: 'Estrutura semântica correta.',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(
+      <ChoiceResultDetail question={HTML_QUESTION} questionNumber={4} result={result} />,
+    )
+
+    expect(screen.getByText(/Questão 4 · HTML, CSS e JavaScript/)).toBeVisible()
+    fireEvent.click(screen.getByText(/Questão 4 · HTML, CSS e JavaScript/))
+    expect(screen.getByText('<main>histórico</main>')).toBeVisible()
+    expect(screen.getByText('Somente leitura')).toBeVisible()
+    expect(screen.getByText('HTML semântico · peso 100% · nível 100')).toBeVisible()
+    expect(screen.getByText('Estrutura semântica correta.')).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: /Executar|Avaliar/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Prévia isolada da página')).not.toBeInTheDocument()
+  })
+
+  it('shows integrated immutable frontend API and additional files from the persisted result without practice', () => {
+    const result: CodeResultQuestion = {
+      key: 'integrated',
+      kind: 'react_fastify',
+      prompt: 'Projeto original',
+      score: 100,
+      submittedFiles: [
+        { path: 'src/App.tsx', content: 'original frontend' },
+        { path: 'server.js', content: 'original API' },
+        { path: 'routes/tasks.js', content: 'additional route' },
+      ],
+      criterionResults: [
+        {
+          key: 'integration',
+          weightPercentage: 100,
+          level: 100,
+          commentId: 'correct',
+          comment: 'Integração correta',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(<ChoiceResultDetail question={undefined} questionNumber={1} result={result} />)
+    fireEvent.click(screen.getByText(/Questão 1 · React \+ Fastify/))
+    expect(screen.getByText('original frontend')).toBeVisible()
+    expect(screen.getByText('original API')).toBeVisible()
+    expect(screen.getByText('additional route')).toBeVisible()
+    expect(screen.getByText('Somente leitura')).toBeVisible()
+    expect(screen.getByText('Integração correta')).toBeVisible()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Prévia isolada React + Fastify')).not.toBeInTheDocument()
   })
 })

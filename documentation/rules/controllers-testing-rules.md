@@ -95,3 +95,13 @@ suite is not evidence of a passing integration boundary.
 Run focused controller tests through
 `uv run pytest tests/<module>/server/controllers`.
 Before delivery, run Ruff, strict typing, and all applicable controller tests.
+
+## Defensive API-handler argument contracts
+
+The shared AppError API-handler suite may preserve focused direct conformance
+cases for defensive mappings of exception/state arguments that the registered
+application cannot produce. Label these cases separately from HTTP integration.
+They do not prove routing, authentication, persistence or application composition.
+All reachable response/status/header/telemetry contracts use the registered app
+with only controlled composition failure seams. This is an API-handler safety
+contract, not permission to directly invoke controller callbacks or providers.

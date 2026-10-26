@@ -15,6 +15,7 @@ export const AccountMenu = ({ account }: AccountMenuProps) => {
     alertRef,
     errorMessage,
     handleSignOut,
+    handleOpenAccount,
     handleToggle,
     isOpen,
     menuId,
@@ -58,11 +59,9 @@ export const AccountMenu = ({ account }: AccountMenuProps) => {
           <div aria-hidden='true' className='my-1 h-px bg-border' />
 
           <Button
-            aria-disabled='true'
             className='w-full justify-start gap-3 px-3 text-sm font-normal text-muted-foreground disabled:cursor-default disabled:opacity-100'
-            disabled
             role='menuitem'
-            tabIndex={-1}
+            onClick={handleOpenAccount}
             type='button'
             variant='ghost'
           >
@@ -81,7 +80,7 @@ export const AccountMenu = ({ account }: AccountMenuProps) => {
               tabIndex={-1}
             >
               <Icon className='mt-0.5 shrink-0' name='circle-alert' size={15} />
-              <span>{errorMessage} Pressione Sair para tentar novamente.</span>
+              <span>{errorMessage}</span>
             </div>
           )}
 

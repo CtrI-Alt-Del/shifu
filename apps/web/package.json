@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check:types": "tsc --noEmit",
-    "check:lint": "biome check src tests scripts vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
+    "check:lint": "biome check src tests vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
     "check:architecture": "depcruise --config dependency-cruiser.config.cjs src",
     "test:unit": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage",

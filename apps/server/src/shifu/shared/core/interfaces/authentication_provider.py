@@ -8,6 +8,8 @@ class AuthenticationProvider(Protocol):
         """Authenticate valid protected access for a currently active account.
 
         Raise AuthorizationError for an invalid, expired, revoked, activation-only,
-        or stale-version token, or when the current account is not active.
+        or stale-version token without an exact retained-session grant, or when
+        the current account is not active. Implementations populate session_id,
+        token_access_version and account_access_version from verified claims/state.
         """
         ...

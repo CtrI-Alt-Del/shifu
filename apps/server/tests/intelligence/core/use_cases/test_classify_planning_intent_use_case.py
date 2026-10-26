@@ -41,6 +41,15 @@ class TestClassifyPlanningIntentUseCase:
             answers=('Nunca programei', 'Quero trabalhar com web'),
         )
 
+    def test_should_expose_exactly_the_three_planning_kinds(self) -> None:
+        self.classifier.classify.side_effect = [
+            _classification(kind, 0.9) for kind in PlanningIntentKind
+        ]
+        assert [
+            self.use_case.execute(self.query).kind.value for _kind in PlanningIntentKind
+        ] == ['learning', 'out-of-scope', 'ambiguous']
+        assert self.classifier.classify.call_count == 3
+
     def test_should_return_the_learning_decision_for_the_submitted_query(self) -> None:
         expected = _classification(PlanningIntentKind.LEARNING, 0.92)
         self.classifier.classify.return_value = expected

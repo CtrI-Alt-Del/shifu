@@ -43,15 +43,20 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactInitialFileSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
+    CurriculumReactDependencySnapshot,
+    CurriculumReactPermittedCommandSnapshot,
+    CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumLearningActivitySnapshot,
 )
+from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
 )
 
 
-def mixed_snapshot(*, react: bool = False) -> CurriculumLearningActivitySnapshot:
+def mixed_snapshot(*, react: bool | str = False) -> CurriculumLearningActivitySnapshot:
     choice = tuple(
         CurriculumChoiceQuestionSnapshot(
             key=f'q{number}',
@@ -105,6 +110,9 @@ def mixed_snapshot(*, react: bool = False) -> CurriculumLearningActivitySnapshot
             concept_criteria=(),
         )
     )
+    if react == 'integrated':
+        assert isinstance(code, CurriculumReactQuestionSnapshot)
+        code = integrated_question(code)
     criterion = CurriculumCodeRubricCriterionSnapshot(
         key='correctness',
         name='Correctness',
@@ -145,15 +153,71 @@ def mixed_snapshot(*, react: bool = False) -> CurriculumLearningActivitySnapshot
     )
 
 
+def integrated_question(
+    original: CurriculumReactQuestionSnapshot,
+) -> CurriculumReactFastifyQuestionSnapshot:
+    return CurriculumReactFastifyQuestionSnapshot(
+        key=original.key,
+        prompt=original.prompt,
+        initial_files=(
+            *original.initial_files,
+            CurriculumReactInitialFileSnapshot(
+                path='routes/api.js',
+                content='api',
+                editable=True,
+            ),
+        ),
+        frontend_entrypoint=original.entrypoint,
+        api_entrypoint='routes/api.js',
+        fixed_dependencies=tuple(
+            CurriculumReactDependencySnapshot(name=name, version=version)
+            for name, version in (
+                ('react', '19.2.0'),
+                ('react-dom', '19.2.0'),
+                ('vite', '8.3.0'),
+                ('fastify', '5.6.2'),
+            )
+        ),
+        permitted_commands=(
+            CurriculumReactPermittedCommandSnapshot(
+                id='web', executable='npm', arguments=('run', 'dev:web')
+            ),
+            CurriculumReactPermittedCommandSnapshot(
+                id='api', executable='npm', arguments=('run', 'dev:api')
+            ),
+        ),
+        frontend_command_id='web',
+        api_command_id='api',
+        http_examples=(
+            CurriculumReactFastifyHttpExampleSnapshot(
+                key='tasks', title='Listar tarefas', method='GET', path='/api/tasks'
+            ),
+        ),
+        concept_criteria=original.concept_criteria,
+        additional_file_policy=original.additional_file_policy,
+    )
+
+
 def code_answer_at_size(
     question: CurriculumJavascriptStdinQuestionSnapshot
-    | CurriculumReactQuestionSnapshot,
+    | CurriculumReactQuestionSnapshot
+    | CurriculumReactFastifyQuestionSnapshot,
     size: int,
 ) -> CodeAnswer:
-    overhead = len(question.entrypoint.encode('utf-8')) + sum(
+    entrypoint = (
+        question.frontend_entrypoint
+        if isinstance(question, CurriculumReactFastifyQuestionSnapshot)
+        else question.entrypoint
+    )
+    other_files = tuple(
+        CodeSubmittedFile(path=item.path, content=item.content)
+        for item in question.initial_files
+        if item.editable and item.path != entrypoint
+    )
+    overhead = len(entrypoint.encode('utf-8')) + sum(
         len(item.path.encode('utf-8')) + len(item.content.encode('utf-8'))
         for item in question.initial_files
-        if not item.editable
+        if item.path != entrypoint
     )
     content_bytes = size - overhead
     return CodeAnswer(
@@ -161,9 +225,10 @@ def code_answer_at_size(
         kind=question.kind,
         files=(
             CodeSubmittedFile(
-                path=question.entrypoint,
+                path=entrypoint,
                 content='é' * (content_bytes // 2) + 'x' * (content_bytes % 2),
             ),
+            *other_files,
         ),
     )
 
@@ -311,13 +376,15 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         assert request.submitted_paths == ('src/main.js',)
         self.repositories.activity_attempts.add.assert_not_called()
 
-    @pytest.mark.parametrize('react', (False, True), ids=('javascript', 'react'))
+    @pytest.mark.parametrize(
+        'react', (False, True, 'integrated'), ids=('javascript', 'react', 'integrated')
+    )
     @pytest.mark.parametrize(
         'limit', (128, 256 * 1024, 512 * 1024), ids=('lower', 'default', 'higher')
     )
     @pytest.mark.parametrize('extra_byte', (0, 1), ids=('exact', 'above'))
     def test_should_apply_configured_utf8_project_limit_before_assessment(
-        self, react: bool, limit: int, extra_byte: int
+        self, react: bool | str, limit: int, extra_byte: int
     ) -> None:
         snapshot = mixed_snapshot(react=react)
         question = snapshot.questions[-1]
@@ -326,6 +393,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         )
         self.provider.get_learning_activity.return_value = snapshot
@@ -342,11 +410,69 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             result = self._execute(answer)
             assert result.status == 'conclusive'
             assert result.score == Decimal(75)
-            assert result.submitted_files[-1].content == answer.files[0].content
+            assert {item.path: item.content for item in result.submitted_files}[
+                answer.files[0].path
+            ] == answer.files[0].content
             self.assessor.assess.assert_called_once()
         self.repositories.activity_attempts.add.assert_not_called()
         self.repositories.activity_evaluations.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize('level', (0, 25, 50, 75, 100, 'inconclusive'))
+    @pytest.mark.parametrize(
+        'source', ('valid', 'syntax error {', 'functionally wrong', 'alternative valid')
+    )
+    def test_should_assess_integrated_project_without_executing_or_creating_attempt(
+        self, level: CodeRubricLevel, source: str
+    ) -> None:
+        self.provider.get_learning_activity.return_value = mixed_snapshot(
+            react='integrated'
+        )
+        self.assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(CodeCriterionDecision(key='correctness', level=level),),
+            concept_levels=(),
+        )
+        answer = CodeAnswer(
+            question_key='q3',
+            kind='react_fastify',
+            files=(
+                CodeSubmittedFile(path='src/main.tsx', content=source),
+                CodeSubmittedFile(path='routes/api.js', content='saved api'),
+                CodeSubmittedFile(path='src/components/Card.tsx', content='additional'),
+            ),
+        )
+        result = self._execute(answer)
+        request = self.assessor.assess.call_args.args[0]
+        assert request.question_kind == 'react_fastify'
+        assert request.project_files == (
+            ('routes/api.js', 'saved api'),
+            ('src/components/Card.tsx', 'additional'),
+            ('src/fixed.css', 'fixed'),
+            ('src/main.tsx', source),
+        )
+        assert request.submitted_paths == (
+            'routes/api.js',
+            'src/components/Card.tsx',
+            'src/main.tsx',
+        )
+        assert result.score == (Decimal(level) if level != 'inconclusive' else None)
+        assert result.status == (
+            'conclusive' if level != 'inconclusive' else 'inconclusive'
+        )
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        if level == 'inconclusive':
+            self.assessor.assess.return_value = CodeRubricDecisions(
+                criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+                concept_levels=(),
+            )
+            recovered = self._execute(answer)
+            assert recovered.score == Decimal(75)
+            assert (
+                self.assessor.assess.call_args_list[0].args[0]
+                == self.assessor.assess.call_args_list[1].args[0]
+            )
 
     def test_should_assess_react_initial_and_permitted_additional_files(self) -> None:
         self.provider.get_learning_activity.return_value = mixed_snapshot(react=True)
