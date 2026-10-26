@@ -4,6 +4,7 @@ import { Button } from '@/ui/shadcn/button'
 import { Textarea } from '@/ui/shadcn/textarea'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { AttachmentList } from './attachment-list'
+import { DictationWave } from './dictation-wave'
 
 import { useComposer } from './use-composer'
 
@@ -83,9 +84,12 @@ export const Composer = ({ surface = 'fab' }: ComposerProps) => {
                     : 'Revise seu ditado'}
             </p>
             {dictationStatus === 'recording' ? (
-              <span className='text-sm tabular-nums'>
-                {String(Math.floor(dictationElapsedSeconds / 60)).padStart(2, '0')}:
-                {String(dictationElapsedSeconds % 60).padStart(2, '0')}
+              <span className='flex items-center gap-2'>
+                <DictationWave />
+                <span className='text-sm tabular-nums'>
+                  {String(Math.floor(dictationElapsedSeconds / 60)).padStart(2, '0')}:
+                  {String(dictationElapsedSeconds % 60).padStart(2, '0')}
+                </span>
               </span>
             ) : null}
           </div>

@@ -177,6 +177,7 @@ describe('Composer dictation', () => {
     setup({ dictationStatus: 'recording' })
     expect(screen.getByRole('status')).toHaveTextContent('Gravando ditado…')
     expect(screen.getByText('00:12')).toBeInTheDocument()
+    expect(screen.getByTestId('dictation-wave')).toHaveAttribute('aria-hidden', 'true')
     expect(
       screen.getByText('Fale sua mensagem. Ao encerrar, você poderá revisar o texto.'),
     ).toBeInTheDocument()
@@ -186,6 +187,7 @@ describe('Composer dictation', () => {
   it('focuses the editable reviewed draft', () => {
     setup({ dictationStatus: 'review', isDictationBusy: false, canSend: true })
     expect(screen.getByRole('status')).toHaveTextContent('Revise seu ditado')
+    expect(screen.queryByTestId('dictation-wave')).not.toBeInTheDocument()
     expect(
       screen.getByText('Edite o texto se precisar e toque em Enviar.'),
     ).toBeInTheDocument()
