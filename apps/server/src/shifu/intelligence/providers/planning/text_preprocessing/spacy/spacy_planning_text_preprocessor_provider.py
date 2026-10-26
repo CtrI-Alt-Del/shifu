@@ -27,3 +27,12 @@ class SpacyPlanningTextPreprocessorProvider:
             and not token.is_punct
             and (not token.is_stop or token.text.casefold() in self._negation)
         )
+
+    def word_tokens(self, text: str) -> tuple[str, ...]:
+        return tuple(
+            token.text.casefold()
+            for token in self._pipeline(self.normalize(text))
+            if not token.is_space
+            and not token.is_punct
+            and (not token.is_stop or token.text.casefold() in self._negation)
+        )

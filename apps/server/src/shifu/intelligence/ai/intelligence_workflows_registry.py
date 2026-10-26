@@ -549,7 +549,9 @@ class IntelligenceWorkflowsRegistry:
         )
         self._planning_skill_retrieval: PlanningSkillRetrievalProvider = (
             LazyPlanningSkillRetrievalProvider(
-                self._database, curriculum_catalog_provider
+                self._database,
+                curriculum_catalog_provider,
+                settings.planning_semantic_model,
             )
             if curriculum_catalog_provider is not None
             else _UnavailablePlanningSkillRetrievalProvider()

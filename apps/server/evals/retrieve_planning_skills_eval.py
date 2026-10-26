@@ -7,6 +7,7 @@ import math
 from time import monotonic
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from shifu.curriculum.database.roadmap_skills_seed import ROADMAP_SKILL_ID_PREFIX
 from shifu.intelligence.ai.data.planner_resources import PlannerResources
 from shifu.intelligence.core.domain.structures import PlanningQuery
 from shifu.intelligence.core.domain.structures.planning_embedding_match import (
@@ -19,8 +20,14 @@ from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_tran
 from shifu.intelligence.providers.planning.retrieval.sklearn.tfidf_sentence_transformers_planning_skill_retrieval_provider import (
     TfidfSentenceTransformersPlanningSkillRetrievalProvider,
 )
+from shifu.intelligence.providers.planning.retrieval.sklearn.tfidf_word2vec_planning_skill_retrieval_provider import (
+    TfidfWord2VecPlanningSkillRetrievalProvider,
+)
 from shifu.intelligence.providers.planning.text_preprocessing.spacy.spacy_planning_text_preprocessor_provider import (
     SpacyPlanningTextPreprocessorProvider,
+)
+from shifu.intelligence.providers.planning.word_vectors.huggingface.nilc_word2vec_word_vectors_provider import (
+    NilcWord2VecWordVectorsProvider,
 )
 from shifu.shared.core.domain.structures.skill_catalog_entry import SkillCatalogEntry
 from shifu.shared.core.domain.structures.skill_catalog_page import SkillCatalogPage
@@ -126,10 +133,10 @@ class _SeedSkillCatalogProvider:
 class RetrievePlanningSkillsEval(Eval):
     """Gate the Planner hybrid Skill retrieval on the versioned labeled pt-BR queries.
 
-    Builds the development seed catalog, prepares its index through
-    `prepare_planning_indexes` into an in-memory repository with the pinned local E5
-    model, and ranks every query of `planner-retrieval-evaluation.json` with the real
-    TF-IDF + E5 provider fused by reciprocal rank. Queries with relevant Skills gate
+    Builds the development seed catalog the queries were labeled for (the roadmap
+    Skills are placeholder test data and stay out) and ranks every query of
+    `planner-retrieval-evaluation.json` with the real TF-IDF + Word2Vec provider, the
+    default meaning model, fused by reciprocal rank. Queries with relevant Skills gate
     Recall@10 and MRR; the hybrid MRR may not fall below the lexical one. Queries the
     catalog does not cover must match no term and stay below every covered query in
     top-1 cosine. No database and no remote model: identical in double and real modes.
@@ -137,7 +144,8 @@ class RetrievePlanningSkillsEval(Eval):
 
     selector = 'retrieve-planning-skills'
     workflow_id = 'intelligence-retrieve-planning-skills'
-    prompt_revision = 'tfidf-e5-small-rrf-v1'
+    prompt_revision = 'tfidf-word2vec-nilc-s100-rrf-v1'
+    MODEL_PROFILE: ClassVar[str] = 'local-tfidf-word2vec-nilc-s100-rrf'
     unavailable_failure_code = 'retrieval_unavailable'
     RECALL_AT_10: ClassVar[float] = 0.90
     MRR: ClassVar[float] = 0.80
@@ -157,7 +165,7 @@ class RetrievePlanningSkillsEval(Eval):
 
     def __init__(self, *, mode: str) -> None:
         super().__init__(mode=mode)
-        self.model_profile = 'local-tfidf-e5-small-rrf'
+        self.model_profile = self.MODEL_PROFILE
         self.resources = PlannerResources()
         self.ranked: tuple[RetrievePlanningSkillsEval.Ranked, ...] | None = None
 
@@ -229,42 +237,46 @@ class RetrievePlanningSkillsEval(Eval):
                 id=skill.id, name=skill.name, description=skill.description
             )
             for skill in seed.skills
+            if not skill.id.startswith(ROADMAP_SKILL_ID_PREFIX)
         )
-        ids_by_name = {skill.name: skill.id for skill in skills}
-        catalog = _SeedSkillCatalogProvider(skills)
-        embeddings = SentenceTransformersEmbeddingsProvider()
         preprocessor = SpacyPlanningTextPreprocessorProvider(
             self.resources.manifest.negation
         )
-        repository = _InMemoryPlanningEmbeddingsRepository()
-        version = prepare_indexes(
-            embeddings, repository, catalog, self.resources, preprocessor
+        provider = TfidfWord2VecPlanningSkillRetrievalProvider(
+            skills, NilcWord2VecWordVectorsProvider(), preprocessor, self.resources
         )
-        provider = TfidfSentenceTransformersPlanningSkillRetrievalProvider(
-            skills, embeddings, repository, preprocessor, self.resources
-        )
+        ids_by_name = {skill.name: skill.id for skill in skills}
         ranked: list[RetrievePlanningSkillsEval.Ranked] = []
         for item in self.resources.retrieval_evaluation.queries:
             query = PlanningQuery(intent=item.intent, answers=tuple(item.answers))
             ranking = provider.retrieve(query)
-            vector = embeddings.embed_queries(
-                (' '.join((query.intent, *query.answers)),)
-            )[0]
-            nearest = repository.find_nearest(
-                version, vector, tuple(ids_by_name.values()), 1
-            )
+            similarities = provider.similarities(query)
             ranked.append(
-                self.Ranked(
-                    id=item.id,
-                    kind=item.kind,
-                    relevant=frozenset(ids_by_name[name] for name in item.relevant),
-                    lexical=ranking.lexical_ranking,
-                    semantic=ranking.semantic_ranking,
-                    hybrid=tuple(entry.skill_id for entry in ranking.entries),
-                    top_similarity=round(nearest[0].similarity, 5),
+                self.ranked_item(
+                    item,
+                    ids_by_name,
+                    ranking,
+                    similarities[0][1] if similarities else 0.0,
                 )
             )
         return tuple(ranked)
+
+    def ranked_item(
+        self,
+        item: Any,
+        ids_by_name: dict[str, str],
+        ranking: Any,
+        top_similarity: float,
+    ) -> Ranked:
+        return self.Ranked(
+            id=item.id,
+            kind=item.kind,
+            relevant=frozenset(ids_by_name[name] for name in item.relevant),
+            lexical=ranking.lexical_ranking,
+            semantic=ranking.semantic_ranking,
+            hybrid=tuple(entry.skill_id for entry in ranking.entries),
+            top_similarity=round(top_similarity, 5),
+        )
 
     # --- metrics -------------------------------------------------------------
 
@@ -346,3 +358,54 @@ class RetrievePlanningSkillsEval(Eval):
                 and not item.relevant.intersection(item.hybrid[:10])
             ],
         }
+
+
+class RetrievePlanningSkillsE5Eval(RetrievePlanningSkillsEval):
+    """The same gates over the TF-IDF + E5 provider, the fallback meaning model.
+
+    Prepares the index through `prepare_planning_indexes` into an in-memory
+    repository with the pinned local E5 model, so switching back stays a safe move.
+    """
+
+    selector = 'retrieve-planning-skills-e5'
+    workflow_id = 'intelligence-retrieve-planning-skills-e5'
+    prompt_revision = 'tfidf-e5-small-rrf-v1'
+    MODEL_PROFILE: ClassVar[str] = 'local-tfidf-e5-small-rrf'
+
+    def rank_queries(self) -> tuple[RetrievePlanningSkillsEval.Ranked, ...]:
+        seed = build_development_seed()
+        skills = tuple(
+            SkillCatalogEntry(
+                id=skill.id, name=skill.name, description=skill.description
+            )
+            for skill in seed.skills
+            if not skill.id.startswith(ROADMAP_SKILL_ID_PREFIX)
+        )
+        ids_by_name = {skill.name: skill.id for skill in skills}
+        catalog = _SeedSkillCatalogProvider(skills)
+        embeddings = SentenceTransformersEmbeddingsProvider()
+        preprocessor = SpacyPlanningTextPreprocessorProvider(
+            self.resources.manifest.negation
+        )
+        repository = _InMemoryPlanningEmbeddingsRepository()
+        version = prepare_indexes(
+            embeddings, repository, catalog, self.resources, preprocessor
+        )
+        provider = TfidfSentenceTransformersPlanningSkillRetrievalProvider(
+            skills, embeddings, repository, preprocessor, self.resources
+        )
+        ranked: list[RetrievePlanningSkillsEval.Ranked] = []
+        for item in self.resources.retrieval_evaluation.queries:
+            query = PlanningQuery(intent=item.intent, answers=tuple(item.answers))
+            vector = embeddings.embed_queries(
+                (' '.join((query.intent, *query.answers)),)
+            )[0]
+            nearest = repository.find_nearest(
+                version, vector, tuple(ids_by_name.values()), 1
+            )
+            ranked.append(
+                self.ranked_item(
+                    item, ids_by_name, provider.retrieve(query), nearest[0].similarity
+                )
+            )
+        return tuple(ranked)

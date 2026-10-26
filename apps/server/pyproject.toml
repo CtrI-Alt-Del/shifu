@@ -32,6 +32,7 @@ dependencies = [
     "opentelemetry-sdk>=1.45.1",
     "langfuse>=3,<4",
     "scikit-learn>=1.9.1",
+    "huggingface-hub>=2.2.0,<3",
 ]
 
 [dependency-groups]
@@ -78,6 +79,9 @@ cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 
 [tool.poe.tasks."db:index:planning"]
 cmd = "uv run --env-file .env.local python -m shifu.planning_indexes"
+
+[tool.poe.tasks."planner:word-vectors"]
+cmd = "uv run python -m shifu.planning_word_vectors"
 
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"

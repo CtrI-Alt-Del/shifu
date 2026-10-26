@@ -306,7 +306,7 @@ class TestPlanningIndexPreparation:
             provider.retrieve(query)
         with pytest.raises(PlanningIndexUnavailableError):
             LazyPlanningSkillRetrievalProvider(
-                corpus.database, corpus.catalog
+                corpus.database, corpus.catalog, semantic_model='e5'
             ).retrieve(query)
         with pytest.raises(PlanningIndexUnavailableError):
             RetrievePlanningSkillsUseCase(provider, corpus.catalog).execute(query)

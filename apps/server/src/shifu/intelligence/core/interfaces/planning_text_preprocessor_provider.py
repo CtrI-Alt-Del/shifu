@@ -9,3 +9,7 @@ class PlanningTextPreprocessorProvider(Protocol):
     def lexical_tokens(self, text: str) -> tuple[str, ...]:
         """Return lemmatized pt-BR tokens without stop words, keeping negations."""
         ...
+
+    def word_tokens(self, text: str) -> tuple[str, ...]:
+        """Return the words as written, casefolded, without stop words."""
+        ...

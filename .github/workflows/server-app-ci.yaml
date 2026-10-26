@@ -418,6 +418,9 @@ jobs:
           'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
           SentenceTransformersEmbeddingsProvider(local_files_only=False)'
 
+      - name: Prepare pinned Planner word vectors
+        run: uv run poe planner:word-vectors
+
       - name: Run all real evals
         run: uv run python evals/run.py --output-dir test-results/evals
 

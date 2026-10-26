@@ -18,7 +18,10 @@ from evals.plan_goal_interview_eval import PlanGoalInterviewEval
 from evals.plan_goal_proposal_eval import PlanGoalProposalEval
 from evals.prepare_mentor_attachment_eval import PrepareMentorAttachmentEval
 from evals.process_mentor_response_eval import ProcessMentorResponseEval
-from evals.retrieve_planning_skills_eval import RetrievePlanningSkillsEval
+from evals.retrieve_planning_skills_eval import (
+    RetrievePlanningSkillsE5Eval,
+    RetrievePlanningSkillsEval,
+)
 from evals.summarize_mentor_session_eval import SummarizeMentorSessionEval
 
 if TYPE_CHECKING:
@@ -37,6 +40,7 @@ EVAL_CLASSES = (
     ClassifyMentorIntentEval,
     ClassifyPlanningIntentEval,
     RetrievePlanningSkillsEval,
+    RetrievePlanningSkillsE5Eval,
     PlanGoalInterviewEval,
     PlanGoalProposalEval,
 )

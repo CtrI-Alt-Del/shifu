@@ -66,6 +66,9 @@ from .planning_skill_retrieval_provider import (
 from .planning_text_preprocessor_provider import (
     PlanningTextPreprocessorProvider as PlanningTextPreprocessorProvider,
 )
+from .planning_word_vectors_provider import (
+    PlanningWordVectorsProvider as PlanningWordVectorsProvider,
+)
 from .learner_memories_repository import (
     LearnerMemoriesRepository as LearnerMemoriesRepository,
 )

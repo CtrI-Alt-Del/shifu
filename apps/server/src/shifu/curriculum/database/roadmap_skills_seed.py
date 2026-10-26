@@ -393,11 +393,12 @@ _ROADMAP_SKILLS = (
     ),
 )
 
-_ID_PREFIX = '01SHFRM'
+# Every roadmap id starts with this prefix, so tools can tell them apart.
+ROADMAP_SKILL_ID_PREFIX = '01SHFRM'
 
 
 def _roadmap_id(skill_index: int, item: int) -> str:
-    return f'{_ID_PREFIX}{0:014d}{skill_index:03d}{item:02d}'
+    return f'{ROADMAP_SKILL_ID_PREFIX}{0:014d}{skill_index:03d}{item:02d}'
 
 
 def build_roadmap_skills_seed(anchors: Mapping[str, str]) -> RoadmapSkillsSeed:
