@@ -1,6 +1,7 @@
 import hashlib
 import re
 import unicodedata
+from contextlib import suppress
 from dataclasses import asdict, replace
 from typing import ClassVar
 
@@ -44,7 +45,7 @@ from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
     start_response_attempt,
 )
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.errors import NotFoundError, ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorContextSnapshot
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -632,9 +633,12 @@ class PrepareMentorResponseUseCase:
         )
         if explicit:
             assert_response_access(self._access_provider, attempt)
-            context = self._context_provider.read(
-                attempt.account_id, (*goals, *explicit), **hints
-            )
+            # A named Skill outside the Objective is no context to open; an add
+            # request still reaches the action planner with the current context.
+            with suppress(NotFoundError):
+                context = self._context_provider.read(
+                    attempt.account_id, (*goals, *explicit), **hints
+                )
         return context, None
 
     @classmethod

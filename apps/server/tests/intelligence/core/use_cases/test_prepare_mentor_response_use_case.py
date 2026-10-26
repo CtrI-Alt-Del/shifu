@@ -46,7 +46,7 @@ from shifu.intelligence.core.domain.structures.prepared_mentor_response import (
 from shifu.intelligence.core.use_cases.prepare_mentor_response_use_case import (
     PrepareMentorResponseUseCase,
 )
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.errors import NotFoundError, ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorCatalogEntry
 from tests.intelligence.core.use_cases.mentor_response_phase_test_setup import (
     MentorResponsePhaseTestSetup,
@@ -1625,6 +1625,29 @@ class TestPrepareMentorActions(_PrepareActionSetup):
         self.goal_destinations.read.assert_called_once_with('account', 'skill')
         self.route_provider.route.assert_called_once()
         self.generation_limit.try_acquire.assert_not_called()
+
+    def test_should_propose_a_named_skill_that_the_objective_does_not_have_yet(
+        self,
+    ) -> None:
+        # Learning cannot open a Skill outside the Objective as context; the
+        # request still becomes a proposal instead of failing the answer.
+        self._request(self._ADD, self._goal())
+        context = self.context_provider.read.return_value
+
+        def read(
+            _account_id: str, references: tuple[str, ...], **_hints: object
+        ) -> object:
+            if 'skill' in references:
+                raise NotFoundError
+            return context
+
+        self.context_provider.read.side_effect = read
+
+        prepared = self._prepare()
+
+        assert prepared.action_proposal is not None
+        assert prepared.action_proposal.skill_id == 'skill'
+        assert prepared.context == context
 
     def test_should_not_repeat_the_description_when_the_skill_has_none(self) -> None:
         self._request(self._ADD, self._goal(), skills=(self._skill(description=None),))
