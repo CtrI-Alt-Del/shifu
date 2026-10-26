@@ -4,6 +4,7 @@ import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { Tabs, TabsList, TabsTrigger } from '@/ui/shadcn/tabs'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
+import { DeletionPanel } from './deletion-panel'
 import { ProfileForm } from './profile-form'
 import { SecurityForm } from './security-form'
 import { PrivacyCard } from './privacy-card'
@@ -83,6 +84,14 @@ export const AccountPage = (props: AccountPageProps) => {
                     >
                       Segurança
                     </TabsTrigger>
+                    <TabsTrigger
+                      value='delete'
+                      id='account-tab-delete'
+                      aria-controls='account-panel-delete'
+                      className='min-h-11'
+                    >
+                      Excluir conta
+                    </TabsTrigger>
                   </TabsList>
                   <div className='mt-5'>
                     <Activity mode={activeTab === 'profile' ? 'visible' : 'hidden'}>
@@ -105,6 +114,15 @@ export const AccountPage = (props: AccountPageProps) => {
                         <SecurityForm />
                       </div>
                     </Activity>
+                    {activeTab === 'delete' && (
+                      <div
+                        id='account-panel-delete'
+                        role='tabpanel'
+                        aria-labelledby='account-tab-delete'
+                      >
+                        <DeletionPanel />
+                      </div>
+                    )}
                   </div>
                 </Tabs>
               </motion.div>

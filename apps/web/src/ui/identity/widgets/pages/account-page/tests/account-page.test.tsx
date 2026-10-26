@@ -73,8 +73,28 @@ describe('AccountPage', () => {
       'href',
       expect.stringContaining('mailto:shifu.ctrlaltdel@gmail.com'),
     )
-    expect(screen.queryByRole('tab', { name: 'Excluir conta' })).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Excluir conta' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    )
     expect(screen.getByLabelText('Senha atual')).not.toBeVisible()
+  })
+  it('renders deletion composition and delegates tab changes', () => {
+    const result = createResult({ activeTab: 'delete' })
+    useAccountPageMock.mockReturnValue(result)
+    renderPage()
+    expect(screen.getByRole('tab', { name: 'Excluir conta' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByRole('tabpanel', { name: 'Excluir conta' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Excluir minha conta' })).toBeVisible()
+    expect(screen.getByLabelText('Nome de exibição')).not.toBeVisible()
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Perfil$/ }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    expect(result.handleTabChange).toHaveBeenCalledWith('profile')
   })
   it('shows skeleton and recoverable query failures', () => {
     useAccountPageMock.mockReturnValue(
