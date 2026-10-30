@@ -7,3 +7,6 @@ from .registration_confirmation_workflow import (
 from .password_recovery_workflow import (
     PasswordRecoveryWorkflow as PasswordRecoveryWorkflow,
 )
+from .mentor_context_with_gamification_provider import (
+    MentorContextWithGamificationProvider as MentorContextWithGamificationProvider,
+)

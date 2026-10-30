@@ -1,3 +1,6 @@
+from .account_time_zone_provider import (
+    AccountTimeZoneProvider as AccountTimeZoneProvider,
+)
 from .authentication_provider import AuthenticationProvider as AuthenticationProvider
 from .cache_provider import CacheProvider as CacheProvider
 from .clock_provider import ClockProvider as ClockProvider
@@ -19,6 +22,9 @@ from .id_provider import IdentifierProvider as IdentifierProvider
 from .mentor_access_provider import MentorAccessProvider as MentorAccessProvider
 from .mentor_catalog_provider import MentorCatalogProvider as MentorCatalogProvider
 from .mentor_context_provider import MentorContextProvider as MentorContextProvider
+from .mentor_gamification_facts_provider import (
+    MentorGamificationFactsProvider as MentorGamificationFactsProvider,
+)
 from .outbox_event import OutboxEvent as OutboxEvent
 from .mentor_goal_destinations_provider import (
     MentorGoalDestinationsProvider as MentorGoalDestinationsProvider,

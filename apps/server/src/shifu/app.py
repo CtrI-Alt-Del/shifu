@@ -12,6 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
 from shifu.composition import (
+    MentorContextWithGamificationProvider,
     PasswordRecoveryWorkflow,
     RegistrationConfirmationWorkflow,
     build_email_delivery_provider,
@@ -35,12 +36,18 @@ from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
 from shifu.curriculum.rest.router import CurriculumRouter
 from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
 from shifu.gamification.messaging.inngest import GamificationInngestMessaging
+from shifu.gamification.providers.gamification_mentor_facts_provider import (
+    GamificationMentorFactsProvider,
+)
 from shifu.gamification.rest.router import GamificationRouter
 from shifu.identity.core.domain.events import AccountDeletedEvent
 from shifu.identity.database.sqlalchemy import SqlalchemyIdentityDatabase
 from shifu.identity.messaging.inngest import IdentityInngestMessaging
 from shifu.identity.providers.auth.jwt.jwks.jwks_jwt_authentication_provider import (
     JwksJwtAuthenticationProvider,
+)
+from shifu.identity.providers.identity_account_time_zone_provider import (
+    IdentityAccountTimeZoneProvider,
 )
 from shifu.identity.providers.identity_mentor_access_provider import (
     IdentityMentorAccessProvider,
@@ -293,11 +300,18 @@ class FastAPIApp:
         )
         mentor_context_provider = (
             mentor_context_provider
-            or LearningMentorContextProvider(
-                learning_database,
-                mentor_catalog_provider,
-                GetCompetencyDetailUseCase(
-                    learning_database, curriculum_content_provider
+            or MentorContextWithGamificationProvider(
+                LearningMentorContextProvider(
+                    learning_database,
+                    mentor_catalog_provider,
+                    GetCompetencyDetailUseCase(
+                        learning_database, curriculum_content_provider
+                    ),
+                ),
+                GamificationMentorFactsProvider(
+                    gamification_database,
+                    IdentityAccountTimeZoneProvider(identity_database),
+                    SystemClockProvider(),
                 ),
             )
         )

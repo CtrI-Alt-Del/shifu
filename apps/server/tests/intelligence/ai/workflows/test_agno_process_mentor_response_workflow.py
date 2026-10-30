@@ -20,6 +20,7 @@ from agno.run.base import RunStatus
 from fastapi.testclient import TestClient
 import pytest
 
+from shifu.composition import MentorContextWithGamificationProvider
 from shifu.curriculum.core.domain.enums import ActivityType
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
@@ -30,6 +31,14 @@ from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
 )
 from shifu.fakers.curriculum.entities import ActivityFaker, CompetencyFaker, SkillFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
+from shifu.gamification.core.domain.entities.gamification_profile import (
+    GamificationProfile,
+)
+from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.gamification.providers.gamification_mentor_facts_provider import (
+    GamificationMentorFactsProvider,
+)
 from shifu.intelligence.ai.agno.agents import (
     MentorAttachmentAnswerAgent,
     MentorReviewerAgent,
@@ -117,9 +126,11 @@ from shifu.shared.core.domain.structures import (
     MentorGoalDestinations,
 )
 from shifu.shared.core.interfaces import (
+    AccountTimeZoneProvider,
     MentorAccessProvider,
     MentorCatalogProvider,
     MentorContextProvider,
+    MentorGamificationFactsProvider,
     MentorGoalDestinationsProvider,
 )
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
@@ -465,6 +476,37 @@ class Harness:
         self.context.read.side_effect = provider.read
         self.catalog.read_projection.side_effect = catalog.read_projection
         self.catalog.search.side_effect = catalog.search
+
+    def use_gamification_data(
+        self, gamification: MentorGamificationFactsProvider | None = None
+    ) -> None:
+        """Join Gamification facts to the real Learning context, as the app composes."""
+        self.use_learning_data()
+        learning = self.context.read.side_effect
+        time_zones = Mock(spec=AccountTimeZoneProvider)
+        time_zones.find_time_zone.return_value = 'America/Sao_Paulo'
+        provider = MentorContextWithGamificationProvider(
+            Mock(spec=MentorContextProvider, read=Mock(side_effect=learning)),
+            gamification
+            or GamificationMentorFactsProvider(
+                SqlalchemyGamificationDatabase(self.fixture.postgres.engine),
+                time_zones,
+                SystemClockProvider(),
+            ),
+        )
+        self.context.read.side_effect = provider.read
+
+    def grant_xp(self, account_id: str, amount: int) -> None:
+        now = datetime.now(UTC)
+        profile = GamificationProfile.create(
+            id=SystemIdentifierProvider().generate(),
+            account_id=account_id,
+            created_at=now,
+        )
+        profile.add_xp(amount, granted_at=now)
+        database = SqlalchemyGamificationDatabase(self.fixture.postgres.engine)
+        with database.transaction() as repositories:
+            repositories.profiles.add(profile)
 
     def proposals(
         self, session_id: str, account: AuthenticatedUser = MENTOR_ACCOUNT
@@ -1242,6 +1284,60 @@ def progress_harness(
     built.use_learning_data()
     built.route.route.side_effect = real_route(PROGRESS_SIMILARITIES)
     return built
+
+
+@pytest.fixture
+def gamification_harness(
+    intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+) -> Harness:
+    """The workflow over the real local route and the composed Gamification context."""
+    built = build_harness(intelligence_fixture, redis_fixture, limit_per_hour=30)
+    built.use_gamification_data()
+    built.route.route.side_effect = real_route({'consult_gamification': 0.97})
+    return built
+
+
+class TestAgnoProcessMentorResponseWorkflowGamification:
+    """Local XP, level, streak and achievement answers from Gamification's own rows."""
+
+    def test_answers_the_level_and_xp_stored_by_gamification(
+        self, gamification_harness: Harness
+    ) -> None:
+        gamification_harness.grant_xp(MENTOR_ACCOUNT.account_id, 350)
+        catalog = sum(1 for achievement in ACHIEVEMENT_CATALOG if achievement.is_active)
+
+        _, answer = gamification_harness.ask('qual o meu nível atual e xp?')
+
+        assert answer == (
+            'XP: 350 no total; faltam 250 para o nível 4\n\n'
+            'Nível: 3\n\n'
+            'Sequência: nenhum dia seguido no momento\n\n'
+            f'Conquistas: 0 de {catalog}'
+        )
+        gamification_harness.assert_no_model_call()
+
+    def test_answers_the_initial_state_for_an_account_without_rewards(
+        self, gamification_harness: Harness
+    ) -> None:
+        _, answer = gamification_harness.ask('qual o meu nível atual e xp?')
+
+        assert 'Nível: 1' in answer
+        assert 'XP: 0 no total; faltam 100 para o nível 2' in answer
+        gamification_harness.assert_no_model_call()
+
+    def test_keeps_the_unavailable_line_when_gamification_cannot_be_read(
+        self, intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+    ) -> None:
+        unavailable = Mock(spec=MentorGamificationFactsProvider)
+        unavailable.read.side_effect = ServiceUnavailableError('indisponível')
+        built = build_harness(intelligence_fixture, redis_fixture, limit_per_hour=30)
+        built.use_gamification_data(unavailable)
+        built.route.route.side_effect = real_route({'consult_gamification': 0.97})
+
+        _, answer = built.ask('qual o meu nível atual e xp?')
+
+        assert answer == ABSTENTION_TEXT
+        unavailable.read.assert_called_with(MENTOR_ACCOUNT.account_id)
 
 
 class TestAgnoProcessMentorResponseWorkflowProgress:
