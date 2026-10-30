@@ -20,7 +20,7 @@ export const DesktopHeader = ({ accountMenu, items, pathname }: DesktopHeaderPro
           <span className='font-serif text-[26px] leading-none text-foreground'>
             Shifu
           </span>
-          <span className='font-serif text-base leading-none text-primary'>師</span>
+          <span className='font-serif text-base leading-none text-selo-text'>師</span>
         </Anchor>
         <nav aria-label='Navegação principal' className='flex items-center gap-1'>
           <Navigation items={items} pathname={pathname} />
@@ -29,11 +29,13 @@ export const DesktopHeader = ({ accountMenu, items, pathname }: DesktopHeaderPro
       {accountMenu ?? (
         <button
           aria-label='Abrir menu da conta'
-          className='grid size-8 shrink-0 place-items-center rounded-full border border-white/10 bg-muted text-muted-foreground transition-colors hover:text-foreground'
+          className='grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
           data-account-menu-trigger
           type='button'
         >
-          <Icon name='user-round' size={16} />
+          <span className='grid size-8 place-items-center rounded-full border border-white/10 bg-muted'>
+            <Icon name='user-round' size={16} />
+          </span>
         </button>
       )}
     </div>

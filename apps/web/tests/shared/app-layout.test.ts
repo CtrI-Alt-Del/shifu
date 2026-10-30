@@ -168,7 +168,7 @@ test.describe('AppLayout', () => {
     )
     await trigger.click()
     await menu.getByRole('menuitem', { name: 'Sua conta' }).click()
-    await expect(authenticatedPage).toHaveURL(/\/account\/?$/)
+    await expect(authenticatedPage).toHaveURL(/\/account\/profile\/?$/)
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Sua conta' }),
     ).toBeVisible()
@@ -309,7 +309,7 @@ test.describe('AppLayout', () => {
     )
     await accountTrigger.click()
     await authenticatedPage.getByRole('menuitem', { name: 'Sua conta' }).click()
-    await expect(authenticatedPage).toHaveURL(/\/account\/?$/)
+    await expect(authenticatedPage).toHaveURL(/\/account\/profile\/?$/)
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Sua conta' }),
     ).toBeVisible()

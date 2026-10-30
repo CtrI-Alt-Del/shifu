@@ -20,7 +20,7 @@ export const MobileHeader = ({ accountMenu, items, pathname }: MobileHeaderProps
         route='root'
       >
         <span className='font-serif text-2xl leading-none text-foreground'>Shifu</span>
-        <span className='font-serif text-[15px] leading-none text-primary'>師</span>
+        <span className='font-serif text-[15px] leading-none text-selo-text'>師</span>
       </Anchor>
       <div className='flex items-center gap-2'>
         {accountMenu}

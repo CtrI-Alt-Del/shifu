@@ -31,13 +31,15 @@ export const AccountMenu = ({ account }: AccountMenuProps) => {
         aria-expanded={isOpen}
         aria-haspopup='menu'
         aria-label={isOpen ? 'Fechar menu da conta' : 'Abrir menu da conta'}
-        className='size-8! min-h-8! shrink-0 rounded-full! border border-white/10 px-0! text-muted-foreground hover:text-foreground'
+        className='size-11! min-h-11! shrink-0 rounded-full! px-0! text-muted-foreground hover:text-foreground'
         id={triggerId}
         onClick={handleToggle}
         type='button'
         variant='ghost'
       >
-        <Icon className='shrink-0' name='user-round' size={16} />
+        <span className='grid size-8 shrink-0 place-items-center rounded-full border border-white/10 bg-muted'>
+          <Icon className='shrink-0' name='user-round' size={16} />
+        </span>
       </Button>
 
       {isOpen && (
