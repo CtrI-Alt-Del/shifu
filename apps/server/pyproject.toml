@@ -80,6 +80,9 @@ cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 [tool.poe.tasks."db:index:planning"]
 cmd = "uv run --env-file .env.local python -m shifu.planning_indexes"
 
+[tool.poe.tasks."db:index:mentor"]
+cmd = "uv run --env-file .env.local python -m shifu.mentor_indexes"
+
 [tool.poe.tasks."planner:word-vectors"]
 cmd = "uv run python -m shifu.planning_word_vectors"
 
