@@ -896,6 +896,24 @@ class TestPrepareMentorResponseMemories(_PrepareSubjectSetup):
             self.message.content, self.context
         )
 
+    def test_should_say_the_mentor_answers_only_in_portuguese_for_a_language_preference(
+        self,
+    ) -> None:
+        self.repositories.mentor_messages.find_all.return_value = (
+            replace(self.message, content='Prefiro respostas em inglês'),
+        )
+        self._route((self.block, self._abstention()))
+        self._statement_receipt()
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None
+        assert [block.content for block in prepared.local_blocks] == [
+            PrepareMentorResponseUseCase.LANGUAGE_NOTICE
+        ]
+        assert prepared.attachment_request is None
+        self.generation_limit.try_acquire.assert_not_called()
+
     @pytest.mark.parametrize('receipt', [None, False])
     def test_should_keep_the_abstention_without_a_statement_only_receipt(
         self, receipt: bool | None
@@ -1286,6 +1304,21 @@ class TestPrepareMentorGeneration(_PrepareSubjectSetup):
         assert prepared is not None and prepared.attachment_request is not None
         assert prepared.attachment_request.curriculum_topics == ('React',)
         assert prepared.attachment_request.context == context
+
+    def test_should_answer_in_portuguese_and_say_so_when_asked_for_another_language(
+        self,
+    ) -> None:
+        self._say('Responda em inglês: o que é uma função?')
+        self._route_unanswered('Responda em inglês: o que é uma função')
+
+        prepared = self.subject.execute('attempt', 'owner')
+
+        assert prepared is not None and prepared.attachment_request is not None
+        assert [block.content for block in prepared.local_blocks] == [
+            PrepareMentorResponseUseCase.LANGUAGE_NOTICE
+        ]
+        assert prepared.generation_fallback is not None
+        assert prepared.generation_fallback.ordinal == 1
 
     def test_should_keep_the_local_blocks_first_and_send_only_the_unanswered_parts(
         self,

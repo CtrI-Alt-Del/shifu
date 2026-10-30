@@ -79,6 +79,13 @@ class PrepareMentorResponseUseCase:
     MEMORY_ACKNOWLEDGEMENT: ClassVar[str] = (
         'Anotado. Vou considerar isso nas próximas explicações.'
     )
+    LANGUAGE_NOTICE_BLOCK_KEY: ClassVar[str] = 'language-notice'
+    LANGUAGE_NOTICE: ClassVar[str] = 'O Mentor responde somente em português do Brasil.'
+    _OTHER_LANGUAGE: ClassVar[re.Pattern[str]] = re.compile(
+        r'\b(?:em|in)\s+(?:ingles|english|espanhol|spanish|frances|french|alemao|'
+        r'german|italiano|italian|japones|japanese|chines|chinese|coreano|korean|'
+        r'russo|russian)\b'
+    )
     MAX_PREFERENCE_MEMORIES: ClassVar[int] = 3
     MAX_RELEVANT_MEMORIES: ClassVar[int] = 5
 
@@ -214,6 +221,9 @@ class PrepareMentorResponseUseCase:
         )
         local_blocks, requests = self._pedagogical_gate(
             learner.content, context, route.local_blocks, route.generation_requests
+        )
+        local_blocks, requests = self._language_notice(
+            learner.content, statement_only, local_blocks, requests
         )
         approved = (
             tuple(snapshot.blocks)
@@ -481,6 +491,35 @@ class PrepareMentorResponseUseCase:
                 ),
             ),
         )
+
+    @classmethod
+    def _language_notice(
+        cls,
+        content: str,
+        statement_only: bool,
+        blocks: tuple[MentorResponseBlock, ...],
+        requests: tuple[str, ...],
+    ) -> tuple[tuple[MentorResponseBlock, ...], tuple[str, ...]]:
+        """The Mentor answers only in pt-BR, and says so instead of ignoring the ask."""
+        decomposed = unicodedata.normalize('NFKD', content.casefold())
+        normalized = ''.join(
+            char for char in decomposed if not unicodedata.combining(char)
+        )
+        if not cls._OTHER_LANGUAGE.search(normalized):
+            return blocks, requests
+        notice = MentorResponseBlock(
+            block_key=cls.LANGUAGE_NOTICE_BLOCK_KEY,
+            ordinal=0,
+            intent=None,
+            content=cls.LANGUAGE_NOTICE,
+        )
+        # A bare preference has nothing else to answer; a question still is.
+        if statement_only:
+            return (notice,), ()
+        return (
+            notice,
+            *(replace(block, ordinal=block.ordinal + 1) for block in blocks),
+        ), requests
 
     def _relevant_memories(
         self, account_id: str, learner: MentorMessage
