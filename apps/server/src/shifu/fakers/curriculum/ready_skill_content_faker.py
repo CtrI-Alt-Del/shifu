@@ -84,6 +84,7 @@ class ReadySkillContentFaker:
                 competency_id=competency.id,
                 difficulty=difficulty,
                 title=f'[Teste] Prática de {skill.name}',
+                objective=f'Praticar {skill.name} em uma questão de teste.',
                 concept_id=concept.id,
             )
             for index, difficulty in enumerate(
@@ -99,6 +100,7 @@ class ReadySkillContentFaker:
                 activity_type=ActivityType.DIAGNOSTIC,
                 difficulty=difficulty,
                 title=f'[Teste] Diagnóstico de {skill.name}',
+                objective=f'Diagnosticar {skill.name} em uma questão de teste.',
                 concept_id=concept.id,
             )
             for index, difficulty in enumerate(_DIFFICULTIES)
