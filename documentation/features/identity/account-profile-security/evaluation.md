@@ -1,6 +1,6 @@
 ---
 title: SHIFU-97 — Perfil e segurança em Minha conta evaluation
-status: ready
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-10-25
 ---
@@ -9,34 +9,34 @@ last_updated_at: 2026-10-25
 
 | Field | State |
 | --- | --- |
-| Implementation | Complete em código; CA-01–15 verificados; publicada no PR46; correções de CI verificadas, aguardando novo head |
-| Automated checks | CI-01–14 atuais; recuperação3/3 passou no mínimo0.89 aprovado pelo usuário; classificação2/2 retida |
-| Type / lint / complexity | Passed; CI-10 / CI-11 / CI-12; consumidores corrigidos rechecados por escopo |
-| Manual checks | 2/2 Passed; EV-26/27 |
-| Visual checks | 4/4 estados Passed; EV-28/29; revisão visual independente C1 |
-| Independent review | Visual C1 Passed4/4; implementação C2 Passed nas correções ACH-06–09; demais contratos C1 retidos; ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| Blockers | Nenhum bloqueio local; novo CI do PR deve confirmar as correções de ACH-11/12 |
-| Candidate | codex/shifu-97-account-spec; base8ee992a750bd526aafcf1b5db396677a3ebdc3c1; head a1a92ffa38450fed97cd8dd8e3b7d0f50fde3c39 +3correções verificadas de testes/proxy; commit de atualização em preparação |
+| Implementation | Complete: RF-01–RF-10 e CA-01–CA-15; revisão1 concluída. |
+| Automated checks | CI-01–CI-14 locais aprovados;23/23checks remotos no head7db714aa aprovados EV-75. Webintegration259/259. |
+| Type / lint / complexity | Passed; CI-10/11/12 locais e tipos/lint/arquitetura/build remotos aprovados. Complexidade configurada, sem alegação de métricas quantitativas não disponíveis. |
+| Manual checks |2/2Passed, ambos viewports; EV-26/27. |
+| Visual checks |4/4estados Passed; EV-28/29/34, retidos porque UI de produção permaneceu inalterada nas correções posteriores. |
+| Independent review |Implementação e rechecks Passed; visual4/4Passed. ACH-01–12 resolvidos com limites explícitos;0conversas de review no GitHub e reviewDecision=null. |
+| Blockers |Nenhum. Sem merge ou implantação autorizados. |
+| Candidate |codex/shifu-97-account-spec; head publicado7db714aa364da2e8bdeec52658d98e280ff85a0c; PR46. Somente os estados finais locais de Spec/Evaluation não commitados, conforme regra de não criar commit só de fechamento operacional. |
 
 # Progress
 
 | CA | RF coverage | Implementation | Verification | Checks / evidence | Remaining work |
 | --- | --- | --- | --- | --- | --- |
-| CA-01 | RF-01 | Complete | Passed | CI-01–CI-06, CI-09; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-02 | RF-02 | Complete | Passed | CI-01, CI-03, CI-07–CI-09, VM-01; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-03 | RF-02 | Complete | Passed | CI-01, CI-03, CI-08; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-04 | RF-03 | Complete | Passed | CI-01, CI-03, CI-07–CI-09, VM-01; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-05 | RF-03 | Complete | Passed | CI-03; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-06 | RF-04 | Complete | Passed | CI-08–CI-09, VM-01; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-07 | RF-05 | Complete | Passed | CI-02, CI-04, CI-07–CI-09; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-08 | RF-06 | Complete | Passed | CI-02, CI-04, CI-06, CI-09, VM-02; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-09 | RF-06 | Complete | Passed | CI-02, CI-04–CI-06, CI-09; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-10 | RF-07 | Complete | Passed | CI-02, CI-04, CI-08–CI-09; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-11 | RF-01, RF-06, RF-07 | Complete | Passed | CI-04–CI-06; EV-18,35,40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-12 | RF-08 | Complete | Passed | CI-07–CI-08, VM-01–VM-04; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-13 | RF-09 | Complete | Passed | CI-07–CI-09, VM-01; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-14 | RF-10 | Complete | Passed | CI-04, CI-06, CI-09; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
-| CA-15 | RF-06 | Complete | Passed | CI-14; EV-40 | Nenhum no critério; gate global ACH-01 resolvido; manutenção C3 sem novos defeitos; ACH-10 resolvido por ajuste explícito do mínimo, EV-61/62 |
+| CA-01 | RF-01 | Complete | Passed | CI-01–CI-06, CI-09; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-02 | RF-02 | Complete | Passed | CI-01, CI-03, CI-07–CI-09, VM-01; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-03 | RF-02 | Complete | Passed | CI-01, CI-03, CI-08; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-04 | RF-03 | Complete | Passed | CI-01, CI-03, CI-07–CI-09, VM-01; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-05 | RF-03 | Complete | Passed | CI-03; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-06 | RF-04 | Complete | Passed | CI-08–CI-09, VM-01; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-07 | RF-05 | Complete | Passed | CI-02, CI-04, CI-07–CI-09; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-08 | RF-06 | Complete | Passed | CI-02, CI-04, CI-06, CI-09, VM-02; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-09 | RF-06 | Complete | Passed | CI-02, CI-04–CI-06, CI-09; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-10 | RF-07 | Complete | Passed | CI-02, CI-04, CI-08–CI-09; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-11 | RF-01, RF-06, RF-07 | Complete | Passed | CI-04–CI-06; EV-18,35,40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-12 | RF-08 | Complete | Passed | CI-07–CI-08, VM-01–VM-04; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-13 | RF-09 | Complete | Passed | CI-07–CI-09, VM-01; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-14 | RF-10 | Complete | Passed | CI-04, CI-06, CI-09; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
+| CA-15 | RF-06 | Complete | Passed | CI-14; EV-40 | Nenhum; EV-75 confirma CI do head publicado |
 
 # Check Results
 
@@ -126,6 +126,9 @@ last_updated_at: 2026-10-25
 | EV-73 | Revisão das correções CI / Automated advisory | Passed | Diff3arquivos após a1a92ffa | Mesmo revisor independente retomou apenas ACH-11/12, sem suítes |Interrupção do upstream preserva encerramento normal; testes de Motion verificam comportamento visível e movimento reduzido sem remover garantias. Sem achados novos. Capturas/revisão visual C1 retidas. |
 | EV-74 | Limpeza do recheck / Automated | Passed | Runtime próprio iniciado para correções | Encerrada API sessão61552, Web/proxies pelo runner; docker stop/rm shifu97-ci-postgres e shifu97-ci-redis; arquivos de ambiente ignorados removidos |Nenhum processo/container/conta/storage da tarefa permanece. Serviços compartilhados preservados. Evidências locais ignoradas mantidas. |
 
+| EV-75 | CI final publicado / Automated | Passed |7db714aa364da2e8bdeec52658d98e280ff85a0c; PR46, base main;26/10/2026 UTC/25/10local | gh api check-runs do SHA exato; readback PR/reviewThreads; git fetch origin main e merge-base --is-ancestor |23/23checks completos com success no SHA exato. Server11,Web6,Email6. Webintegration259passed6.2min. Main permanece8ee992a já incorporada. PR aberto/mergeable_state=clean;0threads, reviewDecision=null. Metadados shifu97-ci-7db714aa-checks.json; log shifu97-ci-web-corrected.log. Runs e nomes abaixo. |
+| EV-76 | Conclusão dos artefatos / Automated reconciliation | Passed |Revisão1; mesmo head publicado, sem alteração de código | Conferidos15CA completos/verificados,14CI,2VMmanuais,4estados visuais, todos ACH e7seções da Evaluation; git diff --check |Spec/Evaluation completed localmente. Somente2arquivos de fechamento permanecem dirty, por instrução explícita de conclude-spec: não criar commit só de registro operacional. Todos os arquivos de código, testes, migração, referências e documentação de entrega já estão nos4commits publicados. Sem processo próprio ativo e sem mudanças no checkout original. |
+
 Inventário obrigatório executado. Referências em design/handoff.md. Capturas C1 retidas em C2 porque as correções posteriores afetam apenas descoberta de token no Server e suporte/assertivas de testes; o código renderizado e seus dados não mudaram.
 
 | VM / CA | Surface / route / state | Viewport | Reference | Candidate | Artifact | Result / review |
@@ -197,24 +200,30 @@ ACH-10 é separado dessa manutenção: a avaliação existente falhou sob mínim
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Revisão1; codex/shifu-97-account-spec; base8ee992a; C4-0ce885b3f67b1dea; /home/petros/.codex/worktrees/shifu-97-account-spec/shifu |
-| Completed | Código integrado; CI-01–12/14 atuais, CI-13 arquitetura/build/integridade passam; manutenção de testes C3 concluída; VM-01/02 reais em ambos viewports; VM-03/04 quatro estados aprovados pelo revisor visual. Sem commit. |
-| Unfinished | Publicar commits/PR autorizados e aguardar CI do head. Critérios da conta, manutenção, revisão e novo mínimo de recall verificados. Correções do proxy e das2assertivas de animação aprovadas EV-70–73; publicar e aguardar novo CI. |
-| Uncommitted work |128caminhos de código/testes do candidato sob apps/server e apps/web; migração b16c32618ca8; Spec/Evaluation/handoff e2referências PNG sob documentation/features/identity/account-profile-security. Primeiro recorte já commitado em7567db1d; manutenção restante desta entrega. Worktree original preservado. Lista exata atual em apps/web/.playwright-cli/logs/shifu97-candidate-approved.txt. |
-| Active processes | Nenhum. API61552 e containers próprios33965/35507 encerrados/removidos EV-74. Web/proxies encerrados pelos runners; ambientes, contas e storage próprios removidos. Serviços compartilhados preservados. |
-| Blockers | ACH-01:14testes preexistentes fora dos limites permitidos. Log e caminhos em Findings. Não remover/enfraquecer provas para fechar gate. |
-| Next action | Criar commits por intenção, publicar PR e observar CI remoto atual. Reutilizar provas inalteradas C1–C3. O limiar0.89 solicitado pelo usuário está verificado em C4; sem necessidade de nova aprovação para publicação. |
+| Candidate |Revisão1; branch codex/shifu-97-account-spec; head7db714aa364da2e8bdeec52658d98e280ff85a0c; PR46; worktree /home/petros/.codex/worktrees/shifu-97-account-spec/shifu. |
+| Completed |RF-01–10/CA-01–15, CI-01–14 locais,2jornadas manuais nos dois viewports,4estados visuais e revisões independentes aprovados.23checks de CI do head publicado aprovados. |
+| Unfinished |Nenhum trabalho funcional ou de verificação. PR permanece aberto; merge/deploy e alterações de Jira/Confluence não foram solicitados. |
+| Uncommitted work |Somente documentation/features/identity/account-profile-security/spec.md e evaluation.md, com fechamento factual após CI. Não criar commit apenas operacional, conforme conclude-spec. Código/testes/migração/design e documentação de entrega estão publicados em7567db1d,ba45dc9c,a1a92ffa,7db714aa. Checkout original preservado. |
+| Active processes |Nenhum. APIs, Web/proxies e containers próprios encerrados; ambientes, contas e storage próprios removidos. Serviços compartilhados preservados. |
+| Blockers |Nenhum. Todos os ACH resolvidos. Recall0.8974 permanece como limitação aceita sob mínimo0.89 solicitado. |
+| Next action |Revisão humana/merge do PR quando o usuário decidir. Eventual feedback segue resolve-pr-feedback; não reiniciar suítes verdes sem alteração relevante. |
 
 # Delivery
 
 | RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
 | --- | --- | --- | --- |
-| RP-05/06/07/10/11; JN-05/06 | RF-01–RF-10; CA-01–CA-15 | EV-04,08,12,14,18,21,26–32,35–40 | partially_implemented; recorte RF-01–10 completo, escopo de RP/JN parcial conforme Spec; conclusão local pronta; publicação/CI pendentes |
+| RP-05/06/07/10/11; JN-05/06 | RF-01–RF-10; CA-01–CA-15 | EV-04,08,12,14,18,21,26–32,35–40,57,62,70–75 | partially_implemented; recorte RF-01–10 completo, escopo de RP/JN parcial conforme Spec; concluído/publicado neste recorte; PRD global continua parcial e checkboxes canônicos inalterados |
+
+| PR | Current head SHA | CI / review state | Run / artifacts |
+| --- | --- | --- | --- |
+| [PR46](https://github.com/CtrI-Alt-Del/shifu/pull/46) |7db714aa364da2e8bdeec52658d98e280ff85a0c |Server11/11Passed: tipos,lint,arquitetura,build,unitários,4shards de integração,agregado e evals reais |[Server40254318377](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40254318377); shifu97-ci-7db714aa-checks.json |
+| Mesmo PR/head |7db714aa364da2e8bdeec52658d98e280ff85a0c |Web6/6Passed: tipos,lint,arquitetura,unitários,integração259/259,build |[Web40254318373](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40254318373); shifu97-ci-web-corrected.log |
+| Mesmo PR/head |7db714aa364da2e8bdeec52658d98e280ff85a0c |Email6/6Passed: código,tipos,templates,distribuições,tiposServer e agregado |[Email40254318456](https://github.com/CtrI-Alt-Del/shifu/actions/runs/40254318456) |
 
 | Field | Result |
 | --- | --- |
-| Publication | Autorizada pela invocação explícita conclude-spec. Sincronização origin/main concluída sem mudanças EV-42. PR46 publicado: https://github.com/CtrI-Alt-Del/shifu/pull/46; base main; branch codex/shifu-97-account-spec; commits7567db1df1e6f363a2722253d2d14a29221df91a e ba45dc9ceed16996f2352f6e2f79226cf6a50e60. CI inicial em andamento; sem review threads e sem decisão de review. Correção de coleta do handler será publicada na mesma branch. |
-| Source verification | Identity content83001345 v2 lida integralmente nesta sessão; versão confirmada21:39UTC |
+| Publication |Published: https://github.com/CtrI-Alt-Del/shifu/pull/46; main←codex/shifu-97-account-spec; head7db714aa364da2e8bdeec52658d98e280ff85a0c;23/23CIaprovados. Quatro commits publicados. PR aberto,0conversas, reviewDecision=null. Nenhum merge/deploy. Fechamento operacional final local, sem commit extra, conforme conclude-spec. |
+| Source verification | Identity content83001345 v2 lida integralmente nesta sessão; versão2 reconfirmada por metadata em EV-64 |
 | Documentation Alignment | Contrato revisão1 aprovado. Exemplos REST alinhados com métodos, paths, schemas e status dos3endpoints. Design/handoff e referências preservados; nenhum contrato de produto ou PRD alterado. Revisor C1 confirmou demais contratos e exemplos. |
 | Revision History | Sem alteração material do contrato |
-| Limitations | Integridade global397arquivos; manutenção/revisão C3 aprovadas. Recall0.8974 permanece, com mínimo0.89 aprovado e3gates atuais Passed em C4. Perda de posições não corrigida. Spec implemented e Evaluation ready aguardam publicação e CI; provas visuais/funcionais anteriores válidas porque produção não mudou. |
+| Limitations | Integridade global397arquivos; manutenção/revisão C3 aprovadas. Recall0.8974 permanece, com mínimo0.89 aprovado e3gates atuais Passed em C4. Perda de posições não corrigida. Spec/Evaluation completed localmente; PR publicado e CI aprovado. Perda de posições aceita sob novo mínimo não foi corrigida. Dois registros locais de fechamento não commitados. Provas visuais/funcionais anteriores válidas porque produção não mudou. |
