@@ -1,6 +1,6 @@
 ---
 title: SHIFU-97 — Perfil e segurança em Minha conta
-status: implemented
+status: completed
 revision: 1
 source:
   type: issue
@@ -740,7 +740,7 @@ Base pesquisada: 8ee992a750bd526aafcf1b5db396677a3ebdc3c1. Worktree codex/shifu-
 
 Revisão independente de compatibilidade concluída em 25/10/2026 sobre a revisão 1. O Spec Reviewer auditou arquitetura, propriedade, direção de dependências, árvore, declarações, todas as regras selecionadas e limites de teste. A observação sobre nomes genéricos da consulta foi corrigida e revalidada. Não restam achados de compatibilidade. Essa revisão é de contrato e não constitui prova de implementação ou de fidelidade visual em execução.
 
-O usuário aprovou o contrato escrito ao invocar implement-spec em 25/10/2026. A revisão1 está implementada com provas e revisões registradas em Evaluation. A invocação explícita conclude-spec autorizou sincronização, commits e PR. A manutenção dos14testes foi autorizada em seguida. O usuário aprovou reduzir somente o mínimo de Recall@10 do eval existente de0.90para0.89; RF/CA e revisão da funcionalidade permanecem inalterados. Publicação e CI remoto ainda pendentes. Jira/Confluence não foram alterados.
+O usuário aprovou o contrato escrito ao invocar implement-spec em 25/10/2026. A revisão1 está concluída com provas e revisões registradas em Evaluation. A invocação explícita conclude-spec autorizou sincronização, commits e PR. A manutenção dos14testes foi autorizada em seguida. O usuário aprovou reduzir somente o mínimo de Recall@10 do eval existente de0.90para0.89; RF/CA e revisão da funcionalidade permanecem inalterados. PR46 publicado, head7db714aa364da2e8bdeec52658d98e280ff85a0c,23checks de CI aprovados. Jira/Confluence não foram alterados. O fechamento factual final de Spec/Evaluation permanece local, sem commit apenas operacional, conforme conclude-spec.
 
 # Revision History
 
