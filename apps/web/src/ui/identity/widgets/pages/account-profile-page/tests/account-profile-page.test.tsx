@@ -4,14 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthError } from '@/core/errors/auth-error'
 import { ROUTES } from '@/constants/routes'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
-import { AccountPage } from '..'
-import { useAccountPage } from '../use-account-page'
-vi.mock('../use-account-page', () => ({ useAccountPage: vi.fn() }))
+import { AccountProfilePage } from '..'
+import { useAccountProfilePage } from '../use-account-profile-page'
+vi.mock('../use-account-profile-page', () => ({ useAccountProfilePage: vi.fn() }))
 vi.mock('@/ui/shared/contexts/auth-context/use-auth-context', () => ({
-  useAuthContext: () => ({
-    updateAccountProfile: vi.fn(),
-    changeAccountPassword: vi.fn(),
-  }),
+  useAuthContext: () => ({ updateAccountProfile: vi.fn() }),
 }))
 vi.mock('@/ui/shared/hooks/use-navigation', () => ({
   useNavigation: () => ({ refreshCurrentRoute: vi.fn() }),
@@ -26,12 +23,11 @@ vi.mock('@/ui/shared/widgets/components/anchor', () => ({
     </a>
   ),
 }))
-const useAccountPageMock = vi.mocked(useAccountPage)
+const useAccountProfilePageMock = vi.mocked(useAccountProfilePage)
 function createResult(
-  overrides: Partial<ReturnType<typeof useAccountPage>> = {},
-): ReturnType<typeof useAccountPage> {
+  overrides: Partial<ReturnType<typeof useAccountProfilePage>> = {},
+): ReturnType<typeof useAccountProfilePage> {
   return {
-    activeTab: 'profile',
     accountProfile: {
       accountId: 'a',
       displayName: 'Maria',
@@ -40,7 +36,6 @@ function createResult(
     },
     isLoadingAccountProfile: false,
     accountProfileError: null,
-    handleTabChange: vi.fn(),
     refetchAccountProfile: vi.fn(),
     ...overrides,
   }
@@ -48,14 +43,14 @@ function createResult(
 function renderPage() {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <AccountPage accountEmail='m@example.com' />
+      <AccountProfilePage accountEmail='m@example.com' />
     </QueryClientProvider>,
   )
 }
-describe('AccountPage', () => {
+describe('AccountProfilePage', () => {
   afterEach(cleanup)
   beforeEach(() => {
-    useAccountPageMock.mockReturnValue(createResult())
+    useAccountProfilePageMock.mockReturnValue(createResult())
     window.matchMedia = vi.fn().mockReturnValue({
       matches: true,
       addEventListener: vi.fn(),
@@ -64,7 +59,9 @@ describe('AccountPage', () => {
   })
   it('renders the real profile form and canonical privacy destinations', () => {
     renderPage()
-    expect(screen.getByRole('heading', { name: 'Sua conta' })).toBeVisible()
+    expect(useAccountProfilePageMock).toHaveBeenCalledWith({
+      accountEmail: 'm@example.com',
+    })
     expect(screen.getByLabelText('Nome de exibição')).toHaveValue('Maria')
     expect(
       screen.getByRole('link', { name: 'Consultar política de privacidade' }),
@@ -73,39 +70,19 @@ describe('AccountPage', () => {
       'href',
       expect.stringContaining('mailto:shifu.ctrlaltdel@gmail.com'),
     )
-    expect(screen.getByRole('tab', { name: 'Excluir conta' })).toHaveAttribute(
-      'aria-selected',
-      'false',
-    )
-    expect(screen.getByLabelText('Senha atual')).not.toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
-  it('renders deletion composition and delegates tab changes', () => {
-    const result = createResult({ activeTab: 'delete' })
-    useAccountPageMock.mockReturnValue(result)
-    renderPage()
-    expect(screen.getByRole('tab', { name: 'Excluir conta' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    )
-    expect(screen.getByRole('tabpanel', { name: 'Excluir conta' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Excluir minha conta' })).toBeVisible()
-    expect(screen.getByLabelText('Nome de exibição')).not.toBeVisible()
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Perfil$/ }), {
-      button: 0,
-      ctrlKey: false,
-    })
-    expect(result.handleTabChange).toHaveBeenCalledWith('profile')
-  })
-  it('shows skeleton and recoverable query failures', () => {
-    useAccountPageMock.mockReturnValue(
+  it('shows the skeleton while the profile loads', () => {
+    useAccountProfilePageMock.mockReturnValue(
       createResult({ isLoadingAccountProfile: true, accountProfile: null }),
     )
-    const { unmount } = renderPage()
+    renderPage()
     expect(screen.getByRole('status')).toHaveAccessibleName('Carregando sua conta')
-    expect(screen.getByRole('heading', { name: 'Sua conta' })).toBeVisible()
-    unmount()
+    expect(screen.queryByLabelText('Nome de exibição')).not.toBeInTheDocument()
+  })
+  it('shows a recoverable failure without inventing a profile', () => {
     const refetchAccountProfileMock = vi.fn()
-    useAccountPageMock.mockReturnValue(
+    useAccountProfilePageMock.mockReturnValue(
       createResult({
         accountProfile: null,
         accountProfileError: new AuthError('unavailable', 'Tente novamente.'),
@@ -114,17 +91,22 @@ describe('AccountPage', () => {
     )
     renderPage()
     expect(screen.getByRole('alert')).toHaveTextContent('Tente novamente.')
+    expect(screen.queryByLabelText('Nome de exibição')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
     expect(refetchAccountProfileMock).toHaveBeenCalledOnce()
   })
-  it('renders real security composition and hides inactive profile controls', () => {
-    useAccountPageMock.mockReturnValue(createResult({ activeTab: 'security' }))
-    renderPage()
-    expect(screen.getByLabelText('Senha atual')).toBeVisible()
-    expect(screen.getByLabelText('Nome de exibição')).not.toBeVisible()
-    expect(screen.getByRole('tab', { name: 'Segurança' })).toHaveAttribute(
-      'aria-selected',
-      'true',
+  it('keeps the loaded form and announces a failed refresh beside it', () => {
+    const refetchAccountProfileMock = vi.fn()
+    useAccountProfilePageMock.mockReturnValue(
+      createResult({
+        accountProfileError: new AuthError('unavailable', 'Indisponível.'),
+        refetchAccountProfile: refetchAccountProfileMock,
+      }),
     )
+    renderPage()
+    expect(screen.getByRole('alert')).toHaveTextContent('Seu rascunho foi mantido.')
+    expect(screen.getByLabelText('Nome de exibição')).toHaveValue('Maria')
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(refetchAccountProfileMock).toHaveBeenCalledOnce()
   })
 })

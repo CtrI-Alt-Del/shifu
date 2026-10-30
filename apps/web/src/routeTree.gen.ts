@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteRouteImport } from './routes/account/route'
 import { Route as GamificationRouteRouteImport } from './routes/gamification/route'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
@@ -24,6 +25,9 @@ import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-c
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
+import { Route as AccountDeleteIndexRouteImport } from './routes/account/delete/index'
+import { Route as AccountProfileIndexRouteImport } from './routes/account/profile/index'
+import { Route as AccountSecurityIndexRouteImport } from './routes/account/security/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as GamificationAchievementsIndexRouteImport } from './routes/gamification/achievements/index'
 import { Route as GamificationCalendarIndexRouteImport } from './routes/gamification/calendar/index'
@@ -50,15 +54,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRouteRoute = AccountRouteRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GamificationRouteRoute = GamificationRouteRouteImport.update({
   id: '/gamification',
   path: '/gamification',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountIndexRoute = AccountIndexRouteImport.update({
-  id: '/account/',
-  path: '/account/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AccountRouteRoute,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
@@ -120,6 +129,21 @@ const ResetPasswordIndexRoute = ResetPasswordIndexRouteImport.update({
   id: '/reset-password/',
   path: '/reset-password/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeleteIndexRoute = AccountDeleteIndexRouteImport.update({
+  id: '/delete/',
+  path: '/delete/',
+  getParentRoute: () => AccountRouteRoute,
+} as any)
+const AccountProfileIndexRoute = AccountProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
+  getParentRoute: () => AccountRouteRoute,
+} as any)
+const AccountSecurityIndexRoute = AccountSecurityIndexRouteImport.update({
+  id: '/security/',
+  path: '/security/',
+  getParentRoute: () => AccountRouteRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -258,6 +282,7 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivity
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteRouteWithChildren
   '/gamification': typeof GamificationRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
@@ -273,6 +298,9 @@ export interface FileRoutesByFullPath {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete/': typeof AccountDeleteIndexRoute
+  '/account/profile/': typeof AccountProfileIndexRoute
+  '/account/security/': typeof AccountSecurityIndexRoute
   '/gamification/achievements/': typeof GamificationAchievementsIndexRoute
   '/gamification/calendar/': typeof GamificationCalendarIndexRoute
   '/gamification/overview/': typeof GamificationOverviewIndexRoute
@@ -309,6 +337,9 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterIndexRoute
   '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete': typeof AccountDeleteIndexRoute
+  '/account/profile': typeof AccountProfileIndexRoute
+  '/account/security': typeof AccountSecurityIndexRoute
   '/gamification/achievements': typeof GamificationAchievementsIndexRoute
   '/gamification/calendar': typeof GamificationCalendarIndexRoute
   '/gamification/overview': typeof GamificationOverviewIndexRoute
@@ -331,6 +362,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteRouteWithChildren
   '/gamification': typeof GamificationRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
@@ -346,6 +378,9 @@ export interface FileRoutesById {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete/': typeof AccountDeleteIndexRoute
+  '/account/profile/': typeof AccountProfileIndexRoute
+  '/account/security/': typeof AccountSecurityIndexRoute
   '/gamification/achievements/': typeof GamificationAchievementsIndexRoute
   '/gamification/calendar/': typeof GamificationCalendarIndexRoute
   '/gamification/overview/': typeof GamificationOverviewIndexRoute
@@ -370,6 +405,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/gamification'
     | '/api/health'
     | '/account/'
@@ -385,6 +421,9 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/delete/'
+    | '/account/profile/'
+    | '/account/security/'
     | '/gamification/achievements/'
     | '/gamification/calendar/'
     | '/gamification/overview/'
@@ -421,6 +460,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/api/auth/$'
+    | '/account/delete'
+    | '/account/profile'
+    | '/account/security'
     | '/gamification/achievements'
     | '/gamification/calendar'
     | '/gamification/overview'
@@ -442,6 +484,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/gamification'
     | '/api/health'
     | '/account/'
@@ -457,6 +500,9 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/delete/'
+    | '/account/profile/'
+    | '/account/security/'
     | '/gamification/achievements/'
     | '/gamification/calendar/'
     | '/gamification/overview/'
@@ -480,9 +526,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRouteRoute: typeof AccountRouteRouteWithChildren
   GamificationRouteRoute: typeof GamificationRouteRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
-  AccountIndexRoute: typeof AccountIndexRoute
   ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
   ForgotPasswordIndexRoute: typeof ForgotPasswordIndexRoute
@@ -516,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gamification': {
       id: '/gamification'
       path: '/gamification'
@@ -525,10 +578,10 @@ declare module '@tanstack/react-router' {
     }
     '/account/': {
       id: '/account/'
-      path: '/account'
+      path: '/'
       fullPath: '/account/'
       preLoaderRoute: typeof AccountIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AccountRouteRoute
     }
     '/api/health': {
       id: '/api/health'
@@ -613,6 +666,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/reset-password/'
       preLoaderRoute: typeof ResetPasswordIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/account/delete/': {
+      id: '/account/delete/'
+      path: '/delete'
+      fullPath: '/account/delete/'
+      preLoaderRoute: typeof AccountDeleteIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
+    '/account/profile/': {
+      id: '/account/profile/'
+      path: '/profile'
+      fullPath: '/account/profile/'
+      preLoaderRoute: typeof AccountProfileIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
+    '/account/security/': {
+      id: '/account/security/'
+      path: '/security'
+      fullPath: '/account/security/'
+      preLoaderRoute: typeof AccountSecurityIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -757,6 +831,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AccountRouteRouteChildren {
+  AccountIndexRoute: typeof AccountIndexRoute
+  AccountDeleteIndexRoute: typeof AccountDeleteIndexRoute
+  AccountProfileIndexRoute: typeof AccountProfileIndexRoute
+  AccountSecurityIndexRoute: typeof AccountSecurityIndexRoute
+}
+
+const AccountRouteRouteChildren: AccountRouteRouteChildren = {
+  AccountIndexRoute: AccountIndexRoute,
+  AccountDeleteIndexRoute: AccountDeleteIndexRoute,
+  AccountProfileIndexRoute: AccountProfileIndexRoute,
+  AccountSecurityIndexRoute: AccountSecurityIndexRoute,
+}
+
+const AccountRouteRouteWithChildren = AccountRouteRoute._addFileChildren(
+  AccountRouteRouteChildren,
+)
+
 interface GamificationRouteRouteChildren {
   GamificationIndexRoute: typeof GamificationIndexRoute
   GamificationAchievementsIndexRoute: typeof GamificationAchievementsIndexRoute
@@ -814,9 +906,9 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren 
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRouteRoute: AccountRouteRouteWithChildren,
   GamificationRouteRoute: GamificationRouteRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
-  AccountIndexRoute: AccountIndexRoute,
   ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,
   ForgotPasswordIndexRoute: ForgotPasswordIndexRoute,

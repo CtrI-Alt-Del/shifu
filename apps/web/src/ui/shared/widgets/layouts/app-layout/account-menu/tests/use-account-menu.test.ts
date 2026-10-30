@@ -85,7 +85,7 @@ describe('useAccountMenu', () => {
     act(() => result.current.handleToggle())
     await act(async () => result.current.handleOpenAccount())
     expect(result.current.isOpen).toBe(false)
-    expect(navigateToMock).toHaveBeenCalledWith('account')
+    expect(navigateToMock).toHaveBeenCalledWith('accountProfile')
   })
 
   it('prevents duplicate logout requests and navigates after success', async () => {

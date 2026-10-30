@@ -23,6 +23,9 @@ export const ROUTES = {
   intelligenceMemories: '/intelligence/memories',
   intelligencePlanner: '/intelligence/planner/$planningId',
   account: '/account',
+  accountProfile: '/account/profile',
+  accountSecurity: '/account/security',
+  accountDelete: '/account/delete',
   learningActivity:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',
   learningAttempt:

@@ -56,7 +56,7 @@ export function useAccountMenu() {
     if (status === 'pending') return
     setIsOpen(false)
     try {
-      await navigateTo('account')
+      await navigateTo('accountProfile')
     } catch {
       setErrorMessage('Não foi possível abrir sua conta agora. Tente novamente.')
       setStatus('error')

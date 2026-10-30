@@ -1,13 +1,13 @@
-import { act, renderHook } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthError } from '@/core/errors/auth-error'
-import { useAccountPage } from '../use-account-page'
+import { useAccountProfilePage } from '../use-account-profile-page'
 import { useAccountProfileQuery } from '../use-account-profile-query'
 vi.mock('../use-account-profile-query', () => ({ useAccountProfileQuery: vi.fn() }))
 const useAccountProfileQueryMock = vi.mocked(useAccountProfileQuery)
-describe('useAccountPage', () => {
+describe('useAccountProfilePage', () => {
   beforeEach(() => vi.clearAllMocks())
-  it('exposes canonical query state and switches only supported tabs', async () => {
+  it('exposes the canonical profile query state for the authenticated e-mail', async () => {
     const refetchAccountProfileMock = vi.fn().mockResolvedValue(undefined)
     const profile = {
       accountId: 'a',
@@ -21,18 +21,13 @@ describe('useAccountPage', () => {
       accountProfileError: null,
       refetchAccountProfile: refetchAccountProfileMock,
     })
-    const { result } = renderHook(() => useAccountPage({ accountEmail: profile.email }))
+    const { result } = renderHook(() =>
+      useAccountProfilePage({ accountEmail: profile.email }),
+    )
     expect(useAccountProfileQueryMock).toHaveBeenCalledWith(profile.email)
-    expect(result.current.activeTab).toBe('profile')
     expect(result.current.accountProfile).toBe(profile)
-    act(() => result.current.handleTabChange('security'))
-    expect(result.current.activeTab).toBe('security')
-    act(() => result.current.handleTabChange('delete'))
-    expect(result.current.activeTab).toBe('delete')
-    act(() => result.current.handleTabChange('unsupported'))
-    expect(result.current.activeTab).toBe('delete')
-    act(() => result.current.handleTabChange('profile'))
-    expect(result.current.activeTab).toBe('profile')
+    expect(result.current.isLoadingAccountProfile).toBe(false)
+    expect(result.current.accountProfileError).toBeNull()
     await result.current.refetchAccountProfile()
     expect(refetchAccountProfileMock).toHaveBeenCalledOnce()
   })
@@ -44,7 +39,9 @@ describe('useAccountPage', () => {
       accountProfileError: failure,
       refetchAccountProfile: vi.fn(),
     })
-    const { result } = renderHook(() => useAccountPage({ accountEmail: 'm@example.com' }))
+    const { result } = renderHook(() =>
+      useAccountProfilePage({ accountEmail: 'm@example.com' }),
+    )
     expect(result.current.accountProfile).toBeNull()
     expect(result.current.isLoadingAccountProfile).toBe(true)
     expect(result.current.accountProfileError).toBe(failure)
