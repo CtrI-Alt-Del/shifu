@@ -65,7 +65,7 @@ Cadastro, entrada, reenvio de confirmação e recuperação de senha nunca revel
 
 Direção de marca: **Dojo editorial**. Fundo quase preto e quente, grid estrutural discreto, três matizes com papéis fixos, serifada expressiva nos momentos de identidade e sans neutra na operação cotidiana. A referência ao dojo aparece por disciplina, ritmo e precisão, sem transformar a aplicação em interface de videogame.
 
-O produto é **dark only** no MVP. Nenhum PRD pede tema claro, e manter um só tema evita dobrar o custo de verificação de contraste.
+O tema escuro é o padrão. O **modo claro** é uma preferência da conta definida em Identity RP-06 (Escuro, Claro ou Sistema, valor inicial Sistema). Os dois temas compartilham os mesmos papéis de token; só os valores mudam, e cada valor claro tem contraste medido na seção 3.2.
 
 ### 3.1 A regra das três matizes
 
@@ -128,6 +128,46 @@ Consequência direta do princípio P1: como latão nunca toca em nada pedagógic
 ```
 
 Todos os valores entre colchetes são razões de contraste medidas contra `--surface`, exceto `--on-*`, medidas contra o próprio preenchimento, e `--control-border`, medido contra `--raised`. Todas as combinações de texto ativo passam em AA para texto normal. `--divider`, `--glass-border` e `--grid-line` são ornamentais e não delimitam controles. Onde a borda comunica o limite de um controle, usar `--control-border`.
+
+**Modo claro**
+
+Mesmos papéis, valores próprios. Papel quente em vez de preto quente; as variantes de texto de cada matiz escurecem para passar em AA; os `--on-*` viram branco porque os sólidos ficaram escuros o bastante; selo-fill, danger, jade-fill e latao-fill não mudam, porque são marca e preenchimento, não texto. Os translúcidos passam de branco para preto com a mesma função; `--control-border` sobe para 50% para manter 3:1 sobre `--raised`. Contrastes medidos contra o `--surface` claro.
+
+```
+--page              #F4F1EA   fundo da aplicação
+--surface           #FCFBF8   cartões, listas
+--surface-alt       #EFECE4   superfície alternativa
+--raised            #E9E5DC   trilho de barra, campo, estado hover
+--divider           #0000001A linha decorativa
+--control-border    #00000080 borda de campo, caixa, controle  [3,77:1]
+--glass-fill        #00000008 superfície translúcida
+--glass-border      #0000001F borda translúcida decorativa
+--grid-line         #00000024 grid estrutural decorativo
+--text-disabled     #8C877D   apenas desabilitado             [3,45:1]
+--text-muted        #6A655C   metadado, legenda               [5,59:1]
+--text-secondary    #4B4740   texto de apoio                  [8,92:1]
+--text-primary      #1B1915   texto principal                [16,96:1]
+
+--jade-fill         #2F8C72   preenchimento de barra
+--jade-tint         #DCEFE7   fundo de selo
+--jade-solid        #247A62   barra concluída, ícone          [5,03:1]
+--jade-text         #1C6650   texto sobre claro               [6,62:1]
+--on-jade           #FFFFFF   texto sobre jade-solid          [5,20:1]
+
+--selo-tint         #FBE4E2   fundo de selo
+--selo-fill         #DC2F2F   botão primário, marca           [4,52:1]
+--selo-text         #B4231C   texto de erro, anel de foco     [6,35:1]
+--on-selo           #FFFFFF   texto sobre selo-fill           [4,68:1]
+--danger            #C0392B   botão de confirmação destrutiva [5,26:1]
+
+--latao-tint        #F7EBD3   fundo de selo, borda de cartão
+--latao-fill        #C08A22   preenchimento
+--latao-solid       #8A5F0E   número de XP, nível, sequência  [5,45:1]
+--latao-text        #6E4B08   texto sobre claro               [7,59:1]
+--on-latao          #FFFFFF   texto sobre latao-solid         [5,64:1]
+```
+
+O ideograma do logotipo usa `--selo-text` do tema ativo, não `--selo-fill`, pelo mesmo motivo nos dois temas: contraste de texto pequeno. A referência visual completa, com prova de composição, está na página 🎨 Design System de `shifu.fig`, seção Modo claro.
 
 ### 3.3 Como resolver ação destrutiva
 
@@ -332,6 +372,7 @@ Após o sucesso: confirma a alteração, avisa que **todos os acessos foram ence
 Nome de exibição editável, sem exigir senha.
 E-mail visível e explicitamente **não editável**.
 Fuso horário aparece aqui (Identity RP-06). A forma de escolha ainda não está definida no PRD — **decisão pendente do time**, desenhar como seletor e marcar como provisório.
+Aparência aparece logo após o fuso (Identity RP-06): seletor com **Escuro**, **Claro** e **Sistema**, valor inicial Sistema, salvo pelo mesmo botão do formulário e aplicado de imediato, sem pedir a senha atual.
 
 #### T08 — Conta / Segurança
 Alterar senha (senha atual + nova). Diferenciar visualmente erro de senha atual e erro de validação da nova.
