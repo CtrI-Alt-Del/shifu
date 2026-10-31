@@ -1,6 +1,6 @@
 # Shifu — Design System e Especificação de Telas
 
-Documento base para a construção do design da aplicação no Pencil (pen.dev).
+Documento base para a construção do design da aplicação no OpenPencil.
 
 Fonte de verdade: os PRDs de **Identity**, **Curriculum**, **Learning**, **Intelligence** e **Gamification** publicados no Confluence do espaço Shifu. Toda regra de comportamento citada aqui vem de um PRD. Quando este documento propõe algo que os PRDs não definem, isso é decisão de design deste documento e pode ser alterado pelo time sem contrariar requisito.
 
@@ -192,11 +192,11 @@ desktop  >= 1024
 **Desktop:** trilho lateral fixo de 52px, só ícones, com 師 no topo. Conteúdo com largura máxima de 1120px.
 **Mobile:** barra inferior com 4 itens — Objetivos, Progresso, Mentor, Conta.
 
-O Mentor é painel lateral de 566px no desktop e folha em tela cheia no mobile. Abre de qualquer área, conforme Intelligence RP-04. A largura acompanha o Pencil e o contrato aprovado em [gestão de conversas do Mentor](features/intelligence/mentor-sessions-management/spec.md).
+O Mentor é painel lateral de 566px no desktop e folha em tela cheia no mobile. Abre de qualquer área, conforme Intelligence RP-04. A largura acompanha o OpenPencil e o contrato aprovado em [gestão de conversas do Mentor](features/intelligence/mentor-sessions-management/spec.md).
 
 ## 4. Biblioteca de componentes
 
-Componentes a montar no Pencil antes das telas.
+Componentes a montar no OpenPencil antes das telas.
 
 ### 4.1 Base
 Botão (primário, secundário, texto, destrutivo × tamanhos M/L × estados normal, hover, foco, pressionado, carregando, desabilitado) · Campo de texto · Campo de senha com mostrar/ocultar · Área de texto · Rádio · Caixa de seleção · Seletor · Alternador de abas · Divisor · Etiqueta · Selo · Dica de contexto · Avatar de iniciais.
@@ -704,7 +704,7 @@ Adaptações principais no mobile:
 
 ---
 
-## 11. Ordem sugerida de construção no Pencil
+## 11. Ordem sugerida de construção no OpenPencil
 
 1. Tokens (cor, tipografia, espaço, raio, sombra)
 2. Componentes base + feedback

@@ -39,7 +39,7 @@ platform agent type.
 - current checker results and their candidate identity;
 - matching `apps/server/rest-client/<module>/<route-group>.rest` files for affected HTTP groups;
 - affected `RF-*`, `CA-*`, and integration contracts;
-- design handoff and visual-review assignment when UI is affected;
+- Design Contract artboards and visual-review assignment when UI is affected;
 - current Evaluation evidence index and known stale evidence;
 - required services, accounts, fixtures, and validation commands;
 - known findings, exclusions, and unresolved risks.

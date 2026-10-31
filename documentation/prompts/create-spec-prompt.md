@@ -242,17 +242,18 @@ Cover applicable authorization, account isolation, persistence, concurrency,
 provider failure, recovery, accessibility and secret boundaries. Specify results
 and guarantees; do not prescribe incidental algorithms or helper classes.
 
-For design-backed UI, reference one feature-local design inventory with required
-happy-path states, routes/surfaces, viewports, saved images, criteria mapping and
-allowed deviations. Reuse an existing `design/manifest.md` or `design/handoff.md`
-convention rather than duplicating it. Inspect saved references visually. Use Pencil
-skills/MCP for `.pen` inspection and exports; never read its contents with shell tools.
-Map affected widgets to source-verified semantic tokens and actual shared primitive
-variants in the handoff, including typography, spacing, surfaces, borders, focus
-and pending/error states where material. Identify preserved UI outside the change.
-Required references must be available before `ready`, or carry an explicitly
-accepted visual assumption. Negative, loading, error and recovery behavior belongs
-in automated acceptance coverage; it does not create additional manual journeys.
+For design-backed UI, write the Design Contract as a visual inventory: for each
+required happy-path state, the route/surface, the viewport, and the `shifu.fig`
+page, artboard and component names to match, with criteria mapping and allowed
+deviations. Do not extract exports into a feature-local handoff or references
+folder. Inspect the artboards through the OpenPencil MCP; never read `shifu.fig`
+with shell tools. Map affected widgets to source-verified semantic tokens and
+actual shared primitive variants in the contract, including typography, spacing,
+surfaces, borders, focus and pending/error states where material. Identify
+preserved UI outside the change. Required artboards must exist in `shifu.fig`
+before `ready`, or the Spec carries an explicitly accepted visual assumption.
+Negative, loading, error and recovery behavior belongs in automated acceptance
+coverage; it does not create additional manual journeys.
 
 ### Technical Contract
 
@@ -301,7 +302,7 @@ the slice, plus permitted owning tests. Distinguish included agents from deferre
 capabilities; do not introduce agents or integrations just to fill out the tree.
 
 Reconcile the tree with accepted naming/composition changes, declarations,
-Architecture Mapping, design handoff and checker selections before presenting the
+Architecture Mapping, Design Contract and checker selections before presenting the
 written Spec. Ordinary private helpers need no exhaustive inventory and may evolve
 under the Rules without a Spec amendment when ownership, public contracts and
 guarantees remain unchanged.

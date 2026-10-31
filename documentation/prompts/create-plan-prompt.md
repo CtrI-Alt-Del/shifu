@@ -248,11 +248,11 @@ For tasks that change UI or browser behavior, the exit must require:
 
 Save screenshots and transient browser artifacts only as validation evidence;
 do not commit them unless the repository explicitly tracks that artifact type.
-Builders use saved design references and do not depend on Pencil MCP during
-implementation or validation.
+Builders inspect the Design Contract's `shifu.fig` artboards through the
+OpenPencil MCP; no saved design references are extracted.
 
 A Builder may not start until the Orchestrator records the exact Spec revision,
-assigned phase/task, allowed paths, criteria, Rules, design references,
+assigned phase/task, allowed paths, criteria, Rules, design artboards,
 dependencies and exit condition. A task is not complete from a Builder report
 alone. On an error or discrepancy, keep the task `in_progress`, record the
 finding, invalidate affected evidence, resume the responsible Builder through

@@ -80,12 +80,12 @@ SDD aplicáveis, handoff e referências, além de atualizações relacionadas em
 `AGENTS.md`, Arquitetura, Design, Rules e prompts. Não deixe esses arquivos
 alterados apenas na worktree por parecerem documentação auxiliar.
 
-Inclua também os arquivos-fonte Pencil `.pen` modificados ou fornecidos para a
-entrega. Trate-os como artifacts opacos: nunca abra, leia, compare, procure ou
-edite seus bytes com shell ou ferramentas genéricas de filesystem. Use Pencil
-MCP para inspeção ou edição visual; para publicação, identifique e adicione o
-path exato como arquivo versionado sem expor seu conteúdo. Preserve arquivos
-Pencil que não pertençam à entrega atual.
+Inclua também o arquivo de design `shifu.fig` quando ele tiver sido modificado
+para a entrega. Trate-o como artifact opaco: nunca abra, leia, compare, procure
+ou edite seus bytes com shell ou ferramentas genéricas de filesystem. Use o
+OpenPencil MCP para inspeção ou edição visual; para publicação, adicione o path
+exato como arquivo versionado sem expor seu conteúdo. Não inclua alterações de
+design que não pertençam à entrega atual.
 
 ### Alterações novas da entrega
 

@@ -101,7 +101,7 @@ git log -10 --format='%h %s'
 Classify exact delivery paths, required factual documentation, operational ledger
 changes and unrelated work. Include required delivery documentation in ordinary
 commits; preserve unrelated changes and explicitly exclude them. Never inspect
-`.pen` bytes with filesystem tools.
+`shifu.fig` bytes with filesystem tools.
 
 For every selected criterion, confirm current implementation satisfies the Spec
 and its concrete checker. Passing tests alone do not establish complete contract

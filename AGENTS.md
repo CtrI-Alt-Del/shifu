@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Tool availability and usage
 
-Shifu uses the Pencil, Context7, Atlassian Shifu, and local Inngest MCP servers
+Shifu uses the OpenPencil, Context7, Atlassian Shifu, and local Inngest MCP servers
 when a task matches their purpose. Local source, repository documentation, and
 normal validation commands remain the primary implementation evidence. Use the
 Playwright CLI for browser interaction and validation; do not substitute
@@ -95,15 +95,23 @@ context that is not available in the repository.
 - If access is unavailable, continue only when local sources are sufficient and
   report the limitation.
 
-## Pencil MCP
+## OpenPencil MCP
 
-Use Pencil for `.pen` files, Pencil node inspection/editing, design-system work,
-design-to-code implementation, and visual validation tied to a Pencil design.
-Use the Pencil design skill when available.
+The design source is `shifu.fig` at the repository root, read and edited only
+through the OpenPencil MCP. Use it for node inspection, design-system work,
+design-to-code implementation, and visual validation. There is no design
+extraction step: do not export artboards into feature-local handoff or
+reference folders. The Spec names the `shifu.fig` pages, artboards and
+components to match, and the agent exports them on demand with the MCP when it
+validates. The legacy `design/shifu.pen` file and the existing feature `design/`
+folders are historical records, not a validation source for new work.
 
-Before a Pencil operation, obtain editor state with schema when it is not
-already known. Treat `.pen` files as encrypted design documents: never inspect,
-search, or modify their contents with shell or generic filesystem tools.
+Treat `shifu.fig` as an opaque binary: never inspect, search, diff, or modify
+its bytes with shell or generic filesystem tools. Read it with the MCP node
+tree, node and JSX tools and render it with the MCP image export. Write to it
+one MCP call at a time, save explicitly after every two or three edits, and stop
+at the first engine error instead of retrying. Node ids change whenever the file
+is reopened, so re-read them before editing.
 
 Classify a proposed design edit before changing it:
 
@@ -112,21 +120,23 @@ Classify a proposed design edit before changing it:
 - A change to actors, permissions, workflow, states, validation, scope, or
   business outcomes is a product-behavior change. Outside an active Spec, read
   the complete Confluence PRD, present the required amendment, obtain explicit
-  approval, update Confluence, and reread it before editing Pencil. Inside an
+  approval, update Confluence, and reread it before editing the design. Inside an
   active Spec, use the contract-amendment workflow.
 
-When implementing a Pencil design:
+When implementing a design from `shifu.fig`:
 
 1. read the applicable UI, routing, and widget-testing rules;
-2. inspect the relevant nodes and reusable design-system components;
-3. map Pencil values to existing Shifu tokens rather than introducing parallel
+2. inspect the relevant artboards and reusable components with the MCP;
+3. map design values to existing Shifu tokens rather than introducing parallel
    colors, spacing, typography, radii, or shadows;
 4. implement the smallest coherent widget, page, or route boundary;
 5. trace approved design changes to all owning source and test paths;
-6. validate runtime behavior and appearance with Playwright CLI.
+6. validate runtime behavior with Playwright CLI, and appearance by comparing
+   fresh Playwright captures with fresh OpenPencil exports of the same
+   artboards, states, and viewports.
 
-Do not finish with only a `.pen` change when the request also includes production
-implementation.
+Do not finish with only a `shifu.fig` change when the request also includes
+production implementation.
 
 ## Context7 MCP
 
@@ -215,8 +225,9 @@ For authenticated flows, load
 sign in through the visible form and save a fresh state. Keep storage state
 local, and never print, stage, or commit it. Use fresh snapshots and accessible
 locators; check the resulting URL, visible outcome, relevant requests, console
-errors, and keyboard path. For UI changes, capture and inspect fresh screenshots
-of the Spec-required states and viewports against their design references.
+errors, and keyboard path. For UI changes, capture fresh screenshots of the
+Spec-required states and viewports and inspect them against fresh OpenPencil
+exports of the matching `shifu.fig` artboards.
 
 Keep Playwright test results, test-results evidence, HTML reports, and other
 browser logs under `apps/web/.playwright-cli/logs/`. Keep screenshots,

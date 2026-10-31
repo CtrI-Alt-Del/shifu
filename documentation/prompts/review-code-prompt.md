@@ -27,8 +27,8 @@ Inspect `git status --short` first. Preserve unrelated work. Record the branch,
   staged and unstaged changes) and relevant untracked files. State that this
   does not include earlier commits.
 
-Do not assume an empty committed diff means an empty worktree. Do not open `.pen`
-files with shell or generic filesystem tools. If the requested comparison is
+Do not assume an empty committed diff means an empty worktree. Do not open `shifu.fig`
+with shell or generic filesystem tools. If the requested comparison is
 invalid or empty, say so before giving a verdict. GitHub inline comments need
 an actual PR; a local-only review can still be discussed without posting.
 

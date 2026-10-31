@@ -94,11 +94,13 @@ action request and follow `AGENTS.md`.
 ```text
 documentation/features/<module>/<feature>/
 ├── spec.md                 # contract and checkers
-├── evaluation.md           # evidence, findings and current handoff
-└── design/                 # saved references when material
-    ├── handoff.md           # or an existing Spec-approved manifest.md
-    └── references/
+└── evaluation.md           # evidence, findings and current handoff
 ```
+
+Design references are not extracted into the feature directory. The Spec's
+Design Contract names the `shifu.fig` pages, artboards and components to match,
+and agents read and export them through the OpenPencil MCP when they validate.
+Existing feature `design/` folders are historical records.
 
 Use lowercase kebab-case module/feature slugs and the
 [Spec](templates/sdd/spec.md) and [Evaluation](templates/sdd/evaluation.md)
@@ -156,13 +158,15 @@ readiness, actors/authentication, data relationships/initial state, isolated rer
 and cleanup. A service being up does not prove route/function registration or
 an authenticated account's eligibility. No setup authorizes shared-data resets.
 
-For design-backed UI, link a feature-local handoff/manifest identifying required
-happy-path surfaces, states, viewports, references, criteria and accepted deviations.
-Verify saved images exist and inspect them visually. Map affected widgets to
+For design-backed UI, the Design Contract names the `shifu.fig` page, artboards
+and components for each required happy-path surface, state and viewport, with
+criteria and accepted deviations. Inspect them through the OpenPencil MCP; do not
+extract exports into the feature directory. Map affected widgets to
 source-verified semantic tokens and actual primitive variants; keep preserved UI
-outside the redesign scope. Use Pencil MCP only for encrypted `.pen` sources.
-Implementation captures/traces belong in ignored browser/test output or CI
-artifacts, linked from Evaluation rather than new feature-local evidence folders.
+outside the redesign scope. Visual checks compare fresh Playwright captures with
+fresh OpenPencil exports of the same artboards. Implementation captures/traces
+belong in ignored browser/test output or CI artifacts, linked from Evaluation
+rather than new feature-local evidence folders.
 
 Use stable Shifu identifiers:
 

@@ -90,7 +90,7 @@ Pastas do repositório:
 - **`packages/studio`**: pacote de apoio com interface própria
 - **`packages/iac`**: laboratório Terraform de armazenamento S3
 - **`iac`**: Terraform da infraestrutura de staging na AWS
-- **`design`**: arquivo de design no Pencil (`shifu.pen`) e referências visuais
+- **`design`**: arquivo legado do Pencil (`shifu.pen`) e referências visuais históricas; o design atual é `shifu.fig` na raiz, editado com o OpenPencil
 - **`documentation`**: arquitetura, módulos, regras de engenharia, especificações e relatórios das sprints
 
 ## ▶️ Como executar o projeto

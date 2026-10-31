@@ -23,7 +23,7 @@ detail warranted by the changed contracts and risks.
 | <capability and actor> | <bounded delivery> | <adjacent behavior> |
 
 Classify selected RP outcomes as full, partial or deferred without weakening the
-PRD. Link the design handoff/manifest for affected UI states and viewports.
+PRD. Name the `shifu.fig` artboards for affected UI states and viewports.
 
 # Behavior Contract
 
@@ -61,7 +61,7 @@ modified `[M]` files; keep deletions in the mapping. For UI, show the approved
 page/layout and reused component boundaries, nested child widgets, entrypoints,
 colocated behavior hooks and permitted `tests/` locations. Explain shared state
 and local interaction ownership. Match names and test paths to the declarations,
-design handoff and Verification Contract; a tree shown only in chat is insufficient.
+Design Contract and Verification Contract; a tree shown only in chat is insufficient.
 Show affected context/provider/value/consumer-hook paths and concrete domain
 query/action-hook filenames. Explain provider/operation/widget dependency direction,
 shared state, read/write/retry ownership and approved cache/refetch behavior;
@@ -146,7 +146,7 @@ keyboard/focus, required narrow viewport and cleanup as applicable>
 
 **Criteria:** <CA IDs>
 
-**Reference / setup:** <manifest entry, exact viewport, related Manual check>
+**Reference / setup:** <`shifu.fig` page and artboard, exact viewport, related Manual check>
 
 **Capture / comparison:** <reuse current Manual capture where possible; inspect it>
 
