@@ -34,6 +34,30 @@ run "foundation_contract" {
   }
 
   assert {
+    condition = (
+      one(aws_ecs_task_definition.web.runtime_platform).cpu_architecture == "ARM64" &&
+      one(aws_ecs_task_definition.api.runtime_platform).cpu_architecture == "ARM64"
+    )
+    error_message = "Staging tasks must run on ARM64 to reduce Fargate cost."
+  }
+
+  assert {
+    condition = (
+      one(aws_ecs_service.web.capacity_provider_strategy).capacity_provider == "FARGATE_SPOT" &&
+      one(aws_ecs_service.api.capacity_provider_strategy).capacity_provider == "FARGATE_SPOT"
+    )
+    error_message = "Staging services must run on Fargate Spot to reduce cost."
+  }
+
+  assert {
+    condition = (
+      one(aws_ecs_service.web.network_configuration).assign_public_ip &&
+      one(aws_ecs_service.api.network_configuration).assign_public_ip
+    )
+    error_message = "Staging tasks need public IPs because staging has no NAT Gateway."
+  }
+
+  assert {
     condition     = aws_db_instance.postgres.engine_version == "17" && aws_db_instance.postgres.instance_class == "db.t4g.micro"
     error_message = "RDS must use PostgreSQL 17 on db.t4g.micro."
   }

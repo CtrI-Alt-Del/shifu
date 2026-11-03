@@ -17,6 +17,16 @@ resource "aws_ecs_cluster" "staging" {
   }
 }
 
+resource "aws_ecs_cluster_capacity_providers" "staging" {
+  cluster_name       = aws_ecs_cluster.staging.name
+  capacity_providers = ["FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
+}
+
 resource "aws_service_discovery_private_dns_namespace" "staging" {
   name        = "${var.environment}.${var.project_name}.internal"
   description = "Private service discovery for Shifu staging"
@@ -48,7 +58,7 @@ resource "aws_ecs_task_definition" "web" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = "ARM64"
   }
 
   container_definitions = jsonencode([
@@ -99,7 +109,7 @@ resource "aws_ecs_task_definition" "api" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = "ARM64"
   }
 
   container_definitions = jsonencode([
@@ -152,7 +162,11 @@ resource "aws_ecs_service" "web" {
   cluster         = aws_ecs_cluster.staging.id
   task_definition = aws_ecs_task_definition.web.arn
   desired_count   = var.services_enabled ? 1 : 0
-  launch_type     = "FARGATE"
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
 
   health_check_grace_period_seconds = 60
 
@@ -164,7 +178,7 @@ resource "aws_ecs_service" "web" {
   network_configuration {
     subnets          = aws_subnet.application[*].id
     security_groups  = [aws_security_group.web.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -173,7 +187,7 @@ resource "aws_ecs_service" "web" {
     container_port   = 7000
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
 }
 
 resource "aws_ecs_service" "api" {
@@ -181,7 +195,11 @@ resource "aws_ecs_service" "api" {
   cluster         = aws_ecs_cluster.staging.id
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = var.services_enabled ? 1 : 0
-  launch_type     = "FARGATE"
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
 
   health_check_grace_period_seconds = 60
 
@@ -193,7 +211,7 @@ resource "aws_ecs_service" "api" {
   network_configuration {
     subnets          = aws_subnet.application[*].id
     security_groups  = [aws_security_group.api.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -207,5 +225,5 @@ resource "aws_ecs_service" "api" {
     container_name = "api"
   }
 
-  depends_on = [aws_lb_listener_rule.inngest]
+  depends_on = [aws_lb_listener_rule.inngest, aws_ecs_cluster_capacity_providers.staging]
 }

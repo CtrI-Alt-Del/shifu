@@ -71,8 +71,8 @@ disponibilidade (AZs)**. Em cada AZ:
 
 | Camada | Sub-redes | Recursos e acesso |
 | --- | --- | --- |
-| Pública | Uma por AZ | ALB e NAT Gateway; rota para o Internet Gateway |
-| Aplicação | Uma privada por AZ | Tarefas ECS de Web e API; sem IP público |
+| Pública | Uma por AZ | ALB e, em produção, NAT Gateway; rota para o Internet Gateway |
+| Aplicação | Uma por AZ | Tarefas ECS de Web e API; privada e sem IP público em produção; em staging, rota para o Internet Gateway e IP público, com entrada permitida só pelo ALB |
 | Dados | Uma privada por AZ | RDS e Redis; sem rota direta para a internet |
 
 Em produção, cada serviço ECS mantém tarefas nas duas AZs, com capacidade
@@ -80,12 +80,15 @@ para continuar atendendo se uma AZ falhar. O RDS usa implantação Multi-AZ.
 Staging usa capacidade reduzida e RDS Single-AZ; isso diminui custo e não
 oferece a mesma disponibilidade de produção.
 
-As tarefas privadas precisam de saída HTTPS para Inngest Cloud, Resend e
-OpenRouter. Produção usa um NAT Gateway por AZ. Staging usa um NAT Gateway
-compartilhado, assumindo explicitamente o ponto único de falha e o tráfego
-entre AZs. VPC endpoints para serviços AWS, como ECR, Secrets Manager e
-CloudWatch, são uma otimização posterior cuja seleção depende de medição de
-custo e tráfego.
+As tarefas precisam de saída HTTPS para Inngest Cloud, Resend e OpenRouter.
+Produção usa um NAT Gateway por AZ. Staging não tem NAT Gateway, para caber no
+orçamento: as tarefas recebem IP público e saem direto pelo Internet Gateway.
+Os security groups das tarefas não têm regra de entrada pública; somente o ALB
+e, para a API, a Web alcançam as portas das aplicações. Staging também roda em
+Fargate Spot com arquitetura ARM64, o que reduz custo e aceita interrupções de
+tarefas. As imagens de staging devem ser publicadas para `linux/arm64`. VPC
+endpoints para serviços AWS, como ECR, Secrets Manager e CloudWatch, são uma
+otimização posterior cuja seleção depende de medição de custo e tráfego.
 
 Os security groups devem permitir somente os fluxos necessários:
 
@@ -226,7 +229,7 @@ final do pipeline e a política de rollback ainda precisam ser definidos.
 | --- | --- |
 | Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
 | Laboratório | Configuração Terraform em `packages/iac`, somente com S3 e arquivos fictícios para a primeira entrega. Independente do runtime do Shifu. |
-| Staging | Configuração Terraform, estado e segredos próprios; ECS Fargate com capacidade reduzida, RDS Single-AZ, Redis privado, um NAT Gateway, Inngest Cloud e Resend. |
+| Staging | Configuração Terraform, estado e segredos próprios; ECS Fargate Spot ARM64 com capacidade reduzida e IP público nas tarefas, sem NAT Gateway, RDS Single-AZ, Redis privado, Inngest Cloud e Resend. |
 | Produção | Configuração Terraform, estado e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
 
 Terraform deve criar e atualizar os recursos AWS de cada ambiente, inclusive
