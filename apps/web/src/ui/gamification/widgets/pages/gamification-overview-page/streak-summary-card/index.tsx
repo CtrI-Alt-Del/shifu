@@ -14,7 +14,7 @@ export type StreakSummaryCardProps = {
 export const StreakSummaryCard = ({ streak }: StreakSummaryCardProps) => (
   <motion.section
     aria-labelledby='gamification-overview-streak-title'
-    className='flex flex-col gap-4 rounded-[10px] bg-card p-6'
+    className='flex flex-col gap-4 rounded-[12px] bg-card p-6'
     variants={ENTRANCE_SECTION}
   >
     <h3

@@ -22,7 +22,7 @@ export const MemoryListItem = ({ memory, isSelected, onSelect }: MemoryListItemP
     <motion.li variants={ENTRANCE_ROW}>
       <button
         aria-pressed={isSelected}
-        className={`flex min-h-11 w-full flex-col items-start gap-1 rounded-[10px] border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text ${isSelected ? 'border-jade-solid bg-jade-tint' : 'border-border bg-card hover:border-control-border'}`}
+        className={`flex min-h-11 w-full flex-col items-start gap-1 rounded-[12px] border px-4 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text ${isSelected ? 'border-jade-solid bg-jade-tint' : 'border-border bg-card hover:border-control-border'}`}
         onClick={() => onSelect(memory.id)}
         type='button'
       >

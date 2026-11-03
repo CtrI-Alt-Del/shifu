@@ -26,7 +26,7 @@ export const MonthNavigator = ({
       <div className='flex items-center gap-2'>
         <button
           aria-label='Mês anterior'
-          className='flex size-11 items-center justify-center rounded-[10px] border border-control-border bg-surface-alt disabled:border-transparent disabled:bg-transparent disabled:text-muted-foreground'
+          className='flex size-11 items-center justify-center rounded-[12px] border border-control-border bg-surface-alt disabled:border-transparent disabled:bg-transparent disabled:text-muted-foreground'
           disabled={isAtEarliestMonth}
           onClick={onPreviousMonth}
           type='button'
@@ -35,7 +35,7 @@ export const MonthNavigator = ({
         </button>
         <button
           aria-label='Próximo mês'
-          className='flex size-11 items-center justify-center rounded-[10px] border border-control-border bg-surface-alt disabled:border-transparent disabled:bg-transparent disabled:text-muted-foreground'
+          className='flex size-11 items-center justify-center rounded-[12px] border border-control-border bg-surface-alt disabled:border-transparent disabled:bg-transparent disabled:text-muted-foreground'
           disabled={isAtCurrentMonth}
           onClick={onNextMonth}
           type='button'

@@ -17,13 +17,13 @@ export const AchievementCard = (props: AchievementCardProps) => {
 
   return (
     <motion.article
-      className='flex min-h-[200px] flex-col gap-3 rounded-[10px] bg-card p-4'
+      className='flex min-h-[200px] flex-col gap-3 rounded-[12px] bg-card p-4'
       variants={ENTRANCE_CARD}
       whileHover={{ y: -3 }}
     >
       <div className='flex gap-3'>
         <motion.span
-          className={`grid size-10 shrink-0 place-items-center rounded-[10px] ${isLocked ? 'bg-muted text-muted-foreground' : 'bg-latao-tint text-latao-solid'}`}
+          className={`grid size-10 shrink-0 place-items-center rounded-[12px] ${isLocked ? 'bg-muted text-muted-foreground' : 'bg-latao-tint text-latao-solid'}`}
           variants={isLocked ? undefined : ENTRANCE_MEDAL}
         >
           <Icon name={medalIcon} size={20} />

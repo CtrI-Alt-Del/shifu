@@ -37,22 +37,22 @@ export const GoalDetailFeedback = (props: GoalDetailFeedbackProps) => {
         </div>
         <div
           aria-hidden='true'
-          className='relative h-[40rem] overflow-hidden rounded-[10px] border border-border bg-surface-alt px-5'
+          className='relative h-[40rem] overflow-hidden rounded-[12px] border border-border bg-surface-alt px-5'
         >
           <Skeleton className='absolute left-3 top-3 size-11' />
           <div className='mx-auto flex h-full max-w-[388px] flex-col items-center pt-28'>
-            <div className='w-full rounded-[10px] border border-border bg-card p-4'>
+            <div className='w-full rounded-[12px] border border-border bg-card p-4'>
               <Skeleton className='h-5 w-2/3' />
               <Skeleton className='mt-2 h-4 w-1/3' />
             </div>
             <div className='h-14 w-px bg-border' />
-            <div className='w-full max-w-[352px] rounded-[10px] border border-border bg-card p-4'>
+            <div className='w-full max-w-[352px] rounded-[12px] border border-border bg-card p-4'>
               <Skeleton className='h-5 w-3/4' />
               <Skeleton className='mt-5 h-2 w-full' />
               <Skeleton className='mt-3 h-4 w-1/2' />
             </div>
             <div className='h-10 w-px bg-border' />
-            <div className='w-full max-w-[352px] rounded-[10px] border border-border bg-card p-4'>
+            <div className='w-full max-w-[352px] rounded-[12px] border border-border bg-card p-4'>
               <Skeleton className='h-5 w-2/3' />
               <Skeleton className='mt-5 h-2 w-full' />
               <Skeleton className='mt-3 h-4 w-1/3' />
@@ -67,7 +67,7 @@ export const GoalDetailFeedback = (props: GoalDetailFeedbackProps) => {
 
   if (props.state === 'empty') {
     return (
-      <section className='flex min-h-[540px] flex-col items-center justify-center rounded-[10px] border border-border bg-surface-alt p-8 text-center'>
+      <section className='flex min-h-[540px] flex-col items-center justify-center rounded-[12px] border border-border bg-surface-alt p-8 text-center'>
         <span className='flex size-12 items-center justify-center rounded-full bg-muted'>
           <Icon className='text-foreground/80' name='network' size={22} />
         </span>

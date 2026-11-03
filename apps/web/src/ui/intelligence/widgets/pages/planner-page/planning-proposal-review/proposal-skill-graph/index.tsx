@@ -57,7 +57,7 @@ export const ProposalSkillGraph = ({
   return (
     <section
       aria-label='Grafo das Habilidades propostas'
-      className='relative h-[50rem] overflow-hidden rounded-[10px] border border-border bg-surface-alt lg:h-[40rem]'
+      className='relative h-[50rem] overflow-hidden rounded-[12px] border border-border bg-surface-alt lg:h-[40rem]'
       ref={graphRef}
     >
       <div className='group absolute left-1.5 top-1.5 z-10'>

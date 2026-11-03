@@ -14,7 +14,7 @@ export type GoalSkillListProps = {
 export const GoalSkillList = ({ goalId, skills, onRemoveSkill }: GoalSkillListProps) => (
   <motion.ul
     aria-label='Habilidades do objetivo'
-    className='divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-surface-alt px-2'
+    className='divide-y divide-border overflow-hidden rounded-[12px] border border-border bg-surface-alt px-2'
     variants={ENTRANCE_SECTION}
   >
     {skills.map((skill) => (

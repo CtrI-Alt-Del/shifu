@@ -66,7 +66,7 @@ export const MentorActionCard = ({
   return (
     <section
       aria-labelledby={titleId}
-      className='flex w-full min-w-0 max-w-[640px] flex-col gap-3 rounded-[10px] border border-border bg-surface-alt px-[18px] py-4 text-foreground'
+      className='flex w-full min-w-0 max-w-[640px] flex-col gap-3 rounded-[12px] border border-border bg-surface-alt px-[18px] py-4 text-foreground'
     >
       <div className={isTitleVisible ? 'flex items-center gap-3' : 'sr-only'}>
         <span

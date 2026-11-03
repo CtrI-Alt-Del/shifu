@@ -23,7 +23,7 @@ export const SkillRecommendationCard = ({
   return (
     <section
       aria-labelledby='skill-recommendation-title'
-      className='flex flex-col gap-3 rounded-[10px] bg-surface-alt p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-4'
+      className='flex flex-col gap-3 rounded-[12px] bg-surface-alt p-[18px] sm:flex-row sm:items-center sm:justify-between sm:gap-4'
     >
       <div className='flex min-w-0 flex-col gap-2'>
         <p className='flex flex-wrap items-center gap-2'>

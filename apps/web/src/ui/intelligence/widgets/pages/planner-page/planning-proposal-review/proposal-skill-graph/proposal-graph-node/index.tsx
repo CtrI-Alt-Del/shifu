@@ -16,7 +16,7 @@ export type ProposalFlowNodeType = ProposalGraphNodeType | ProposalRootNodeType
 export const ProposalRootNode = ({ data }: NodeProps<ProposalRootNodeType>) => (
   <article
     aria-label={`Proposta de Objetivo: ${data.title}`}
-    className='flex items-center gap-3 rounded-[10px] border border-selo-text bg-accent px-4 py-3.5'
+    className='flex items-center gap-3 rounded-[12px] border border-selo-text bg-accent px-4 py-3.5'
     style={{ width: data.width }}
   >
     <span className='grid size-10 shrink-0 place-items-center rounded-md bg-primary text-primary-foreground'>
@@ -38,7 +38,7 @@ export const ProposalGraphNode = ({ data }: NodeProps<ProposalGraphNodeType>) =>
   return (
     <article
       aria-label={`Habilidade ${skill.name}`}
-      className='flex flex-col gap-3 rounded-[10px] border border-border bg-surface-alt px-4 py-3 transition-colors focus-within:border-control-border hover:border-control-border'
+      className='flex flex-col gap-3 rounded-[12px] border border-border bg-surface-alt px-4 py-3 transition-colors focus-within:border-control-border hover:border-control-border'
       style={{ width: data.width }}
     >
       <Handle className='opacity-0' position={Position.Top} type='target' />

@@ -33,7 +33,7 @@ export const XpHistoryRow = ({ entry }: XpHistoryRowProps) => {
       <div className='flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:gap-6'>
         <div
           aria-hidden='true'
-          className='flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-latao-tint'
+          className='flex size-9 shrink-0 items-center justify-center rounded-[12px] bg-latao-tint'
         >
           <Icon
             className='text-latao-text'

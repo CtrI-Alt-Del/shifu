@@ -28,7 +28,7 @@ export const CalendarDayCell = ({
     <motion.button
       aria-current={isSelected ? 'date' : undefined}
       aria-label={`${label}, ${CALENDAR_DAY_STATE_LABEL[day.state]}`}
-      className={`flex h-16 flex-col items-center justify-center gap-2 rounded-[10px] ${presentation.surface} ${isSelected ? 'ring-1 ring-latao-solid' : ''}`}
+      className={`flex h-16 flex-col items-center justify-center gap-2 rounded-[12px] ${presentation.surface} ${isSelected ? 'ring-1 ring-latao-solid' : ''}`}
       onClick={() => onSelect(day)}
       type='button'
       variants={ENTRANCE_POP}

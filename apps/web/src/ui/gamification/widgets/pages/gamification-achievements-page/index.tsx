@@ -65,7 +65,7 @@ export const GamificationAchievementsPage = () => {
 
   if (state === 'empty') {
     return (
-      <section className='flex min-h-[320px] flex-col items-center justify-center rounded-[10px] border border-border bg-surface-alt p-8 text-center'>
+      <section className='flex min-h-[320px] flex-col items-center justify-center rounded-[12px] border border-border bg-surface-alt p-8 text-center'>
         <span className='flex size-12 items-center justify-center rounded-full bg-muted'>
           <Icon className='text-foreground/80' name='trophy' size={22} />
         </span>

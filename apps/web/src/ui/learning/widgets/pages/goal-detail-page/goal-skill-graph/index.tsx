@@ -61,7 +61,7 @@ export const GoalSkillGraph = ({
   return (
     <section
       aria-label='Grafo de Habilidades'
-      className='relative h-[40rem] overflow-hidden rounded-[10px] border border-border bg-surface-alt'
+      className='relative h-[40rem] overflow-hidden rounded-[12px] border border-border bg-surface-alt'
       onBlurCapture={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) handleNodeFocus(null)
       }}

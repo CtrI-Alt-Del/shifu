@@ -17,7 +17,7 @@ export const MemoriesFeedback = ({
       <div aria-busy='true' className='space-y-3'>
         <output className='sr-only'>Carregando memórias.</output>
         {[0, 1, 2, 3].map((item) => (
-          <Skeleton className='h-20 w-full rounded-[10px]' key={item} />
+          <Skeleton className='h-20 w-full rounded-[12px]' key={item} />
         ))}
       </div>
     )
@@ -26,7 +26,7 @@ export const MemoriesFeedback = ({
   if (status === 'error') {
     return (
       <div
-        className='flex flex-col items-start gap-3 rounded-[10px] border border-border bg-card p-6'
+        className='flex flex-col items-start gap-3 rounded-[12px] border border-border bg-card p-6'
         role='alert'
       >
         <h2 className='font-serif text-2xl font-normal'>
@@ -48,7 +48,7 @@ export const MemoriesFeedback = ({
 
   if (status === 'not-found') {
     return (
-      <div className='flex flex-col items-start gap-3 rounded-[10px] border border-border bg-card p-6'>
+      <div className='flex flex-col items-start gap-3 rounded-[12px] border border-border bg-card p-6'>
         <h2 className='font-serif text-2xl font-normal'>Memória não encontrada</h2>
         <p className='text-sm text-muted-foreground'>
           Esta memória não existe mais ou nunca esteve na sua conta.
@@ -59,7 +59,7 @@ export const MemoriesFeedback = ({
 
   if (status === 'empty-filtered') {
     return (
-      <div className='flex flex-col items-start gap-3 rounded-[10px] border border-border bg-card p-6'>
+      <div className='flex flex-col items-start gap-3 rounded-[12px] border border-border bg-card p-6'>
         <h2 className='font-serif text-2xl font-normal'>Nenhuma memória encontrada</h2>
         <p className='text-sm text-muted-foreground'>
           Nenhuma memória corresponde à busca ou ao filtro escolhido.
@@ -76,7 +76,7 @@ export const MemoriesFeedback = ({
   }
 
   return (
-    <div className='flex flex-col items-start gap-3 rounded-[10px] border border-border bg-card p-6'>
+    <div className='flex flex-col items-start gap-3 rounded-[12px] border border-border bg-card p-6'>
       <h2 className='font-serif text-2xl font-normal'>Você ainda não tem memórias</h2>
       <p className='text-sm text-muted-foreground'>
         Quando você contar ao Mentor como prefere aprender, o que já sabe ou o que quer

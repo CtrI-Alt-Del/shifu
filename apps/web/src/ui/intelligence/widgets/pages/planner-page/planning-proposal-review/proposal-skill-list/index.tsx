@@ -11,7 +11,7 @@ export type ProposalSkillListProps = {
 export const ProposalSkillList = ({ skills }: ProposalSkillListProps) => (
   <ul
     aria-label='Habilidades sugeridas'
-    className='overflow-hidden rounded-[10px] border border-border bg-surface-alt p-1.5'
+    className='overflow-hidden rounded-[12px] border border-border bg-surface-alt p-1.5'
   >
     {skills.map((skill, index) => (
       <motion.li

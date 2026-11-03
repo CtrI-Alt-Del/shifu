@@ -78,8 +78,8 @@ export const PlannerPage = (props: PlannerPageProps) => {
             className='flex flex-col gap-6'
           >
             <Skeleton className='h-[52px] w-72 max-w-full' />
-            <Skeleton className='h-[79px] w-full rounded-[10px]' />
-            <Skeleton className='h-[77px] w-full rounded-[10px]' />
+            <Skeleton className='h-[79px] w-full rounded-[12px]' />
+            <Skeleton className='h-[77px] w-full rounded-[12px]' />
             <span className='sr-only'>Carregando planejamento…</span>
           </output>
         ) : null}

@@ -6,7 +6,7 @@ export const PlanningIntentSummary = ({ intent }: PlanningIntentSummaryProps) =>
   return (
     <section
       aria-label='Intenção do planejamento'
-      className='rounded-[10px] border border-border bg-muted p-4'
+      className='rounded-[12px] border border-border bg-muted p-4'
     >
       <p className='text-xs font-medium leading-[1.45] text-muted-foreground'>
         O que você quer alcançar

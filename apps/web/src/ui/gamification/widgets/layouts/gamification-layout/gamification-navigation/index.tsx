@@ -20,7 +20,7 @@ export const GamificationNavigation = () => {
         {SECTIONS.map((section) => (
           <li className='shrink-0' key={section.route}>
             <Anchor
-              className='inline-flex h-11 items-center rounded-[10px] px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-latao-tint data-[status=active]:text-latao-text'
+              className='inline-flex h-11 items-center rounded-[12px] px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground data-[status=active]:bg-latao-tint data-[status=active]:text-latao-text'
               route={section.route}
             >
               {section.label}

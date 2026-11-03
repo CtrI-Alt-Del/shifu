@@ -38,7 +38,7 @@ export const StreakPanel = ({ streak, today, isTodayPending }: StreakPanelProps)
         />
       </p>
 
-      <div className='space-y-3 rounded-[10px] bg-surface-alt p-6'>
+      <div className='space-y-3 rounded-[12px] bg-surface-alt p-6'>
         <p className='flex items-center gap-2 font-medium'>
           <Icon
             className='text-latao-text'

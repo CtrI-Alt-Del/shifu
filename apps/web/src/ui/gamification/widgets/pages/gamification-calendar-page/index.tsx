@@ -85,7 +85,7 @@ export const GamificationCalendarPage = () => {
       <motion.div className='flex flex-col gap-8 lg:flex-row' variants={ENTRANCE_STAGGER}>
         <motion.section
           aria-label='Calendário de prática'
-          className='flex-1 space-y-6 rounded-[10px] bg-card p-6'
+          className='flex-1 space-y-6 rounded-[12px] bg-card p-6'
           variants={ENTRANCE_SECTION}
         >
           <MonthNavigator

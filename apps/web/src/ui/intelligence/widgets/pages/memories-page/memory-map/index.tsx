@@ -44,7 +44,7 @@ export const MemoryMap = (props: MemoryMapProps) => {
   return (
     <motion.section
       aria-label='Mapa de memórias'
-      className='rounded-[10px] border border-border bg-card p-4 lg:p-6'
+      className='rounded-[12px] border border-border bg-card p-4 lg:p-6'
       ref={containerRef}
       variants={ENTRANCE_SECTION}
     >

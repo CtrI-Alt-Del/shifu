@@ -17,7 +17,7 @@ export type GoalRootNodeType = Node<{ title: string }, 'goalRoot'>
 export type GoalFlowNodeType = GoalGraphNodeType | GoalRootNodeType
 
 export const GoalRootNode = ({ data }: NodeProps<GoalRootNodeType>) => (
-  <article className='flex w-[388px] items-center gap-3 rounded-[10px] border border-selo-text bg-accent p-4'>
+  <article className='flex w-[388px] items-center gap-3 rounded-[12px] border border-selo-text bg-accent p-4'>
     <span className='flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground'>
       <Icon name='target' size={18} />
     </span>
@@ -32,7 +32,7 @@ export const GoalRootNode = ({ data }: NodeProps<GoalRootNodeType>) => (
 export const GoalGraphNode = ({ data }: NodeProps<GoalGraphNodeType>) => {
   const { goalId, skill, onRemove } = data
   return (
-    <article className='w-88 rounded-[10px] border border-border bg-surface-alt p-4 transition-colors hover:border-control-border focus-within:border-control-border'>
+    <article className='w-88 rounded-[12px] border border-border bg-surface-alt p-4 transition-colors hover:border-control-border focus-within:border-control-border'>
       <Handle className='opacity-0' position={Position.Top} type='target' />
       <div className='flex items-start justify-between gap-3'>
         <span

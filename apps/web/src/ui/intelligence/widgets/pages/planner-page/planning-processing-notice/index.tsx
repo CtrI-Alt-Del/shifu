@@ -16,7 +16,7 @@ export const PlanningProcessingNotice = ({
   return (
     <div
       aria-live='polite'
-      className='flex items-center gap-3 rounded-[10px] border border-border bg-surface-alt p-4'
+      className='flex items-center gap-3 rounded-[12px] border border-border bg-surface-alt p-4'
       role={tone === 'failure' ? 'alert' : 'status'}
     >
       {tone === 'processing' ? (

@@ -24,7 +24,7 @@ const LEGEND_ENTRIES = [
     label: 'Sequência atual',
     description: 'Dia que faz parte da sequência ativa.',
     mark: 'check',
-    markClassName: 'rounded-[10px] bg-latao-tint p-[3px] text-latao-solid',
+    markClassName: 'rounded-[12px] bg-latao-tint p-[3px] text-latao-solid',
   },
   {
     label: 'Sem prática',
@@ -36,7 +36,7 @@ const LEGEND_ENTRIES = [
     label: 'Hoje pendente',
     description: 'O dia ainda pode contar para a sequência.',
     mark: 'clock-3',
-    markClassName: 'rounded-[10px] border border-latao-solid! p-[3px] text-latao-solid',
+    markClassName: 'rounded-[12px] border border-latao-solid! p-[3px] text-latao-solid',
   },
 ] as const
 

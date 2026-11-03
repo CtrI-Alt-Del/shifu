@@ -27,7 +27,7 @@ export const MemoryDetails = ({
   return (
     <section
       aria-label='Detalhes da memória'
-      className='space-y-5 rounded-[10px] border border-border bg-card p-5'
+      className='space-y-5 rounded-[12px] border border-border bg-card p-5'
     >
       <div className='flex items-start justify-between gap-3'>
         <p className='font-mono text-xs uppercase tracking-wider text-selo-text'>

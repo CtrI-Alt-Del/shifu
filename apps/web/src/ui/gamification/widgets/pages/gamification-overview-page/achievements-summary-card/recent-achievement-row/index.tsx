@@ -22,7 +22,7 @@ export const RecentAchievementRow = ({ achievement }: RecentAchievementRowProps)
     >
       <span className='flex min-w-0 flex-1 items-center gap-3'>
         <motion.span
-          className='grid size-12 shrink-0 place-items-center rounded-[10px] bg-latao-tint text-latao-solid'
+          className='grid size-12 shrink-0 place-items-center rounded-[12px] bg-latao-tint text-latao-solid'
           variants={ENTRANCE_MEDAL}
         >
           <Icon

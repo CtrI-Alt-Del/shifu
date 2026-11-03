@@ -29,7 +29,7 @@ export const SkillCompetencyList = ({
       <h2 className='sr-only' id='skill-competencies-title'>
         Competências desta Habilidade
       </h2>
-      <ul className='flex flex-col rounded-[10px] bg-surface-alt p-1.5'>
+      <ul className='flex flex-col rounded-[12px] bg-surface-alt p-1.5'>
         {competencies.map((competency) => (
           <SkillCompetencyRow
             competency={competency}
