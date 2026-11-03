@@ -36,9 +36,9 @@ Read and reconcile the following before writing the Plan:
    `Antipatterns to Avoid` subsection;
 5. the complete canonical Confluence PRD page through Atlassian Shifu MCP,
    verifying the content ID and version recorded in the Spec;
-6. the real Jira issue, design manifest and saved references, package
-   manifests, lockfiles, infrastructure configuration, and existing feature
-   artifacts that the Spec cites.
+6. the real Jira issue, the Design Contract's root `shifu.fig` pages, artboards
+   and components through OpenPencil MCP, package manifests, lockfiles,
+   infrastructure configuration, and existing feature artifacts that the Spec cites.
 
 Confirm all of the following:
 
@@ -54,7 +54,7 @@ Confirm all of the following:
   current methods, paths, parameters, headers, representative bodies and
   reusable non-secret variables;
 - every supplied design screenshot has a completed visual inventory in the
-  Spec/design manifest, and every required supplemental state is either
+  Spec's Design Contract, and every required supplemental state is either
   scheduled or recorded as an accepted assumption with no acceptance gap;
 - Plan-backed execution is still warranted; and
 - no material product, authority, ownership, contract or validation ambiguity
@@ -249,7 +249,8 @@ For tasks that change UI or browser behavior, the exit must require:
 Save screenshots and transient browser artifacts only as validation evidence;
 do not commit them unless the repository explicitly tracks that artifact type.
 Builders inspect the Design Contract's `shifu.fig` artboards through the
-OpenPencil MCP; no saved design references are extracted.
+OpenPencil MCP and compare fresh exports with matching Playwright CLI captures;
+no saved design references are extracted.
 
 A Builder may not start until the Orchestrator records the exact Spec revision,
 assigned phase/task, allowed paths, criteria, Rules, design artboards,
@@ -275,7 +276,7 @@ scenario steps:
 | Automated   | `<package or boundary>`       | `CA-01`                        | Spec Validation Contract                              | `evaluation.md` `EV-<n>`            | `pending` |
 | Runtime     | `<server-backed integration>` | `CA-02`                        | Technical Contract                                    | `evaluation.md` `EV-<n>`            | `pending` |
 | Manual      | `VM-01`                       | `CA-03`                        | Spec `VM-01`                                          | `evaluation.md` `EV-<n>`            | `pending` |
-| Visual      | `<viewport/state>`            | `CA-04`                        | `design/<reference>.png`                              | Playwright artifact path + `EV-<n>` | `pending` |
+| Visual      | `<viewport/state>`            | `CA-04`                        | `shifu.fig` page / artboard / components              | Playwright artifact path + `EV-<n>` | `pending` |
 | REST client | `<route group>`               | `<CA-* or technical contract>` | `apps/server/rest-client/<module>/<route-group>.rest` | parity result + `EV-<n>`            | `pending` |
 
 Include only applicable rows. Schedule every required `VM-*`, every supplied

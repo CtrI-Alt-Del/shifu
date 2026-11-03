@@ -35,6 +35,23 @@ the same plain style, in the user's language:
 - Send only what changed instead of repeating long blocks, except where a
   workflow explicitly requires a full re-ask.
 
+## Warning-free completion
+
+Resolve all warnings before declaring work complete. Fix their underlying causes;
+do not hide warnings, disable checks, weaken validation, or rename elements to
+evade detection. Rerun the relevant checks after corrections and verify that
+both errors and warnings are zero.
+
+For OpenPencil work, run the design checks across every page of `shifu.fig`,
+including pages outside the edited frames. Correct touch targets, contrast,
+typography, and other reported issues, then save and check again. Informational
+findings are separate from warnings.
+
+If an engine error or external blocker prevents correction or verification,
+follow the applicable stop rule and report the unresolved findings and blocker.
+Keep the work marked incomplete and never claim a warning-free result without
+current evidence.
+
 ## Parallel work and subagents
 
 When work has genuinely independent streams, create specifically named
@@ -112,6 +129,12 @@ tree, node and JSX tools and render it with the MCP image export. Write to it
 one MCP call at a time, save explicitly after every two or three edits, and stop
 at the first engine error instead of retrying. Node ids change whenever the file
 is reopened, so re-read them before editing.
+
+When adding or reorganizing screen frames, use one named `SECTION` per
+application page and group its related states inside it. Reuse the matching
+section when one exists; create it when needed. Keep desktop and mobile frames
+on their respective document pages. Arrange sections and their frames with
+consistent spacing, without overlaps or changes to the screen contents.
 
 Classify a proposed design edit before changing it:
 

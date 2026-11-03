@@ -44,12 +44,17 @@ planned capabilities.
 
 For feature behavior, read `documentation/sdd.md`, the exact local `spec.md`
 and `evaluation.md`. Verify the Spec revision, status,
-allowed and prohibited paths, `RF-*`/`CA-*`, design references, and required
-`VM-*`/`CI-*` evidence. Locate the relevant Jira issue and read the complete
+allowed and prohibited paths, `RF-*`/`CA-*`, the Design Contract's root `shifu.fig`
+pages/artboards/components, and required `VM-*`/`CI-*` evidence. Locate the
+relevant Jira issue and read the complete
 canonical Confluence PRD when a requirement or product-intent claim depends on
 it. Check its content ID and version against the Spec. Confluence owns product
 intent; the local Spec owns the selected implementation contract. Report a
 conflict between them without silently choosing a new contract.
+
+Inspect `shifu.fig` only through OpenPencil MCP. For visual evidence, consume the
+recorded comparisons of fresh OpenPencil exports and matching Playwright CLI
+captures; feature-local design bundles are historical records.
 
 For maintenance without a feature Spec, use the stated request, issue, or bug
 report as the Contract source. If none is available, review Standards and report

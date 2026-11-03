@@ -61,7 +61,8 @@ requirements, identifiers and observed results; never overwrite existing evidenc
 with template placeholders.
 
 Read the current Spec and Evaluation, applicable module/architecture/Rule
-sources, relevant tooling/manifests and saved design references. Follow the SDD
+sources, relevant tooling/manifests and the Design Contract's root `shifu.fig`
+pages, artboards and components through OpenPencil MCP. Follow the SDD
 source preflight; reuse complete sources already current in this context.
 Inspect Git status/diffs and preserve unrelated work. Use CodeGraph for each
 new code exploration when available under `AGENTS.md`.
@@ -141,7 +142,7 @@ not save exports into the feature directory.
 
 The Spec defines required happy-path rendered states and viewports. Cover
 loading, empty, error, recovery, concurrency and unusual outcomes through
-appropriate automated tests. Do not turn every saved frame into another manual
+appropriate automated tests. Do not turn every design artboard into another manual
 scenario. Required visual evidence comes from the integrated candidate after
 the last affected UI edit, with route/state/viewport/fixture and artifact path.
 An earlier capture of unchanged UI may remain valid when its dependencies and

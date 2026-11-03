@@ -199,9 +199,13 @@ Se a conformidade falhar, interrompa a publicação e encaminhe a correção pel
 workflow aplicável. Não corrija implementação ou contrato silenciosamente
 dentro do fluxo de criação do PR.
 
-Para UI baseada em design, use o bundle salvo pela Spec e as evidências do
-`evaluation.md`. Resuma a validação visual em `## Testes manuais`; não crie uma
-seção separada de evidências visuais.
+Para UI baseada em design, use as páginas, artboards e componentes de `shifu.fig`
+na raiz do repositório nomeados no Design Contract. Consulte-os somente pelo
+OpenPencil MCP. Consuma as comparações registradas no `evaluation.md` entre
+exports recentes do OpenPencil e capturas correspondentes do Playwright CLI.
+Não use bundles ou referências extraídas para a pasta da feature.
+Resuma a validação visual em `## Testes manuais`; não crie uma seção separada
+de evidências visuais.
 
 Revise migrations, artifacts gerados e lockfiles quando afetados. Não declare
 como executado um check, fluxo manual, review ou deploy que não foi observado.

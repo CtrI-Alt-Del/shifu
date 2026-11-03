@@ -192,7 +192,7 @@ Todas do Google Fonts, sem custo de licença.
 |---|---|---|---|
 | Logotipo | Instrument Serif | 26 / 32 | 400 |
 | Título de tela | Instrument Serif | 30 / 36 | 400 |
-| Título editorial curto | Instrument Serif | 17 / 24 | 700 |
+| Título editorial curto | Instrument Serif | 17 / 24 | 400 |
 | Título 1 | DM Sans | 24 / 32 | 600 |
 | Título 2 | DM Sans | 18 / 26 | 600 |
 | Corpo | DM Sans | 15 / 22 | 400 |
@@ -210,7 +210,7 @@ Material de apoio é exceção: DM Sans 16 / 28, largura máxima de 68 caractere
 
 ```
 Espaço    4  8  12  16  24  32  48
-Raio      none 0    controle 6    cartão 10    modal 14
+Raio      none 0    controle 6    cartão 12    modal 14
           A barra de progresso é retangular, raio 0. É um medidor, não uma pílula.
           Selos de estado usam raio de controle, nunca raio 999.
 Borda     1px, sempre. Sem borda de 2px, exceto a marca de foco da Competência.

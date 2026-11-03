@@ -81,7 +81,8 @@ Descreva o que precisa ser produzido ou decidido.
 ## 📦 Entregável Esperado
 
 Descreva o resultado verificável e onde ele será registrado
-(por exemplo, código versionado, OpenPencil, wiki, ADR ou configuração).
+(por exemplo, código versionado, `shifu.fig` na raiz pelo OpenPencil MCP, wiki,
+ADR ou configuração).
 
 ## ✅ DoR Checklist
 

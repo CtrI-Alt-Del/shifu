@@ -66,7 +66,7 @@ until reconciled, and return it to `draft` if its contract changes.
 | Confluence PRD | Product outcomes, actors, rules and journeys. |
 | Jira issue/report | Delivery scope and traceability. |
 | Agent guidance, Architecture, Modules and Rules | Responsibilities, boundaries and conventions. |
-| Design and saved references | Visual intent and permitted adaptations. |
+| `shifu.fig` through OpenPencil MCP | Visual intent and permitted adaptations. |
 | Tooling and manifests | Available commands, fixtures and execution schedule. |
 | Spec | Selected behavior, technical commitments and required proof. |
 | Evaluation | Actual progress, results, findings and delivery state. |

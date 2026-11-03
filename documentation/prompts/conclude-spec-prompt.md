@@ -144,6 +144,12 @@ tests. Do not add manual scenarios or captures during closure without an affecte
 contract or concrete correction that requires them. Code and visual review run
 in parallel on the same candidate; no third serial reviewer is required.
 
+For design-backed UI, confirm that recorded visual comparisons used fresh
+OpenPencil MCP exports of the root `shifu.fig` pages, artboards and components
+named in the Design Contract. Feature-local saved design bundles are historical
+records. Reuse current accepted comparisons; closure alone does not require new
+exports.
+
 ## Verification ownership and failure loop
 
 The designated Orchestrator verification runner owns affected server, browser and
