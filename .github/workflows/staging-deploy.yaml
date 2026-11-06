@@ -101,10 +101,10 @@ jobs:
       - name: Require the browser server URL for the web image
         if: ${{ matrix.service == 'web' && steps.existing.outputs.found == 'false' }}
         env:
-          VITE_SHIFU_SERVER_URL: ${{ vars.VITE_SHIFU_SERVER_URL }}
+          VITE_SHIFU_SERVER_URL: ${{ secrets.AWS_STAGING_VITE_SHIFU_SERVER_URL }}
         run: |
           if [[ -z "${VITE_SHIFU_SERVER_URL}" ]]; then
-            echo "::error::Set the VITE_SHIFU_SERVER_URL variable of the staging environment."
+            echo "::error::Set the AWS_STAGING_VITE_SHIFU_SERVER_URL secret."
             exit 1
           fi
 
@@ -118,7 +118,7 @@ jobs:
           push: true
           provenance: false
           build-args: |
-            ${{ matrix.service == 'web' && format('VITE_SHIFU_SERVER_URL={0}', vars.VITE_SHIFU_SERVER_URL) || '' }}
+            ${{ matrix.service == 'web' && format('VITE_SHIFU_SERVER_URL={0}', secrets.AWS_STAGING_VITE_SHIFU_SERVER_URL) || '' }}
           tags: ${{ steps.ecr.outputs.registry }}/shifu-staging-${{ matrix.service }}:${{ steps.tag.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,scope=${{ matrix.service }},mode=max
@@ -132,18 +132,18 @@ jobs:
     timeout-minutes: 45
     environment: staging
     env:
-      SUBNET_IDS: ${{ vars.APPLICATION_SUBNET_IDS }}
-      SECURITY_GROUP_ID: ${{ vars.SERVER_SECURITY_GROUP_ID }}
-      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+      SUBNET_IDS: ${{ secrets.AWS_STAGING_APPLICATION_SUBNET_IDS }}
+      SECURITY_GROUP_ID: ${{ secrets.AWS_STAGING_SERVER_SECURITY_GROUP_ID }}
+      PUBLIC_ORIGIN: ${{ secrets.AWS_STAGING_PUBLIC_ORIGIN }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Check the environment variables
+      - name: Check the secrets
         run: |
           for name in SUBNET_IDS SECURITY_GROUP_ID PUBLIC_ORIGIN; do
             if [[ -z "${!name}" ]]; then
-              echo "::error::The staging environment variable for ${name} is empty. See iac/README.md."
+              echo "::error::The secret behind ${name} is empty. See iac/README.md."
               exit 1
             fi
           done

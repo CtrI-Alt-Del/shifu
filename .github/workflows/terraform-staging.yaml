@@ -95,17 +95,17 @@ jobs:
 
       - name: Write the variable file
         env:
-          TFVARS: ${{ vars.TFVARS }}
+          TFVARS_BASE64: ${{ secrets.AWS_STAGING_TERRAFORM_TFVARS }}
         run: |
-          if [[ -z "${TFVARS}" ]]; then
-            echo "::error::Set the TFVARS variable of the staging-terraform environment."
+          if [[ -z "${TFVARS_BASE64}" ]]; then
+            echo "::error::Set the AWS_STAGING_TERRAFORM_TFVARS secret."
             exit 1
           fi
-          printf '%s\n' "${TFVARS}" > terraform.tfvars
+          printf '%s' "${TFVARS_BASE64}" | base64 --decode > terraform.tfvars
 
       - name: Initialize with the remote state
         env:
-          STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+          STATE_BUCKET: ${{ secrets.AWS_STAGING_TERRAFORM_STATE_BUCKET }}
         run: |
           terraform init -input=false -lockfile=readonly \
             -backend-config="bucket=${STATE_BUCKET}" \
@@ -167,12 +167,12 @@ jobs:
 
       - name: Write the variable file
         env:
-          TFVARS: ${{ vars.TFVARS }}
-        run: printf '%s\n' "${TFVARS}" > terraform.tfvars
+          TFVARS_BASE64: ${{ secrets.AWS_STAGING_TERRAFORM_TFVARS }}
+        run: printf '%s' "${TFVARS_BASE64}" | base64 --decode > terraform.tfvars
 
       - name: Initialize with the remote state
         env:
-          STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+          STATE_BUCKET: ${{ secrets.AWS_STAGING_TERRAFORM_STATE_BUCKET }}
         run: |
           terraform init -input=false -lockfile=readonly \
             -backend-config="bucket=${STATE_BUCKET}" \

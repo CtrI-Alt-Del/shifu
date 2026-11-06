@@ -285,19 +285,37 @@ Terraform creates the users and their narrow policies. It never creates keys.
 Prefer environment secrets over repository secrets. A repository secret is visible
 to every workflow, so it would bypass the reviewers on the apply environment.
 
-3. Set these non-secret variables. Read the values from `terraform output`.
+3. Set these secrets too. The pipeline uses GitHub secrets only, never GitHub
+   variables. Read the values from `terraform output`. GitHub masks every secret
+   value in the logs, so a value shows as `***` there.
 
-| Environment | Variable | Value |
+| Environment | Secret | Value |
 | --- | --- | --- |
-| `staging` | `APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
-| `staging` | `SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
-| `staging` | `PUBLIC_ORIGIN` | `public_origin` |
-| `staging` | `VITE_SHIFU_SERVER_URL` | The URL browsers use to call the server |
-| both Terraform environments | `STATE_BUCKET` | The bootstrap state bucket name |
-| both Terraform environments | `TFVARS` | The full content of `iac/staging/terraform.tfvars` |
+| `staging` | `AWS_STAGING_APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
+| `staging` | `AWS_STAGING_SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
+| `staging` | `AWS_STAGING_PUBLIC_ORIGIN` | `public_origin` |
+| `staging` | `AWS_STAGING_VITE_SHIFU_SERVER_URL` | The same value as `public_origin`. See the note below. |
+| both Terraform environments | `AWS_STAGING_TERRAFORM_STATE_BUCKET` | The bootstrap state bucket name |
+| both Terraform environments | `AWS_STAGING_TERRAFORM_TFVARS` | `iac/staging/terraform.tfvars`, encoded with base64 |
 
-`TFVARS` replaces the ignored local file in CI, so it holds the same non-secret
-values, including `services_enabled`. Change the variable to change those inputs.
+The Web bundle needs `VITE_SHIFU_SERVER_URL` to be a valid URL, but browsers do not
+call the server with it today. Every server request goes through Web server
+functions, which use `SHIFU_IDENTITY_API_URL` over the private network. The load
+balancer therefore sends only `/api/inngest` to the server. If browser code starts
+calling the server directly, the load balancer needs a route for it. The Web pages
+and the server share the prefixes `/learning`, `/curriculum`, `/gamification` and
+`/intelligence`, so a prefix rule cannot tell them apart.
+
+Encode the variable file on one line so GitHub masks only that one string. A
+multi-line secret would mask each of its lines, and common words such as `false`
+would then disappear from every log and plan summary:
+
+```bash
+base64 -w0 iac/staging/terraform.tfvars | gh secret set AWS_STAGING_TERRAFORM_TFVARS --env staging-terraform
+```
+
+The secret replaces the ignored local file in CI, so it holds the same non-secret
+values, including `services_enabled`. Set it again to change those inputs.
 
 ### Failures and rollback
 
