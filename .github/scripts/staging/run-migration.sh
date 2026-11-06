@@ -45,7 +45,7 @@ aws ecs wait tasks-stopped --cluster "${cluster}" --tasks "${task_arn}"
 result="$(aws ecs describe-tasks \
   --cluster "${cluster}" \
   --tasks "${task_arn}" \
-  --query 'tasks[0].containers[?name==`server`] | [0].{exitCode: exitCode, reason: reason}' \
+  --query 'tasks[0].{exitCode: containers[?name==`server`] | [0].exitCode, stopCode: stopCode, stoppedReason: stoppedReason}' \
   --output json)"
 exit_code="$(jq -r '.exitCode // "none"' <<<"${result}")"
 
