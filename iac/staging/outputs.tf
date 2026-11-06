@@ -8,6 +8,16 @@ output "public_origin" {
   value       = local.public_origin
 }
 
+output "deployer_user_name" {
+  description = "IAM user for the GitHub Actions app deploy. Create its access key in the IAM console."
+  value       = aws_iam_user.deployer.name
+}
+
+output "terraform_user_name" {
+  description = "IAM user for the GitHub Actions Terraform apply. Create its access key in the IAM console."
+  value       = aws_iam_user.terraform.name
+}
+
 output "ecs_cluster_name" {
   description = "ECS cluster used for services and the one-off migration task."
   value       = aws_ecs_cluster.staging.name

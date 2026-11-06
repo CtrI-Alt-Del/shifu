@@ -1,5 +1,8 @@
 aws_region = "us-east-2"
 
+# Output of the bootstrap root; scopes the Terraform CI user to the state bucket.
+state_bucket_name = "replace-with-bootstrap-state-bucket-output"
+
 # Set both for HTTPS, or leave both commented out for plain HTTP on the ALB
 # address (MVP only: passwords and cookies travel unencrypted).
 # hostname        = "staging.example.com"

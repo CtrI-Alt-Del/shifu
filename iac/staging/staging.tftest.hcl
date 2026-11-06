@@ -1,6 +1,27 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+}
+
+override_data {
+  target = data.aws_iam_policy_document.deployer
+  values = {
+    json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+  }
+}
+
+override_data {
+  target = data.aws_iam_policy_document.terraform
+  values = {
+    json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+  }
+}
 
 variables {
+  state_bucket_name         = "shifu-staging-state-example"
   hostname                  = "staging.example.com"
   certificate_arn           = "arn:aws:acm:us-east-2:123456789012:certificate/00000000-0000-0000-0000-000000000000"
   web_image_tag             = "0123456789abcdef-web"
@@ -108,6 +129,20 @@ run "enabled_services" {
   assert {
     condition     = aws_ecs_service.web.desired_count == 1 && aws_ecs_service.server.desired_count == 1
     error_message = "Enablement must run exactly one task for each service."
+  }
+}
+
+run "ci_identities" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_user.deployer.name == "shifu-staging-deployer" && aws_iam_user.terraform.name == "shifu-staging-terraform"
+    error_message = "Staging must define separate deployer and Terraform CI users."
+  }
+
+  assert {
+    condition     = aws_iam_user_policy_attachment.deployer.user != aws_iam_user_policy_attachment.terraform.user
+    error_message = "Each CI user must have its own policy attachment."
   }
 }
 

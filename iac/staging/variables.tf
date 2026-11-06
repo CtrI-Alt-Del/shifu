@@ -9,6 +9,16 @@ variable "aws_region" {
   }
 }
 
+variable "state_bucket_name" {
+  description = "Name of the bootstrap S3 bucket that holds the staging state. Used to scope the Terraform CI user."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.state_bucket_name))
+    error_message = "state_bucket_name must be a valid S3 bucket name."
+  }
+}
+
 variable "project_name" {
   description = "Short project name used in resource names and tags."
   type        = string
