@@ -172,7 +172,7 @@ resource "aws_ecs_service" "web" {
     weight            = 1
   }
 
-  health_check_grace_period_seconds = 60
+  health_check_grace_period_seconds = 90
 
   deployment_circuit_breaker {
     enable   = true
@@ -192,7 +192,15 @@ resource "aws_ecs_service" "web" {
   }
 
   depends_on = [aws_lb_listener.http, aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
+
+  lifecycle {
+    # The deploy workflow registers a task definition revision with the new image
+    # and points the service at it. Terraform owns everything else, so it must not
+    # move the service back to the revision it created.
+    ignore_changes = [task_definition]
+  }
 }
+
 
 resource "aws_ecs_service" "server" {
   name            = "${local.name}-server"
@@ -205,7 +213,7 @@ resource "aws_ecs_service" "server" {
     weight            = 1
   }
 
-  health_check_grace_period_seconds = 60
+  health_check_grace_period_seconds = 240
 
   deployment_circuit_breaker {
     enable   = true
@@ -230,4 +238,12 @@ resource "aws_ecs_service" "server" {
   }
 
   depends_on = [aws_lb_listener_rule.inngest, aws_ecs_cluster_capacity_providers.staging]
+
+  lifecycle {
+    # The deploy workflow registers a task definition revision with the new image
+    # and points the service at it. Terraform owns everything else, so it must not
+    # move the service back to the revision it created.
+    ignore_changes = [task_definition]
+  }
 }
+
