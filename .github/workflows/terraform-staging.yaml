@@ -1,0 +1,191 @@
+name: Terraform staging
+
+# Pull requests that touch iac/ get format, validate and mock-provider test
+# checks, plus a plan of the staging root. The apply runs only when someone starts
+# this workflow by hand on main, and only after a reviewer approves the
+# `staging-terraform-apply` environment.
+#
+# Signs in to AWS with the access key of the `shifu-staging-terraform` IAM user.
+# The AWS account blocks OIDC, so the key is stored as environment secrets.
+# See iac/README.md for the setup.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'iac/**'
+      - '.github/workflows/terraform-staging.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-staging-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TERRAFORM_VERSION: 1.15.8
+  AWS_REGION: us-east-2
+
+jobs:
+  validate:
+    name: Validate ${{ matrix.root }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        root:
+          - bootstrap
+          - staging
+    defaults:
+      run:
+        working-directory: iac/${{ matrix.root }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Check formatting
+        run: terraform fmt -check -recursive -diff
+
+      - name: Initialize without a backend
+        run: terraform init -backend=false -input=false -lockfile=readonly
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Run the mock-provider tests
+        run: terraform test
+
+  plan:
+    name: Plan staging
+    needs: validate
+    # Pull requests from forks never receive the environment secrets.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging-terraform
+    defaults:
+      run:
+        working-directory: iac/staging
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write the variable file
+        env:
+          TFVARS: ${{ vars.TFVARS }}
+        run: |
+          if [[ -z "${TFVARS}" ]]; then
+            echo "::error::Set the TFVARS variable of the staging-terraform environment."
+            exit 1
+          fi
+          printf '%s\n' "${TFVARS}" > terraform.tfvars
+
+      - name: Initialize with the remote state
+        env:
+          STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+        run: |
+          terraform init -input=false -lockfile=readonly \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=staging/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+
+      - name: Plan
+        run: terraform plan -input=false -lock-timeout=5m -out=staging.tfplan
+
+      - name: Show the plan
+        run: |
+          {
+            echo "### Terraform plan for staging"
+            echo ""
+            echo '```'
+            terraform show -no-color staging.tfplan
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Keep the plan for the apply
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: staging-tfplan
+          path: iac/staging/staging.tfplan
+          retention-days: 3
+          if-no-files-found: error
+
+  apply:
+    name: Apply staging
+    needs: plan
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Configure required reviewers on this environment. It holds the same secrets
+    # and variables as `staging-terraform`.
+    environment: staging-terraform-apply
+    defaults:
+      run:
+        working-directory: iac/staging
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Write the variable file
+        env:
+          TFVARS: ${{ vars.TFVARS }}
+        run: printf '%s\n' "${TFVARS}" > terraform.tfvars
+
+      - name: Initialize with the remote state
+        env:
+          STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+        run: |
+          terraform init -input=false -lockfile=readonly \
+            -backend-config="bucket=${STATE_BUCKET}" \
+            -backend-config="key=staging/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true" \
+            -backend-config="use_lockfile=true"
+
+      - name: Download the reviewed plan
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: staging-tfplan
+          path: iac/staging
+
+      - name: Apply the reviewed plan
+        run: terraform apply -input=false -lock-timeout=5m staging.tfplan

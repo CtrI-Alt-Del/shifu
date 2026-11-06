@@ -1,0 +1,230 @@
+name: Staging deploy
+
+# Builds the Web and server images for linux/arm64, pushes them to ECR, runs the
+# database migration, and rolls both ECS services to the new images.
+#
+# Signs in to AWS with the access key of the `shifu-staging-deployer` IAM user,
+# stored as secrets of the `staging` GitHub environment. The AWS account blocks
+# OIDC, so there is no role to assume. See iac/README.md for the setup.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/**'
+      - 'apps/server/**'
+      - 'packages/studio/package.json'
+      - 'packages/studio/public/projects/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.dockerignore'
+      - '.github/workflows/staging-deploy.yaml'
+      - '.github/scripts/staging/**'
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: >-
+          Redeploy images already in ECR instead of building. Give the 12-character
+          commit hash of an earlier deploy. Use this to roll back. It does not undo
+          database migrations. Leave empty to build the selected ref.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-2
+  CLUSTER: shifu-staging
+
+jobs:
+  images:
+    name: Build ${{ matrix.service }} image
+    if: ${{ inputs.image_sha == '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: staging
+    strategy:
+      fail-fast: true
+      matrix:
+        service:
+          - web
+          - server
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4.4.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+
+      - name: Select the image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::12}-${{ matrix.service }}" >> "${GITHUB_OUTPUT}"
+
+      # Tags are immutable. When an earlier run of this commit already pushed the
+      # image (for example, a run that failed later at the migration), reuse it.
+      - name: Look for an existing image
+        id: existing
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if aws ecr describe-images \
+            --repository-name "shifu-staging-${{ matrix.service }}" \
+            --image-ids "imageTag=${TAG}" >/dev/null 2>&1; then
+            echo "found=true" >> "${GITHUB_OUTPUT}"
+            echo "::notice::Image ${TAG} already exists in ECR, so it is not built again."
+          else
+            echo "found=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Require the browser server URL for the web image
+        if: ${{ matrix.service == 'web' && steps.existing.outputs.found == 'false' }}
+        env:
+          VITE_SHIFU_SERVER_URL: ${{ vars.VITE_SHIFU_SERVER_URL }}
+        run: |
+          if [[ -z "${VITE_SHIFU_SERVER_URL}" ]]; then
+            echo "::error::Set the VITE_SHIFU_SERVER_URL variable of the staging environment."
+            exit 1
+          fi
+
+      - name: Build and push the image
+        if: ${{ steps.existing.outputs.found == 'false' }}
+        uses: docker/build-push-action@v7.4.0
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          platforms: linux/arm64
+          push: true
+          provenance: false
+          build-args: |
+            ${{ matrix.service == 'web' && format('VITE_SHIFU_SERVER_URL={0}', vars.VITE_SHIFU_SERVER_URL) || '' }}
+          tags: ${{ steps.ecr.outputs.registry }}/shifu-staging-${{ matrix.service }}:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+
+  deploy:
+    name: Migrate and deploy
+    needs: images
+    # Run when the build succeeded, or when it was skipped for a redeploy.
+    if: ${{ !cancelled() && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: staging
+    env:
+      SUBNET_IDS: ${{ vars.APPLICATION_SUBNET_IDS }}
+      SECURITY_GROUP_ID: ${{ vars.SERVER_SECURITY_GROUP_ID }}
+      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Check the environment variables
+        run: |
+          for name in SUBNET_IDS SECURITY_GROUP_ID PUBLIC_ORIGIN; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::The staging environment variable for ${name} is empty. See iac/README.md."
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2.1.7
+
+      - name: Select the image tags
+        id: tags
+        env:
+          IMAGE_SHA: ${{ inputs.image_sha }}
+        run: |
+          sha="${IMAGE_SHA:-${GITHUB_SHA::12}}"
+          if [[ ! "${sha}" =~ ^[0-9a-f]{12}$ ]]; then
+            echo "::error::image_sha must be 12 lowercase hexadecimal characters."
+            exit 1
+          fi
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+
+      - name: Confirm both images exist in ECR
+        env:
+          SHA: ${{ steps.tags.outputs.sha }}
+        run: |
+          for service in web server; do
+            aws ecr describe-images \
+              --repository-name "shifu-staging-${service}" \
+              --image-ids "imageTag=${SHA}-${service}" \
+              --query 'imageDetails[0].imageDigest' --output text
+          done
+
+      - name: Register the new task definition revisions
+        id: revisions
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SHA: ${{ steps.tags.outputs.sha }}
+        run: |
+          web_arn="$(.github/scripts/staging/register-task-definition.sh \
+            "${CLUSTER}-web" web "${REGISTRY}/shifu-staging-web:${SHA}-web" "${SHA}-web")"
+          server_arn="$(.github/scripts/staging/register-task-definition.sh \
+            "${CLUSTER}-server" server "${REGISTRY}/shifu-staging-server:${SHA}-server" "${SHA}-server")"
+          echo "web=${web_arn}" >> "${GITHUB_OUTPUT}"
+          echo "server=${server_arn}" >> "${GITHUB_OUTPUT}"
+          echo "Registered ${web_arn} and ${server_arn}."
+
+      - name: Run the database migration
+        env:
+          SERVER_REVISION: ${{ steps.revisions.outputs.server }}
+        run: |
+          .github/scripts/staging/run-migration.sh \
+            "${CLUSTER}" "${SERVER_REVISION}" "${SUBNET_IDS}" "${SECURITY_GROUP_ID}" \
+            "/ecs/${CLUSTER}/server"
+
+      - name: Deploy the server
+        env:
+          SERVER_REVISION: ${{ steps.revisions.outputs.server }}
+        run: .github/scripts/staging/deploy-service.sh "${CLUSTER}" "${CLUSTER}-server" "${SERVER_REVISION}"
+
+      - name: Deploy the web app
+        env:
+          WEB_REVISION: ${{ steps.revisions.outputs.web }}
+        run: .github/scripts/staging/deploy-service.sh "${CLUSTER}" "${CLUSTER}-web" "${WEB_REVISION}"
+
+      - name: Check that staging is healthy
+        run: .github/scripts/staging/check-health.sh "${CLUSTER}" "${PUBLIC_ORIGIN}"
+
+      - name: Summarize the deploy
+        if: ${{ success() }}
+        env:
+          SHA: ${{ steps.tags.outputs.sha }}
+        run: |
+          {
+            echo "### Staging deploy"
+            echo ""
+            echo "- Images: \`${SHA}-web\` and \`${SHA}-server\`"
+            echo "- Roll back: run this workflow with \`image_sha\` set to an earlier hash."
+          } >> "${GITHUB_STEP_SUMMARY}"
