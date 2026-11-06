@@ -197,7 +197,11 @@ Auth e da integração autenticada com a API; a API precisa dos segredos dos
 provedores que utiliza. Nenhum segredo deve ser gravado em imagens, na
 configuração Terraform em texto puro ou no repositório.
 
-TLS deve proteger o tráfego público. A comunicação entre serviços e com o
+TLS deve proteger o tráfego público. Exceção temporária do MVP em staging: sem
+domínio, o Terraform aceita hostname e certificado ausentes e o ALB atende HTTP
+puro no próprio endereço, com cookies seguros desligados por configuração. Senhas
+e cookies de sessão trafegam sem criptografia nesse modo, então ele só admite
+contas de teste. Produção exige HTTPS. A comunicação entre serviços e com o
 banco deve seguir as configurações de criptografia exigidas por cada serviço.
 O certificado público pode ser gerenciado pelo AWS Certificate Manager; DNS
 e nomes de domínio ainda precisam de definição.

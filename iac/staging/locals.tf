@@ -16,6 +16,12 @@ locals {
     var.data_subnet_cidrs,
   )
 
+  is_https_enabled = var.certificate_arn != null
+
+  public_origin = local.is_https_enabled ? "https://${var.hostname}" : "http://${aws_lb.staging.dns_name}"
+
+  app_listener_arn = local.is_https_enabled ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+
   api_discovery_name = "api.${aws_service_discovery_private_dns_namespace.staging.name}"
 
   web_secret_keys = [

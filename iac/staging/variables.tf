@@ -1,11 +1,11 @@
 variable "aws_region" {
   description = "AWS region for staging resources."
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 
   validation {
-    condition     = var.aws_region == "us-east-1"
-    error_message = "The contracted staging region is us-east-1."
+    condition     = var.aws_region == "us-east-2"
+    error_message = "The contracted staging region is us-east-2."
   }
 }
 
@@ -43,17 +43,17 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "Exactly two available us-east-1 availability zones."
+  description = "Exactly two available us-east-2 availability zones."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-2a", "us-east-2b"]
 
   validation {
     condition = (
       length(var.availability_zones) == 2 &&
       length(distinct(var.availability_zones)) == 2 &&
-      alltrue([for az in var.availability_zones : startswith(az, "us-east-1")])
+      alltrue([for az in var.availability_zones : startswith(az, "us-east-2")])
     )
-    error_message = "Provide exactly two distinct us-east-1 availability zones."
+    error_message = "Provide exactly two distinct us-east-2 availability zones."
   }
 }
 
@@ -91,22 +91,24 @@ variable "data_subnet_cidrs" {
 }
 
 variable "hostname" {
-  description = "Public staging hostname; DNS remains operator-managed."
+  description = "Public staging hostname; DNS remains operator-managed. Leave null with certificate_arn to serve plain HTTP on the ALB address."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$", var.hostname))
+    condition     = var.hostname == null || can(regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$", var.hostname))
     error_message = "hostname must be a valid DNS hostname."
   }
 }
 
 variable "certificate_arn" {
-  description = "ARN of an existing ACM certificate for hostname."
+  description = "ARN of an existing ACM certificate for hostname. Leave null with hostname to serve plain HTTP on the ALB address."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$", var.certificate_arn))
-    error_message = "certificate_arn must identify a us-east-1 ACM certificate."
+    condition     = var.certificate_arn == null || can(regex("^arn:aws:acm:us-east-2:[0-9]{12}:certificate/[0-9a-f-]+$", var.certificate_arn))
+    error_message = "certificate_arn must identify a us-east-2 ACM certificate."
   }
 }
 

@@ -1,7 +1,9 @@
-aws_region = "us-east-1"
+aws_region = "us-east-2"
 
-hostname        = "staging.example.com"
-certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+# Set both for HTTPS, or leave both commented out for plain HTTP on the ALB
+# address (MVP only: passwords and cookies travel unencrypted).
+# hostname        = "staging.example.com"
+# certificate_arn = "arn:aws:acm:us-east-2:123456789012:certificate/00000000-0000-0000-0000-000000000000"
 
 # Use immutable build identifiers such as a full Git SHA. The repositories are
 # created during phase zero; the images may be pushed after that first apply.

@@ -2,7 +2,7 @@ mock_provider "aws" {}
 
 variables {
   hostname                  = "staging.example.com"
-  certificate_arn           = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+  certificate_arn           = "arn:aws:acm:us-east-2:123456789012:certificate/00000000-0000-0000-0000-000000000000"
   web_image_tag             = "0123456789abcdef-web"
   api_image_tag             = "0123456789abcdef-api"
   monthly_budget_usd        = 100
@@ -109,6 +109,55 @@ run "enabled_services" {
     condition     = aws_ecs_service.web.desired_count == 1 && aws_ecs_service.api.desired_count == 1
     error_message = "Enablement must run exactly one task for each service."
   }
+}
+
+run "https_mode" {
+  command = plan
+
+  assert {
+    condition     = length(aws_lb_listener.https) == 1 && length(aws_vpc_security_group_ingress_rule.alb_https) == 1
+    error_message = "A certificate must enable the HTTPS listener and its ingress rule."
+  }
+
+  assert {
+    condition     = local.public_origin == "https://staging.example.com"
+    error_message = "HTTPS mode must use the configured hostname as the public origin."
+  }
+}
+
+run "plain_http_mode" {
+  command = plan
+
+  variables {
+    hostname        = null
+    certificate_arn = null
+  }
+
+  assert {
+    condition     = length(aws_lb_listener.https) == 0 && length(aws_vpc_security_group_ingress_rule.alb_https) == 0
+    error_message = "Plain HTTP mode must not create the HTTPS listener or its ingress rule."
+  }
+
+  assert {
+    condition     = one(aws_lb_listener.http.default_action).type == "forward"
+    error_message = "Plain HTTP mode must forward port 80 to the Web target group."
+  }
+
+  assert {
+    condition     = !local.is_https_enabled
+    error_message = "Plain HTTP mode must report HTTPS as disabled so Secure cookies are turned off."
+  }
+}
+
+run "https_requires_hostname_and_certificate_together" {
+  command = plan
+
+  variables {
+    hostname        = null
+    certificate_arn = "arn:aws:acm:us-east-2:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+  }
+
+  expect_failures = [aws_lb.staging]
 }
 
 run "explicit_purge" {

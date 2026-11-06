@@ -1,11 +1,11 @@
 variable "aws_region" {
   description = "AWS region for the staging state bucket."
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 
   validation {
-    condition     = var.aws_region == "us-east-1"
-    error_message = "The staging backend must be created in us-east-1."
+    condition     = var.aws_region == "us-east-2"
+    error_message = "The staging backend must be created in us-east-2."
   }
 }
 

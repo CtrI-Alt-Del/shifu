@@ -8,6 +8,13 @@ resource "aws_lb" "staging" {
   enable_deletion_protection = false
 
   tags = { Name = local.name }
+
+  lifecycle {
+    precondition {
+      condition     = (var.hostname == null) == (var.certificate_arn == null)
+      error_message = "Set hostname and certificate_arn together for HTTPS, or leave both null for plain HTTP."
+    }
+  }
 }
 
 resource "aws_lb_target_group" "web" {
@@ -55,18 +62,33 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type = "redirect"
+  dynamic "default_action" {
+    for_each = local.is_https_enabled ? [1] : []
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    content {
+      type = "redirect"
+
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = local.is_https_enabled ? [] : [1]
+
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.web.arn
     }
   }
 }
 
 resource "aws_lb_listener" "https" {
+  count = local.is_https_enabled ? 1 : 0
+
   load_balancer_arn = aws_lb.staging.arn
   port              = 443
   protocol          = "HTTPS"
@@ -80,7 +102,7 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_listener_rule" "inngest" {
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = local.app_listener_arn
   priority     = 100
 
   action {

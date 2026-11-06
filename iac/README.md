@@ -3,7 +3,7 @@
 This directory contains two independent Terraform roots:
 
 - `bootstrap/` creates only the private S3 backend used by staging;
-- `staging/` creates the application platform in `us-east-1`.
+- `staging/` creates the application platform in `us-east-2`.
 
 It does not read, import, or modify the academic S3 laboratory under
 `packages/iac/`. No command below is evidence that AWS resources are currently
@@ -24,8 +24,9 @@ Copy-Item iac/staging/terraform.tfvars.example iac/staging/terraform.tfvars
 ```
 
 The Terraform inputs are non-secret: unique backend bucket name, two available
-AZs/CIDRs when defaults are unsuitable, public hostname, existing ACM certificate
-ARN, immutable image tags, monthly budget amount/subscriber e-mails, teardown
+AZs/CIDRs when defaults are unsuitable, optional public hostname and existing ACM
+certificate ARN (set both for HTTPS, or leave both unset for the MVP's plain HTTP
+on the ALB address), immutable image tags, monthly budget amount/subscriber e-mails, teardown
 mode/final snapshot identifier, and tags. Keep the local copies private even
 though they must contain no credentials.
 
@@ -97,7 +98,7 @@ immutable tags selected in the variables file:
 ```powershell
 docker build -f apps/server/Dockerfile -t shifu-server:<immutable-tag> .
 docker build -f apps/web/Dockerfile -t shifu-web:<immutable-tag> .
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-2.amazonaws.com
 docker tag shifu-server:<immutable-tag> <api-repository-url>:<immutable-tag>
 docker tag shifu-web:<immutable-tag> <web-repository-url>:<immutable-tag>
 docker push <api-repository-url>:<immutable-tag>
@@ -221,12 +222,16 @@ migration when schema compatibility is uncertain, and then retry enablement.
 
 ## 7. DNS and side-effect-free smoke
 
-Create the operator-managed DNS alias/CNAME from the supplied hostname to
-`alb_dns_name`; DNS is intentionally outside Terraform. Without creating an
-account, sending e-mail, emitting an Inngest event, or calling OpenRouter:
+With a hostname, create the operator-managed DNS alias/CNAME from it to
+`alb_dns_name`; DNS is intentionally outside Terraform. Without a hostname, staging
+serves plain HTTP on `alb_dns_name` and the `public_origin` output shows the URL.
+Plain HTTP sends passwords and session cookies unencrypted, so use only test
+accounts and set `SHIFU_USE_SECURE_COOKIES=false`, which Terraform does itself in
+that mode. Without creating an account, sending e-mail, emitting an Inngest event,
+or calling OpenRouter:
 
-1. confirm plain HTTP redirects to the HTTPS hostname;
-2. request `https://<hostname>/api/health` and expect `{"status":"ok"}` from Web;
+1. with HTTPS, confirm plain HTTP redirects to the HTTPS hostname;
+2. request `<public_origin>/api/health` and expect `{"status":"ok"}` from Web;
 3. inspect the API target group and confirm its private `/health` check is healthy;
 4. confirm an unrelated public path does not bypass Web to reach FastAPI;
 5. inspect both target groups, ECS task networking, migration revision, and the

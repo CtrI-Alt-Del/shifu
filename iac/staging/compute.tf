@@ -76,7 +76,8 @@ resource "aws_ecs_task_definition" "web" {
       environment = [
         { name = "NODE_ENV", value = "production" },
         { name = "SHIFU_WEB_APP_PORT", value = "7000" },
-        { name = "SHIFU_WEB_APP_URL", value = "https://${var.hostname}" },
+        { name = "SHIFU_WEB_APP_URL", value = local.public_origin },
+        { name = "SHIFU_USE_SECURE_COOKIES", value = tostring(local.is_https_enabled) },
         { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.api_discovery_name}:7777" },
         { name = "SHIFU_TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
@@ -127,11 +128,11 @@ resource "aws_ecs_task_definition" "api" {
       environment = [
         { name = "SHIFU_SERVER_APP_PORT", value = "7777" },
         { name = "SHIFU_SERVER_APP_MODE", value = "staging" },
-        { name = "SHIFU_AUTH_ISSUER", value = "https://${var.hostname}" },
+        { name = "SHIFU_AUTH_ISSUER", value = local.public_origin },
         { name = "SHIFU_AUTH_AUDIENCE", value = "shifu-api" },
-        { name = "SHIFU_AUTH_JWKS_URL", value = "https://${var.hostname}/api/auth/jwks" },
+        { name = "SHIFU_AUTH_JWKS_URL", value = "${local.public_origin}/api/auth/jwks" },
         { name = "SHIFU_EMAIL_PROVIDER", value = "resend" },
-        { name = "SHIFU_CONFIRMATION_ACTION_ORIGIN", value = "https://${var.hostname}" },
+        { name = "SHIFU_CONFIRMATION_ACTION_ORIGIN", value = local.public_origin },
         { name = "SHIFU_EMAIL_TIMEOUT_SECONDS", value = "10" },
         { name = "INNGEST_APP_ID", value = local.name },
         { name = "INNGEST_DEV", value = "0" },
@@ -187,7 +188,7 @@ resource "aws_ecs_service" "web" {
     container_port   = 7000
   }
 
-  depends_on = [aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
 }
 
 resource "aws_ecs_service" "api" {

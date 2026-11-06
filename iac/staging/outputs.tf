@@ -3,6 +3,11 @@ output "alb_dns_name" {
   value       = aws_lb.staging.dns_name
 }
 
+output "public_origin" {
+  description = "Public base URL of staging: the hostname over HTTPS, or the ALB address over plain HTTP."
+  value       = local.public_origin
+}
+
 output "ecs_cluster_name" {
   description = "ECS cluster used for services and the one-off migration task."
   value       = aws_ecs_cluster.staging.name
