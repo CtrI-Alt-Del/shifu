@@ -224,8 +224,17 @@ desnecessários.
 
 As imagens das aplicações devem ser publicadas no ECR. O pipeline de entrega
 deve validar as aplicações, gerar imagens versionadas, executar migrações
-controladas e atualizar os serviços ECS com verificação de saúde. O desenho
-final do pipeline e a política de rollback ainda precisam ser definidos.
+controladas e atualizar os serviços ECS com verificação de saúde.
+
+Em staging, dois workflows do GitHub Actions cumprem esse papel. O workflow do
+Terraform valida e planeja cada mudança em `iac/`, e o apply é manual e exige
+aprovação. O workflow de deploy gera as imagens `linux/arm64` a cada merge na
+`main`, roda a migração, atualiza o servidor e depois o Web e confere a saúde.
+Se o ECS desfizer uma publicação, o workflow falha. O rollback consiste em
+publicar de novo imagens antigas que já estão no ECR e não desfaz migrações. Como
+a conta AWS bloqueia OIDC, o GitHub acessa a AWS com chaves de dois usuários IAM
+de escopo restrito. Os detalhes de configuração e de falhas estão em
+`iac/README.md`.
 
 ## Ambientes e provisionamento
 

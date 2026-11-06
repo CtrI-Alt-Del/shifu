@@ -84,20 +84,22 @@ terraform -chdir=iac/staging show .terraform/foundation.tfplan
 terraform -chdir=iac/staging apply .terraform/foundation.tfplan
 ```
 
-Review that the plan contains one `/16` VPC, two AZs/six subnets, one NAT,
+Review that the plan contains one `/16` VPC, two AZs/six subnets, no NAT Gateway,
 private data services, zero desired tasks, exact ALB routing, secret metadata,
 separate logs and the budget. Do not continue if a secret value or secret-version
 resource appears.
 
 ## 3. Build and publish immutable images
 
-Build both images from the repository root. Authenticate Docker to the ECR
-registry using a non-persisted password stream, then tag and push with the exact
-immutable tags selected in the variables file:
+The deploy workflow described in "Continuous delivery" does this on every merge.
+To publish by hand, build both images for `linux/arm64` from the repository root.
+The Web image needs the URL that browsers use to reach the server. Authenticate
+Docker to the ECR registry using a non-persisted password stream, then tag and push
+with the exact immutable tags selected in the variables file:
 
 ```powershell
-docker build -f apps/server/Dockerfile -t shifu-server:<immutable-tag> .
-docker build -f apps/web/Dockerfile -t shifu-web:<immutable-tag> .
+docker buildx build --platform linux/arm64 -f apps/server/Dockerfile -t shifu-server:<immutable-tag> --load .
+docker buildx build --platform linux/arm64 -f apps/web/Dockerfile --build-arg VITE_SHIFU_SERVER_URL=<server-url> -t shifu-web:<immutable-tag> --load .
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-2.amazonaws.com
 docker tag shifu-server:<immutable-tag> <server-repository-url>:<immutable-tag>
 docker tag shifu-web:<immutable-tag> <web-repository-url>:<immutable-tag>
@@ -152,7 +154,7 @@ private `application_subnet_ids`, and `server_security_group_id` outputs to run 
 Fargate task with the server container command overridden to:
 
 ```text
-uv run alembic upgrade head
+alembic upgrade head
 ```
 
 Before running that task, create the least-privileged AgentOS runtime role through
@@ -183,7 +185,8 @@ migration task. Do not enable either ECS service until the role creation and the
 migration both succeed.
 
 Supply the same `awsvpc` settings as the server service and
-`assignPublicIp=DISABLED`. This PowerShell template uses only non-secret Terraform
+`assignPublicIp=ENABLED`, because staging has no NAT Gateway. This PowerShell
+template uses only non-secret Terraform
 outputs and writes no secret value:
 
 ```powershell
@@ -191,8 +194,8 @@ $cluster = terraform -chdir=iac/staging output -raw ecs_cluster_name
 $taskDefinition = terraform -chdir=iac/staging output -raw server_task_definition_arn
 $subnets = (terraform -chdir=iac/staging output -json application_subnet_ids | ConvertFrom-Json) -join ','
 $securityGroup = terraform -chdir=iac/staging output -raw server_security_group_id
-$network = "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$securityGroup],assignPublicIp=DISABLED}"
-$overrides = '{"containerOverrides":[{"name":"server","command":["uv","run","alembic","upgrade","head"]}]}'
+$network = "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$securityGroup],assignPublicIp=ENABLED}"
+$overrides = '{"containerOverrides":[{"name":"server","command":["alembic","upgrade","head"]}]}'
 $taskArn = aws ecs run-task --cluster $cluster --task-definition $taskDefinition --launch-type FARGATE --network-configuration $network --overrides $overrides --query 'tasks[0].taskArn' --output text
 aws ecs wait tasks-stopped --cluster $cluster --tasks $taskArn
 aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].containers[?name==`server`].{exitCode:exitCode,reason:reason}'
@@ -242,6 +245,73 @@ or calling OpenRouter:
 
 The smoke is infrastructure-only and does not prove e-mail delivery, job execution,
 or AI assessment.
+
+## Continuous delivery
+
+Two GitHub Actions workflows run staging:
+
+- `terraform-staging.yaml` checks formatting, validates and tests both roots on every
+  pull request that touches `iac/`, and plans the staging root. Someone starts the
+  apply by hand on `main`. It then plans again, and a reviewer approves the apply.
+- `staging-deploy.yaml` runs on every merge to `main` that touches the apps. It
+  builds the Web and server images for `linux/arm64`, pushes them to ECR with the
+  tags `<12-character commit hash>-web` and `-server`, registers a new revision of
+  each task definition, runs the database migration as a one-off task, rolls the
+  server and then the Web service, and checks both target groups and
+  `<public_origin>/api/health`.
+
+Terraform owns the task definitions, secrets wiring and sizing. The deploy workflow
+copies the latest task definition and changes only the image and
+`SHIFU_RELEASE_VERSION`. The services ignore task definition changes in Terraform,
+so an apply never moves a service back to an older image. After Terraform changes
+a task definition, run the deploy workflow again to pick the change up.
+
+### One-time setup
+
+AWS blocks OIDC for this account, so GitHub signs in with IAM user access keys.
+Terraform creates the users and their narrow policies. It never creates keys.
+
+1. In the IAM console, create one access key for each user and keep the values
+   only for the next step: `shifu-staging-deployer` for the app deploy and
+   `shifu-staging-terraform` for Terraform. Delete any older key of the deployer.
+2. In the GitHub repository settings, create three environments.
+
+| Environment | Used by | Secrets | Protection |
+| --- | --- | --- | --- |
+| `staging` | `staging-deploy.yaml` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` of the deployer | none, or branch limited to `main` |
+| `staging-terraform` | Terraform validate and plan | same two names, Terraform user key | none, so pull requests can plan |
+| `staging-terraform-apply` | Terraform apply | same two names, Terraform user key | required reviewers, branch limited to `main` |
+
+3. Set these non-secret variables. Read the values from `terraform output`.
+
+| Environment | Variable | Value |
+| --- | --- | --- |
+| `staging` | `APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
+| `staging` | `SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
+| `staging` | `PUBLIC_ORIGIN` | `public_origin` |
+| `staging` | `VITE_SHIFU_SERVER_URL` | The URL browsers use to call the server |
+| both Terraform environments | `STATE_BUCKET` | The bootstrap state bucket name |
+| both Terraform environments | `TFVARS` | The full content of `iac/staging/terraform.tfvars` |
+
+`TFVARS` replaces the ignored local file in CI, so it holds the same non-secret
+values, including `services_enabled`. Change the variable to change those inputs.
+
+### Failures and rollback
+
+- **Image build fails:** nothing changed in AWS. Fix the code and merge again.
+- **Migration fails:** the workflow stops before any service changes. Read the log
+  lines in the job output, fix forward, and run the workflow again. Never seed or
+  reset data. A missing `shifu_agentos_runtime` role is the usual first-run cause:
+  create it as described in step 5.
+- **Rollout fails:** the ECS circuit breaker returns the service to its previous
+  revision and the workflow fails. Check the service events and the log groups
+  `/ecs/shifu-staging/web` and `/ecs/shifu-staging/server`.
+- **Roll back to an earlier release:** run `staging-deploy.yaml` by hand and set
+  `image_sha` to the 12-character hash of an earlier deploy. It redeploys the images
+  already in ECR without building. It does not undo migrations, so only roll back
+  across releases whose schema changes are backward compatible.
+- **Rotate a key:** create the new key, update the environment secrets, run a
+  workflow, then delete the old key.
 
 ## Recovery
 
@@ -302,10 +372,10 @@ Never destroy the backend while it owns live staging state.
 
 ## Cost-bearing resources
 
-The NAT Gateway and its traffic, public ALB, Fargate tasks, RDS PostgreSQL,
+The public ALB, Fargate tasks, RDS PostgreSQL,
 ElastiCache Redis, CloudWatch logs, ECR storage/scans, Secrets Manager secrets,
 public IPv4/EIP usage, S3 backend storage/requests, and external Inngest/Resend/
 OpenRouter plans may incur cost. The monthly AWS Budget notifies at forecasted 80%
-and actual 100%; it is not a hard spending limit. Staging intentionally uses one
-NAT, one task per service when enabled, Single-AZ RDS, and one Redis node and is not
-production-ready or highly available.
+and actual 100%; it is not a hard spending limit. Staging intentionally uses no NAT Gateway
+(tasks get public IPs), one Spot task per service when enabled, Single-AZ RDS without
+automated backups, and one Redis node. It is not production-ready or highly available.
