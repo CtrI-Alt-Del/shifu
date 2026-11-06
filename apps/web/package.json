@@ -7,6 +7,7 @@
     "generate-routes": "tsr generate",
     "build": "vite build",
     "preview": "vite preview",
+    "start": "node server.production.mjs",
     "check:types": "tsc --noEmit",
     "check:lint": "biome check src tests vitest.config.ts playwright.config.ts dependency-cruiser.config.cjs",
     "check:architecture": "depcruise --config dependency-cruiser.config.cjs src",
@@ -48,6 +49,7 @@
     "react-markdown": "^10.1.0",
     "rehype-prism-plus": "^2.0.2",
     "remark-gfm": "^4.0.1",
+    "srvx": "0.11.22",
     "tailwindcss": "^4.1.18",
     "zod": "^4.4.3"
   },

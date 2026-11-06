@@ -1,0 +1,55 @@
+# Keep the build context small and free of local secrets. The Dockerfiles copy
+# only the files they need, so this list guards against accidental inclusion.
+
+.git
+.github
+.husky
+.codegraph
+.claude
+.agents
+.agent
+.cursor
+.codex
+.context
+.serena
+.opencode
+.obsidian
+.impeccable
+**/.playwright-cli
+
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+**/.pyright
+**/*.egg-info
+
+**/dist
+**/coverage
+**/htmlcov
+**/test-results
+**/playwright-report
+**/.tanstack
+**/.output
+
+# Local environment files and credentials
+**/.env
+**/.env.*
+!**/.env.example
+**/*.pem
+**/*.key
+
+# Terraform state and local variable files
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+**/backend.hcl
+
+# Not part of any image
+iac
+documentation
+design
+*.md
