@@ -75,6 +75,8 @@ resource "aws_ecs_task_definition" "web" {
       }]
       environment = [
         { name = "NODE_ENV", value = "production" },
+        { name = "SHIFU_WEB_APP_MODE", value = "staging" },
+        { name = "SHIFU_RELEASE_VERSION", value = var.web_image_tag },
         { name = "SHIFU_WEB_APP_PORT", value = "7000" },
         { name = "SHIFU_WEB_APP_URL", value = local.public_origin },
         { name = "SHIFU_USE_SECURE_COOKIES", value = tostring(local.is_https_enabled) },
@@ -128,6 +130,7 @@ resource "aws_ecs_task_definition" "server" {
       environment = [
         { name = "SHIFU_SERVER_APP_PORT", value = "7777" },
         { name = "SHIFU_SERVER_APP_MODE", value = "staging" },
+        { name = "SHIFU_RELEASE_VERSION", value = var.server_image_tag },
         { name = "SHIFU_AUTH_ISSUER", value = local.public_origin },
         { name = "SHIFU_AUTH_AUDIENCE", value = "shifu-api" },
         { name = "SHIFU_AUTH_JWKS_URL", value = "${local.public_origin}/api/auth/jwks" },
