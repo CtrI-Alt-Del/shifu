@@ -6,7 +6,7 @@ name: Terraform staging
 # `staging-terraform-apply` environment.
 #
 # Signs in to AWS with the access key of the `shifu-staging-terraform` IAM user.
-# The AWS account blocks OIDC, so the key is stored as environment secrets.
+# The AWS account blocks OIDC, so the key is stored as GitHub secrets.
 # See iac/README.md for the setup.
 
 on:
@@ -68,7 +68,7 @@ jobs:
   plan:
     name: Plan staging
     needs: validate
-    # Pull requests from forks never receive the environment secrets.
+    # Pull requests from forks never receive the secrets.
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -89,8 +89,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_STAGING_TERRAFORM_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Write the variable file
@@ -161,8 +161,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_STAGING_TERRAFORM_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Write the variable file

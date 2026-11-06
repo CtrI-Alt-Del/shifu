@@ -278,9 +278,12 @@ Terraform creates the users and their narrow policies. It never creates keys.
 
 | Environment | Used by | Secrets | Protection |
 | --- | --- | --- | --- |
-| `staging` | `staging-deploy.yaml` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` of the deployer | none, or branch limited to `main` |
-| `staging-terraform` | Terraform validate and plan | same two names, Terraform user key | none, so pull requests can plan |
-| `staging-terraform-apply` | Terraform apply | same two names, Terraform user key | required reviewers, branch limited to `main` |
+| `staging` | `staging-deploy.yaml` | `AWS_STAGING_DEPLOYER_ACCESS_KEY_ID`, `AWS_STAGING_DEPLOYER_SECRET_ACCESS_KEY` | none, or branch limited to `main` |
+| `staging-terraform` | Terraform validate and plan | `AWS_STAGING_TERRAFORM_ACCESS_KEY_ID`, `AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY` | none, so pull requests can plan |
+| `staging-terraform-apply` | Terraform apply | the same two Terraform names | required reviewers, branch limited to `main` |
+
+Prefer environment secrets over repository secrets. A repository secret is visible
+to every workflow, so it would bypass the reviewers on the apply environment.
 
 3. Set these non-secret variables. Read the values from `terraform output`.
 
