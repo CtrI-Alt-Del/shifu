@@ -3,8 +3,8 @@ resource "aws_cloudwatch_log_group" "web" {
   retention_in_days = 14
 }
 
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${local.name}/api"
+resource "aws_cloudwatch_log_group" "server" {
+  name              = "/ecs/${local.name}/server"
   retention_in_days = 14
 }
 
@@ -33,8 +33,8 @@ resource "aws_service_discovery_private_dns_namespace" "staging" {
   vpc         = aws_vpc.staging.id
 }
 
-resource "aws_service_discovery_service" "api" {
-  name = "api"
+resource "aws_service_discovery_service" "server" {
+  name = "server"
 
   dns_config {
     namespace_id   = aws_service_discovery_private_dns_namespace.staging.id
@@ -78,7 +78,7 @@ resource "aws_ecs_task_definition" "web" {
         { name = "SHIFU_WEB_APP_PORT", value = "7000" },
         { name = "SHIFU_WEB_APP_URL", value = local.public_origin },
         { name = "SHIFU_USE_SECURE_COOKIES", value = tostring(local.is_https_enabled) },
-        { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.api_discovery_name}:7777" },
+        { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.server_discovery_name}:7777" },
         { name = "SHIFU_TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
       secrets = [
@@ -99,14 +99,14 @@ resource "aws_ecs_task_definition" "web" {
   ])
 }
 
-resource "aws_ecs_task_definition" "api" {
-  family                   = "${local.name}-api"
+resource "aws_ecs_task_definition" "server" {
+  family                   = "${local.name}-server"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = 512
   memory                   = 1024
-  execution_role_arn       = aws_iam_role.api_execution.arn
-  task_role_arn            = aws_iam_role.api_task.arn
+  execution_role_arn       = aws_iam_role.server_execution.arn
+  task_role_arn            = aws_iam_role.server_task.arn
 
   runtime_platform {
     operating_system_family = "LINUX"
@@ -115,11 +115,11 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([
     {
-      name      = "api"
-      image     = "${aws_ecr_repository.api.repository_url}:${var.api_image_tag}"
+      name      = "server"
+      image     = "${aws_ecr_repository.server.repository_url}:${var.server_image_tag}"
       essential = true
       portMappings = [{
-        name          = "api"
+        name          = "server"
         containerPort = 7777
         hostPort      = 7777
         protocol      = "tcp"
@@ -141,17 +141,17 @@ resource "aws_ecs_task_definition" "api" {
         { name = "TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
       secrets = [
-        for key in local.api_secret_keys : {
+        for key in local.server_secret_keys : {
           name      = key
-          valueFrom = "${aws_secretsmanager_secret.api.arn}:${key}::"
+          valueFrom = "${aws_secretsmanager_secret.server.arn}:${key}::"
         }
       ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.api.name
+          awslogs-group         = aws_cloudwatch_log_group.server.name
           awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "api"
+          awslogs-stream-prefix = "server"
         }
       }
     },
@@ -191,10 +191,10 @@ resource "aws_ecs_service" "web" {
   depends_on = [aws_lb_listener.http, aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
 }
 
-resource "aws_ecs_service" "api" {
-  name            = "${local.name}-api"
+resource "aws_ecs_service" "server" {
+  name            = "${local.name}-server"
   cluster         = aws_ecs_cluster.staging.id
-  task_definition = aws_ecs_task_definition.api.arn
+  task_definition = aws_ecs_task_definition.server.arn
   desired_count   = var.services_enabled ? 1 : 0
 
   capacity_provider_strategy {
@@ -211,19 +211,19 @@ resource "aws_ecs_service" "api" {
 
   network_configuration {
     subnets          = aws_subnet.application[*].id
-    security_groups  = [aws_security_group.api.id]
+    security_groups  = [aws_security_group.server.id]
     assign_public_ip = true
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.api.arn
-    container_name   = "api"
+    target_group_arn = aws_lb_target_group.server.arn
+    container_name   = "server"
     container_port   = 7777
   }
 
   service_registries {
-    registry_arn   = aws_service_discovery_service.api.arn
-    container_name = "api"
+    registry_arn   = aws_service_discovery_service.server.arn
+    container_name = "server"
   }
 
   depends_on = [aws_lb_listener_rule.inngest, aws_ecs_cluster_capacity_providers.staging]

@@ -36,8 +36,8 @@ out-of-band population after the metadata exists:
 | Secret | Required JSON keys |
 | --- | --- |
 | Web | `BETTER_AUTH_DATABASE_URL`, `BETTER_AUTH_SECRET`, `SHIFU_BFF_SHARED_SECRET` |
-| API | `DATABASE_URL`, `AGENTOS_DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
-| API, optional | `OPENROUTER_API_KEY`; set `openrouter_enabled=true` only after the key exists |
+| Server | `DATABASE_URL`, `AGENTOS_DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
+| Server, optional | `OPENROUTER_API_KEY`; set `openrouter_enabled=true` only after the key exists |
 
 `DATABASE_URL` and `BETTER_AUTH_DATABASE_URL` use the RDS-generated master
 credential. `REDIS_URL` must use TLS and AUTH. Inngest must use production
@@ -99,9 +99,9 @@ immutable tags selected in the variables file:
 docker build -f apps/server/Dockerfile -t shifu-server:<immutable-tag> .
 docker build -f apps/web/Dockerfile -t shifu-web:<immutable-tag> .
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-2.amazonaws.com
-docker tag shifu-server:<immutable-tag> <api-repository-url>:<immutable-tag>
+docker tag shifu-server:<immutable-tag> <server-repository-url>:<immutable-tag>
 docker tag shifu-web:<immutable-tag> <web-repository-url>:<immutable-tag>
-docker push <api-repository-url>:<immutable-tag>
+docker push <server-repository-url>:<immutable-tag>
 docker push <web-repository-url>:<immutable-tag>
 ```
 
@@ -117,12 +117,12 @@ example, with paths held in private environment variables:
 
 ```powershell
 aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw web_secret_arn) --secret-string "file://$env:SHIFU_WEB_SECRET_FILE"
-aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw api_secret_arn) --secret-string "file://$env:SHIFU_API_SECRET_FILE"
+aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw server_secret_arn) --secret-string "file://$env:SHIFU_SERVER_SECRET_FILE"
 ```
 
 The responses contain version metadata, not secret values. Securely erase the
 operator-owned temporary files after successful population. Read the AWS-managed
-RDS credential privately and construct the Web/API database URLs without displaying
+RDS credential privately and construct the Web/server database URLs without displaying
 either value.
 
 Create a compliant Redis token privately and keep it only in a non-echoing private
@@ -135,10 +135,10 @@ aws elasticache wait replication-group-available --replication-group-id shifu-st
 Remove-Item Env:SHIFU_REDIS_AUTH_TOKEN
 ```
 
-Store the authenticated `rediss://` URL only in the API secret. Do not pass the
+Store the authenticated `rediss://` URL only in the server secret. Do not pass the
 token to Terraform. Terraform deliberately ignores the write-only AUTH attributes
 so a later plan neither stores nor removes the token.
-Before enabling API, verify through a private network path that unauthenticated
+Before enabling the server, verify through a private network path that unauthenticated
 access is rejected and authenticated TLS access succeeds; do not echo the token.
 
 Confirm every required JSON key exists. If OpenRouter is omitted, leave
@@ -147,9 +147,9 @@ assessment is unavailable by its existing controlled behavior.
 
 ## 5. Create the AgentOS runtime role and run the one-off migration
 
-Keep both service desired counts at zero. Use the `api_task_definition_arn`,
-private `application_subnet_ids`, and `api_security_group_id` outputs to run one
-Fargate task with the API container command overridden to:
+Keep both service desired counts at zero. Use the `server_task_definition_arn`,
+private `application_subnet_ids`, and `server_security_group_id` outputs to run one
+Fargate task with the server container command overridden to:
 
 ```text
 uv run alembic upgrade head
@@ -182,23 +182,23 @@ Verify privately that `shifu_agentos_runtime` exists before starting the
 migration task. Do not enable either ECS service until the role creation and the
 migration both succeed.
 
-Supply the same `awsvpc` settings as the API service and
+Supply the same `awsvpc` settings as the server service and
 `assignPublicIp=DISABLED`. This PowerShell template uses only non-secret Terraform
 outputs and writes no secret value:
 
 ```powershell
 $cluster = terraform -chdir=iac/staging output -raw ecs_cluster_name
-$taskDefinition = terraform -chdir=iac/staging output -raw api_task_definition_arn
+$taskDefinition = terraform -chdir=iac/staging output -raw server_task_definition_arn
 $subnets = (terraform -chdir=iac/staging output -json application_subnet_ids | ConvertFrom-Json) -join ','
-$securityGroup = terraform -chdir=iac/staging output -raw api_security_group_id
+$securityGroup = terraform -chdir=iac/staging output -raw server_security_group_id
 $network = "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$securityGroup],assignPublicIp=DISABLED}"
-$overrides = '{"containerOverrides":[{"name":"api","command":["uv","run","alembic","upgrade","head"]}]}'
+$overrides = '{"containerOverrides":[{"name":"server","command":["uv","run","alembic","upgrade","head"]}]}'
 $taskArn = aws ecs run-task --cluster $cluster --task-definition $taskDefinition --launch-type FARGATE --network-configuration $network --overrides $overrides --query 'tasks[0].taskArn' --output text
 aws ecs wait tasks-stopped --cluster $cluster --tasks $taskArn
-aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].containers[?name==`api`].{exitCode:exitCode,reason:reason}'
+aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].containers[?name==`server`].{exitCode:exitCode,reason:reason}'
 ```
 
-Wait for the task to stop, require container exit code zero, inspect the API log
+Wait for the task to stop, require container exit code zero, inspect the server log
 group for a redacted migration result, and independently confirm Alembic is at
 head. Never seed or reset data. If migration fails, leave services disabled,
 correct image/configuration/connectivity, and rerun a new one-off task.
@@ -232,10 +232,10 @@ or calling OpenRouter:
 
 1. with HTTPS, confirm plain HTTP redirects to the HTTPS hostname;
 2. request `<public_origin>/api/health` and expect `{"status":"ok"}` from Web;
-3. inspect the API target group and confirm its private `/health` check is healthy;
+3. inspect the server target group and confirm its private `/health` check is healthy;
 4. confirm an unrelated public path does not bypass Web to reach FastAPI;
 5. inspect both target groups, ECS task networking, migration revision, and the
-   separate Web/API log streams;
+   separate Web/server log streams;
 6. inspect/synchronize the signed `/api/inngest` endpoint without sending an event;
 7. confirm no response/log reveals private DNS, task addresses, credentials, or
    raw provider errors.
@@ -253,7 +253,7 @@ or AI assessment.
   seed, reset, or auto-migrate at service startup.
 - **Unhealthy deployment:** use ECS deployment events and separate target health;
   circuit-breaker rollback is automatic, while operator correction is explicit.
-- **Redis AUTH drift:** keep services disabled until both the cache and API secret
+- **Redis AUTH drift:** keep services disabled until both the cache and server secret
   contain the coordinated token; Terraform is not the rotation mechanism.
 
 ## Teardown rehearsal and execution

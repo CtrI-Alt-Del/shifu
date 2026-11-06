@@ -4,7 +4,7 @@ variables {
   hostname                  = "staging.example.com"
   certificate_arn           = "arn:aws:acm:us-east-2:123456789012:certificate/00000000-0000-0000-0000-000000000000"
   web_image_tag             = "0123456789abcdef-web"
-  api_image_tag             = "0123456789abcdef-api"
+  server_image_tag          = "0123456789abcdef-server"
   monthly_budget_usd        = 100
   budget_subscriber_emails  = ["platform-owner@example.com"]
   final_snapshot_identifier = "shifu-staging-final-test"
@@ -19,7 +19,7 @@ run "foundation_contract" {
   }
 
   assert {
-    condition     = aws_ecs_service.web.desired_count == 0 && aws_ecs_service.api.desired_count == 0
+    condition     = aws_ecs_service.web.desired_count == 0 && aws_ecs_service.server.desired_count == 0
     error_message = "Phase zero must keep both services disabled."
   }
 
@@ -29,14 +29,14 @@ run "foundation_contract" {
   }
 
   assert {
-    condition     = aws_ecs_task_definition.api.cpu == "512" && aws_ecs_task_definition.api.memory == "1024"
-    error_message = "API task sizing must remain 0.5 vCPU and 1 GiB."
+    condition     = aws_ecs_task_definition.server.cpu == "512" && aws_ecs_task_definition.server.memory == "1024"
+    error_message = "Server task sizing must remain 0.5 vCPU and 1 GiB."
   }
 
   assert {
     condition = (
       one(aws_ecs_task_definition.web.runtime_platform).cpu_architecture == "ARM64" &&
-      one(aws_ecs_task_definition.api.runtime_platform).cpu_architecture == "ARM64"
+      one(aws_ecs_task_definition.server.runtime_platform).cpu_architecture == "ARM64"
     )
     error_message = "Staging tasks must run on ARM64 to reduce Fargate cost."
   }
@@ -44,7 +44,7 @@ run "foundation_contract" {
   assert {
     condition = (
       one(aws_ecs_service.web.capacity_provider_strategy).capacity_provider == "FARGATE_SPOT" &&
-      one(aws_ecs_service.api.capacity_provider_strategy).capacity_provider == "FARGATE_SPOT"
+      one(aws_ecs_service.server.capacity_provider_strategy).capacity_provider == "FARGATE_SPOT"
     )
     error_message = "Staging services must run on Fargate Spot to reduce cost."
   }
@@ -52,7 +52,7 @@ run "foundation_contract" {
   assert {
     condition = (
       one(aws_ecs_service.web.network_configuration).assign_public_ip &&
-      one(aws_ecs_service.api.network_configuration).assign_public_ip
+      one(aws_ecs_service.server.network_configuration).assign_public_ip
     )
     error_message = "Staging tasks need public IPs because staging has no NAT Gateway."
   }
@@ -63,8 +63,8 @@ run "foundation_contract" {
   }
 
   assert {
-    condition     = aws_db_instance.postgres.backup_retention_period == 7 && aws_db_instance.postgres.skip_final_snapshot == false
-    error_message = "Safe RDS defaults must retain seven-day backups and create a final snapshot."
+    condition     = aws_db_instance.postgres.backup_retention_period == 0 && aws_db_instance.postgres.skip_final_snapshot == false
+    error_message = "Staging must disable automated backups for the Free Plan and still create a final snapshot on teardown."
   }
 
   assert {
@@ -73,27 +73,27 @@ run "foundation_contract" {
   }
 
   assert {
-    condition     = one(aws_lb_target_group.web.health_check).path == "/api/health" && one(aws_lb_target_group.api.health_check).path == "/health"
-    error_message = "Web and API must use independent health checks."
+    condition     = one(aws_lb_target_group.web.health_check).path == "/api/health" && one(aws_lb_target_group.server.health_check).path == "/health"
+    error_message = "Web and server must use independent health checks."
   }
 
   assert {
-    condition     = contains(local.api_required_secret_keys, "AGENTOS_DATABASE_URL")
-    error_message = "The API secret must include the AgentOS database URL."
+    condition     = contains(local.server_required_secret_keys, "AGENTOS_DATABASE_URL")
+    error_message = "The server secret must include the AgentOS database URL."
   }
 
   assert {
     condition     = one(one(aws_lb_listener_rule.inngest.condition).path_pattern).values == toset(["/api/inngest"])
-    error_message = "Only the exact Inngest callback path may route publicly to API."
+    error_message = "Only the exact Inngest callback path may route publicly to server."
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.web.retention_in_days == 14 && aws_cloudwatch_log_group.api.retention_in_days == 14
+    condition     = aws_cloudwatch_log_group.web.retention_in_days == 14 && aws_cloudwatch_log_group.server.retention_in_days == 14
     error_message = "Both application log groups must retain logs for 14 days."
   }
 
   assert {
-    condition     = aws_ecr_repository.web.force_delete == false && aws_ecr_repository.api.force_delete == false
+    condition     = aws_ecr_repository.web.force_delete == false && aws_ecr_repository.server.force_delete == false
     error_message = "Safe mode must refuse force-deletion of ECR images."
   }
 }
@@ -106,7 +106,7 @@ run "enabled_services" {
   }
 
   assert {
-    condition     = aws_ecs_service.web.desired_count == 1 && aws_ecs_service.api.desired_count == 1
+    condition     = aws_ecs_service.web.desired_count == 1 && aws_ecs_service.server.desired_count == 1
     error_message = "Enablement must run exactly one task for each service."
   }
 }
@@ -173,7 +173,7 @@ run "explicit_purge" {
   }
 
   assert {
-    condition     = aws_ecr_repository.web.force_delete && aws_ecr_repository.api.force_delete
+    condition     = aws_ecr_repository.web.force_delete && aws_ecr_repository.server.force_delete
     error_message = "Purge mode must permit managed ECR image cleanup."
   }
 }

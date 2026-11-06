@@ -122,18 +122,18 @@ variable "web_image_tag" {
   }
 }
 
-variable "api_image_tag" {
-  description = "Immutable, non-latest deployment tag for the API image."
+variable "server_image_tag" {
+  description = "Immutable, non-latest deployment tag for the server image."
   type        = string
 
   validation {
-    condition     = var.api_image_tag != "latest" && can(regex("^[A-Za-z0-9_][A-Za-z0-9_.-]{6,127}$", var.api_image_tag))
-    error_message = "api_image_tag must be an immutable tag of at least seven characters and cannot be latest."
+    condition     = var.server_image_tag != "latest" && can(regex("^[A-Za-z0-9_][A-Za-z0-9_.-]{6,127}$", var.server_image_tag))
+    error_message = "server_image_tag must be an immutable tag of at least seven characters and cannot be latest."
   }
 }
 
 variable "services_enabled" {
-  description = "Enable one Web and one API task only after secrets and migration are ready."
+  description = "Enable one Web and one server task only after secrets and migration are ready."
   type        = bool
   default     = false
 }
@@ -158,6 +158,17 @@ variable "final_snapshot_identifier" {
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,253}[a-z0-9]$", var.final_snapshot_identifier))
     error_message = "final_snapshot_identifier must be a valid RDS snapshot identifier."
+  }
+}
+
+variable "db_backup_retention_days" {
+  description = "RDS automated backup retention in days. Zero disables automated backups and point-in-time recovery; staging defaults to zero because the AWS Free Plan rejects the 7-day retention. Raise it after upgrading the plan."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.db_backup_retention_days >= 0 && var.db_backup_retention_days <= 35
+    error_message = "db_backup_retention_days must be between 0 and 35."
   }
 }
 

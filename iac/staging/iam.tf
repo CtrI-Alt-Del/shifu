@@ -14,8 +14,8 @@ resource "aws_iam_role" "web_execution" {
   assume_role_policy = local.ecs_assume_role_policy
 }
 
-resource "aws_iam_role" "api_execution" {
-  name               = "${local.name}-api-execution"
+resource "aws_iam_role" "server_execution" {
+  name               = "${local.name}-server-execution"
   assume_role_policy = local.ecs_assume_role_policy
 }
 
@@ -24,8 +24,8 @@ resource "aws_iam_role" "web_task" {
   assume_role_policy = local.ecs_assume_role_policy
 }
 
-resource "aws_iam_role" "api_task" {
-  name               = "${local.name}-api-task"
+resource "aws_iam_role" "server_task" {
+  name               = "${local.name}-server-task"
   assume_role_policy = local.ecs_assume_role_policy
 }
 
@@ -34,8 +34,8 @@ resource "aws_iam_role_policy_attachment" "web_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "api_execution" {
-  role       = aws_iam_role.api_execution.name
+resource "aws_iam_role_policy_attachment" "server_execution" {
+  role       = aws_iam_role.server_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
@@ -53,16 +53,16 @@ resource "aws_iam_role_policy" "web_secret" {
   })
 }
 
-resource "aws_iam_role_policy" "api_secret" {
-  name = "read-api-runtime-secret"
-  role = aws_iam_role.api_execution.id
+resource "aws_iam_role_policy" "server_secret" {
+  name = "read-server-runtime-secret"
+  role = aws_iam_role.server_execution.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid      = "ReadApiRuntimeSecret"
+      Sid      = "ReadServerRuntimeSecret"
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = [aws_secretsmanager_secret.api.arn]
+      Resource = [aws_secretsmanager_secret.server.arn]
     }]
   })
 }

@@ -37,8 +37,8 @@ resource "aws_lb_target_group" "web" {
   }
 }
 
-resource "aws_lb_target_group" "api" {
-  name        = "${local.name}-api"
+resource "aws_lb_target_group" "server" {
+  name        = "${local.name}-server"
   port        = 7777
   protocol    = "HTTP"
   target_type = "ip"
@@ -107,7 +107,7 @@ resource "aws_lb_listener_rule" "inngest" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.api.arn
+    target_group_arn = aws_lb_target_group.server.arn
   }
 
   condition {

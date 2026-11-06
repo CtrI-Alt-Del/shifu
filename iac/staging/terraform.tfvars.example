@@ -8,7 +8,7 @@ aws_region = "us-east-2"
 # Use immutable build identifiers such as a full Git SHA. The repositories are
 # created during phase zero; the images may be pushed after that first apply.
 web_image_tag = "replace-with-immutable-web-tag"
-api_image_tag = "replace-with-immutable-api-tag"
+server_image_tag = "replace-with-immutable-server-tag"
 
 # Phase zero defaults: no running application tasks.
 services_enabled   = false
