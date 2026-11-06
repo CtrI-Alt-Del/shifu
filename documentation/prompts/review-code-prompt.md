@@ -27,8 +27,7 @@ Inspect `git status --short` first. Preserve unrelated work. Record the branch,
   staged and unstaged changes) and relevant untracked files. State that this
   does not include earlier commits.
 
-Do not assume an empty committed diff means an empty worktree. Do not open `shifu.fig`
-with shell or generic filesystem tools. If the requested comparison is
+Do not assume an empty committed diff means an empty worktree. If the requested comparison is
 invalid or empty, say so before giving a verdict. GitHub inline comments need
 an actual PR; a local-only review can still be discussed without posting.
 
@@ -44,16 +43,16 @@ planned capabilities.
 
 For feature behavior, read `documentation/sdd.md`, the exact local `spec.md`
 and `evaluation.md`. Verify the Spec revision, status,
-allowed and prohibited paths, `RF-*`/`CA-*`, the Design Contract's root `shifu.fig`
-pages/artboards/components, and required `VM-*`/`CI-*` evidence. Locate the
+allowed and prohibited paths, `RF-*`/`CA-*`, the Design Contract's Penpot
+pages/boards/components, and required `VM-*`/`CI-*` evidence. Locate the
 relevant Jira issue and read the complete
 canonical Confluence PRD when a requirement or product-intent claim depends on
 it. Check its content ID and version against the Spec. Confluence owns product
 intent; the local Spec owns the selected implementation contract. Report a
 conflict between them without silently choosing a new contract.
 
-Inspect `shifu.fig` only through OpenPencil MCP. For visual evidence, consume the
-recorded comparisons of fresh OpenPencil exports and matching Playwright CLI
+Inspect the Penpot file only through Penpot MCP. For visual evidence, consume the
+recorded comparisons of fresh Penpot exports and matching Playwright CLI
 captures; feature-local design bundles are historical records.
 
 For maintenance without a feature Spec, use the stated request, issue, or bug

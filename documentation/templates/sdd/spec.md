@@ -23,7 +23,7 @@ detail warranted by the changed contracts and risks.
 | <capability and actor> | <bounded delivery> | <adjacent behavior> |
 
 Classify selected RP outcomes as full, partial or deferred without weakening the
-PRD. Name the `shifu.fig` artboards for affected UI states and viewports.
+PRD. Name the Penpot boards for affected UI states and viewports.
 
 # Behavior Contract
 
@@ -39,11 +39,11 @@ Cover applicable isolation, persistence, failures, recovery, concurrency and acc
 
 ## Design Contract
 
-For design-backed UI, name the root `shifu.fig` pages, artboards and components
+For design-backed UI, name the Penpot pages, boards and components
 for each required happy-path surface, state and viewport. Read and export them
-only through OpenPencil MCP. Do not extract a feature-local design bundle.
+only through Penpot MCP. Do not extract a feature-local design bundle.
 
-| Surface / route | State / viewport | `shifu.fig` page / artboard / components | CA / Visual check | Allowed deviations |
+| Surface / route | State / viewport | Penpot page / board / components | CA / Visual check | Allowed deviations |
 | --- | --- | --- | --- | --- |
 | <affected surface> | <state and exact viewport> | <actual names> | CA-01 / VM-02 | <accepted differences or none> |
 
@@ -159,10 +159,10 @@ keyboard/focus, required narrow viewport and cleanup as applicable>
 
 **Criteria:** <CA IDs>
 
-**Reference / setup:** <root `shifu.fig` page, artboard and related components,
+**Reference / setup:** <Penpot page, board and related components,
 exact viewport, related Manual check>
 
-**Capture / comparison:** <fresh OpenPencil MCP export compared with the matching
+**Capture / comparison:** <fresh Penpot MCP export compared with the matching
 Playwright CLI capture; reuse a current Manual capture where possible>
 
 **Passing condition:** <visual properties and accepted deviations>

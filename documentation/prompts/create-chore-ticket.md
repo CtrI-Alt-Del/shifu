@@ -81,7 +81,7 @@ Descreva o que precisa ser produzido ou decidido.
 ## 📦 Entregável Esperado
 
 Descreva o resultado verificável e onde ele será registrado
-(por exemplo, código versionado, `shifu.fig` na raiz pelo OpenPencil MCP, wiki,
+(por exemplo, código versionado, arquivo de design no Penpot pelo Penpot MCP, wiki,
 ADR ou configuração).
 
 ## ✅ DoR Checklist

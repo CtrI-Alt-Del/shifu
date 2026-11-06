@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## Tool availability and usage
 
-Shifu uses the OpenPencil, Context7, Atlassian Shifu, and local Inngest MCP servers
+Shifu uses the Penpot, Context7, Atlassian Shifu, and local Inngest MCP servers
 when a task matches their purpose. Local source, repository documentation, and
 normal validation commands remain the primary implementation evidence. Use the
 Playwright CLI for browser interaction and validation; do not substitute
@@ -42,10 +42,11 @@ do not hide warnings, disable checks, weaken validation, or rename elements to
 evade detection. Rerun the relevant checks after corrections and verify that
 both errors and warnings are zero.
 
-For OpenPencil work, run the design checks across every page of `shifu.fig`,
-including pages outside the edited frames. Correct touch targets, contrast,
-typography, and other reported issues, then save and check again. Informational
-findings are separate from warnings.
+For Penpot work, run the design checks across every page of the Shifu Penpot
+file, including pages outside the edited boards. Read the shapes with the
+Penpot MCP to find touch target, contrast, typography, containment, and overlap
+issues. Correct them and check again. Informational findings are separate from
+warnings.
 
 If an engine error or external blocker prevents correction or verification,
 follow the applicable stop rule and report the unresolved findings and blocker.
@@ -112,29 +113,37 @@ context that is not available in the repository.
 - If access is unavailable, continue only when local sources are sufficient and
   report the limitation.
 
-## OpenPencil MCP
+## Penpot MCP
 
-The design source is `shifu.fig` at the repository root, read and edited only
-through the OpenPencil MCP. Use it for node inspection, design-system work,
-design-to-code implementation, and visual validation. There is no design
-extraction step: do not export artboards into feature-local handoff or
-reference folders. The Spec names the `shifu.fig` pages, artboards and
+The design source is the Shifu file in Penpot, read and edited only through the
+Penpot MCP. Use it for shape inspection, design-system work, design-to-code
+implementation, and visual validation. The MCP has four tools: `execute_code`
+runs the Penpot Plugin API in the connected file, `export_shape` renders a
+shape as an image, `penpot_api_info` documents the API, and `high_level_overview`
+explains the file model. Read the overview once per session before the first
+call.
+
+Other Penpot connectors for unrelated projects may be present. Before the first
+call, confirm that the connector in use points to the Shifu file. The Penpot
+plugin must be connected to the file, or every call fails.
+
+There is no design extraction step: do not export boards into feature-local
+handoff or reference folders. The Spec names the Penpot pages, boards and
 components to match, and the agent exports them on demand with the MCP when it
-validates. The legacy `design/shifu.pen` file and the existing feature `design/`
-folders are historical records, not a validation source for new work.
+validates. The repository files `shifu.fig` and `design/shifu.pen`, and the
+existing feature `design/` folders, are historical records, not a validation
+source for new work.
 
-Treat `shifu.fig` as an opaque binary: never inspect, search, diff, or modify
-its bytes with shell or generic filesystem tools. Read it with the MCP node
-tree, node and JSX tools and render it with the MCP image export. Write to it
-one MCP call at a time, save explicitly after every two or three edits, and stop
-at the first engine error instead of retrying. Node ids change whenever the file
-is reopened, so re-read them before editing.
+Penpot saves changes on its own, so there is no save step. Write to the file
+with one `execute_code` call at a time, keep each call small, and stop at the
+first error instead of retrying. Never burst-write. Re-read shape ids from the
+current file before editing instead of reusing ids from an earlier call. Read
+shapes through the Plugin API helpers, and render them with `export_shape`.
 
-When adding or reorganizing screen frames, use one named `SECTION` per
-application page and group its related states inside it. Reuse the matching
-section when one exists; create it when needed. Keep desktop and mobile frames
-on their respective document pages. Arrange sections and their frames with
-consistent spacing, without overlaps or changes to the screen contents.
+When adding or reorganizing screen boards, group the states of each application
+page together and reuse the matching group when one exists. Keep desktop and
+mobile boards on their respective pages. Arrange boards with consistent
+spacing, without overlaps or changes to the screen contents.
 
 Classify a proposed design edit before changing it:
 
@@ -146,19 +155,19 @@ Classify a proposed design edit before changing it:
   approval, update Confluence, and reread it before editing the design. Inside an
   active Spec, use the contract-amendment workflow.
 
-When implementing a design from `shifu.fig`:
+When implementing a design from the Shifu Penpot file:
 
 1. read the applicable UI, routing, and widget-testing rules;
-2. inspect the relevant artboards and reusable components with the MCP;
+2. inspect the relevant boards and reusable components with the MCP;
 3. map design values to existing Shifu tokens rather than introducing parallel
    colors, spacing, typography, radii, or shadows;
 4. implement the smallest coherent widget, page, or route boundary;
 5. trace approved design changes to all owning source and test paths;
 6. validate runtime behavior with Playwright CLI, and appearance by comparing
-   fresh Playwright captures with fresh OpenPencil exports of the same
-   artboards, states, and viewports.
+   fresh Playwright captures with fresh Penpot exports of the same
+   boards, states, and viewports.
 
-Do not finish with only a `shifu.fig` change when the request also includes
+Do not finish with only a Penpot change when the request also includes
 production implementation.
 
 ## Context7 MCP
@@ -249,8 +258,8 @@ sign in through the visible form and save a fresh state. Keep storage state
 local, and never print, stage, or commit it. Use fresh snapshots and accessible
 locators; check the resulting URL, visible outcome, relevant requests, console
 errors, and keyboard path. For UI changes, capture fresh screenshots of the
-Spec-required states and viewports and inspect them against fresh OpenPencil
-exports of the matching `shifu.fig` artboards.
+Spec-required states and viewports and inspect them against fresh Penpot
+exports of the matching boards.
 
 Keep Playwright test results, test-results evidence, HTML reports, and other
 browser logs under `apps/web/.playwright-cli/logs/`. Keep screenshots,

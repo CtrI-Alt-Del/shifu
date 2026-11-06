@@ -24,7 +24,7 @@ scope; a separate execution Plan is not required.
 - observable result;
 - allowed and prohibited paths;
 - applicable Rule Pack and Architecture;
-- Design Contract with its `shifu.fig` artboards when UI is involved;
+- Design Contract with its Penpot boards when UI is involved;
 - blocking findings when the assignment is a correction.
 
 ## Execution
@@ -36,14 +36,14 @@ scope; a separate execution Plan is not required.
 4. Implement only the assigned scope.
 5. When the Spec has a Design Contract:
    - read `documentation/design.md`, the UI Rules and the Design Contract, and
-     inspect every named `shifu.fig` artboard and component through the
-     OpenPencil MCP, exporting them when a rendered reference is needed;
+     inspect every named Penpot board and component through the
+     Penpot MCP, exporting them when a rendered reference is needed;
    - use the Spec visual inventory as an executable checklist; do not omit inventoried
      elements or introduce inferred behavior without an RF/CA or recorded decision;
-   - do not edit `shifu.fig` or extract exports into the feature directory;
-   - implement against the inspected artboards; report material discrepancies to the
+   - do not edit the Penpot file or extract exports into the feature directory;
+   - implement against the inspected boards; report material discrepancies to the
      Orchestrator for the required integrated happy-path validation;
-   - if an artboard reveals unexpected or uncontracted behavior, pause that part and
+   - if a board reveals unexpected or uncontracted behavior, pause that part and
      report the question to the Orchestrator; do not turn the inference into scope.
 6. Use only the tools that are applicable and available in the current environment.
 7. Run the exact proportional unit/component and static commands defined by the

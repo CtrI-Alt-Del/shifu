@@ -34,11 +34,11 @@ acceptance. Reconcile against the current Spec and actual diff on resume.
 | --- | --- | --- | --- | --- | --- |
 | EV-01 | CI-01 / Automated / CA-01 | Pending | <candidate/date/configuration/fixture> | <command and selection> | <actual test count, result, artifacts> |
 | EV-02 | VM-01 / Manual / CA-01 | Pending | <candidate/date/runtime/actor> | <CLI/terminal procedure> | <expected vs observed URL/content/persistence/network/console> |
-| EV-03 | VM-02 / Visual / CA-01 | Pending | <candidate/date/state/viewport> | <fresh OpenPencil MCP export and matching Playwright CLI capture comparison> | <root `shifu.fig` page/artboard/components, export and capture artifacts, differences and deviations> |
+| EV-03 | VM-02 / Visual / CA-01 | Pending | <candidate/date/state/viewport> | <fresh Penpot MCP export and matching Playwright CLI capture comparison> | <Penpot page/board/components, export and capture artifacts, differences and deviations> |
 
 Record exact scoped files/scenarios, actual test counts and command wall time;
 keep unit, REST/persistence, real-job and browser results distinct.
-Visual results identify the actual `shifu.fig` source and compared state/viewport;
+Visual results identify the actual Penpot source and compared state/viewport;
 feature-local saved design bundles are not the reference source.
 Statuses: Pending, Passed, Failed, Blocked, Stale, Not applicable. Include applicable
 baseline gates even without a CA. Give type, lint, complexity and changed-code

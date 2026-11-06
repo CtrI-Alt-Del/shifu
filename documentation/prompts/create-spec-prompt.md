@@ -203,8 +203,8 @@ Use the canonical [Spec template](../templates/sdd/spec.md) and exactly seven
 sections: Objective; Scope; Behavior Contract; Technical Contract; Verification
 Contract; Documentation Alignment; Revision History.
 State each fact once and reference its identifier elsewhere. Create `evaluation.md`
-at implementation kickoff, not during Spec authoring. Reference the root
-`shifu.fig` directly; do not save feature-local design exports or handoff bundles.
+at implementation kickoff, not during Spec authoring. Reference the
+Penpot file directly; do not save feature-local design exports or handoff bundles.
 No separate planning artifact exists.
 
 ### Objective and Scope
@@ -244,14 +244,13 @@ provider failure, recovery, accessibility and secret boundaries. Specify results
 and guarantees; do not prescribe incidental algorithms or helper classes.
 
 For design-backed UI, write the Design Contract as a visual inventory: for each
-required happy-path state, the route/surface, the viewport, and the page, artboard
-and component names in the root `shifu.fig` file, with criteria mapping and allowed
+required happy-path state, the route/surface, the viewport, and the page, board
+and component names in the Penpot file, with criteria mapping and allowed
 deviations. Do not extract exports into a feature-local handoff or references
-folder. Inspect the artboards through the OpenPencil MCP; never read `shifu.fig`
-with shell tools. Map affected widgets to source-verified semantic tokens and
+folder. Inspect the boards through the Penpot MCP. Map affected widgets to source-verified semantic tokens and
 actual shared primitive variants in the contract, including typography, spacing,
 surfaces, borders, focus and pending/error states where material. Identify
-preserved UI outside the change. Required artboards must exist in `shifu.fig`
+preserved UI outside the change. Required boards must exist in the Penpot file
 before `ready`, or the Spec carries an explicitly accepted visual assumption.
 Negative, loading, error and recovery behavior belongs in automated acceptance
 coverage; it does not create additional manual journeys.
@@ -421,8 +420,8 @@ keyboard/focus/narrow viewport and cleanup. Automated tests own systematic
 negative, failure/recovery and concurrency matrices. Mocks cannot prove required
 real authenticated/persisted journeys.
 
-Visual checks name the `shifu.fig` page, artboard and related components, state,
-viewport, comparison properties and accepted deviations. Compare fresh OpenPencil
+Visual checks name the Penpot page, board and related components, state,
+viewport, comparison properties and accepted deviations. Compare fresh Penpot
 MCP exports with the matching Playwright CLI captures. Capture during linked
 Manual journeys where possible and inspect images; saving a screenshot is not a
 visual pass. Keep runtime evidence under ignored browser/test output or CI

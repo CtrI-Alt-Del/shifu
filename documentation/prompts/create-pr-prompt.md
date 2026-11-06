@@ -80,12 +80,11 @@ SDD aplicáveis, handoff e referências, além de atualizações relacionadas em
 `AGENTS.md`, Arquitetura, Design, Rules e prompts. Não deixe esses arquivos
 alterados apenas na worktree por parecerem documentação auxiliar.
 
-Inclua também o arquivo de design `shifu.fig` quando ele tiver sido modificado
-para a entrega. Trate-o como artifact opaco: nunca abra, leia, compare, procure
-ou edite seus bytes com shell ou ferramentas genéricas de filesystem. Use o
-OpenPencil MCP para inspeção ou edição visual; para publicação, adicione o path
-exato como arquivo versionado sem expor seu conteúdo. Não inclua alterações de
-design que não pertençam à entrega atual.
+O design vive no Penpot, fora do repositório. Não há arquivo de design para
+versionar nem para incluir no PR. Use o Penpot MCP para inspeção ou edição
+visual. Quando a entrega alterou o design, registre no `evaluation.md` as
+páginas e os boards do Penpot alterados e mencione isso no PR. Não inclua
+alterações de design que não pertençam à entrega atual.
 
 ### Alterações novas da entrega
 
@@ -199,10 +198,10 @@ Se a conformidade falhar, interrompa a publicação e encaminhe a correção pel
 workflow aplicável. Não corrija implementação ou contrato silenciosamente
 dentro do fluxo de criação do PR.
 
-Para UI baseada em design, use as páginas, artboards e componentes de `shifu.fig`
-na raiz do repositório nomeados no Design Contract. Consulte-os somente pelo
-OpenPencil MCP. Consuma as comparações registradas no `evaluation.md` entre
-exports recentes do OpenPencil e capturas correspondentes do Playwright CLI.
+Para UI baseada em design, use as páginas, boards e componentes do Penpot
+nomeados no Design Contract. Consulte-os somente pelo
+Penpot MCP. Consuma as comparações registradas no `evaluation.md` entre
+exports recentes do Penpot e capturas correspondentes do Playwright CLI.
 Não use bundles ou referências extraídas para a pasta da feature.
 Resuma a validação visual em `## Testes manuais`; não crie uma seção separada
 de evidências visuais.

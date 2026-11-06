@@ -61,8 +61,8 @@ requirements, identifiers and observed results; never overwrite existing evidenc
 with template placeholders.
 
 Read the current Spec and Evaluation, applicable module/architecture/Rule
-sources, relevant tooling/manifests and the Design Contract's root `shifu.fig`
-pages, artboards and components through OpenPencil MCP. Follow the SDD
+sources, relevant tooling/manifests and the Design Contract's Penpot
+pages, boards and components through Penpot MCP. Follow the SDD
 source preflight; reuse complete sources already current in this context.
 Inspect Git status/diffs and preserve unrelated work. Use CodeGraph for each
 new code exploration when available under `AGENTS.md`.
@@ -134,15 +134,14 @@ Generate routes or other artifacts with repository commands when needed.
 
 ## Design-backed implementation
 
-Read the Spec's Design Contract and inspect the named `shifu.fig` artboards and
-components through the OpenPencil MCP, exporting them when a rendered reference
+Read the Spec's Design Contract and inspect the named Penpot boards and
+components through the Penpot MCP, exporting them when a rendered reference
 is needed. Use existing semantic tokens, primitives, accessible pt-BR copy and
-the selected UI/routing Rules. Never read `shifu.fig` with shell tools, and do
-not save exports into the feature directory.
+the selected UI/routing Rules. Do not save exports into the feature directory.
 
 The Spec defines required happy-path rendered states and viewports. Cover
 loading, empty, error, recovery, concurrency and unusual outcomes through
-appropriate automated tests. Do not turn every design artboard into another manual
+appropriate automated tests. Do not turn every design board into another manual
 scenario. Required visual evidence comes from the integrated candidate after
 the last affected UI edit, with route/state/viewport/fixture and artifact path.
 An earlier capture of unchanged UI may remain valid when its dependencies and
@@ -153,14 +152,14 @@ rendered state are unchanged; explain retained evidence in Evaluation.
 Before executing or delegating verification, enumerate every Manual and Visual
 obligation from the Spec's Design Contract in Evaluation. Use one row per
 required journey or rendered state/viewport, with its VM/CA IDs, surface/route,
-state, viewport, `shifu.fig` artboard, candidate, artifact path, observed result
+state, viewport, Penpot board, candidate, artifact path, observed result
 and review disposition. Keep this inventory within Evaluation; do not create a
 separate planning artifact or add scenarios beyond the contract.
 
 Page, FAB, dialog and mobile states are distinct obligations when required.
 Evidence for one surface cannot establish another surface's result, even when
 they share components. A captured state remains Pending until inspected against
-a fresh OpenPencil export of its specific artboard. Record concrete observations
+a fresh Penpot export of its specific board. Record concrete observations
 about the required visual properties and any approved deviation; image existence
 alone is not proof.
 Manual behavior and visual appearance have separate results: a working journey
