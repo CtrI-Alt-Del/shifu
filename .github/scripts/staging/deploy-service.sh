@@ -4,8 +4,9 @@
 # Usage: deploy-service.sh <cluster> <service> <task-definition-arn>
 #
 # `aws ecs wait services-stable` also succeeds after the circuit breaker rolled
-# the service back, so this script checks that the new revision is the one that
-# completed. It fails when the circuit breaker rolled back.
+# the service back, and before the rollout is marked COMPLETED. So this script polls
+# until the new revision is the one that completed. It fails when the circuit
+# breaker rolled back, when the rollout failed, or after ten minutes.
 set -euo pipefail
 
 if [[ $# -ne 3 ]]; then
@@ -38,23 +39,34 @@ fi
 echo "Waiting for ${service} to reach a steady state..."
 aws ecs wait services-stable --cluster "${cluster}" --services "${service}"
 
-primary="$(aws ecs describe-services \
-  --cluster "${cluster}" \
-  --services "${service}" \
-  --query 'services[0].deployments[?status==`PRIMARY`] | [0].{taskDefinition: taskDefinition, rolloutState: rolloutState}' \
-  --output json)"
-
-rollout_state="$(jq -r '.rolloutState' <<<"${primary}")"
-primary_revision="$(jq -r '.taskDefinition' <<<"${primary}")"
-
-if [[ "${primary_revision}" != "${task_definition}" || "${rollout_state}" != "COMPLETED" ]]; then
-  echo "Deployment of ${service} did not complete. Primary revision: ${primary_revision}, rollout state: ${rollout_state}." >&2
-  aws ecs describe-services \
+# The waiter returns once the service is steady, which can be a moment before ECS
+# marks the rollout COMPLETED. Poll until the rollout settles instead of checking once.
+deadline=$((SECONDS + 600))
+while true; do
+  primary="$(aws ecs describe-services \
     --cluster "${cluster}" \
     --services "${service}" \
-    --query 'services[0].events[:8].message' \
-    --output text >&2
-  exit 1
-fi
+    --query 'services[0].deployments[?status==`PRIMARY`] | [0].{taskDefinition: taskDefinition, rolloutState: rolloutState}' \
+    --output json)"
 
-echo "${service} is running ${task_definition}."
+  rollout_state="$(jq -r '.rolloutState' <<<"${primary}")"
+  primary_revision="$(jq -r '.taskDefinition' <<<"${primary}")"
+
+  if [[ "${primary_revision}" == "${task_definition}" && "${rollout_state}" == "COMPLETED" ]]; then
+    echo "${service} is running ${task_definition}."
+    exit 0
+  fi
+
+  # A different primary revision means the circuit breaker rolled back. FAILED is final.
+  if [[ "${primary_revision}" != "${task_definition}" || "${rollout_state}" == "FAILED" ]] || ((SECONDS >= deadline)); then
+    echo "Deployment of ${service} did not complete. Primary revision: ${primary_revision}, rollout state: ${rollout_state}." >&2
+    aws ecs describe-services \
+      --cluster "${cluster}" \
+      --services "${service}" \
+      --query 'services[0].events[:8].message' \
+      --output text >&2
+    exit 1
+  fi
+
+  sleep 10
+done
