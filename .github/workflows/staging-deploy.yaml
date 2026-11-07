@@ -204,6 +204,18 @@ jobs:
             "${CLUSTER}" "${SERVER_REVISION}" "${SUBNET_IDS}" "${SECURITY_GROUP_ID}" \
             "/ecs/${CLUSTER}/server"
 
+      # Staging is reseeded on every deploy. The seed deletes all application data and
+      # inserts the development data again, so staging never keeps real accounts.
+      # The server refuses to seed in staging unless this step sets the opt-in.
+      - name: Seed the database
+        env:
+          SERVER_REVISION: ${{ steps.revisions.outputs.server }}
+        run: |
+          .github/scripts/staging/run-server-task.sh \
+            "${CLUSTER}" "${SERVER_REVISION}" "${SUBNET_IDS}" "${SECURITY_GROUP_ID}" \
+            "/ecs/${CLUSTER}/server" "database seed" \
+            -- env SHIFU_ALLOW_STAGING_SEED=true python -m shifu.shared.database.seed
+
       - name: Deploy the server
         env:
           SERVER_REVISION: ${{ steps.revisions.outputs.server }}

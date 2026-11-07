@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Run `alembic upgrade head` once as a Fargate task and fail unless it exits 0.
+# Run one command in the server container as a Fargate task and fail unless it
+# exits 0. The task has the same image, secrets and network as the server service.
 #
-# Usage: run-migration.sh <cluster> <task-definition-arn> <subnet-ids> <security-group-id> <log-group>
+# Usage: run-server-task.sh <cluster> <task-definition-arn> <subnet-ids> \
+#          <security-group-id> <log-group> <label> -- <command> [args...]
 #
 # <subnet-ids> is comma separated. Staging has no NAT Gateway, so the task gets a
 # public IP to reach ECR, Secrets Manager and CloudWatch Logs.
 set -euo pipefail
 
-if [[ $# -ne 5 ]]; then
-  echo "usage: $0 <cluster> <task-definition-arn> <subnet-ids> <security-group-id> <log-group>" >&2
+if [[ $# -lt 8 || "$7" != "--" ]]; then
+  echo "usage: $0 <cluster> <task-definition-arn> <subnet-ids> <security-group-id> <log-group> <label> -- <command> [args...]" >&2
   exit 64
 fi
 
@@ -17,9 +19,19 @@ task_definition="$2"
 subnets="$3"
 security_group="$4"
 log_group="$5"
+label="$6"
+shift 7
 
 network="awsvpcConfiguration={subnets=[${subnets}],securityGroups=[${security_group}],assignPublicIp=ENABLED}"
-overrides='{"containerOverrides":[{"name":"server","command":["alembic","upgrade","head"]}]}'
+# Build the command as a JSON array one word at a time. `--arg` keeps every
+# character as it is, including newlines and words such as `-c` that jq would take
+# for one of its own options if they were positional arguments.
+command_json='[]'
+for word in "$@"; do
+  command_json="$(jq -c --arg word "${word}" '. + [$word]' <<<"${command_json}")"
+done
+overrides="$(jq -cn --argjson command "${command_json}" \
+  '{containerOverrides: [{name: "server", command: $command}]}')"
 
 started="$(aws ecs run-task \
   --cluster "${cluster}" \
@@ -32,13 +44,13 @@ started="$(aws ecs run-task \
 
 task_arn="$(jq -r '.tasks[0].taskArn // empty' <<<"${started}")"
 if [[ -z "${task_arn}" ]]; then
-  echo "The migration task did not start:" >&2
+  echo "The ${label} task did not start:" >&2
   jq '.failures' <<<"${started}" >&2
   exit 1
 fi
 
 task_id="${task_arn##*/}"
-echo "Migration task started: ${task_id}"
+echo "The ${label} task started: ${task_id}"
 
 aws ecs wait tasks-stopped --cluster "${cluster}" --tasks "${task_arn}"
 
@@ -49,7 +61,7 @@ result="$(aws ecs describe-tasks \
   --output json)"
 exit_code="$(jq -r '.exitCode // "none"' <<<"${result}")"
 
-echo "--- migration log (last 60 lines) ---"
+echo "--- ${label} log (last 60 lines) ---"
 aws logs get-log-events \
   --log-group-name "${log_group}" \
   --log-stream-name "server/server/${task_id}" \
@@ -59,8 +71,8 @@ aws logs get-log-events \
 echo "-------------------------------------"
 
 if [[ "${exit_code}" != "0" ]]; then
-  echo "Migration failed. Exit code: ${exit_code}. Result: ${result}" >&2
+  echo "The ${label} failed. Exit code: ${exit_code}. Result: ${result}" >&2
   exit 1
 fi
 
-echo "Migration finished with exit code 0."
+echo "The ${label} finished with exit code 0."
