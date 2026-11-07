@@ -2,8 +2,9 @@
 #   docker buildx build --platform linux/arm64 -f apps/server/Dockerfile .
 #
 # Staging runs on ARM64 Fargate, so the published image must be linux/arm64.
-# The same image runs the API and the one-off migration task, which overrides the
-# command with `alembic upgrade head`.
+# The same image runs the API and the one-off tasks of the deploy workflow, which
+# override the command: `alembic upgrade head`, the database seed, and the role setup.
+# The seed needs Faker, so the image installs the `seed` dependency group.
 
 ARG PYTHON_VERSION=3.13.5
 ARG UV_VERSION=0.11.26
@@ -21,7 +22,7 @@ WORKDIR /app
 # Install dependencies first so source edits do not invalidate this layer.
 COPY apps/server/pyproject.toml apps/server/uv.lock ./
 RUN --mount=type=cache,id=uv-cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+    uv sync --frozen --no-dev --group seed --no-install-project
 
 FROM python:${PYTHON_VERSION}-slim-bookworm AS runtime
 ENV PATH=/opt/venv/bin:${PATH} \

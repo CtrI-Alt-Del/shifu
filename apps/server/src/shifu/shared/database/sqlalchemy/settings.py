@@ -47,6 +47,7 @@ class DatabaseSettings:
 class SeedSettings:
     database_url: str
     server_app_mode: ServerAppMode
+    allow_staging_seed: bool = False
 
     @classmethod
     def from_environment(
@@ -57,4 +58,5 @@ class SeedSettings:
         return cls(
             database_url=_database_url(values),
             server_app_mode=_server_app_mode(values),
+            allow_staging_seed=values.get('SHIFU_ALLOW_STAGING_SEED') == 'true',
         )

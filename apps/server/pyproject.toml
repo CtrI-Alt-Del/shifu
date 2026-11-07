@@ -36,6 +36,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+# Installed in the staging image, because the seed builds its sample data with Faker.
+seed = [
+    "faker>=40.39.0",
+]
 dev = [
     "basedpyright>=1.38.2",
     "coverage>=7.16.2",

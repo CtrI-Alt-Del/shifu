@@ -157,8 +157,9 @@ write through repositories. They do not duplicate SQLAlchemy insert statements.
 
 A shared seed entrypoint coordinates module seeders in dependency order and uses one
 explicit session boundary. Seeding is an explicit command, never application startup.
-Destructive reset is allowed only in the approved `local` environment and must be
-guarded before deleting data.
+Destructive reset is allowed only in the approved `local` environment, and in staging
+when the staging deploy step sets `SHIFU_ALLOW_STAGING_SEED=true`. It must be guarded
+before deleting data, and production mode never allows it.
 
 The current shared entrypoint is
 `apps/server/src/shifu/shared/database/seed.py`, with seed data construction in

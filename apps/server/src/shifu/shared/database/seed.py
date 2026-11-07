@@ -145,10 +145,27 @@ def _require_current_schema(session: SqlalchemySession) -> None:
         )
 
 
+def _require_seed_allowed(settings: SeedSettings) -> None:
+    """Refuse to delete data outside the environments approved for reseeding.
+
+    Local always allows it. Staging allows it only when the deploy step sets
+    SHIFU_ALLOW_STAGING_SEED=true. Production never does.
+    """
+    if settings.server_app_mode == 'local':
+        return
+
+    if settings.server_app_mode == 'staging' and settings.allow_staging_seed:
+        return
+
+    raise RuntimeError(
+        'Database seeding is only allowed in local mode, or in staging when '
+        'SHIFU_ALLOW_STAGING_SEED is true.'
+    )
+
+
 def seed() -> None:
     settings = SeedSettings.from_environment()
-    if settings.server_app_mode != 'local':
-        raise RuntimeError('Database seeding is only allowed in local mode.')
+    _require_seed_allowed(settings)
 
     with Session.database_session(
         engine=Session.create_database_engine(
