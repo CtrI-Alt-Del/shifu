@@ -263,7 +263,7 @@ Two GitHub Actions workflows run staging:
 
 - `terraform-staging.yaml` checks formatting, validates and tests both roots on every
   pull request that touches `iac/`, and plans the staging root. Someone starts the
-  apply by hand on `main`. It then plans again, and a reviewer approves the apply.
+  apply by hand on `main`. It then plans again before it applies.
 - `staging-deploy.yaml` runs on every merge to `main` that touches the apps. It
   builds the Web and server images for `linux/arm64`, pushes them to ECR with the
   tags `<12-character commit hash>-web` and `-server`, registers a new revision of
@@ -285,29 +285,25 @@ Terraform creates the users and their narrow policies. It never creates keys.
 1. In the IAM console, create one access key for each user and keep the values
    only for the next step: `shifu-staging-deployer` for the app deploy and
    `shifu-staging-terraform` for Terraform. Delete any older key of the deployer.
-2. In the GitHub repository settings, create three environments.
+2. In the GitHub repository settings, add these repository secrets. The pipeline
+   uses no GitHub environments and no GitHub variables.
 
-| Environment | Used by | Secrets | Protection |
-| --- | --- | --- | --- |
-| `staging` | `staging-deploy.yaml` | `AWS_STAGING_DEPLOYER_ACCESS_KEY_ID`, `AWS_STAGING_DEPLOYER_SECRET_ACCESS_KEY` | none, or branch limited to `main` |
-| `staging-terraform` | Terraform validate and plan | `AWS_STAGING_TERRAFORM_ACCESS_KEY_ID`, `AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY` | none, so pull requests can plan |
-| `staging-terraform-apply` | Terraform apply | the same two Terraform names | required reviewers, branch limited to `main` |
+| Secret | Used by |
+| --- | --- |
+| `AWS_STAGING_DEPLOYER_ACCESS_KEY_ID`, `AWS_STAGING_DEPLOYER_SECRET_ACCESS_KEY` | `staging-deploy.yaml` |
+| `AWS_STAGING_TERRAFORM_ACCESS_KEY_ID`, `AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY` | `terraform-staging.yaml` |
 
-Prefer environment secrets over repository secrets. A repository secret is visible
-to every workflow, so it would bypass the reviewers on the apply environment.
-
-3. Set these secrets too. The pipeline uses GitHub secrets only, never GitHub
-   variables. Read the values from `terraform output`. GitHub masks every secret
+3. Set these secrets too. Read the values from `terraform output`. GitHub masks every secret
    value in the logs, so a value shows as `***` there.
 
-| Environment | Secret | Value |
-| --- | --- | --- |
-| `staging` | `AWS_STAGING_APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
-| `staging` | `AWS_STAGING_SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
-| `staging` | `AWS_STAGING_PUBLIC_ORIGIN` | `public_origin` |
-| `staging` | `AWS_STAGING_VITE_SHIFU_SERVER_URL` | The same value as `public_origin`. See the note below. |
-| both Terraform environments | `AWS_STAGING_TERRAFORM_STATE_BUCKET` | The bootstrap state bucket name |
-| both Terraform environments | `AWS_STAGING_TERRAFORM_TFVARS` | `iac/staging/terraform.tfvars`, encoded with base64 |
+| Secret | Value |
+| --- | --- |
+| `AWS_STAGING_APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
+| `AWS_STAGING_SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
+| `AWS_STAGING_PUBLIC_ORIGIN` | `public_origin` |
+| `AWS_STAGING_VITE_SHIFU_SERVER_URL` | The same value as `public_origin`. See the note below. |
+| `AWS_STAGING_TERRAFORM_STATE_BUCKET` | The bootstrap state bucket name |
+| `AWS_STAGING_TERRAFORM_TFVARS` | `iac/staging/terraform.tfvars`, encoded with base64 |
 
 The Web bundle needs `VITE_SHIFU_SERVER_URL` to be a valid URL, but browsers do not
 call the server with it today. Every server request goes through Web server
@@ -322,7 +318,7 @@ multi-line secret would mask each of its lines, and common words such as `false`
 would then disappear from every log and plan summary:
 
 ```bash
-base64 -w0 iac/staging/terraform.tfvars | gh secret set AWS_STAGING_TERRAFORM_TFVARS --env staging-terraform
+base64 -w0 iac/staging/terraform.tfvars | gh secret set AWS_STAGING_TERRAFORM_TFVARS
 ```
 
 The secret replaces the ignored local file in CI, so it holds the same non-secret
@@ -362,7 +358,7 @@ The server's guard keeps working without it.
   `image_sha` to the 12-character hash of an earlier deploy. It redeploys the images
   already in ECR without building. It does not undo migrations, so only roll back
   across releases whose schema changes are backward compatible.
-- **Rotate a key:** create the new key, update the environment secrets, run a
+- **Rotate a key:** create the new key, update the repository secrets, run a
   workflow, then delete the old key.
 
 ## Recovery

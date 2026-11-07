@@ -2,8 +2,7 @@ name: Terraform staging
 
 # Pull requests that touch iac/ get format, validate and mock-provider test
 # checks, plus a plan of the staging root. The apply runs only when someone starts
-# this workflow by hand on main, and only after a reviewer approves the
-# `staging-terraform-apply` environment.
+# this workflow by hand on main.
 #
 # Signs in to AWS with the access key of the `shifu-staging-terraform` IAM user.
 # The AWS account blocks OIDC, so the key is stored as GitHub secrets.
@@ -72,7 +71,6 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: staging-terraform
     defaults:
       run:
         working-directory: iac/staging
@@ -142,9 +140,6 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Configure required reviewers on this environment. It holds the same secrets
-    # and variables as `staging-terraform`.
-    environment: staging-terraform-apply
     defaults:
       run:
         working-directory: iac/staging

@@ -4,8 +4,8 @@ name: Staging deploy
 # database migration, and rolls both ECS services to the new images.
 #
 # Signs in to AWS with the access key of the `shifu-staging-deployer` IAM user,
-# stored as secrets of the `staging` GitHub environment. The AWS account blocks
-# OIDC, so there is no role to assume. See iac/README.md for the setup.
+# stored as GitHub repository secrets. The AWS account blocks OIDC, so there is
+# no role to assume. See iac/README.md for the setup.
 
 on:
   push:
@@ -48,7 +48,6 @@ jobs:
     if: ${{ inputs.image_sha == '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    environment: staging
     strategy:
       fail-fast: true
       matrix:
@@ -130,7 +129,6 @@ jobs:
     if: ${{ !cancelled() && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    environment: staging
     env:
       SUBNET_IDS: ${{ secrets.AWS_STAGING_APPLICATION_SUBNET_IDS }}
       SECURITY_GROUP_ID: ${{ secrets.AWS_STAGING_SERVER_SECURITY_GROUP_ID }}
