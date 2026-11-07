@@ -168,6 +168,20 @@ resource "aws_vpc_security_group_egress_rule" "server_https" {
   ip_protocol       = "tcp"
 }
 
+# The server fetches the Web app's signing keys from the public origin to check
+# sessions. Over plain HTTP that is port 80, so the server needs it open. With
+# HTTPS the request uses port 443, which `server_https` already allows.
+resource "aws_vpc_security_group_egress_rule" "server_http_jwks" {
+  count = local.is_https_enabled ? 0 : 1
+
+  security_group_id = aws_security_group.server.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+  description       = "Fetch the Web signing keys from the public origin over plain HTTP"
+}
+
 resource "aws_vpc_security_group_egress_rule" "web_dns_udp" {
   security_group_id = aws_security_group.web.id
   cidr_ipv4         = var.vpc_cidr

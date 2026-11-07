@@ -158,6 +158,11 @@ run "https_mode" {
     condition     = local.public_origin == "https://staging.example.com"
     error_message = "HTTPS mode must use the configured hostname as the public origin."
   }
+
+  assert {
+    condition     = length(aws_vpc_security_group_egress_rule.server_http_jwks) == 0
+    error_message = "HTTPS mode must not open port 80 for the server."
+  }
 }
 
 run "plain_http_mode" {
@@ -181,6 +186,11 @@ run "plain_http_mode" {
   assert {
     condition     = !local.is_https_enabled
     error_message = "Plain HTTP mode must report HTTPS as disabled so Secure cookies are turned off."
+  }
+
+  assert {
+    condition     = length(aws_vpc_security_group_egress_rule.server_http_jwks) == 1
+    error_message = "Plain HTTP mode must let the server fetch the signing keys on port 80."
   }
 }
 
