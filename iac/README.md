@@ -112,6 +112,13 @@ publish a new tag rather than reusing one.
 
 ## 4. Populate secrets and activate Redis AUTH out of band
 
+`node scripts/populate-staging-secrets.mjs` runs this whole step for staging. It
+asks for the Inngest and Resend values, generates the other values, turns on Redis
+AUTH, and writes both secrets without printing any value. It refuses to run when a
+secret already has a value, so a second run cannot replace `BETTER_AUTH_SECRET`.
+Pass `--force` only to replace every value. The manual commands below show what it
+does.
+
 Use a protected temporary JSON file outside the repository (with access limited
 to the operator) to write one version to each Terraform-created secret. The file
 must not be printed, added to shell history, or captured in a transcript. For
@@ -128,10 +135,14 @@ RDS credential privately and construct the Web/server database URLs without disp
 either value.
 
 Create a compliant Redis token privately and keep it only in a non-echoing private
-environment variable. Activate it with ElastiCache's immediate `SET` strategy, wait
-for the group to return to `available`, then clear the process variable:
+environment variable. A cache with no AUTH token accepts the `SET` strategy only
+after a `ROTATE` has added the token. Run both steps with the same token and wait
+for the group to return to `available` after each one. Then clear the process
+variable:
 
 ```powershell
+aws elasticache modify-replication-group --replication-group-id shifu-staging --auth-token $env:SHIFU_REDIS_AUTH_TOKEN --auth-token-update-strategy ROTATE --apply-immediately
+aws elasticache wait replication-group-available --replication-group-id shifu-staging
 aws elasticache modify-replication-group --replication-group-id shifu-staging --auth-token $env:SHIFU_REDIS_AUTH_TOKEN --auth-token-update-strategy SET --apply-immediately
 aws elasticache wait replication-group-available --replication-group-id shifu-staging
 Remove-Item Env:SHIFU_REDIS_AUTH_TOKEN
@@ -157,30 +168,29 @@ Fargate task with the server container command overridden to:
 alembic upgrade head
 ```
 
-Before running that task, create the least-privileged AgentOS runtime role through
-a private database administration path (for example, an operator-controlled
-bastion or port-forward). Run the committed
-`apps/server/scripts/create_agentos_runtime_role.sql` script as the RDS master
-user, passing `runtime_password` equal to the password embedded in
-`AGENTOS_DATABASE_URL` and `database_name` equal to the application database.
-Keep both values in non-echoing operator environment variables; never print them
-or place them in Terraform state. The script is idempotent and grants only
+Before running that task, create the least-privileged AgentOS runtime role. The
+database is private, so run this from any machine with AWS credentials. It starts
+a one-off Fargate task inside the VPC:
+
+```bash
+AWS_PROFILE=shifu AWS_REGION=us-east-2 .github/scripts/staging/create-agentos-role.sh
+```
+
+The task uses the server image and its secrets. It logs in as the database admin
+from `DATABASE_URL`, then creates or updates `shifu_agentos_runtime` with the
+password inside `AGENTOS_DATABASE_URL`. It prints no secret value. Finally it logs
+in as the role to prove that the URL works. It does the same as
+`apps/server/scripts/create_agentos_runtime_role.sql`, without `psql`, and it is safe
+to run again. Run it again after you change that password. The role gets only
 database `CONNECT`; the migration below creates the `agentos_intelligence` and
 `agentos_learning` schemas, revokes public schema creation, and grants the role
 the runtime table privileges it needs.
 
-For example, with the private connection variables and password already prepared
-by the operator:
+If you prefer an operator-controlled bastion or port-forward, run the SQL script
+yourself as the RDS master user. Pass `runtime_password` and `database_name` as
+`psql` variables from non-echoing environment variables, and never print them.
 
-```powershell
-psql $env:SHIFU_DATABASE_ADMIN_URL `
-  -v ON_ERROR_STOP=1 `
-  -v runtime_password="$env:SHIFU_AGENTOS_RUNTIME_ROLE_PASSWORD" `
-  -v database_name="$env:SHIFU_DATABASE_NAME" `
-  -f apps/server/scripts/create_agentos_runtime_role.sql
-```
-
-Verify privately that `shifu_agentos_runtime` exists before starting the
+Check that the script finished with exit code 0 before starting the
 migration task. Do not enable either ECS service until the role creation and the
 migration both succeed.
 
@@ -203,8 +213,9 @@ aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].con
 
 Wait for the task to stop, require container exit code zero, inspect the server log
 group for a redacted migration result, and independently confirm Alembic is at
-head. Never seed or reset data. If migration fails, leave services disabled,
-correct image/configuration/connectivity, and rerun a new one-off task.
+head. Do not seed by hand: the deploy workflow reseeds staging (see "Continuous
+delivery"). If migration fails, leave services disabled, correct
+image/configuration/connectivity, and rerun a new one-off task.
 
 ## 6. Enable services
 
@@ -256,8 +267,8 @@ Two GitHub Actions workflows run staging:
 - `staging-deploy.yaml` runs on every merge to `main` that touches the apps. It
   builds the Web and server images for `linux/arm64`, pushes them to ECR with the
   tags `<12-character commit hash>-web` and `-server`, registers a new revision of
-  each task definition, runs the database migration as a one-off task, rolls the
-  server and then the Web service, and checks both target groups and
+  each task definition, runs the database migration as a one-off task, reseeds the
+  database as another one-off task, rolls the server and then the Web service, and checks both target groups and
   `<public_origin>/api/health`.
 
 Terraform owns the task definitions, secrets wiring and sizing. The deploy workflow
@@ -317,12 +328,32 @@ base64 -w0 iac/staging/terraform.tfvars | gh secret set AWS_STAGING_TERRAFORM_TF
 The secret replaces the ignored local file in CI, so it holds the same non-secret
 values, including `services_enabled`. Set it again to change those inputs.
 
+### Staging is reseeded on every deploy
+
+Every deploy runs `python -m shifu.shared.database.seed` as a one-off task, after the
+migration and before the services roll. The seed **deletes all application data**
+(accounts, curriculum, learning, gamification, mentor, communication, and the event
+outbox) and inserts the development data again. Consequences:
+
+- Staging never keeps accounts or progress that testers created. Each deploy resets
+  them.
+- The development data includes the account `student.seed@shifu.com` with the
+  password from `seed_data.py`, which is public in the repository. Staging serves
+  plain HTTP and is reachable from the internet, so treat everything in it as public.
+- The server refuses to seed unless the mode is `local`, or the mode is `staging` and
+  `SHIFU_ALLOW_STAGING_SEED=true`. Only the deploy step sets that value, and the
+  production mode can never seed.
+- The image installs the `seed` dependency group (Faker) because the seed builds its
+  data with it.
+
+To stop reseeding, remove the "Seed the database" step from `staging-deploy.yaml`.
+The server's guard keeps working without it.
+
 ### Failures and rollback
 
 - **Image build fails:** nothing changed in AWS. Fix the code and merge again.
 - **Migration fails:** the workflow stops before any service changes. Read the log
-  lines in the job output, fix forward, and run the workflow again. Never seed or
-  reset data. A missing `shifu_agentos_runtime` role is the usual first-run cause:
+  lines in the job output, fix forward, and run the workflow again. A missing `shifu_agentos_runtime` role is the usual first-run cause:
   create it as described in step 5.
 - **Rollout fails:** the ECS circuit breaker returns the service to its previous
   revision and the workflow fails. Check the service events and the log groups
@@ -341,7 +372,7 @@ values, including `services_enabled`. Set it again to change those inputs.
 - **Image/secret failure:** do not enable services; publish a new immutable image or
   add a new secret version, then review a fresh plan.
 - **Migration failure:** inspect the stopped task/logs, fix forward, and rerun; never
-  seed, reset, or auto-migrate at service startup.
+  auto-migrate or auto-seed at service startup.
 - **Unhealthy deployment:** use ECS deployment events and separate target health;
   circuit-breaker rollback is automatic, while operator correction is explicit.
 - **Redis AUTH drift:** keep services disabled until both the cache and server secret

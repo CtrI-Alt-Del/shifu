@@ -229,7 +229,9 @@ controladas e atualizar os serviços ECS com verificação de saúde.
 Em staging, dois workflows do GitHub Actions cumprem esse papel. O workflow do
 Terraform valida e planeja cada mudança em `iac/`, e o apply é manual e exige
 aprovação. O workflow de deploy gera as imagens `linux/arm64` a cada merge na
-`main`, roda a migração, atualiza o servidor e depois o Web e confere a saúde.
+`main`, roda a migração e o seed do banco, atualiza o servidor e depois o Web e
+confere a saúde. O seed apaga todos os dados da aplicação e recria os dados de
+desenvolvimento, então o staging não guarda contas de teste entre publicações.
 Se o ECS desfizer uma publicação, o workflow falha. O rollback consiste em
 publicar de novo imagens antigas que já estão no ECR e não desfaz migrações. Como
 a conta AWS bloqueia OIDC, o GitHub acessa a AWS com chaves de dois usuários IAM
