@@ -1,10 +1,16 @@
 # Infraestrutura do Shifu
 
 Este documento registra a **arquitetura de infraestrutura definida** para o
-Shifu. A pilha de desenvolvimento local já existe no repositório; a implantação
-da arquitetura completa na AWS é uma etapa de execução. O laboratório de
-armazenamento tem configuração Terraform em `packages/iac`; código existente
-não confirma provisionamento na conta AWS.
+Shifu e o estado atual de cada ambiente.
+
+- **Local:** a pilha de desenvolvimento existe no repositório.
+- **Staging:** a plataforma está definida em Terraform no diretório `iac/` e foi
+  criada na conta AWS, na região `us-east-2`. Web e API rodam no ECS, com o banco
+  populado pelo seed. Funciona só em HTTP, como descrito mais abaixo.
+- **Produção:** ainda é só a arquitetura definida neste documento.
+- **Laboratório de armazenamento:** tem configuração Terraform em
+  `packages/iac`. O código dele não confirma provisionamento na conta AWS.
+
 Para a arquitetura das aplicações e os limites dos módulos de produto, consulte
 [`architecture.md`](architecture.md) e [`modules.md`](modules.md).
 
@@ -18,13 +24,13 @@ Para a arquitetura das aplicações e os limites dos módulos de produto, consul
 | Execução das aplicações | Dois serviços ECS com Fargate: Web/BFF e API |
 | Banco relacional | Amazon RDS for PostgreSQL |
 | Arquivos de anexos do Mentor | Amazon S3; integração planejada, com objetos privados |
-| Cache e limitação de requisições | Redis gerenciado, em rede privada; produto e capacidade a definir |
+| Cache e limitação de requisições | Amazon ElastiCache for Redis, em rede privada, com AUTH e TLS; capacidade de produção a definir |
 | Processamento assíncrono | Inngest Cloud |
 | E-mail transacional | Resend |
 | Avaliação e recursos de IA | OpenRouter, acessado pela API |
 | Segredos de aplicação | AWS Secrets Manager |
 | Logs, métricas e alarmes AWS | Amazon CloudWatch |
-| Provisionamento | Terraform em HCL no pacote `packages/iac`; configuração e estado separados por ambiente |
+| Provisionamento | Terraform em HCL; staging em `iac/` (com `bootstrap/` para o estado remoto) e laboratório de S3 em `packages/iac`; configuração e estado separados por ambiente |
 
 Essas escolhas não transferem regras de negócio para a infraestrutura. Identity,
 Communication, Curriculum, Learning, Gamification e Intelligence continuam com
@@ -62,7 +68,14 @@ Inngest Cloud → endpoint assinado da API → jobs → Resend
 
 O ALB recebe tráfego HTTPS e encaminha para os serviços conforme os caminhos
 publicados. Web e API devem ter health checks independentes. Os caminhos e
-domínios finais serão definidos junto ao roteamento de staging e produção.
+domínios finais de produção serão definidos junto ao roteamento dela.
+
+No staging, o ALB atende HTTP na porta 80 e encaminha tudo para o Web, menos o
+caminho `/api/inngest`, que vai para a API. O navegador nunca chama a API
+diretamente: o Web/BFF chama a API pela rede privada, no nome
+`server.staging.shifu.internal`, porta 7777. A API valida as sessões com as
+chaves públicas de assinatura que o Web publica em `/api/auth/jwks`, buscadas no
+endereço público do ambiente.
 
 ## Rede e sub-redes
 
@@ -80,7 +93,11 @@ para continuar atendendo se uma AZ falhar. O RDS usa implantação Multi-AZ.
 Staging usa capacidade reduzida e RDS Single-AZ; isso diminui custo e não
 oferece a mesma disponibilidade de produção.
 
-As tarefas precisam de saída HTTPS para Inngest Cloud, Resend e OpenRouter.
+As tarefas precisam de saída HTTPS para Inngest Cloud, Resend e OpenRouter. Com
+o staging em HTTP puro, a API também precisa de saída na porta 80 para buscar as
+chaves de assinatura do Web no endereço público. O security group da API abre
+essa porta só nesse modo. Com HTTPS, a busca usa a porta 443 e a regra deixa de
+existir.
 Produção usa um NAT Gateway por AZ. Staging não tem NAT Gateway, para caber no
 orçamento: as tarefas recebem IP público e saem direto pelo Internet Gateway.
 Os security groups das tarefas não têm regra de entrada pública; somente o ALB
@@ -201,7 +218,9 @@ TLS deve proteger o tráfego público. Exceção temporária do MVP em staging: 
 domínio, o Terraform aceita hostname e certificado ausentes e o ALB atende HTTP
 puro no próprio endereço, com cookies seguros desligados por configuração. Senhas
 e cookies de sessão trafegam sem criptografia nesse modo, então ele só admite
-contas de teste. Produção exige HTTPS. A comunicação entre serviços e com o
+contas de teste. Produção exige HTTPS. Quando o staging ganhar domínio e
+certificado, o modo HTTP e a regra extra de saída na porta 80 deixam de ser
+criados. A comunicação entre serviços e com o
 banco deve seguir as configurações de criptografia exigidas por cada serviço.
 O certificado público pode ser gerenciado pelo AWS Certificate Manager; DNS
 e nomes de domínio ainda precisam de definição.
@@ -226,17 +245,45 @@ As imagens das aplicações devem ser publicadas no ECR. O pipeline de entrega
 deve validar as aplicações, gerar imagens versionadas, executar migrações
 controladas e atualizar os serviços ECS com verificação de saúde.
 
-Em staging, dois workflows do GitHub Actions cumprem esse papel. O workflow do
-Terraform valida e planeja cada mudança em `iac/`, e o apply é manual e exige
-aprovação. O workflow de deploy gera as imagens `linux/arm64` a cada merge na
-`main`, roda a migração e o seed do banco, atualiza o servidor e depois o Web e
-confere a saúde. O seed apaga todos os dados da aplicação e recria os dados de
-desenvolvimento, então o staging não guarda contas de teste entre publicações.
-Se o ECS desfizer uma publicação, o workflow falha. O rollback consiste em
-publicar de novo imagens antigas que já estão no ECR e não desfaz migrações. Como
-a conta AWS bloqueia OIDC, o GitHub acessa a AWS com chaves de dois usuários IAM
-de escopo restrito. Os detalhes de configuração e de falhas estão em
-`iac/README.md`.
+Em staging, dois workflows do GitHub Actions cumprem esse papel.
+
+- **Terraform:** valida e planeja cada mudança em `iac/`. O apply é manual e só
+  roda na `main`. Não há ambientes do GitHub nem aprovador obrigatório.
+- **Deploy:** a cada merge na `main` que mude as aplicações, gera as imagens
+  `linux/arm64` do Web e da API, com a tag do commit, e as publica no ECR. Depois
+  roda a migração e o seed do banco como tarefas avulsas do ECS dentro da VPC,
+  porque o banco é privado. Então atualiza a API e em seguida o Web, esperando
+  cada publicação terminar, e confere a saúde pelo ALB.
+- **Seed:** o seed apaga todos os dados da aplicação e recria os dados de
+  desenvolvimento, então o staging não guarda contas de teste entre publicações.
+  A API só aceita rodá-lo em staging com a opção `SHIFU_ALLOW_STAGING_SEED=true`,
+  que só o workflow define. Produção nunca aceita o seed.
+- **Falhas e rollback:** se o ECS desfizer a publicação ou ela falhar, o workflow
+  falha. O rollback consiste em rodar o workflow de novo com o hash de uma
+  publicação antiga, cujas imagens já estão no ECR. Ele não desfaz migrações.
+- **Credenciais:** a conta AWS bloqueia OIDC, então o GitHub acessa a AWS com
+  chaves de dois usuários IAM de escopo restrito, guardadas como segredos do
+  repositório. Um usuário publica as aplicações e o outro roda o Terraform.
+
+Os detalhes de configuração, de operação e de falhas estão em `iac/README.md`.
+
+### Operação do staging
+
+- **Interruptor dos serviços:** a variável `services_enabled` do Terraform define
+  quantas tarefas cada serviço roda. Com `false`, ambos ficam em zero e a
+  plataforma segue criada, mas sem custo de Fargate. Com `true`, cada serviço roda
+  uma tarefa. Serve para a criação em etapas, como parada de emergência e para
+  economizar custo. O deploy registra as novas revisões mesmo com os serviços
+  desligados, mas só publica e confere a saúde quando eles estão ligados.
+- **Task definitions:** o Terraform cria as definições de tarefa. O deploy
+  registra novas revisões só com a imagem e a versão trocadas, e os serviços
+  ignoram mudanças de definição no Terraform. Assim, um apply não volta um
+  serviço para uma imagem antiga.
+- **Segredos:** o Terraform cria os segredos vazios no Secrets Manager. O script
+  `scripts/populate-staging-secrets.mjs` gera e grava os valores, e ativa o AUTH
+  do Redis. Os valores nunca passam pelo Terraform.
+- **Tarefas avulsas:** os scripts em `.github/scripts/staging/` rodam a migração,
+  o seed e a criação do papel do AgentOS no banco, todos dentro da VPC.
 
 ## Ambientes e provisionamento
 
@@ -244,7 +291,7 @@ de escopo restrito. Os detalhes de configuração e de falhas estão em
 | --- | --- |
 | Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
 | Laboratório | Configuração Terraform em `packages/iac`, somente com S3 e arquivos fictícios para a primeira entrega. Independente do runtime do Shifu. |
-| Staging | Configuração Terraform, estado e segredos próprios; ECS Fargate Spot ARM64 com capacidade reduzida e IP público nas tarefas, sem NAT Gateway, RDS Single-AZ, Redis privado, Inngest Cloud e Resend. |
+| Staging | Em `iac/`, com estado remoto no S3 e segredos próprios. ECS Fargate Spot ARM64, uma tarefa por serviço (0,5 vCPU, 1 GiB) e IP público nas tarefas, sem NAT Gateway. RDS PostgreSQL 17 Single-AZ (`db.t4g.micro`), ElastiCache Redis 7.1 privado (`cache.t4g.micro`), Inngest Cloud e Resend. HTTP puro no endereço do ALB. Dados recriados a cada deploy. |
 | Produção | Configuração Terraform, estado e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
 
 Terraform deve criar e atualizar os recursos AWS de cada ambiente, inclusive
@@ -255,9 +302,25 @@ Inngest Cloud, Resend e OpenRouter são serviços externos configurados por
 ambiente; o Terraform provisiona a infraestrutura AWS, não esses serviços por
 inferência.
 
-### Organização do pacote Terraform
+### Organização do Terraform do staging
 
-O pacote fica em `packages/iac`, com recursos declarados em HCL e somente
+O staging fica no diretório `iac/`, com duas raízes Terraform independentes.
+
+- `iac/bootstrap/`: cria só o bucket S3 privado que guarda o estado remoto.
+- `iac/staging/`: cria a plataforma da aplicação. Os arquivos separam rede
+  (`network.tf`), segurança (`security.tf`), ALB (`alb.tf`), banco e cache
+  (`data.tf`), ECS (`compute.tf`), ECR (`ecr.tf`), segredos (`secrets.tf`), IAM
+  e usuários de CI (`iam.tf`, `ci.tf`) e orçamento (`operations.tf`).
+
+Cada raiz tem testes com provedor simulado, em arquivos `*.tftest.hcl`, que o
+workflow do Terraform roda em cada pull request. Os valores privados ficam em
+`terraform.tfvars` e `backend.hcl`, ignorados pelo Git. No CI, o conteúdo do
+`terraform.tfvars` vem de um segredo do repositório codificado em base64. O passo
+a passo completo está em `iac/README.md`.
+
+### Organização do pacote do laboratório
+
+O pacote do laboratório fica em `packages/iac`, com recursos declarados em HCL e somente
 Amazon S3 para a primeira entrega da atividade. Os arquivos fictícios são
 enviados manualmente pela AWS CLI, conforme o README; não há script de fixtures.
 
@@ -294,9 +357,10 @@ de staging e produção continua planejada, com configuração e estado próprio
 
 ### Estado e execução
 
-A configuração atual usa estado local, ignorado pelo `.gitignore`. Não há
-backend remoto configurado. A identidade AWS é fornecida pelas credenciais ou
-pelo perfil do operador. Credenciais, arquivos de estado e planos gerados não
+O staging usa estado remoto no bucket S3 criado por `iac/bootstrap`, com bloqueio
+por arquivo (`use_lockfile`). O laboratório de S3 em `packages/iac` usa estado
+local, ignorado pelo `.gitignore`. A identidade AWS é fornecida pelas
+credenciais ou pelo perfil do operador. Credenciais, arquivos de estado e planos gerados não
 entram no Git; o estado deve ser preservado enquanto houver recursos ativos.
 
 A partir de `packages/iac`, o fluxo documentado no README é:
@@ -309,13 +373,13 @@ terraform plan
 ```
 
 A criação de recursos ocorre com `terraform apply`, após revisão do plano e
-autorização para a implantação. Para uso compartilhado e futuros ambientes,
-o backend remoto e seu controle de acesso e bloqueio precisam ser definidos
-antes do deploy. A decisão anterior de usar Pulumi Cloud foi substituída;
-não se presume um backend remoto já implantado.
+autorização para a implantação. Para o staging, o fluxo equivalente roda a partir
+de `iac/staging` e está em `iac/README.md`. A decisão anterior de usar Pulumi
+Cloud foi substituída. Produção ainda precisa de backend remoto e controle de
+acesso próprios.
 
 O código do laboratório existe no pacote. O documento não confirma execução
-de `apply` nem provisionamento de recursos na conta AWS.
+de `apply` do laboratório nem provisionamento de recursos dele na conta AWS.
 
 ## Parâmetros de implementação antes do primeiro deploy
 
@@ -323,12 +387,16 @@ de `apply` nem provisionamento de recursos na conta AWS.
 - CIDRs da VPC, endereçamento das sub-redes e estratégia de acesso operacional.
 - Produto Redis gerenciado, dimensionamento inicial e política de persistência.
 - Capacidade mínima ECS por ambiente, autoscaling e limites de custo.
-- Retenção de backups e logs, testes de restauração, RPO e RTO.
-- Pipeline de deploy, migrações, rollback e armazenamento remoto e bloqueio do estado Terraform.
+- Retenção de backups e logs, testes de restauração, RPO e RTO. No staging, os
+  backups automáticos do RDS ficam desligados (retenção zero), porque o plano
+  gratuito da AWS recusa a retenção de sete dias.
+- Pipeline de deploy, migrações, rollback e estado remoto de produção. O staging
+  já os tem.
+- Domínio e certificado do staging, para sair do HTTP puro.
 - Uso de VPC endpoints frente ao custo de NAT e volume de saída.
 
 Esta arquitetura complementa a arquitetura da aplicação. Os parâmetros
 operacionais acima não alteram as escolhas de plataforma definidas neste
-documento. Nomes exatos de recursos, preços e capacidades serão verificados
-durante a implementação do Terraform; o documento não afirma que os recursos já
-estão provisionados.
+documento. Nomes exatos de recursos, preços e capacidades de produção serão verificados
+durante a implementação do Terraform dela. Este documento só afirma que o
+staging está provisionado.
