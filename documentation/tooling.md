@@ -292,7 +292,7 @@ Playwright.
 | `pnpm --filter web check:lint` | Run Biome checks |
 | `pnpm --filter web check:architecture` | Check TypeScript dependency boundaries |
 | `pnpm --filter web test:unit` | Run Vitest unit tests |
-| `pnpm --filter web test:coverage` | Run Vitest unit tests with V8 coverage |
+| `pnpm --filter web test:coverage` | Run Vitest unit tests with V8 coverage and write `apps/web/coverage/lcov.info` |
 | `pnpm --filter web test:integration` | Run Playwright browser tests |
 | `pnpm --filter web build` | Build the TanStack Start application |
 | `pnpm --filter web preview` | Preview the Vite production build |
@@ -351,6 +351,8 @@ Run commands from `apps/server` through uv:
 | `uv run poe check:lint` | Run non-mutating Ruff lint and format checks |
 | `uv run poe check:architecture` | Validate Tach module dependencies |
 | `uv run poe test:unit` | Run module-first use-case tests, permitted focused domain conformance under `tests/<module>/core/domain`, and legacy `tests/core/**/use_cases` during migration |
+| `uv run poe test:unit:coverage` | Run the `test:unit` selection under `coverage run`, writing `.coverage.*` data files in `apps/server` |
+| `uv run poe test:coverage:report` | Combine the `.coverage.*` data files and write `apps/server/coverage.xml` |
 | `uv run poe test:integration` | Run module-first server/handler integration plus the explicit Planning preparation/capability boundaries and legacy `tests/rest`, against disposable PostgreSQL Testcontainers |
 | `uv run poe test:jobs` | Run real Inngest job tests with disposable Testcontainers under `tests/messaging/inngest/jobs` |
 | `uv run poe test` | Run the complete pytest suite with verbose output |
@@ -522,10 +524,62 @@ changes reopen affected checks; role or commit changes alone do not. Use explici
 CI-compatible fixture settings instead of relying on ignored local environment
 files.
 
-The web `check:code`/SonarQube gate is intentionally not part of the current local
-contract. SonarQube is present in Docker Compose, but CI integration and scanner
-configuration are deferred. The local SonarQube service is separate from the
-planned SonarCloud coverage and quality-gate integration.
+The local SonarQube service in Docker Compose is separate from SonarCloud and is not
+part of the local validation contract.
+
+### SonarCloud analysis in CI
+
+Each application has its own SonarCloud project in organization `ctri-alt-del`:
+`ctri-alt-del_shifu_web` and `ctri-alt-del_shifu_api`. Each analysis job in
+`.github/workflows/web-app-ci.yaml` and `.github/workflows/server-app-ci.yaml` runs
+on pull requests to `main` and on pushes to `main`, and is configured by the
+`sonar-project.properties` file of its application.
+
+Setup, owned by the team:
+
+- Create the repository secret `SONAR_TOKEN` with analysis permission on both
+  projects. Only the scanner step reads it. Never print it or commit it.
+- Keep Automatic Analysis off, bind both projects to this repository in monorepo
+  mode, and keep the SonarQubeCloud GitHub App installed with the summary comment on.
+
+Gate policy: both projects use the built-in `Sonar way` gate. The scanner waits for the
+gate (`sonar.qualitygate.wait=true`, 300 seconds by default), so a failed gate, a failed
+scan or a timeout fails the analysis job. Branch protection is not changed, so a red
+analysis does not block a merge by itself. SonarCloud posts the check and the summary
+comment through its GitHub App, which keeps the workflows read-only.
+
+Analysis jobs run only after the tests that produce their coverage pass:
+
+- Web: after the unit tests, which upload `lcov.info` from Vitest.
+- API: after the unit tests and all four integration shards, whose `.coverage.*`
+  files are combined by `test:coverage:report` into `coverage.xml`. Coverage is line
+  coverage. `include_namespace_packages` counts source files that no test imports.
+
+Coverage scope. Tests, generated files and the exclusions below are outside the
+measure (`sonar.coverage.exclusions`):
+
+- Web: `src/routeTree.gen.ts`, `src/routes/__root.tsx`, `src/routes/index.tsx` and the
+  page route directories listed in `apps/web/sonar-project.properties`. Routes under
+  `src/routes/api` stay measured. Sonar patterns cannot negate, so a new page route
+  directory needs one new entry there.
+- API: `src/shifu/shared/database/seed.py` and `seed_data.py`.
+
+Fork pull requests skip the analysis jobs, because GitHub hides secrets from them. Their
+other checks still run. Pull request runs cancel older runs, and runs on `main` finish.
+The paid AI evals run only on pull requests.
+
+Diagnosis:
+
+- Analysis job skipped: a test job it needs failed, or the pull request comes from a
+  fork. Read the failed test job first.
+- Scan refused: check that `SONAR_TOKEN` exists, is valid and covers the project, and
+  that Automatic Analysis is off.
+- Missing coverage artifact: the test job did not write its report. The upload step
+  fails on purpose.
+- Failed gate: open the SonarCloud link in the pull request comment. Coverage and new
+  issues are measured on new code.
+- Coverage reads 0% or a file is missing: an unusable report only logs a warning in the
+  scanner, so check the sampled values on SonarCloud against the expected scope above.
 
 Inspect the current `.github/workflows` when selecting delivery gates. CI uses
 application-owned commands and repository runtime files. Server CI also runs
