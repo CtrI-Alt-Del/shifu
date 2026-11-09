@@ -26,6 +26,7 @@ coverage/
 htmlcov/
 .coverage
 .coverage.*
+coverage.xml
 **/test-results/
 **/playwright-report/
 
