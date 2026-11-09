@@ -15,8 +15,8 @@ last_updated_at: 2026-11-08
 | Manual checks | 0 of 3. VM-01..VM-03 Blocked: `SONAR_TOKEN` secret absent and no published pull request. |
 | Visual checks | Not applicable. No user interface. |
 | Independent review | Current. Implementation Reviewer PASS, one informational low finding (ACH-01). |
-| Blockers | VM-01..VM-03: `SONAR_TOKEN` secret, Automatic Analysis off, monorepo binding, GitHub App, then publication authorization. |
-| Candidate | Branch `main` at 6ba524c8, uncommitted working tree. Dirty scope listed in Handoff. |
+| Blockers | VM-01..VM-03: `SONAR_TOKEN` secret (confirmed empty in the PR 48 scanner logs), Automatic Analysis off, monorepo binding, GitHub App. ACH-02 to ACH-04 on PR 48 head 5595d418. |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, head 5595d418 (superseded heads: none). |
 
 # Progress
 
@@ -52,6 +52,9 @@ last_updated_at: 2026-11-08
 | ACH | Problem / evidence / affected CA | Severity | Affected checks | Status / correction / verification |
 | --- | --- | --- | --- | --- |
 | ACH-01 | Implementation Reviewer, working tree on main: shard coverage upload with `if: always()` and `if-no-files-found: error` may add a second red step when a shard dies before writing coverage. Matches the Spec. CA-08 | Low, informational | none | Resolved, no change. The real cause stays visible and the shard is already red. |
+| ACH-02 | PR 48 head 5595d418, run 42553215313 and 42553215287: both `SonarCloud analysis` jobs fail at the scanner with exit code 3 and `Not authorized or organization not found`. The scanner log shows `SONAR_TOKEN:` empty and warns about running without it. CA-03, CA-04, CA-09 | Blocking for VM-01 | VM-01, EV-06 | Open. Not a code defect. Needs the team to create `SONAR_TOKEN`, then rerun the two jobs. The failure also confirms that a refused scan fails the job (RF-04). |
+| ACH-03 | PR 48 head 5595d418, job 128953159494 `Web integration tests`: 1 failed, 286 passed. Failing test: `tests/identity/account-auth-api.test.ts:441` (`locator.click` timeout, several `[WebServer] aborted` lines). The change touches no Web source or test. | Medium | none of this Spec's checks | Open. Rerun on 2026-11-09 (attempt 2, job 129345502382) failed again on the same test: `getByRole('tab', { name: 'Segurança' })` never appeared within 10 s after `/account`, with the same `[WebServer] aborted` lines. Two identical failures mean it is not a one-off flake. The test came with SHIFU-97 (7567db1d) and passed on that PR's run on 2026-10-26. This delivery changes no Web source or test, so the cause is not found yet. There is no `main` run to compare because `main` had no push trigger before this PR. |
+| ACH-04 | PR 48 head 5595d418, job 128953159770 `Server real AI evals`: failed with `exit_status 1`. Two real-model eval workflows failed: `process-mentor-response` (2 of 9 cases) and `route-mentor-faq` (2 of 7). Ten other workflows passed. No Python source changed and only the `if` guard of this job changed, so the cause is suspected model variance. Other recent PRs passed. | Medium | none of this Spec's checks | Open. Rerun on 2026-11-09 (attempt 2, job 129345504707) failed again: `process-mentor-response` 2 of 9, `route-mentor-faq` 2 of 7 and now also `plan-goal-proposal` 1 of 5. Other PRs failed this job too (runs 40252329014 and 40238478557, 2026-10-25/26) and later passed (run 40261457496), so real-model variance is the likely cause. Different failing sets per attempt fit that, but this is an inference. |
 
 Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe task equals `test:unit` apart from the `coverage run -m` prefix, push paths equal pull request paths, the implicit `success()` skips the API analysis after a failed shard, artifact names and paths line up, and the token appears only in the scanner step. It did not verify CI-02, which later passed (EV-02).
 
@@ -79,11 +82,11 @@ None.
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| none yet | none | Pending | none |
+| https://github.com/CtrI-Alt-Del/shifu/pull/48 | 5595d418 | Failed: Sonar jobs (ACH-02), Web integration (ACH-03), evals (ACH-04). No reviews, no threads | Web run 42553215313, Server run 42553215287 |
 
 | Field | Result |
 | --- | --- |
-| Publication | Not requested |
+| Publication | Published as PR 48 on 2026-11-08. CI on head 5595d418: 20 checks passed and 5 failed (ACH-02 to ACH-04). No review comments or threads. |
 | Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". Sprint 2 report conflict reported, left as history. |
 | Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. Rules and `modules.md` confirmed, no change. |
 | Revision History | No contract change since revision 1. |
