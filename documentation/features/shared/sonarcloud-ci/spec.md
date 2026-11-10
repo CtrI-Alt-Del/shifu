@@ -1,6 +1,6 @@
 ---
 title: SonarCloud analysis in Web and API CI
-status: implemented
+status: completed
 revision: 2
 source:
   type: issue
