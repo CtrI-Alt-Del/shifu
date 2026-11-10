@@ -1,6 +1,6 @@
 ---
 title: SonarCloud analysis in Web and API CI evaluation
-status: in_progress
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-11-10
 ---
@@ -14,9 +14,9 @@ last_updated_at: 2026-11-10
 | Type / lint / complexity | Web types Passed and Web lint Passed with 11 pre-existing warnings outside this change (EV-04). Server types and lint and complexity Not applicable locally (EV-05). |
 | Manual checks | 2 of 2. VM-01 Passed on PR 48 head 309e8093. VM-02 Passed on disposable draft PR 49 (closed unmerged). VM-03 withdrawn in revision 2. |
 | Visual checks | Not applicable. No user interface. |
-| Independent review | Current. Implementation Reviewer PASS, one informational low finding (ACH-01). Spec Reviewer of revision 2: FAIL then PASS after corrections (ACH-05). |
+| Independent review | Current. Implementation Reviewer PASS on the first candidate (one informational low finding, ACH-01) and PASS on the revision 2 delta f701f847 with no findings on 2026-11-10. Spec Reviewer of revision 2: FAIL, then PASS after corrections (ACH-05). |
 | Blockers | None. CI of head f701f847 passed. |
-| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, head f701f847 (superseded heads: 309e8093, 5595d418). |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, code head f701f847 plus documentation-only commits (superseded code heads: 309e8093, 5595d418). Dirty scope evaluated: none of this delivery. |
 
 # Progress
 
@@ -39,13 +39,15 @@ last_updated_at: 2026-11-10
 | --- | --- | --- | --- | --- | --- |
 | EV-01 | CI-01 / Automated / CA-01 | Passed | main 6ba524c8 + working tree, 2026-11-08, local, revision 1 | CI-01 command in `apps/web` | 1 test file, 1 test passed in 6.21 s. `lcov.info` first entry `SF:src/router.tsx`. |
 | EV-02 | CI-02 / Automated / CA-02 | Passed | same candidate, 2026-11-08, local | CI-02 command in `apps/server` | 1895 unit tests passed, 2 warnings, 237.70 s. `coverage.xml` written, `<source>src</source>` found. The reranker provider file (no `__init__.py`, never imported) is listed at 0%, so unimported files count. `include_namespace_packages: True` confirmed and `git check-ignore` printed `coverage.xml`. |
-| EV-03 | CI-04 / Automated / CA-07, CA-08 | Passed | same | CI-04 command from repo root | Nothing before `---`. Gate wait 1+1, token 1+1, fork 1+1, `if-no-files-found: error` 3 (server) and 1 (web), both `cancel-in-progress` use the pull request expression. Concurrency behavior itself is proven only by VM-03. Fork skip proven by inspection only. Re-run on revision 2 on 2026-11-10 from the repository root with the updated command: nothing before `---` (the `^  push:` pattern also prints nothing), gate wait 1+1, token 1+1, fork 1+1, `if-no-files-found: error` 3 (server) and 1 (web), both `cancel-in-progress: true`. Both workflows parse as YAML with `pull_request` as the only trigger. `git diff main` of the workflows shows only the analysis jobs, the fork condition and the coverage steps. |
+| EV-03 | CI-04 / Automated / CA-07, CA-08 | Passed | same | CI-04 command from repo root | Nothing before `---`. Gate wait 1+1, token 1+1, fork 1+1, `if-no-files-found: error` 3 (server) and 1 (web), both `cancel-in-progress` used the pull request expression (revision 1). Concurrency behavior itself is proven by configuration only, because VM-03 was withdrawn. Fork skip proven by inspection only. Re-run on revision 2 on 2026-11-10 from the repository root with the updated command: nothing before `---` (the `^  push:` pattern also prints nothing), gate wait 1+1, token 1+1, fork 1+1, `if-no-files-found: error` 3 (server) and 1 (web), both `cancel-in-progress: true`. Both workflows parse as YAML with `pull_request` as the only trigger. `git diff main` of the workflows shows only the analysis jobs, the fork condition and the coverage steps. |
 | EV-04 | CI-03 / Automated (types, lint) / baseline | Passed | same | `pnpm --filter web check:types`, `pnpm --filter web check:lint` from root | Types exit 0. Lint exit 0 with 11 warnings in `apps/web/src/ui/intelligence` Mentor files, not touched by this change. `biome check apps/web/vitest.config.ts` clean. The 11 warnings are out of scope and left unfixed. |
-| EV-05 | CI-03 / Not applicable / baseline | Not applicable | same | none | No Python source and no function changed, so Server types, lint and complexity do not apply locally. Real CI runs them on the delivery pull request. |
-| EV-06 | VM-01 / Manual / CA-03, CA-09 | Passed | same | PR 48 head 309e8093, Web run 42843493476 and Server run 42843493156, attempt 3 | Both `SonarCloud analysis` jobs passed. Scanner found keys `ctri-alt-del_shifu_web` and `ctri-alt-del_shifu_api`, reported the binding as BOUND on the default `sonarcloud.io` host, read `lcov.info` and `coverage.xml`, and ended with `QUALITY GATE STATUS: PASSED` for both. The checks `[Shifu Web] SonarCloud Code Analysis` and `[Shifu API] SonarCloud Code Analysis` are SUCCESS and the `sonarqubecloud` app commented twice on the pull request. `SONAR_TOKEN` is masked in the logs. The coverage artifacts hold only `lcov.info`, parallel `.coverage.*` databases, JUnit XML and eval summaries; the only secret-like matches are source file and module names, no secret value. Every other job of both runs is unchanged and passed. |
+| EV-05 | CI-03 / Not applicable / baseline | Not applicable | same | none | No Python source and no function changed, so Server types, lint and complexity do not apply locally. Real CI ran them on the delivery pull request: `Server type check` and `Server lint check` passed on head f701f847 (Server run 42880795689). |
+| EV-06 | VM-01 / Manual / CA-03, CA-09 | Passed | same | PR 48 head 309e8093, Web run 42843493476 and Server run 42843493156, attempt 3 | Both `SonarCloud analysis` jobs passed. Scanner found keys `ctri-alt-del_shifu_web` and `ctri-alt-del_shifu_api`, reported the binding as BOUND on the default `sonarcloud.io` host, read `lcov.info` and `coverage.xml`, and ended with `QUALITY GATE STATUS: PASSED` for both. The checks `[Shifu Web] SonarCloud Code Analysis` and `[Shifu API] SonarCloud Code Analysis` are SUCCESS and the `sonarqubecloud` app commented twice on the pull request. `SONAR_TOKEN` is masked in the logs. The coverage artifacts hold only `lcov.info`, parallel `.coverage.*` databases, JUnit XML and eval summaries; the only secret-like matches are source file and module names, no secret value. Every other job of both runs is unchanged and passed. Retained on revision 2: the Sonar jobs passed again on head f701f847 (Web run 42880795625, Server run 42880795689) after the `if` condition and triggers changed. |
 | EV-07 | VM-02 / Manual / CA-04, CA-05 | Passed | same | Disposable draft PR 49 on 2026-11-10, branch based on the delivery head 9d42c204, now closed unmerged and deleted | Step 1, commit f50c1dd6 with a failing unit test per app: `Web unit tests` and `Server unit tests` failed and both `SonarCloud analysis` jobs were skipped (CA-05). Step 2, commit 4797066c with 6 small functions per app and a unit test for 2 of them: Web 32 new lines to cover and 17.2% new coverage, API 38 and 31.6%. Both projects returned gate status ERROR from `api/qualitygates/project_status` (condition `new_coverage` below 80), both analysis jobs ended red with `QUALITY GATE STATUS: FAILED`, and the `sonarqubecloud` app posted a failure comment for each project. The disposable code never reached `main`. Not covered, as the Spec states: integration test failures and a SonarCloud outage. |
 | EV-08 | VM-03 / Manual / CA-06, CA-07 | Not applicable | revision 2 | none | VM-03 withdrawn in revision 2, together with the `main` analysis. |
 | EV-09 | CI-05 / Automated / CA-10 | Passed | same | CI-05 command from repo root | Both stale-text greps empty. All 7 topics `ok`. Re-run on revision 2 on 2026-11-10 after editing `tooling.md` (pushes to `main` removed): both stale-text greps print nothing and every topic prints `ok`. |
+
+Retained proof on revision 2: revision 2 changed only the workflow triggers, the concurrency block, two `if` conditions, `tooling.md` and the Spec. EV-01, EV-02, EV-04 and EV-05 cover `vitest.config.ts`, `pyproject.toml` and commands that revision 2 did not touch, and the unit and integration jobs ran green on head f701f847, so they stay valid. EV-03 and EV-09 were re-run. EV-08 is Not applicable. The Mentor FAQ reranker step and the test selector fix (ACH-03, ACH-04) have their own proof in those findings and the CI of f701f847. The diagnosis text added to `tooling.md` on 2026-11-10 was covered by a new CI-05 run: stale greps empty and 7 of 7 topics `ok`.
 
 # Findings
 
@@ -61,19 +63,23 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 
 # Lessons Learned
 
-None.
+| Lesson | Supporting finding / evidence | Documentation action or disposition |
+| --- | --- | --- |
+| A SonarCloud scan token must belong to a user with Execute Analysis on every project, such as an organization admin, or be a Scoped Organization Token | ACH-02, EV-06 | Applied in the Diagnosis list of `documentation/tooling.md`, inside this delivery's documentation scope |
+| The real AI evals job must prepare every provider model that loads only from the local cache, because a developer cache hides the gap | ACH-04 | Fixed in `server-app-ci.yaml`. A line in the evals paragraph of `documentation/tooling.md` is proposed and not applied, because it is global guidance that needs approval |
+| A Web test that submits a form must wait for `data-hydrated` first | ACH-03 | No change. The sibling tests of the same file already follow the pattern, and no Rule needs it |
 
 # Handoff
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `main` at 6ba524c8, nothing committed, working tree not on a delivery branch. |
-| Completed | All local implementation. CA-01, CA-02, CA-08, CA-10 verified. Review current. |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, code head f701f847 and later documentation-only commits. `origin/main` at 6ba524c8 was fetched on 2026-11-10 and is already an ancestor, so no merge was needed. |
+| Completed | CA-01..CA-05 and CA-07..CA-10 implemented and verified (EV-01..EV-07, EV-09). CA-06 withdrawn. Spec and implementation reviews current for revision 2. |
 | Unfinished | Nothing for revision 2 except CI of the new head. |
-| Uncommitted work | Modified: `.github/workflows/web-app-ci.yaml`, `.github/workflows/server-app-ci.yaml`, `.gitignore`, `README.md`, `apps/server/pyproject.toml`, `apps/web/vitest.config.ts`, `documentation/architecture.md`, `documentation/tooling.md`. New: both `sonar-project.properties`, `documentation/features/shared/sonarcloud-ci/`. Generated and ignored: `apps/web/coverage/`, `apps/server/.coverage.*`, `apps/server/coverage.xml`. A separate user session handles tracked `coverage.json` in the API. |
+| Uncommitted work | Only the user's own, left untouched: `.dockerignore` and `apps/web/src/ui/intelligence/widgets/components/mentor-mascot/tests/use-mentor-mascot.test.ts`. A separate user session handles the tracked `apps/server/coverage.json`. |
 | Active processes | None. |
 | Blockers | None. |
-| Next action | Merge PR 48 when the team agrees. |
+| Next action | The team merges PR 48 when it agrees. Nothing else is pending for this Spec. |
 
 # Delivery
 
@@ -87,10 +93,10 @@ None.
 
 | Field | Result |
 | --- | --- |
-| Publication | Published as PR 48 on 2026-11-08. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04). All of them pass on head 309e8093. No review comments or threads. |
-| Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". Sprint 2 report conflict reported, left as history. |
-| Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. Rules and `modules.md` confirmed, no change. |
+| Publication | Published as PR 48 on 2026-11-08 and updated by the conclusion on 2026-11-10 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 6ba524c8 fetched on 2026-11-10 is already an ancestor, so no merge was needed. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04); head 309e8093 passed except the two Sonar jobs, which passed after the token fix; head f701f847 passed in full. Later commits change documentation only, which the workflow path filters exclude, so no new CI run starts for them. No review comments, no review requests, no open conversations. |
+| Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". No Jira write was requested. No canonical PRD applies. Sprint 2 report conflict reported, left as history. |
+| Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. `tooling.md` also gained the token-permission diagnosis (Lessons Learned). Rules and `modules.md` rechecked on 2026-11-10, no change. One proposed global line for the evals paragraph of `tooling.md` is pending approval. |
 | Revision History | Revision 2 on 2026-11-10 removes the `main` analysis (ACH-05). |
-| Limitations | No `main` analysis, so SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. Concurrency is proven by configuration only. The token is a personal token of an organization admin, so it stops working when it expires or when that person loses admin rights. |
+| Limitations | The pull request is not merged and no review or merge approval was requested. No `main` analysis, so SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. Concurrency is proven by configuration only. The token is a personal token of an organization admin, so it stops working when it expires or when that person loses admin rights. |
 
 Follow [SDD](../../../sdd.md) and [Conclude Spec](../../../prompts/conclude-spec-prompt.md).

@@ -573,7 +573,9 @@ Diagnosis:
 - Analysis job skipped: a test job it needs failed, or the pull request comes from a
   fork. Read the failed test job first.
 - Scan refused: check that `SONAR_TOKEN` exists, is valid and covers the project, and
-  that Automatic Analysis is off.
+  that Automatic Analysis is off. The log line `Not authorized or project not found`
+  usually means the token owner lacks Execute Analysis on the project. Use the token of
+  an organization admin or a Scoped Organization Token.
 - Missing coverage artifact: the test job did not write its report. The upload step
   fails on purpose.
 - Failed gate: open the SonarCloud link in the pull request comment. Coverage and new
