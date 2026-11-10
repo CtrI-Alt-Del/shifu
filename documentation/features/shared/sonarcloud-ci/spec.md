@@ -1,21 +1,21 @@
 ---
 title: SonarCloud analysis in Web and API CI
 status: ready
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87
 scope:
   - shared/ci
-last_updated_at: 2026-11-08
+last_updated_at: 2026-11-10
 ---
 
 # Objective
 
 Web and API pull requests currently pass type, lint, architecture, test and build
 checks, but nothing measures new-code quality or coverage in CI. After this delivery,
-each application is analyzed by its own SonarCloud project on pull requests to `main`
-and on pushes to `main`. Coverage is imported, a failed quality gate fails the
+each application is analyzed by its own SonarCloud project on pull requests to `main`.
+Nothing runs on pushes to `main`. Coverage is imported, a failed quality gate fails the
 analysis job, and SonarCloud reports the result on the pull request.
 
 Mode: **compact**. The change is confined to CI and tool configuration. Its main risk
@@ -26,7 +26,7 @@ is the analysis token.
 | Area / actor | Included | Excluded or deferred |
 | --- | --- | --- |
 | SonarCloud projects | Bind the repository to the existing projects `ctri-alt-del_shifu_web` and `ctri-alt-del_shifu_api` in organization `ctri-alt-del` | Self-hosted SonarQube and the local Compose SonarQube service |
-| CI | One new analysis job in each existing workflow, on pull requests to `main` and pushes to `main` | Deployment pipelines and AWS provisioning |
+| CI | One new analysis job in each existing workflow, on pull requests to `main` | Pushes to `main`, any analysis of the `main` branch, deployment pipelines and AWS provisioning |
 | Coverage | Web Vitest coverage; API unit plus all four integration shards, as line coverage | Playwright coverage and API branch coverage |
 | Quality gate | Built-in `Sonar way` on both projects | Custom gates and changes to product rules |
 | Pull request reporting | SonarCloud GitHub check and summary comment per project | Branch protection, so a red analysis does not block a merge by itself |
@@ -41,7 +41,7 @@ deliverables. No Penpot board applies.
 | ID | RP/JN/source coverage | Observable required behavior |
 | --- | --- | --- |
 | RF-01 | SHIFU-87: separate Web and API projects | Each application reports only to its own SonarCloud project, through a properties file in that application's directory. |
-| RF-02 | SHIFU-87: scanners on pull requests, preserving checks | The existing path filters decide which application runs. An analysis job runs on pull requests to `main` and pushes to `main`. Web analysis runs after Web unit tests pass, because they are its coverage source. API analysis runs after API unit tests and all integration shards pass. Every existing job keeps its name and purpose. |
+| RF-02 | SHIFU-87: scanners on pull requests, preserving checks | The existing path filters decide which application runs. An analysis job runs on pull requests to `main` only. Web analysis runs after Web unit tests pass, because they are its coverage source. API analysis runs after API unit tests and all integration shards pass. Every existing job keeps its name and purpose, and a newer commit on a pull request still cancels the older run through the existing concurrency. |
 | RF-03 | SHIFU-87: coverage imported with documented scope | Web imports LCOV from Vitest. API combines unit and all four integration shards into Cobertura XML. Tests, generated files, Web page route files and the API seed files are outside the coverage measure. Web API route handlers remain inside it. |
 | RF-04 | SHIFU-87: quality gate defined; CI fails when analysis fails | Both projects use `Sonar way`. The analysis job waits for the gate. A failed gate, a failed scan, a token SonarCloud refuses, an absent coverage artifact or a gate timeout fails the job. No analysis step is marked as allowed to fail. |
 | RF-05 | SHIFU-87: credentials without exposure | One repository secret, `SONAR_TOKEN`, reaches only the scanner step. Workflow permissions remain `contents: read`. No token appears in tracked files, logs or artifacts. |
@@ -55,8 +55,8 @@ deliverables. No Penpot board applies.
 | CA-03 | RF-01, RF-02, RF-06 | A pull request changes both applications | CI finishes on a passing gate | Both analysis jobs pass, each project reports its check and comment, and every existing check name still runs | VM-01 |
 | CA-04 | RF-03, RF-04, RF-06 | A disposable pull request adds, in each application, new code that is partly tested | Analysis finishes | Each project shows new-code coverage above 0% and below 80%, the gate fails, its analysis job is red and its comment reports the failure | VM-02 |
 | CA-05 | RF-02 | A test job that the analysis job needs fails | CI reaches the analysis job | The analysis job is skipped and the failed test job remains the visible cause | VM-02 |
-| CA-06 | RF-02, RF-03 | A change reaches `main` | The push workflow runs | Each changed application is analyzed on its main branch, overall coverage is above 0%, a Web API route file has a coverage value, a listed page route and `seed.py` have none, and the paid AI evals do not run | VM-03 |
-| CA-07 | RF-02 | Two runs overlap | A newer commit arrives | Pull request runs cancel the older run. A running `main` run finishes, and only the newest pending run is kept | CI-04 / VM-03 |
+| CA-06 | withdrawn in revision 2 | Not applicable | Not applicable | Not applicable. The `main` analysis it covered is out of scope | none |
+| CA-07 | RF-02 | Two pull request runs overlap | A newer commit arrives | The older run is cancelled. No `push` trigger exists | CI-04 |
 | CA-08 | RF-04, RF-05 | The workflow and configuration files | They are inspected | No analysis step is allowed to fail, every coverage upload errors on absent files, both projects wait for the gate, permissions stay read-only, the fork condition is present, the token appears only in the scanner step and no credential is present | CI-04 |
 | CA-09 | RF-05 | Analysis ran | Its logs and artifacts are inspected | The token is masked in the logs and coverage artifacts hold only coverage data | VM-01 |
 | CA-10 | RF-07 | The documentation is updated | It is inspected | `tooling.md` no longer calls SonarCloud planned or deferred and covers token, gate, exclusions, forks, diagnosis and the new tasks; `architecture.md` no longer names `pytest-cov` | CI-05 |
@@ -68,12 +68,20 @@ Evidence limits:
   provoked. The scan action only warns about an empty token, so that failure depends
   on SonarCloud refusing the scan.
 - An unusable coverage report does not fail the scan, because the analyzers log a
-  warning. Only the sampled coverage values in VM-02 and VM-03 catch it.
+  warning. Only the sampled coverage values in VM-02 catch it.
 - VM-02 exercises a unit test failure. The integration failure path relies on the same
   job dependency and is not provoked.
 - Combining several API coverage artifacts is proven only in real CI.
-- The first pull request analysis runs without a `main` baseline by accepted decision.
-  VM-01 defines the fallback if SonarCloud refuses it or warns about the target branch.
+- No `main` analysis exists, by decision of the user in revision 2, so every pull request
+  analysis runs without a `main` baseline. SonarCloud shows no overall coverage for
+  `main`, and the coverage exclusions are proven only by CI-01 and the scanner's file list,
+  not by sampled `main` values. New-code detection on a pull request that edits existing
+  files is not proven, and SonarCloud may then treat all code as new, so the gate would
+  judge the whole code base and could stay red for reasons unrelated to the change. Nothing
+  analyzes the merged state of `main`, so regressions from merge interaction are not seen.
+  Without a `workflow_dispatch` trigger, an analysis can only be repeated by re-running the
+  pull request workflow. If SonarCloud refuses a pull request analysis or warns about the
+  target branch, stop and amend this Spec. No manual `main` scan is authorized.
 
 # Technical Contract
 
@@ -91,8 +99,8 @@ call project commands instead of parallel flag lists. Commits follow
 | Create | API analysis config | `apps/server/sonar-project.properties` | Declaration below |
 | Modify | Web coverage | `apps/web/vitest.config.ts` | `coverage.reporter` adds `lcov`; include, exclude and directory are unchanged |
 | Modify | API coverage | `apps/server/pyproject.toml` | Excerpt below; `test:unit` is unchanged |
-| Modify | Web CI | `.github/workflows/web-app-ci.yaml` | Push trigger, concurrency, coverage upload, new job |
-| Modify | API CI | `.github/workflows/server-app-ci.yaml` | Push trigger, concurrency, coverage runs and uploads, evals guard, new job |
+| Modify | Web CI | `.github/workflows/web-app-ci.yaml` | Coverage upload, new job |
+| Modify | API CI | `.github/workflows/server-app-ci.yaml` | Coverage runs and uploads, new job |
 | Modify | Repository | `.gitignore` | Ignore `coverage.xml` |
 | Modify | Documentation | `documentation/tooling.md`, `documentation/architecture.md`, `README.md` | See Documentation Alignment |
 
@@ -175,20 +183,14 @@ Python rules require CI to call project commands. The integration shard step is 
 one stated exception: it computes its test selection inline today, and only the
 `coverage run -m` prefix is added to its existing commands.
 
-Both workflows, in `on` and `concurrency`:
+Both workflows keep their existing `on` and `concurrency` blocks unchanged. In
+particular, no `push` trigger is added, and the existing concurrency cancels older
+pull request runs:
 
 ```yaml
-on:
-  pull_request:
-    # existing branches and paths unchanged
-  push:
-    branches: [main]
-    paths:
-      # the same list as pull_request
-
 concurrency:
-  group: <existing-prefix>-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: <existing-prefix>-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 ```
 
 Web workflow:
@@ -203,11 +205,13 @@ API workflow:
   `server-coverage-unit`.
 - In the integration shard step, the two executing pytest calls become
   `uv run coverage run -m pytest -s -x -vv ...`. Collect-only calls are unchanged.
-- Each shard uploads `server-coverage-shard-${{ matrix.shard }}`.
+- Each shard uploads `server-coverage-shard-${{ matrix.shard }}`, with `if: always()` so
+  a failed shard still leaves its coverage.
+- `evals` also prepares the pinned Mentor FAQ reranker before the real run, because it
+  loads only from the local cache (recorded as ACH-04 in Evaluation). This is not a
+  coverage or analysis change.
 - Coverage uploads use `apps/server/.coverage.*`, `include-hidden-files: true` and
   `if-no-files-found: error`.
-- `evals` gains `if: github.event_name == 'pull_request'`, so paid AI runs stay off
-  `main` pushes.
 
 New Web job. The API job has the same shape, with the differences listed after it:
 
@@ -215,7 +219,7 @@ New Web job. The API job has the same shape, with the differences listed after i
 sonarcloud:
   name: Web SonarCloud analysis
   needs: unit-tests
-  if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
+  if: github.event.pull_request.head.repo.fork == false
   runs-on: ubuntu-24.04
   steps:
     - name: Check out repository
@@ -268,15 +272,14 @@ Accepted rationale:
   which contributes no coverage.
 - The SonarCloud GitHub App posts the check and comment, so the workflow needs no
   write permission.
-- `main` analysis gives SonarCloud a stable reference. A running `main` analysis
-  finishes, and GitHub keeps only the newest pending run, so the latest commit is
-  always analyzed.
+- No analysis runs on `main`. Revision 2 removed it at the user's request, accepting
+  that SonarCloud has no `main` baseline or overall coverage.
 
 ## Runtime Flow
 
 ```mermaid
 flowchart LR
-  A[Pull request or push matches path filter] --> B[Existing jobs and tests]
+  A[Pull request matches path filter] --> B[Existing jobs and tests]
   B --> C[Coverage artifacts]
   C --> D[Analysis job]
   D --> E[Scanner uploads and waits for gate]
@@ -301,14 +304,13 @@ External prerequisites, owned by the team:
 - Organization and both projects exist. Confirmed on 2026-11-08 through the public
   SonarCloud API, with `Sonar way` as the gate on both and no analysis yet.
 - Repository secret `SONAR_TOKEN` must exist with analysis permission on both
-  projects. On 2026-11-08 it was not listed among the repository secrets, so it blocks
-  VM-01 to VM-03 until created.
+  projects. On 2026-11-08 it was not listed among the repository secrets, so it blocked
+  VM-01 and VM-02 until created.
 - Automatic Analysis is off on both projects, the projects are bound to
   `CtrI-Alt-Del/shifu` in monorepo mode, the SonarQubeCloud GitHub App is installed
   and the summary comment setting remains on.
 
-VM-01 and VM-02 run after publication is authorized. VM-03 runs after the team merges
-the delivery pull request, and Evaluation stays open until it passes. Credentials stay
+VM-01 and VM-02 run after publication is authorized. Credentials stay
 in GitHub secrets and are never printed or written to the repository. `actionlint` and `yamllint` are not installed and are not added. Real
 GitHub runs prove workflow validity. Local checks touch no shared data.
 
@@ -363,17 +365,17 @@ cd apps/server && uv run coverage erase && uv run poe test:unit:coverage && uv r
 
 **Criteria:** CA-07, CA-08
 
-**Expected result:** No analysis step is allowed to fail, coverage uploads error on absent files, both projects wait for the gate, no write permission exists, the fork condition appears on both analysis jobs, concurrency cancels only pull request runs, the token appears once per workflow and no credential is present.
+**Expected result:** No analysis step is allowed to fail, coverage uploads error on absent files, both projects wait for the gate, no write permission exists, the fork condition appears on both analysis jobs, no `push` trigger exists, concurrency cancels pull request runs, the token appears once per workflow and no credential is present.
 
 **Setup / inputs:** The candidate working tree, including untracked files, from the repository root.
 
 **Proof:** Static inspection. A 40-character hexadecimal value is searched only in the properties files, because the workflows hold a pinned commit of that shape.
 
 ```bash
-W=(.github/workflows/web-app-ci.yaml .github/workflows/server-app-ci.yaml); P=(apps/web/sonar-project.properties apps/server/sonar-project.properties); git grep --untracked -nE 'continue-on-error|: write|\|\| true' -- "${W[@]}"; git grep --untracked -nE 'sonar\.(login|token|password)|\b[0-9a-f]{40}\b' -- "${P[@]}"; git grep --untracked -nE 'sq[aup]_[A-Za-z0-9]+' -- apps .github; echo ---; git grep --untracked -c 'sonar.qualitygate.wait=true' -- "${P[@]}"; git grep --untracked -c 'SONAR_TOKEN' -- "${W[@]}"; git grep --untracked -c 'head.repo.fork == false' -- "${W[@]}"; git grep --untracked -c 'if-no-files-found: error' -- "${W[@]}"; git grep --untracked -n 'cancel-in-progress' -- "${W[@]}"
+W=(.github/workflows/web-app-ci.yaml .github/workflows/server-app-ci.yaml); P=(apps/web/sonar-project.properties apps/server/sonar-project.properties); git grep --untracked -nE 'continue-on-error|: write|\|\| true|^  push:' -- "${W[@]}"; git grep --untracked -nE 'sonar\.(login|token|password)|\b[0-9a-f]{40}\b' -- "${P[@]}"; git grep --untracked -nE 'sq[aup]_[A-Za-z0-9]+' -- apps .github; echo ---; git grep --untracked -c 'sonar.qualitygate.wait=true' -- "${P[@]}"; git grep --untracked -c 'SONAR_TOKEN' -- "${W[@]}"; git grep --untracked -c 'head.repo.fork == false' -- "${W[@]}"; git grep --untracked -c 'if-no-files-found: error' -- "${W[@]}"; git grep --untracked -n 'cancel-in-progress' -- "${W[@]}"
 ```
 
-**Passing condition:** Nothing prints before `---`. After it, the gate wait, token and fork counts are 1 per file, `if-no-files-found: error` is 1 for Web and 3 for Server, and both concurrency lines show the `pull_request` expression.
+**Passing condition:** Nothing prints before `---`. After it, the gate wait, token and fork counts are 1 per file, `if-no-files-found: error` is 1 for Web and 3 for Server, and both concurrency lines show `cancel-in-progress: true`.
 
 ### CI-05 — Documentation inspection
 
@@ -403,7 +405,7 @@ git grep -nE 'planned SonarCloud|configuration are deferred' -- documentation/to
 
 **Procedure:** Inspect `gh pr checks`, `gh pr view --comments`, `api/qualitygates/project_status` with `projectKey` and `pullRequest`, and both analysis job logs. List coverage artifact contents with `gh run download` into the session's temporary folder.
 
-**Baseline fallback:** Trigger it if an analysis job fails because the target branch has no analysis, or if its log or the SonarCloud pull request page warns about that. GitHub secrets cannot be read back, so a team member with a SonarCloud token runs the scan, or supplies the token privately after confirming the write to SonarCloud. Run one manual scan per affected project from a checkout of `main`, using the `sonarsource/sonar-scanner-cli` Docker image at a pinned tag. Mount the repository root at `/usr/src` so Git history is available. Pass `sonar.host.url=https://sonarcloud.io`, `sonar.projectBaseDir` set to `apps/web` or `apps/server`, the project key, organization, `sonar.sources=src` and `sonar.branch.name=main` as arguments, and the token through a private `SONAR_TOKEN` environment variable. Then re-run the analysis job. Record in Evaluation whether the fallback was used.
+**Baseline:** Revision 2 has no `main` analysis, so a pull request analysis without a baseline is the normal state and needs no fallback. If SonarCloud refuses it or warns about the target branch, record that in Evaluation and amend this Spec. No manual `main` scan is authorized.
 
 **Passing condition:** Both analysis jobs pass, two SonarCloud checks and two comments name their projects with a link, and every existing check name runs and passes. Every `SONAR_TOKEN:` log line shows `***`, and no `sonar.token=` or `sonar.login=` appears. Listed with `ls -A`, the `web-coverage` and `server-coverage-*` artifacts hold only `lcov.info` and `.coverage.*` files. This pull request changes no application source, so it does not prove coverage values.
 
@@ -423,18 +425,6 @@ git grep -nE 'planned SonarCloud|configuration are deferred' -- documentation/to
 4. Close the pull request unmerged and delete the throwaway branch.
 
 **Passing condition:** Skipped analysis in step 1. In step 3, each project shows at least 30 `new_lines_to_cover`, `new_coverage` above 0% and below 80%, gate status `ERROR`, a red analysis job and a comment reporting the failure. The disposable code never reaches `main`.
-
-### VM-03 — First analysis on `main`
-
-**Type:** Manual
-
-**Criteria:** CA-06, CA-07
-
-**Tool / setup:** Terminal, after the delivery pull request merges.
-
-**Procedure:** Inspect the push runs with `gh run list --event push` and read `coverage` from `api/measures/component` on the main branch of each project. Read file-level values from `api/measures/component_tree`. Confirm that the `evals` job is skipped. If two merges overlap naturally, confirm the older `main` run finishes.
-
-**Passing condition:** Both main-branch analyses exist with `coverage` above 0% and evals skipped. A file under `src/routes/api` has a coverage value. A file under `src/routes/login` and `src/shifu/shared/database/seed.py` have none. An overlap is recorded only when it occurs. CI-04 proves the concurrency configuration otherwise.
 
 ## Visual
 
@@ -458,5 +448,6 @@ Not applicable, because this delivery has no user interface.
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
 | 1 | 2026-11-08 | Initial contract | SHIFU-87 and the approved design: team-owned SonarCloud setup, `Sonar way`, API unit plus integration coverage, Web Vitest coverage, listed exclusions, analysis on pull requests and `main`, fork skip, one repository secret, pinned scanner, per-application properties, cancel only pull request runs, API line coverage, Web job installs dependencies, unimported API files count, manual `main` scan only as a fallback |
+| 2 | 2026-11-10 | Removed the `push` trigger on `main`, the `main` analysis and the evals `if`. CA-06 and VM-03 withdrawn. CA-07 limited to cancelling pull request runs (CI-04). Existing `concurrency` kept unchanged. After the first review: the VM-01 manual `main` scan fallback replaced by a Baseline note, Architecture Mapping and RF-02 aligned, risks added to the Evidence limits | User request on PR 48: remove the analysis from `main`. Accepted consequence: no `main` baseline or overall coverage in SonarCloud |
 
 Follow [SDD](../../../sdd.md) and [Create Spec](../../../prompts/create-spec-prompt.md).

@@ -16,28 +16,13 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/web/**'
-      # Lottie scenes the web app imports from the studio package
-      - 'packages/studio/package.json'
-      - 'packages/studio/public/projects/**'
-      - '.github/workflows/web-app-ci.yaml'
-      - '.node-version'
-      - '.npmrc'
-      - 'biome.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: web-app-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: web-app-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   type-check:
@@ -311,7 +296,7 @@ jobs:
   sonarcloud:
     name: Web SonarCloud analysis
     needs: unit-tests
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
+    if: github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository

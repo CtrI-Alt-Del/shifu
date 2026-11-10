@@ -532,8 +532,9 @@ part of the local validation contract.
 Each application has its own SonarCloud project in organization `ctri-alt-del`:
 `ctri-alt-del_shifu_web` and `ctri-alt-del_shifu_api`. Each analysis job in
 `.github/workflows/web-app-ci.yaml` and `.github/workflows/server-app-ci.yaml` runs
-on pull requests to `main` and on pushes to `main`, and is configured by the
-`sonar-project.properties` file of its application.
+on pull requests to `main` only, and is configured by the
+`sonar-project.properties` file of its application. Nothing is analyzed on pushes to
+`main`, so SonarCloud has no `main` baseline or overall coverage.
 
 Setup, owned by the team:
 
@@ -565,8 +566,7 @@ measure (`sonar.coverage.exclusions`):
 - API: `src/shifu/shared/database/seed.py` and `seed_data.py`.
 
 Fork pull requests skip the analysis jobs, because GitHub hides secrets from them. Their
-other checks still run. Pull request runs cancel older runs, and runs on `main` finish.
-The paid AI evals run only on pull requests.
+other checks still run. A newer commit on a pull request cancels the older run.
 
 Diagnosis:
 
