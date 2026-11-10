@@ -67,7 +67,7 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 | Lesson | Supporting finding / evidence | Documentation action or disposition |
 | --- | --- | --- |
 | A SonarCloud scan token must belong to a user with Execute Analysis on every project, such as an organization admin, or be a Scoped Organization Token | ACH-02, EV-06 | Applied in the Diagnosis list of `documentation/tooling.md`, inside this delivery's documentation scope |
-| The real AI evals job must prepare every provider model that loads only from the local cache, because a developer cache hides the gap | ACH-04 | Fixed in `server-app-ci.yaml`. A line in the evals paragraph of `documentation/tooling.md` is proposed and not applied, because it is global guidance that needs approval |
+| The real AI evals job must prepare every provider model that loads only from the local cache, because a developer cache hides the gap | ACH-04 | Fixed in `server-app-ci.yaml`. One line was added to the evals paragraph of `documentation/tooling.md`, applied on 2026-11-10 after the user approved it for PR 48 |
 | A Web test that submits a form must wait for `data-hydrated` first | ACH-03 | No change. The sibling tests of the same file already follow the pattern, and no Rule needs it |
 
 # Handoff
@@ -96,7 +96,7 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 | --- | --- |
 | Publication | Published as PR 48 on 2026-11-08 and updated by the conclusion on 2026-11-10 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 6ba524c8 fetched on 2026-11-10 is already an ancestor, so no merge was needed. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04); head 309e8093 passed except the two Sonar jobs, which passed after the token fix; head f701f847 passed in full. Later commits change documentation only, but every push to the pull request starts the workflows again, because their path filters compare the whole pull request against `main`. The commit that records this closure only changes documentation, and its own CI run is shown in the PR checks. No review comments, no review requests, no open conversations. |
 | Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". No Jira write was requested. No canonical PRD applies. Sprint 2 report conflict reported, left as history. |
-| Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. `tooling.md` also gained the token-permission diagnosis (Lessons Learned). Rules and `modules.md` rechecked on 2026-11-10, no change. One proposed global line for the evals paragraph of `tooling.md` is pending approval. |
+| Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. `tooling.md` also gained the token-permission diagnosis (Lessons Learned). Rules and `modules.md` rechecked on 2026-11-10, no change. The evals paragraph of `tooling.md` gained one line on preparing locally cached models, approved by the user on 2026-11-10. |
 | Revision History | Revision 2 on 2026-11-10 removes the `main` analysis (ACH-05). |
 | Limitations | The pull request is not merged and no review or merge approval was requested. No `main` analysis, so SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. Concurrency is proven by configuration only. The token is a personal token of an organization admin, so it stops working when it expires or when that person loses admin rights. |
 

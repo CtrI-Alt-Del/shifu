@@ -605,7 +605,9 @@ report write fails. Its model settings use the `OPENROUTER_API_KEY` repository s
 `OPENROUTER_PROMPT_LOGGING_DISABLED` / `MENTOR_TITLE_PROMPT_LOGGING_DISABLED`
 repository variables. Resolve actual provider privacy attestations before setting
 those variables; this local workflow edit does not configure external secrets or
-variables. Local eval validation selects only complete changed/affected workflow
+variables. The eval job must prepare every provider model that loads only from the
+local cache, such as the pinned embedding model, the Planner word vectors and the Mentor
+FAQ reranker, because a developer cache hides a missing download. Local eval validation selects only complete changed/affected workflow
 classes, while current-head CI requires the full catalogue. Email CI runs package code, type, template build, Server type
 and Server distribution checks independently; the package does not define unit or integration
 test scripts. Email retains its required aggregate check. Web and Server expose
