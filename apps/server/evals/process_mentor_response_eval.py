@@ -271,7 +271,14 @@ class ProcessMentorResponseEval(Eval):
                 'general_answer_says_the_context_was_not_checked',
                 ('general', 'sources'),
                 'Quantas Habilidades eu já concluí?',
-                required_any=('verific', 'consult', 'não tenho acesso', 'sem acesso'),
+                required_any=(
+                    'verific',
+                    'consult',
+                    'não tenho',
+                    'não consigo',
+                    'sem acesso',
+                    'sem informa',
+                ),
                 forbidden_terms=(),
             ),
             Case(
