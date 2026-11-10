@@ -1,6 +1,6 @@
 ---
 title: SonarCloud analysis in Web and API CI evaluation
-status: completed
+status: ready
 spec: ./spec.md
 last_updated_at: 2026-11-10
 ---
@@ -15,7 +15,7 @@ last_updated_at: 2026-11-10
 | Manual checks | 2 of 2. VM-01 Passed on PR 48 head 309e8093. VM-02 Passed on disposable draft PR 49 (closed unmerged). VM-03 withdrawn in revision 2. |
 | Visual checks | Not applicable. No user interface. |
 | Independent review | Current. Implementation Reviewer PASS on the first candidate (one informational low finding, ACH-01) and PASS on the revision 2 delta f701f847 with no findings on 2026-11-10. Spec Reviewer of revision 2: FAIL, then PASS after corrections (ACH-05). |
-| Blockers | None. CI of head f701f847 passed. |
+| Blockers | CI of the current PR head is pending. CI of code head f701f847 passed. |
 | Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, code head f701f847 plus documentation-only commits (superseded code heads: 309e8093, 5595d418). Dirty scope evaluated: none of this delivery. |
 
 # Progress
@@ -93,7 +93,7 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 
 | Field | Result |
 | --- | --- |
-| Publication | Published as PR 48 on 2026-11-08 and updated by the conclusion on 2026-11-10 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 6ba524c8 fetched on 2026-11-10 is already an ancestor, so no merge was needed. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04); head 309e8093 passed except the two Sonar jobs, which passed after the token fix; head f701f847 passed in full. Later commits change documentation only, which the workflow path filters exclude, so no new CI run starts for them. No review comments, no review requests, no open conversations. |
+| Publication | Published as PR 48 on 2026-11-08 and updated by the conclusion on 2026-11-10 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 6ba524c8 fetched on 2026-11-10 is already an ancestor, so no merge was needed. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04); head 309e8093 passed except the two Sonar jobs, which passed after the token fix; head f701f847 passed in full. Later commits change documentation only, but every push to the pull request starts the workflows again, because their path filters compare the whole pull request against `main`. The CI of each later head is shown in the PR checks. No review comments, no review requests, no open conversations. |
 | Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". No Jira write was requested. No canonical PRD applies. Sprint 2 report conflict reported, left as history. |
 | Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. `tooling.md` also gained the token-permission diagnosis (Lessons Learned). Rules and `modules.md` rechecked on 2026-11-10, no change. One proposed global line for the evals paragraph of `tooling.md` is pending approval. |
 | Revision History | Revision 2 on 2026-11-10 removes the `main` analysis (ACH-05). |
