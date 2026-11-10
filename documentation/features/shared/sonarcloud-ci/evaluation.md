@@ -15,8 +15,8 @@ last_updated_at: 2026-11-10
 | Manual checks | 2 of 2. VM-01 Passed on PR 48 head 309e8093. VM-02 Passed on disposable draft PR 49 (closed unmerged). VM-03 withdrawn in revision 2. |
 | Visual checks | Not applicable. No user interface. |
 | Independent review | Current. Implementation Reviewer PASS, one informational low finding (ACH-01). Spec Reviewer of revision 2: FAIL then PASS after corrections (ACH-05). |
-| Blockers | CI of the revision 2 head must pass. No open finding blocks the pull request. |
-| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, head 309e8093 (superseded head: 5595d418). |
+| Blockers | None. CI of head f701f847 passed. |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, head f701f847 (superseded heads: 309e8093, 5595d418). |
 
 # Progress
 
@@ -72,8 +72,8 @@ None.
 | Unfinished | Nothing for revision 2 except CI of the new head. |
 | Uncommitted work | Modified: `.github/workflows/web-app-ci.yaml`, `.github/workflows/server-app-ci.yaml`, `.gitignore`, `README.md`, `apps/server/pyproject.toml`, `apps/web/vitest.config.ts`, `documentation/architecture.md`, `documentation/tooling.md`. New: both `sonar-project.properties`, `documentation/features/shared/sonarcloud-ci/`. Generated and ignored: `apps/web/coverage/`, `apps/server/.coverage.*`, `apps/server/coverage.xml`. A separate user session handles tracked `coverage.json` in the API. |
 | Active processes | None. |
-| Blockers | CI of the revision 2 head. |
-| Next action | Push revision 2, confirm CI on the new head, then conclude. |
+| Blockers | None. |
+| Next action | Merge PR 48 when the team agrees. |
 
 # Delivery
 
@@ -83,7 +83,7 @@ None.
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/48 | 309e8093 | Passed: all checks of the Web, Server and Email runs after the Sonar reruns (attempt 3). Both quality gates passed. No reviews, no threads | Web run 42843493476, Server run 42843493156 |
+| https://github.com/CtrI-Alt-Del/shifu/pull/48 | f701f847 | Passed: Web, Server and Email runs, including both SonarCloud analysis jobs and the real AI evals. No reviews, no threads | Web run 42880795625, Server run 42880795689 |
 
 | Field | Result |
 | --- | --- |
