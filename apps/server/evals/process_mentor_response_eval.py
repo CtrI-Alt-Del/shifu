@@ -33,7 +33,7 @@ class ProcessMentorResponseEval(Eval):
 
     selector = 'process-mentor-response'
     workflow_id = 'intelligence-process-mentor-response'
-    prompt_revision = 'mentor-response-eval-v3'
+    prompt_revision = 'mentor-response-eval-v4'
 
     ATTACHMENT_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
     CHUNK_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAW'
@@ -75,6 +75,38 @@ class ProcessMentorResponseEval(Eval):
             }
         ],
     }
+    # A general answer that cannot know the learner's progress says so in many words:
+    # "não tenho dados", "não consigo confirmar", "o contexto não informa". It passes
+    # with a limitation marker plus a reference to the missing data, and never with
+    # an invented count.
+    LIMITATION_MARKERS: ClassVar[tuple[str, ...]] = (
+        'não tenho',
+        'não possuo',
+        'não consigo',
+        'não consegui',
+        'não posso',
+        'não foi possível',
+        'não há',
+        'não está',
+        'não estão',
+        'não verifi',
+        'não consult',
+        'não sei',
+        'sem acesso',
+        'sem dados',
+        'sem informaç',
+        'indispon',
+    )
+    MISSING_DATA_REFERENCES: ClassVar[tuple[str, ...]] = (
+        'dado',
+        'informaç',
+        'contexto',
+        'registro',
+        'acesso',
+        'verifi',
+        'consult',
+    )
+    INVENTED_COUNT_TERMS: ClassVar[tuple[str, ...]] = (*'0123456789', 'zero')
     REVIEW_REQUEST: ClassVar[dict[str, Any]] = {
         'requested_part': 'Qual equivalência para 1/2 está indicada na página?',
         'context': {'sources': [ALLOWED_SOURCE]},
@@ -120,16 +152,30 @@ class ProcessMentorResponseEval(Eval):
             required_terms = expected_data.get('required_terms', ())
             forbidden_terms = expected_data.get('forbidden_terms', ())
             normalized_answer = answer.casefold() if isinstance(answer, str) else ''
-            passed = (
-                bool(normalized_answer)
-                and all(term in normalized_answer for term in required_terms)
-                and not any(term in normalized_answer for term in forbidden_terms)
-                and normalized_sources == (tuple(expected_ids),)
-            )
+            failed_checks = [
+                *(() if normalized_answer else ('empty_answer',)),
+                *(
+                    f'missing_required_term:{term}'
+                    for term in required_terms
+                    if term not in normalized_answer
+                ),
+                *(
+                    f'forbidden_term:{term}'
+                    for term in forbidden_terms
+                    if term in normalized_answer
+                ),
+                *(
+                    ()
+                    if normalized_sources == (tuple(expected_ids),)
+                    else ('sources_mismatch',)
+                ),
+            ]
+            passed = not failed_checks
             return Score(
                 value=1 if passed else 0,
                 passed=passed,
                 reason='answer_sources_passed' if passed else 'answer_sources_rejected',
+                detail=None if passed else {'failed_checks': failed_checks},
             )
 
     class GeneralAnswerScorer(Scorer):
@@ -143,18 +189,25 @@ class ProcessMentorResponseEval(Eval):
             expected_data = expected if isinstance(expected, dict) else {}
             normalized = answer.casefold() if isinstance(answer, str) else ''
             required_any = expected_data.get('required_any', ())
+            required_groups = expected_data.get('required_groups', ())
             forbidden = expected_data.get('forbidden_terms', ())
-            passed = (
-                bool(normalized)
-                and (
-                    not required_any or any(term in normalized for term in required_any)
-                )
-                and not any(term in normalized for term in forbidden)
-            )
+            # Each group needs at least one of its terms; `required_any` is one group.
+            groups = (*((required_any,) if required_any else ()), *required_groups)
+            failed_checks = [
+                *(() if normalized else ('empty_answer',)),
+                *(
+                    f'missing_any_of:{"|".join(group)}'
+                    for group in groups
+                    if not any(term in normalized for term in group)
+                ),
+                *(f'forbidden_term:{term}' for term in forbidden if term in normalized),
+            ]
+            passed = not failed_checks
             return Score(
                 value=1 if passed else 0,
                 passed=passed,
                 reason='general_answer_passed' if passed else 'general_answer_rejected',
+                detail=None if passed else {'failed_checks': failed_checks},
             )
 
     class ReviewerScorer(Scorer):
@@ -271,8 +324,11 @@ class ProcessMentorResponseEval(Eval):
                 'general_answer_says_the_context_was_not_checked',
                 ('general', 'sources'),
                 'Quantas Habilidades eu já concluí?',
-                required_any=('verific', 'consult', 'não tenho acesso', 'sem acesso'),
-                forbidden_terms=(),
+                required_groups=(
+                    self.LIMITATION_MARKERS,
+                    self.MISSING_DATA_REFERENCES,
+                ),
+                forbidden_terms=self.INVENTED_COUNT_TERMS,
             ),
             Case(
                 name='general_review_accepts_a_learning_orientation',
@@ -339,7 +395,8 @@ class ProcessMentorResponseEval(Eval):
         tags: tuple[str, ...],
         requested_part: str,
         *,
-        required_any: tuple[str, ...],
+        required_any: tuple[str, ...] = (),
+        required_groups: tuple[tuple[str, ...], ...] = (),
         forbidden_terms: tuple[str, ...],
     ) -> Case:
         return Case(
@@ -350,6 +407,7 @@ class ProcessMentorResponseEval(Eval):
             scorer=self.GeneralAnswerScorer(),
             expected={
                 'required_any': required_any,
+                'required_groups': required_groups,
                 'forbidden_terms': forbidden_terms,
             },
             timeout_seconds=self.DEFAULT_TIMEOUT_SECONDS,
