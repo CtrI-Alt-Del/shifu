@@ -301,7 +301,7 @@ into phases, task trees, estimates or a second contract.
 Record reusable lessons with supporting ACH/EV references and their documentation
 action or reason no change is warranted. A trivial correction need not become a
 lesson or global policy. Keep Delivery source verification, documentation alignment,
-publication/CI state and limitations factual.
+publication state and limitations factual. Do not record GitHub CI results in Evaluation.
 
 When all criteria have current passing proof or justified non-applicability,
 applicable checkers pass and blocking findings are resolved, set Spec to `implemented`, Evaluation to

@@ -30,7 +30,7 @@ Keep factual progress and blockers in Evaluation; no execution Plan is required.
 Record reusable lessons and their documentation action/no-change reason in Lessons
 Learned; keep comment links, affected checks and verified resolutions in Findings.
 Verify old-head feedback is actually superseded before classifying it stale.
-Update Delivery with publication, current-head CI and blocking review state;
+Update Delivery with publication and blocking review state, without recording GitHub CI results;
 completion follows `conclude-spec`, not just a focused correction pass.
 
 Do not resolve before evidence exists or change Confluence without explicit
