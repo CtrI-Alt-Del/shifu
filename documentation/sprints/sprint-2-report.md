@@ -77,35 +77,35 @@ Quase metade do trabalho caiu em duas pessoas. João Pedro Carvalho ficou com 97
 
 Todas pertencem ao compromisso da Sprint 2. Os pontos são os do campo de estimativa do Jira.
 
-| Chave | User Story | Épico | SP | Responsável | Jira na consulta |
+| Chave | User Story | Épico | SP | Responsável |
 | --- | --- | --- | ---: | --- | --- |
-| [SHIFU-17](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-17) | Consultar competências, teoria e prática com navegação e contexto integrados | 03 — Modelagem de Habilidades e Competências | 3 | João Pedro Carvalho | Fazendo |
-| [SHIFU-23](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-23) | Preservar aprendizagem e recuperar operações quando IA ou Gamification falharem | 13 — Governança e Resiliência de IA | 5 | João Gabriel | Fazendo |
-| [SHIFU-33](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-33) | Gerenciar perfil, fuso horário e excluir definitivamente a conta | 01 — Identidade e Conta do Usuário | 13 | João Pedro Carvalho | Fazendo |
-| [SHIFU-36](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-36) | Remover Habilidade ou Objetivo preservando consistência nas novas integrações | 10 — Objetivos e Gestão de Múltiplas Habilidades | 3 | João Gabriel | Fazendo |
-| [SHIFU-43](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-43) | Conduzir entrevista em lotes de perguntas objetivas | 14 — Planejador de Objetivos com IA | 8 | Thigz | Fazendo |
-| [SHIFU-44](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-44) | Gerar, revisar, reiniciar e confirmar a proposta de Objetivo | 14 — Planejador de Objetivos com IA | 13 | Thigz | Fazendo |
-| [SHIFU-45](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-45) | Gerenciar conversas privadas e retomar seu contexto no Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho | Fazendo |
-| [SHIFU-46](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-46) | Consultar contexto autorizado do Shifu durante a conversa com o Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho | Fazendo |
-| [SHIFU-47](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-47) | Orientar com limites pedagógicos sem entregar a solução de Atividade ativa | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho | Fazendo |
-| [SHIFU-48](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-48) | Conceder XP por Atividades e marcos de aprendizagem | 16 — Gamificação | 8 | Kauan Fonseca | Fazendo |
-| [SHIFU-49](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-49) | Calcular nível e sequência de dias de prática | 16 — Gamificação | 5 | Kauan Fonseca | Fazendo |
-| [SHIFU-50](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-50) | Desbloquear conquistas do catálogo fixo | 16 — Gamificação | 8 | Kauan Fonseca | Fazendo |
-| [SHIFU-51](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-51) | Exibir resumo de Gamificação, calendário de atividade e histórico de XP | 16 — Gamificação | 5 | Kauan Fonseca | Fazendo |
-| [SHIFU-52](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-52) | Alterar senha e proteger os acessos existentes | 01 — Identidade e Conta do Usuário | 3 | João Pedro Carvalho | Fazendo |
-| [SHIFU-54](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-54) | Controlar e acompanhar a cota mensal compartilhada de IA | 13 — Governança e Resiliência de IA | 8 | Thigz | Fazendo |
-| [SHIFU-55](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-55) | Cancelar ou repetir uma resposta do Mentor sem perder a mensagem | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho | Fazendo |
-| [SHIFU-106](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-106) | Gerenciar memórias pessoais utilizadas pelo Mentor | 15 — Mentor Conversacional Completo | 13 | João Pedro Carvalho | Fazendo |
-| [SHIFU-107](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-107) | Enviar anexos privados ao Mentor e compreender suas análises | 15 — Mentor Conversacional Completo | 13 | João Pedro Carvalho | Fazendo |
-| [SHIFU-108](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-108) | Confirmar adição ou remoção de Habilidades propostas pelo Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho | Fazendo |
-| [SHIFU-109](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-109) | Ditar, revisar e enviar uma mensagem ao Mentor | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho | Fazendo |
-| [SHIFU-110](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-110) | Praticar e receber avaliação de uma página HTML/CSS/JavaScript | 05 — Atividades e Práticas | 8 | João Gabriel | Fazendo |
-| [SHIFU-111](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-111) | Praticar e receber avaliação de uma aplicação React | 05 — Atividades e Práticas | 8 | João Gabriel | Fazendo |
-| [SHIFU-112](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-112) | Praticar e receber avaliação de um projeto integrado React e Fastify | 05 — Atividades e Práticas | 13 | João Pedro Carvalho | Fazendo |
-| [SHIFU-113](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-113) | Consultar a política de privacidade e encontrar o canal de atendimento | 01 — Identidade e Conta do Usuário | 3 | João Gabriel | Fazendo |
-| [SHIFU-114](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-114) | Solicitar atendimento verificado sobre meus dados pessoais | 01 — Identidade e Conta do Usuário | 5 | João Gabriel | Fazendo |
-| [SHIFU-115](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-115) | Receber celebrações de níveis e conquistas sem repetição | 16 — Gamificação | 5 | Kauan Fonseca | Fazendo |
-| [SHIFU-116](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-116) | Ter meus dados eliminados também em logs e cópias de segurança | 01 — Identidade e Conta do Usuário | 8 | gabrielsoliveira1606 | Fazendo |
+| [SHIFU-17](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-17) | Consultar competências, teoria e prática com navegação e contexto integrados | 03 — Modelagem de Habilidades e Competências | 3 | João Pedro Carvalho |
+| [SHIFU-23](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-23) | Preservar aprendizagem e recuperar operações quando IA ou Gamification falharem | 13 — Governança e Resiliência de IA | 5 | João Gabriel |
+| [SHIFU-33](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-33) | Gerenciar perfil, fuso horário e excluir definitivamente a conta | 01 — Identidade e Conta do Usuário | 13 | João Pedro Carvalho |
+| [SHIFU-36](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-36) | Remover Habilidade ou Objetivo preservando consistência nas novas integrações | 10 — Objetivos e Gestão de Múltiplas Habilidades | 3 | João Gabriel |
+| [SHIFU-43](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-43) | Conduzir entrevista em lotes de perguntas objetivas | 14 — Planejador de Objetivos com IA | 8 | Thigz |
+| [SHIFU-44](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-44) | Gerar, revisar, reiniciar e confirmar a proposta de Objetivo | 14 — Planejador de Objetivos com IA | 13 | Thigz |
+| [SHIFU-45](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-45) | Gerenciar conversas privadas e retomar seu contexto no Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho |
+| [SHIFU-46](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-46) | Consultar contexto autorizado do Shifu durante a conversa com o Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho |
+| [SHIFU-47](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-47) | Orientar com limites pedagógicos sem entregar a solução de Atividade ativa | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho |
+| [SHIFU-48](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-48) | Conceder XP por Atividades e marcos de aprendizagem | 16 — Gamificação | 8 | Kauan Fonseca |
+| [SHIFU-49](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-49) | Calcular nível e sequência de dias de prática | 16 — Gamificação | 5 | Kauan Fonseca |
+| [SHIFU-50](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-50) | Desbloquear conquistas do catálogo fixo | 16 — Gamificação | 8 | Kauan Fonseca |
+| [SHIFU-51](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-51) | Exibir resumo de Gamificação, calendário de atividade e histórico de XP | 16 — Gamificação | 5 | Kauan Fonseca |
+| [SHIFU-52](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-52) | Alterar senha e proteger os acessos existentes | 01 — Identidade e Conta do Usuário | 3 | João Pedro Carvalho |
+| [SHIFU-54](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-54) | Controlar e acompanhar a cota mensal compartilhada de IA | 13 — Governança e Resiliência de IA | 8 | Thigz |
+| [SHIFU-55](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-55) | Cancelar ou repetir uma resposta do Mentor sem perder a mensagem | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho |
+| [SHIFU-106](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-106) | Gerenciar memórias pessoais utilizadas pelo Mentor | 15 — Mentor Conversacional Completo | 13 | João Pedro Carvalho |
+| [SHIFU-107](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-107) | Enviar anexos privados ao Mentor e compreender suas análises | 15 — Mentor Conversacional Completo | 13 | João Pedro Carvalho |
+| [SHIFU-108](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-108) | Confirmar adição ou remoção de Habilidades propostas pelo Mentor | 15 — Mentor Conversacional Completo | 8 | João Pedro Carvalho |
+| [SHIFU-109](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-109) | Ditar, revisar e enviar uma mensagem ao Mentor | 15 — Mentor Conversacional Completo | 5 | João Pedro Carvalho |
+| [SHIFU-110](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-110) | Praticar e receber avaliação de uma página HTML/CSS/JavaScript | 05 — Atividades e Práticas | 8 | João Gabriel |
+| [SHIFU-111](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-111) | Praticar e receber avaliação de uma aplicação React | 05 — Atividades e Práticas | 8 | João Gabriel |
+| [SHIFU-112](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-112) | Praticar e receber avaliação de um projeto integrado React e Fastify | 05 — Atividades e Práticas | 13 | João Pedro Carvalho |
+| [SHIFU-113](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-113) | Consultar a política de privacidade e encontrar o canal de atendimento | 01 — Identidade e Conta do Usuário | 3 | João Gabriel |
+| [SHIFU-114](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-114) | Solicitar atendimento verificado sobre meus dados pessoais | 01 — Identidade e Conta do Usuário | 5 | João Gabriel |
+| [SHIFU-115](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-115) | Receber celebrações de níveis e conquistas sem repetição | 16 — Gamificação | 5 | Kauan Fonseca |
+| [SHIFU-116](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-116) | Ter meus dados eliminados também em logs e cópias de segurança | 01 — Identidade e Conta do Usuário | 8 | gabrielsoliveira1606 |
 
 **Total comprometido:** 197 SP em 27 histórias. **Considerado entregue no fechamento:** 197 SP.
 
@@ -127,36 +127,36 @@ Todas pertencem ao compromisso da Sprint 2. Os pontos são os do campo de estima
 
 O Jira contém 28 tasks, sem pontos próprios. Elas compõem o trabalho das histórias e não somam SP adicionais.
 
-| Chave | Task | Tipo | Responsável | Jira na consulta |
+| Chave | Task | Tipo | Responsável |
 | --- | --- | --- | --- | --- |
-| [SHIFU-78](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-78) | Criar IAC básico do projeto | Logical Task | gabrielsoliveira1606 | Concluído em 23/10 |
-| [SHIFU-79](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-79) | Implementar processamento de conquistas e aba de Conquistas | Dev Task | Kauan Fonseca | Concluído em 10/10 |
-| [SHIFU-80](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-80) | Implementar calendário de prática e cálculo de sequências | Dev Task | Kauan Fonseca | Concluído em 18/10 |
-| [SHIFU-81](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-81) | Implementar persistência e aba de Histórico de XP | Dev Task | Kauan Fonseca | Concluído em 23/10 |
-| [SHIFU-82](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-82) | Implementar visão geral de Gamificação e cálculo de níveis | Dev Task | Kauan Fonseca | Concluído em 22/10 |
-| [SHIFU-83](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-83) | Provisionar infraestrutura de staging com Terraform e validar o laboratório S3 | Logical Task | gabrielsoliveira1606 | Concluído em 24/10 |
-| [SHIFU-84](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-84) | Implementar concessão de XP e integração das recompensas no resultado da Atividade | Dev Task | Kauan Fonseca | Concluído em 24/10 |
-| [SHIFU-85](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-85) | Implementar CD de Terraform e aplicações do Shifu para staging | Logical Task | gabrielsoliveira1606 | Concluído em 25/10 |
+| [SHIFU-78](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-78) | Criar IAC básico do projeto | Logical Task | gabrielsoliveira1606 |
+| [SHIFU-79](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-79) | Implementar processamento de conquistas e aba de Conquistas | Dev Task | Kauan Fonseca |
+| [SHIFU-80](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-80) | Implementar calendário de prática e cálculo de sequências | Dev Task | Kauan Fonseca |
+| [SHIFU-81](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-81) | Implementar persistência e aba de Histórico de XP | Dev Task | Kauan Fonseca |
+| [SHIFU-82](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-82) | Implementar visão geral de Gamificação e cálculo de níveis | Dev Task | Kauan Fonseca |
+| [SHIFU-83](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-83) | Provisionar infraestrutura de staging com Terraform e validar o laboratório S3 | Logical Task | gabrielsoliveira1606 |
+| [SHIFU-84](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-84) | Implementar concessão de XP e integração das recompensas no resultado da Atividade | Dev Task | Kauan Fonseca |
+| [SHIFU-85](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-85) | Implementar CD de Terraform e aplicações do Shifu para staging | Logical Task | gabrielsoliveira1606 |
 | [SHIFU-86](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-86) | Implementar questões de página HTML/CSS/JavaScript em Atividades de aprendizagem | Dev Task | João Gabriel | **Code Review** |
-| [SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87) | Integrar SonarCloud ao CI do Web e da API com cobertura, quality gate e comentários nos PRs | Logical Task | gabrielsoliveira1606 | Concluído em 25/10 |
-| [SHIFU-88](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-88) | Implementar questões React em Atividades de aprendizagem | Dev Task | João Gabriel | Concluído em 21/10 |
-| [SHIFU-89](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-89) | Implementar classificação e recuperação de Habilidades com PLN | Dev Task | Thigz | Concluído em 24/10 |
-| [SHIFU-90](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-90) | Implementar questões integradas React + Fastify em Atividades de aprendizagem | Dev Task | João Pedro Carvalho | Concluído em 25/10 |
-| [SHIFU-91](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-91) | Implementar fluxo do Planejador de Objetivos no backend | Dev Task | Thigz | Concluído em 24/10 |
-| [SHIFU-92](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-92) | Implementar interface da entrevista do Planejador de Objetivos | Dev Task | Thigz | Concluído em 24/10 |
-| [SHIFU-93](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-93) | Implementar revisão da proposta e reinício do planejamento | Dev Task | Thigz | Concluído em 24/10 |
-| [SHIFU-94](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-94) | Implementar telemetria estruturada em JSON no Web/BFF e na API | Logical Task | gabrielsoliveira1606 | Concluído em 24/10 |
-| [SHIFU-95](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-95) | Integrar criação do Objetivo planejado com Learning | Dev Task | Thigz | Concluído em 24/10 |
-| [SHIFU-96](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-96) | Implementar página pública de Política de privacidade e seus pontos de acesso | Dev Task | João Gabriel | Concluído em 21/10 |
-| [SHIFU-97](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-97) | Implementar perfil e segurança em Minha conta | Dev Task | João Pedro Carvalho | Concluído em 25/10 |
-| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | João Pedro Carvalho | Concluído em 25/10 |
-| [SHIFU-99](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-99) | Implementar gestão de conversas do Mentor | Dev Task | João Pedro Carvalho | Concluído em 09/10 |
-| [SHIFU-100](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-100) | Implementar respostas contextuais e recuperação | Dev Task | João Pedro Carvalho | Concluído em 13/10 |
-| [SHIFU-101](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-101) | Implementar memórias do aprendiz | Dev Task | João Pedro Carvalho | Concluído em 23/10 |
-| [SHIFU-102](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-102) | Implementar resumo e continuidade da conversa | Dev Task | João Pedro Carvalho | Concluído em 20/10 |
-| [SHIFU-103](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103) | Implementar anexos e análise de arquivos | Dev Task | João Pedro Carvalho | Concluído em 18/10 |
-| [SHIFU-104](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-104) | Implementar ações confirmadas do Mentor | Dev Task | João Pedro Carvalho | Concluído em 24/10 |
-| [SHIFU-105](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-105) | Implementar ditado por áudio | Dev Task | João Pedro Carvalho | Concluído em 13/10 |
+| [SHIFU-87](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87) | Integrar SonarCloud ao CI do Web e da API com cobertura, quality gate e comentários nos PRs | Logical Task | gabrielsoliveira1606 |
+| [SHIFU-88](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-88) | Implementar questões React em Atividades de aprendizagem | Dev Task | João Gabriel |
+| [SHIFU-89](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-89) | Implementar classificação e recuperação de Habilidades com PLN | Dev Task | Thigz |
+| [SHIFU-90](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-90) | Implementar questões integradas React + Fastify em Atividades de aprendizagem | Dev Task | João Pedro Carvalho |
+| [SHIFU-91](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-91) | Implementar fluxo do Planejador de Objetivos no backend | Dev Task | Thigz |
+| [SHIFU-92](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-92) | Implementar interface da entrevista do Planejador de Objetivos | Dev Task | Thigz |
+| [SHIFU-93](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-93) | Implementar revisão da proposta e reinício do planejamento | Dev Task | Thigz |
+| [SHIFU-94](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-94) | Implementar telemetria estruturada em JSON no Web/BFF e na API | Logical Task | gabrielsoliveira1606 |
+| [SHIFU-95](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-95) | Integrar criação do Objetivo planejado com Learning | Dev Task | Thigz |
+| [SHIFU-96](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-96) | Implementar página pública de Política de privacidade e seus pontos de acesso | Dev Task | João Gabriel |
+| [SHIFU-97](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-97) | Implementar perfil e segurança em Minha conta | Dev Task | João Pedro Carvalho |
+| [SHIFU-98](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-98) | Implementar exclusão definitiva da conta e eliminação coordenada dos dados | Dev Task | João Pedro Carvalho |
+| [SHIFU-99](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-99) | Implementar gestão de conversas do Mentor | Dev Task | João Pedro Carvalho |
+| [SHIFU-100](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-100) | Implementar respostas contextuais e recuperação | Dev Task | João Pedro Carvalho |
+| [SHIFU-101](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-101) | Implementar memórias do aprendiz | Dev Task | João Pedro Carvalho |
+| [SHIFU-102](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-102) | Implementar resumo e continuidade da conversa | Dev Task | João Pedro Carvalho |
+| [SHIFU-103](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-103) | Implementar anexos e análise de arquivos | Dev Task | João Pedro Carvalho |
+| [SHIFU-104](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-104) | Implementar ações confirmadas do Mentor | Dev Task | João Pedro Carvalho |
+| [SHIFU-105](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-105) | Implementar ditado por áudio | Dev Task | João Pedro Carvalho |
 
 ## Distribuição do trabalho
 
