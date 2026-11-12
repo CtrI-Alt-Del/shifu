@@ -36,6 +36,8 @@ class Eval(ABC):
     prompt_revision: ClassVar[str]
     DATASET_REVISION: ClassVar[str] = 'mentor-attachments-synthetic-2026-10-14.2'
     DEFAULT_TIMEOUT_SECONDS: ClassVar[int] = 90
+    MAX_EVIDENCE_TEXT_CHARS: ClassVar[int] = 600
+    MAX_EVIDENCE_ITEMS: ClassVar[int] = 12
     unavailable_failure_code: ClassVar[str] = 'eval_target_unavailable'
 
     @dataclass(frozen=True)
@@ -248,8 +250,8 @@ class Eval(ABC):
             'selected_case_ids': [case.name for case in selected],
         }
 
-    @staticmethod
-    def _agno_case_report(result: Any) -> dict[str, Any]:
+    @classmethod
+    def _agno_case_report(cls, result: Any) -> dict[str, Any]:
         if result.skipped:
             outcome, failure_code = 'skipped', 'case_skipped'
         elif result.passed:
@@ -263,7 +265,7 @@ class Eval(ABC):
                 if result.error
                 else 'scorer_rejected'
             )
-        return {
+        report: dict[str, Any] = {
             'case_id': result.name,
             'outcome': outcome,
             'duration_seconds': round(max(result.duration_seconds, 0.0), 3),
@@ -271,6 +273,48 @@ class Eval(ABC):
             'scorer_passed': result.passed if not result.skipped else None,
             'failure_code': failure_code,
         }
+        if failure_code == 'scorer_rejected':
+            report['evidence'] = cls._scorer_evidence(result)
+        return report
+
+    @classmethod
+    def _scorer_evidence(cls, result: Any) -> dict[str, Any]:
+        """What a rejected case answered and why its scorer rejected it.
+
+        Only the model output and the scorer verdict are kept, bounded in size. The
+        prompt, the case input and any error text stay out: error text can carry
+        private input or credentials, and a passing case needs no evidence.
+        """
+        content = getattr(result.response, 'content', None)
+        dump = getattr(content, 'model_dump', None)
+        output = dump(mode='json') if callable(dump) else content
+        evidence: dict[str, Any] = {'output': cls._bounded(output)}
+        score = result.score
+        if score is not None:
+            evidence['scorer_reason'] = score.reason
+            if score.detail:
+                evidence['scorer_detail'] = cls._bounded(score.detail)
+        return evidence
+
+    @classmethod
+    def _bounded(cls, value: Any) -> Any:
+        """Cut long text and long lists so a report stays small."""
+        if isinstance(value, str):
+            extra = len(value) - cls.MAX_EVIDENCE_TEXT_CHARS
+            if extra <= 0:
+                return value
+            return f'{value[: cls.MAX_EVIDENCE_TEXT_CHARS]}…[{extra} more characters]'
+        if isinstance(value, dict):
+            return {str(key): cls._bounded(item) for key, item in value.items()}
+        if isinstance(value, (list, tuple)):
+            items = [cls._bounded(item) for item in value[: cls.MAX_EVIDENCE_ITEMS]]
+            extra = len(value) - cls.MAX_EVIDENCE_ITEMS
+            if extra > 0:
+                items.append(f'…[{extra} more items]')
+            return items
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        return cls._bounded(str(value))
 
     @staticmethod
     def local_case_report(

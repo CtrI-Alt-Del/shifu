@@ -545,7 +545,11 @@ only validates dependency boundaries. Server eval CI runs every available eval
 class through `apps/server/evals/run.py`, without workflow/name/tag filters, with
 `SHIFU_RUN_REAL_AI_EVALS=1`, and uploads reports on failure. The runner writes
 per-workflow JSON reports and a summary, and exits nonzero when a workflow or
-report write fails. Its model settings use the `OPENROUTER_API_KEY` repository secret and the
+report write fails. A case rejected by its scorer also carries a bounded
+`evidence` block with the structured model output and the scorer's reason and
+failed checks, so a real-model failure can be diagnosed from the uploaded
+report. Evidence never holds the prompt, the case input or error text, and a
+passing case carries none. Its model settings use the `OPENROUTER_API_KEY` repository secret and the
 `OPENROUTER_PROMPT_LOGGING_DISABLED` / `MENTOR_TITLE_PROMPT_LOGGING_DISABLED`
 repository variables. Resolve actual provider privacy attestations before setting
 those variables; this local workflow edit does not configure external secrets or
