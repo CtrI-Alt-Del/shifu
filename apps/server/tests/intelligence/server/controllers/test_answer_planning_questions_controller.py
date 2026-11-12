@@ -5,7 +5,10 @@ from datetime import UTC, datetime
 from threading import Barrier
 from typing import TYPE_CHECKING
 
+import pytest
+
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     PlanningQuestionKind,
     PlanningSessionStatus,
 )
@@ -14,6 +17,12 @@ from shifu.intelligence.core.domain.structures import (
     PlanningOption,
     PlanningQuestion,
     PlanningQuestionBatch,
+)
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    count_state,
+    read_charge,
+    read_month,
+    seed_month,
 )
 from tests.intelligence.server.controllers.planning_test_support import (
     interviewing_session,
@@ -24,6 +33,8 @@ from tests.intelligence.server.controllers.planning_test_support import (
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
+
+    from tests.fixtures.intelligence_fixture import IntelligenceFixture
 
     from shifu.intelligence.core.domain.entities import PlanningSession
 
@@ -202,3 +213,62 @@ class TestAnswerPlanningQuestionsController:
         )
 
         assert response.status_code == 404
+
+
+class TestAnswerPlanningQuestionsAiQuota:
+    @pytest.fixture(autouse=True)
+    def setup(
+        self, intelligence_fixture: IntelligenceFixture, planning_client: TestClient
+    ) -> None:
+        self.fixture = intelligence_fixture
+        self.client = planning_client
+        self.session = interviewing_session()
+        sessions_of(planning_client).add(self.session)
+        self.path = f'/intelligence/planning-sessions/{self.session.id}/answers'
+
+    @pytest.mark.parametrize('used_units', [1000, 1300])
+    def test_should_accept_the_answers_of_a_running_planning_above_the_limit(
+        self, used_units: int
+    ) -> None:
+        seed_month(self.fixture, used_units)
+
+        response = self.client.post(self.path, json=_VALID)
+
+        assert response.status_code == 202, response.text
+        assert response.json()['status'] == 'processing'
+        stored = sessions_of(self.client).find_by_id(self.session.id)
+        assert stored is not None
+        assert stored.operation is not None
+        charge = read_charge(
+            self.fixture, AiQuotaRequestKind.PLANNING_OPERATION, stored.operation.id
+        )
+        assert charge is not None
+        assert charge.charged_units == 0
+        month = read_month(self.fixture)
+        assert month is not None
+        assert month.used_units == used_units
+        assert len(planning_events(self.fixture.postgres.engine)) == 1
+
+    def test_should_register_the_operation_even_when_the_month_has_no_row(self) -> None:
+        assert read_month(self.fixture) is None
+
+        response = self.client.post(self.path, json=_VALID)
+
+        assert response.status_code == 202, response.text
+        month = read_month(self.fixture)
+        assert month is not None
+        assert (month.used_units, month.limit_units) == (0, 1000)
+
+    def test_should_not_create_quota_rows_when_the_answers_are_invalid(self) -> None:
+        before = count_state(self.fixture.postgres.engine)
+
+        response = self.client.post(
+            self.path,
+            json={
+                'batch_id': 'batch-1',
+                'answers': [{'question_id': 'q9', 'option_ids': []}],
+            },
+        )
+
+        assert response.status_code != 202
+        assert count_state(self.fixture.postgres.engine) == before

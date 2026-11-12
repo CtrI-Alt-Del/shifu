@@ -2,6 +2,7 @@ from uuid import UUID
 
 from shifu.intelligence.core.domain.entities import MentorMessage, MentorResponseAttempt
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorMessageRole,
     MentorResponseEventKind,
     MentorResponseStatus,
@@ -18,6 +19,7 @@ from shifu.intelligence.core.domain.events import (
     MentorResponseRequestedPayload,
 )
 from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
     MentorResponseEvent,
     MentorSessionDetail,
     MentorSubmission,
@@ -26,7 +28,11 @@ from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint imp
     mentor_submission_fingerprint,
     mentor_submission_fingerprint_v2,
 )
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+)
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     attachment_fingerprint_values,
     selected_attachments,
@@ -49,12 +55,17 @@ class SubmitMentorMessageUseCase:
         identifier_provider: IdentifierProvider,
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
     ) -> None:
         self.replayed: bool = False
         self._database: IntelligenceDatabase = database
         self._identifier_provider: IdentifierProvider = identifier_provider
         self._clock_provider: ClockProvider = clock_provider
         self._access_provider: MentorAccessProvider = access_provider
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
 
     def execute(
         self, account_id: str, session_id: str, submission: MentorSubmission
@@ -144,6 +155,14 @@ class SubmitMentorMessageUseCase:
                     operation_key=grant.operation_key,
                     created_at=now,
                     updated_at=now,
+                )
+                # Admission comes before any state: a refusal leaves no message,
+                # attempt or event behind.
+                self._ledger.admit(
+                    repositories,
+                    AiQuotaRequestKind.MENTOR_RESPONSE,
+                    attempt.id,
+                    account_id,
                 )
                 repositories.mentor_messages.add(message)
                 if selected:

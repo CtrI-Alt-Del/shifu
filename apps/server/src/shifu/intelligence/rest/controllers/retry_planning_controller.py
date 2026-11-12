@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends
 from fastapi import Response as FastApiResponse
 from pydantic import Field, TypeAdapter
 
+from shifu.intelligence.core.domain.structures import AiQuotaPolicy
 from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
     IntelligenceDatabase,
     PlanningSessionsRepository,
 )
@@ -54,9 +56,21 @@ class RetryPlanningController:
             clock: Annotated[
                 ClockProvider, Depends(IntelligencePipe.get_clock_provider)
             ],
+            quota_policy: Annotated[
+                AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
+            ],
+            quota_calendar: Annotated[
+                AiQuotaCalendarProvider,
+                Depends(IntelligencePipe.get_ai_quota_calendar_provider),
+            ],
         ) -> Response:
             session = RetryPlanningUseCase(
-                sessions, database, identifier, clock
+                sessions,
+                database,
+                identifier,
+                clock,
+                quota_policy,
+                quota_calendar,
             ).execute(user.account_id, planning_id)
             response.headers['Cache-Control'] = 'private, no-store'
             return _RESPONSE_ADAPTER.validate_python(session, from_attributes=True)

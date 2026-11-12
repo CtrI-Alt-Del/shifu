@@ -11,6 +11,7 @@ import json
 from typing import TYPE_CHECKING, cast
 from unittest.mock import Mock
 
+from agno.metrics import RunMetrics
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 import pytest
@@ -30,6 +31,7 @@ from shifu.intelligence.ai.agno.outputs.planning_proposal_output import (
 )
 from shifu.intelligence.ai.agno.workflows import PlanGoalWorkflow
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     PlanningIntentKind,
     PlanningOperationStage,
     PlanningSessionStatus,
@@ -55,11 +57,15 @@ from shifu.intelligence.core.use_cases import (
     CompletePlanningOperationUseCase,
     GetPlanningSessionUseCase,
     PreparePlanningOperationUseCase,
+    RecordPlanningInferenceUsageUseCase,
     ReportPlanningProgressUseCase,
     RestartPlanningUseCase,
     RetrievePlanningSkillsUseCase,
     RetryPlanningUseCase,
     StartPlanningUseCase,
+)
+from shifu.intelligence.providers.ai_quota_calendar.zoneinfo import (
+    ZoneinfoAiQuotaCalendarProvider,
 )
 from shifu.intelligence.providers.planning.redis.redis_planning_sessions_repository import (
     RedisPlanningSessionsRepository,
@@ -75,11 +81,16 @@ from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffS
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from tests.fixtures.intelligence_fixture import MENTOR_ACCOUNT
+from tests.intelligence.core.use_cases.ai_quota_test_setup import quota_policy
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from shifu.intelligence.core.domain.entities import PlanningSession
+    from shifu.intelligence.core.domain.entities import (
+        AiQuotaCharge,
+        AiQuotaMonth,
+        PlanningSession,
+    )
     from tests.fixtures.intelligence_fixture import IntelligenceFixture
     from tests.fixtures.redis_fixture import RedisFixture
 
@@ -111,6 +122,16 @@ _ALLOWED_PAYLOAD_KEYS = {
 def completed(content: PlanningInterviewOutput | PlanningProposalOutput) -> RunOutput:
     """A completed agent run, as a mocked Planner agent returns it."""
     return RunOutput(content=content, status=RunStatus.completed)
+
+
+def with_usage(run: RunOutput, input_tokens: int, output_tokens: int) -> RunOutput:
+    """The same agent run, reporting the token counts of its model call."""
+    run.metrics = RunMetrics(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=input_tokens + output_tokens,
+    )
+    return run
 
 
 def sufficient() -> RunOutput:
@@ -236,7 +257,27 @@ class Harness:
             self.access,
             SystemIdentifierProvider(),
             SystemClockProvider(),
+            quota_policy(),
+            ZoneinfoAiQuotaCalendarProvider(),
         ).execute(MENTOR_ACCOUNT.account_id, intent)
+
+    def charge_of(self, session: PlanningSession) -> AiQuotaCharge | None:
+        """The persisted quota charge of the session's current operation."""
+        operation = session.operation
+        assert operation is not None
+        with self.fixture.database.transaction() as repositories:
+            return repositories.ai_quota_charges.find(
+                AiQuotaRequestKind.PLANNING_OPERATION, operation.id
+            )
+
+    def month_of_account(self) -> AiQuotaMonth | None:
+        """The persisted quota month of the Mentor account for the current month."""
+        calendar = ZoneinfoAiQuotaCalendarProvider()
+        with self.fixture.database.transaction() as repositories:
+            return repositories.ai_quota_months.find_by_account_and_month(
+                MENTOR_ACCOUNT.account_id,
+                calendar.month_of(SystemClockProvider().now()),
+            )
 
     def run(self, session: PlanningSession) -> PlanningSession | None:
         operation = session.operation
@@ -269,6 +310,8 @@ class Harness:
             self.fixture.database,
             SystemIdentifierProvider(),
             SystemClockProvider(),
+            quota_policy(),
+            ZoneinfoAiQuotaCalendarProvider(),
         ).execute(
             MENTOR_ACCOUNT.account_id,
             session.id,
@@ -288,6 +331,8 @@ class Harness:
             self.fixture.database,
             SystemIdentifierProvider(),
             SystemClockProvider(),
+            quota_policy(),
+            ZoneinfoAiQuotaCalendarProvider(),
         ).execute(MENTOR_ACCOUNT.account_id, session.id)
 
     def restart(self, session: PlanningSession, intent: str) -> PlanningSession:
@@ -297,6 +342,8 @@ class Harness:
             self.access,
             SystemIdentifierProvider(),
             SystemClockProvider(),
+            quota_policy(),
+            ZoneinfoAiQuotaCalendarProvider(),
         ).execute(MENTOR_ACCOUNT.account_id, session.id, intent)
 
     def model_calls(self) -> int:
@@ -312,6 +359,8 @@ def harness(
     )
     sessions = RedisPlanningSessionsRepository(client, 3600)
     clock = SystemClockProvider()
+    policy = quota_policy()
+    calendar = ZoneinfoAiQuotaCalendarProvider()
     access = Mock(spec=MentorAccessProvider)
     access.authorize.side_effect = grant
     classifier = Mock(spec=PlanningIntentClassifierProvider)
@@ -329,8 +378,13 @@ def harness(
     proposal.run.return_value = web_proposal()
     workflow = PlanGoalWorkflow(
         prepare_use_case=PreparePlanningOperationUseCase(sessions, access),
-        complete_use_case=CompletePlanningOperationUseCase(sessions, clock),
+        complete_use_case=CompletePlanningOperationUseCase(
+            sessions, clock, intelligence_fixture.database, policy, calendar
+        ),
         progress_use_case=ReportPlanningProgressUseCase(sessions, clock),
+        record_usage_use_case=RecordPlanningInferenceUsageUseCase(
+            intelligence_fixture.database, policy, calendar, clock
+        ),
         classify_use_case=ClassifyPlanningIntentUseCase(classifier),
         retrieve_use_case=RetrievePlanningSkillsUseCase(retrieval, catalog),
         interview_agent=interview,
@@ -591,7 +645,12 @@ class TestPlanGoalWorkflow:
             # A running operation cannot be restarted: the learner first sees it
             # expire, then restarts, and only then does the old run answer.
             expired = GetPlanningSessionUseCase(
-                harness.sessions, SystemClockProvider(), timedelta(0)
+                harness.sessions,
+                SystemClockProvider(),
+                timedelta(0),
+                harness.fixture.database,
+                quota_policy(),
+                ZoneinfoAiQuotaCalendarProvider(),
             ).execute(MENTOR_ACCOUNT.account_id, session.id)
             assert expired.failure_code == 'operation_timeout'
             restarted.append(harness.restart(session, 'Quero aprender React'))
@@ -726,3 +785,215 @@ class TestPlanGoalWorkflow:
             assert final.status is PlanningSessionStatus.FAILED
             assert final.proposal is None
             harness.proposal.run.assert_not_called()
+
+
+class _SimulatedCrash(BaseException):
+    """Stops a run before it publishes, as a worker that dies mid-run would."""
+
+
+class TestPlanGoalWorkflowAiQuotaUsage:
+    """CI-04: the workflow reports the accumulated usage and takes no quota decision."""
+
+    def test_should_charge_the_accumulated_tokens_of_the_interview_and_the_proposal(
+        self, harness: Harness
+    ) -> None:
+        # With input weight 1 and output weight 4: 100 + 10 * 4 = 140, then
+        # 200 + 20 * 4 = 280, so the operation costs 420 units.
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.return_value = with_usage(web_proposal(), 200, 20)
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.charged_units == 420
+        assert charge.refunded is False
+        month = harness.month_of_account()
+        assert month is not None
+        assert month.used_units == 420
+        assert month.month == charge.month
+
+    def test_should_charge_each_draft_of_the_proposal_loop(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.side_effect = [
+            with_usage(invalid_draft(), 50, 5),
+            with_usage(web_proposal(), 60, 6),
+        ]
+        session = harness.start('Quero aprender React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        # The interview costs 140, then the drafts cost 70 and 84 units.
+        assert charge.charged_units == 294
+
+    def test_should_not_charge_again_when_a_repeated_run_reports_the_same_usage(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.side_effect = [
+            _SimulatedCrash(),
+            with_usage(web_proposal(), 200, 20),
+        ]
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+
+        with pytest.raises(_SimulatedCrash):
+            harness.run(session)
+
+        first_attempt = harness.charge_of(session)
+        assert first_attempt is not None
+        assert first_attempt.charged_units == 140
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        # The repeat counts again from zero; only the positive difference enters.
+        assert charge.charged_units == 420
+        month = harness.month_of_account()
+        assert month is not None
+        assert month.used_units == 420
+
+    def test_should_keep_the_first_spend_when_a_repeated_run_reports_less(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.side_effect = [
+            with_usage(sufficient(), 100, 10),
+            with_usage(sufficient(), 50, 5),
+        ]
+        harness.proposal.run.side_effect = _SimulatedCrash()
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+
+        for _ in range(2):
+            with pytest.raises(_SimulatedCrash):
+                harness.run(session)
+
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.charged_units == 140
+        month = harness.month_of_account()
+        assert month is not None
+        assert month.used_units == 140
+
+    def test_should_refund_the_operation_when_the_model_output_breaks_the_schema(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.return_value = with_usage(
+            RunOutput(content='não é JSON', status=RunStatus.completed), 30, 3
+        )
+        session = harness.start('Quero aprender React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.FAILED
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.refunded is True
+        month = harness.month_of_account()
+        assert month is not None
+        assert month.used_units == 0
+
+    def test_should_keep_the_charge_when_the_operation_ends_out_of_scope_after_usage(
+        self, harness: Harness
+    ) -> None:
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.return_value = with_usage(declined(), 40, 4)
+        session = harness.start('Quero aprender a tocar violão')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.UNSUPPORTED
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.refunded is False
+        # The interview costs 140 and the declined proposal 56 units.
+        assert charge.charged_units == 196
+
+    def test_should_charge_a_total_only_report_at_the_input_weight_and_warn(
+        self, harness: Harness, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        total_only = sufficient()
+        total_only.metrics = RunMetrics(total_tokens=50)
+        harness.interview.run.return_value = total_only
+        harness.proposal.run.return_value = with_usage(web_proposal(), 200, 20)
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+
+        with caplog.at_level('WARNING'):
+            final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        # 50 tokens at the input weight, then 200 + 20 * 4.
+        assert charge.charged_units == 330
+        assert 'ai_quota_total_only_usage' in caplog.text
+
+    def test_should_charge_zero_when_the_agents_report_no_counts(
+        self, harness: Harness
+    ) -> None:
+        session = harness.start('Quero aprender a construir sites')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.charged_units == 0
+        month = harness.month_of_account()
+        assert month is not None
+        assert month.used_units == 0
+
+    def test_should_go_on_when_reporting_the_usage_fails(
+        self, harness: Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.return_value = with_usage(web_proposal(), 200, 20)
+
+        def unavailable(*_args: object, **_kwargs: object) -> None:
+            raise ServiceUnavailableError('The quota database is unavailable.')
+
+        monkeypatch.setattr(RecordPlanningInferenceUsageUseCase, 'execute', unavailable)
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.charged_units == 0
+
+    def test_should_not_decide_on_the_quota_when_the_month_is_already_exhausted(
+        self, harness: Harness
+    ) -> None:
+        session = harness.start('Quero aprender a construir sites com HTML e React')
+        month = harness.month_of_account()
+        assert month is not None
+        month.used_units = month.limit_units + 500
+        with harness.fixture.database.transaction() as repositories:
+            repositories.ai_quota_months.update(month)
+        harness.interview.run.return_value = with_usage(sufficient(), 100, 10)
+        harness.proposal.run.return_value = with_usage(web_proposal(), 200, 20)
+
+        final = harness.run(session)
+
+        assert final is not None
+        assert final.status is PlanningSessionStatus.PROPOSAL
+        charge = harness.charge_of(session)
+        assert charge is not None
+        assert charge.charged_units == 420

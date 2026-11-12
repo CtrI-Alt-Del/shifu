@@ -3,6 +3,7 @@ from typing import cast
 from inngest import Function, Inngest
 
 from shifu.intelligence.core.use_cases import (
+    PurgeAiQuotaForAccountUseCase,
     PurgeLearnerMemoriesForAccountUseCase,
     PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
@@ -10,6 +11,7 @@ from shifu.intelligence.core.use_cases import (
     RecordMentorActionOutcomeUseCase,
 )
 from shifu.intelligence.messaging.inngest.jobs import (
+    PurgeAiQuotaOnAccountDeletedJob,
     PurgeLearnerMemoriesOnAccountDeletedJob,
     PurgeMentorActionProposalsOnAccountDeletedJob,
     PurgeMentorAttachmentsOnAccountDeletedJob,
@@ -29,6 +31,7 @@ class IntelligenceInngestMessaging:
         purge_learner_memories_use_case: PurgeLearnerMemoriesForAccountUseCase,
         purge_mentor_action_proposals_use_case: PurgeMentorActionProposalsForAccountUseCase,
         record_mentor_action_outcome_use_case: RecordMentorActionOutcomeUseCase,
+        purge_ai_quota_use_case: PurgeAiQuotaForAccountUseCase,
         account_deleted_event_name: str,
         mentor_action_resolved_event_name: str,
         telemetry_provider: TelemetryProvider,
@@ -66,6 +69,15 @@ class IntelligenceInngestMessaging:
                 PurgeMentorActionProposalsOnAccountDeletedJob.handle(
                     inngest,
                     purge_mentor_action_proposals_use_case,
+                    account_deleted_event_name=account_deleted_event_name,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                PurgeAiQuotaOnAccountDeletedJob.handle(
+                    inngest,
+                    purge_ai_quota_use_case,
                     account_deleted_event_name=account_deleted_event_name,
                     telemetry_provider=telemetry_provider,
                 ),

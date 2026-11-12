@@ -3,7 +3,9 @@ from datetime import timedelta
 from fastapi import Request
 from sqlalchemy.engine import Engine
 
+from shifu.intelligence.core.domain.structures import AiQuotaPolicy
 from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
     GenerateMentorTitleProvider,
     IntelligenceDatabase,
     LearnerMemoryAnalyzerProvider,
@@ -68,6 +70,14 @@ class IntelligencePipe:
         request: Request,
     ) -> LearnerMemoryAnalyzerProvider:
         return request.app.state.learner_memory_analyzer_provider
+
+    @staticmethod
+    def get_ai_quota_policy(request: Request) -> AiQuotaPolicy:
+        return request.app.state.ai_quota_policy
+
+    @staticmethod
+    def get_ai_quota_calendar_provider(request: Request) -> AiQuotaCalendarProvider:
+        return request.app.state.ai_quota_calendar_provider
 
     @staticmethod
     def get_identifier_provider() -> IdentifierProvider:

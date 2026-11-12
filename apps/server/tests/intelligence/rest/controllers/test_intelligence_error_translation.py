@@ -5,8 +5,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    EXHAUSTED_BODY,
+    seed_month,
+)
+
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
+
+    from tests.fixtures.intelligence_fixture import IntelligenceFixture
 
 _SESSIONS_PATH = '/intelligence/mentor-sessions'
 _MEMORIES_PATH = '/intelligence/learner-memories'
@@ -19,6 +26,23 @@ _INVALID_CURSOR = {'code': 'validation_error', 'message': 'Cursor inválido.'}
 
 
 class TestIntelligenceErrorTranslation:
+    def test_should_translate_an_exhausted_ai_quota_into_a_429_with_its_code(
+        self, intelligence_fixture: IntelligenceFixture, mentor_client: TestClient
+    ) -> None:
+        seed_month(intelligence_fixture, 1000)
+
+        response = mentor_client.post(
+            _SESSIONS_PATH,
+            json={
+                'submission_key': '19c0e33a-e8db-4cf5-8a0c-999999999997',
+                'first_message': 'Pergunta sem cota.',
+            },
+        )
+
+        assert response.status_code == 429
+        assert response.json() == EXHAUSTED_BODY
+        assert response.headers['cache-control'] == 'private, no-store'
+
     def test_should_translate_a_malformed_cursor_on_the_session_list(
         self, mentor_client: TestClient
     ) -> None:

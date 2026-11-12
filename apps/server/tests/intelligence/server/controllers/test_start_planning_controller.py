@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
+from shifu.intelligence.core.domain.enums import AiQuotaRequestKind
 from shifu.shared.settings import get_settings
 from tests.fixtures.intelligence_fixture import MENTOR_ACCOUNT
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    EXHAUSTED_BODY,
+    count_state,
+    read_charge,
+    read_month,
+    seed_month,
+)
 from tests.intelligence.server.controllers.planning_test_support import (
     PLANNING_EVENT,
     planning_events,
@@ -12,7 +22,9 @@ from tests.intelligence.server.controllers.planning_test_support import (
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
+    from httpx2 import Response
 
+    from tests.fixtures.intelligence_fixture import IntelligenceFixture
     from tests.fixtures.postgres_fixture import PostgresDatabase
     from tests.fixtures.redis_fixture import RedisFixture
 
@@ -89,3 +101,65 @@ class TestStartPlanningController:
 
         assert response.status_code == 401
         assert response.json()['detail']['code'] == 'unauthorized'
+
+
+class TestStartPlanningAiQuota:
+    @pytest.fixture(autouse=True)
+    def setup(
+        self,
+        intelligence_fixture: IntelligenceFixture,
+        planning_client: TestClient,
+        redis_fixture: RedisFixture,
+    ) -> None:
+        self.fixture = intelligence_fixture
+        self.client = planning_client
+        self.redis = redis_fixture
+
+    def _plannings_in_redis(self) -> list[object]:
+        return list(self.redis.client.scan_iter('shifu:planning:*'))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+
+    def _start(self) -> Response:
+        return self.client.post(
+            '/intelligence/planning-sessions',
+            json={'initial_intent': 'Quero aprender a fazer sites'},
+        )
+
+    def test_should_admit_the_start_and_record_its_operation_in_the_month(self) -> None:
+        response = self._start()
+
+        assert response.status_code == 201, response.text
+        stored = sessions_of(self.client).find_by_id(response.json()['id'])
+        assert stored is not None
+        assert stored.operation is not None
+        charge = read_charge(
+            self.fixture, AiQuotaRequestKind.PLANNING_OPERATION, stored.operation.id
+        )
+        assert charge is not None
+        assert charge.account_id == MENTOR_ACCOUNT.account_id
+        assert charge.charged_units == 0
+        month = read_month(self.fixture)
+        assert month is not None
+        assert (month.used_units, month.limit_units) == (0, 1000)
+
+    @pytest.mark.parametrize('used_units', [1000, 1300])
+    def test_should_refuse_the_start_with_429_and_create_nothing(
+        self, used_units: int
+    ) -> None:
+        seed_month(self.fixture, used_units)
+        before = count_state(self.fixture.postgres.engine)
+
+        response = self._start()
+
+        assert response.status_code == 429, response.text
+        assert response.json() == EXHAUSTED_BODY
+        assert count_state(self.fixture.postgres.engine) == before
+        assert planning_events(self.fixture.postgres.engine) == []
+        assert self._plannings_in_redis() == []
+        month = read_month(self.fixture)
+        assert month is not None
+        assert month.used_units == used_units
+
+    def test_should_admit_the_start_just_below_the_limit(self) -> None:
+        seed_month(self.fixture, 999)
+
+        assert self._start().status_code == 201

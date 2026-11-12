@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import cast
-from unittest.mock import call, create_autospec
+from unittest.mock import Mock, call, create_autospec
 
 import pytest
 from shifu.intelligence.core.domain.entities import (
@@ -11,12 +11,14 @@ from shifu.intelligence.core.domain.entities import (
     MentorSession,
 )
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorAttachmentStatus,
     MentorMessageRole,
     MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
+    AiQuotaExhaustedError,
     MentorAttachmentConflictError,
     MentorAttachmentInvalidError,
     MentorInputInvalidError,
@@ -49,9 +51,14 @@ from shifu.shared.core.interfaces import (
     IdentifierProvider,
     MentorAccessProvider,
 )
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    QUOTA_LIMIT,
+    QUOTA_MONTH,
+    AiQuotaTestSetup,
+)
 
 
-class TestCreateMentorSessionUseCase:
+class TestCreateMentorSessionUseCase(AiQuotaTestSetup):
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.database = create_autospec(IntelligenceDatabase, instance=True)
@@ -61,6 +68,7 @@ class TestCreateMentorSessionUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
+        self.prepare_quota(self.repositories, account_id='01JACCOUNT000000000000000001')
         self.identifiers = create_autospec(IdentifierProvider, instance=True)
         self.identifiers.generate.side_effect = [
             '01JMENTORSESSION000000000001',
@@ -98,6 +106,8 @@ class TestCreateMentorSessionUseCase:
             self.clock,
             self.title_provider,
             self.access,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
     def test_should_atomically_persist_exact_first_message_and_final_title(
@@ -530,6 +540,8 @@ class TestCreateMentorSessionUseCase:
             self.clock,
             UnavailableGenerateMentorTitleProvider(),
             self.access,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
         result = subject.execute(
@@ -996,3 +1008,136 @@ class TestCreateMentorSessionUseCase:
         )
         self.repositories.mentor_sessions.add.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def test_should_admit_the_first_attempt_before_writing_any_state(self) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        effects = Mock()
+        effects.attach_mock(self.quota_months.ensure_and_lock, 'lock_month')
+        effects.attach_mock(self.quota_charges.add, 'add_charge')
+        effects.attach_mock(self.repositories.mentor_sessions.add, 'add_session')
+        effects.attach_mock(self.repositories.mentor_messages.add, 'add_message')
+        effects.attach_mock(
+            self.repositories.mentor_response_attempts.add, 'add_attempt'
+        )
+        effects.attach_mock(self.repositories.events.add, 'add_event')
+
+        self.subject.execute(
+            '01JACCOUNT000000000000000001',
+            '123e4567-e89b-42d3-a456-426614174000',
+            'hello',
+        )
+
+        names = [entry[0] for entry in effects.mock_calls]
+        assert names[:2] == ['lock_month', 'add_charge']
+        assert set(names[2:]) == {
+            'add_session',
+            'add_message',
+            'add_attempt',
+            'add_event',
+        }
+        self.quota_months.ensure_and_lock.assert_called_once_with(
+            '01JACCOUNT000000000000000001', QUOTA_MONTH, QUOTA_LIMIT, self.now
+        )
+        charge = self.quota_charges.add.call_args.args[0]
+        attempt = self.repositories.mentor_response_attempts.add.call_args.args[0]
+        assert attempt.id == '01JMENTORATTEMPT000000000001'
+        assert charge.request_kind is AiQuotaRequestKind.MENTOR_RESPONSE
+        assert charge.request_id == attempt.id
+        assert charge.account_id == '01JACCOUNT000000000000000001'
+        assert charge.month == QUOTA_MONTH
+        assert charge.charged_units == 0
+
+    @pytest.mark.parametrize(
+        'used_units', [QUOTA_LIMIT, QUOTA_LIMIT + 1, 5 * QUOTA_LIMIT]
+    )
+    def test_should_refuse_at_or_above_the_limit_without_any_write_or_title_call(
+        self, used_units: int
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        self.quota_month.used_units = used_units
+
+        with pytest.raises(AiQuotaExhaustedError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+            )
+
+        self.title_provider.generate.assert_not_called()
+        self.quota_months.ensure_and_lock.assert_not_called()
+        self.quota_charges.add.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add_submission.assert_not_called()
+        self.repositories.mentor_response_events.append.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_refuse_in_admission_when_the_month_fills_after_the_pre_check(
+        self,
+    ) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        self.quota_months.find_by_account_and_month.return_value = None
+        self.quota_month.used_units = QUOTA_LIMIT
+
+        with pytest.raises(AiQuotaExhaustedError):
+            self.subject.execute(
+                '01JACCOUNT000000000000000001',
+                '123e4567-e89b-42d3-a456-426614174000',
+                'hello',
+            )
+
+        self.quota_months.ensure_and_lock.assert_called_once()
+        self.quota_charges.add.assert_not_called()
+        self.repositories.mentor_sessions.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_admit_a_start_while_the_use_is_still_below_the_limit(self) -> None:
+        self.repositories.mentor_sessions.find_submission.side_effect = [None, None]
+        self.quota_month.used_units = QUOTA_LIMIT - 1
+
+        result = self.subject.execute(
+            '01JACCOUNT000000000000000001',
+            '123e4567-e89b-42d3-a456-426614174000',
+            'hello',
+        )
+
+        assert result.created is True
+        self.quota_charges.add.assert_called_once()
+
+    def test_should_not_admit_or_pre_check_an_accepted_replay_at_the_limit(
+        self,
+    ) -> None:
+        self.quota_month.used_units = QUOTA_LIMIT
+        record = MentorSubmissionRecord(
+            session_id='01JMENTORSESSION000000000001',
+            content_fingerprint=mentor_submission_fingerprint_v2('hello', None, ()),
+            deleted_at=None,
+        )
+        session = MentorSession(
+            id=record.session_id,
+            account_id='01JACCOUNT000000000000000001',
+            title='Título',
+            created_at=self.now,
+            updated_at=self.now,
+            last_activity_at=self.now,
+        )
+        self.repositories.mentor_sessions.find_submission.return_value = record
+        self.repositories.mentor_sessions.find_by_id.return_value = session
+        self.repositories.mentor_messages.find_many.return_value = MentorMessagesPage(
+            items=[], next_cursor=None
+        )
+
+        result = self.subject.execute(
+            '01JACCOUNT000000000000000001',
+            '123e4567-e89b-42d3-a456-426614174000',
+            'hello',
+        )
+
+        assert result.created is False
+        self.quota_months.find_by_account_and_month.assert_not_called()
+        self.quota_months.ensure_and_lock.assert_not_called()
+        self.quota_charges.add.assert_not_called()
+        self.title_provider.generate.assert_not_called()

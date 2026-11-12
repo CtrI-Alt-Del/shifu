@@ -9,6 +9,9 @@ from shifu.intelligence.rest.controllers.cancel_planning_controller import (
 from shifu.intelligence.rest.controllers.confirm_planning_controller import (
     ConfirmPlanningController,
 )
+from shifu.intelligence.rest.controllers.get_ai_quota_usage_controller import (
+    GetAiQuotaUsageController,
+)
 from shifu.intelligence.rest.controllers.get_planning_session_controller import (
     GetPlanningSessionController,
 )
@@ -87,6 +90,7 @@ class IntelligenceRouter:
     @staticmethod
     def register() -> APIRouter:
         router = APIRouter(prefix='/intelligence', tags=['intelligence'])
+        GetAiQuotaUsageController.handle(router)
         StartPlanningController.handle(router)
         GetPlanningSessionController.handle(router)
         AnswerPlanningQuestionsController.handle(router)
