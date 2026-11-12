@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { z } from 'zod'
 import type {
@@ -5,6 +6,7 @@ import type {
   MentorResponseSnapshot,
 } from '@/core/intelligence/mentor-response'
 import { mapMentorActionProposal } from '@/rest/services/intelligence-service'
+import { AI_QUOTA_USAGE_QUERY_KEY } from './ai-quota-usage-query-key'
 
 const STATUS = z.enum(['queued', 'processing', 'completed', 'failed', 'cancelled'])
 const ACTION_PROPOSAL = z
@@ -92,6 +94,9 @@ export type UseMentorResponseStreamInput = {
   onUnavailable(): void
 }
 export function useMentorResponseStream(input: UseMentorResponseStreamInput): void {
+  const queryClient = useQueryClient()
+  const queryClientRef = useRef(queryClient)
+  queryClientRef.current = queryClient
   const latest = useRef(input)
   latest.current = input
   const { sessionId, attemptId, enabled } = input
@@ -115,6 +120,14 @@ export function useMentorResponseStream(input: UseMentorResponseStreamInput): vo
       try {
         const snapshot = await latest.current.reconcile()
         if (disposed || generation !== currentGeneration) return
+        if (
+          snapshot?.attemptId === attemptId &&
+          ['completed', 'failed', 'cancelled'].includes(snapshot.status)
+        )
+          // The answer ended while the stream was down, so the reading is stale.
+          void queryClientRef.current.invalidateQueries({
+            queryKey: AI_QUOTA_USAGE_QUERY_KEY,
+          })
         if (
           !snapshot ||
           snapshot.attemptId !== attemptId ||
@@ -177,7 +190,13 @@ export function useMentorResponseStream(input: UseMentorResponseStreamInput): vo
           failureCode: parsed.failure_code,
           createdAt: parsed.created_at,
         })
-        if (['completed', 'failed', 'cancelled'].includes(parsed.status)) close()
+        if (['completed', 'failed', 'cancelled'].includes(parsed.status)) {
+          close()
+          // The finished answer changed the month's usage, so the reading is stale.
+          void queryClientRef.current.invalidateQueries({
+            queryKey: AI_QUOTA_USAGE_QUERY_KEY,
+          })
+        }
       })
       source.addEventListener('error', () => {
         if (!disposed && generation === currentGeneration) void recover()

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
+import { useAiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator'
 import type { IconProps } from '@/ui/shared/widgets/components/icon'
 import { AppLayout } from '..'
 import { useMobileHeader } from '../mobile-header/use-mobile-header'
@@ -52,6 +53,28 @@ vi.mock('@/ui/intelligence/widgets/components/mentor-fab', () => ({
   },
 }))
 
+vi.mock(
+  '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator',
+  () => ({
+    useAiQuotaIndicator: vi.fn(),
+  }),
+)
+
+const useAiQuotaIndicatorMock = vi.mocked(useAiQuotaIndicator)
+
+function createAiQuotaIndicatorState(
+  overrides: Partial<ReturnType<typeof useAiQuotaIndicator>> = {},
+): ReturnType<typeof useAiQuotaIndicator> {
+  return {
+    isVisible: true,
+    text: 'IA · 85%',
+    label: 'Uso da IA: 85% da cota mensal, perto do limite',
+    iconName: 'triangle-alert',
+    toneClassName: 'text-selo-text',
+    ...overrides,
+  }
+}
+
 vi.mock('../mobile-header/use-mobile-header', () => ({
   useMobileHeader: vi.fn(),
 }))
@@ -65,6 +88,7 @@ describe('AppLayout', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
+    useAiQuotaIndicatorMock.mockReturnValue(createAiQuotaIndicatorState())
     handleMenuToggleMock.mockReset()
     handleNavigationMock.mockReset()
     useAppLayoutMock.mockReturnValue({
@@ -103,6 +127,17 @@ describe('AppLayout', () => {
       'bg-transparent',
     )
     expect(screen.getByRole('button', { name: 'Abrir menu da conta' })).toBeVisible()
+  })
+
+  it('shows the AI quota indicator in both the desktop and mobile headers', () => {
+    render(<AppLayout />)
+
+    const indicators = screen.getAllByRole('link', {
+      name: 'Uso da IA: 85% da cota mensal, perto do limite',
+    })
+    expect(indicators).toHaveLength(2)
+    for (const indicator of indicators)
+      expect(indicator).toHaveAttribute('href', ROUTES.accountAiUsage)
   })
 
   it('shares the account menu placement across desktop and mobile headers', () => {

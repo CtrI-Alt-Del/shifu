@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { AiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator'
 import { Anchor } from '@/ui/shared/widgets/components/anchor'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Navigation, type NavigationProps } from '../navigation'
@@ -26,18 +27,21 @@ export const DesktopHeader = ({ accountMenu, items, pathname }: DesktopHeaderPro
           <Navigation items={items} pathname={pathname} />
         </nav>
       </div>
-      {accountMenu ?? (
-        <button
-          aria-label='Abrir menu da conta'
-          className='grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
-          data-account-menu-trigger
-          type='button'
-        >
-          <span className='grid size-8 place-items-center rounded-full border border-white/10 bg-muted'>
-            <Icon name='user-round' size={16} />
-          </span>
-        </button>
-      )}
+      <div className='flex shrink-0 items-center gap-2'>
+        <AiQuotaIndicator />
+        {accountMenu ?? (
+          <button
+            aria-label='Abrir menu da conta'
+            className='grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground'
+            data-account-menu-trigger
+            type='button'
+          >
+            <span className='grid size-8 place-items-center rounded-full border border-white/10 bg-muted'>
+              <Icon name='user-round' size={16} />
+            </span>
+          </button>
+        )}
+      </div>
     </div>
   )
 }

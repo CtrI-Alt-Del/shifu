@@ -3,6 +3,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useMutation } from '@tanstack/react-query'
+import { toMentorStartResult } from '@/provision/intelligence/mentor-start-result'
 import { getMentorScopedService } from '@/provision/realtime/mentor-response-stream-server-provider'
 const ID = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)
 const INPUT = z
@@ -22,11 +23,13 @@ export const retryMentorResponseServer = createServerFn({ method: 'POST' })
       data.accountEmail,
       context,
     )
-    return service.retryMentorResponse(
-      accessToken,
-      data.sessionId,
-      data.attemptId,
-      data.submissionKey,
+    return toMentorStartResult(() =>
+      service.retryMentorResponse(
+        accessToken,
+        data.sessionId,
+        data.attemptId,
+        data.submissionKey,
+      ),
     )
   })
 export const useRetryMentorResponseAction = (accountEmail: string) => {

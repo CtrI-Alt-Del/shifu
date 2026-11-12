@@ -316,6 +316,43 @@ describe('Mentor consumer through authenticated transport', () => {
       expect.objectContaining({ params: { cursor: undefined } }),
     )
   })
+  it('treats a real 429 quota refusal on a message and on a retry as a block, not a generic error', async () => {
+    ports.get.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          ...detail,
+          pending_learner_message_id: null,
+          response: { ...snapshot, status: 'failed' },
+        },
+      }),
+    )
+    const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.isValidatingScope).toBe(false))
+    await act(() => result.current.selectSession(sessionId))
+    ports.post.mockResolvedValue(
+      new RestResponse({
+        statusCode: 429,
+        body: { code: 'ai_quota_exhausted', message: 'Sua cota mensal de IA acabou.' },
+        errorMessage: 'Sua cota mensal de IA acabou.',
+      }),
+    )
+
+    await act(() =>
+      result.current.submitMessage({ submissionKey, content: 'Oi', contextHint: null }),
+    )
+
+    expect(result.current.isAiQuotaRefused).toBe(true)
+    expect(result.current.submissionError).toBeNull()
+
+    await act(() => result.current.retryResponse())
+
+    expect(result.current.isAiQuotaRefused).toBe(true)
+    expect(result.current.submissionError).toBeNull()
+    expect(ports.post).toHaveBeenCalledTimes(2)
+  })
   it('keeps a failed send retryable and rejects a changed authenticated account before posting', async () => {
     const { result } = renderHook(() => useMentorContextProvider('learner@example.com'), {
       wrapper,

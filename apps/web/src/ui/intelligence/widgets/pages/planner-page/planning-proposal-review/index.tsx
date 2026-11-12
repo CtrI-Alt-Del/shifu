@@ -5,6 +5,7 @@ import {
   ENTRANCE_SECTION,
   ENTRANCE_STAGGER,
 } from '@/constants/motion-variants'
+import { AiQuotaBlockedCard } from '@/ui/intelligence/widgets/components/ai-quota-blocked-card'
 import { Button } from '@/ui/shadcn/button'
 import { Input } from '@/ui/shadcn/input'
 import { Label } from '@/ui/shadcn/label'
@@ -27,12 +28,16 @@ export type {
   PlanningProposalReviewProps,
 } from './use-planning-proposal-review'
 
+const AI_QUOTA_BLOCKED_ID = 'planning-review-ai-quota-blocked'
 const COMPACT_ACTION = 'w-full gap-1.5 sm:w-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
 
 export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
   const {
     intent,
     proposal,
+    isAiQuotaBlocked,
+    aiQuotaBlockedMessage,
+    aiQuotaBlockedRole,
     isCancelling,
     isRestarting,
     restartErrorMessage,
@@ -197,6 +202,16 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         intenção.
       </motion.p>
 
+      {isAiQuotaBlocked ? (
+        <motion.div variants={ENTRANCE_RISE}>
+          <AiQuotaBlockedCard
+            id={AI_QUOTA_BLOCKED_ID}
+            message={aiQuotaBlockedMessage}
+            role={aiQuotaBlockedRole}
+          />
+        </motion.div>
+      ) : null}
+
       <motion.div
         className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'
         variants={ENTRANCE_RISE}
@@ -212,7 +227,12 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
         </Button>
         <div className='order-1 flex flex-col gap-2 sm:order-2 sm:flex-row sm:items-center sm:gap-2.5'>
           <Button
-            className={COMPACT_ACTION}
+            aria-describedby={isAiQuotaBlocked ? AI_QUOTA_BLOCKED_ID : undefined}
+            aria-disabled={isAiQuotaBlocked || undefined}
+            className={`${COMPACT_ACTION} ${
+              // The board draws the paused outline button with its own border and fill.
+              isAiQuotaBlocked ? 'border-white/16! bg-[#0f0f10]!' : ''
+            }`}
             disabled={isBusy || isFrozen}
             onClick={handleOpenRestart}
             ref={restartTriggerRef}
@@ -242,6 +262,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
       <RestartPlanningDialog
         errorMessage={restartErrorMessage}
         initialIntent={intent}
+        isAiQuotaBlocked={isAiQuotaBlocked}
         isOpen={isRestartDialogOpen}
         isSubmitting={isRestarting}
         onClose={handleCloseRestart}

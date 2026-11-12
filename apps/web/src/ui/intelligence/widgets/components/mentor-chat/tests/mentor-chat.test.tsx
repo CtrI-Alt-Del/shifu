@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { MentorChat } from '..'
@@ -24,6 +25,10 @@ vi.mock('@/ui/shared/widgets/components/anchor', () => ({
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
+}))
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
 const useMentorChatMock = vi.mocked(useMentorChat)
 const useMentorContextMock = vi.mocked(useMentorContext)
 const startNewMock = vi.fn()
@@ -82,6 +87,7 @@ const contextValue: MentorContextValue = {
   submissionError: null,
   renameError: null,
   removalError: null,
+  isAiQuotaRefused: false,
   openPanel: vi.fn(),
   closePanel: vi.fn(),
   showPanelHistory: vi.fn(),
@@ -108,7 +114,18 @@ const contextValue: MentorContextValue = {
   onActionResolved: vi.fn(),
 }
 
+const notBlockedQuota: ReturnType<typeof useAiQuotaBlock> = {
+  isAiQuotaBlocked: false,
+  isAiQuotaNearLimit: false,
+  getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou.',
+  aiQuotaBlockedRole: 'status',
+  aiQuotaAccountId: 'account-1',
+  aiQuotaPercentage: 85,
+  aiQuotaRenewsOn: '2026-12-01',
+}
+
 describe('MentorChat', () => {
+  beforeEach(() => useAiQuotaBlockMock.mockReturnValue(notBlockedQuota))
   afterEach(cleanup)
 
   it.each(['page', 'fab'] as const)(
@@ -154,9 +171,8 @@ describe('MentorChat', () => {
       'href',
       ROUTES.intelligenceMemories,
     )
-    expect(
-      screen.getByRole('button', { name: 'Cota de uso. Indisponível no momento' }),
-    ).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Cota de uso/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('IA · indisponível')).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Escreva sua mensagem para o Mentor'), {
       target: { value: 'Primeira mensagem' },
     })
@@ -330,5 +346,90 @@ describe('MentorChat', () => {
     expect(showHistory).toHaveBeenCalledTimes(2)
     expect(expand).toHaveBeenCalledOnce()
     expect(close).toHaveBeenCalledOnce()
+  })
+  it('blocks only the AI controls at the quota limit and keeps history, rename and delete working', () => {
+    const sendFirstMessage = vi.fn()
+    const retryResponse = vi.fn()
+    const openRename = vi.fn()
+    const openRemove = vi.fn()
+    const selectSession = vi.fn().mockResolvedValue(undefined)
+    useAiQuotaBlockMock.mockReturnValue({
+      ...notBlockedQuota,
+      isAiQuotaBlocked: true,
+      getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou. Volta em 1 de dezembro.',
+    })
+    const session = {
+      id: 'owned',
+      title: 'Conversa salva',
+      createdAt: '2026-10-09T12:00:00Z',
+      updatedAt: '2026-10-09T12:00:00Z',
+      lastActivityAt: '2026-10-09T12:00:00Z',
+    }
+    const value = {
+      ...contextValue,
+      selectedSessionId: 'owned',
+      sessionDetail: {
+        session,
+        messages: { items: [], nextCursor: null },
+        pendingLearnerMessageId: null,
+      } as unknown as NonNullable<MentorContextValue['sessionDetail']>,
+      response: {
+        attemptId: 'attempt-1',
+        learnerMessageId: 'learner-1',
+        status: 'failed',
+        blocks: [],
+        consultations: [],
+        lastSequence: 2,
+        failureCode: null,
+      } as MentorContextValue['response'],
+      draft: 'Mensagem preservada',
+      canStartDictation: true,
+      sessionsPage: { items: [session], nextCursor: null },
+      sendFirstMessage,
+      retryResponse,
+      openRenameDialog: openRename,
+      openRemoveDialog: openRemove,
+      selectSession,
+    }
+    useMentorContextMock.mockReturnValue(value)
+    useMentorChatMock.mockReturnValue({
+      ...value,
+      handleSelectSession: selectSession,
+      handleStartNewConversation: startNewMock,
+      surface: 'page',
+    })
+    render(<MentorChat surface='page' />)
+
+    expect(
+      screen.getByText('Sua cota de IA acabou. Volta em 1 de dezembro.'),
+    ).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+      'href',
+      ROUTES.accountAiUsage,
+    )
+    for (const control of [
+      screen.getByRole('button', { name: 'Enviar' }),
+      screen.getByRole('button', { name: 'Anexar arquivo ou imagem' }),
+      screen.getByRole('button', { name: /Gravar ditado/ }),
+      screen.getByRole('button', { name: 'Tentar novamente' }),
+    ]) {
+      expect(control).toHaveAttribute('aria-disabled', 'true')
+      expect(control).toHaveAccessibleDescription(/Sua cota de IA acabou/)
+      fireEvent.click(control)
+    }
+    expect(screen.getByLabelText('Escreva sua mensagem para o Mentor')).toHaveAttribute(
+      'placeholder',
+      'Envio pausado até a renovação da cota',
+    )
+    expect(sendFirstMessage).not.toHaveBeenCalled()
+    expect(retryResponse).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Renomear' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Renomear Conversa salva' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir Conversa salva' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Conversa salva/ }))
+    expect(openRename).toHaveBeenCalledTimes(2)
+    expect(openRemove).toHaveBeenCalledWith('owned')
+    expect(selectSession).toHaveBeenCalledWith('owned')
   })
 })

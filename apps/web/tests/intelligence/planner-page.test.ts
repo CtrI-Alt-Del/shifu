@@ -5,8 +5,18 @@ import type {
   PlanningQuestion,
   PlanningSession,
 } from '@/core/intelligence/planning-session'
-import type { BffFixtureContract } from '../fixtures/bff-fixture'
+import { BffFixture, type BffFixtureContract } from '../fixtures/bff-fixture'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import {
+  AI_QUOTA_PLANNER_FAILURE_BLOCKED_MESSAGE,
+  AI_QUOTA_PLANNER_PROPOSAL_BLOCKED_MESSAGE,
+  AiQuotaUpstreamFixture,
+  clickIgnoringDisabled,
+  expectBlockedControl,
+  installAiQuotaReading,
+  openRealPage,
+  signInRealAccount,
+} from '../support/ai-quota-backend'
 
 /**
  * Browser integration with mocked `_serverFn` transport: the real route, middleware,
@@ -284,10 +294,23 @@ function callsTo(transport: PlannerTransport, prefix: string) {
   return transport.calls.filter((call) => call.exportName.startsWith(prefix))
 }
 
-async function mockPlanner(bff: BffFixtureContract, transport: PlannerTransport) {
+type MockPlannerOptions = {
+  /** Server functions that skip the mock and reach the real API, through the controlled upstream. */
+  realServerFunctions?: string[]
+}
+
+async function mockPlanner(
+  bff: BffFixtureContract,
+  transport: PlannerTransport,
+  options: MockPlannerOptions = {},
+) {
   await bff.route(async (route) => {
     const request = route.request()
     const exportName = serverFnExport(request.url())
+    if (options.realServerFunctions?.some((name) => exportName.startsWith(name))) {
+      await route.fallback()
+      return
+    }
     const fulfill = (result: unknown) =>
       route.fulfill({
         body: JSON.stringify({ result }),
@@ -1786,4 +1809,254 @@ test('renders every approved mobile frame state without horizontal scroll (CA-20
   await authenticatedPage.setViewportSize({ width: 390, height: 844 })
 
   await walkThroughEveryFrame(authenticatedPage, bff, MOBILE_FRAMES)
+})
+
+const QUOTA_VIEWPORTS = [
+  { name: '1440 x 900', width: 1440, height: 900 },
+  { name: '390 x 844', width: 390, height: 844 },
+] as const
+const FAILED_PLANNING = {
+  status: 'failed',
+  batch: null,
+  answeredBatchCount: 1,
+  failureCode: 'service_unavailable',
+} as const
+const FAILED_CARD_ID = 'planner-ai-quota-blocked'
+const REVIEW_CARD_ID = 'planning-review-ai-quota-blocked'
+const QUOTA_CARD = { name: 'Ver uso da IA' }
+
+/**
+ * The learner starts a planning below the limit; the quota runs out before the next
+ * reading, so the planner opens on the reading that already shows the block.
+ */
+async function openPlannerAfterQuotaRunsOut(
+  page: Page,
+  reading: Awaited<ReturnType<typeof installAiQuotaReading>>,
+) {
+  await navigateAuthenticatedPage(page, '/')
+  await expect(page.getByLabel('O que você quer aprender?')).toBeEnabled()
+  await reading.settled()
+  reading.setReading(100)
+  await page.getByLabel('O que você quer aprender?').fill(INTENT)
+  await page.getByRole('button', { name: 'Planejar com IA' }).click()
+  await expect(page).toHaveURL(new RegExp(`${PLANNER_PATH}/?$`))
+}
+
+test.describe('Planner page AI quota', () => {
+  for (const viewport of QUOTA_VIEWPORTS)
+    test(`blocks Tentar novamente of a failed planning at 100% and keeps Cancelar working at ${viewport.name} (CA-20, CA-23)`, async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      const transport = transportFor(interviewSession(FAILED_PLANNING))
+      await mockPlanner(bff, transport)
+      const reading = await installAiQuotaReading(authenticatedPage, 40)
+      await authenticatedPage.setViewportSize(viewport)
+
+      await openPlannerAfterQuotaRunsOut(authenticatedPage, reading)
+
+      const card = authenticatedPage.getByRole('status').filter({
+        hasText: AI_QUOTA_PLANNER_FAILURE_BLOCKED_MESSAGE,
+      })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', FAILED_CARD_ID)
+      await expect(card.getByRole('link', QUOTA_CARD)).toHaveAttribute(
+        'href',
+        '/account/ai-usage',
+      )
+      await expect(card.locator('svg')).toHaveCount(1)
+      const retry = authenticatedPage.getByRole('button', { name: 'Tentar novamente' })
+      await expectBlockedControl(retry, FAILED_CARD_ID)
+      await clickIgnoringDisabled(retry)
+      expect(callsTo(transport, 'retryPlanningServer')).toHaveLength(0)
+      await expectNoHorizontalScroll(authenticatedPage)
+
+      const cancel = authenticatedPage.getByRole('button', { name: 'Cancelar' })
+      await expect(cancel).toBeEnabled()
+      await cancel.click()
+
+      await expect(authenticatedPage).toHaveURL(/\/$/)
+      expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(1)
+      expect(callsTo(transport, 'retryPlanningServer')).toHaveLength(0)
+    })
+
+  test('blocks Tentar novamente of a proposal that failed validation at 100% and keeps Criar manualmente working (CA-20)', async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const transport = transportFor(
+      interviewSession({
+        status: 'validation-failed',
+        batch: null,
+        failureCode: 'validation_exhausted',
+      }),
+    )
+    await mockPlanner(bff, transport)
+    const reading = await installAiQuotaReading(authenticatedPage, 40)
+
+    await openPlannerAfterQuotaRunsOut(authenticatedPage, reading)
+
+    await expect(
+      authenticatedPage.getByRole('heading', {
+        level: 1,
+        name: 'Não conseguimos concluir sua proposta',
+      }),
+    ).toBeVisible()
+    const card = authenticatedPage.getByRole('status').filter({
+      hasText: AI_QUOTA_PLANNER_FAILURE_BLOCKED_MESSAGE,
+    })
+    await expect(card).toBeVisible()
+    await expect(card).toHaveAttribute('id', FAILED_CARD_ID)
+    const retry = authenticatedPage.getByRole('button', { name: 'Tentar novamente' })
+    await expectBlockedControl(retry, FAILED_CARD_ID)
+    await clickIgnoringDisabled(retry)
+    expect(callsTo(transport, 'retryPlanningServer')).toHaveLength(0)
+
+    await authenticatedPage.getByRole('button', { name: 'Criar manualmente' }).click()
+
+    await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/new\/?$/)
+    expect(callsTo(transport, 'cancelPlanningServer')).toHaveLength(1)
+  })
+
+  for (const viewport of QUOTA_VIEWPORTS)
+    test(`blocks Reiniciar planejamento of a proposal at 100% and keeps Criar objetivo working at ${viewport.name} (CA-20, CA-23)`, async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      const transport = transportFor(proposalSession())
+      await mockPlanner(bff, transport)
+      const reading = await installAiQuotaReading(authenticatedPage, 40)
+      await authenticatedPage.setViewportSize(viewport)
+
+      await openPlannerAfterQuotaRunsOut(authenticatedPage, reading)
+
+      await expect(authenticatedPage.getByRole('heading', REVIEW_HEADING)).toBeVisible()
+      const card = authenticatedPage.getByRole('status').filter({
+        hasText: AI_QUOTA_PLANNER_PROPOSAL_BLOCKED_MESSAGE,
+      })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', REVIEW_CARD_ID)
+      await expect(card.getByRole('link', QUOTA_CARD)).toHaveAttribute(
+        'href',
+        '/account/ai-usage',
+      )
+      const restart = authenticatedPage.getByRole('button', {
+        name: 'Reiniciar planejamento',
+      })
+      await expectBlockedControl(restart, REVIEW_CARD_ID)
+      await clickIgnoringDisabled(restart)
+      await expect(
+        authenticatedPage.getByRole('alertdialog', { name: DIALOG_NAME }),
+      ).toHaveCount(0)
+      expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+      await expect(
+        authenticatedPage.getByRole('button', { name: 'Cancelar' }),
+      ).toBeEnabled()
+      await expectNoHorizontalScroll(authenticatedPage)
+
+      await authenticatedPage.getByRole('button', CREATE_GOAL).click()
+
+      await expect(authenticatedPage).toHaveURL(
+        new RegExp(`/learning/goals/${GOAL_ID}/?$`),
+      )
+      expect(callsTo(transport, 'confirmPlanningServer')).toHaveLength(1)
+      expect(callsTo(transport, 'restartPlanningServer')).toHaveLength(0)
+    })
+
+  test('shows the blocked card, not a generic error, when the server refuses Tentar novamente of a failed planning (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    // The start is mocked to reach the planner; the retry runs the real server function.
+    const transport = transportFor(interviewSession(FAILED_PLANNING))
+    await mockPlanner(BffFixture(page), transport, {
+      realServerFunctions: ['retryPlanningServer', 'restartPlanningServer'],
+    })
+    await signInRealAccount(page, activeAccount)
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, '/')
+      await openPlannerFromHome(page)
+      const retry = page.getByRole('button', { name: 'Tentar novamente' })
+      await expect(retry).toBeEnabled()
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the retry arrives.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await retry.click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_PLANNER_FAILURE_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', FAILED_CARD_ID)
+      await expectBlockedControl(retry, FAILED_CARD_ID)
+      await expect(
+        page.getByText(
+          'Não foi possível tentar novamente agora. Seu planejamento continua nesta página.',
+        ),
+      ).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      expect(await upstream.hits()).toEqual({
+        [`POST /intelligence/planning-sessions/${PLANNING_ID}/retry`]: 1,
+      })
+      await expect(page.getByRole('button', { name: 'Cancelar' })).toBeEnabled()
+    } finally {
+      await upstream.dispose()
+    }
+  })
+
+  test('shows the blocked card, not a generic error, when the server refuses Reiniciar planejamento (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    const transport = transportFor(proposalSession())
+    await mockPlanner(BffFixture(page), transport, {
+      realServerFunctions: ['retryPlanningServer', 'restartPlanningServer'],
+    })
+    await signInRealAccount(page, activeAccount)
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, '/')
+      await openPlannerFromHome(page)
+      const dialog = page.getByRole('alertdialog', { name: DIALOG_NAME })
+      await page.getByRole('button', { name: 'Reiniciar planejamento' }).click()
+      await dialog.getByLabel(INTENT_LABEL).fill(NEW_INTENT)
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the restart arrives.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await dialog.getByRole('button', { name: 'Iniciar planejamento' }).click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_PLANNER_PROPOSAL_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', REVIEW_CARD_ID)
+      await expect(dialog).toBeHidden()
+      await expectBlockedControl(
+        page.getByRole('button', { name: 'Reiniciar planejamento' }),
+        REVIEW_CARD_ID,
+      )
+      await expect(page.getByRole('heading', REVIEW_HEADING)).toBeVisible()
+      await expect(page.getByRole('button', CREATE_GOAL)).toBeEnabled()
+      await expect(
+        page.getByText(
+          'Não foi possível reiniciar o planejamento agora. Sua proposta continua nesta página; tente novamente.',
+        ),
+      ).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      expect(await upstream.hits()).toEqual({
+        [`POST /intelligence/planning-sessions/${PLANNING_ID}/restart`]: 1,
+      })
+    } finally {
+      await upstream.dispose()
+    }
+  })
 })

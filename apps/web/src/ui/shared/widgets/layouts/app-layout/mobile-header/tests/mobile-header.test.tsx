@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
+import { useAiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator'
 import type { IconProps } from '@/ui/shared/widgets/components/icon'
 
 import { MobileHeader } from '..'
@@ -21,6 +22,28 @@ vi.mock('@/ui/shared/widgets/components/icon', () => ({
   Icon: ({ name }: IconProps) => <span aria-hidden='true'>{name}</span>,
 }))
 
+vi.mock(
+  '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator',
+  () => ({
+    useAiQuotaIndicator: vi.fn(),
+  }),
+)
+
+const useAiQuotaIndicatorMock = vi.mocked(useAiQuotaIndicator)
+
+function createAiQuotaIndicatorState(
+  overrides: Partial<ReturnType<typeof useAiQuotaIndicator>> = {},
+): ReturnType<typeof useAiQuotaIndicator> {
+  return {
+    isVisible: true,
+    text: 'IA · 85%',
+    label: 'Uso da IA: 85% da cota mensal, perto do limite',
+    iconName: 'triangle-alert',
+    toneClassName: 'text-selo-text',
+    ...overrides,
+  }
+}
+
 vi.mock('../use-mobile-header', () => ({
   useMobileHeader: vi.fn(),
 }))
@@ -33,6 +56,7 @@ describe('MobileHeader', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
+    useAiQuotaIndicatorMock.mockReturnValue(createAiQuotaIndicatorState())
     handleMenuToggleMock.mockReset()
     handleNavigationMock.mockReset()
     useMobileHeaderMock.mockReturnValue({
@@ -92,5 +116,32 @@ describe('MobileHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Conta' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeVisible()
+  })
+
+  it('shows the AI quota indicator beside the account access and keeps the menu button 44 px', () => {
+    render(
+      <MobileHeader
+        accountMenu={<button type='button'>Conta</button>}
+        items={APP_NAVIGATION_ITEMS}
+        pathname={ROUTES.root}
+      />,
+    )
+
+    expect(
+      screen.getByRole('link', {
+        name: 'Uso da IA: 85% da cota mensal, perto do limite',
+      }),
+    ).toHaveAttribute('href', ROUTES.accountAiUsage)
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toHaveClass('size-11')
+  })
+
+  it('hides the AI quota indicator while the first reading loads', () => {
+    useAiQuotaIndicatorMock.mockReturnValue(
+      createAiQuotaIndicatorState({ isVisible: false, text: '', label: '' }),
+    )
+
+    render(<MobileHeader items={APP_NAVIGATION_ITEMS} pathname={ROUTES.root} />)
+
+    expect(screen.queryByRole('link', { name: /Uso da IA/ })).toBeNull()
   })
 })

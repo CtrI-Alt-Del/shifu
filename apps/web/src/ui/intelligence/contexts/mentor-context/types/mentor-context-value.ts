@@ -77,6 +77,8 @@ export type MentorContextValue = {
   submissionError: string | null
   renameError: string | null
   removalError: string | null
+  /** A start returned a quota refusal; it blocks the Mentor until a newer reading lifts it. */
+  isAiQuotaRefused: boolean
   openPanel(): void
   closePanel(): void
   showPanelHistory(): void

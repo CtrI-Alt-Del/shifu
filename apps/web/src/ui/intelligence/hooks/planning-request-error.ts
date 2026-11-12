@@ -10,6 +10,8 @@ const DEFAULT_MESSAGES: Record<PlanningFailureKind, string> = {
   'not-found': 'Planejamento não encontrado.',
   conflict: 'Já existe uma operação em andamento neste planejamento.',
   'invalid-request': 'As respostas enviadas não são válidas para este conjunto.',
+  'quota-exhausted':
+    'Sua cota mensal de IA acabou. O planejamento assistido volta na renovação.',
   unavailable: 'Não foi possível falar com o Shifu agora. Tente novamente.',
 }
 
@@ -26,4 +28,9 @@ export class PlanningRequestError extends AppError {
 export function unwrapPlanningResult<Result>(result: Result | PlanningFailure): Result {
   if (isPlanningFailure(result)) throw new PlanningRequestError(result)
   return result
+}
+
+/** True for the refusal that blocks a planning start until the quota renews. */
+export function isPlanningQuotaExhaustedError(error: unknown): boolean {
+  return error instanceof PlanningRequestError && error.kind === 'quota-exhausted'
 }

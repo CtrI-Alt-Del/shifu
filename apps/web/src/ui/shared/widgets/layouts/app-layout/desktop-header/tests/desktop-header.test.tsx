@@ -1,8 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
+import { useAiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator'
 import type { IconProps } from '@/ui/shared/widgets/components/icon'
 
 import { DesktopHeader } from '..'
@@ -20,8 +21,34 @@ vi.mock('@/ui/shared/widgets/components/icon', () => ({
   Icon: ({ name }: IconProps) => <span aria-hidden='true'>{name}</span>,
 }))
 
+vi.mock(
+  '@/ui/intelligence/widgets/components/ai-quota-indicator/use-ai-quota-indicator',
+  () => ({
+    useAiQuotaIndicator: vi.fn(),
+  }),
+)
+
+const useAiQuotaIndicatorMock = vi.mocked(useAiQuotaIndicator)
+
+function createAiQuotaIndicatorState(
+  overrides: Partial<ReturnType<typeof useAiQuotaIndicator>> = {},
+): ReturnType<typeof useAiQuotaIndicator> {
+  return {
+    isVisible: true,
+    text: 'IA · 85%',
+    label: 'Uso da IA: 85% da cota mensal, perto do limite',
+    iconName: 'triangle-alert',
+    toneClassName: 'text-selo-text',
+    ...overrides,
+  }
+}
+
 describe('DesktopHeader', () => {
   afterEach(cleanup)
+
+  beforeEach(() => {
+    useAiQuotaIndicatorMock.mockReturnValue(createAiQuotaIndicatorState())
+  })
 
   it('renders the brand and marks the active primary destination', () => {
     render(<DesktopHeader items={APP_NAVIGATION_ITEMS} pathname='/gamification' />)
@@ -61,5 +88,26 @@ describe('DesktopHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Conta personalizada' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Abrir menu da conta' })).toBeNull()
+  })
+
+  it('links the AI quota indicator to the usage page beside the account menu', () => {
+    render(<DesktopHeader items={APP_NAVIGATION_ITEMS} pathname={ROUTES.root} />)
+
+    const indicator = screen.getByRole('link', {
+      name: 'Uso da IA: 85% da cota mensal, perto do limite',
+    })
+    expect(indicator).toHaveAttribute('href', ROUTES.accountAiUsage)
+    expect(indicator).toHaveTextContent('IA · 85%')
+    expect(screen.getByRole('button', { name: 'Abrir menu da conta' })).toBeVisible()
+  })
+
+  it('hides the AI quota indicator while the first reading loads', () => {
+    useAiQuotaIndicatorMock.mockReturnValue(
+      createAiQuotaIndicatorState({ isVisible: false, text: '', label: '' }),
+    )
+
+    render(<DesktopHeader items={APP_NAVIGATION_ITEMS} pathname={ROUTES.root} />)
+
+    expect(screen.queryByRole('link', { name: /Uso da IA/ })).toBeNull()
   })
 })

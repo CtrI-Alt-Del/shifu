@@ -29,6 +29,10 @@ export type PlanningProposalReviewProps = {
   proposal: PlanningProposal
   isCancelling: boolean
   isRestarting: boolean
+  /** The quota blocks a new planning start, so the restart stays inert. */
+  isAiQuotaBlocked: boolean
+  aiQuotaBlockedMessage: string
+  aiQuotaBlockedRole: 'status' | 'alert'
   restartErrorMessage: string | null
   goalCreation: GoalCreationState
   onCancel: () => void
@@ -68,7 +72,14 @@ const GOAL_CREATION_NOTICES: Record<
 }
 
 export function usePlanningProposalReview(props: PlanningProposalReviewProps) {
-  const { planningId, proposal, goalCreation, onCreateGoal, onRestart } = props
+  const {
+    planningId,
+    proposal,
+    goalCreation,
+    isAiQuotaBlocked,
+    onCreateGoal,
+    onRestart,
+  } = props
   const [view, setView] = useState<PlanningProposalReviewView>('graph')
   const [title, setTitle] = useState(proposal.title)
   const [description, setDescription] = useState(proposal.description)
@@ -121,6 +132,7 @@ export function usePlanningProposalReview(props: PlanningProposalReviewProps) {
   }
 
   function handleOpenRestart() {
+    if (isAiQuotaBlocked) return
     setIsRestartDialogOpen(true)
   }
 
