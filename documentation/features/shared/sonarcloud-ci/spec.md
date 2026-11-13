@@ -1,13 +1,13 @@
 ---
 title: SonarCloud analysis in Web and API CI
-status: completed
+status: implemented
 revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-87
 scope:
   - shared/ci
-last_updated_at: 2026-11-10
+last_updated_at: 2026-11-13
 ---
 
 # Objective

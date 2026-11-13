@@ -1,8 +1,8 @@
 ---
 title: SonarCloud analysis in Web and API CI evaluation
-status: completed
+status: ready
 spec: ./spec.md
-last_updated_at: 2026-11-10
+last_updated_at: 2026-11-13
 ---
 
 # Current State
@@ -14,9 +14,9 @@ last_updated_at: 2026-11-10
 | Type / lint / complexity | Web types Passed and Web lint Passed with 11 pre-existing warnings outside this change (EV-04). Server types and lint and complexity Not applicable locally (EV-05). |
 | Manual checks | 2 of 2. VM-01 Passed on PR 48 head 309e8093. VM-02 Passed on disposable draft PR 49 (closed unmerged). VM-03 withdrawn in revision 2. |
 | Visual checks | Not applicable. No user interface. |
-| Independent review | Current. Implementation Reviewer PASS on the first candidate (one informational low finding, ACH-01) and PASS on the revision 2 delta f701f847 with no findings on 2026-11-10. Spec Reviewer of revision 2: FAIL, then PASS after corrections (ACH-05). |
-| Blockers | None. CI of head 878769ab passed. |
-| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, code head f701f847 plus documentation-only commits (superseded code heads: 309e8093, 5595d418). Dirty scope evaluated: none of this delivery. |
+| Independent review | Current. Implementation Reviewer PASS on the first candidate (one informational low finding, ACH-01) and PASS on the revision 2 delta f701f847 with no findings on 2026-11-10. Spec Reviewer of revision 2: FAIL, then PASS after corrections (ACH-05). Review thread follow-up (ACH-08): checked offline against invented answers and in double mode, not re-reviewed by an agent. |
+| Blockers | The review thread on the context eval case (ACH-08) awaits the reviewer and CI of the correcting push. |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, with `origin/main` 8e5c0ceb merged on 2026-11-13 and the ACH-08 correction. Dirty scope evaluated: none of this delivery. |
 
 # Progress
 
@@ -60,6 +60,7 @@ Retained proof on revision 2: revision 2 changed only the workflow triggers, the
 | ACH-05 | User request on PR 48 on 2026-11-10: "remove from main", after the explanation that the workflows also run on pushes to `main`. The `push` trigger, the `main` analysis and the evals `if` were added by this delivery, so removal restores the original triggers. This is a contract change: RF-02, CA-06, CA-07, VM-03 and the Evidence limits. | Contract change, accepted by the user | CA-06, CA-07, CI-04, VM-03 | Resolved in this branch. Spec moved to revision 2, CA-06 and VM-03 withdrawn, CA-07 limited to cancelling pull request runs, workflows and `tooling.md` aligned, CI-04 and CI-05 re-run. Accepted consequence: SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. First Spec review of revision 2: FAIL, two medium findings (the Architecture Mapping still listed the push trigger, and the VM-01 baseline fallback ran a manual `main` scan) and two low ones (shard `if: always()` and the reranker step missing from the Spec, CA-07 not reflected in RF-02). All four corrected in the Spec. Re-review: PASS, with no new contradiction. Spec set back to `ready`. |
 | ACH-06 | PR 48 head 55b9acc6, Server run 42885304951 attempt 1, job `Server integration shard 1/4`: 10 passed and 1 error. The error was a Postgres `DeadlockDetected` while tearing down `TestPurgeMentorActionProposalsOnAccountDeletedJob.test_should_succeed_without_effect_on_duplicate_delivery`. The commit only changed documentation, and the same code passed in full on head f701f847. | Low, transient | none of this Spec's checks | Resolved. Only the failed jobs were rerun on the same SHA (attempt 2) and passed. The test is not part of this delivery and was not changed. It may deadlock again, and a rerun clears it. |
 | ACH-07 | PR 48 head 878769ab, Server run 42894616683 attempt 1, job `Server integration shard 4/4`: 7 passed and 1 error. The setup of `TestPurgeLearnerMemoriesOnAccountDeletedJob.test_should_purge_only_the_deleted_accounts_memory_data` failed with `TimeoutError: container did not become running` while starting the Inngest test container (`tests/fixtures/inngest_fixture.py:415`). The commit only changed documentation, and the previous head 62b5b2e2 with the same code passed in full. | Low, transient | none of this Spec's checks | Resolved. Only the failed jobs were rerun on the same SHA (attempt 2) and passed. The fixture is not part of this delivery and was not changed. Two different container or database flakes (ACH-06, ACH-07) hit the Server integration shards on documentation-only heads, so a rerun may be needed again. |
+| ACH-08 | Review thread by Tico1606 on 2026-11-12, `apps/server/evals/process_mentor_response_eval.py` line 277 (https://github.com/CtrI-Alt-Del/shifu/pull/48#discussion_r4556760344): the case `general_answer_says_the_context_was_not_checked` accepted any answer with one listed word, so "Não tenho certeza, você concluiu 12 Habilidades" passed. The widening made in ACH-04 caused it. Not a check of this Spec. | Medium, valid | none of this Spec's checks | Corrected. The case file is now the one of PR 50 (`fix/server/SHIFU-87-real-evals-context-case`, head 4d33416b), so the overlapping changes are identical in both PRs. The case needs a limitation marker plus a reference to the missing data, and rejects digits, "zero" and counts written in words. Verified on 2026-11-13 from `apps/server`: `ruff check --no-fix` and `ruff format --check` pass, the scorer rejects 5 of 5 invented answers (digits, "doze Habilidades", "o total é vinte", "trinta e duas Habilidades", "concluiu uma") and accepts 4 of 4 correct ones, and `process-mentor-response` in double mode passes 9 of 9 (revision `mentor-response-eval-v5`). Not verified against the real model, because this session has no OpenRouter key. The reviewer has not yet confirmed. The Delivery table row flagged in the second thread (stale head) was also corrected. |
 
 Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe task equals `test:unit` apart from the `coverage run -m` prefix, push paths equal pull request paths, the implicit `success()` skips the API analysis after a failed shard, artifact names and paths line up, and the token appears only in the scanner step. It did not verify CI-02, which later passed (EV-02).
 
@@ -70,18 +71,19 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 | A SonarCloud scan token must belong to a user with Execute Analysis on every project, such as an organization admin, or be a Scoped Organization Token | ACH-02, EV-06 | Applied in the Diagnosis list of `documentation/tooling.md`, inside this delivery's documentation scope |
 | The real AI evals job must prepare every provider model that loads only from the local cache, because a developer cache hides the gap | ACH-04 | Fixed in `server-app-ci.yaml`. One line was added to the evals paragraph of `documentation/tooling.md`, applied on 2026-11-10 after the user approved it for PR 48 |
 | A Web test that submits a form must wait for `data-hydrated` first | ACH-03 | No change. The sibling tests of the same file already follow the pattern, and no Rule needs it |
+| A scorer that accepts any word from a list also accepts a fabricated answer, so each scorer needs plausible wrong answers in digits and in words | ACH-08 | No change. The fix lives in the eval scorer. No Rule covers the eval harness, so no global guidance is proposed |
 
 # Handoff
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, code head f701f847 and later documentation-only commits. `origin/main` at 6ba524c8 was fetched on 2026-11-10 and is already an ancestor, so no merge was needed. |
+| Candidate | Branch `ci/shared/SHIFU-87-sonarcloud-analysis`, PR 48, with `origin/main` 8e5c0ceb merged on 2026-11-13. |
 | Completed | CA-01..CA-05 and CA-07..CA-10 implemented and verified (EV-01..EV-07, EV-09). CA-06 withdrawn. Spec and implementation reviews current for revision 2. |
-| Unfinished | Nothing for revision 2 except CI of the new head. |
+| Unfinished | Reviewer confirmation of ACH-08 and the resolution of its thread. |
 | Uncommitted work | Only the user's own, left untouched: `.dockerignore` and `apps/web/src/ui/intelligence/widgets/components/mentor-mascot/tests/use-mentor-mascot.test.ts`. A separate user session handles the tracked `apps/server/coverage.json`. |
 | Active processes | None. |
 | Blockers | None. |
-| Next action | The team merges PR 48 when it agrees. Nothing else is pending for this Spec. |
+| Next action | Resolve the ACH-08 thread once the reviewer confirms and the GitHub checks of the PR head pass, then set both artifacts to `completed`. PR 50 carries the same scorer, so whichever PR merges second only merges identical lines. |
 
 # Delivery
 
@@ -91,14 +93,14 @@ Reviewer verdict PASS. It confirmed properties parity with the Spec, the poe tas
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| https://github.com/CtrI-Alt-Del/shifu/pull/48 | 878769ab (superseded heads: 62b5b2e2, 55b9acc6, 145b0090, 69d2ec23, f701f847, 309e8093, 5595d418) | Passed: Web, Server and Email runs. Server needed one rerun of a failed job on this head (ACH-07) and on 55b9acc6 (ACH-06). The Sonar jobs and the real AI evals passed on 55b9acc6 and f701f847. No reviews, no threads, `reviewDecision` empty | Web https://github.com/CtrI-Alt-Del/shifu/actions/runs/42894616666, Server https://github.com/CtrI-Alt-Del/shifu/actions/runs/42894616683 (attempt 2), Email https://github.com/CtrI-Alt-Del/shifu/actions/runs/42894616693. Head 55b9acc6: Web run 42885305147, Server run 42885304951 (attempt 2), Email run 42885304739. Code head f701f847: Web run 42880795625, Server run 42880795689 |
+| https://github.com/CtrI-Alt-Del/shifu/pull/48 | The PR head on GitHub. Earlier heads are superseded. | Two review threads by Tico1606. Stale-head row thread: resolved, row corrected. Context eval thread: correction pushed (ACH-08), reviewer confirmation pending. No review decision. | CI results are not recorded here. They are shown in the PR checks. |
 
 | Field | Result |
 | --- | --- |
-| Publication | Published as PR 48 on 2026-11-08 and updated by the conclusion on 2026-11-10 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 6ba524c8 fetched on 2026-11-10 is already an ancestor, so no merge was needed. CI on head 5595d418 failed in 5 checks (ACH-02 to ACH-04); head 309e8093 passed except the two Sonar jobs, which passed after the token fix; head f701f847 passed in full. Later commits change documentation only, but every push to the pull request starts the workflows again, because their path filters compare the whole pull request against `main`. The commit that records this closure only changes documentation, and its own CI run is shown in the PR checks. No review comments, no review requests, no open conversations. |
+| Publication | Published as PR 48 on 2026-11-08 and updated on 2026-11-10 and 2026-11-13 (branch `ci/shared/SHIFU-87-sonarcloud-analysis`, base `main`). `origin/main` 8e5c0ceb was fetched and merged on 2026-11-13. Every push to the pull request starts the workflows again, because their path filters compare the whole pull request against `main`. CI results are read in the PR checks and are not recorded here. |
 | Source verification | Jira SHIFU-87 read on 2026-11-08, status "A fazer". No Jira write was requested. No canonical PRD applies. Sprint 2 report conflict reported, left as history. |
 | Documentation Alignment | `tooling.md`, `architecture.md`, `README.md` updated. `tooling.md` also gained the token-permission diagnosis (Lessons Learned). Rules and `modules.md` rechecked on 2026-11-10, no change. The evals paragraph of `tooling.md` gained one line on preparing locally cached models, approved by the user on 2026-11-10. |
 | Revision History | Revision 2 on 2026-11-10 removes the `main` analysis (ACH-05). |
-| Limitations | The pull request is not merged and no review or merge approval was requested. No `main` analysis, so SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. Concurrency is proven by configuration only. The token is a personal token of an organization admin, so it stops working when it expires or when that person loses admin rights. |
+| Limitations | The pull request is not merged and no review or merge approval was requested. No `main` analysis, so SonarCloud has no `main` baseline or overall coverage, and new-code detection on edits of existing files is unproven. Concurrency is proven by configuration only. The token is a personal token of an organization admin, so it stops working when it expires or when that person loses admin rights. PR 48 and PR 50 both change `process_mentor_response_eval.py`, the Mentor FAQ reranker step and `tooling.md`. The scorer file is the same in both. The workflow step and the `tooling.md` lines were not compared. |
 
 Follow [SDD](../../../sdd.md) and [Conclude Spec](../../../prompts/conclude-spec-prompt.md).
