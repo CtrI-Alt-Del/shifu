@@ -453,6 +453,11 @@ test.describe('canonical account auth handlers', () => {
       .getByRole('link', { name: 'Segurança' })
       .click()
     await expect(page).toHaveURL(/\/account\/security\/?$/)
+    // A submit before hydration is a native form post that reloads the page and
+    // never reaches the password handler.
+    await page.waitForFunction(() => document.body.dataset.hydrated === 'true', null, {
+      timeout: 30_000,
+    })
     let attempts = 0
     await page.route('**/api/auth/account/password', async (route) => {
       attempts += 1
