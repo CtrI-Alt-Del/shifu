@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import partial
 import json
+import re
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from agno.eval import Case
@@ -33,7 +34,7 @@ class ProcessMentorResponseEval(Eval):
 
     selector = 'process-mentor-response'
     workflow_id = 'intelligence-process-mentor-response'
-    prompt_revision = 'mentor-response-eval-v4'
+    prompt_revision = 'mentor-response-eval-v5'
 
     ATTACHMENT_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
     CHUNK_ID: ClassVar[str] = '01ARZ3NDEKTSV4RRFFQ69G5FAW'
@@ -78,7 +79,7 @@ class ProcessMentorResponseEval(Eval):
     # A general answer that cannot know the learner's progress says so in many words:
     # "não tenho dados", "não consigo confirmar", "o contexto não informa". It passes
     # with a limitation marker plus a reference to the missing data, and never with
-    # an invented count.
+    # an invented count, written in digits or in words.
     LIMITATION_MARKERS: ClassVar[tuple[str, ...]] = (
         'não tenho',
         'não possuo',
@@ -91,6 +92,7 @@ class ProcessMentorResponseEval(Eval):
         'não estão',
         'não verifi',
         'não consult',
+        'não informa',
         'não sei',
         'sem acesso',
         'sem dados',
@@ -107,6 +109,27 @@ class ProcessMentorResponseEval(Eval):
         'consult',
     )
     INVENTED_COUNT_TERMS: ClassVar[tuple[str, ...]] = (*'0123456789', 'zero')
+    # Written numbers need word boundaries, so they are patterns, not terms. They
+    # catch a count of Habilidades ("doze Habilidades"), a count after a completion
+    # word in the same clause ("concluiu doze", "o total é vinte"), a count before
+    # a completion word ("doze concluídas") and a single Habilidade ("concluiu uma").
+    # "um" and "uma" stay out of the first three on purpose: "uma Habilidade
+    # concluída aparece no seu Objetivo" is a correct explanation, not a count.
+    WRITTEN_NUMBERS: ClassVar[str] = (
+        'dois|duas|tr[eê]s|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|'
+        '(?:qu|c)atorze|quinze|dez[ea]sseis|dez[ea]ssete|dezoito|dez[ea]nove|'
+        'vinte|trinta|quarenta|cinquenta|sessenta|setenta|oitenta|noventa|cem|'
+        'cento|duzent[oa]s|trezent[oa]s|quatrocent[oa]s|quinhent[oa]s|mil'
+    )
+    INVENTED_COUNT_PATTERNS: ClassVar[tuple[str, ...]] = (
+        rf'\b(?:{WRITTEN_NUMBERS})\b\s+(?:de\s+)?habilidades?\b',
+        (
+            rf'\b(?:conclu\w*|complet\w*|finaliz\w*|total|soma|somam)\b'
+            rf'[^.!?,;\n]{{0,25}}?\b(?:{WRITTEN_NUMBERS})\b'
+        ),
+        r'\bconclu(?:iu|ímos|iste)\s+(?:apenas\s+|somente\s+|só\s+)?(?:um|uma)\b',
+        rf'\b(?:{WRITTEN_NUMBERS})\s+(?:conclu\w*|complet\w*|finaliz\w*)\b',
+    )
     REVIEW_REQUEST: ClassVar[dict[str, Any]] = {
         'requested_part': 'Qual equivalência para 1/2 está indicada na página?',
         'context': {'sources': [ALLOWED_SOURCE]},
@@ -191,6 +214,7 @@ class ProcessMentorResponseEval(Eval):
             required_any = expected_data.get('required_any', ())
             required_groups = expected_data.get('required_groups', ())
             forbidden = expected_data.get('forbidden_terms', ())
+            forbidden_patterns = expected_data.get('forbidden_patterns', ())
             # Each group needs at least one of its terms; `required_any` is one group.
             groups = (*((required_any,) if required_any else ()), *required_groups)
             failed_checks = [
@@ -201,6 +225,11 @@ class ProcessMentorResponseEval(Eval):
                     if not any(term in normalized for term in group)
                 ),
                 *(f'forbidden_term:{term}' for term in forbidden if term in normalized),
+                *(
+                    f'forbidden_pattern:{pattern}'
+                    for pattern in forbidden_patterns
+                    if re.search(pattern, normalized)
+                ),
             ]
             passed = not failed_checks
             return Score(
@@ -329,6 +358,7 @@ class ProcessMentorResponseEval(Eval):
                     self.MISSING_DATA_REFERENCES,
                 ),
                 forbidden_terms=self.INVENTED_COUNT_TERMS,
+                forbidden_patterns=self.INVENTED_COUNT_PATTERNS,
             ),
             Case(
                 name='general_review_accepts_a_learning_orientation',
@@ -398,6 +428,7 @@ class ProcessMentorResponseEval(Eval):
         required_any: tuple[str, ...] = (),
         required_groups: tuple[tuple[str, ...], ...] = (),
         forbidden_terms: tuple[str, ...],
+        forbidden_patterns: tuple[str, ...] = (),
     ) -> Case:
         return Case(
             name=name,
@@ -409,6 +440,7 @@ class ProcessMentorResponseEval(Eval):
                 'required_any': required_any,
                 'required_groups': required_groups,
                 'forbidden_terms': forbidden_terms,
+                'forbidden_patterns': forbidden_patterns,
             },
             timeout_seconds=self.DEFAULT_TIMEOUT_SECONDS,
         )
