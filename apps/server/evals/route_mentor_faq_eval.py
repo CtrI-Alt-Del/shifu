@@ -368,6 +368,11 @@ class RouteMentorFaqEval(Eval):
 
     def router(self) -> LocalMentorRouteProvider:
         if self._router is None:
+            # Without its reranker the router answers nothing and raises no error, so
+            # a missing model would read as a wrong FAQ answer. Load it first: the
+            # case then fails as `route_unavailable`. This only reads the local cache.
+            reranker = SentenceTransformersMentorFaqRerankerProvider()
+            reranker.prepare()
             resources = MentorResources()
             embeddings = SentenceTransformersEmbeddingsProvider()
             repository = InMemoryMentorEmbeddingsRepository()
@@ -381,6 +386,6 @@ class RouteMentorFaqEval(Eval):
                 resources,
                 telemetry=_SilentMentorTelemetryProvider(),
                 catalog_provider=catalog,
-                reranker_provider=SentenceTransformersMentorFaqRerankerProvider(),
+                reranker_provider=reranker,
             )
         return self._router
