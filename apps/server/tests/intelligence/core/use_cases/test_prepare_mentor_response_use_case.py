@@ -1,6 +1,6 @@
 from dataclasses import replace
 from datetime import timedelta
-
+from typing import ClassVar
 from unittest.mock import create_autospec
 
 import pytest
@@ -1648,6 +1648,30 @@ class _PrepareActionSetup(_PrepareSubjectSetup):
             self.attempt, context_hint=MentorContextHint(goal_id=goal_id)
         )
 
+    def _hold(self, *held_skill_ids: str) -> None:
+        """Script the destinations so only the named Skills sit in an Objective."""
+
+        def read(_account_id: str, skill_id: str) -> MentorGoalDestinations:
+            experience = (
+                f'experience-{skill_id}' if skill_id in held_skill_ids else None
+            )
+            return MentorGoalDestinations(
+                goals=(self._goal('goal', 'Aprender a programar', experience),)
+            )
+
+        self.goal_destinations.read.side_effect = read
+
+    def _name_objectives(self, *titles: str) -> None:
+        """Give the context the learner's Objective titles as the Learning provider does."""
+        facts = tuple(
+            ('goals', f'01ARZ3NDEKTSV4RRFFQ69G5F{index:02d}: {title}')
+            for index, title in enumerate(titles)
+        )
+        self.context_provider.read.return_value = context_snapshot(facts=facts)
+
+    def _read_skill_ids(self) -> list[str]:
+        return [call.args[1] for call in self.goal_destinations.read.call_args_list]
+
     def _prepare(self) -> PreparedMentorResponse:
         prepared = self.subject.execute('attempt', 'owner')
         assert prepared is not None
@@ -1890,6 +1914,311 @@ class TestPrepareMentorActions(_PrepareActionSetup):
 
         assert text == 'Não encontrei essa Habilidade no Currículo.'
         self.goal_destinations.read.assert_not_called()
+
+    _REMOVE_JAVASCRIPT: ClassVar[str] = 'Remova a habilidade JavaScript'
+
+    def _javascript_skills(self, count: int) -> tuple[MentorCatalogEntry, ...]:
+        titles = (
+            'JavaScript básico',
+            'JavaScript essencial',
+            'JavaScript avançado',
+            'JavaScript assíncrono',
+            'JavaScript moderno',
+            'JavaScript funcional',
+        )
+        return tuple(
+            self._skill(f'skill-{index}', title)
+            for index, title in enumerate(titles[:count], start=1)
+        )
+
+    def _expect_names(self, prepared: PreparedMentorResponse, *titles: str) -> None:
+        assert self._expect_text_only(prepared) == (
+            f'Encontrei mais de uma Habilidade parecida: {", ".join(titles)}. '
+            'Qual delas você quer?'
+        )
+
+    def test_should_propose_a_removal_for_a_skill_named_by_one_word_of_its_title(
+        self,
+    ) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal('goal', 'Aprender a programar', 'experience'),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=(self._skill('skill', 'JavaScript essencial'),),
+        )
+
+        draft = self._prepare().action_proposal
+
+        assert draft == MentorActionProposalDraft(
+            kind=MentorActionKind.REMOVE_SKILL,
+            skill_id='skill',
+            skill_name='JavaScript essencial',
+            goal_id='goal',
+            goal_title='Aprender a programar',
+            skill_experience_id='experience',
+            candidate_goals=(),
+            justification=None,
+        )
+
+    def test_should_propose_an_addition_for_a_skill_named_by_one_word_of_its_title(
+        self,
+    ) -> None:
+        self._request(
+            'Adicione funções ao meu Objetivo',
+            self._goal(),
+            skills=(self._skill('skill', 'Funções em Python'),),
+        )
+
+        draft = self._prepare().action_proposal
+
+        assert draft is not None
+        assert draft.kind is MentorActionKind.ADD_SKILL
+        assert draft.skill_id == 'skill'
+        assert draft.skill_name == 'Funções em Python'
+        assert draft.goal_id == 'goal'
+
+    def test_should_not_match_a_skill_through_command_words(self) -> None:
+        self._request(
+            'Adicione Haskell ao meu Objetivo',
+            self._goal(),
+            skills=(self._skill('skill', 'Objetivo e planejamento'),),
+        )
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_not_match_a_skill_through_function_words_of_the_request(
+        self,
+    ) -> None:
+        self._request(
+            'Remova uma habilidade por favor',
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=(
+                self._skill('skill-1', 'Como avaliar uma condição'),
+                self._skill('skill-2', 'Por que repetir instruções?'),
+            ),
+        )
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_not_match_a_skill_through_an_action_verb_of_the_request(
+        self,
+    ) -> None:
+        self._request(
+            'Insira a habilidade Haskell no meu Objetivo',
+            self._goal(),
+            skills=(self._skill('skill', 'Insira dados em tabelas'),),
+        )
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_remove_an_accented_objective_title_written_without_accents(
+        self,
+    ) -> None:
+        self._request(
+            'Adicione Haskell ao Objetivo programacao',
+            self._goal(),
+            skills=(self._skill('skill', 'Programação básica'),),
+        )
+        self._name_objectives('Programação')
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_not_match_a_skill_through_a_named_objective_title(self) -> None:
+        self._request(
+            'Adicione Haskell ao Objetivo Aprender Python',
+            self._goal(),
+            skills=(self._skill('skill', 'Python essencial'),),
+        )
+        self._name_objectives('Aprender Python')
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_resolve_the_skill_word_that_stays_next_to_an_objective_title(
+        self,
+    ) -> None:
+        self._request(
+            'Remova a habilidade Python do Objetivo Aprender Python',
+            self._goal('goal', 'Aprender Python', 'experience'),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=(
+                self._skill('skill-py', 'Python essencial'),
+                self._skill('skill-plan', 'Objetivo e planejamento'),
+                self._skill('skill-js', 'JavaScript essencial'),
+            ),
+        )
+        self._name_objectives('Aprender Python')
+
+        draft = self._prepare().action_proposal
+
+        assert draft is not None and draft.skill_id == 'skill-py'
+        # No tie-break ran: only the read for the resolved Skill happened.
+        assert self._read_skill_ids() == ['skill-py']
+
+    def test_should_keep_the_objective_title_when_no_skill_word_is_left(self) -> None:
+        self._request(
+            'Remova a habilidade JavaScript do Objetivo JavaScript',
+            self._goal('goal', 'JavaScript', 'experience'),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=(
+                self._skill('skill-py', 'Python essencial'),
+                self._skill('skill-plan', 'Objetivo e planejamento'),
+                self._skill('skill-js', 'JavaScript essencial'),
+            ),
+        )
+        self._name_objectives('JavaScript')
+
+        draft = self._prepare().action_proposal
+
+        assert draft is not None and draft.skill_id == 'skill-js'
+        assert self._read_skill_ids() == ['skill-js']
+
+    def test_should_propose_the_only_held_skill_when_several_share_a_word_for_a_removal(
+        self,
+    ) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(2),
+        )
+        self._hold('skill-1')
+
+        draft = self._prepare().action_proposal
+
+        assert draft is not None and draft.skill_id == 'skill-1'
+        # One tie-break read per candidate, then the read for the resolved Skill.
+        assert self._read_skill_ids() == ['skill-1', 'skill-2', 'skill-1']
+
+    def test_should_list_only_the_held_skills_when_several_are_held_for_a_removal(
+        self,
+    ) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(3),
+        )
+        self._hold('skill-1', 'skill-3')
+
+        self._expect_names(self._prepare(), 'JavaScript básico', 'JavaScript avançado')
+
+        assert self._read_skill_ids() == ['skill-1', 'skill-2', 'skill-3']
+
+    def test_should_list_every_candidate_when_none_is_held_for_a_removal(self) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(2),
+        )
+        self._hold()
+
+        self._expect_names(self._prepare(), 'JavaScript básico', 'JavaScript essencial')
+
+        assert self._read_skill_ids() == ['skill-1', 'skill-2']
+
+    def test_should_break_the_tie_among_five_candidates_with_five_reads(self) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(5),
+        )
+        self._hold('skill-3')
+
+        draft = self._prepare().action_proposal
+
+        assert draft is not None and draft.skill_id == 'skill-3'
+        assert self._read_skill_ids() == [
+            'skill-1',
+            'skill-2',
+            'skill-3',
+            'skill-4',
+            'skill-5',
+            'skill-3',
+        ]
+
+    def test_should_list_five_names_without_destination_reads_when_more_than_five_match(
+        self,
+    ) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(6),
+        )
+
+        self._expect_names(
+            self._prepare(),
+            'JavaScript básico',
+            'JavaScript essencial',
+            'JavaScript avançado',
+            'JavaScript assíncrono',
+            'JavaScript moderno',
+        )
+
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_not_read_destinations_to_break_a_tie_for_an_addition(self) -> None:
+        self._request(
+            'Adicione a habilidade JavaScript ao meu Objetivo',
+            self._goal(),
+            skills=self._javascript_skills(2),
+        )
+
+        self._expect_names(self._prepare(), 'JavaScript básico', 'JavaScript essencial')
+
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_say_the_skill_is_unknown_when_no_content_word_is_shared(
+        self,
+    ) -> None:
+        self._request(
+            'Adicione Haskell ao meu Objetivo',
+            self._goal(),
+            skills=(self._skill('skill', 'Funções em Python'),),
+        )
+
+        text = self._expect_text_only(self._prepare())
+
+        assert text == 'Não encontrei essa Habilidade no Currículo.'
+        self.goal_destinations.read.assert_not_called()
+
+    def test_should_stop_the_tie_break_when_access_fails(self) -> None:
+        self._request(
+            self._REMOVE_JAVASCRIPT,
+            self._goal(),
+            intents=(MentorIntent.REMOVE_SKILL,),
+            skills=self._javascript_skills(3),
+        )
+        self._hold('skill-1')
+
+        def fail_after_the_first_read(_grant: object = None) -> None:
+            if self.goal_destinations.read.call_count >= 1:
+                raise ServiceUnavailableError
+
+        self.access.assert_current.side_effect = fail_after_the_first_read
+
+        with pytest.raises(ServiceUnavailableError):
+            self.subject.execute('attempt', 'owner')
+
+        assert self._read_skill_ids() == ['skill-1']
 
     def test_should_ignore_catalog_entries_that_are_not_skills(self) -> None:
         competency = replace(self._skill('competency', 'Funções'), kind='competency')
@@ -2369,8 +2698,9 @@ class TestPrepareMentorActionSkillResolution(_PrepareActionSetup):
         eligible = (
             (page_skill,) if page_skill else tuple(e.reference_id for e in catalog)
         )
+        # The Learning provider sets the selected Skill on a Skill page.
         self.context_provider.read.return_value = context_snapshot(
-            eligible_references=eligible
+            eligible_references=eligible, skill_id=page_skill
         )
         self.catalog_provider.search.side_effect = search
 
@@ -2392,6 +2722,14 @@ class TestPrepareMentorActionSkillResolution(_PrepareActionSetup):
 
         assert prepared.action_proposal is not None
         assert prepared.action_proposal.skill_id == 'skill-py'
+
+    def test_should_not_resolve_a_partial_name_on_the_skill_page(self) -> None:
+        prepared = self._ask('Remova a habilidade Python', page_skill='skill-py')
+
+        assert self._expect_text_only(prepared) == (
+            'Não encontrei essa Habilidade no Currículo.'
+        )
+        self.goal_destinations.read.assert_not_called()
 
     @pytest.mark.parametrize(
         'content',
