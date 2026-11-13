@@ -6,8 +6,18 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from shifu.intelligence.core.domain.enums import MentorResponseStatus
+from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
+    MentorResponseStatus,
+)
 from shifu.intelligence.rest.controllers import stream_mentor_response_controller
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    app_of,
+    charge_attempt,
+    pin_clock,
+    read_charge,
+    read_month,
+)
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
@@ -95,6 +105,35 @@ class TestStreamMentorResponseController:
             attempt = repositories.mentor_response_attempts.find_by_id(self.attempt_id)
         assert attempt is not None
         assert attempt.status is MentorResponseStatus.FAILED
+
+    def test_should_give_the_charged_units_back_when_the_stream_fails_an_orphaned_attempt(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(stream_mentor_response_controller, '_POLL_SECONDS', 0.01)
+        monkeypatch.setattr(
+            stream_mentor_response_controller, '_RECOVERY_IDLE_POLLS', 1
+        )
+        self.fixture.start_processing(self.attempt_id)
+        charge_attempt(self.fixture, self.attempt_id, input_tokens=10, output_tokens=5)
+        month = read_month(self.fixture)
+        assert month is not None
+        assert month.used_units == 30
+        # Ten minutes later the five-minute claim of the stopped execution is free.
+        pin_clock(app_of(self.client), datetime.now(UTC) + timedelta(minutes=10))
+
+        response = self.client.get(self.path)
+
+        assert (
+            frames(response.text)[-1][1]['status'] == MentorResponseStatus.FAILED.value
+        )
+        charge = read_charge(
+            self.fixture, AiQuotaRequestKind.MENTOR_RESPONSE, self.attempt_id
+        )
+        assert charge is not None
+        assert charge.refunded is True
+        month = read_month(self.fixture)
+        assert month is not None
+        assert month.used_units == 0
 
     def test_should_not_open_another_accounts_stream(self) -> None:
         with self.fixture.other_account_client() as other:

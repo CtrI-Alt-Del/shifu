@@ -7,8 +7,31 @@ if (!port || !identityOrigin)
     'The account upstream requires a loopback port and real Identity origin',
   )
 
+// Per-account scenarios. Without a body, a control POST keeps the original fault:
+// 503 on the account routes. `{ "scenario": "ai-quota-exhausted" }` instead answers 429
+// to every AI start route and passes everything else through to the real API, so the
+// real server functions and their error classification run.
+const FAULT_SCENARIO = 'account-unavailable'
+const QUOTA_SCENARIO = 'ai-quota-exhausted'
+const QUOTA_REFUSED_ROUTES = [
+  /^\/intelligence\/mentor-sessions\/?$/,
+  /^\/intelligence\/mentor-sessions\/[^/]+\/messages\/?$/,
+  /^\/intelligence\/mentor-sessions\/[^/]+\/responses\/[^/]+\/retry\/?$/,
+  /^\/intelligence\/planning-sessions\/?$/,
+  /^\/intelligence\/planning-sessions\/[^/]+\/(?:restart|retry)\/?$/,
+]
 const scenarios = new Map()
-const server = createServer((request, response) => {
+async function readScenarioKind(request) {
+  let text = ''
+  for await (const chunk of request) text += chunk
+  if (!text) return FAULT_SCENARIO
+  try {
+    return JSON.parse(text).scenario === QUOTA_SCENARIO ? QUOTA_SCENARIO : FAULT_SCENARIO
+  } catch {
+    return FAULT_SCENARIO
+  }
+}
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://127.0.0.1:${port}`)
   if (url.pathname === '/__account-control/health') {
     response.end('ready')
@@ -19,7 +42,7 @@ const server = createServer((request, response) => {
     const accountId = control[1]
     response.setHeader('Content-Type', 'application/json')
     if (request.method === 'POST') {
-      scenarios.set(accountId, { hits: {} })
+      scenarios.set(accountId, { kind: await readScenarioKind(request), hits: {} })
       response.end(JSON.stringify({ enabled: true }))
     } else if (request.method === 'GET') {
       response.end(JSON.stringify(scenarios.get(accountId) ?? { hits: {} }))
@@ -44,7 +67,27 @@ const server = createServer((request, response) => {
   }
   const scenario = scenarios.get(accountId)
   if (
-    scenario &&
+    scenario?.kind === QUOTA_SCENARIO &&
+    request.method === 'POST' &&
+    QUOTA_REFUSED_ROUTES.some((route) => route.test(url.pathname))
+  ) {
+    const key = `${request.method} ${url.pathname}`
+    scenario.hits[key] = (scenario.hits[key] ?? 0) + 1
+    request.resume()
+    response.writeHead(429, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    })
+    response.end(
+      JSON.stringify({
+        code: 'ai_quota_exhausted',
+        message: 'Sua cota mensal de IA acabou.',
+      }),
+    )
+    return
+  }
+  if (
+    scenario?.kind === FAULT_SCENARIO &&
     [
       '/identity/session',
       '/identity/accounts/me',

@@ -18,10 +18,16 @@ from shifu.intelligence.core.domain.structures import (
     PlanningQuestion,
     PlanningQuestionBatch,
 )
-from unittest.mock import create_autospec
+from unittest.mock import Mock, create_autospec
 from shifu.intelligence.core.interfaces import (
     PlanningSessionsRepository,
     IntelligenceDatabase,
+    IntelligenceDatabaseRepositories,
+)
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    AiQuotaTestSetup,
+    quota_calendar,
+    quota_policy,
 )
 from shifu.intelligence.core.use_cases import (
     StartPlanningUseCase,
@@ -172,7 +178,7 @@ def boundary_start(
     now: datetime,
 ) -> PlanningSession:
     sessions = create_autospec(PlanningSessionsRepository, instance=True)
-    database = create_autospec(IntelligenceDatabase, instance=True)
+    database = _quota_database()
     access = create_autospec(MentorAccessProvider, instance=True)
     access.authorize.return_value = MentorAccessGrant(
         account_id=account_id, access_revision=revision, operation_key=planning_id
@@ -183,12 +189,27 @@ def boundary_start(
     clock.now.return_value = now
     try:
         return StartPlanningUseCase(
-            sessions, database, access, identifiers, clock
+            sessions,
+            database,
+            access,
+            identifiers,
+            clock,
+            quota_policy(),
+            quota_calendar(),
         ).execute(account_id, intent)
     except ValueError:
         sessions.add.assert_not_called()
         database.transaction.assert_not_called()
         raise
+
+
+def _quota_database() -> Mock:
+    """A database double whose quota ports admit every request below the limit."""
+    database = create_autospec(IntelligenceDatabase, instance=True)
+    repositories = create_autospec(IntelligenceDatabaseRepositories, instance=True)
+    AiQuotaTestSetup().prepare_quota(repositories)
+    database.transaction.return_value.__enter__.return_value = repositories
+    return database
 
 
 def boundary_complete(
@@ -203,9 +224,9 @@ def boundary_complete(
     sessions.update.return_value = True
     clock = create_autospec(ClockProvider, instance=True)
     clock.now.return_value = now
-    return CompletePlanningOperationUseCase(sessions, clock).execute(
-        session.id, operation_id, generation, result
-    )
+    return CompletePlanningOperationUseCase(
+        sessions, clock, _quota_database(), quota_policy(), quota_calendar()
+    ).execute(session.id, operation_id, generation, result)
 
 
 def boundary_answer(
@@ -218,14 +239,14 @@ def boundary_answer(
     sessions = create_autospec(PlanningSessionsRepository, instance=True)
     sessions.find_by_id.return_value = session
     sessions.update.return_value = True
-    database = create_autospec(IntelligenceDatabase, instance=True)
+    database = _quota_database()
     identifiers = create_autospec(IdentifierProvider, instance=True)
     identifiers.generate.return_value = operation_id
     clock = create_autospec(ClockProvider, instance=True)
     clock.now.return_value = now
     try:
         return AnswerPlanningQuestionsUseCase(
-            sessions, database, identifiers, clock
+            sessions, database, identifiers, clock, quota_policy(), quota_calendar()
         ).execute(session.account_id, session.id, batch_id, answers)
     except (
         PlanningAnswersInvalidError,
@@ -247,7 +268,7 @@ def boundary_restart(
     sessions = create_autospec(PlanningSessionsRepository, instance=True)
     sessions.find_by_id.return_value = session
     sessions.update.return_value = True
-    database = create_autospec(IntelligenceDatabase, instance=True)
+    database = _quota_database()
     access = create_autospec(MentorAccessProvider, instance=True)
     access.authorize.return_value = MentorAccessGrant(
         account_id=session.account_id,
@@ -259,7 +280,13 @@ def boundary_restart(
     clock = create_autospec(ClockProvider, instance=True)
     clock.now.return_value = now
     return RestartPlanningUseCase(
-        sessions, database, access, identifiers, clock
+        sessions,
+        database,
+        access,
+        identifiers,
+        clock,
+        quota_policy(),
+        quota_calendar(),
     ).execute(session.account_id, session.id, intent)
 
 
@@ -269,14 +296,14 @@ def boundary_retry(
     sessions = create_autospec(PlanningSessionsRepository, instance=True)
     sessions.find_by_id.return_value = session
     sessions.update.return_value = True
-    database = create_autospec(IntelligenceDatabase, instance=True)
+    database = _quota_database()
     identifiers = create_autospec(IdentifierProvider, instance=True)
     identifiers.generate.return_value = operation_id
     clock = create_autospec(ClockProvider, instance=True)
     clock.now.return_value = now
-    return RetryPlanningUseCase(sessions, database, identifiers, clock).execute(
-        session.account_id, session.id
-    )
+    return RetryPlanningUseCase(
+        sessions, database, identifiers, clock, quota_policy(), quota_calendar()
+    ).execute(session.account_id, session.id)
 
 
 def boundary_progress(
@@ -304,9 +331,9 @@ def boundary_expire(
     sessions.update.return_value = True
     clock = create_autospec(ClockProvider, instance=True)
     clock.now.return_value = now
-    GetPlanningSessionUseCase(sessions, clock, timeout).execute(
-        session.account_id, session.id
-    )
+    GetPlanningSessionUseCase(
+        sessions, clock, timeout, _quota_database(), quota_policy(), quota_calendar()
+    ).execute(session.account_id, session.id)
     return sessions.update.called
 
 

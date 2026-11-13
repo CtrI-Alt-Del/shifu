@@ -210,7 +210,7 @@ No `plan.md` is created, read or completed.
 
 For local closure when publication is not requested or explicitly local-only,
 set both artifacts `completed` after all local requirements pass; record
-publication/current-head CI as not requested or not applicable, with the reason.
+publication as not requested or not applicable, with the reason.
 For authorized publication, retain Spec `implemented` and Evaluation `ready`
 through commit/PR handoff until publication, required current-head CI and blocking
 review conversations are resolved. A publication failure records a blocker and
@@ -233,11 +233,12 @@ If publication is unavailable, report the blocker and retain the publication-rea
 states; do not claim publication or completed authorized delivery.
 
 For each current delivery PR head, inspect applicable checked-in CI workflow path
-filters and current checks with authenticated `gh`; wait for terminal results and
-record name, run URL, head SHA and result. Inspect repository state rather than
-assuming workflows exist. Missing, pending, cancelled or earlier-head CI is not
-passing current-head CI. If no applicable workflow exists, record not applicable.
-A required current-head CI execution is distinct from repeating local suites.
+filters and current checks with authenticated `gh`; wait for terminal results.
+Do not record GitHub CI results (names, run URLs, head SHA or outcomes) in
+Evaluation; the PR checks are the record, and the final report states the outcome.
+Inspect repository state rather than assuming workflows exist. Missing, pending,
+cancelled or earlier-head CI is not passing current-head CI. A required
+current-head CI execution is distinct from repeating local suites.
 
 For actionable CI failures, reopen Evaluation and route the correction through
 `implement-spec`, refresh affected evidence, then commit and update the existing
@@ -254,6 +255,6 @@ delivery into `main` or deploy without separate authority.
 
 Return concise clickable Spec, Evaluation and PR links; Spec revision and final
 statuses; branch/commits and Jira/PRD references; criterion/checker coverage and
-reused evidence; delivery dispositions; CI and publication state; resolved findings,
+reused evidence; delivery dispositions; current-head CI outcome and publication state; resolved findings,
 remaining limitations, factual documentation updates and preserved exclusions.
 Claim only outcomes actually observed and recorded.

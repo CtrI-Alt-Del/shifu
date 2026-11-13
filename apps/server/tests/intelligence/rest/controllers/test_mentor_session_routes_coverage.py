@@ -73,6 +73,8 @@ def test_create_session_route_calls_use_case_and_sets_replay_status(
         object(),
         object(),
         object(),
+        object(),
+        object(),
     )
 
     assert result == {'session': 'detail'}
@@ -109,6 +111,8 @@ def test_submit_message_route_calls_use_case_and_sets_response_status(
         SubmitMessageRequest(submission_key=uuid4(), content='hello'),
         response,
         _USER,
+        object(),
+        object(),
         object(),
         object(),
         object(),

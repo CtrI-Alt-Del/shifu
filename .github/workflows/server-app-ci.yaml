@@ -150,6 +150,9 @@ jobs:
       SHIFU_EMAIL_FROM: no-reply@shifu.local
       SHIFU_EMAIL_PROVIDER: smtp
       SHIFU_SERVER_APP_MODE: local
+      AI_QUOTA_MONTHLY_LIMIT_UNITS: '1000'
+      AI_QUOTA_INPUT_WEIGHT: '1'
+      AI_QUOTA_OUTPUT_WEIGHT: '4'
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -232,6 +235,9 @@ jobs:
       SHIFU_EMAIL_FROM: no-reply@shifu.local
       SHIFU_EMAIL_PROVIDER: smtp
       SHIFU_SERVER_APP_MODE: local
+      AI_QUOTA_MONTHLY_LIMIT_UNITS: '1000'
+      AI_QUOTA_INPUT_WEIGHT: '1'
+      AI_QUOTA_OUTPUT_WEIGHT: '4'
       SHIFU_RUN_REAL_INNGEST_TESTS: "1"
       SHIFU_RUN_REAL_AGENTOS_TESTS: "1"
     steps:
@@ -396,6 +402,9 @@ jobs:
       SHIFU_EMAIL_FROM: no-reply@shifu.local
       SHIFU_EMAIL_PROVIDER: smtp
       SHIFU_SERVER_APP_MODE: local
+      AI_QUOTA_MONTHLY_LIMIT_UNITS: '1000'
+      AI_QUOTA_INPUT_WEIGHT: '1'
+      AI_QUOTA_OUTPUT_WEIGHT: '4'
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -420,6 +429,12 @@ jobs:
           uv run python -c
           'from shifu.intelligence.providers.embeddings.sentence_transformers.sentence_transformers_embeddings_provider import SentenceTransformersEmbeddingsProvider;
           SentenceTransformersEmbeddingsProvider(local_files_only=False)'
+
+      - name: Prepare pinned Mentor FAQ reranker
+        run: >-
+          uv run python -c
+          'from shifu.intelligence.providers.retrieval.sentence_transformers.sentence_transformers_mentor_faq_reranker_provider import SentenceTransformersMentorFaqRerankerProvider;
+          SentenceTransformersMentorFaqRerankerProvider(local_files_only=False).prepare()'
 
       - name: Prepare pinned Planner word vectors
         run: uv run poe planner:word-vectors

@@ -56,9 +56,13 @@ from shifu.identity.rest.router import IdentityRouter
 from shifu.intelligence.ai.intelligence_workflows_registry import (
     IntelligenceWorkflowsRegistry,
 )
+from shifu.intelligence.core.domain.structures import AiQuotaPolicy
 from shifu.intelligence.core.interfaces import (
     MentorRouteProvider,
     MentorTelemetryProvider,
+)
+from shifu.intelligence.providers.ai_quota_calendar.zoneinfo import (
+    ZoneinfoAiQuotaCalendarProvider,
 )
 from shifu.intelligence.rest.router import IntelligenceRouter
 from shifu.intelligence.rest.mentor_attachment_body_limit_middleware import (
@@ -319,6 +323,12 @@ class FastAPIApp:
             mentor_goal_destinations_provider
             or LearningMentorGoalDestinationsProvider(learning_database)
         )
+        ai_quota_policy = AiQuotaPolicy(
+            monthly_limit_units=settings.ai_quota_monthly_limit_units,
+            input_weight=settings.ai_quota_input_weight,
+            output_weight=settings.ai_quota_output_weight,
+        )
+        ai_quota_calendar_provider = ZoneinfoAiQuotaCalendarProvider()
         intelligence_registry = IntelligenceWorkflowsRegistry(
             settings,
             None,
@@ -327,6 +337,8 @@ class FastAPIApp:
             mentor_catalog_provider,
             mentor_goal_destinations_provider,
             outbox_engine=database_engine,
+            quota_policy=ai_quota_policy,
+            quota_calendar=ai_quota_calendar_provider,
             route_provider=mentor_route_provider,
             telemetry=mentor_telemetry_provider,
             curriculum_catalog_provider=curriculum_catalog_provider,
@@ -461,6 +473,9 @@ class FastAPIApp:
                     record_mentor_action_outcome_use_case=(
                         intelligence_registry.record_mentor_action_outcome_use_case
                     ),
+                    purge_ai_quota_use_case=(
+                        intelligence_registry.purge_ai_quota_use_case
+                    ),
                     account_deleted_event_name=AccountDeletedEvent.EVENT_NAME,
                     mentor_action_resolved_event_name=(
                         MentorSkillActionResolvedEvent.EVENT_NAME
@@ -526,6 +541,8 @@ class FastAPIApp:
         app.state.curriculum_content_provider = curriculum_content_provider
         app.state.curriculum_catalog_provider = curriculum_catalog_provider
         app.state.intelligence_database = intelligence_registry.database
+        app.state.ai_quota_policy = ai_quota_policy
+        app.state.ai_quota_calendar_provider = ai_quota_calendar_provider
         app.state.mentor_access_provider = mentor_access_provider
         app.state.mentor_context_provider = mentor_context_provider
         app.state.mentor_goal_destinations_provider = mentor_goal_destinations_provider

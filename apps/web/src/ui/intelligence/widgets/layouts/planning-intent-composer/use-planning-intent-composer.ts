@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react'
 
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
+import { isPlanningQuotaExhaustedError } from '@/ui/intelligence/hooks/planning-request-error'
 import { useStartPlanningAction } from '@/ui/intelligence/hooks/use-start-planning-action'
 import { registerPlanningEntry } from '@/ui/intelligence/planning-entry'
 
@@ -12,6 +14,10 @@ const START_PLANNING_ERROR_MESSAGE =
 export function usePlanningIntentComposer() {
   const { navigateToPlanner } = useNavigation()
   const { error: startPlanningError, isPending, startPlanning } = useStartPlanningAction()
+  // The refusal lasts until the next mutate; the server refusal wins over an older reading.
+  const hasQuotaRefusal = isPlanningQuotaExhaustedError(startPlanningError)
+  const { isAiQuotaBlocked, getAiQuotaBlockedMessage, aiQuotaBlockedRole } =
+    useAiQuotaBlock(hasQuotaRefusal)
   const [intent, setIntent] = useState('')
   const [validationMessage, setValidationMessage] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -23,6 +29,7 @@ export function usePlanningIntentComposer() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (isAiQuotaBlocked) return
     const trimmedIntent = intent.trim()
 
     if (!trimmedIntent) {
@@ -43,7 +50,12 @@ export function usePlanningIntentComposer() {
   return {
     intent,
     isPending,
-    startPlanningErrorMessage: startPlanningError ? START_PLANNING_ERROR_MESSAGE : null,
+    isAiQuotaBlocked,
+    aiQuotaBlockedMessage: getAiQuotaBlockedMessage('home'),
+    aiQuotaBlockedRole,
+    // A quota refusal is explained by the blocked card, never by the generic error.
+    startPlanningErrorMessage:
+      startPlanningError && !hasQuotaRefusal ? START_PLANNING_ERROR_MESSAGE : null,
     textareaRef,
     validationMessage,
     handleIntentChange,

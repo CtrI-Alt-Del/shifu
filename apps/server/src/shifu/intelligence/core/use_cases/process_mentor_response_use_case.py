@@ -3,7 +3,11 @@ from contextlib import contextmanager, suppress
 from contextvars import ContextVar, copy_context
 from math import isfinite
 from threading import Event, Thread
-from shifu.intelligence.core.interfaces import MentorTelemetryProvider
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    MentorTelemetryProvider,
+)
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from dataclasses import asdict, replace
 import re
 import unicodedata
@@ -11,12 +15,14 @@ from datetime import timedelta
 
 from shifu.intelligence.core.domain.entities import MentorResponseAttempt
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorResponseStatus,
     MentorResponseEventKind,
     MentorIntent,
     MentorWorkflowStep,
 )
 from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
     MentorResponseEvent,
     MentorResponseBlock,
     MentorGenerationRequest,
@@ -58,8 +64,13 @@ class ProcessMentorResponseUseCase:
         route_provider: MentorRouteProvider,
         answer_workflow: AnswerMentorMessageWorkflow,
         catalog_provider: MentorCatalogProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
         self._telemetry: MentorTelemetryProvider | None = telemetry
         self._execution_owner_context: ContextVar[str | None] = ContextVar(
             'mentor_execution_owner', default=None
@@ -487,6 +498,10 @@ class ProcessMentorResponseUseCase:
                 MentorResponseStatus.FAILED,
                 attempt.access_revision,
             ):
+                # The refund shares the transaction that writes FAILED.
+                self._ledger.refund(
+                    repositories, AiQuotaRequestKind.MENTOR_RESPONSE, attempt.id
+                )
                 event = self._event(
                     attempt,
                     repositories.mentor_response_events.next_sequence(

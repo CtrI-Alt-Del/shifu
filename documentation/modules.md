@@ -39,20 +39,28 @@ eligible to receive them, and owns the tokens, validity periods, resend limits,
 and account-state changes involved. Communication owns composition and delivery
 of the resulting transactional messages.
 
+Minha conta shows the reminders on/off switch and the reminder time, but does
+not own them: Communication owns the switch and Gamification owns the time.
+
 Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDyB) · Origin: [Google Doc](https://docs.google.com/document/d/1kjAyA7kWU4i9PDEYf7jMuNgyoVVzWrnO0H0-UYa4GN0/edit)
 
 ## Communication
 
-Communication owns reliable delivery of transactional messages requested by
-authorized Shifu modules. The MVP supports e-mail for Identity's account
-confirmation and password-recovery journeys. It is responsible for:
+Communication owns reliable delivery of messages requested by authorized
+Shifu modules. The MVP supports e-mail for Identity's account confirmation and
+password-recovery journeys, and browser push only for Gamification's streak
+reminder. It is responsible for:
 
 - the controlled catalog and pt-BR composition of transactional messages;
 - asynchronous delivery, retry behavior, and idempotent processing;
 - delivery-state tracking, permanent-failure reporting, and operational
-  metadata; and
-- protecting message data and removing active account associations after
-  account deletion.
+  metadata;
+- the learner's browser push subscriptions, removing dead ones, and the single
+  reminders on/off preference that applies to every browser;
+- dropping a push reminder that was not delivered by the end of the learner's
+  local day; and
+- protecting message data and removing active account associations,
+  subscriptions, and the reminder preference after account deletion.
 
 The requesting module remains authoritative for why and when a communication
 exists, recipient eligibility, business cooldowns, tokens, link validity, and
@@ -60,9 +68,10 @@ the domain state changed by the journey. It supplies the recipient and the
 minimum typed data required; Communication does not inspect another module's
 internal entities to discover them.
 
-SMS, push notifications, in-product notifications, marketing communication,
-user communication preferences, visible message history, arbitrary content,
-public sending endpoints, and localization beyond pt-BR are outside the MVP.
+SMS, push notifications other than the streak reminder, in-product
+notifications, marketing communication, communication preferences other than
+the reminders switch, visible message history, arbitrary content, public
+sending endpoints, and localization beyond pt-BR are outside the MVP.
 
 Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/86114306/Shifu+PRD+Communication)
 
@@ -125,8 +134,10 @@ Objectives and Habilidades. It is responsible for:
 - valid practice days and the current streak;
 - the activity calendar;
 - the fixed achievement catalog and reward eligibility;
-- reward and XP history; and
-- reward feedback shown to the learner.
+- reward and XP history;
+- reward feedback shown to the learner; and
+- the streak reminder: when it is due and the learner's reminder time, in
+  whole hours from 06:00 to 22:00 with 18:00 as the default.
 
 Gamification consumes confirmed facts from Learning, such as evaluated
 activities, diagnostic completion, mastery, and Habilidade completion. It uses
@@ -135,8 +146,12 @@ Learning's grade, progress, mastery, content availability, recommendation, or
 completion state, and it does not use AI to decide rewards.
 
 The Mentor may read the current XP, level, streak, and achievements for
-motivational context. Rankings, social competition, external rewards,
-proactive reminders, and user-configurable reward rules are out of scope.
+motivational context. The streak reminder is the only proactive reminder. It
+is offered after the learner's first practice day, counts only practice
+Gamification already recognized, grants no XP, and does not use AI.
+Communication delivers it. Rankings, social competition, external rewards,
+other proactive reminders, and user-configurable reward rules are out of
+scope.
 
 Canonical PRD: [Confluence page](https://joaogoliveiragarcia.atlassian.net/wiki/x/AgDxB) · Origin: [Google Doc](https://docs.google.com/document/d/1Y8HFrHP9I-7afjNpckUsQt02UROiOMx9EjEKzvMNu5s/edit)
 
@@ -227,6 +242,8 @@ The product dependencies are:
   completion facts.
 - Gamification → Intelligence: current XP, level, streak, and achievements
   for motivational context.
+- Gamification → Communication: streak-reminder requests for the learner,
+  sent through browser push.
 - Intelligence → Learning: confirmed Goal Planner proposals, user-confirmed
   Mentor additions and removals of Habilidades, and optional AI evaluation
   support. Learning validates and executes the operations and returns their
@@ -238,7 +255,7 @@ for official content, and Gamification remains motivational only.
 
 All modules that own user data participate in the Identity account-deletion
 flow. Their data must become inaccessible before Identity reports the account
-deletion as complete. Communication removes active account associations and
-retains only the minimum operational metadata allowed by its product contract.
+deletion as complete. Communication removes active account associations, push
+subscriptions, and the reminder preference, and retains only the minimum operational metadata allowed by its product contract.
 
 The complete source set is available in the [Shifu PRD folder](https://drive.google.com/drive/folders/1AuEjLUrJSIl-1YS-1CKuDXzHD5qze0tq).

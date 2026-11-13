@@ -11,6 +11,9 @@ from agno.workflow.types import StepInput, StepOutput
 from agno.workflow.workflow import Workflow
 from pydantic import ValidationError as PydanticValidationError
 
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    mentor_transport_failure_scope,
+)
 from shifu.intelligence.ai.agno.outputs import MentorTitleOutput
 from shifu.shared.messaging.agentos.workflow_helpers import copy_agent
 
@@ -100,7 +103,11 @@ class AgnoGenerateMentorTitleWorkflow(Workflow):
                     result_value='invalid',
                 )
                 return StepOutput(content={'status': 'invalid_request'})
-            response = self._agent.run(first_message)  # pyright: ignore[reportUnknownMemberType] - Agno Agent lacks complete stubs.
+            # The Mentor model reads its transport failure from this scope; a run
+            # outside it fails before reaching the provider.
+            with mentor_transport_failure_scope() as failure:
+                response = self._agent.run(first_message)  # pyright: ignore[reportUnknownMemberType] - Agno Agent lacks complete stubs.
+                failure.raise_if_failed()
             content = response.content
             if isinstance(content, str):
                 content = json.loads(content)

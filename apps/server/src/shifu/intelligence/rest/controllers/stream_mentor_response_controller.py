@@ -8,8 +8,14 @@ from pydantic import Field, TypeAdapter
 from starlette.concurrency import run_in_threadpool
 
 from shifu.intelligence.core.domain.enums import MentorResponseStatus
-from shifu.intelligence.core.domain.structures import MentorResponseEvent
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
+    MentorResponseEvent,
+)
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+)
 from shifu.intelligence.core.use_cases import (
     FailMentorResponseUseCase,
     FailStaleMentorResponseUseCase,
@@ -53,12 +59,22 @@ class StreamMentorResponseController:
             clock: Annotated[
                 ClockProvider, Depends(IntelligencePipe.get_clock_provider)
             ],
+            quota_policy: Annotated[
+                AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
+            ],
+            quota_calendar: Annotated[
+                AiQuotaCalendarProvider,
+                Depends(IntelligencePipe.get_ai_quota_calendar_provider),
+            ],
             after_sequence: Annotated[int, Query(ge=0)] = 0,
             last_event_id: Annotated[int | None, Header(ge=0)] = None,
         ) -> StreamingResponse:
             use_case = ReadMentorResponseEventsUseCase(database, access)
             recovery = FailStaleMentorResponseUseCase(
-                database, FailMentorResponseUseCase(database, clock, access)
+                database,
+                FailMentorResponseUseCase(
+                    database, clock, access, quota_policy, quota_calendar
+                ),
             )
             cursor = last_event_id if last_event_id is not None else after_sequence
             initial = use_case.execute(user.account_id, session_id, cursor)

@@ -194,8 +194,8 @@ beforeEach(() => {
   ports.location = { pathname: '/intelligence', search: {} }
   ports.list.mockResolvedValue({ items: [], nextCursor: null })
   ports.detail.mockResolvedValue(session)
-  ports.create.mockResolvedValue(session)
-  ports.submit.mockResolvedValue(session)
+  ports.create.mockResolvedValue({ ok: true, value: session })
+  ports.submit.mockResolvedValue({ ok: true, value: session })
   ports.remove.mockResolvedValue(undefined)
 })
 afterEach(() => {
@@ -243,7 +243,7 @@ describe('Mentor native dictation consumer', () => {
       finish(value, recognition, '  resultado  ')
       await waitFor(() =>
         expect(value.result.current.draft).toBe(
-          original + (original ? '\n' : '') + 'resultado',
+          `${original + (original ? '\n' : '')}resultado`,
         ),
       )
     },
@@ -514,7 +514,7 @@ describe('Mentor native dictation consumer', () => {
     class RemoteRecognition extends BrowserRecognition {
       constructor() {
         super()
-        delete (this as { processLocally?: boolean }).processLocally
+        Reflect.deleteProperty(this, 'processLocally')
       }
     }
     vi.stubGlobal('SpeechRecognition', RemoteRecognition)
@@ -538,7 +538,7 @@ describe('Mentor native dictation consumer', () => {
     class RemoteRecognition extends BrowserRecognition {
       constructor() {
         super()
-        delete (this as { processLocally?: boolean }).processLocally
+        Reflect.deleteProperty(this, 'processLocally')
       }
     }
     BrowserRecognition.available.mockImplementation(async ({ processLocally }) =>

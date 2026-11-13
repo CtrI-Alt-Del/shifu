@@ -96,6 +96,9 @@ from shifu.intelligence.core.use_cases import (
     SummarizeMentorSessionContextUseCase,
     UpdateLearnerMemoriesUseCase,
 )
+from shifu.intelligence.providers.ai_quota_calendar.zoneinfo import (
+    ZoneinfoAiQuotaCalendarProvider,
+)
 from shifu.intelligence.providers.generation_limit.redis.redis_mentor_generation_limit_provider import (
     RedisMentorGenerationLimitProvider,
 )
@@ -138,6 +141,7 @@ from shifu.shared.providers.system_clock_provider import SystemClockProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.shared.pipes import FileStoragePipe
+from tests.intelligence.core.use_cases.ai_quota_test_setup import quota_policy
 from tests.fixtures.intelligence_fixture import (
     MENTOR_ACCOUNT,
     OTHER_ACCOUNT,
@@ -679,6 +683,7 @@ def build_harness(
 ) -> Harness:
     database = fixture.database
     clock = SystemClockProvider()
+    quota_calendar = ZoneinfoAiQuotaCalendarProvider()
     identifiers = SystemIdentifierProvider()
     access = Mock(spec=MentorAccessProvider)
     access.authorize.side_effect = grant
@@ -762,9 +767,11 @@ def build_harness(
         ),
         renew_claim_use_case=renew_claim,
         release_claim_use_case=ReleaseMentorResponseClaimUseCase(database),
-        fail_use_case=FailMentorResponseUseCase(database, clock, access),
+        fail_use_case=FailMentorResponseUseCase(
+            database, clock, access, quota_policy(), quota_calendar
+        ),
         record_usage_use_case=RecordMentorInferenceUsageUseCase(
-            database, clock, access, telemetry
+            database, clock, access, quota_policy(), quota_calendar, telemetry
         ),
         record_progress_use_case=record_progress,
         writer_agent=writer,

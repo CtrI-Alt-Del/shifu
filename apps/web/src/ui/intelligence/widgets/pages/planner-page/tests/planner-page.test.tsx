@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { PlanningSessionFaker } from '@/core/intelligence/fakers/planning-session-faker'
 import type { PlanningQuestion } from '@/core/intelligence/planning-session'
 
@@ -33,7 +35,19 @@ vi.mock('@xyflow/react', () => ({
   ReactFlow: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }))
 
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, ...props }: AnchorProps) => (
+    <a href={ROUTES[route]} {...props}>
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
+
 const usePlannerPageMock = vi.mocked(usePlannerPage)
+const FAILURE_BLOCKED_MESSAGE =
+  'Sua cota de IA acabou. Novas tentativas voltam em 1º de dezembro de 2026. Você ainda pode cancelar e criar um Objetivo manualmente.'
+const PROPOSAL_BLOCKED_MESSAGE =
+  'Sua cota de IA acabou. Reiniciar o planejamento volta em 1º de dezembro de 2026. Você ainda pode criar este Objetivo agora.'
 const PLANNING_ID = PlanningSessionFaker.fakeId()
 const INTENT = 'Quero automatizar tarefas do dia a dia com Python.'
 
@@ -91,6 +105,10 @@ function controller(
     errorMessage: null,
     restartErrorMessage: null,
     goalCreation: { status: 'idle', message: null },
+    isAiQuotaBlocked: false,
+    aiQuotaFailureMessage: FAILURE_BLOCKED_MESSAGE,
+    aiQuotaProposalMessage: PROPOSAL_BLOCKED_MESSAGE,
+    aiQuotaBlockedRole: 'status',
     generation: 1,
     isSubmitting: false,
     isRetrying: false,
@@ -336,6 +354,54 @@ describe('PlannerPage', () => {
     expect(screen.getByRole('button', { name: 'Tentando novamente…' })).toBeDisabled()
   })
 
+  it.each(['failed', 'validation-failed'] as const)(
+    'pauses the retry of a %s planning behind the quota card and keeps the other exits',
+    (view) => {
+      const current = renderPage({
+        view,
+        currentQuestion: null,
+        steps: [],
+        isAiQuotaBlocked: true,
+        aiQuotaBlockedRole: 'alert',
+      })
+
+      expect(screen.getByText(FAILURE_BLOCKED_MESSAGE)).toBeVisible()
+      expect(screen.getByText(FAILURE_BLOCKED_MESSAGE).parentElement).toHaveAttribute(
+        'role',
+        'alert',
+      )
+      expect(screen.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+        'href',
+        ROUTES.accountAiUsage,
+      )
+      const retry = screen.getByRole('button', { name: 'Tentar novamente' })
+      expect(retry).toHaveAttribute('aria-disabled', 'true')
+      expect(retry).toBeEnabled()
+      expect(retry).toHaveAccessibleDescription(
+        expect.stringContaining(FAILURE_BLOCKED_MESSAGE),
+      )
+      retry.focus()
+      expect(retry).toHaveFocus()
+      const exit = screen.getByRole('button', {
+        name: view === 'failed' ? 'Cancelar' : 'Criar manualmente',
+      })
+      expect(exit).toBeEnabled()
+      fireEvent.click(exit)
+      expect(
+        view === 'failed' ? current.handleCancel : current.handleCreateManually,
+      ).toHaveBeenCalledOnce()
+    },
+  )
+
+  it('shows no quota card and an active retry while the quota is open', () => {
+    renderPage({ view: 'failed', currentQuestion: null, steps: [] })
+
+    expect(screen.queryByText(FAILURE_BLOCKED_MESSAGE)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).not.toHaveAttribute(
+      'aria-disabled',
+    )
+  })
+
   it('explains an out-of-scope request with the reformulate and manual exits (CA-15, CA-18)', () => {
     const current = renderPage({ view: 'out-of-scope', currentQuestion: null, steps: [] })
 
@@ -444,6 +510,28 @@ describe('PlannerPage', () => {
       description: 'Scripts para planilhas.',
       proposal,
     })
+  })
+
+  it('hands the quota block to the review so the restart pauses and the other actions keep working', () => {
+    const proposal = PlanningSessionFaker.fakeProposal()
+    const current = renderPage({
+      view: 'proposal',
+      currentQuestion: null,
+      steps: [],
+      proposal,
+      isAiQuotaBlocked: true,
+    })
+
+    expect(screen.getByText(PROPOSAL_BLOCKED_MESSAGE)).toBeVisible()
+    const restart = screen.getByRole('button', { name: 'Reiniciar planejamento' })
+    expect(restart).toHaveAttribute('aria-disabled', 'true')
+    expect(restart).toHaveAccessibleDescription(
+      expect.stringContaining(PROPOSAL_BLOCKED_MESSAGE),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Criar objetivo' }))
+    expect(current.handleCreateGoal).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(current.handleCancel).toHaveBeenCalledOnce()
   })
 
   it('freezes the review while the Goal is being created and offers a retry after a failure', () => {

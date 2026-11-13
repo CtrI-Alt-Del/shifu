@@ -22,6 +22,9 @@ function renderReview(overrides: Partial<PlanningProposalReviewProps> = {}) {
     }),
     isCancelling: false,
     isRestarting: false,
+    isAiQuotaBlocked: false,
+    aiQuotaBlockedMessage: 'Sua cota de IA acabou.',
+    aiQuotaBlockedRole: 'status',
     restartErrorMessage: null,
     goalCreation: IDLE_GOAL_CREATION,
     onCancel: vi.fn(),
@@ -194,5 +197,13 @@ describe('usePlanningProposalReview', () => {
     })
 
     expect(result.current.isRestartDialogOpen).toBe(true)
+  })
+
+  it('does not open the restart dialog while the quota blocks a new planning', () => {
+    const { result } = renderReview({ isAiQuotaBlocked: true })
+
+    act(() => result.current.handleOpenRestart())
+
+    expect(result.current.isRestartDialogOpen).toBe(false)
   })
 })

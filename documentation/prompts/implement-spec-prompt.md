@@ -109,6 +109,9 @@ named sibling Builders with:
 - applicable Rule Pack, design references and existing findings;
 - unit/component/static feedback commands and expected implementation result.
 
+UI scopes also get read-only Penpot access and the exact boards and components to
+match, under the [Penpot availability gate](#penpot-availability-gate).
+
 Builders do not create further subagents. Keep concurrent ownership disjoint;
 tell Builders they are not alone and must preserve others' edits. Coordinate shared contracts, generated artifacts,
 migrations and cross-boundary changes in the main task. Inspect every returned
@@ -138,6 +141,25 @@ Read the Spec's Design Contract and inspect the named Penpot boards and
 components through the Penpot MCP, exporting them when a rendered reference
 is needed. Use existing semantic tokens, primitives, accessible pt-BR copy and
 the selected UI/routing Rules. Do not save exports into the feature directory.
+
+### Penpot availability gate
+
+Penpot must be reachable before any design-backed UI work starts or is
+delegated. Confirm with the Shifu Penpot MCP that the connected file is Shifu.
+If a call fails because no Penpot instance is connected, or the connector points
+at another file, stop the UI scope: run `node scripts/open-penpot.mjs` from the
+repository root, ask the user to open the Shifu file and connect the plugin, and
+wait for confirmation. Do not implement UI from the Spec's prose, tokens or
+memory of the boards, and do not start UI Builders in the meantime. Work that
+does not depend on the design (server, persistence, non-UI logic) may continue.
+
+UI Builders receive read-only Penpot access, read the boards and components the
+Design Contract names, and compare their result with fresh exports before they
+report. A Builder that cannot reach Penpot stops and reports Blocked; it never
+guesses. When the Spec's prose and a board disagree on appearance or copy,
+report the conflict and reconcile it through the contract workflow before
+continuing; do not pick silently. Visual review of an integrated candidate needs
+the same connection, so reconnect before launching the Visual Reviewer.
 
 The Spec defines required happy-path rendered states and viewports. Cover
 loading, empty, error, recovery, concurrency and unusual outcomes through
@@ -279,7 +301,7 @@ into phases, task trees, estimates or a second contract.
 Record reusable lessons with supporting ACH/EV references and their documentation
 action or reason no change is warranted. A trivial correction need not become a
 lesson or global policy. Keep Delivery source verification, documentation alignment,
-publication/CI state and limitations factual.
+publication state and limitations factual. Do not record GitHub CI results in Evaluation.
 
 When all criteria have current passing proof or justified non-applicability,
 applicable checkers pass and blocking findings are resolved, set Spec to `implemented`, Evaluation to

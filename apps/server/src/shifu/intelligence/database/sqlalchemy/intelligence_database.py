@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session as SqlalchemySession
 
 from shifu.intelligence.core.interfaces import IntelligenceDatabaseRepositories
 from shifu.intelligence.database.sqlalchemy.repositories import (
+    SqlalchemyAiQuotaChargesRepository,
+    SqlalchemyAiQuotaMonthsRepository,
     SqlalchemyLearnerMemoriesRepository,
     SqlalchemyLearnerMemoryChangesRepository,
     SqlalchemyMentorActionProposalsRepository,
@@ -83,6 +85,8 @@ class SqlalchemyIntelligenceDatabase:
                 mentor_action_proposals=SqlalchemyMentorActionProposalsRepository(
                     session
                 ),
+                ai_quota_months=SqlalchemyAiQuotaMonthsRepository(session),
+                ai_quota_charges=SqlalchemyAiQuotaChargesRepository(session),
             )
             try:
                 yield repositories

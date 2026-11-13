@@ -10,7 +10,11 @@ import {
   type PlanningQuestion,
   type PlanningSession,
 } from '@/core/intelligence/planning-session'
-import { PlanningRequestError } from '@/ui/intelligence/hooks/planning-request-error'
+import {
+  PlanningRequestError,
+  isPlanningQuotaExhaustedError,
+} from '@/ui/intelligence/hooks/planning-request-error'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useAnswerPlanningQuestionsAction } from '@/ui/intelligence/hooks/use-answer-planning-questions-action'
 import { useCancelPlanningAction } from '@/ui/intelligence/hooks/use-cancel-planning-action'
 import { useConfirmPlanningAction } from '@/ui/intelligence/hooks/use-confirm-planning-action'
@@ -129,10 +133,19 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   } = usePlanningSessionQuery(planningId, isActive)
   const { answerPlanningQuestions, isAnsweringPlanningQuestions } =
     useAnswerPlanningQuestionsAction(planningId)
-  const { retryPlanning, isRetryingPlanning } = useRetryPlanningAction(planningId)
-  const { restartPlanning, isRestartingPlanning } = useRestartPlanningAction(planningId)
+  const { retryPlanning, retryPlanningError, isRetryingPlanning } =
+    useRetryPlanningAction(planningId)
+  const { restartPlanning, restartPlanningError, isRestartingPlanning } =
+    useRestartPlanningAction(planningId)
   const { cancelPlanning, isCancellingPlanning } = useCancelPlanningAction(planningId)
   const { confirmPlanning, isConfirmingPlanning } = useConfirmPlanningAction(planningId)
+  // The refusal lasts until the next mutate on this page; the server refusal wins
+  // over an older reading.
+  const hasQuotaRefusal =
+    isPlanningQuotaExhaustedError(retryPlanningError) ||
+    isPlanningQuotaExhaustedError(restartPlanningError)
+  const { isAiQuotaBlocked, getAiQuotaBlockedMessage, aiQuotaBlockedRole } =
+    useAiQuotaBlock(hasQuotaRefusal)
 
   const batch = planningSession?.status === 'interview' ? planningSession.batch : null
   const batchId = batch?.id ?? null
@@ -284,7 +297,7 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   }
 
   async function handleRetry() {
-    if (operationRef.current || isRetrying) return
+    if (operationRef.current || isRetrying || isAiQuotaBlocked) return
     if (view !== 'failed' && view !== 'validation-failed') return
     operationRef.current = true
     setErrorMessage(null)
@@ -292,6 +305,8 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
       const updated = await retryPlanning()
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
     } catch (error) {
+      // The blocked card explains a quota refusal, so no error message is shown.
+      if (isPlanningQuotaExhaustedError(error)) return
       setErrorMessage(resolveOperationFailure(error, RETRY_ERROR_MESSAGE))
     } finally {
       operationRef.current = false
@@ -299,7 +314,8 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
   }
 
   async function handleRestart(initialIntent: string): Promise<boolean> {
-    if (operationRef.current || isRestarting || view !== 'proposal') return false
+    if (operationRef.current || isRestarting || isAiQuotaBlocked) return false
+    if (view !== 'proposal') return false
     operationRef.current = true
     setRestartErrorMessage(null)
     try {
@@ -308,6 +324,8 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
       queryClient.setQueryData(planningSessionQueryKey(planningId), updated)
       return true
     } catch (error) {
+      // The blocked card explains a quota refusal, so no error message is shown.
+      if (isPlanningQuotaExhaustedError(error)) return false
       setRestartErrorMessage(resolveOperationFailure(error, RESTART_ERROR_MESSAGE))
       return false
     } finally {
@@ -431,6 +449,10 @@ export function usePlannerPage({ planningId }: PlannerPageProps) {
     errorMessage,
     restartErrorMessage,
     goalCreation,
+    isAiQuotaBlocked,
+    aiQuotaFailureMessage: getAiQuotaBlockedMessage('planner-failure'),
+    aiQuotaProposalMessage: getAiQuotaBlockedMessage('planner-proposal'),
+    aiQuotaBlockedRole,
     isSubmitting,
     isCreatingGoal: isConfirmingPlanning,
     isRetrying,

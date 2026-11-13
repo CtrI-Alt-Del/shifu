@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends
 from fastapi import Response as FastApiResponse
 from pydantic import Field, TypeAdapter
 
-from shifu.intelligence.core.interfaces import PlanningSessionsRepository
+from shifu.intelligence.core.domain.structures import AiQuotaPolicy
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+    PlanningSessionsRepository,
+)
 from shifu.intelligence.core.use_cases import GetPlanningSessionUseCase
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.rest.schemas.planning_session_schemas import (
@@ -47,9 +52,24 @@ class GetPlanningSessionController:
             operation_timeout: Annotated[
                 timedelta, Depends(IntelligencePipe.get_planning_operation_timeout)
             ],
+            database: Annotated[
+                IntelligenceDatabase, Depends(IntelligencePipe.get_database)
+            ],
+            quota_policy: Annotated[
+                AiQuotaPolicy, Depends(IntelligencePipe.get_ai_quota_policy)
+            ],
+            quota_calendar: Annotated[
+                AiQuotaCalendarProvider,
+                Depends(IntelligencePipe.get_ai_quota_calendar_provider),
+            ],
         ) -> Response:
             session = GetPlanningSessionUseCase(
-                sessions, clock, operation_timeout
+                sessions,
+                clock,
+                operation_timeout,
+                database,
+                quota_policy,
+                quota_calendar,
             ).execute(user.account_id, planning_id)
             response.headers['Cache-Control'] = 'private, no-store'
             return _RESPONSE_ADAPTER.validate_python(session, from_attributes=True)

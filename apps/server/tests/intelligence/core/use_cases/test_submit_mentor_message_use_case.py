@@ -1,5 +1,5 @@
-from datetime import timedelta
-from unittest.mock import call
+from datetime import UTC, date, datetime, timedelta
+from unittest.mock import Mock, call
 
 import pytest
 from shifu.intelligence.core.domain.entities import (
@@ -7,6 +7,7 @@ from shifu.intelligence.core.domain.entities import (
     MentorAttachmentBatch,
 )
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorAttachmentStatus,
     MentorMessageRole,
     MentorResponseEventKind,
@@ -15,6 +16,7 @@ from shifu.intelligence.core.domain.enums import (
 from shifu.fakers.intelligence.entities import MentorActionProposalFaker
 from shifu.intelligence.core.domain.enums import MentorActionProposalStatus
 from shifu.intelligence.core.domain.errors import (
+    AiQuotaExhaustedError,
     MentorActionPendingError,
     MentorAttachmentConflictError,
     MentorInputInvalidError,
@@ -32,6 +34,10 @@ from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint imp
 )
 from shifu.intelligence.core.use_cases import SubmitMentorMessageUseCase
 from shifu.shared.core.domain.errors import ServiceUnavailableError
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    QUOTA_LIMIT,
+    QUOTA_MONTH,
+)
 from tests.intelligence.core.use_cases.mentor_response_test_setup import (
     MentorResponseTestSetup,
 )
@@ -42,7 +48,12 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
     def setup(self) -> None:
         self.prepare()
         self.subject = SubmitMentorMessageUseCase(
-            self.database, self.identifiers, self.clock, self.access
+            self.database,
+            self.identifiers,
+            self.clock,
+            self.access,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
     def test_should_persist_exact_text_hint_attempt_and_outbox(self) -> None:
@@ -545,3 +556,114 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
         self.repositories.mentor_response_attempts.add_submission.assert_not_called()
         self.repositories.mentor_response_events.append.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def test_should_admit_the_request_into_the_month_before_writing_any_state(
+        self,
+    ) -> None:
+        effects = Mock()
+        effects.attach_mock(self.quota_months.ensure_and_lock, 'lock_month')
+        effects.attach_mock(self.quota_charges.add, 'add_charge')
+        effects.attach_mock(self.repositories.mentor_messages.add, 'add_message')
+        effects.attach_mock(
+            self.repositories.mentor_response_attempts.add, 'add_attempt'
+        )
+        effects.attach_mock(self.repositories.events.add, 'add_event')
+
+        self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(submission_key=self.key, content='oi'),
+        )
+
+        names = [entry[0] for entry in effects.mock_calls]
+        assert names[:2] == ['lock_month', 'add_charge']
+        assert set(names[2:]) == {'add_message', 'add_attempt', 'add_event'}
+        self.quota_months.ensure_and_lock.assert_called_once_with(
+            'account', QUOTA_MONTH, QUOTA_LIMIT, self.now
+        )
+        charge = self.quota_charges.add.call_args.args[0]
+        attempt = self.repositories.mentor_response_attempts.add.call_args.args[0]
+        assert charge.request_kind is AiQuotaRequestKind.MENTOR_RESPONSE
+        assert charge.request_id == attempt.id
+        assert charge.account_id == 'account'
+        assert charge.month == QUOTA_MONTH
+        assert charge.charged_units == 0
+        assert charge.refunded is False
+
+    def test_should_open_the_month_of_the_start_with_the_limit_in_force(self) -> None:
+        instant = datetime(2026, 11, 16, 2, 30, tzinfo=UTC)  # 15/11 23:30 in São Paulo
+        self.clock.now.return_value = instant
+        self.quota_calendar.month_of.return_value = date(2026, 11, 1)
+
+        self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(submission_key=self.key, content='oi'),
+        )
+
+        self.quota_calendar.month_of.assert_called_with(instant)
+        self.quota_months.ensure_and_lock.assert_called_once_with(
+            'account', date(2026, 11, 1), QUOTA_LIMIT, instant
+        )
+        assert self.quota_charges.add.call_args.args[0].month == date(2026, 11, 1)
+
+    @pytest.mark.parametrize(
+        'used_units', [QUOTA_LIMIT, QUOTA_LIMIT + 1, 5 * QUOTA_LIMIT]
+    )
+    def test_should_refuse_at_or_above_the_limit_without_any_write(
+        self, used_units: int
+    ) -> None:
+        self.quota_month.used_units = used_units
+
+        with pytest.raises(AiQuotaExhaustedError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(submission_key=self.key, content='oi'),
+            )
+
+        self.quota_charges.add.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add_submission.assert_not_called()
+        self.repositories.mentor_response_events.append.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        self.repositories.mentor_sessions.record_activity.assert_not_called()
+
+    def test_should_admit_a_start_while_the_use_is_still_below_the_limit(self) -> None:
+        self.quota_month.used_units = QUOTA_LIMIT - 1
+
+        self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(submission_key=self.key, content='oi'),
+        )
+
+        self.quota_charges.add.assert_called_once()
+        self.repositories.mentor_messages.add.assert_called_once()
+
+    def test_should_not_admit_an_exact_replay(self) -> None:
+        self.quota_month.used_units = QUOTA_LIMIT
+        submission = MentorSubmission(submission_key=self.key, content='texto')
+        self.repositories.mentor_response_attempts.find_submission.return_value = (
+            self.attempt,
+            mentor_submission_fingerprint('texto', None),
+        )
+
+        self.subject.execute('account', 'session', submission)
+
+        assert self.subject.replayed is True
+        self.quota_months.ensure_and_lock.assert_not_called()
+        self.quota_charges.add.assert_not_called()
+
+    def test_should_not_open_the_month_for_a_missing_session(self) -> None:
+        self.repositories.mentor_sessions.find_by_id_for_update.return_value = None
+
+        with pytest.raises(MentorSessionNotFoundError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(submission_key=self.key, content='oi'),
+            )
+
+        self.quota_months.ensure_and_lock.assert_not_called()

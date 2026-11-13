@@ -1,6 +1,12 @@
 from contextlib import AbstractContextManager
 from typing import Protocol
 
+from shifu.intelligence.core.interfaces.ai_quota_charges_repository import (
+    AiQuotaChargesRepository,
+)
+from shifu.intelligence.core.interfaces.ai_quota_months_repository import (
+    AiQuotaMonthsRepository,
+)
 from shifu.intelligence.core.interfaces.learner_memories_repository import (
     LearnerMemoriesRepository,
 )
@@ -60,6 +66,8 @@ class IntelligenceDatabaseRepositories:
     learner_memories: LearnerMemoriesRepository
     learner_memory_changes: LearnerMemoryChangesRepository
     mentor_action_proposals: MentorActionProposalsRepository
+    ai_quota_months: AiQuotaMonthsRepository
+    ai_quota_charges: AiQuotaChargesRepository
 
 
 class IntelligenceDatabase(Protocol):

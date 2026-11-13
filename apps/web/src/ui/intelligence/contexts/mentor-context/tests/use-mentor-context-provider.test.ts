@@ -5,6 +5,8 @@ import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response
 import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { createElement, useLayoutEffect } from 'react'
+import { AiQuotaUsageFaker } from '@/core/intelligence/fakers/ai-quota-usage-faker'
+import { AI_QUOTA_USAGE_QUERY_KEY } from '@/ui/intelligence/hooks/ai-quota-usage-query-key'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -423,7 +425,7 @@ describe('useMentorContextProvider', () => {
     mocks.detail.mockResolvedValue(detail)
     mocks.create
       .mockRejectedValueOnce(new Error('transport failed'))
-      .mockResolvedValue(detail)
+      .mockResolvedValue({ ok: true, value: detail })
     mocks.createAttachmentBatch.mockResolvedValue({
       batchId: '01J7T8AC91Z5K8M4JQ8C2D6F0E',
       expiresAt: '2026-10-14T12:00:00Z',
@@ -1353,10 +1355,13 @@ describe('useMentorContextProvider response lifecycle', () => {
       expect(result.current.sessionDetail?.messages.items).toEqual([learnerMessage])
       expect(source.close).toHaveBeenCalledOnce()
       mocks.retry.mockResolvedValue({
-        ...initialResponse,
-        attemptId: 'attempt-b',
-        status: 'queued',
-        lastSequence: 4,
+        ok: true,
+        value: {
+          ...initialResponse,
+          attemptId: 'attempt-b',
+          status: 'queued',
+          lastSequence: 4,
+        },
       })
       await act(() => result.current.retryResponse())
       expect(result.current.response?.learnerMessageId).toBe(learnerMessage.id)
@@ -1522,10 +1527,13 @@ describe('useMentorContextProvider response lifecycle', () => {
     expect(result.current.response?.blocks).toEqual([])
     expect(result.current.sessionDetail?.pendingLearnerMessageId).toBe('learner-a')
     mocks.retry.mockResolvedValue({
-      ...initialResponse,
-      attemptId: 'attempt-b',
-      status: 'queued',
-      lastSequence: 3,
+      ok: true,
+      value: {
+        ...initialResponse,
+        attemptId: 'attempt-b',
+        status: 'queued',
+        lastSequence: 3,
+      },
     })
     await act(() => result.current.retryResponse())
     expect(result.current.response?.attemptId).toBe('attempt-b')
@@ -1673,9 +1681,12 @@ describe('useMentorContextProvider response lifecycle', () => {
     expect(result.current.draft).toBe('  Próxima pergunta  ')
     rerender({ contextHint: { ...hint, goalId: 'goal-b' } })
     mocks.submit.mockResolvedValue({
-      ...detail,
-      response: { ...initialResponse, status: 'queued' },
-      pendingLearnerMessageId: 'learner-a',
+      ok: true,
+      value: {
+        ...detail,
+        response: { ...initialResponse, status: 'queued' },
+        pendingLearnerMessageId: 'learner-a',
+      },
     })
     await act(() => result.current.sendFirstMessage('fab'))
     expect(mocks.submit.mock.calls[0]?.[0]).toEqual(mocks.submit.mock.calls[1]?.[0])
@@ -2192,15 +2203,175 @@ describe('useMentorContextProvider memory items', () => {
     expect(result.current.response?.status).toBe('cancelled')
   })
 
+  describe('quota refusal', () => {
+    const quotaFailure = { ok: false, failure: { kind: 'quota-exhausted' } }
+    const OLD_READING_AGE_MS = 10_000
+
+    function openQuotaProvider(queryClient: QueryClient, response = initialResponse) {
+      vi.stubGlobal('EventSource', ControlledEventSource)
+      ControlledEventSource.instances = []
+      mocks.detail.mockResolvedValue({
+        ...detail,
+        pendingLearnerMessageId: null,
+        response,
+      })
+      return renderHook(() => useMentorContextProvider('aluna@example.com'), {
+        wrapper: ({ children }: { children: React.ReactNode }) =>
+          createElement(QueryClientProvider, { client: queryClient }, children),
+      })
+    }
+
+    function seedStaleReading(queryClient: QueryClient) {
+      queryClient.setQueryData(
+        AI_QUOTA_USAGE_QUERY_KEY,
+        { usage: AiQuotaUsageFaker.fake({ percentage: 79 }), accountId: 'account-1' },
+        { updatedAt: Date.now() - OLD_READING_AGE_MS },
+      )
+    }
+
+    it('blocks the Mentor after a refused retry without a generic error and asks for a new reading', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+      const { result } = openQuotaProvider(queryClient, {
+        ...initialResponse,
+        status: 'failed',
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.retry.mockResolvedValue(quotaFailure)
+
+      await act(() => result.current.retryResponse())
+
+      expect(result.current.isAiQuotaRefused).toBe(true)
+      expect(result.current.submissionError).toBeNull()
+      expect(result.current.response?.status).toBe('failed')
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: AI_QUOTA_USAGE_QUERY_KEY })
+    })
+
+    it('keeps the draft and shows no generic error when a send is refused', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      const { result } = openQuotaProvider(queryClient, {
+        ...initialResponse,
+        status: 'completed',
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      act(() => result.current.setDraft('Próxima pergunta'))
+      mocks.submit.mockResolvedValue(quotaFailure)
+
+      await act(() => result.current.sendFirstMessage())
+
+      expect(result.current.isAiQuotaRefused).toBe(true)
+      expect(result.current.submissionError).toBeNull()
+      expect(result.current.draft).toBe('Próxima pergunta')
+      expect(mocks.create).not.toHaveBeenCalled()
+    })
+
+    it('blocks the Mentor when the first message of a new conversation is refused and keeps the draft', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+      const { result } = openQuotaProvider(queryClient)
+      await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+      act(() => result.current.setDraft('Primeira pergunta'))
+      mocks.create.mockResolvedValue(quotaFailure)
+
+      await act(() => result.current.sendFirstMessage('page'))
+
+      expect(mocks.create).toHaveBeenCalledOnce()
+      expect(result.current.isAiQuotaRefused).toBe(true)
+      expect(result.current.submissionError).toBeNull()
+      expect(result.current.draft).toBe('Primeira pergunta')
+      expect(result.current.selectedSessionId).toBeNull()
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: AI_QUOTA_USAGE_QUERY_KEY })
+    })
+
+    it('blocks the Mentor when a direct message submission is refused', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      const { result } = openQuotaProvider(queryClient, {
+        ...initialResponse,
+        status: 'completed',
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.submit.mockResolvedValue(quotaFailure)
+
+      await act(() =>
+        result.current.submitMessage({
+          submissionKey: 'key-a',
+          content: 'Oi',
+          contextHint: null,
+        }),
+      )
+
+      expect(result.current.isAiQuotaRefused).toBe(true)
+      expect(result.current.submissionError).toBeNull()
+    })
+
+    it('lifts the refusal when a newer reading is not blocked', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(async () => {
+        queryClient.setQueryData(AI_QUOTA_USAGE_QUERY_KEY, {
+          usage: AiQuotaUsageFaker.fake({ percentage: 10 }),
+          accountId: 'account-1',
+        })
+      })
+      const { result } = openQuotaProvider(queryClient, {
+        ...initialResponse,
+        status: 'failed',
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.retry.mockResolvedValue(quotaFailure)
+
+      await act(() => result.current.retryResponse())
+
+      expect(result.current.isAiQuotaRefused).toBe(false)
+    })
+
+    it('keeps the refusal when the new reading is blocked or never arrives', async () => {
+      const queryClient = new QueryClient()
+      seedStaleReading(queryClient)
+      vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue()
+      const { result } = openQuotaProvider(queryClient, {
+        ...initialResponse,
+        status: 'failed',
+      })
+      await act(() => result.current.selectSession(detail.session.id))
+      mocks.retry.mockResolvedValueOnce(quotaFailure)
+
+      await act(() => result.current.retryResponse())
+
+      expect(result.current.isAiQuotaRefused).toBe(true)
+
+      mocks.retry.mockResolvedValueOnce({
+        ok: true,
+        value: {
+          ...initialResponse,
+          attemptId: 'attempt-b',
+          status: 'queued',
+          lastSequence: 3,
+        },
+      })
+      await act(() => result.current.retryResponse())
+
+      expect(result.current.isAiQuotaRefused).toBe(false)
+      expect(result.current.response?.attemptId).toBe('attempt-b')
+    })
+  })
+
   it('does not re-read the detail after a retry request', async () => {
     const { result } = openResponseProvider({ ...initialResponse, status: 'failed' })
     await act(() => result.current.selectSession(detail.session.id))
     mocks.detail.mockClear()
     mocks.retry.mockResolvedValue({
-      ...initialResponse,
-      attemptId: 'attempt-b',
-      status: 'queued',
-      lastSequence: 3,
+      ok: true,
+      value: {
+        ...initialResponse,
+        attemptId: 'attempt-b',
+        status: 'queued',
+        lastSequence: 3,
+      },
     })
 
     await act(() => result.current.retryResponse())

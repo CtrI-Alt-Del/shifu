@@ -3,6 +3,17 @@ import { GoalSummaryFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
 import type { BffFixtureContract } from '../fixtures/bff-fixture'
 
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import {
+  AI_QUOTA_HOME_BLOCKED_MESSAGE,
+  AiQuotaUpstreamFixture,
+  clickIgnoringDisabled,
+  expectBlockedControl,
+  expectBox,
+  installAiQuotaReading,
+  openRealPage,
+  recordServerFunctionCalls,
+  signInRealAccount,
+} from '../support/ai-quota-backend'
 
 const learningIds = LearningRouteIdsFaker.fake()
 const GOAL_ID = learningIds.goalId
@@ -302,5 +313,111 @@ test.describe('Home page', () => {
     await expect(
       authenticatedPage.getByRole('link', { name: /Lógica de programação/ }),
     ).toBeFocused()
+  })
+})
+
+const INTENT_LABEL = 'O que você quer aprender?'
+const BLOCKED_CARD_ID = 'planning-intent-ai-quota-blocked'
+const START_ERROR = 'Não foi possível iniciar o planejamento agora. Tente novamente.'
+
+test.describe('Home page AI quota', () => {
+  for (const viewport of [
+    { name: '1440 x 900', width: 1440, height: 900 },
+    { name: '390 x 844', width: 390, height: 844 },
+  ])
+    test(`blocks Planejar com IA at 100% and keeps Criar manualmente working at ${viewport.name} (CA-20, CA-23)`, async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      await mockHomeServerFunctions(bff)
+      await installAiQuotaReading(authenticatedPage, 100)
+      const calls = recordServerFunctionCalls(authenticatedPage)
+      await authenticatedPage.setViewportSize(viewport)
+
+      await navigateAuthenticatedPage(authenticatedPage, '/')
+
+      const card = authenticatedPage.getByRole('status').filter({
+        hasText: AI_QUOTA_HOME_BLOCKED_MESSAGE,
+      })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', BLOCKED_CARD_ID)
+      await expect(card.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+        'href',
+        '/account/ai-usage',
+      )
+      await expect(card.locator('svg')).toHaveCount(1)
+      const intent = authenticatedPage.getByLabel(INTENT_LABEL)
+      await expect(intent).toBeDisabled()
+      // The board stacks the field, then the blocked card, then the actions.
+      const intentBox = await intent.boundingBox()
+      const cardBox = await card.boundingBox()
+      const planBox = await authenticatedPage
+        .getByRole('button', { name: 'Planejar com IA' })
+        .boundingBox()
+      expect(cardBox?.y).toBeGreaterThanOrEqual(
+        (intentBox?.y ?? 0) + (intentBox?.height ?? 0),
+      )
+      expect(planBox?.y).toBeGreaterThanOrEqual(
+        (cardBox?.y ?? 0) + (cardBox?.height ?? 0),
+      )
+      expect(cardBox?.height).toBeLessThanOrEqual(viewport.width >= 1024 ? 60 : 150)
+      await expect(intent).toHaveAttribute('aria-describedby', BLOCKED_CARD_ID)
+      const plan = authenticatedPage.getByRole('button', { name: 'Planejar com IA' })
+      await expectBlockedControl(plan, BLOCKED_CARD_ID)
+      await clickIgnoringDisabled(plan)
+      expect(calls.callsTo('startPlanningSession')).toBe(0)
+      await expect(authenticatedPage).toHaveURL(/\/$/)
+
+      const manual = authenticatedPage.getByRole('link', { name: 'Criar manualmente' })
+      await expect(manual).toBeEnabled()
+      await expectBox(manual, { height: 44 })
+      await manual.click()
+
+      await expect(authenticatedPage).toHaveURL(/\/learning\/goals\/new\/?$/)
+      await expect(authenticatedPage.getByLabel('Título do Objetivo *')).toBeVisible()
+    })
+
+  test('shows the blocked card, not a generic error, when the server refuses the planning start and keeps Criar manualmente available (CA-21)', async ({
+    page,
+    request,
+    activeAccount,
+  }) => {
+    // A real session: the real server function and planningFailure classify the 429.
+    await signInRealAccount(page, activeAccount)
+    const reading = await installAiQuotaReading(page, 79, activeAccount.accountId)
+    const upstream = await AiQuotaUpstreamFixture(request, activeAccount.accountId)
+    try {
+      await openRealPage(page, '/')
+      const intent = page.getByLabel(INTENT_LABEL)
+      await expect(intent).toBeEnabled()
+      await intent.fill('quero aprender Python')
+      await reading.settled()
+      // The reading showed 79%, but the server is already at 100% when the planning starts.
+      reading.setReading(100)
+      const readsBefore = reading.reads()
+
+      await page.getByRole('button', { name: 'Planejar com IA' }).click()
+
+      const card = page
+        .getByRole('alert')
+        .filter({ hasText: AI_QUOTA_HOME_BLOCKED_MESSAGE })
+      await expect(card).toBeVisible()
+      await expect(card).toHaveAttribute('id', BLOCKED_CARD_ID)
+      await expect(page).toHaveURL(/\/$/)
+      await expect(intent).toBeDisabled()
+      await expectBlockedControl(
+        page.getByRole('button', { name: 'Planejar com IA' }),
+        BLOCKED_CARD_ID,
+      )
+      await expect(page.getByText(START_ERROR)).toHaveCount(0)
+      await expect.poll(() => reading.reads()).toBeGreaterThan(readsBefore)
+      expect(await upstream.hits()).toEqual({ 'POST /intelligence/planning-sessions': 1 })
+
+      const manual = page.getByRole('link', { name: 'Criar manualmente' })
+      await expect(manual).toBeEnabled()
+      await expect(manual).toHaveAttribute('href', '/learning/goals/new')
+    } finally {
+      await upstream.dispose()
+    }
   })
 })

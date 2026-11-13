@@ -11,7 +11,7 @@ export const AccountLayout = ({ children }: AccountLayoutProps) => {
         <h1 className='font-serif text-4xl'>Sua conta</h1>
         <div>
           <AccountNavigation />
-          <div className='mt-5'>{children}</div>
+          <div className='mt-5 sm:mt-6'>{children}</div>
         </div>
       </div>
     </div>

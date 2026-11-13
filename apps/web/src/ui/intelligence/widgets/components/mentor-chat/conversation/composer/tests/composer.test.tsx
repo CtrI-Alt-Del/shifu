@@ -2,11 +2,26 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { FormEvent } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
+import { useAiQuotaWarningCard } from '@/ui/intelligence/widgets/components/ai-quota-warning-card/use-ai-quota-warning-card'
 import { Composer } from '..'
 import { useComposer } from '../use-composer'
 import type { MentorDraftAttachment } from '@/ui/intelligence/contexts/mentor-context/types'
 
 vi.mock('../use-composer', () => ({ useComposer: vi.fn() }))
+vi.mock(
+  '@/ui/intelligence/widgets/components/ai-quota-warning-card/use-ai-quota-warning-card',
+  () => ({ useAiQuotaWarningCard: vi.fn() }),
+)
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, ...props }: AnchorProps) => (
+    <a href={ROUTES[route]} {...props}>
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
+}))
+const useAiQuotaWarningCardMock = vi.mocked(useAiQuotaWarningCard)
 const useComposerMock = vi.mocked(useComposer)
 const sendFirstMessageMock = vi.fn()
 const setDraftMock = vi.fn()
@@ -512,5 +527,153 @@ describe('Composer action block', () => {
     expect(
       screen.queryByRole('button', { name: 'Tentar novamente' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('Composer quota', () => {
+  const BLOCKED_MESSAGE =
+    'Sua cota de IA acabou. Novas mensagens e novas tentativas voltam em 1º de dezembro de 2026. Seu histórico continua disponível.'
+  const startDictationMock = vi.fn()
+  const handleSubmitMock = vi.fn((event: FormEvent<HTMLFormElement>) =>
+    event.preventDefault(),
+  )
+
+  function mockQuota(overrides: Record<string, unknown> = {}) {
+    useAiQuotaWarningCardMock.mockReturnValue({
+      isDismissed: false,
+      message: 'Você já usou 85% da sua cota de IA deste mês.',
+      handleDismiss: vi.fn(),
+    })
+    useComposerMock.mockReturnValue({
+      canSend: true,
+      canManageAttachments: true,
+      canStartDictation: true,
+      draftAttachments: [],
+      addAttachments: addAttachmentsMock,
+      removeAttachment: removeAttachmentMock,
+      draft: 'Rascunho preservado',
+      handleSubmit: handleSubmitMock,
+      hasAcceptedSession: true,
+      isAiQuotaBlocked: false,
+      isAiQuotaNearLimit: false,
+      aiQuotaBlockedMessage: BLOCKED_MESSAGE,
+      aiQuotaBlockedRole: 'status',
+      aiQuotaAccountId: 'account-1',
+      aiQuotaPercentage: 85,
+      aiQuotaRenewsOn: '2026-12-01',
+      isSubmittingFirstMessage: false,
+      placeholder: 'Pergunte ao Mentor…',
+      sendFirstMessage: sendFirstMessageMock,
+      setDraft: setDraftMock,
+      startDictation: startDictationMock,
+      submissionError: null,
+      ...overrides,
+    } as unknown as ReturnType<typeof useComposer>)
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(cleanup)
+
+  it.each(['page', 'fab'] as const)(
+    'pauses send, attachments and dictation behind a described blocked card on %s',
+    (surface) => {
+      mockQuota({
+        canSend: false,
+        canStartDictation: false,
+        isAiQuotaBlocked: true,
+        placeholder: 'Envio pausado até a renovação da cota',
+      })
+      render(<Composer surface={surface} />)
+
+      expect(screen.getByRole('status')).toHaveTextContent(BLOCKED_MESSAGE)
+      expect(screen.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+        'href',
+        ROUTES.accountAiUsage,
+      )
+      const textbox = screen.getByRole('textbox')
+      expect(textbox).toBeDisabled()
+      expect(textbox).toHaveValue('Rascunho preservado')
+      expect(textbox).toHaveAttribute(
+        'placeholder',
+        'Envio pausado até a renovação da cota',
+      )
+      for (const name of [
+        'Enviar',
+        'Anexar arquivo ou imagem',
+        'Gravar ditado. Indisponível no momento',
+      ]) {
+        const control = screen.getByRole('button', { name })
+        expect(control).toHaveAttribute('aria-disabled', 'true')
+        expect(control).toBeEnabled()
+        expect(control).toHaveAccessibleDescription(
+          expect.stringContaining(BLOCKED_MESSAGE),
+        )
+        control.focus()
+        expect(control).toHaveFocus()
+        fireEvent.click(control)
+      }
+      expect(handleSubmitMock).not.toHaveBeenCalled()
+      expect(startDictationMock).not.toHaveBeenCalled()
+      expect(sendFirstMessageMock).not.toHaveBeenCalled()
+    },
+  )
+
+  it('announces a refusal right away with the alert role', () => {
+    mockQuota({ isAiQuotaBlocked: true, aiQuotaBlockedRole: 'alert', canSend: false })
+    render(<Composer surface='page' />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent(BLOCKED_MESSAGE)
+  })
+
+  it('shows the dismissible warning card instead of the blocked card below the limit', () => {
+    mockQuota({ isAiQuotaNearLimit: true })
+    render(<Composer surface='page' />)
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Você já usou 85% da sua cota de IA deste mês.',
+    )
+    expect(useAiQuotaWarningCardMock).toHaveBeenCalledWith(
+      expect.objectContaining({ percentage: 85 }),
+    )
+    expect(screen.queryByRole('link', { name: 'Ver uso da IA' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Dispensar aviso' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Enviar' })).not.toHaveAttribute(
+      'aria-disabled',
+    )
+    expect(screen.getByRole('textbox')).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('hides the warning when the percentage is unknown', () => {
+    mockQuota({ isAiQuotaNearLimit: true, aiQuotaPercentage: null })
+    render(<Composer surface='page' />)
+
+    expect(screen.queryByRole('button', { name: 'Dispensar aviso' })).toBeNull()
+  })
+
+  it('hides the warning when the dismissal says so or the account is unknown', () => {
+    mockQuota({ isAiQuotaNearLimit: true, aiQuotaAccountId: null })
+    const { rerender } = render(<Composer surface='page' />)
+    expect(screen.queryByRole('button', { name: 'Dispensar aviso' })).toBeNull()
+
+    mockQuota({ isAiQuotaNearLimit: true })
+    useAiQuotaWarningCardMock.mockReturnValue({
+      isDismissed: true,
+      message: '',
+      handleDismiss: vi.fn(),
+    })
+    rerender(<Composer surface='page' />)
+    expect(screen.queryByRole('button', { name: 'Dispensar aviso' })).toBeNull()
+  })
+
+  it('shows no quota card and leaves every control active when the reading is unavailable', () => {
+    mockQuota()
+    render(<Composer surface='page' />)
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Gravar ditado' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar ditado' }))
+    expect(startDictationMock).toHaveBeenCalledWith('page')
   })
 })

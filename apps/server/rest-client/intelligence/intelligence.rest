@@ -13,7 +13,11 @@
 @actionProposalId = 01J00000000000000000000004
 @pendingSubmissionKey = 7c1d9e52-3b0a-4f6e-8a2d-927780aec504
 
-### Start planning session
+### Read the AI quota usage of the authenticated account (200 with percentage, status normal|near_limit|blocked and renews_on, Cache-Control private, no-store; 401 without a session)
+GET {{baseUrl}}/intelligence/ai-quota
+Authorization: Bearer {{accessToken}}
+
+### Start planning session (429 ai_quota_exhausted when the monthly AI quota is used up; restart, retry and the Mentor create, submit and retry routes refuse the same way)
 POST {{baseUrl}}/intelligence/planning-sessions
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json

@@ -4,10 +4,21 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from shifu.intelligence.core.domain.enums import MentorActionProposalStatus
+from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
+    MentorActionProposalStatus,
+)
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    EXHAUSTED_BODY,
+    count_state,
+    read_charge,
+    read_month,
+    seed_month,
+)
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
+    from httpx2 import Response
 
     from tests.fixtures.intelligence_fixture import IntelligenceFixture
 
@@ -120,3 +131,75 @@ class TestSubmitMentorMessageController:
 
         assert replay == 200
         assert new_submission == 409
+
+
+class TestSubmitMentorMessageAiQuota:
+    @pytest.fixture(autouse=True)
+    def setup(
+        self, intelligence_fixture: IntelligenceFixture, mentor_client: TestClient
+    ) -> None:
+        self.fixture = intelligence_fixture
+        self.client = mentor_client
+        self.session_id, self.attempt_id, self.message_id = (
+            intelligence_fixture.create_session(mentor_client)
+        )
+        intelligence_fixture.complete_response(
+            self.session_id, self.attempt_id, self.message_id
+        )
+        self.path = f'/intelligence/mentor-sessions/{self.session_id}/messages'
+
+    def _submit(self, key: str = _FIRST_KEY) -> Response:
+        return self.client.post(
+            self.path,
+            json={'submission_key': key, 'content': 'sim', 'context_hint': None},
+        )
+
+    def test_should_admit_a_new_message_and_record_its_request_in_the_month(
+        self,
+    ) -> None:
+        response = self._submit()
+
+        assert response.status_code == 202, response.text
+        new_attempt = response.json()['response']['attempt_id']
+        assert new_attempt != self.attempt_id
+        charge = read_charge(
+            self.fixture, AiQuotaRequestKind.MENTOR_RESPONSE, new_attempt
+        )
+        assert charge is not None
+        assert charge.charged_units == 0
+        month = read_month(self.fixture)
+        assert month is not None
+        assert month.used_units == 0
+
+    @pytest.mark.parametrize('used_units', [1000, 1300])
+    def test_should_refuse_a_new_message_with_429_and_create_nothing(
+        self, used_units: int
+    ) -> None:
+        seed_month(self.fixture, used_units)
+        before = count_state(self.fixture.postgres.engine)
+
+        response = self._submit()
+
+        assert response.status_code == 429, response.text
+        assert response.json() == EXHAUSTED_BODY
+        assert count_state(self.fixture.postgres.engine) == before
+        detail = self.client.get(f'/intelligence/mentor-sessions/{self.session_id}')
+        assert len(detail.json()['messages']['items']) == 2
+
+    def test_should_admit_a_new_message_just_below_the_limit(self) -> None:
+        seed_month(self.fixture, 999)
+
+        assert self._submit().status_code == 202
+
+    def test_should_replay_an_accepted_message_even_after_the_limit_is_reached(
+        self,
+    ) -> None:
+        accepted = self._submit()
+        assert accepted.status_code == 202
+        seed_month(self.fixture, 1000)
+        before = count_state(self.fixture.postgres.engine)
+
+        replay = self._submit()
+
+        assert replay.status_code == 200, replay.text
+        assert count_state(self.fixture.postgres.engine) == before

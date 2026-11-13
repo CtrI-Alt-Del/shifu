@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import type {
@@ -11,6 +11,7 @@ import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-m
 import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
 import { useConversation } from '../use-conversation'
@@ -19,6 +20,20 @@ vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
 
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
+}))
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
+const NOT_BLOCKED_QUOTA: ReturnType<typeof useAiQuotaBlock> = {
+  isAiQuotaBlocked: false,
+  isAiQuotaNearLimit: false,
+  getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou.',
+  aiQuotaBlockedRole: 'status',
+  aiQuotaAccountId: 'account-1',
+  aiQuotaPercentage: 85,
+  aiQuotaRenewsOn: '2026-12-01',
+}
+beforeEach(() => useAiQuotaBlockMock.mockReturnValue(NOT_BLOCKED_QUOTA))
 const useMentorContextMock = vi.mocked(useMentorContext)
 const NO_SUMMARY: MentorSessionSummaryState = {
   current: null,
@@ -79,6 +94,26 @@ describe('useConversation', () => {
     cleanup()
     vi.clearAllMocks()
   })
+
+  it.each([
+    [false, false],
+    [true, true],
+  ])(
+    'exposes the quota block (%s) read with the local refusal flag (%s)',
+    (isAiQuotaBlocked, isAiQuotaRefused) => {
+      useMentorContextMock.mockReturnValue({
+        sessionDetail: null,
+        summary: { current: null, failureAfterMessageId: null },
+        isAiQuotaRefused,
+      } as unknown as MentorContextValue)
+      useAiQuotaBlockMock.mockReturnValue({ ...NOT_BLOCKED_QUOTA, isAiQuotaBlocked })
+
+      const { result } = renderHook(() => useConversation())
+
+      expect(useAiQuotaBlockMock).toHaveBeenCalledWith(isAiQuotaRefused)
+      expect(result.current.isAiQuotaBlocked).toBe(isAiQuotaBlocked)
+    },
+  )
 
   it('keeps the live response as the only presentation for its persisted reply', () => {
     const response: MentorResponseSnapshot = {

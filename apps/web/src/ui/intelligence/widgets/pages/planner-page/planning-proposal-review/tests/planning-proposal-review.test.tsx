@@ -2,7 +2,9 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { useEffect, type ComponentType, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { ROUTES } from '@/constants/routes'
 import { PlanningSessionFaker } from '@/core/intelligence/fakers/planning-session-faker'
+import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 
 import { PlanningProposalReview } from '..'
 import {
@@ -15,6 +17,13 @@ import {
 // shared entrance owns its animated cases.
 vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
   useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
+vi.mock('@/ui/shared/widgets/components/anchor', () => ({
+  Anchor: ({ children, route, ...props }: AnchorProps) => (
+    <a href={ROUTES[route]} {...props}>
+      {typeof children === 'function' ? children({ isActive: false }) : children}
+    </a>
+  ),
 }))
 vi.mock('../use-planning-proposal-review', () => ({
   usePlanningProposalReview: vi.fn(),
@@ -127,6 +136,10 @@ function renderReview(
     proposal,
     isCancelling: false,
     isRestarting: false,
+    isAiQuotaBlocked: false,
+    aiQuotaBlockedMessage:
+      'Sua cota de IA acabou. Reiniciar o planejamento volta em 1º de dezembro de 2026. Você ainda pode criar este Objetivo agora.',
+    aiQuotaBlockedRole: 'status',
     restartErrorMessage: null,
     goalCreation: { status: 'idle', message: null },
     onCancel: vi.fn(),
@@ -366,6 +379,49 @@ describe('PlanningProposalReview', () => {
     expect(screen.getByRole('button', { name: 'Reiniciar planejamento' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Verificar resultado' }))
     expect(current.handleCreateGoal).toHaveBeenCalledOnce()
+  })
+
+  it('pauses the restart behind the quota card while Cancelar and Criar objetivo keep working', () => {
+    const { current, props } = renderReview(
+      {},
+      {
+        isAiQuotaBlocked: true,
+        aiQuotaBlockedRole: 'alert',
+        aiQuotaBlockedMessage:
+          'Sua cota de IA acabou. Reiniciar o planejamento volta em 1º de dezembro de 2026. Você ainda pode criar este Objetivo agora.',
+      },
+    )
+
+    const card = screen.getByRole('alert')
+    expect(card).toHaveTextContent(
+      'Sua cota de IA acabou. Reiniciar o planejamento volta em 1º de dezembro de 2026. Você ainda pode criar este Objetivo agora.',
+    )
+    expect(within(card).getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+      'href',
+      ROUTES.accountAiUsage,
+    )
+    const restart = screen.getByRole('button', { name: 'Reiniciar planejamento' })
+    expect(restart).toHaveAttribute('aria-disabled', 'true')
+    expect(restart).toBeEnabled()
+    expect(restart).toHaveAccessibleDescription(
+      expect.stringContaining('Sua cota de IA acabou.'),
+    )
+    restart.focus()
+    expect(restart).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Criar objetivo' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Criar objetivo' }))
+    expect(current.handleCreateGoal).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(props.onCancel).toHaveBeenCalledOnce()
+  })
+
+  it('renders no quota card and an active restart while the quota is open', () => {
+    renderReview()
+
+    expect(screen.queryByRole('link', { name: 'Ver uso da IA' })).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Reiniciar planejamento' }),
+    ).not.toHaveAttribute('aria-disabled')
   })
 
   it('disables every action while a restart or a cancel is in flight', () => {

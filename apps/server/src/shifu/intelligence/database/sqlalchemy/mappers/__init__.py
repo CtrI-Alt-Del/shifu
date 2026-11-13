@@ -29,3 +29,5 @@ from .mentor_session_mapper import MentorSessionMapper as MentorSessionMapper
 from .mentor_session_summary_mapper import (
     MentorSessionSummaryMapper as MentorSessionSummaryMapper,
 )
+from .ai_quota_charge_mapper import AiQuotaChargeMapper as AiQuotaChargeMapper
+from .ai_quota_month_mapper import AiQuotaMonthMapper as AiQuotaMonthMapper

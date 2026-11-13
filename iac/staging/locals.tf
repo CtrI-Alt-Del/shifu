@@ -43,6 +43,13 @@ locals {
     "DIAGNOSTIC_REVISION_HMAC_KEY",
   ]
 
+  # Shared monthly AI quota. Non-secret values, equal for every account.
+  server_ai_quota_environment = [
+    { name = "AI_QUOTA_MONTHLY_LIMIT_UNITS", value = "1000000" },
+    { name = "AI_QUOTA_INPUT_WEIGHT", value = "1" },
+    { name = "AI_QUOTA_OUTPUT_WEIGHT", value = "4" },
+  ]
+
   server_secret_keys = var.openrouter_enabled ? concat(
     local.server_required_secret_keys,
     ["OPENROUTER_API_KEY"],
