@@ -22,7 +22,7 @@ export default defineConfig({
         'src/**/*.{test,spec}.{ts,tsx}',
         'src/routeTree.gen.ts',
       ],
-      reporter: ['text-summary', 'json', 'json-summary'],
+      reporter: ['text-summary', 'json', 'json-summary', 'lcov'],
       reportsDirectory: './coverage',
       reportOnFailure: true,
     },

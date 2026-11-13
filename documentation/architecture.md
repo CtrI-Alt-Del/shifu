@@ -161,7 +161,7 @@ Each application owns its environment and dependency management:
 | Unit tests | Vitest |
 | Component tests | React Testing Library |
 | End-to-end tests | Playwright |
-| Quality analysis | SonarQube project `Shifu Web` |
+| Quality analysis | SonarCloud project `Shifu Web` |
 
 ### Responsibilities
 
@@ -361,10 +361,10 @@ owning domain module make authoritative business decisions.
 | Tests | pytest |
 | Route tests | FastAPI `TestClient` |
 | Infrastructure tests | Testcontainers |
-| Coverage | pytest-cov |
+| Coverage | coverage.py |
 | Linting and formatting | Ruff |
 | Type checking | Pyright |
-| Quality analysis | SonarQube project `Shifu API` |
+| Quality analysis | SonarCloud project `Shifu API` |
 
 ### Server composition and layers
 
@@ -675,7 +675,7 @@ Web
 ├── Vitest
 ├── React Testing Library
 ├── Playwright
-└── SonarQube / Shifu Web
+└── SonarCloud / Shifu Web
 
 Server
 ├── Ruff
@@ -684,11 +684,11 @@ Server
 ├── FastAPI TestClient
 ├── Testcontainers
 ├── scoped coverage runners
-└── SonarQube / Shifu API
+└── SonarCloud / Shifu API
 ```
 
-A single SonarQube instance may host `Shifu Web` and `Shifu API` while keeping their
-analysis and quality gates independent.
+The SonarCloud organization `ctri-alt-del` hosts `Shifu Web` and `Shifu API` as two
+projects bound to this repository, with independent analysis and quality gates.
 
 ## Pending decisions
 
