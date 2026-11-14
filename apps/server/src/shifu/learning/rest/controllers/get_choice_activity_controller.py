@@ -69,11 +69,23 @@ class CodeQuestionResponse(BaseModel):
     additional_file_policy: AdditionalFilePolicyResponse | None = None
 
 
+class TranslationQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['translation']
+    prompt: str
+    source_language: str
+    target_language: str
+    source_text: str
+    criteria: tuple[CriterionResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
     difficulty: str
-    questions: tuple[ChoiceQuestionResponse | CodeQuestionResponse, ...]
+    questions: tuple[
+        ChoiceQuestionResponse | CodeQuestionResponse | TranslationQuestionResponse, ...
+    ]
     can_submit: bool
     latest_attempt_id: str | None
     unresolved_attempt_id: str | None

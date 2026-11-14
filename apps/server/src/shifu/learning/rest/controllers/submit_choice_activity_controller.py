@@ -15,6 +15,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
@@ -43,18 +44,41 @@ class AnswerRequest(BaseModel):
 
     question_key: str
     kind: (
-        Literal['single_choice', 'multiple_selection', 'javascript_stdin', 'react']
+        Literal[
+            'single_choice',
+            'multiple_selection',
+            'javascript_stdin',
+            'react',
+            'translation',
+        ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    text: str | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
         if self.kind in {'javascript_stdin', 'react'}:
-            if self.files is None or self.selected_option_keys is not None:
+            if (
+                self.files is None
+                or self.selected_option_keys is not None
+                or self.text is not None
+            ):
                 raise ValueError('Code answers require files only')
-        elif self.selected_option_keys is None or self.files is not None:
+        elif self.kind == 'translation':
+            if (
+                self.text is None
+                or not self.text.strip()
+                or self.files is not None
+                or self.selected_option_keys is not None
+            ):
+                raise ValueError('Translation answers require text only')
+        elif (
+            self.selected_option_keys is None
+            or self.files is not None
+            or self.text is not None
+        ):
             raise ValueError('Choice answers require selected option keys only')
         return self
 
@@ -142,6 +166,11 @@ class SubmitChoiceActivityController:
                             ),
                         )
                         if answer.kind in {'javascript_stdin', 'react'}
+                        else TranslationAnswer(
+                            question_key=answer.question_key,
+                            text=answer.text or '',
+                        )
+                        if answer.kind == 'translation'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

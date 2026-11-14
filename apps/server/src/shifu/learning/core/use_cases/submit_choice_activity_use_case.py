@@ -17,6 +17,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
@@ -42,6 +43,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -73,7 +75,7 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
         time_zone: str | None = None,
@@ -114,6 +116,7 @@ class SubmitChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
                 ),
             )
             for item in snapshot.questions
@@ -264,7 +267,7 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
@@ -297,7 +300,7 @@ class SubmitChoiceActivityUseCase:
     @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
@@ -319,6 +322,16 @@ class SubmitChoiceActivityUseCase:
                     raise ValidationError
                 normalized.append(
                     CodeAnswerValidation.normalize(question, answer, max_bytes)
+                )
+                continue
+
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                if not isinstance(answer, TranslationAnswer):
+                    raise ValidationError
+                normalized.append(
+                    TranslationAnswer(
+                        question_key=answer.question_key, text=answer.text
+                    )
                 )
                 continue
 

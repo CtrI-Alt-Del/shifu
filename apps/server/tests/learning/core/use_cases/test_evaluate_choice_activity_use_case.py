@@ -35,6 +35,8 @@ from shifu.learning.core.domain.structures import (
     ConceptObservation,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+    TranslationAnswer,
+    TranslationQuestionAssessmentDecisions,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -55,6 +57,11 @@ from shifu.shared.core.domain.structures import (
     CurriculumSkillSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumTranslationInconclusiveCommentSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricCommentSnapshot,
+    CurriculumTranslationRubricCriterionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -1406,6 +1413,208 @@ class TestEvaluateChoiceActivityUseCase:
 
         assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
         assert self.evaluation.parts[1].score == Decimal(100)
+
+    def test_should_grade_translation_question_in_a_mixed_activity(self) -> None:
+        semantic = CurriculumTranslationRubricCriterionSnapshot(
+            key='semantic_preservation',
+            name='Semantic preservation',
+            description='Meaning',
+            weight_percentage=70,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'semantic-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id='semantic-unknown', text='Inconclusive'
+            ),
+        )
+        grammar = CurriculumTranslationRubricCriterionSnapshot(
+            key='grammatical_adequacy',
+            name='Grammatical adequacy',
+            description='Grammar',
+            weight_percentage=30,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'grammar-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id='grammar-unknown', text='Inconclusive'
+            ),
+        )
+        translation_question = CurriculumTranslationQuestionSnapshot(
+            key='q3',
+            prompt='Translate',
+            source_language='pt-BR',
+            target_language='en-US',
+            source_text='Bom dia',
+            reference_translations=('Good morning',),
+            concept_criteria=(),
+        )
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(base.questions[0], base.questions[1], translation_question),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumTranslationRubricPartSnapshot(
+                    question_key='q3',
+                    weight_percentage=base.parts[2].weight_percentage,
+                    criteria=(semantic, grammar),
+                ),
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='mixed-translation-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                MultipleSelectionAnswer(question_key='q2', selected_option_keys=('a',)),
+                TranslationAnswer(question_key='q3', text='Good morning'),
+            ),
+            submitted_at=NOW,
+            submission_key='mixed-translation-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        decisions = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+
+        self.subject.execute(
+            self.attempt.id,
+            'run-1',
+            translation_decisions=(
+                TranslationQuestionAssessmentDecisions(
+                    question_key='q3', decisions=decisions
+                ),
+            ),
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        expected_translation_score = (
+            Decimal(100) * Decimal(70) / 100 + Decimal(75) * Decimal(30) / 100
+        )
+        assert self.evaluation.parts[2].score == expected_translation_score
+
+    def test_should_leave_mixed_translation_attempt_pending_when_criterion_inconclusive(
+        self,
+    ) -> None:
+        semantic = CurriculumTranslationRubricCriterionSnapshot(
+            key='semantic_preservation',
+            name='Semantic preservation',
+            description='Meaning',
+            weight_percentage=70,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'semantic-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id='semantic-unknown', text='Inconclusive'
+            ),
+        )
+        grammar = CurriculumTranslationRubricCriterionSnapshot(
+            key='grammatical_adequacy',
+            name='Grammatical adequacy',
+            description='Grammar',
+            weight_percentage=30,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'grammar-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id='grammar-unknown', text='Inconclusive'
+            ),
+        )
+        translation_question = CurriculumTranslationQuestionSnapshot(
+            key='q3',
+            prompt='Translate',
+            source_language='pt-BR',
+            target_language='en-US',
+            source_text='Bom dia',
+            reference_translations=('Good morning',),
+            concept_criteria=(),
+        )
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(base.questions[0], base.questions[1], translation_question),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumTranslationRubricPartSnapshot(
+                    question_key='q3',
+                    weight_percentage=base.parts[2].weight_percentage,
+                    criteria=(semantic, grammar),
+                ),
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='mixed-translation-inconclusive-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                MultipleSelectionAnswer(question_key='q2', selected_option_keys=('a',)),
+                TranslationAnswer(question_key='q3', text='Good morning'),
+            ),
+            submitted_at=NOW,
+            submission_key='mixed-translation-inconclusive-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        decisions = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(
+                    key='semantic_preservation', level='inconclusive'
+                ),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+
+        with pytest.raises(EvaluationUnavailableError):
+            self.subject.execute(
+                self.attempt.id,
+                'run-1',
+                translation_decisions=(
+                    TranslationQuestionAssessmentDecisions(
+                        question_key='q3', decisions=decisions
+                    ),
+                ),
+            )
+
+        self.repositories.activity_evaluations.update.assert_not_called()
 
     def test_should_reject_non_code_answer_for_saved_code_question(self) -> None:
         snapshot = mixed_snapshot()

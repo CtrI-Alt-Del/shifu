@@ -49,6 +49,9 @@ from shifu.learning.core.domain.structures import (
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
     SkillCompletionSummary,
+    TranslationAnswer,
+    TranslationQuestionAssessmentDecisions,
+    TranslationRubricResult,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -70,6 +73,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumSkillSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -97,9 +102,10 @@ class EvaluateChoiceActivityUseCase:
         attempt_id: str,
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...] = (),
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> None:
         should_return, mixed_results = self._prepare_mixed_results(
-            attempt_id, run_id, code_decisions
+            attempt_id, run_id, code_decisions, translation_decisions
         )
         if should_return:
             return
@@ -202,6 +208,7 @@ class EvaluateChoiceActivityUseCase:
         attempt_id: str,
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> tuple[bool, tuple[EvaluationPartResult, ...] | None]:
         with self._learning_database.transaction() as repositories:
             preflight = repositories.activity_attempts.find_by_id(attempt_id)
@@ -226,8 +233,10 @@ class EvaluateChoiceActivityUseCase:
             else:
                 saved_attempt = None
         if saved_attempt is not None:
-            return False, self._score_mixed(saved_attempt, code_decisions)
-        if code_decisions:
+            return False, self._score_mixed(
+                saved_attempt, code_decisions, translation_decisions
+            )
+        if code_decisions or translation_decisions:
             raise EvaluationUnavailableError
         return False, None
 
@@ -360,7 +369,8 @@ class EvaluateChoiceActivityUseCase:
         questions: tuple[
             CurriculumChoiceQuestionSnapshot
             | CurriculumJavascriptStdinQuestionSnapshot
-            | CurriculumReactQuestionSnapshot,
+            | CurriculumReactQuestionSnapshot
+            | CurriculumTranslationQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -376,6 +386,11 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, CodeRubricResult)
         }
+        translation_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, TranslationRubricResult)
+        }
         for question in questions:
             if isinstance(
                 question,
@@ -389,6 +404,17 @@ class EvaluateChoiceActivityUseCase:
                     raise InvalidAttemptError
 
                 for item in code_result.concept_observations:
+                    observation_scores.setdefault(item.concept_id, []).append(
+                        Decimal(item.level) if isinstance(item.level, int) else None
+                    )
+                continue
+
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                translation_result = translation_results.get(question.key)
+                if translation_result is None:
+                    raise InvalidAttemptError
+
+                for item in translation_result.concept_observations:
                     observation_scores.setdefault(item.concept_id, []).append(
                         Decimal(item.level) if isinstance(item.level, int) else None
                     )
@@ -719,6 +745,7 @@ class EvaluateChoiceActivityUseCase:
         self,
         attempt: ActivityAttempt,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> tuple[EvaluationPartResult, ...]:
         snapshot = attempt.grading_snapshot
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
@@ -742,12 +769,22 @@ class EvaluateChoiceActivityUseCase:
                 ),
             )
         }
+        translation_keys = {
+            question.key
+            for question in snapshot.questions
+            if isinstance(question, CurriculumTranslationQuestionSnapshot)
+        }
         decisions_by_key = {
             item.question_key: item.decisions for item in code_decisions
+        }
+        translation_decisions_by_key = {
+            item.question_key: item.decisions for item in translation_decisions
         }
         if (
             len(decisions_by_key) != len(code_decisions)
             or set(decisions_by_key) != code_keys
+            or len(translation_decisions_by_key) != len(translation_decisions)
+            or set(translation_decisions_by_key) != translation_keys
         ):
             raise EvaluationUnavailableError
 
@@ -757,18 +794,23 @@ class EvaluateChoiceActivityUseCase:
                 questions_by_key[part.question_key],
                 answers_by_key[part.question_key],
                 decisions_by_key,
+                translation_decisions_by_key,
             )
             for part in snapshot.parts
         )
 
     def _score_mixed_part(
         self,
-        part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
         question: CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
-        | CurriculumReactQuestionSnapshot,
+        | CurriculumReactQuestionSnapshot
+        | CurriculumTranslationQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
+        translation_decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
         if isinstance(
             question,
@@ -780,6 +822,12 @@ class EvaluateChoiceActivityUseCase:
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
                 raise EvaluationUnavailableError
             return self._score_code_part(part, question, answer, decisions_by_key)
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            if not isinstance(part, CurriculumTranslationRubricPartSnapshot):
+                raise EvaluationUnavailableError
+            return self._score_translation_part(
+                part, question, answer, translation_decisions_by_key
+            )
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
         if isinstance(answer, SingleChoiceAnswer):
@@ -821,6 +869,31 @@ class EvaluateChoiceActivityUseCase:
         if result.score is None:
             raise EvaluationUnavailableError
         return CodeRubricResult(
+            question_key=question.key,
+            score=result.score,
+            criterion_results=result.criteria,
+            concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _score_translation_part(
+        part: CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumTranslationQuestionSnapshot,
+        answer: ActivityAnswer,
+        decisions_by_key: dict[str, CodeRubricDecisions],
+    ) -> TranslationRubricResult:
+        if not isinstance(answer, TranslationAnswer):
+            raise EvaluationUnavailableError
+        decisions = decisions_by_key[question.key]
+        try:
+            result = PreviewActivityQuestionFeedbackUseCase.translation_result(
+                question, part, answer, decisions
+            )
+        except (ServiceUnavailableError, ValidationError) as error:
+            raise EvaluationUnavailableError from error
+        if result.score is None:
+            raise EvaluationUnavailableError
+        return TranslationRubricResult(
             question_key=question.key,
             score=result.score,
             criterion_results=result.criteria,

@@ -5,6 +5,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceQuestionDetail,
     CodeQuestionDetail,
     CodeQuestionCriterionDetail,
+    TranslationQuestionCriterionDetail,
+    TranslationQuestionDetail,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
@@ -18,6 +20,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
 
@@ -90,6 +94,7 @@ class GetChoiceActivityUseCase:
                     (
                         CurriculumJavascriptStdinQuestionSnapshot,
                         CurriculumReactQuestionSnapshot,
+                        CurriculumTranslationQuestionSnapshot,
                     ),
                 )
                 for item in snapshot.questions
@@ -212,6 +217,26 @@ class GetChoiceActivityUseCase:
                             CurriculumReactQuestionSnapshot,
                         ),
                     )
+                    else TranslationQuestionDetail(
+                        key=question.key,
+                        kind=question.kind,
+                        prompt=question.prompt,
+                        source_language=question.source_language,
+                        target_language=question.target_language,
+                        source_text=question.source_text,
+                        criteria=tuple(
+                            TranslationQuestionCriterionDetail(
+                                key=item.key,
+                                name=item.name,
+                                weight_percentage=item.weight_percentage,
+                            )
+                            for part in (() if diagnostic else snapshot.parts)
+                            if isinstance(part, CurriculumTranslationRubricPartSnapshot)
+                            and part.question_key == question.key
+                            for item in part.criteria
+                        ),
+                    )
+                    if isinstance(question, CurriculumTranslationQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,

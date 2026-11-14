@@ -92,6 +92,12 @@ from .prepared_code_activity_evaluation import (
 from .prepared_code_question_assessment import (
     PreparedCodeQuestionAssessment as PreparedCodeQuestionAssessment,
 )
+from .prepared_translation_activity_evaluation import (
+    PreparedTranslationActivityEvaluation as PreparedTranslationActivityEvaluation,
+)
+from .prepared_translation_question_assessment import (
+    PreparedTranslationQuestionAssessment as PreparedTranslationQuestionAssessment,
+)
 from .qualitative_criterion_result import (
     QualitativeCriterionResult as QualitativeCriterionResult,
 )
@@ -117,4 +123,20 @@ from .unavailable_competency_detail import (
 )
 from .unavailable_material_detail import (
     UnavailableMaterialDetail as UnavailableMaterialDetail,
+)
+from .translation_answer import TranslationAnswer as TranslationAnswer
+from .translation_question_assessment_decisions import (
+    TranslationQuestionAssessmentDecisions as TranslationQuestionAssessmentDecisions,
+)
+from .translation_question_detail import (
+    TranslationQuestionCriterionDetail as TranslationQuestionCriterionDetail,
+)
+from .translation_question_detail import (
+    TranslationQuestionDetail as TranslationQuestionDetail,
+)
+from .translation_result_detail import (
+    TranslationResultDetail as TranslationResultDetail,
+)
+from .translation_rubric_result import (
+    TranslationRubricResult as TranslationRubricResult,
 )

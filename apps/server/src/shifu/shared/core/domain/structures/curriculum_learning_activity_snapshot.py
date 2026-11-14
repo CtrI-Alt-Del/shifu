@@ -11,6 +11,12 @@ from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
 from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
+from .curriculum_translation_question_snapshot import (
+    CurriculumTranslationQuestionSnapshot,
+)
+from .curriculum_translation_rubric_part_snapshot import (
+    CurriculumTranslationRubricPartSnapshot,
+)
 
 
 @structure
@@ -22,10 +28,16 @@ class CurriculumLearningActivitySnapshot:
     questions: tuple[
         CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
-        | CurriculumReactQuestionSnapshot,
+        | CurriculumReactQuestionSnapshot
+        | CurriculumTranslationQuestionSnapshot,
         ...,
     ]
-    parts: tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]
+    parts: tuple[
+        CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        ...,
+    ]
     required_concept_ids: tuple[str, ...]
     activity_type: str
     schema_version: int
@@ -73,7 +85,32 @@ class CurriculumLearningActivitySnapshot:
                 parts[question.key], CurriculumCodeRubricPartSnapshot
             ):
                 raise ValidationError
-            if self.activity_type == 'diagnostic' and isinstance(
-                question, CurriculumReactQuestionSnapshot
+            requires_translation_rubric = isinstance(
+                question, CurriculumTranslationQuestionSnapshot
+            )
+            if requires_translation_rubric != isinstance(
+                parts[question.key], CurriculumTranslationRubricPartSnapshot
             ):
                 raise ValidationError
+            if self.activity_type == 'diagnostic' and isinstance(
+                question,
+                (
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
+                ),
+            ):
+                raise ValidationError
+        if any(
+            isinstance(question, CurriculumTranslationQuestionSnapshot)
+            for question in self.questions
+        ) and any(
+            isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                ),
+            )
+            for question in self.questions
+        ):
+            raise ValidationError

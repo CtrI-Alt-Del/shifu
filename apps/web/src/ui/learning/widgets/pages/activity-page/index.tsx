@@ -6,6 +6,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { ChoiceQuestion } from './choice-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
+import { TranslationQuestion } from './translation-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
 
@@ -49,6 +50,8 @@ export const ActivityPage = (props: ActivityPageProps) => {
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleTranslationAnswerChange,
+    translationAnswerText,
     runnerFactory,
     reactRunnerFactory,
     reactDraftStore,
@@ -211,7 +214,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
   const isCodeQuestion = currentQuestion.kind === 'javascript_stdin' || isReactQuestion
   const isDiagnosticChoice = activity.isDiagnostic && !isCodeQuestion
   const choiceQuestion =
-    currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react' ? (
+    currentQuestion.kind !== 'javascript_stdin' &&
+    currentQuestion.kind !== 'react' &&
+    currentQuestion.kind !== 'translation' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -306,6 +311,23 @@ export const ActivityPage = (props: ActivityPageProps) => {
           readOnly={Boolean(feedback || frozenAnswer)}
           skillId={'skillId' in props ? props.skillId : undefined}
           totalQuestions={totalQuestions}
+        />
+      ) : currentQuestion.kind === 'translation' ? (
+        <TranslationQuestion
+          activityTitle={activity.title}
+          difficulty={activity.difficulty}
+          disabled={Boolean(
+            isQuestionReadOnly ||
+              isSubmitting ||
+              isAssessing ||
+              Boolean(feedback || frozenAnswer),
+          )}
+          key={currentQuestion.key}
+          onChange={handleTranslationAnswerChange}
+          question={currentQuestion}
+          questionNumber={currentQuestionNumber}
+          totalQuestions={totalQuestions}
+          value={translationAnswerText}
         />
       ) : isDiagnosticChoice ? (
         <section className='rounded-md border border-control-border bg-card p-5 sm:p-6'>

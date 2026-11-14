@@ -4,11 +4,48 @@ from shifu.curriculum.core.domain.structures import (
     CodeRubricEvaluationPart,
     EvaluationRule,
     ReactQuestion,
+    TranslationQuestion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
 from shifu.shared.core.domain.entities import entity
 from shifu.shared.core.domain.structures import NonEmptyText
+
+
+def _validate_ai_graded_rubric_pairing(
+    questions: tuple[ActivityQuestion, ...],
+    evaluation_rule: EvaluationRule,
+    question_keys: set[str],
+    part_keys: set[str],
+) -> None:
+    has_code_question = any(
+        isinstance(question, (JavascriptStdinQuestion, ReactQuestion))
+        for question in questions
+    )
+    has_translation_question = any(
+        isinstance(question, TranslationQuestion) for question in questions
+    )
+    if not (has_code_question or has_translation_question):
+        return
+
+    if len(part_keys) != len(evaluation_rule.parts) or part_keys != question_keys:
+        raise InvalidActivityError
+
+    if has_code_question and has_translation_question:
+        raise InvalidActivityError
+
+    parts = {part.question_key: part for part in evaluation_rule.parts}
+    for question in questions:
+        part = parts[question.key]
+        if isinstance(question, (JavascriptStdinQuestion, ReactQuestion)) != isinstance(
+            part, CodeRubricEvaluationPart
+        ):
+            raise InvalidActivityError
+        if isinstance(question, TranslationQuestion) != isinstance(
+            part, TranslationRubricEvaluationPart
+        ):
+            raise InvalidActivityError
 
 
 @entity
@@ -40,27 +77,13 @@ class Activity:
         ):
             raise InvalidActivityError
 
-        has_code_question = any(
-            isinstance(question, (JavascriptStdinQuestion, ReactQuestion))
-            for question in self.questions
+        _validate_ai_graded_rubric_pairing(
+            self.questions, self.evaluation_rule, question_keys, part_keys
         )
-        if has_code_question:
-            if (
-                len(part_keys) != len(self.evaluation_rule.parts)
-                or part_keys != question_keys
-            ):
-                raise InvalidActivityError
-
-            parts = {part.question_key: part for part in self.evaluation_rule.parts}
-            for question in self.questions:
-                part = parts[question.key]
-                if isinstance(
-                    question, (JavascriptStdinQuestion, ReactQuestion)
-                ) != isinstance(part, CodeRubricEvaluationPart):
-                    raise InvalidActivityError
 
         if self.activity_type == ActivityType.DIAGNOSTIC and any(
-            isinstance(question, ReactQuestion) for question in self.questions
+            isinstance(question, (ReactQuestion, TranslationQuestion))
+            for question in self.questions
         ):
             raise InvalidActivityError
 

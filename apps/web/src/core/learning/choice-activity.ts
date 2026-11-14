@@ -58,7 +58,21 @@ export type ReactQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
-export type ActivityQuestion = ChoiceQuestion | CodeQuestion | ReactQuestion
+export type TranslationQuestion = {
+  key: string
+  kind: 'translation'
+  prompt: string
+  sourceLanguage: string
+  targetLanguage: string
+  sourceText: string
+  criteria: readonly { key: string; name: string; weightPercentage: number }[]
+}
+
+export type ActivityQuestion =
+  | ChoiceQuestion
+  | CodeQuestion
+  | ReactQuestion
+  | TranslationQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -84,7 +98,13 @@ export type CodeAnswer = {
   files: readonly { path: string; content: string }[]
 }
 
-export type ActivityAnswer = ChoiceAnswer | CodeAnswer
+export type TranslationAnswer = {
+  kind: 'translation'
+  questionKey: string
+  text: string
+}
+
+export type ActivityAnswer = ChoiceAnswer | CodeAnswer | TranslationAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -99,6 +119,7 @@ export type PreliminaryQuestionResult = {
     comment: string
   }[]
   submittedFiles?: readonly { path: string; content: string }[]
+  submittedText?: string
 }
 
 export type ChoiceSubmission = {
@@ -144,7 +165,30 @@ export type CodeResultQuestion = {
   }[]
 }
 
-export type ActivityResultQuestion = ChoiceResultQuestion | CodeResultQuestion
+export type TranslationResultQuestion = {
+  key: string
+  kind: 'translation'
+  prompt: string
+  score: number | null
+  submittedText: string
+  criterionResults: readonly {
+    key: string
+    weightPercentage: number
+    level: number | string
+    commentId: string
+    comment: string
+  }[]
+  conceptObservations: readonly {
+    conceptId: string
+    level: number | string
+    observationId: string
+  }[]
+}
+
+export type ActivityResultQuestion =
+  | ChoiceResultQuestion
+  | CodeResultQuestion
+  | TranslationResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

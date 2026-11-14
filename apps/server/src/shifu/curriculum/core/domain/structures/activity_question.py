@@ -3,6 +3,7 @@ from .javascript_stdin_question import JavascriptStdinQuestion
 from .multiple_selection_question import MultipleSelectionQuestion
 from .react_question import ReactQuestion
 from .single_choice_question import SingleChoiceQuestion
+from .translation_question import TranslationQuestion
 
 
 type ActivityQuestion = (
@@ -11,4 +12,5 @@ type ActivityQuestion = (
     | CodeQuestion
     | JavascriptStdinQuestion
     | ReactQuestion
+    | TranslationQuestion
 )
