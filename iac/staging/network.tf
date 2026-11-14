@@ -54,23 +54,6 @@ resource "aws_subnet" "data" {
   }
 }
 
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  depends_on = [aws_internet_gateway.staging]
-
-  tags = { Name = "${local.name}-nat" }
-}
-
-resource "aws_nat_gateway" "staging" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
-
-  depends_on = [aws_internet_gateway.staging]
-
-  tags = { Name = local.name }
-}
-
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.staging.id
 
@@ -99,7 +82,7 @@ resource "aws_route_table" "application" {
 resource "aws_route" "application_egress" {
   route_table_id         = aws_route_table.application.id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.staging.id
+  gateway_id             = aws_internet_gateway.staging.id
 }
 
 resource "aws_route_table_association" "application" {

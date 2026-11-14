@@ -1,5 +1,6 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from shifu.intelligence.core.domain.entities import (
     LearnerMemory,
@@ -70,6 +71,16 @@ from shifu.curriculum.database.logic_programming_seed import (
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
 )
+from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
+from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
+from shifu.gamification.core.domain.entities import (
+    EarnedAchievement,
+    GamificationProfile,
+    PracticeDay,
+    XpGrant,
+)
+from shifu.gamification.core.domain.enums import XpSource
+from shifu.gamification.core.domain.structures import PracticeStreak, XpOrigin
 from shifu.identity.core.domain.entities import Account, AccountActionToken
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.identity.providers.auth.password_hashing.argon2id_hash_provider import (
@@ -198,6 +209,7 @@ SEED_INITIAL_DIAGNOSTIC_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000222'
 SEED_INITIAL_DIAGNOSTIC_PRIORITY_PROGRESS_ID = '01SHF000000000000000000223'
 
 SEED_CREATED_AT = datetime(2026, 1, 1, tzinfo=UTC)
+SEED_ACCOUNT_TIME_ZONE = 'America/Sao_Paulo'
 SEED_ACCOUNT_PASSWORD: str = 'ShifuSeed123!'
 
 
@@ -223,6 +235,18 @@ class DevelopmentSeed:
     activity_evaluations: tuple[ActivityEvaluation, ...]
     communications: tuple[Communication, ...]
     delivery_attempts: tuple[DeliveryAttempt, ...]
+    gamification_profiles: tuple[GamificationProfile, ...] = ()
+    practice_days: tuple[PracticeDay, ...] = ()
+    earned_achievements: tuple[EarnedAchievement, ...] = ()
+    xp_grants: tuple[XpGrant, ...] = ()
+
+
+@structure
+class _GamificationSeed:
+    profile: GamificationProfile
+    practice_days: tuple[PracticeDay, ...]
+    earned_achievements: tuple[EarnedAchievement, ...]
+    xp_grants: tuple[XpGrant, ...]
 
 
 @structure
@@ -1614,7 +1638,112 @@ def _build_logic_learning_records(
     return tuple(attempts), tuple(evaluations)
 
 
-def build_development_seed() -> DevelopmentSeed:
+# Days before the seed's local "today" on which the student practiced. Runs
+# break and restart: an older 21-day run is the record, gaps of one or more
+# missed days follow, and the current 12-day run ends yesterday so today
+# still shows as pending (RP-05, RP-06).
+_SEED_RECORD_RUN_OFFSETS = tuple(range(75, 54, -1))
+_SEED_SCATTERED_PRACTICE_OFFSETS = (50, 46, 45, 40, 36, 28, 25, 22, 20, 19)
+_SEED_CURRENT_RUN_OFFSETS = tuple(range(12, 0, -1))
+_SEED_STREAK_ACHIEVEMENT_DAYS = {'consistencia-i': 3, 'consistencia-ii': 7}
+
+
+def _seed_gamification_id(kind: str, index: int) -> str:
+    return f'01SHFG{kind}{index:019d}'
+
+
+def _build_gamification_seed(
+    account_id: str, time_zone: str, now: datetime
+) -> _GamificationSeed:
+    zone = ZoneInfo(time_zone)
+    today = now.astimezone(zone).date()
+
+    def practiced_at(offset: int) -> datetime:
+        local_day: date = today - timedelta(days=offset)
+        return datetime.combine(local_day, time(19), tzinfo=zone).astimezone(UTC)
+
+    offsets = (
+        _SEED_RECORD_RUN_OFFSETS
+        + _SEED_SCATTERED_PRACTICE_OFFSETS
+        + _SEED_CURRENT_RUN_OFFSETS
+    )
+    practice_days = tuple(
+        PracticeDay.create(
+            id=_seed_gamification_id('D', index),
+            account_id=account_id,
+            time_zone=time_zone,
+            practiced_at=practiced_at(offset),
+            recognized_at=practiced_at(offset) + timedelta(minutes=2),
+        )
+        for index, offset in enumerate(offsets, start=1)
+    )
+
+    first_practiced_at = practice_days[0].practiced_at
+    profile = GamificationProfile.create(
+        id=_seed_gamification_id('P', 1),
+        account_id=account_id,
+        created_at=min(SEED_CREATED_AT, first_practiced_at),
+    )
+    earned_achievements: list[EarnedAchievement] = []
+    xp_grants: list[XpGrant] = []
+    for index, achievement in enumerate(
+        (
+            achievement
+            for achievement in ACHIEVEMENT_CATALOG
+            if achievement.id in _SEED_STREAK_ACHIEVEMENT_DAYS
+        ),
+        start=1,
+    ):
+        record_day = _SEED_STREAK_ACHIEVEMENT_DAYS[achievement.id]
+        achieved_at = practiced_at(_SEED_RECORD_RUN_OFFSETS[record_day - 1])
+        granted_at = achieved_at + timedelta(minutes=3)
+        earned_id = _seed_gamification_id('A', index)
+        earned_achievements.append(
+            EarnedAchievement.create(
+                id=earned_id,
+                account_id=account_id,
+                achievement_id=achievement.id,
+                achievement_name=achievement.name,
+                criterion=achievement.criterion,
+                xp_reward=achievement.xp_reward,
+                achieved_at=achieved_at,
+                granted_at=granted_at,
+            )
+        )
+        xp_grants.append(
+            XpGrant.create(
+                id=_seed_gamification_id('X', index),
+                account_id=account_id,
+                fact_id=earned_id,
+                amount=achievement.xp_reward,
+                origin=XpOrigin(
+                    source=XpSource.ACHIEVEMENT,
+                    reference_id=achievement.id,
+                    label=achievement.name,
+                ),
+                occurred_at=granted_at,
+                granted_at=granted_at,
+            )
+        )
+        profile.add_xp(achievement.xp_reward, granted_at=granted_at)
+
+    profile.update_streak(
+        PracticeStreak(
+            current=len(_SEED_CURRENT_RUN_OFFSETS),
+            longest=len(_SEED_RECORD_RUN_OFFSETS),
+            latest_practice_date=practice_days[-1].practice_date,
+        ),
+        updated_at=now,
+    )
+    return _GamificationSeed(
+        profile=profile,
+        practice_days=practice_days,
+        earned_achievements=tuple(earned_achievements),
+        xp_grants=tuple(xp_grants),
+    )
+
+
+def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
     logic_curriculum = build_logic_programming_seed()
     logic_attempts, logic_evaluations = _build_logic_learning_records(logic_curriculum)
     account = AccountFaker.fake(
@@ -1623,7 +1752,7 @@ def build_development_seed() -> DevelopmentSeed:
         email='student.seed@shifu.com',
         password_hash=Argon2idHashProvider().hash(SEED_ACCOUNT_PASSWORD),
         access_version=1,
-        time_zone='America/Sao_Paulo',
+        time_zone=SEED_ACCOUNT_TIME_ZONE,
         created_at=SEED_CREATED_AT,
         updated_at=SEED_CREATED_AT,
         confirmed_at=SEED_CREATED_AT,
@@ -2480,7 +2609,19 @@ def build_development_seed() -> DevelopmentSeed:
         and attempt.skill_experience_id != SEED_LOGIC_EXPERIENCE_ID
     }
 
+    # Backend roadmap Skills with placeholder content, to exercise the Planner.
+    roadmap = build_roadmap_skills_seed(
+        {
+            'logic': SEED_SKILL_LOGIC_ID,
+            'javascript': SEED_GRAPH_JAVASCRIPT_SKILL_ID,
+            'apis': SEED_GRAPH_APIS_SKILL_ID,
+        }
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
+    gamification_seed = _build_gamification_seed(
+        account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
+    )
     return DevelopmentSeed(
         mentor_sessions=mentor_sessions,
         mentor_messages=mentor_messages,
@@ -2488,44 +2629,51 @@ def build_development_seed() -> DevelopmentSeed:
         tombstoned_mentor_session_ids=(SEED_REMOVED_MENTOR_SESSION_ID,),
         accounts=(account,),
         account_action_tokens=(),
-        skills=tuple(skill for skill in skills if skill.id in retained_skill_ids),
+        skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
+        + roadmap.skills,
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
             if foundation.skill_id in retained_skill_ids
             and foundation.foundation_skill_id in retained_skill_ids
-        ),
+        )
+        + roadmap.skill_foundations,
         competencies=tuple(
             competency
             for competency in competencies
             if competency.id in ready_competency_ids
         )
-        + logic_curriculum.competencies,
+        + logic_curriculum.competencies
+        + roadmap.competencies,
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
         )
-        + logic_curriculum.concepts,
+        + logic_curriculum.concepts
+        + roadmap.concepts,
         materials=tuple(
             material
             for material in materials
             if material.skill_id in ready_skill_ids
             and material.skill_id != SEED_SKILL_LOGIC_ID
         )
-        + logic_curriculum.materials,
+        + logic_curriculum.materials
+        + roadmap.materials,
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
         )
-        + logic_curriculum.activities,
+        + logic_curriculum.activities
+        + roadmap.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
         )
-        + logic_curriculum.curriculum_sequences,
+        + logic_curriculum.curriculum_sequences
+        + roadmap.curriculum_sequences,
         goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
         skill_experiences=tuple(
             experience
@@ -2566,4 +2714,8 @@ def build_development_seed() -> DevelopmentSeed:
         + logic_evaluations,
         communications=communications,
         delivery_attempts=delivery_attempts,
+        gamification_profiles=(gamification_seed.profile,),
+        practice_days=gamification_seed.practice_days,
+        earned_achievements=gamification_seed.earned_achievements,
+        xp_grants=gamification_seed.xp_grants,
     )

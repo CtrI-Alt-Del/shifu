@@ -6,6 +6,7 @@ import { Button } from '@/ui/shadcn/button'
 import { EmptyState } from './empty-state'
 import { Composer } from './composer'
 import { MessageList } from './message-list'
+import { SkillActionCard } from './message-list/skill-action-card'
 import { LoadingSkeleton } from './loading-skeleton'
 import { useConversation } from './use-conversation'
 
@@ -30,6 +31,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     sessionDetail,
     conversationItems,
     trailingMemoryItems,
+    trailingActionItems,
   } = useConversation()
   const messages = sessionDetail?.messages.items ?? []
 
@@ -100,6 +102,15 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             onCancel={cancelResponse}
             onRetry={retryResponse}
           />
+        ) : null}
+        {trailingActionItems.length > 0 ? (
+          <ul aria-label='Ações propostas nesta resposta' className='mt-4 space-y-4'>
+            {trailingActionItems.map((proposal) => (
+              <li key={proposal.id}>
+                <SkillActionCard proposal={proposal} />
+              </li>
+            ))}
+          </ul>
         ) : null}
         {trailingMemoryItems.length > 0 ? (
           <ul aria-label='Memórias desta resposta'>

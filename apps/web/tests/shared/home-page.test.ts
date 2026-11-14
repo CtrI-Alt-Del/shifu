@@ -1,3 +1,4 @@
+import { PlanningSessionFaker } from '@/core/intelligence/fakers/planning-session-faker'
 import { GoalSummaryFaker, LearningRouteIdsFaker } from '@/core/learning/fakers'
 import type { BffFixtureContract } from '../fixtures/bff-fixture'
 
@@ -6,6 +7,8 @@ import { expect, navigateAuthenticatedPage, test } from '../playwright'
 const learningIds = LearningRouteIdsFaker.fake()
 const GOAL_ID = learningIds.goalId
 const SKILL_ID = learningIds.skillId
+// The planner route validates the id as a ULID before loading the session.
+const PLANNING_ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV'
 
 // Home's data (the objectives list) and its start-planning mutation are
 // fetched through server functions that call FastAPI from the Node process,
@@ -67,8 +70,28 @@ async function mockHomeServerFunctions(
       await route.fulfill(
         serverFnResponse({
           created_at: '2026-01-06T00:00:00.000Z',
-          id: 'playwright-planning-id',
+          id: PLANNING_ID,
         }),
+      )
+      return
+    }
+
+    // The planner page polls the session right after the Home hands over.
+    if (descriptor?.file.includes('use-planning-session-query')) {
+      await route.fulfill(
+        serverFnResponse(
+          PlanningSessionFaker.fake({
+            id: PLANNING_ID,
+            intent: 'quero aprender Python',
+            status: 'processing',
+            batch: null,
+            operation: {
+              kind: 'start',
+              startedAt: '2026-01-06T00:00:00.000Z',
+              stage: null,
+            },
+          }),
+        ),
       )
       return
     }
@@ -204,11 +227,11 @@ test.describe('Home page', () => {
     await postRequest
 
     await expect(authenticatedPage).toHaveURL(
-      /\/intelligence\/planner\/playwright-planning-id\/?$/,
+      new RegExp(`/intelligence/planner/${PLANNING_ID}/?$`),
     )
-    await expect(
-      authenticatedPage.getByText('Seu planejamento está sendo preparado.'),
-    ).toBeVisible()
+    await expect(authenticatedPage.getByRole('status')).toContainText(
+      'Analisando seu objetivo…',
+    )
   })
 
   test('rejects an empty intent without ever sending a request (CA-07)', async ({

@@ -5,9 +5,9 @@ import './goal-skill-graph.css'
 
 import type { GoalSkillDetail, GoalSkillRelation } from '@/core/learning/goal-detail'
 import { Button } from '@/ui/shadcn/button'
+import { GraphZoomControls } from '@/ui/shared/widgets/components/graph-zoom-controls'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
-import { GoalGraphControls } from './goal-graph-controls'
 import { GoalGraphNode, GoalRootNode, type GoalFlowNodeType } from './goal-graph-node'
 import { useGoalSkillGraph } from './use-goal-skill-graph'
 
@@ -61,7 +61,7 @@ export const GoalSkillGraph = ({
   return (
     <section
       aria-label='Grafo de Habilidades'
-      className='relative h-[40rem] overflow-hidden rounded-[10px] border border-border bg-surface-alt'
+      className='relative h-[40rem] overflow-hidden rounded-[12px] border border-border bg-surface-alt'
       onBlurCapture={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) handleNodeFocus(null)
       }}
@@ -97,7 +97,7 @@ export const GoalSkillGraph = ({
         </p>
       ) : null}
       <div className='absolute bottom-5 right-5 z-10'>
-        <GoalGraphControls
+        <GraphZoomControls
           canZoomIn={canZoomIn}
           canZoomOut={canZoomOut}
           onZoomIn={() => {

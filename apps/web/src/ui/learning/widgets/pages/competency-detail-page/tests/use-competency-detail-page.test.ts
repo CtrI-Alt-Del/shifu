@@ -22,11 +22,19 @@ vi.mock('@/ui/shared/hooks/use-navigation', () => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
-    validator: () => ({
-      handler: () => getCompetencyDetailActionMock,
+    middleware: () => ({
+      validator: () => ({
+        handler: () => getCompetencyDetailActionMock,
+      }),
     }),
   }),
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 const useQueryMock = vi.mocked(useQuery)
@@ -79,6 +87,7 @@ describe('useCompetencyDetailPage', () => {
     refetchMock.mockReset()
     useQueryMock.mockReset()
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToActivity: vi.fn(),
       navigateToGoalDetail: navigateToGoalDetailMock,

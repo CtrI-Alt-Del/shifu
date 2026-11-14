@@ -1,6 +1,10 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_CARD } from '@/constants/motion-variants'
 import { ConfirmationDialog } from '@/ui/shared/widgets/components/confirmation-dialog'
 import { Anchor } from '@/ui/shared/widgets/components/anchor'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { MemoriesFeedback } from './memories-feedback'
 import { MemoryDetails } from './memory-details'
@@ -10,6 +14,8 @@ import { MemoryList } from './memory-list'
 import { MemoryMap } from './memory-map'
 import { MemoryRemovedNotice } from './memory-removed-notice'
 import { useMemoriesPage } from './use-memories-page'
+
+import './memories-page.css'
 
 export const MemoriesPage = () => {
   const {
@@ -44,7 +50,7 @@ export const MemoriesPage = () => {
   const selectedMemoryId = selectedMemory?.id ?? null
 
   return (
-    <div className='mx-auto w-full max-w-7xl space-y-6'>
+    <div className='memories-page mx-auto w-full max-w-7xl space-y-6'>
       <header className='space-y-2'>
         <Anchor
           className='inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground'
@@ -75,41 +81,61 @@ export const MemoriesPage = () => {
               onRetry={handleRetry}
               status={listStatus}
             />
-          ) : view === 'map' ? (
-            <MemoryMap
-              memories={memories}
-              onSelectMemory={handleSelectMemory}
-              selectedMemoryId={selectedMemoryId}
-            />
           ) : (
-            <MemoryList
-              memories={memories}
-              onSelectMemory={handleSelectMemory}
-              selectedMemoryId={selectedMemoryId}
-            />
+            // Memories load in the browser after the CSS intro, so each view
+            // runs its own entrance; switching Lista/Mapa plays it again.
+            <MotionEntrance key={view}>
+              {view === 'map' ? (
+                <MemoryMap
+                  memories={memories}
+                  onSelectMemory={handleSelectMemory}
+                  selectedMemoryId={selectedMemoryId}
+                />
+              ) : (
+                <MemoryList
+                  memories={memories}
+                  onSelectMemory={handleSelectMemory}
+                  selectedMemoryId={selectedMemoryId}
+                />
+              )}
+            </MotionEntrance>
           )}
         </div>
         {sidePanelStatus === 'none' ? null : (
           <aside aria-label='Painel da memória' className='min-w-0'>
             {sidePanelStatus === 'details' && selectedMemory ? (
-              <MemoryDetails
-                memory={selectedMemory}
-                onClose={handleCloseDetails}
-                onDelete={handleRequestDelete}
-                onEdit={handleStartEdit}
-              />
+              // Keyed by memory and panel state, so each selection or switch to
+              // editing brings the panel in again.
+              <MotionEntrance key={`details:${selectedMemory.id}`}>
+                <motion.div variants={ENTRANCE_CARD}>
+                  <MemoryDetails
+                    memory={selectedMemory}
+                    onClose={handleCloseDetails}
+                    onDelete={handleRequestDelete}
+                    onEdit={handleStartEdit}
+                  />
+                </motion.div>
+              </MotionEntrance>
             ) : sidePanelStatus === 'edit' && selectedMemory ? (
-              <MemoryEditForm
-                conflictContent={conflictContent}
-                isSaving={isSaving}
-                key={selectedMemory.id}
-                memory={selectedMemory}
-                onCancel={handleCancelEdit}
-                onSave={(content) => void handleSaveEdit(content)}
-                saveError={saveError}
-              />
+              <MotionEntrance key={`edit:${selectedMemory.id}`}>
+                <motion.div variants={ENTRANCE_CARD}>
+                  <MemoryEditForm
+                    conflictContent={conflictContent}
+                    isSaving={isSaving}
+                    key={selectedMemory.id}
+                    memory={selectedMemory}
+                    onCancel={handleCancelEdit}
+                    onSave={(content) => void handleSaveEdit(content)}
+                    saveError={saveError}
+                  />
+                </motion.div>
+              </MotionEntrance>
             ) : sidePanelStatus === 'removed' ? (
-              <MemoryRemovedNotice />
+              <MotionEntrance key='removed'>
+                <motion.div variants={ENTRANCE_CARD}>
+                  <MemoryRemovedNotice />
+                </motion.div>
+              </MotionEntrance>
             ) : (
               <MemoriesFeedback
                 onClearFilters={handleClearFilters}

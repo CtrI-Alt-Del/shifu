@@ -52,6 +52,9 @@ export type MentorContextValue = {
   sessionDetail: MentorSessionDetail | null
   summary: MentorSessionSummaryState
   isSummarizingContext: boolean
+  blockingActionProposalId: string | null
+  isRefreshingActions: boolean
+  hasActionRefreshTimedOut: boolean
   sessionsPage: MentorSessionsPage
   draft: string
   draftAttachments: MentorDraftAttachment[]
@@ -96,4 +99,6 @@ export type MentorContextValue = {
   renameSession(title: string): Promise<void>
   removeSession(): Promise<void>
   refresh(): Promise<void>
+  refreshActions(): void
+  onActionResolved(proposalId: string): void
 }

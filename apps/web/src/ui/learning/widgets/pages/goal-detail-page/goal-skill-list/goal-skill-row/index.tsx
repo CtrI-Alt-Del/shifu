@@ -1,4 +1,7 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
+
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 
 import type { GoalSkillDetail } from '@/core/learning/goal-detail'
 import { SkillStatus } from '@/ui/learning/widgets/components/skill-status'
@@ -13,7 +16,10 @@ export type GoalSkillRowProps = {
 }
 
 export const GoalSkillRow = ({ goalId, skill, onRemove }: GoalSkillRowProps) => (
-  <li className='flex min-h-16 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4'>
+  <motion.li
+    className='flex min-h-16 flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4'
+    variants={ENTRANCE_ROW}
+  >
     <span
       className={`flex size-10 shrink-0 items-center justify-center rounded-md ${skill.status === 'learning' || skill.status === 'completed' ? 'bg-jade-tint text-success' : 'bg-muted text-muted-foreground'}`}
     >
@@ -59,5 +65,5 @@ export const GoalSkillRow = ({ goalId, skill, onRemove }: GoalSkillRowProps) => 
       <SkillActionsMenu onRemove={onRemove} skillName={skill.name} />
       <Icon className='text-muted-foreground' name='chevron-right' size={18} />
     </div>
-  </li>
+  </motion.li>
 )

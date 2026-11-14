@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { PlannerPlaceholderPage } from '@/ui/intelligence/widgets/pages/planner-placeholder-page'
+import { PlannerPage } from '@/ui/intelligence/widgets/pages/planner-page'
 import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
 
 export const Route = createFileRoute('/intelligence/planner/$planningId/')({
@@ -11,5 +11,5 @@ export const Route = createFileRoute('/intelligence/planner/$planningId/')({
 function RouteComponent() {
   const { planningId } = Route.useParams()
 
-  return <PlannerPlaceholderPage planningId={planningId} />
+  return <PlannerPage planningId={planningId} />
 }

@@ -54,40 +54,29 @@ class TestRecognizeCompetencyMasteredJob:
             'mastered_at': NOW.isoformat().replace('+00:00', 'Z'),
         }
 
+        def publish_and_assert_failure(payload: dict[str, object]) -> None:
+            event_id = ids.generate()
+            inngest_fixture.publish(_EVENT_NAME, payload, event_id=event_id)
+            failure_log = inngest_fixture.wait_for_log(
+                f'"event":"job.failed","event_id":"{event_id}"',
+                timeout=30,
+            )
+            assert '"job":"gamification.recognize_competency_mastered"' in failure_log
+            assert '"exception_type":"NonRetriableError"' in failure_log
+
         # An empty identifier fails `_Payload.validate_identifier`.
-        inngest_fixture.publish(
-            _EVENT_NAME,
+        publish_and_assert_failure(
             {**base_data, 'account_id': '   '},
-            event_id=ids.generate(),
-        )
-        inngest_fixture.wait_for_log(
-            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
-            ' HTTP/1.1" 500',
-            timeout=30,
         )
 
         # An unparseable instant fails `_parse_utc_iso`'s format check.
-        inngest_fixture.publish(
-            _EVENT_NAME,
+        publish_and_assert_failure(
             {**base_data, 'mastered_at': 'not-a-date'},
-            event_id=ids.generate(),
-        )
-        inngest_fixture.wait_for_log(
-            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
-            ' HTTP/1.1" 500',
-            timeout=30,
         )
 
         # A syntactically valid but non-UTC instant fails the UTC check.
-        inngest_fixture.publish(
-            _EVENT_NAME,
+        publish_and_assert_failure(
             {**base_data, 'mastered_at': '2026-01-01T00:00:00+02:00'},
-            event_id=ids.generate(),
-        )
-        inngest_fixture.wait_for_log(
-            'fnId=shifu-gamification-recognize-competency-mastered&stepId=step'
-            ' HTTP/1.1" 500',
-            timeout=30,
         )
 
     def test_should_grant_fifty_xp_once_on_first_mastery(

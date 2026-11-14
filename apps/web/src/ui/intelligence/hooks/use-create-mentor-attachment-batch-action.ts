@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useMutation } from '@tanstack/react-query'
 
@@ -14,11 +15,13 @@ const INPUT = z
   .strict()
 
 export const createMentorAttachmentBatchServer = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((data: unknown) => INPUT.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { accessToken, service } = await getMentorScopedService(
       getRequest(),
       data.accountEmail,
+      context,
     )
     return service.createMentorAttachmentBatch(accessToken, data.sessionId)
   })

@@ -4,6 +4,9 @@ from .learner_memories_repository import (
 from .learner_memory_changes_repository import (
     SqlalchemyLearnerMemoryChangesRepository as SqlalchemyLearnerMemoryChangesRepository,
 )
+from .mentor_action_proposals_repository import (
+    SqlalchemyMentorActionProposalsRepository as SqlalchemyMentorActionProposalsRepository,
+)
 from .mentor_attachment_batches_repository import (
     SqlalchemyMentorAttachmentBatchesRepository as SqlalchemyMentorAttachmentBatchesRepository,
 )
@@ -28,6 +31,6 @@ from .mentor_session_summaries_repository import (
 from .mentor_sessions_repository import (
     SqlalchemyMentorSessionsRepository as SqlalchemyMentorSessionsRepository,
 )
-from .planning_sessions_repository import (
-    SqlalchemyPlanningSessionsRepository as SqlalchemyPlanningSessionsRepository,
+from .planning_embeddings_repository import (
+    SqlalchemyPlanningEmbeddingsRepository as SqlalchemyPlanningEmbeddingsRepository,
 )

@@ -49,11 +49,20 @@ monotonically, recommend an answer for each, and wait for the user's answers
 before recomputing the next frontier. Research repository, complete PRD, and
 Jira facts directly; do not ask the user for inspectable facts.
 
+Every question must include at least two explicit, lettered options, including
+questions that ask for confirmation or approval. Offer concrete alternatives
+and identify the recommended option by letter with a brief reason. The user
+may provide a different answer in their own words. Never ask a question without
+options.
+
 Ask questions in normal plain chat text using this exact shape:
 
 ❓ Q1 — <question title>: <question body>
 
-➡️ Recommended: <recommended answer>
+A. <first option>
+B. <second option>
+
+➡️ Recommended: <option letter> — <brief reason>
 
 ---
 

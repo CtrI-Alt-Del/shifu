@@ -42,7 +42,7 @@ export const MemoryEditForm = ({
   return (
     <form
       aria-label='Editar memória'
-      className='space-y-4 rounded-[10px] border border-border bg-card p-5'
+      className='space-y-4 rounded-[12px] border border-border bg-card p-5'
       noValidate
       onSubmit={handleSubmit}
     >

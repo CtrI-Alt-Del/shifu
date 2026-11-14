@@ -41,6 +41,8 @@ class AnswerRequest(BaseModel):
         'multiple_selection',
         'javascript_stdin',
         'react',
+        'html_css_js',
+        'react_fastify',
         'translation',
     ]
     question_key: str = Field(min_length=1, max_length=128)
@@ -50,7 +52,7 @@ class AnswerRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react'}:
+        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
             if (
                 self.files is None
                 or self.selected_option_keys is not None
@@ -151,7 +153,12 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind in {'javascript_stdin', 'react'}:
+            if payload.kind in {
+                'javascript_stdin',
+                'react',
+                'html_css_js',
+                'react_fastify',
+            }:
                 answer = CodeAnswer(
                     question_key=payload.question_key,
                     kind=payload.kind,

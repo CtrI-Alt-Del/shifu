@@ -20,6 +20,16 @@ from shifu.curriculum.database.sqlalchemy.repositories import (
     SqlalchemySkillFoundationsRepository,
     SqlalchemySkillsRepository,
 )
+from shifu.gamification.database import GamificationSeeder
+from shifu.gamification.database.sqlalchemy.repositories import (
+    SqlalchemyActivityXpBalancesRepository,
+    SqlalchemyActivityXpRecognitionsRepository,
+    SqlalchemyEarnedAchievementsRepository,
+    SqlalchemyGamificationProfilesRepository,
+    SqlalchemyPracticeDaysRepository,
+    SqlalchemyRewardedMilestonesRepository,
+    SqlalchemyXpGrantsRepository,
+)
 from shifu.identity.database import IdentitySeeder
 from shifu.identity.database.sqlalchemy.repositories import (
     SqlalchemyAccountActionTokensRepository,
@@ -55,6 +65,7 @@ class SeedOrchestrator:
         communication_seeder: CommunicationSeeder,
         events_repository: SqlalchemyEventsRepository,
         intelligence_seeder: IntelligenceSeeder,
+        gamification_seeder: GamificationSeeder,
     ) -> None:
         self._identity_seeder = identity_seeder
         self._curriculum_seeder = curriculum_seeder
@@ -62,9 +73,11 @@ class SeedOrchestrator:
         self._communication_seeder = communication_seeder
         self._events_repository = events_repository
         self._intelligence_seeder: IntelligenceSeeder = intelligence_seeder
+        self._gamification_seeder: GamificationSeeder = gamification_seeder
 
-    def clear(self) -> None:
+    def clear(self, account_ids: list[str]) -> None:
         self._events_repository.remove_all()
+        self._gamification_seeder.clear(account_ids)
         self._communication_seeder.clear()
         self._learning_seeder.clear()
         self._intelligence_seeder.clear()
@@ -74,7 +87,7 @@ class SeedOrchestrator:
     def run(self, seed: DevelopmentSeed | None = None) -> None:
         development_seed = seed or build_development_seed()
 
-        self.clear()
+        self.clear([account.id for account in development_seed.accounts])
         self._identity_seeder.run(
             list(development_seed.accounts),
             list(development_seed.account_action_tokens),
@@ -105,6 +118,12 @@ class SeedOrchestrator:
             list(development_seed.communications),
             list(development_seed.delivery_attempts),
         )
+        self._gamification_seeder.run(
+            list(development_seed.gamification_profiles),
+            list(development_seed.practice_days),
+            list(development_seed.earned_achievements),
+            list(development_seed.xp_grants),
+        )
 
 
 def _require_current_schema(session: SqlalchemySession) -> None:
@@ -126,10 +145,27 @@ def _require_current_schema(session: SqlalchemySession) -> None:
         )
 
 
+def _require_seed_allowed(settings: SeedSettings) -> None:
+    """Refuse to delete data outside the environments approved for reseeding.
+
+    Local always allows it. Staging allows it only when the deploy step sets
+    SHIFU_ALLOW_STAGING_SEED=true. Production never does.
+    """
+    if settings.server_app_mode == 'local':
+        return
+
+    if settings.server_app_mode == 'staging' and settings.allow_staging_seed:
+        return
+
+    raise RuntimeError(
+        'Database seeding is only allowed in local mode, or in staging when '
+        'SHIFU_ALLOW_STAGING_SEED is true.'
+    )
+
+
 def seed() -> None:
     settings = SeedSettings.from_environment()
-    if settings.server_app_mode != 'local':
-        raise RuntimeError('Database seeding is only allowed in local mode.')
+    _require_seed_allowed(settings)
 
     with Session.database_session(
         engine=Session.create_database_engine(
@@ -168,6 +204,15 @@ def seed() -> None:
                 SqlalchemyMentorMessagesRepository(session),
                 SqlalchemyLearnerMemoriesRepository(session),
                 SqlalchemyLearnerMemoryChangesRepository(session),
+            ),
+            GamificationSeeder(
+                SqlalchemyGamificationProfilesRepository(session),
+                SqlalchemyXpGrantsRepository(session),
+                SqlalchemyEarnedAchievementsRepository(session),
+                SqlalchemyRewardedMilestonesRepository(session),
+                SqlalchemyPracticeDaysRepository(session),
+                SqlalchemyActivityXpBalancesRepository(session),
+                SqlalchemyActivityXpRecognitionsRepository(session),
             ),
         )
         orchestrator.run()

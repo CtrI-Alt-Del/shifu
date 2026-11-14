@@ -5,7 +5,8 @@ export const Route = createFileRoute(
 )({
   server: {
     handlers: {
-      GET: ({ request, params }) => handleMentorResponseStream(request, params.sessionId),
+      GET: ({ request, params, context }) =>
+        handleMentorResponseStream(request, params.sessionId, context),
     },
   },
 })

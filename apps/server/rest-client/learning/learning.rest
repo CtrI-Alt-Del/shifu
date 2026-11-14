@@ -11,6 +11,8 @@
 @entryKey = 75e29c3d-8bc2-4e4d-9103-cc747a170011
 @diagnosticRunId = 75e29c3d-8bc2-4e4d-9103-cc747a170011
 @diagnosticSubmissionKey = 75e29c3d-8bc2-4e4d-9103-cc747a170014
+@mentorConfirmationId = 01SHF000000000000000000101
+@mentorSkillExperienceId = 01SHF000000000000000000102
 
 ### Objectives home list
 GET {{baseUrl}}/learning/goals
@@ -109,6 +111,70 @@ Content-Type: application/json
 {
   "skill_id": "{{skillId}}",
   "foundation_skill_ids": []
+}
+
+### Mentor addition: add an existing Skill to an owned Goal (200 added | already_present | rejected)
+### The confirmation id is the Mentor proposal id; repeating the same body returns the same outcome.
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-additions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_id": "{{mentorConfirmationId}}",
+  "skill_id": "{{skillId}}",
+  "justification": "Você pediu ao Mentor para adicionar esta Habilidade."
+}
+
+### Mentor addition replay with another justification under the same confirmation id (409)
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-additions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_id": "{{mentorConfirmationId}}",
+  "skill_id": "{{skillId}}",
+  "justification": "Outra justificativa para o mesmo identificador."
+}
+
+### Mentor removal: remove exactly one Skill experience of an owned Goal (200 removed | rejected)
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-removals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_id": "{{mentorConfirmationId}}",
+  "skill_experience_id": "{{mentorSkillExperienceId}}"
+}
+
+### Mentor removal replay with another experience under the same confirmation id (409)
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-removals
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_id": "{{mentorConfirmationId}}",
+  "skill_experience_id": "01SHF000000000000000000103"
+}
+
+### Mentor addition with an invalid body (422)
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-additions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "confirmation_id": "not-a-ulid",
+  "skill_id": "{{skillId}}",
+  "justification": "   "
+}
+
+### Mentor addition without authentication (401, no receipt)
+POST {{baseUrl}}/learning/goals/{{goalId}}/mentor-skill-additions
+Content-Type: application/json
+
+{
+  "confirmation_id": "{{mentorConfirmationId}}",
+  "skill_id": "{{skillId}}",
+  "justification": "Você pediu ao Mentor para adicionar esta Habilidade."
 }
 
 ### Get competency detail

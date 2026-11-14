@@ -1,4 +1,7 @@
-import './competency-detail-page.css'
+import { motion } from 'motion/react'
+
+import { ENTRANCE_SECTION } from '@/constants/motion-variants'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { CompetencyContentList } from './competency-content-list'
 import { CompetencyDetailFeedback } from './competency-detail-feedback'
@@ -39,18 +42,22 @@ export const CompetencyDetailPage = (props: CompetencyDetailPageProps) => {
   }
 
   return (
-    <div className='competency-detail-page mx-auto w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'>
+    <MotionEntrance className='mx-auto w-full max-w-7xl space-y-7 pb-6 sm:space-y-9'>
       <CompetencyDetailHeader
         detail={detail}
         goalId={props.goalId}
         skillId={props.skillId}
       />
-      <AdaptiveRecommendation detail={detail} />
+      {detail.adaptive ? (
+        <motion.div variants={ENTRANCE_SECTION}>
+          <AdaptiveRecommendation detail={detail} />
+        </motion.div>
+      ) : null}
       <CompetencyContentList
         detail={detail}
         goalId={props.goalId}
         skillId={props.skillId}
       />
-    </div>
+    </MotionEntrance>
   )
 }

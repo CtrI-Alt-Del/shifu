@@ -7,6 +7,7 @@ from shifu.intelligence.core.domain.enums import (
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.errors import (
+    MentorActionPendingError,
     MentorInputInvalidError,
     MentorResponseConflictError,
     MentorSessionNotFoundError,
@@ -31,6 +32,7 @@ from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     selected_attachments,
 )
 from shifu.intelligence.core.use_cases.mentor_detail import (
+    load_mentor_action_items,
     load_mentor_summary_state,
 )
 from shifu.shared.core.interfaces import (
@@ -106,6 +108,10 @@ class SubmitMentorMessageUseCase:
                     is not None
                 ):
                     raise MentorResponseConflictError
+                if repositories.mentor_action_proposals.exists_pending(
+                    account_id, session_id
+                ):
+                    raise MentorActionPendingError
                 selected = selected_attachments(
                     repositories,
                     account_id=account_id,
@@ -196,6 +202,9 @@ class SubmitMentorMessageUseCase:
                 summary=load_mentor_summary_state(repositories, account_id, session_id),
                 memory_items=repositories.learner_memory_changes.find_items_by_session(
                     account_id, session_id
+                ),
+                action_items=load_mentor_action_items(
+                    repositories, account_id, session_id
                 ),
             )
 

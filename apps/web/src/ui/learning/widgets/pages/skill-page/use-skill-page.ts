@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { COMPETENCY_DETAIL_ID_PATTERN } from '@/core/learning/competency-detail'
 import { ROUTES } from '@/constants/routes'
 import { CurriculumGapError } from '@/core/learning/curriculum-gap-error'
@@ -13,7 +15,7 @@ import type { DiagnosticOverview } from '@/core/learning/goal-detail'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
 import { getGoalDetail } from '@/provision/learning/get-goal-detail'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 import { useRemoveSkillAction } from '@/ui/learning/hooks/use-remove-skill-action'
@@ -31,80 +33,121 @@ type ActionFailure = {
 }
 
 export const getDiagnosticAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: GetDiagnosticInput) => input)
-  .handler(async ({ data }): Promise<DiagnosticOverview | ActionFailure> => {
-    if (
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId)
-    )
-      return { kind: 'not-found' }
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).getDiagnostic(access.accessToken, data.goalId, data.skillId, data.diagnosticRunId)
-    } catch (error) {
-      if (error instanceof RestError && error.statusCode === 401)
-        return { kind: 'unauthorized' }
-      if (error instanceof RestError && error.statusCode === 404)
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: GetDiagnosticInput
+      context: RequestTelemetryContext
+    }): Promise<DiagnosticOverview | ActionFailure> => {
+      if (
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId)
+      )
         return { kind: 'not-found' }
-      if (error instanceof RestError && error.statusCode === 409)
-        return { kind: 'stale-run' }
-      return { kind: 'unavailable' }
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).getDiagnostic(
+          access.accessToken,
+          data.goalId,
+          data.skillId,
+          data.diagnosticRunId,
+        )
+      } catch (error) {
+        if (error instanceof RestError && error.statusCode === 401)
+          return { kind: 'unauthorized' }
+        if (error instanceof RestError && error.statusCode === 404)
+          return { kind: 'not-found' }
+        if (error instanceof RestError && error.statusCode === 409)
+          return { kind: 'stale-run' }
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export const startSkillAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: StartSkillInput) => input)
-  .handler(async ({ data }): Promise<{ diagnosticRunId: string } | ActionFailure> => {
-    if (
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId)
-    )
-      return { kind: 'not-found' }
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-
-      const response = await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).startSkill(access.accessToken, data.goalId, data.skillId, data.entryKey)
-      return { diagnosticRunId: response.diagnosticRunId }
-    } catch (error) {
-      if (error instanceof CurriculumGapError) return { kind: 'curriculum-gap' }
-      if (error instanceof RestError && error.statusCode === 401)
-        return { kind: 'unauthorized' }
-      if (error instanceof RestError && error.statusCode === 404)
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: StartSkillInput
+      context: RequestTelemetryContext
+    }): Promise<{ diagnosticRunId: string } | ActionFailure> => {
+      if (
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId)
+      )
         return { kind: 'not-found' }
-      return { kind: 'unavailable' }
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+
+        const response = await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).startSkill(access.accessToken, data.goalId, data.skillId, data.entryKey)
+        return { diagnosticRunId: response.diagnosticRunId }
+      } catch (error) {
+        if (error instanceof CurriculumGapError) return { kind: 'curriculum-gap' }
+        if (error instanceof RestError && error.statusCode === 401)
+          return { kind: 'unauthorized' }
+        if (error instanceof RestError && error.statusCode === 404)
+          return { kind: 'not-found' }
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export const completeDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: SkillPageProps & { diagnosticRunId: string }) => input)
-  .handler(async ({ data }): Promise<{ ok: true } | ActionFailure> => {
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: SkillPageProps & { diagnosticRunId: string }
+      context: RequestTelemetryContext
+    }): Promise<{ ok: true } | ActionFailure> => {
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
 
-      await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).completeDiagnostic(
-        access.accessToken,
-        data.goalId,
-        data.skillId,
-        data.diagnosticRunId,
-      )
-      return { ok: true }
-    } catch (error) {
-      if (error instanceof RestError && error.statusCode === 401)
-        return { kind: 'unauthorized' }
-      if (error instanceof RestError && error.statusCode === 404)
-        return { kind: 'not-found' }
-      return { kind: 'unavailable' }
-    }
-  })
+        await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).completeDiagnostic(
+          access.accessToken,
+          data.goalId,
+          data.skillId,
+          data.diagnosticRunId,
+        )
+        return { ok: true }
+      } catch (error) {
+        if (error instanceof RestError && error.statusCode === 401)
+          return { kind: 'unauthorized' }
+        if (error instanceof RestError && error.statusCode === 404)
+          return { kind: 'not-found' }
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 type RetryDiagnosticInput = SkillPageProps & {
   competencyId: string
@@ -114,36 +157,48 @@ type RetryDiagnosticInput = SkillPageProps & {
 }
 
 export const retryDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: RetryDiagnosticInput) => input)
-  .handler(async ({ data }): Promise<{ ok: true } | ActionFailure> => {
-    if (
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.competencyId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.activityId) ||
-      !COMPETENCY_DETAIL_ID_PATTERN.test(data.attemptId) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        data.diagnosticRunId,
-      )
-    ) {
-      return { kind: 'not-found' }
-    }
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-
-      await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).retryDiagnosticEvaluation(access.accessToken, data, data.diagnosticRunId)
-      return { ok: true }
-    } catch (error) {
-      if (error instanceof RestError && error.statusCode === 401)
-        return { kind: 'unauthorized' }
-      if (error instanceof RestError && error.statusCode === 404)
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: RetryDiagnosticInput
+      context: RequestTelemetryContext
+    }): Promise<{ ok: true } | ActionFailure> => {
+      if (
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.goalId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.skillId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.competencyId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.activityId) ||
+        !COMPETENCY_DETAIL_ID_PATTERN.test(data.attemptId) ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          data.diagnosticRunId,
+        )
+      ) {
         return { kind: 'not-found' }
-      return { kind: 'unavailable' }
-    }
-  })
+      }
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+
+        await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).retryDiagnosticEvaluation(access.accessToken, data, data.diagnosticRunId)
+        return { ok: true }
+      } catch (error) {
+        if (error instanceof RestError && error.statusCode === 401)
+          return { kind: 'unauthorized' }
+        if (error instanceof RestError && error.statusCode === 404)
+          return { kind: 'not-found' }
+        return { kind: 'unavailable' }
+      }
+    },
+  )
 
 export function useSkillPage(props: SkillPageProps) {
   const { navigateTo, navigateToGoalDetail } = useNavigation()

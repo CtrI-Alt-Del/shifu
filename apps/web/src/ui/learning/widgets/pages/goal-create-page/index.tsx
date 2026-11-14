@@ -1,8 +1,13 @@
+import { motion } from 'motion/react'
+import './goal-create-page.css'
+
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { Checkbox } from '@/ui/shadcn/checkbox'
 import { Input } from '@/ui/shadcn/input'
 import { Label } from '@/ui/shadcn/label'
 import { Textarea } from '@/ui/shadcn/textarea'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { useGoalCreatePage } from './use-goal-create-page'
 
@@ -24,7 +29,7 @@ export const GoalCreatePage = () => {
   } = useGoalCreatePage()
 
   return (
-    <main className='mx-auto w-full max-w-7xl space-y-7 pb-10'>
+    <main className='goal-create-page mx-auto w-full max-w-7xl space-y-7 pb-10'>
       <header className='mx-auto w-full max-w-3xl'>
         <p className='text-xs font-bold uppercase tracking-[0.12em] text-primary'>
           Novo Objetivo
@@ -76,25 +81,32 @@ export const GoalCreatePage = () => {
               </Button>
             </div>
           ) : null}
-          {skills.map((skill) => (
-            <div
-              className='flex items-start gap-3 rounded-md border border-border bg-card p-4'
-              key={skill.id}
-            >
-              <Checkbox
-                checked={selectedSkillIds.includes(skill.id)}
-                disabled={!skill.available}
-                id={`skill-${skill.id}`}
-                label={skill.name}
-                onCheckedChange={() => handleToggleSkill(skill.id)}
-              />
-              {!skill.available ? (
-                <p className='mt-1 text-sm text-muted-foreground'>
-                  Ainda não disponível para este Objetivo.
-                </p>
-              ) : null}
-            </div>
-          ))}
+          {skills.length > 0 ? (
+            // Skills load in the browser after the CSS intro, so the list runs
+            // its own Motion entrance.
+            <MotionEntrance className='space-y-3'>
+              {skills.map((skill) => (
+                <motion.div
+                  className='flex items-start gap-3 rounded-md border border-border bg-card p-4'
+                  key={skill.id}
+                  variants={ENTRANCE_ROW}
+                >
+                  <Checkbox
+                    checked={selectedSkillIds.includes(skill.id)}
+                    disabled={!skill.available}
+                    id={`skill-${skill.id}`}
+                    label={skill.name}
+                    onCheckedChange={() => handleToggleSkill(skill.id)}
+                  />
+                  {!skill.available ? (
+                    <p className='mt-1 text-sm text-muted-foreground'>
+                      Ainda não disponível para este Objetivo.
+                    </p>
+                  ) : null}
+                </motion.div>
+              ))}
+            </MotionEntrance>
+          ) : null}
         </fieldset>
         {submissionError ? (
           <p className='text-sm text-destructive' role='alert'>

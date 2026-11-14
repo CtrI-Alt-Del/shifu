@@ -51,6 +51,9 @@ class RemoveMentorSessionUseCase:
                 session_id,
                 self._clock_provider.now(),
             )
+            repositories.mentor_action_proposals.remove_by_session_id(
+                account_id, session.id
+            )
             repositories.mentor_response_events.remove_by_session_id(session.id)
             repositories.mentor_response_attempts.remove_by_session_id(session.id)
             repositories.mentor_messages.remove_by_session_id(session.id)

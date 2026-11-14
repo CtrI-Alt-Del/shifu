@@ -29,6 +29,7 @@ class TestRetryPasswordRecoveryUseCase:
     def setup(self) -> None:
         self.identity_database = create_autospec(IdentityDatabase, instance=True)
         self.repositories = create_autospec(IdentityDatabaseRepositories, instance=True)
+        self.repositories.account_action_tokens.find_account_id_by_pending_handle_hash.return_value = 'account-id'
         self.identity_database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -121,7 +122,7 @@ class TestRetryPasswordRecoveryUseCase:
 
         assert result.recovery_handle == 'unknown-handle'
         assert result.is_decoy is True
-        self.repositories.accounts.find_by_id.assert_not_called()
+        self.repositories.accounts.update.assert_not_called()
         self.repositories.account_action_tokens.add.assert_not_called()
         self.delivery_gateway.queue.assert_not_called()
 

@@ -1,13 +1,20 @@
 import { SERVER_ENV } from '@/constants/server-env'
 import { AppError } from '@/core/errors/app-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { RestError } from '@/core/errors/rest-error'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { FetchRestStreamClient } from '@/rest/fetch/fetch-rest-stream-client'
 import { IntelligenceService } from '@/rest/services/intelligence-service'
 
-export async function getMentorScopedService(request: Request, accountEmail?: string) {
-  const access = await getBetterAuthProvider().getCurrentAccess(request)
+export async function getMentorScopedService(
+  request: Request,
+  accountEmail?: string,
+  context?: RequestTelemetryContext,
+) {
+  const access = context
+    ? await getBetterAuthProvider().getCurrentAccess(request, context.requestId)
+    : await getBetterAuthProvider().getCurrentAccess(request)
   if (!access)
     throw new AppError('Sua sessão expirou. Atualize a página.', 'Erro de autenticação')
   if (
@@ -18,14 +25,15 @@ export async function getMentorScopedService(request: Request, accountEmail?: st
   return {
     accessToken: access.accessToken,
     service: IntelligenceService(
-      AxiosRestClient(SERVER_ENV.shifuServerAppUrl, { withCredentials: false }),
-      FetchRestStreamClient(SERVER_ENV.shifuServerAppUrl),
+      createServerRequestClient(context, { baseUrl: SERVER_ENV.shifuServerAppUrl }),
+      FetchRestStreamClient(SERVER_ENV.shifuServerAppUrl, context),
     ),
   }
 }
 export async function handleMentorResponseStream(
   request: Request,
   sessionId: string,
+  context?: RequestTelemetryContext,
 ): Promise<Response> {
   const headers = { 'Cache-Control': 'no-store', 'Content-Type': 'text/event-stream' }
   const cursor =
@@ -45,7 +53,11 @@ export async function handleMentorResponseStream(
   request.signal.addEventListener('abort', abortTransport, { once: true })
   if (request.signal.aborted) abortTransport()
   try {
-    const { accessToken, service } = await getMentorScopedService(request)
+    const { accessToken, service } = await getMentorScopedService(
+      request,
+      undefined,
+      context,
+    )
     const body = await service.openMentorResponseEvents(
       accessToken,
       { sessionId, afterSequence: Number(cursor) },

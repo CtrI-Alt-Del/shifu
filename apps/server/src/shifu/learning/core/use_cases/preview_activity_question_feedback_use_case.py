@@ -27,6 +27,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
@@ -101,6 +103,8 @@ class PreviewActivityQuestionFeedbackUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
             if not isinstance(answer, CodeAnswer):

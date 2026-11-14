@@ -9,6 +9,7 @@ from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import json
+import time
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 from uuid import uuid4
@@ -19,6 +20,7 @@ from agno.run.base import RunStatus
 from fastapi.testclient import TestClient
 import pytest
 
+from shifu.composition import MentorContextWithGamificationProvider
 from shifu.curriculum.core.domain.enums import ActivityType
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
@@ -29,6 +31,14 @@ from shifu.curriculum.providers.curriculum_mentor_catalog_provider import (
 )
 from shifu.fakers.curriculum.entities import ActivityFaker, CompetencyFaker, SkillFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
+from shifu.gamification.core.domain.entities.gamification_profile import (
+    GamificationProfile,
+)
+from shifu.gamification.database.sqlalchemy import SqlalchemyGamificationDatabase
+from shifu.gamification.providers.gamification_mentor_facts_provider import (
+    GamificationMentorFactsProvider,
+)
 from shifu.intelligence.ai.agno.agents import (
     MentorAttachmentAnswerAgent,
     MentorReviewerAgent,
@@ -44,7 +54,11 @@ from shifu.intelligence.ai.data.learner_memory_resources import LearnerMemoryRes
 from shifu.intelligence.ai.data.mentor_resources import MentorResources
 from shifu.intelligence.ai.data.mentor_inference_usage import report_inference_usage
 from shifu.intelligence.core.domain.enums import (
+    MentorActionKind,
+    MentorActionProposalStatus,
     MentorAttachmentStatus,
+    MentorIntent,
+    MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import (
@@ -53,6 +67,7 @@ from shifu.intelligence.core.domain.structures import (
     MentorAttachmentExtraction,
     MentorEmbeddingMatch,
     MentorResponseBlock,
+    MentorResponseEvent,
     MentorReviewResult,
     MentorRouteResult,
 )
@@ -105,12 +120,18 @@ from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import (
     AuthenticatedUser,
     MentorAccessGrant,
+    MentorCatalogEntry,
     MentorContextSnapshot,
+    MentorGoalDestination,
+    MentorGoalDestinations,
 )
 from shifu.shared.core.interfaces import (
+    AccountTimeZoneProvider,
     MentorAccessProvider,
     MentorCatalogProvider,
     MentorContextProvider,
+    MentorGamificationFactsProvider,
+    MentorGoalDestinationsProvider,
 )
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
@@ -129,6 +150,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from shifu.curriculum.core.domain.entities import Skill
+    from shifu.intelligence.core.domain.entities import MentorActionProposal
     from shifu.learning.core.domain.entities import Goal, SkillExperience
 
     from shifu.intelligence.core.domain.structures import (
@@ -372,6 +394,7 @@ class Harness:
     limit: MentorGenerationLimitProvider
     context: Mock
     catalog: Mock
+    destinations: Mock
 
     def submit(self, account: AuthenticatedUser = MENTOR_ACCOUNT) -> tuple[str, str]:
         """Create a session over HTTP: one queued attempt for its first message."""
@@ -453,6 +476,53 @@ class Harness:
         self.context.read.side_effect = provider.read
         self.catalog.read_projection.side_effect = catalog.read_projection
         self.catalog.search.side_effect = catalog.search
+
+    def use_gamification_data(
+        self, gamification: MentorGamificationFactsProvider | None = None
+    ) -> None:
+        """Join Gamification facts to the real Learning context, as the app composes."""
+        self.use_learning_data()
+        learning = self.context.read.side_effect
+        time_zones = Mock(spec=AccountTimeZoneProvider)
+        time_zones.find_time_zone.return_value = 'America/Sao_Paulo'
+        provider = MentorContextWithGamificationProvider(
+            Mock(spec=MentorContextProvider, read=Mock(side_effect=learning)),
+            gamification
+            or GamificationMentorFactsProvider(
+                SqlalchemyGamificationDatabase(self.fixture.postgres.engine),
+                time_zones,
+                SystemClockProvider(),
+            ),
+        )
+        self.context.read.side_effect = provider.read
+
+    def grant_xp(self, account_id: str, amount: int) -> None:
+        now = datetime.now(UTC)
+        profile = GamificationProfile.create(
+            id=SystemIdentifierProvider().generate(),
+            account_id=account_id,
+            created_at=now,
+        )
+        profile.add_xp(amount, granted_at=now)
+        database = SqlalchemyGamificationDatabase(self.fixture.postgres.engine)
+        with database.transaction() as repositories:
+            repositories.profiles.add(profile)
+
+    def proposals(
+        self, session_id: str, account: AuthenticatedUser = MENTOR_ACCOUNT
+    ) -> list[MentorActionProposal]:
+        with self.fixture.database.transaction() as repositories:
+            return repositories.mentor_action_proposals.find_many_by_session(
+                account.account_id, session_id
+            )
+
+    def events(
+        self, session_id: str, account: AuthenticatedUser = MENTOR_ACCOUNT
+    ) -> tuple[MentorResponseEvent, ...]:
+        with self.fixture.database.transaction() as repositories:
+            return repositories.mentor_response_events.find_after(
+                account.account_id, session_id, 0
+            )
 
     def assert_no_model_call(self) -> None:
         self.writer.run.assert_not_called()
@@ -593,8 +663,19 @@ class Harness:
             )
 
 
+class ForgetfulHandoffStore(AgentOSHandoffStore):
+    """A handoff store that loses every reference, as after a worker restart."""
+
+    def read_input(self, reference: str, *, capability: str) -> object:
+        raise KeyError(reference)
+
+
 def build_harness(
-    fixture: IntelligenceFixture, redis_fixture: RedisFixture, *, limit_per_hour: int
+    fixture: IntelligenceFixture,
+    redis_fixture: RedisFixture,
+    *,
+    limit_per_hour: int,
+    handoffs: AgentOSHandoffStore | None = None,
 ) -> Harness:
     database = fixture.database
     clock = SystemClockProvider()
@@ -607,6 +688,8 @@ def build_harness(
     catalog.read_projection.return_value = ()
     catalog.is_diagnostic_activity.return_value = False
     catalog.search.return_value = ()
+    destinations = Mock(spec=MentorGoalDestinationsProvider)
+    destinations.read.return_value = MentorGoalDestinations(goals=())
     route = Mock(spec=MentorRouteProvider)
     route.route.side_effect = unanswered_route
     summarizer = Mock(spec=MentorConversationSummarizerProvider)
@@ -669,9 +752,10 @@ def build_harness(
             similarity,
             resources.manifest.relevance_threshold,
             limit,
+            destinations,
         ),
         publish_block_use_case=PublishMentorResponseBlockUseCase(
-            database, clock, access, context
+            database, clock, access, context, identifiers
         ),
         assert_current_use_case=AssertMentorResponseCurrentUseCase(
             database, clock, access
@@ -688,7 +772,7 @@ def build_harness(
         reviewer_agent=reviewer,
         finalizer=FinalizeMentorResponseUseCase(database, identifiers, clock, access),
         identifier_provider=identifiers,
-        handoffs=AgentOSHandoffStore(),
+        handoffs=handoffs or AgentOSHandoffStore(),
         telemetry=telemetry,
     )
     return Harness(
@@ -701,6 +785,7 @@ def build_harness(
         limit,
         context,
         catalog,
+        destinations,
     )
 
 
@@ -823,6 +908,69 @@ class TestAgnoProcessMentorResponseWorkflow:
         assert snapshot.status is MentorResponseStatus.FAILED
         assert snapshot.blocks == ()
         harness.reviewer.review.assert_not_called()
+
+    def test_keeps_the_event_loop_free_while_the_model_answers(
+        self, harness: Harness
+    ) -> None:
+        session_id, attempt_id = harness.submit()
+
+        def slow_writer(*_args: object, **_kwargs: object) -> RunOutput:
+            time.sleep(0.4)
+            return written(FIRST_ANSWER)
+
+        harness.writer.run.side_effect = slow_writer
+
+        async def run_and_measure() -> float:
+            run = asyncio.ensure_future(
+                harness.workflow.arun(input=json.dumps({'attempt_id': attempt_id}))
+            )
+            longest_gap = 0.0
+            last_tick = time.perf_counter()
+            while not run.done():
+                await asyncio.sleep(0.01)
+                now = time.perf_counter()
+                longest_gap = max(longest_gap, now - last_tick)
+                last_tick = now
+            await run
+            return longest_gap
+
+        longest_gap = asyncio.run(run_and_measure())
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert harness.snapshot(session_id).blocks[0].content == FIRST_ANSWER
+        # A step running on the loop would freeze every tick for the whole model call.
+        assert longest_gap < 0.2
+
+    def test_fails_the_attempt_when_its_step_state_cannot_be_rebuilt(
+        self, intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+    ) -> None:
+        harness = build_harness(
+            intelligence_fixture,
+            redis_fixture,
+            limit_per_hour=30,
+            handoffs=ForgetfulHandoffStore(),
+        )
+        session_id, attempt_id = harness.submit()
+        calls = 0
+
+        def route_once(
+            content: str, context: MentorContextSnapshot, topics: tuple[str, ...] = ()
+        ) -> MentorRouteResult:
+            nonlocal calls
+            calls += 1
+            if calls > 1:
+                raise RuntimeError('route unavailable during recovery')
+            return unanswered_route(content, context, topics)
+
+        harness.route.route.side_effect = route_once
+
+        harness.run(attempt_id)
+
+        snapshot = harness.snapshot(session_id)
+        assert harness.status(attempt_id) is MentorResponseStatus.FAILED
+        assert snapshot.status is MentorResponseStatus.FAILED
+        assert harness.events(session_id)[-1].kind is MentorResponseEventKind.FAILED
+        harness.writer.run.assert_not_called()
 
     def test_publishes_nothing_generated_when_cancelled_during_review(
         self, harness: Harness
@@ -1138,6 +1286,60 @@ def progress_harness(
     return built
 
 
+@pytest.fixture
+def gamification_harness(
+    intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+) -> Harness:
+    """The workflow over the real local route and the composed Gamification context."""
+    built = build_harness(intelligence_fixture, redis_fixture, limit_per_hour=30)
+    built.use_gamification_data()
+    built.route.route.side_effect = real_route({'consult_gamification': 0.97})
+    return built
+
+
+class TestAgnoProcessMentorResponseWorkflowGamification:
+    """Local XP, level, streak and achievement answers from Gamification's own rows."""
+
+    def test_answers_the_level_and_xp_stored_by_gamification(
+        self, gamification_harness: Harness
+    ) -> None:
+        gamification_harness.grant_xp(MENTOR_ACCOUNT.account_id, 350)
+        catalog = sum(1 for achievement in ACHIEVEMENT_CATALOG if achievement.is_active)
+
+        _, answer = gamification_harness.ask('qual o meu nível atual e xp?')
+
+        assert answer == (
+            'XP: 350 no total; faltam 250 para o nível 4\n\n'
+            'Nível: 3\n\n'
+            'Sequência: nenhum dia seguido no momento\n\n'
+            f'Conquistas: 0 de {catalog}'
+        )
+        gamification_harness.assert_no_model_call()
+
+    def test_answers_the_initial_state_for_an_account_without_rewards(
+        self, gamification_harness: Harness
+    ) -> None:
+        _, answer = gamification_harness.ask('qual o meu nível atual e xp?')
+
+        assert 'Nível: 1' in answer
+        assert 'XP: 0 no total; faltam 100 para o nível 2' in answer
+        gamification_harness.assert_no_model_call()
+
+    def test_keeps_the_unavailable_line_when_gamification_cannot_be_read(
+        self, intelligence_fixture: IntelligenceFixture, redis_fixture: RedisFixture
+    ) -> None:
+        unavailable = Mock(spec=MentorGamificationFactsProvider)
+        unavailable.read.side_effect = ServiceUnavailableError('indisponível')
+        built = build_harness(intelligence_fixture, redis_fixture, limit_per_hour=30)
+        built.use_gamification_data(unavailable)
+        built.route.route.side_effect = real_route({'consult_gamification': 0.97})
+
+        _, answer = built.ask('qual o meu nível atual e xp?')
+
+        assert answer == ABSTENTION_TEXT
+        unavailable.read.assert_called_with(MENTOR_ACCOUNT.account_id)
+
+
 class TestAgnoProcessMentorResponseWorkflowProgress:
     """Local progress answers from the learner's own data, with no model call."""
 
@@ -1368,3 +1570,301 @@ class TestAgnoProcessMentorResponseWorkflowProgress:
         assert ABSTENTION_TEXT not in answer
         assert 'Learning indisponível' not in answer
         progress_harness.assert_no_model_call()
+
+
+ADD_MESSAGE = 'Adicione Funções em Python ao meu Objetivo'
+REMOVE_MESSAGE = 'Remova Funções em Python do meu Objetivo'
+PROPOSAL_TEXT = 'Preparei uma proposta para você confirmar.'
+ACTION_SIMILARITIES = {'add_skill': 0.99, 'remove_skill': 0.99}
+
+
+def catalog_skill(title: str = 'Funções em Python') -> MentorCatalogEntry:
+    reference = SystemIdentifierProvider().generate()
+    return MentorCatalogEntry(
+        reference_id=reference,
+        kind='skill',
+        skill_id=reference,
+        competency_id=None,
+        title=title,
+        description='Funções, parâmetros e retornos em Python.',
+        concept_ids=(),
+        source_version='v1',
+    )
+
+
+def destination(
+    title: str = 'Aprender a programar', experience_id: str | None = None
+) -> MentorGoalDestination:
+    return MentorGoalDestination(
+        goal_id=SystemIdentifierProvider().generate(),
+        title=title,
+        skill_experience_id=experience_id,
+    )
+
+
+def offer(
+    harness: Harness,
+    *,
+    skills: tuple[MentorCatalogEntry, ...],
+    goals: tuple[MentorGoalDestination, ...],
+) -> None:
+    """Script the mocked catalog and destinations and route through the real provider."""
+    harness.catalog.search.return_value = skills
+    harness.destinations.read.return_value = MentorGoalDestinations(goals=goals)
+    harness.route.route.side_effect = real_route(ACTION_SIMILARITIES)
+
+
+class TestAgnoProcessMentorResponseWorkflowActions:
+    """CI-06: an explicit add/remove request is answered by the Core, never the model."""
+
+    def test_persists_the_addition_proposal_and_action_event_before_completing(
+        self, harness: Harness
+    ) -> None:
+        skill_entry = catalog_skill()
+        goal_destination = destination()
+        offer(harness, skills=(skill_entry,), goals=(goal_destination,))
+        session_id, attempt_id = harness.submit_message(ADD_MESSAGE)
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        [proposal] = harness.proposals(session_id)
+        assert proposal.kind is MentorActionKind.ADD_SKILL
+        assert proposal.status is MentorActionProposalStatus.PENDING
+        assert proposal.attempt_id == attempt_id
+        assert proposal.skill_id == skill_entry.skill_id
+        assert proposal.skill_name == 'Funções em Python'
+        assert (proposal.goal_id, proposal.goal_title) == (
+            goal_destination.goal_id,
+            'Aprender a programar',
+        )
+        assert proposal.candidate_goals == ()
+        assert proposal.justification == (
+            'Você pediu ao Mentor para adicionar esta Habilidade. '
+            'Funções, parâmetros e retornos em Python.'
+        )
+        kinds = [event.kind for event in harness.events(session_id)]
+        assert kinds.index(MentorResponseEventKind.BLOCK) < kinds.index(
+            MentorResponseEventKind.ACTION
+        )
+        assert kinds.index(MentorResponseEventKind.ACTION) < kinds.index(
+            MentorResponseEventKind.COMPLETED
+        )
+        [action] = [
+            event
+            for event in harness.events(session_id)
+            if event.kind is MentorResponseEventKind.ACTION
+        ]
+        assert action.block is None
+        assert action.action_proposal is not None
+        assert action.action_proposal.id == proposal.id
+        assert action.action_proposal.status is MentorActionProposalStatus.PENDING
+        snapshot = harness.snapshot(session_id)
+        assert [block.content for block in snapshot.blocks] == [PROPOSAL_TEXT]
+        assert snapshot.blocks[0].intent is MentorIntent.ADD_SKILL
+        harness.assert_no_model_call()
+
+    def test_persists_the_removal_proposal_with_the_experience_id(
+        self, harness: Harness
+    ) -> None:
+        experience_id = SystemIdentifierProvider().generate()
+        offer(
+            harness,
+            skills=(catalog_skill(),),
+            goals=(destination(experience_id=experience_id), destination('Outro')),
+        )
+        session_id, attempt_id = harness.submit_message(REMOVE_MESSAGE)
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        [proposal] = harness.proposals(session_id)
+        assert proposal.kind is MentorActionKind.REMOVE_SKILL
+        assert proposal.skill_experience_id == experience_id
+        assert proposal.justification is None
+        assert [event.kind for event in harness.events(session_id)].count(
+            MentorResponseEventKind.ACTION
+        ) == 1
+        harness.assert_no_model_call()
+
+    def test_offers_the_candidate_objectives_when_the_destination_is_open(
+        self, harness: Harness
+    ) -> None:
+        holder = destination('Dados', SystemIdentifierProvider().generate())
+        free = destination('Aprender a programar')
+        offer(harness, skills=(catalog_skill(),), goals=(holder, free))
+        session_id, attempt_id = harness.submit_message(ADD_MESSAGE)
+
+        harness.run(attempt_id)
+
+        [proposal] = harness.proposals(session_id)
+        assert proposal.goal_id is None
+        assert [
+            (candidate.goal_id, candidate.contains_skill)
+            for candidate in proposal.candidate_goals
+        ] == [(holder.goal_id, True), (free.goal_id, False)]
+
+    def test_asks_which_skill_when_the_message_matches_several(
+        self, harness: Harness
+    ) -> None:
+        offer(
+            harness,
+            skills=(
+                catalog_skill('Funções em Python'),
+                catalog_skill('Funções em JavaScript'),
+            ),
+            goals=(destination(),),
+        )
+        session_id, attempt_id = harness.submit_message(
+            'Adicione funções ao meu Objetivo'
+        )
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert harness.proposals(session_id) == []
+        assert [block.content for block in harness.snapshot(session_id).blocks] == [
+            (
+                'Encontrei mais de uma Habilidade parecida: Funções em Python, '
+                'Funções em JavaScript. Qual delas você quer?'
+            )
+        ]
+        assert MentorResponseEventKind.ACTION not in [
+            event.kind for event in harness.events(session_id)
+        ]
+        harness.assert_no_model_call()
+
+    def test_links_to_manual_creation_when_the_learner_has_no_objective(
+        self, harness: Harness
+    ) -> None:
+        offer(harness, skills=(catalog_skill(),), goals=())
+        session_id, attempt_id = harness.submit_message(ADD_MESSAGE)
+
+        harness.run(attempt_id)
+
+        assert harness.proposals(session_id) == []
+        [block] = harness.snapshot(session_id).blocks
+        assert '[criar um Objetivo](/learning/goals/new)' in block.content
+        harness.assert_no_model_call()
+
+    def test_links_to_the_existing_experience_when_the_fixed_objective_holds_the_skill(
+        self, harness: Harness
+    ) -> None:
+        skill_entry = catalog_skill()
+        holder = destination(experience_id=SystemIdentifierProvider().generate())
+        offer(harness, skills=(skill_entry,), goals=(holder,))
+        session_id, attempt_id = harness.submit_message(ADD_MESSAGE)
+
+        harness.run(attempt_id)
+
+        assert harness.proposals(session_id) == []
+        [block] = harness.snapshot(session_id).blocks
+        assert (
+            f'[Ver Habilidade](/learning/goals/{holder.goal_id}/skills/'
+            f'{skill_entry.skill_id})'
+        ) in block.content
+        harness.assert_no_model_call()
+
+    def test_keeps_one_proposal_and_asks_to_repeat_the_second_action(
+        self, harness: Harness
+    ) -> None:
+        offer(harness, skills=(catalog_skill(),), goals=(destination(),))
+        session_id, attempt_id = harness.submit_message(
+            f'{ADD_MESSAGE}; remova Variáveis do meu Objetivo'
+        )
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        [proposal] = harness.proposals(session_id)
+        assert proposal.kind is MentorActionKind.ADD_SKILL
+        assert block_keys(harness.snapshot(session_id)) == [
+            'action-proposal',
+            'action-repeat',
+        ]
+        assert harness.snapshot(session_id).blocks[1].content == (
+            'Para a outra ação, envie o pedido de novo depois de responder a esta proposta.'
+        )
+        harness.assert_no_model_call()
+
+    def test_keeps_the_first_action_of_one_sentence_and_asks_to_repeat_the_second(
+        self, harness: Harness
+    ) -> None:
+        offer(harness, skills=(catalog_skill(),), goals=(destination(),))
+        session_id, attempt_id = harness.submit_message(
+            f'{ADD_MESSAGE} e remova Variáveis do meu Objetivo'
+        )
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        [proposal] = harness.proposals(session_id)
+        assert proposal.kind is MentorActionKind.ADD_SKILL
+        assert block_keys(harness.snapshot(session_id)) == [
+            'action-proposal',
+            'action-repeat',
+        ]
+        harness.assert_no_model_call()
+
+    def test_answers_a_study_wish_normally_without_a_proposal(
+        self, harness: Harness
+    ) -> None:
+        offer(harness, skills=(catalog_skill(),), goals=(destination(),))
+        session_id, attempt_id = harness.submit_message(
+            'Quero estudar Funções em Python'
+        )
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.COMPLETED
+        assert harness.proposals(session_id) == []
+        harness.destinations.read.assert_not_called()
+        assert block_keys(harness.snapshot(session_id)) == ['generated-0']
+
+    def test_never_lets_a_generated_block_carry_an_action_intent(
+        self, harness: Harness
+    ) -> None:
+        session_id, attempt_id = harness.submit()
+        harness.writer.run.return_value = RunOutput(
+            content=json.dumps(
+                {
+                    'block_key': 'generated-0',
+                    'ordinal': 0,
+                    'intent': 'add_skill',
+                    'content': 'Adicionei a Habilidade ao seu Objetivo.',
+                    'sources': [],
+                }
+            ),
+            status=RunStatus.completed,
+            metrics=RunMetrics(input_tokens=10, output_tokens=5, total_tokens=15),
+        )
+
+        harness.run(attempt_id)
+
+        assert harness.status(attempt_id) is MentorResponseStatus.FAILED
+        assert harness.snapshot(session_id).blocks == ()
+        assert harness.proposals(session_id) == []
+        assert MentorResponseEventKind.ACTION not in [
+            event.kind for event in harness.events(session_id)
+        ]
+
+    def test_removes_a_pending_proposal_and_its_action_event_by_attempt(
+        self, harness: Harness
+    ) -> None:
+        offer(harness, skills=(catalog_skill(),), goals=(destination(),))
+        session_id, attempt_id = harness.submit_message(ADD_MESSAGE)
+        harness.run(attempt_id)
+        [proposal] = harness.proposals(session_id)
+
+        with harness.fixture.database.transaction() as repositories:
+            removed = repositories.mentor_action_proposals.remove_pending_by_attempt_id(
+                MENTOR_ACCOUNT.account_id, attempt_id
+            )
+
+        assert removed == 1
+        assert harness.proposals(session_id) == []
+        assert proposal.id not in [
+            event.action_proposal.id
+            for event in harness.events(session_id)
+            if event.action_proposal is not None
+        ]

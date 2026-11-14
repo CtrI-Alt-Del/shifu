@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useBlocker } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -22,29 +24,44 @@ type DiagnosticLeaveResult = { kind: 'success' | 'stale' | 'unavailable' }
 const HTTP_CONFLICT_STATUS_CODE = 409
 
 export const abandonDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: DiagnosticLeaveInput) => input)
-  .handler(async ({ data }): Promise<DiagnosticLeaveResult> => {
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unavailable' }
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data: DiagnosticLeaveInput
+      context: RequestTelemetryContext
+    }): Promise<DiagnosticLeaveResult> => {
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unavailable' }
 
-      await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).abandonDiagnostic(
-        access.accessToken,
-        data.goalId,
-        data.skillId,
-        data.diagnosticRunId,
-      )
-      return { kind: 'success' }
-    } catch (error) {
-      if (error instanceof AuthError) return { kind: 'unavailable' }
-      if (error instanceof RestError && error.statusCode === HTTP_CONFLICT_STATUS_CODE) {
-        return { kind: 'stale' }
+        await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).abandonDiagnostic(
+          access.accessToken,
+          data.goalId,
+          data.skillId,
+          data.diagnosticRunId,
+        )
+        return { kind: 'success' }
+      } catch (error) {
+        if (error instanceof AuthError) return { kind: 'unavailable' }
+        if (
+          error instanceof RestError &&
+          error.statusCode === HTTP_CONFLICT_STATUS_CODE
+        ) {
+          return { kind: 'stale' }
+        }
+        return { kind: 'unavailable' }
       }
-      return { kind: 'unavailable' }
-    }
-  })
+    },
+  )
 
 export type DiagnosticLeaveGuardProps = DiagnosticLeaveInput & {
   isActive: boolean

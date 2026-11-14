@@ -7,6 +7,9 @@ from shifu.intelligence.core.interfaces.learner_memories_repository import (
 from shifu.intelligence.core.interfaces.learner_memory_changes_repository import (
     LearnerMemoryChangesRepository,
 )
+from shifu.intelligence.core.interfaces.mentor_action_proposals_repository import (
+    MentorActionProposalsRepository,
+)
 from shifu.intelligence.core.interfaces.mentor_attachment_batches_repository import (
     MentorAttachmentBatchesRepository,
 )
@@ -34,8 +37,8 @@ from shifu.intelligence.core.interfaces.mentor_session_summaries_repository impo
 from shifu.intelligence.core.interfaces.mentor_sessions_repository import (
     MentorSessionsRepository,
 )
-from shifu.intelligence.core.interfaces.planning_sessions_repository import (
-    PlanningSessionsRepository,
+from shifu.intelligence.core.interfaces.planning_embeddings_repository import (
+    PlanningEmbeddingsRepository,
 )
 from shifu.shared.core.domain.structures import structure
 from shifu.shared.core.interfaces import EventsRepository
@@ -43,7 +46,7 @@ from shifu.shared.core.interfaces import EventsRepository
 
 @structure
 class IntelligenceDatabaseRepositories:
-    planning_sessions: PlanningSessionsRepository
+    planning_embeddings: PlanningEmbeddingsRepository
     events: EventsRepository
     mentor_sessions: MentorSessionsRepository
     mentor_embeddings: MentorEmbeddingsRepository
@@ -56,6 +59,7 @@ class IntelligenceDatabaseRepositories:
     mentor_session_summaries: MentorSessionSummariesRepository
     learner_memories: LearnerMemoriesRepository
     learner_memory_changes: LearnerMemoryChangesRepository
+    mentor_action_proposals: MentorActionProposalsRepository
 
 
 class IntelligenceDatabase(Protocol):

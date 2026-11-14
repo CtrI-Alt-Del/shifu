@@ -1,9 +1,12 @@
+import { motion } from 'motion/react'
+
 import type {
   ActivityQuestion,
   ActivityResultQuestion,
   CodeResultQuestion,
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 
@@ -24,13 +27,17 @@ export const ChoiceResultDetail = ({
 }: ChoiceResultDetailProps) => {
   if (isCodeResultQuestion(result)) {
     const codeQuestion =
-      question?.kind === 'javascript_stdin' || question?.kind === 'react'
+      question?.kind === 'javascript_stdin' ||
+      question?.kind === 'react' ||
+      question?.kind === 'html_css_js' ||
+      question?.kind === 'react_fastify'
         ? question
         : undefined
     return (
-      <details
+      <motion.details
         aria-labelledby={`choice-result-question-${questionNumber}`}
         className='choice-result-card group rounded-md border border-border bg-muted'
+        variants={ENTRANCE_ROW}
       >
         <summary
           className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
@@ -39,7 +46,13 @@ export const ChoiceResultDetail = ({
           <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
             <span className='text-sm font-semibold text-success'>
               Questão {questionNumber} ·{' '}
-              {result.kind === 'react' ? 'React' : 'JavaScript · entrada padrão'}
+              {result.kind === 'react'
+                ? 'React'
+                : result.kind === 'html_css_js'
+                  ? 'HTML, CSS e JavaScript'
+                  : result.kind === 'react_fastify'
+                    ? 'React + Fastify'
+                    : 'JavaScript · entrada padrão'}
             </span>
             <span aria-hidden='true' className='text-muted-foreground'>
               ·
@@ -151,7 +164,7 @@ export const ChoiceResultDetail = ({
             </section>
           ) : null}
         </div>
-      </details>
+      </motion.details>
     )
   }
 
@@ -275,6 +288,8 @@ export const ChoiceResultDetail = ({
     question &&
     question.kind !== 'javascript_stdin' &&
     question.kind !== 'react' &&
+    question.kind !== 'html_css_js' &&
+    question.kind !== 'react_fastify' &&
     question.kind !== 'translation'
       ? question
       : undefined
@@ -287,9 +302,10 @@ export const ChoiceResultDetail = ({
   )
 
   return (
-    <details
+    <motion.details
       aria-labelledby={`choice-result-question-${questionNumber}`}
       className='choice-result-card group rounded-md border border-border bg-muted'
+      variants={ENTRANCE_ROW}
     >
       <summary
         className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
@@ -377,7 +393,7 @@ export const ChoiceResultDetail = ({
           {result.explanation}
         </p>
       </div>
-    </details>
+    </motion.details>
   )
 }
 
@@ -389,7 +405,11 @@ function isCodeResultQuestion(
   result: ActivityResultQuestion,
 ): result is CodeResultQuestion {
   return (
-    'kind' in result && (result.kind === 'javascript_stdin' || result.kind === 'react')
+    'kind' in result &&
+    (result.kind === 'javascript_stdin' ||
+      result.kind === 'react' ||
+      result.kind === 'html_css_js' ||
+      result.kind === 'react_fastify')
   )
 }
 

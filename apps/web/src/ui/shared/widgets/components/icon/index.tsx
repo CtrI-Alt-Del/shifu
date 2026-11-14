@@ -22,14 +22,21 @@ import {
   Expand,
   File,
   FileJson,
+  FilePlus2,
   FileSpreadsheet,
   FileText,
   FileType,
+  Flag,
+  Flame,
+  Footprints,
   History,
   Eye,
   EyeOff,
+  GitFork,
   GraduationCap,
   House,
+  Info,
+  Layers,
   List,
   LoaderCircle,
   Lock,
@@ -50,8 +57,11 @@ import {
   SlidersHorizontal,
   Sparkles,
   Target,
+  TrendingUp,
   Search,
+  ShieldAlert,
   Trash2,
+  TriangleAlert,
   Trophy,
   UserRound,
   type LucideIcon,
@@ -81,15 +91,22 @@ export type IconName =
   | 'copy'
   | 'expand'
   | 'file'
+  | 'file-plus'
   | 'file-json'
   | 'file-spreadsheet'
   | 'file-text'
   | 'file-type'
+  | 'flag'
+  | 'flame'
+  | 'footprints'
   | 'history'
   | 'eye'
   | 'eye-off'
+  | 'git-fork'
   | 'graduation-cap'
   | 'home'
+  | 'info'
+  | 'layers'
   | 'list'
   | 'loader-circle'
   | 'lock'
@@ -110,8 +127,11 @@ export type IconName =
   | 'sliders-horizontal'
   | 'sparkles'
   | 'target'
+  | 'trending-up'
   | 'search'
+  | 'shield-alert'
   | 'trash-2'
+  | 'triangle-alert'
   | 'trophy'
   | 'user-circle'
   | 'user-round'
@@ -139,15 +159,22 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   copy: Copy,
   expand: Expand,
   file: File,
+  'file-plus': FilePlus2,
   'file-json': FileJson,
   'file-spreadsheet': FileSpreadsheet,
   'file-text': FileText,
   'file-type': FileType,
+  flag: Flag,
+  flame: Flame,
+  footprints: Footprints,
   history: History,
   eye: Eye,
   'eye-off': EyeOff,
+  'git-fork': GitFork,
   'graduation-cap': GraduationCap,
   home: House,
+  info: Info,
+  layers: Layers,
   list: List,
   'loader-circle': LoaderCircle,
   lock: Lock,
@@ -168,8 +195,11 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'sliders-horizontal': SlidersHorizontal,
   sparkles: Sparkles,
   target: Target,
+  'trending-up': TrendingUp,
   search: Search,
+  'shield-alert': ShieldAlert,
   'trash-2': Trash2,
+  'triangle-alert': TriangleAlert,
   trophy: Trophy,
   'user-circle': CircleUserRound,
   'user-round': UserRound,

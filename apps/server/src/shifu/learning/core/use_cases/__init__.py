@@ -1,7 +1,13 @@
 from .abandon_diagnostic_use_case import (
     AbandonDiagnosticUseCase as AbandonDiagnosticUseCase,
 )
+from .add_skill_to_goal_from_mentor_use_case import (
+    AddSkillToGoalFromMentorUseCase as AddSkillToGoalFromMentorUseCase,
+)
 from .add_skill_to_goal_use_case import AddSkillToGoalUseCase as AddSkillToGoalUseCase
+from .create_planned_goal_use_case import (
+    CreatePlannedGoalUseCase as CreatePlannedGoalUseCase,
+)
 from .complete_diagnostic_use_case import (
     CompleteDiagnosticUseCase as CompleteDiagnosticUseCase,
 )
@@ -36,6 +42,9 @@ from .prepare_translation_activity_evaluation_use_case import (
     PrepareTranslationActivityEvaluationUseCase as PrepareTranslationActivityEvaluationUseCase,
 )
 from .remove_goal_use_case import RemoveGoalUseCase as RemoveGoalUseCase
+from .remove_skill_experience_from_mentor_use_case import (
+    RemoveSkillExperienceFromMentorUseCase as RemoveSkillExperienceFromMentorUseCase,
+)
 from .remove_skill_from_goal_use_case import (
     RemoveSkillFromGoalUseCase as RemoveSkillFromGoalUseCase,
 )

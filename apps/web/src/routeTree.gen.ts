@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteRouteImport } from './routes/account/route'
+import { Route as GamificationRouteRouteImport } from './routes/gamification/route'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ConfirmEmailIndexRouteImport } from './routes/confirm-email/index'
@@ -23,7 +25,14 @@ import { Route as PendingConfirmationIndexRouteImport } from './routes/pending-c
 import { Route as PrivacyIndexRouteImport } from './routes/privacy/index'
 import { Route as RegisterIndexRouteImport } from './routes/register/index'
 import { Route as ResetPasswordIndexRouteImport } from './routes/reset-password/index'
+import { Route as AccountDeleteIndexRouteImport } from './routes/account/delete/index'
+import { Route as AccountProfileIndexRouteImport } from './routes/account/profile/index'
+import { Route as AccountSecurityIndexRouteImport } from './routes/account/security/index'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as GamificationAchievementsIndexRouteImport } from './routes/gamification/achievements/index'
+import { Route as GamificationCalendarIndexRouteImport } from './routes/gamification/calendar/index'
+import { Route as GamificationOverviewIndexRouteImport } from './routes/gamification/overview/index'
+import { Route as GamificationXpHistoryIndexRouteImport } from './routes/gamification/xp-history/index'
 import { Route as IntelligenceMemoriesIndexRouteImport } from './routes/intelligence/memories/index'
 import { Route as IntelligencePlannerPlanningIdIndexRouteImport } from './routes/intelligence/planner/$planningId/index'
 import { Route as LearningGoalsGoalIdIndexRouteImport } from './routes/learning/goals/$goalId/index'
@@ -45,10 +54,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountIndexRoute = AccountIndexRouteImport.update({
-  id: '/account/',
-  path: '/account/',
+const AccountRouteRoute = AccountRouteRouteImport.update({
+  id: '/account',
+  path: '/account',
   getParentRoute: () => rootRouteImport,
+} as any)
+const GamificationRouteRoute = GamificationRouteRouteImport.update({
+  id: '/gamification',
+  path: '/gamification',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountIndexRoute = AccountIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AccountRouteRoute,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
@@ -71,9 +90,9 @@ const ForgotPasswordIndexRoute = ForgotPasswordIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const GamificationIndexRoute = GamificationIndexRouteImport.update({
-  id: '/gamification/',
-  path: '/gamification/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => GamificationRouteRoute,
 } as any)
 const IntelligenceIndexRoute = IntelligenceIndexRouteImport.update({
   id: '/intelligence/',
@@ -111,11 +130,50 @@ const ResetPasswordIndexRoute = ResetPasswordIndexRouteImport.update({
   path: '/reset-password/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountDeleteIndexRoute = AccountDeleteIndexRouteImport.update({
+  id: '/delete/',
+  path: '/delete/',
+  getParentRoute: () => AccountRouteRoute,
+} as any)
+const AccountProfileIndexRoute = AccountProfileIndexRouteImport.update({
+  id: '/profile/',
+  path: '/profile/',
+  getParentRoute: () => AccountRouteRoute,
+} as any)
+const AccountSecurityIndexRoute = AccountSecurityIndexRouteImport.update({
+  id: '/security/',
+  path: '/security/',
+  getParentRoute: () => AccountRouteRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GamificationAchievementsIndexRoute =
+  GamificationAchievementsIndexRouteImport.update({
+    id: '/achievements/',
+    path: '/achievements/',
+    getParentRoute: () => GamificationRouteRoute,
+  } as any)
+const GamificationCalendarIndexRoute =
+  GamificationCalendarIndexRouteImport.update({
+    id: '/calendar/',
+    path: '/calendar/',
+    getParentRoute: () => GamificationRouteRoute,
+  } as any)
+const GamificationOverviewIndexRoute =
+  GamificationOverviewIndexRouteImport.update({
+    id: '/overview/',
+    path: '/overview/',
+    getParentRoute: () => GamificationRouteRoute,
+  } as any)
+const GamificationXpHistoryIndexRoute =
+  GamificationXpHistoryIndexRouteImport.update({
+    id: '/xp-history/',
+    path: '/xp-history/',
+    getParentRoute: () => GamificationRouteRoute,
+  } as any)
 const IntelligenceMemoriesIndexRoute =
   IntelligenceMemoriesIndexRouteImport.update({
     id: '/intelligence/memories/',
@@ -224,6 +282,8 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivity
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteRouteWithChildren
+  '/gamification': typeof GamificationRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
@@ -238,6 +298,13 @@ export interface FileRoutesByFullPath {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete/': typeof AccountDeleteIndexRoute
+  '/account/profile/': typeof AccountProfileIndexRoute
+  '/account/security/': typeof AccountSecurityIndexRoute
+  '/gamification/achievements/': typeof GamificationAchievementsIndexRoute
+  '/gamification/calendar/': typeof GamificationCalendarIndexRoute
+  '/gamification/overview/': typeof GamificationOverviewIndexRoute
+  '/gamification/xp-history/': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -270,6 +337,13 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterIndexRoute
   '/reset-password': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete': typeof AccountDeleteIndexRoute
+  '/account/profile': typeof AccountProfileIndexRoute
+  '/account/security': typeof AccountSecurityIndexRoute
+  '/gamification/achievements': typeof GamificationAchievementsIndexRoute
+  '/gamification/calendar': typeof GamificationCalendarIndexRoute
+  '/gamification/overview': typeof GamificationOverviewIndexRoute
+  '/gamification/xp-history': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId': typeof LearningGoalsGoalIdIndexRoute
@@ -288,6 +362,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account': typeof AccountRouteRouteWithChildren
+  '/gamification': typeof GamificationRouteRouteWithChildren
   '/api/health': typeof ApiHealthRoute
   '/account/': typeof AccountIndexRoute
   '/confirm-email/': typeof ConfirmEmailIndexRoute
@@ -302,6 +378,13 @@ export interface FileRoutesById {
   '/register/': typeof RegisterIndexRoute
   '/reset-password/': typeof ResetPasswordIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/account/delete/': typeof AccountDeleteIndexRoute
+  '/account/profile/': typeof AccountProfileIndexRoute
+  '/account/security/': typeof AccountSecurityIndexRoute
+  '/gamification/achievements/': typeof GamificationAchievementsIndexRoute
+  '/gamification/calendar/': typeof GamificationCalendarIndexRoute
+  '/gamification/overview/': typeof GamificationOverviewIndexRoute
+  '/gamification/xp-history/': typeof GamificationXpHistoryIndexRoute
   '/intelligence/memories/': typeof IntelligenceMemoriesIndexRoute
   '/intelligence/planner/$planningId/': typeof IntelligencePlannerPlanningIdIndexRoute
   '/learning/goals/$goalId/': typeof LearningGoalsGoalIdIndexRoute
@@ -322,6 +405,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
+    | '/gamification'
     | '/api/health'
     | '/account/'
     | '/confirm-email/'
@@ -336,6 +421,13 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/delete/'
+    | '/account/profile/'
+    | '/account/security/'
+    | '/gamification/achievements/'
+    | '/gamification/calendar/'
+    | '/gamification/overview/'
+    | '/gamification/xp-history/'
     | '/intelligence/memories/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -368,6 +460,13 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/api/auth/$'
+    | '/account/delete'
+    | '/account/profile'
+    | '/account/security'
+    | '/gamification/achievements'
+    | '/gamification/calendar'
+    | '/gamification/overview'
+    | '/gamification/xp-history'
     | '/intelligence/memories'
     | '/intelligence/planner/$planningId'
     | '/learning/goals/$goalId'
@@ -385,6 +484,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/account'
+    | '/gamification'
     | '/api/health'
     | '/account/'
     | '/confirm-email/'
@@ -399,6 +500,13 @@ export interface FileRouteTypes {
     | '/register/'
     | '/reset-password/'
     | '/api/auth/$'
+    | '/account/delete/'
+    | '/account/profile/'
+    | '/account/security/'
+    | '/gamification/achievements/'
+    | '/gamification/calendar/'
+    | '/gamification/overview/'
+    | '/gamification/xp-history/'
     | '/intelligence/memories/'
     | '/intelligence/planner/$planningId/'
     | '/learning/goals/$goalId/'
@@ -418,12 +526,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountRouteRoute: typeof AccountRouteRouteWithChildren
+  GamificationRouteRoute: typeof GamificationRouteRouteWithChildren
   ApiHealthRoute: typeof ApiHealthRoute
-  AccountIndexRoute: typeof AccountIndexRoute
   ConfirmEmailIndexRoute: typeof ConfirmEmailIndexRoute
   CurriculumIndexRoute: typeof CurriculumIndexRoute
   ForgotPasswordIndexRoute: typeof ForgotPasswordIndexRoute
-  GamificationIndexRoute: typeof GamificationIndexRoute
   IntelligenceIndexRoute: typeof IntelligenceIndexRoute
   LearningIndexRoute: typeof LearningIndexRoute
   LoginIndexRoute: typeof LoginIndexRoute
@@ -454,12 +562,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gamification': {
+      id: '/gamification'
+      path: '/gamification'
+      fullPath: '/gamification'
+      preLoaderRoute: typeof GamificationRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/account/': {
       id: '/account/'
-      path: '/account'
+      path: '/'
       fullPath: '/account/'
       preLoaderRoute: typeof AccountIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AccountRouteRoute
     }
     '/api/health': {
       id: '/api/health'
@@ -491,10 +613,10 @@ declare module '@tanstack/react-router' {
     }
     '/gamification/': {
       id: '/gamification/'
-      path: '/gamification'
+      path: '/'
       fullPath: '/gamification/'
       preLoaderRoute: typeof GamificationIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof GamificationRouteRoute
     }
     '/intelligence/': {
       id: '/intelligence/'
@@ -545,12 +667,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account/delete/': {
+      id: '/account/delete/'
+      path: '/delete'
+      fullPath: '/account/delete/'
+      preLoaderRoute: typeof AccountDeleteIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
+    '/account/profile/': {
+      id: '/account/profile/'
+      path: '/profile'
+      fullPath: '/account/profile/'
+      preLoaderRoute: typeof AccountProfileIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
+    '/account/security/': {
+      id: '/account/security/'
+      path: '/security'
+      fullPath: '/account/security/'
+      preLoaderRoute: typeof AccountSecurityIndexRouteImport
+      parentRoute: typeof AccountRouteRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/gamification/achievements/': {
+      id: '/gamification/achievements/'
+      path: '/achievements'
+      fullPath: '/gamification/achievements/'
+      preLoaderRoute: typeof GamificationAchievementsIndexRouteImport
+      parentRoute: typeof GamificationRouteRoute
+    }
+    '/gamification/calendar/': {
+      id: '/gamification/calendar/'
+      path: '/calendar'
+      fullPath: '/gamification/calendar/'
+      preLoaderRoute: typeof GamificationCalendarIndexRouteImport
+      parentRoute: typeof GamificationRouteRoute
+    }
+    '/gamification/overview/': {
+      id: '/gamification/overview/'
+      path: '/overview'
+      fullPath: '/gamification/overview/'
+      preLoaderRoute: typeof GamificationOverviewIndexRouteImport
+      parentRoute: typeof GamificationRouteRoute
+    }
+    '/gamification/xp-history/': {
+      id: '/gamification/xp-history/'
+      path: '/xp-history'
+      fullPath: '/gamification/xp-history/'
+      preLoaderRoute: typeof GamificationXpHistoryIndexRouteImport
+      parentRoute: typeof GamificationRouteRoute
     }
     '/intelligence/memories/': {
       id: '/intelligence/memories/'
@@ -660,6 +831,43 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AccountRouteRouteChildren {
+  AccountIndexRoute: typeof AccountIndexRoute
+  AccountDeleteIndexRoute: typeof AccountDeleteIndexRoute
+  AccountProfileIndexRoute: typeof AccountProfileIndexRoute
+  AccountSecurityIndexRoute: typeof AccountSecurityIndexRoute
+}
+
+const AccountRouteRouteChildren: AccountRouteRouteChildren = {
+  AccountIndexRoute: AccountIndexRoute,
+  AccountDeleteIndexRoute: AccountDeleteIndexRoute,
+  AccountProfileIndexRoute: AccountProfileIndexRoute,
+  AccountSecurityIndexRoute: AccountSecurityIndexRoute,
+}
+
+const AccountRouteRouteWithChildren = AccountRouteRoute._addFileChildren(
+  AccountRouteRouteChildren,
+)
+
+interface GamificationRouteRouteChildren {
+  GamificationIndexRoute: typeof GamificationIndexRoute
+  GamificationAchievementsIndexRoute: typeof GamificationAchievementsIndexRoute
+  GamificationCalendarIndexRoute: typeof GamificationCalendarIndexRoute
+  GamificationOverviewIndexRoute: typeof GamificationOverviewIndexRoute
+  GamificationXpHistoryIndexRoute: typeof GamificationXpHistoryIndexRoute
+}
+
+const GamificationRouteRouteChildren: GamificationRouteRouteChildren = {
+  GamificationIndexRoute: GamificationIndexRoute,
+  GamificationAchievementsIndexRoute: GamificationAchievementsIndexRoute,
+  GamificationCalendarIndexRoute: GamificationCalendarIndexRoute,
+  GamificationOverviewIndexRoute: GamificationOverviewIndexRoute,
+  GamificationXpHistoryIndexRoute: GamificationXpHistoryIndexRoute,
+}
+
+const GamificationRouteRouteWithChildren =
+  GamificationRouteRoute._addFileChildren(GamificationRouteRouteChildren)
+
 interface LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdRouteRouteChildren {
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdIndexRoute
   LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute: typeof LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdActivitiesActivityIdAttemptsAttemptIdIndexRoute
@@ -698,12 +906,12 @@ const LearningGoalsGoalIdSkillsSkillIdCompetenciesCompetencyIdRouteWithChildren 
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountRouteRoute: AccountRouteRouteWithChildren,
+  GamificationRouteRoute: GamificationRouteRouteWithChildren,
   ApiHealthRoute: ApiHealthRoute,
-  AccountIndexRoute: AccountIndexRoute,
   ConfirmEmailIndexRoute: ConfirmEmailIndexRoute,
   CurriculumIndexRoute: CurriculumIndexRoute,
   ForgotPasswordIndexRoute: ForgotPasswordIndexRoute,
-  GamificationIndexRoute: GamificationIndexRoute,
   IntelligenceIndexRoute: IntelligenceIndexRoute,
   LearningIndexRoute: LearningIndexRoute,
   LoginIndexRoute: LoginIndexRoute,
@@ -737,10 +945,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

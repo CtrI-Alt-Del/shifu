@@ -11,6 +11,12 @@ from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
 from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsQuestionSnapshot,
+)
+from .curriculum_react_fastify_question_snapshot import (
+    CurriculumReactFastifyQuestionSnapshot,
+)
 from .curriculum_translation_question_snapshot import (
     CurriculumTranslationQuestionSnapshot,
 )
@@ -29,6 +35,8 @@ class CurriculumLearningActivitySnapshot:
         CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot,
         ...,
     ]
@@ -79,6 +87,8 @@ class CurriculumLearningActivitySnapshot:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
             if requires_code_rubric != isinstance(
@@ -96,6 +106,8 @@ class CurriculumLearningActivitySnapshot:
                 question,
                 (
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
                 ),
             ):
@@ -109,6 +121,8 @@ class CurriculumLearningActivitySnapshot:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
             for question in self.questions

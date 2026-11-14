@@ -3,7 +3,7 @@
 This directory contains two independent Terraform roots:
 
 - `bootstrap/` creates only the private S3 backend used by staging;
-- `staging/` creates the application platform in `us-east-1`.
+- `staging/` creates the application platform in `us-east-2`.
 
 It does not read, import, or modify the academic S3 laboratory under
 `packages/iac/`. No command below is evidence that AWS resources are currently
@@ -24,8 +24,9 @@ Copy-Item iac/staging/terraform.tfvars.example iac/staging/terraform.tfvars
 ```
 
 The Terraform inputs are non-secret: unique backend bucket name, two available
-AZs/CIDRs when defaults are unsuitable, public hostname, existing ACM certificate
-ARN, immutable image tags, monthly budget amount/subscriber e-mails, teardown
+AZs/CIDRs when defaults are unsuitable, optional public hostname and existing ACM
+certificate ARN (set both for HTTPS, or leave both unset for the MVP's plain HTTP
+on the ALB address), immutable image tags, monthly budget amount/subscriber e-mails, teardown
 mode/final snapshot identifier, and tags. Keep the local copies private even
 though they must contain no credentials.
 
@@ -35,8 +36,8 @@ out-of-band population after the metadata exists:
 | Secret | Required JSON keys |
 | --- | --- |
 | Web | `BETTER_AUTH_DATABASE_URL`, `BETTER_AUTH_SECRET`, `SHIFU_BFF_SHARED_SECRET` |
-| API | `DATABASE_URL`, `AGENTOS_DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
-| API, optional | `OPENROUTER_API_KEY`; set `openrouter_enabled=true` only after the key exists |
+| Server | `DATABASE_URL`, `AGENTOS_DATABASE_URL`, `REDIS_URL`, `INNGEST_EVENT_KEY`, `INNGEST_SIGNING_KEY`, `SHIFU_RESEND_API_KEY`, `SHIFU_RESEND_FROM`, `SHIFU_BFF_SHARED_SECRET`, `SHIFU_COMMUNICATION_ENCRYPTION_KEYS`, `DIAGNOSTIC_REVISION_HMAC_KEY` |
+| Server, optional | `OPENROUTER_API_KEY`; set `openrouter_enabled=true` only after the key exists |
 
 `DATABASE_URL` and `BETTER_AUTH_DATABASE_URL` use the RDS-generated master
 credential. `REDIS_URL` must use TLS and AUTH. Inngest must use production
@@ -83,24 +84,26 @@ terraform -chdir=iac/staging show .terraform/foundation.tfplan
 terraform -chdir=iac/staging apply .terraform/foundation.tfplan
 ```
 
-Review that the plan contains one `/16` VPC, two AZs/six subnets, one NAT,
+Review that the plan contains one `/16` VPC, two AZs/six subnets, no NAT Gateway,
 private data services, zero desired tasks, exact ALB routing, secret metadata,
 separate logs and the budget. Do not continue if a secret value or secret-version
 resource appears.
 
 ## 3. Build and publish immutable images
 
-Build both images from the repository root. Authenticate Docker to the ECR
-registry using a non-persisted password stream, then tag and push with the exact
-immutable tags selected in the variables file:
+The deploy workflow described in "Continuous delivery" does this on every merge.
+To publish by hand, build both images for `linux/arm64` from the repository root.
+The Web image needs the URL that browsers use to reach the server. Authenticate
+Docker to the ECR registry using a non-persisted password stream, then tag and push
+with the exact immutable tags selected in the variables file:
 
 ```powershell
-docker build -f apps/server/Dockerfile -t shifu-server:<immutable-tag> .
-docker build -f apps/web/Dockerfile -t shifu-web:<immutable-tag> .
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
-docker tag shifu-server:<immutable-tag> <api-repository-url>:<immutable-tag>
+docker buildx build --platform linux/arm64 -f apps/server/Dockerfile -t shifu-server:<immutable-tag> --load .
+docker buildx build --platform linux/arm64 -f apps/web/Dockerfile --build-arg VITE_SHIFU_SERVER_URL=<server-url> -t shifu-web:<immutable-tag> --load .
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-2.amazonaws.com
+docker tag shifu-server:<immutable-tag> <server-repository-url>:<immutable-tag>
 docker tag shifu-web:<immutable-tag> <web-repository-url>:<immutable-tag>
-docker push <api-repository-url>:<immutable-tag>
+docker push <server-repository-url>:<immutable-tag>
 docker push <web-repository-url>:<immutable-tag>
 ```
 
@@ -109,6 +112,13 @@ publish a new tag rather than reusing one.
 
 ## 4. Populate secrets and activate Redis AUTH out of band
 
+`node scripts/populate-staging-secrets.mjs` runs this whole step for staging. It
+asks for the Inngest and Resend values, generates the other values, turns on Redis
+AUTH, and writes both secrets without printing any value. It refuses to run when a
+secret already has a value, so a second run cannot replace `BETTER_AUTH_SECRET`.
+Pass `--force` only to replace every value. The manual commands below show what it
+does.
+
 Use a protected temporary JSON file outside the repository (with access limited
 to the operator) to write one version to each Terraform-created secret. The file
 must not be printed, added to shell history, or captured in a transcript. For
@@ -116,28 +126,32 @@ example, with paths held in private environment variables:
 
 ```powershell
 aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw web_secret_arn) --secret-string "file://$env:SHIFU_WEB_SECRET_FILE"
-aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw api_secret_arn) --secret-string "file://$env:SHIFU_API_SECRET_FILE"
+aws secretsmanager put-secret-value --secret-id (terraform -chdir=iac/staging output -raw server_secret_arn) --secret-string "file://$env:SHIFU_SERVER_SECRET_FILE"
 ```
 
 The responses contain version metadata, not secret values. Securely erase the
 operator-owned temporary files after successful population. Read the AWS-managed
-RDS credential privately and construct the Web/API database URLs without displaying
+RDS credential privately and construct the Web/server database URLs without displaying
 either value.
 
 Create a compliant Redis token privately and keep it only in a non-echoing private
-environment variable. Activate it with ElastiCache's immediate `SET` strategy, wait
-for the group to return to `available`, then clear the process variable:
+environment variable. A cache with no AUTH token accepts the `SET` strategy only
+after a `ROTATE` has added the token. Run both steps with the same token and wait
+for the group to return to `available` after each one. Then clear the process
+variable:
 
 ```powershell
+aws elasticache modify-replication-group --replication-group-id shifu-staging --auth-token $env:SHIFU_REDIS_AUTH_TOKEN --auth-token-update-strategy ROTATE --apply-immediately
+aws elasticache wait replication-group-available --replication-group-id shifu-staging
 aws elasticache modify-replication-group --replication-group-id shifu-staging --auth-token $env:SHIFU_REDIS_AUTH_TOKEN --auth-token-update-strategy SET --apply-immediately
 aws elasticache wait replication-group-available --replication-group-id shifu-staging
 Remove-Item Env:SHIFU_REDIS_AUTH_TOKEN
 ```
 
-Store the authenticated `rediss://` URL only in the API secret. Do not pass the
+Store the authenticated `rediss://` URL only in the server secret. Do not pass the
 token to Terraform. Terraform deliberately ignores the write-only AUTH attributes
 so a later plan neither stores nor removes the token.
-Before enabling API, verify through a private network path that unauthenticated
+Before enabling the server, verify through a private network path that unauthenticated
 access is rejected and authenticated TLS access succeeds; do not echo the token.
 
 Confirm every required JSON key exists. If OpenRouter is omitted, leave
@@ -146,61 +160,62 @@ assessment is unavailable by its existing controlled behavior.
 
 ## 5. Create the AgentOS runtime role and run the one-off migration
 
-Keep both service desired counts at zero. Use the `api_task_definition_arn`,
-private `application_subnet_ids`, and `api_security_group_id` outputs to run one
-Fargate task with the API container command overridden to:
+Keep both service desired counts at zero. Use the `server_task_definition_arn`,
+private `application_subnet_ids`, and `server_security_group_id` outputs to run one
+Fargate task with the server container command overridden to:
 
 ```text
-uv run alembic upgrade head
+alembic upgrade head
 ```
 
-Before running that task, create the least-privileged AgentOS runtime role through
-a private database administration path (for example, an operator-controlled
-bastion or port-forward). Run the committed
-`apps/server/scripts/create_agentos_runtime_role.sql` script as the RDS master
-user, passing `runtime_password` equal to the password embedded in
-`AGENTOS_DATABASE_URL` and `database_name` equal to the application database.
-Keep both values in non-echoing operator environment variables; never print them
-or place them in Terraform state. The script is idempotent and grants only
+Before running that task, create the least-privileged AgentOS runtime role. The
+database is private, so run this from any machine with AWS credentials. It starts
+a one-off Fargate task inside the VPC:
+
+```bash
+AWS_PROFILE=shifu AWS_REGION=us-east-2 .github/scripts/staging/create-agentos-role.sh
+```
+
+The task uses the server image and its secrets. It logs in as the database admin
+from `DATABASE_URL`, then creates or updates `shifu_agentos_runtime` with the
+password inside `AGENTOS_DATABASE_URL`. It prints no secret value. Finally it logs
+in as the role to prove that the URL works. It does the same as
+`apps/server/scripts/create_agentos_runtime_role.sql`, without `psql`, and it is safe
+to run again. Run it again after you change that password. The role gets only
 database `CONNECT`; the migration below creates the `agentos_intelligence` and
 `agentos_learning` schemas, revokes public schema creation, and grants the role
 the runtime table privileges it needs.
 
-For example, with the private connection variables and password already prepared
-by the operator:
+If you prefer an operator-controlled bastion or port-forward, run the SQL script
+yourself as the RDS master user. Pass `runtime_password` and `database_name` as
+`psql` variables from non-echoing environment variables, and never print them.
 
-```powershell
-psql $env:SHIFU_DATABASE_ADMIN_URL `
-  -v ON_ERROR_STOP=1 `
-  -v runtime_password="$env:SHIFU_AGENTOS_RUNTIME_ROLE_PASSWORD" `
-  -v database_name="$env:SHIFU_DATABASE_NAME" `
-  -f apps/server/scripts/create_agentos_runtime_role.sql
-```
-
-Verify privately that `shifu_agentos_runtime` exists before starting the
+Check that the script finished with exit code 0 before starting the
 migration task. Do not enable either ECS service until the role creation and the
 migration both succeed.
 
-Supply the same `awsvpc` settings as the API service and
-`assignPublicIp=DISABLED`. This PowerShell template uses only non-secret Terraform
+Supply the same `awsvpc` settings as the server service and
+`assignPublicIp=ENABLED`, because staging has no NAT Gateway. This PowerShell
+template uses only non-secret Terraform
 outputs and writes no secret value:
 
 ```powershell
 $cluster = terraform -chdir=iac/staging output -raw ecs_cluster_name
-$taskDefinition = terraform -chdir=iac/staging output -raw api_task_definition_arn
+$taskDefinition = terraform -chdir=iac/staging output -raw server_task_definition_arn
 $subnets = (terraform -chdir=iac/staging output -json application_subnet_ids | ConvertFrom-Json) -join ','
-$securityGroup = terraform -chdir=iac/staging output -raw api_security_group_id
-$network = "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$securityGroup],assignPublicIp=DISABLED}"
-$overrides = '{"containerOverrides":[{"name":"api","command":["uv","run","alembic","upgrade","head"]}]}'
+$securityGroup = terraform -chdir=iac/staging output -raw server_security_group_id
+$network = "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$securityGroup],assignPublicIp=ENABLED}"
+$overrides = '{"containerOverrides":[{"name":"server","command":["alembic","upgrade","head"]}]}'
 $taskArn = aws ecs run-task --cluster $cluster --task-definition $taskDefinition --launch-type FARGATE --network-configuration $network --overrides $overrides --query 'tasks[0].taskArn' --output text
 aws ecs wait tasks-stopped --cluster $cluster --tasks $taskArn
-aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].containers[?name==`api`].{exitCode:exitCode,reason:reason}'
+aws ecs describe-tasks --cluster $cluster --tasks $taskArn --query 'tasks[0].containers[?name==`server`].{exitCode:exitCode,reason:reason}'
 ```
 
-Wait for the task to stop, require container exit code zero, inspect the API log
+Wait for the task to stop, require container exit code zero, inspect the server log
 group for a redacted migration result, and independently confirm Alembic is at
-head. Never seed or reset data. If migration fails, leave services disabled,
-correct image/configuration/connectivity, and rerun a new one-off task.
+head. Do not seed by hand: the deploy workflow reseeds staging (see "Continuous
+delivery"). If migration fails, leave services disabled, correct
+image/configuration/connectivity, and rerun a new one-off task.
 
 ## 6. Enable services
 
@@ -221,22 +236,130 @@ migration when schema compatibility is uncertain, and then retry enablement.
 
 ## 7. DNS and side-effect-free smoke
 
-Create the operator-managed DNS alias/CNAME from the supplied hostname to
-`alb_dns_name`; DNS is intentionally outside Terraform. Without creating an
-account, sending e-mail, emitting an Inngest event, or calling OpenRouter:
+With a hostname, create the operator-managed DNS alias/CNAME from it to
+`alb_dns_name`; DNS is intentionally outside Terraform. Without a hostname, staging
+serves plain HTTP on `alb_dns_name` and the `public_origin` output shows the URL.
+Plain HTTP sends passwords and session cookies unencrypted, so use only test
+accounts and set `SHIFU_USE_SECURE_COOKIES=false`, which Terraform does itself in
+that mode. Without creating an account, sending e-mail, emitting an Inngest event,
+or calling OpenRouter:
 
-1. confirm plain HTTP redirects to the HTTPS hostname;
-2. request `https://<hostname>/api/health` and expect `{"status":"ok"}` from Web;
-3. inspect the API target group and confirm its private `/health` check is healthy;
+1. with HTTPS, confirm plain HTTP redirects to the HTTPS hostname;
+2. request `<public_origin>/api/health` and expect `{"status":"ok"}` from Web;
+3. inspect the server target group and confirm its private `/health` check is healthy;
 4. confirm an unrelated public path does not bypass Web to reach FastAPI;
 5. inspect both target groups, ECS task networking, migration revision, and the
-   separate Web/API log streams;
+   separate Web/server log streams;
 6. inspect/synchronize the signed `/api/inngest` endpoint without sending an event;
 7. confirm no response/log reveals private DNS, task addresses, credentials, or
    raw provider errors.
 
 The smoke is infrastructure-only and does not prove e-mail delivery, job execution,
 or AI assessment.
+
+## Continuous delivery
+
+Two GitHub Actions workflows run staging:
+
+- `terraform-staging.yaml` checks formatting, validates and tests both roots on every
+  pull request that touches `iac/`, and plans the staging root. Someone starts the
+  apply by hand on `main`. It then plans again before it applies.
+- `staging-deploy.yaml` runs on every merge to `main` that touches the apps. It
+  builds the Web and server images for `linux/arm64`, pushes them to ECR with the
+  tags `<12-character commit hash>-web` and `-server`, registers a new revision of
+  each task definition, runs the database migration as a one-off task, reseeds the
+  database as another one-off task, rolls the server and then the Web service, and checks both target groups and
+  `<public_origin>/api/health`.
+
+Terraform owns the task definitions, secrets wiring and sizing. The deploy workflow
+copies the latest task definition and changes only the image and
+`SHIFU_RELEASE_VERSION`. The services ignore task definition changes in Terraform,
+so an apply never moves a service back to an older image. After Terraform changes
+a task definition, run the deploy workflow again to pick the change up.
+
+### One-time setup
+
+AWS blocks OIDC for this account, so GitHub signs in with IAM user access keys.
+Terraform creates the users and their narrow policies. It never creates keys.
+
+1. In the IAM console, create one access key for each user and keep the values
+   only for the next step: `shifu-staging-deployer` for the app deploy and
+   `shifu-staging-terraform` for Terraform. Delete any older key of the deployer.
+2. In the GitHub repository settings, add these repository secrets. The pipeline
+   uses no GitHub environments and no GitHub variables.
+
+| Secret | Used by |
+| --- | --- |
+| `AWS_STAGING_DEPLOYER_ACCESS_KEY_ID`, `AWS_STAGING_DEPLOYER_SECRET_ACCESS_KEY` | `staging-deploy.yaml` |
+| `AWS_STAGING_TERRAFORM_ACCESS_KEY_ID`, `AWS_STAGING_TERRAFORM_SECRET_ACCESS_KEY` | `terraform-staging.yaml` |
+
+3. Set these secrets too. Read the values from `terraform output`. GitHub masks every secret
+   value in the logs, so a value shows as `***` there.
+
+| Secret | Value |
+| --- | --- |
+| `AWS_STAGING_APPLICATION_SUBNET_IDS` | `application_subnet_ids`, joined with commas |
+| `AWS_STAGING_SERVER_SECURITY_GROUP_ID` | `server_security_group_id` |
+| `AWS_STAGING_PUBLIC_ORIGIN` | `public_origin` |
+| `AWS_STAGING_VITE_SHIFU_SERVER_URL` | The same value as `public_origin`. See the note below. |
+| `AWS_STAGING_TERRAFORM_STATE_BUCKET` | The bootstrap state bucket name |
+| `AWS_STAGING_TERRAFORM_TFVARS` | `iac/staging/terraform.tfvars`, encoded with base64 |
+
+The Web bundle needs `VITE_SHIFU_SERVER_URL` to be a valid URL, but browsers do not
+call the server with it today. Every server request goes through Web server
+functions, which use `SHIFU_IDENTITY_API_URL` over the private network. The load
+balancer therefore sends only `/api/inngest` to the server. If browser code starts
+calling the server directly, the load balancer needs a route for it. The Web pages
+and the server share the prefixes `/learning`, `/curriculum`, `/gamification` and
+`/intelligence`, so a prefix rule cannot tell them apart.
+
+Encode the variable file on one line so GitHub masks only that one string. A
+multi-line secret would mask each of its lines, and common words such as `false`
+would then disappear from every log and plan summary:
+
+```bash
+base64 -w0 iac/staging/terraform.tfvars | gh secret set AWS_STAGING_TERRAFORM_TFVARS
+```
+
+The secret replaces the ignored local file in CI, so it holds the same non-secret
+values, including `services_enabled`. Set it again to change those inputs.
+
+### Staging is reseeded on every deploy
+
+Every deploy runs `python -m shifu.shared.database.seed` as a one-off task, after the
+migration and before the services roll. The seed **deletes all application data**
+(accounts, curriculum, learning, gamification, mentor, communication, and the event
+outbox) and inserts the development data again. Consequences:
+
+- Staging never keeps accounts or progress that testers created. Each deploy resets
+  them.
+- The development data includes the account `student.seed@shifu.com` with the
+  password from `seed_data.py`, which is public in the repository. Staging serves
+  plain HTTP and is reachable from the internet, so treat everything in it as public.
+- The server refuses to seed unless the mode is `local`, or the mode is `staging` and
+  `SHIFU_ALLOW_STAGING_SEED=true`. Only the deploy step sets that value, and the
+  production mode can never seed.
+- The image installs the `seed` dependency group (Faker) because the seed builds its
+  data with it.
+
+To stop reseeding, remove the "Seed the database" step from `staging-deploy.yaml`.
+The server's guard keeps working without it.
+
+### Failures and rollback
+
+- **Image build fails:** nothing changed in AWS. Fix the code and merge again.
+- **Migration fails:** the workflow stops before any service changes. Read the log
+  lines in the job output, fix forward, and run the workflow again. A missing `shifu_agentos_runtime` role is the usual first-run cause:
+  create it as described in step 5.
+- **Rollout fails:** the ECS circuit breaker returns the service to its previous
+  revision and the workflow fails. Check the service events and the log groups
+  `/ecs/shifu-staging/web` and `/ecs/shifu-staging/server`.
+- **Roll back to an earlier release:** run `staging-deploy.yaml` by hand and set
+  `image_sha` to the 12-character hash of an earlier deploy. It redeploys the images
+  already in ECR without building. It does not undo migrations, so only roll back
+  across releases whose schema changes are backward compatible.
+- **Rotate a key:** create the new key, update the repository secrets, run a
+  workflow, then delete the old key.
 
 ## Recovery
 
@@ -245,10 +368,10 @@ or AI assessment.
 - **Image/secret failure:** do not enable services; publish a new immutable image or
   add a new secret version, then review a fresh plan.
 - **Migration failure:** inspect the stopped task/logs, fix forward, and rerun; never
-  seed, reset, or auto-migrate at service startup.
+  auto-migrate or auto-seed at service startup.
 - **Unhealthy deployment:** use ECS deployment events and separate target health;
   circuit-breaker rollback is automatic, while operator correction is explicit.
-- **Redis AUTH drift:** keep services disabled until both the cache and API secret
+- **Redis AUTH drift:** keep services disabled until both the cache and server secret
   contain the coordinated token; Terraform is not the rotation mechanism.
 
 ## Teardown rehearsal and execution
@@ -297,10 +420,10 @@ Never destroy the backend while it owns live staging state.
 
 ## Cost-bearing resources
 
-The NAT Gateway and its traffic, public ALB, Fargate tasks, RDS PostgreSQL,
+The public ALB, Fargate tasks, RDS PostgreSQL,
 ElastiCache Redis, CloudWatch logs, ECR storage/scans, Secrets Manager secrets,
 public IPv4/EIP usage, S3 backend storage/requests, and external Inngest/Resend/
 OpenRouter plans may incur cost. The monthly AWS Budget notifies at forecasted 80%
-and actual 100%; it is not a hard spending limit. Staging intentionally uses one
-NAT, one task per service when enabled, Single-AZ RDS, and one Redis node and is not
-production-ready or highly available.
+and actual 100%; it is not a hard spending limit. Staging intentionally uses no NAT Gateway
+(tasks get public IPs), one Spot task per service when enabled, Single-AZ RDS without
+automated backups, and one Redis node. It is not production-ready or highly available.

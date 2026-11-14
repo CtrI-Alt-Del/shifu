@@ -8,3 +8,4 @@ class MentorResponseEventKind(StrEnum):
     COMPLETED = 'completed'
     FAILED = 'failed'
     CANCELLED = 'cancelled'
+    ACTION = 'action'

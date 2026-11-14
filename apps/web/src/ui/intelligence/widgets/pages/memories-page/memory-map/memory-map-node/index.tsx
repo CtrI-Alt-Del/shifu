@@ -1,5 +1,8 @@
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react'
 
+import { motion } from 'motion/react'
+
+import { ENTRANCE_POP } from '@/constants/motion-variants'
 import type { LearnerMemory } from '@/core/intelligence/learner-memory'
 import { LEARNER_MEMORY_CATEGORY_PRESENTATION } from '@/ui/intelligence/constants/learner-memory-categories'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -38,11 +41,13 @@ export const MemoryMapNode = ({ data }: NodeProps<MemoryMapNodeType>) => {
         onClick={() => onSelect(memory.id)}
         type='button'
       >
-        <span
+        {/* Only the circle pops: React Flow owns the node wrapper's transform. */}
+        <motion.span
+          variants={ENTRANCE_POP}
           className={`flex size-11 items-center justify-center rounded-full border-2 transition-colors group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-selo-text ${isSelected ? 'border-primary! bg-primary/20 ring-4 ring-primary/30' : 'border-selo-text! bg-surface-alt ring-4 ring-selo-text/15 group-hover:bg-muted'}`}
         >
           <Icon name={presentation.icon} className='size-5 text-foreground' />
-        </span>
+        </motion.span>
       </button>
       {isSelected ? (
         <span

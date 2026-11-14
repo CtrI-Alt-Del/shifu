@@ -4,17 +4,23 @@ import {
   type BetterAuthPlugin,
   type GenericEndpointContext,
 } from 'better-auth'
-import { APIError, createAuthEndpoint } from 'better-auth/api'
+import { APIError, createAuthEndpoint, getSessionFromCtx } from 'better-auth/api'
 import { deleteSessionCookie, setSessionCookie } from 'better-auth/cookies'
 import { jwt } from 'better-auth/plugins'
 import { Pool, types as pgTypes } from 'pg'
 import { z } from 'zod'
 
+import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { ROUTES } from '@/constants/routes'
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
+import {
+  createServerRequestClient,
+  type ServerRequestClientOptions,
+} from '@/rest/axios/server-request-client'
 import { IdentityService } from '@/rest/services/identity-service'
+import { getWebTelemetryProvider } from '@/provision/telemetry/console-telemetry-provider'
 
 import { BETTER_AUTH_OPTIONS, BetterAuthConfig } from './better-auth-config'
 
@@ -51,6 +57,8 @@ const passwordResetBody = z.object({
 })
 const passwordResetLinkBody = z.object({ token: z.string().optional().default('') })
 
+const telemetry = getWebTelemetryProvider()
+
 type ServerAuthenticatedAccess = {
   accountId: string
   displayName: string
@@ -63,14 +71,33 @@ const BetterAuthProvider = () => {
   const config = BetterAuthConfig()
   pgTypes.setTypeParser(20, (value) => Number.parseInt(value, 10))
   const pool = new Pool({ connectionString: config.databaseURL })
-  const identityService = IdentityService(
-    AxiosRestClient(config.identityURL, {
-      defaultHeaders: { 'X-Shifu-Bff-Secret': config.bffSharedSecret },
-      withCredentials: false,
-    }),
-  )
+  const identityClientOptions = {
+    baseUrl: config.identityURL,
+    defaultHeaders: { 'X-Shifu-Bff-Secret': config.bffSharedSecret },
+    withCredentials: false,
+  } satisfies ServerRequestClientOptions
+  const identityService = createIdentityService()
 
-  const identityPlugin = createIdentityPlugin(identityService)
+  function createIdentityService(requestId?: string) {
+    const requestContext: RequestTelemetryContext | undefined = requestId
+      ? { requestId, telemetry }
+      : undefined
+    return IdentityService(
+      createServerRequestClient(requestContext, identityClientOptions),
+    )
+  }
+
+  const requestIdentityService = (request?: Request) =>
+    createIdentityService(request?.headers.get('X-Request-ID') ?? undefined)
+  const identityPlugin = createIdentityPlugin(requestIdentityService, async (headers) => {
+    const result = await auth.api.getToken({ headers })
+    if (!result?.token)
+      throw APIError.from('UNAUTHORIZED', {
+        code: 'unauthorized',
+        message: 'Entre novamente para continuar.',
+      })
+    return result.token
+  })
   const auth = betterAuth({
     appName: 'Shifu',
     baseURL: config.baseURL,
@@ -78,6 +105,7 @@ const BetterAuthProvider = () => {
     secret: config.secret,
     database: pool,
     emailAndPassword: { enabled: false },
+    disabledPaths: ['/update-session', '/update-user', '/change-password'],
     user: {
       modelName: 'better_auth_users',
       fields: {
@@ -104,6 +132,7 @@ const BetterAuthProvider = () => {
           type: 'number',
           required: true,
           fieldName: 'access_version',
+          input: false,
         },
       },
     },
@@ -201,6 +230,7 @@ const BetterAuthProvider = () => {
 
   async function getCurrentAccess(
     request: Request,
+    requestId?: string,
   ): Promise<ServerAuthenticatedAccess | null> {
     const session = await auth.api.getSession({ headers: request.headers })
     if (!session) return null
@@ -210,7 +240,26 @@ const BetterAuthProvider = () => {
     if (!accessToken) throw new AuthError('invalid-response', 'Token ausente.')
 
     try {
-      const currentSession = await identityService.getCurrentSession(accessToken)
+      const currentIdentityService = requestId
+        ? createIdentityService(requestId)
+        : identityService
+      const currentSession = await currentIdentityService.getCurrentSession(accessToken)
+      if (session.user.name !== currentSession.display_name) {
+        try {
+          const context = await auth.$context
+          await context.internalAdapter.updateUser(session.user.id, {
+            name: currentSession.display_name,
+          })
+        } catch {
+          telemetry.emit({
+            level: 'WARNING',
+            event: 'dependency.unavailable',
+            operation: 'dependency.check',
+            dependency: 'better-auth',
+            result: 'unavailable',
+          })
+        }
+      }
       return {
         accountId: currentSession.account_id,
         displayName: currentSession.display_name,
@@ -226,7 +275,7 @@ const BetterAuthProvider = () => {
       ) {
         return {
           accountId: session.user.id,
-          displayName: session.user.name,
+          displayName: 'Minha conta',
           email: session.user.email,
           timeZone: null,
           accessToken,
@@ -237,12 +286,12 @@ const BetterAuthProvider = () => {
         error instanceof AuthError &&
         (error.kind === 'authentication-rejected' || error.kind === 'invalid-response')
       ) {
-        await deleteSession(request)
+        await deleteSession(request, requestId)
         return null
       }
 
       if (error instanceof RestError) {
-        await deleteSession(request)
+        await deleteSession(request, requestId)
         return null
       }
 
@@ -250,7 +299,7 @@ const BetterAuthProvider = () => {
     }
   }
 
-  async function deleteSession(request: Request) {
+  async function deleteSession(request: Request, requestId?: string) {
     const response = await auth.handler(
       new Request(new URL('/api/auth/sign-out', request.url), {
         method: 'POST',
@@ -259,15 +308,35 @@ const BetterAuthProvider = () => {
     )
     const setCookie = response.headers.get('set-cookie')
     if (setCookie) setResponseHeaders(new Headers({ 'set-cookie': setCookie }))
+    telemetry.emit({
+      level: 'INFO',
+      event: 'auth.session.revoked',
+      request_id: requestId,
+      operation: 'auth.session.revoke',
+      result: 'success',
+    })
   }
 
-  async function publishMainPageEntered(access: ServerAuthenticatedAccess) {
+  async function publishMainPageEntered(
+    access: ServerAuthenticatedAccess,
+    requestId?: string,
+  ) {
     try {
-      await identityService.publishMainPageEntered(access.accessToken)
+      await (requestId
+        ? createIdentityService(requestId)
+        : identityService
+      ).publishMainPageEntered(access.accessToken)
     } catch {
       // Observability is best effort. The access decision has already
       // completed and must not block a valid dashboard navigation.
-      console.warn('Main-page entry observability is unavailable.')
+      telemetry.emit({
+        level: 'WARNING',
+        event: 'dependency.unavailable',
+        request_id: requestId,
+        operation: 'dependency.check',
+        dependency: 'better-auth',
+        result: 'unavailable',
+      })
     }
   }
 
@@ -281,14 +350,98 @@ const BetterAuthProvider = () => {
   }
 }
 
-function createIdentityPlugin(identityService: ReturnType<typeof IdentityService>) {
+function createIdentityPlugin(
+  requestIdentityService: (request?: Request) => ReturnType<typeof IdentityService>,
+  getAccessToken: (headers: Headers) => Promise<string>,
+) {
   return {
     id: 'shifu-identity-sign-in',
     endpoints: {
+      accountProfile: createAuthEndpoint(
+        '/account',
+        { method: 'GET', requireHeaders: true },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          const session = await requireAccountSession(context)
+          try {
+            const token = await getAccessToken(context.headers)
+            const profile = await requestIdentityService(
+              context.request,
+            ).getAccountProfile(token)
+            const safeProfile = toAccountProfile(profile)
+            await reconcileTechnicalName(
+              context,
+              session.user.id,
+              session.user.name,
+              safeProfile.displayName,
+            )
+            return context.json(safeProfile)
+          } catch (error) {
+            throwAccountError(error)
+          }
+        },
+      ),
+      updateAccountProfile: createAuthEndpoint(
+        '/account/profile',
+        {
+          method: 'POST',
+          requireHeaders: true,
+          body: z.object({ displayName: z.string(), timeZone: z.string() }).strict(),
+        },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          const session = await requireAccountSession(context)
+          try {
+            const token = await getAccessToken(context.headers)
+            const profile = await requestIdentityService(
+              context.request,
+            ).updateAccountProfile(token, context.body)
+            const safeProfile = toAccountProfile(profile)
+            await reconcileTechnicalName(
+              context,
+              session.user.id,
+              session.user.name,
+              safeProfile.displayName,
+            )
+            return context.json(safeProfile)
+          } catch (error) {
+            throwAccountError(error)
+          }
+        },
+      ),
+      changeAccountPassword: createAuthEndpoint(
+        '/account/password',
+        {
+          method: 'POST',
+          requireHeaders: true,
+          body: z
+            .object({ currentPassword: z.string(), newPassword: z.string() })
+            .strict(),
+        },
+        async (context) => {
+          context.setHeader('Cache-Control', 'no-store')
+          await requireAccountSession(context)
+          const token = await getAccessToken(context.headers)
+          try {
+            const result = await requestIdentityService(
+              context.request,
+            ).changeAccountPassword(token, context.body)
+            if (result.changed !== true)
+              throw APIError.from('SERVICE_UNAVAILABLE', {
+                code: 'result_uncertain',
+                message: 'Não foi possível confirmar a troca.',
+              })
+            return context.json({ changed: true })
+          } catch (error) {
+            throwAccountError(error, true)
+          }
+        },
+      ),
       requestPasswordRecovery: createAuthEndpoint(
         '/password-recovery',
         { method: 'POST', body: passwordRecoveryBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let result: Awaited<ReturnType<typeof identityService.requestPasswordRecovery>>
           try {
             result = await identityService.requestPasswordRecovery(context.body.email)
@@ -319,6 +472,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-recovery/status',
         { method: 'GET' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const recoveryContext = await getPasswordRecoveryContext(context)
           if (!recoveryContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -353,6 +507,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-recovery/retry',
         { method: 'POST' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const recoveryContext = await getPasswordRecoveryContext(context)
           if (!recoveryContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -383,6 +538,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-reset-link/status',
         { method: 'POST', body: passwordResetLinkBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           if (!isRecoveryToken(context.body.token)) {
             return context.json({ result: 'invalid' })
           }
@@ -404,6 +560,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/password-reset',
         { method: 'POST', body: passwordResetBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           if (!isRecoveryToken(context.body.token)) {
             return context.json({ result: 'invalid', redirectTo: ROUTES.login })
           }
@@ -429,13 +586,25 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
           try {
             await context.context.internalAdapter.deleteUserSessions(result.account_id)
           } catch {
-            console.warn('password_reset_session_cleanup_failed')
+            telemetry.emit({
+              level: 'WARNING',
+              event: 'dependency.unavailable',
+              operation: 'dependency.check',
+              dependency: 'better-auth',
+              result: 'unavailable',
+            })
           }
 
           try {
             await clearPasswordRecoveryContext(context)
           } catch {
-            console.warn('password_reset_recovery_context_cleanup_failed')
+            telemetry.emit({
+              level: 'WARNING',
+              event: 'dependency.unavailable',
+              operation: 'dependency.check',
+              dependency: 'better-auth',
+              result: 'unavailable',
+            })
           }
           deleteSessionCookie(context)
 
@@ -450,6 +619,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/register/identity',
         { method: 'POST', body: registerBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let registration: Awaited<ReturnType<typeof identityService.registerAccount>>
           try {
             registration = await identityService.registerAccount(context.body)
@@ -489,6 +659,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/pending-confirmation',
         { method: 'GET' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
             return context.json({ state: 'delivery_issue', retryAfterSeconds: null })
@@ -514,6 +685,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/pending-confirmation/resend',
         { method: 'POST' },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           const pendingContext = await getPendingContext(context)
           if (!pendingContext) {
             return context.json({ result: 'accepted', retryAfterSeconds: null })
@@ -540,6 +712,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
         '/confirm-email',
         { method: 'POST', body: confirmEmailBody },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let result: Awaited<ReturnType<typeof identityService.confirmEmail>>
           try {
             result = await identityService.confirmEmail(context.body.token)
@@ -592,6 +765,7 @@ function createIdentityPlugin(identityService: ReturnType<typeof IdentityService
           body: signInBody,
         },
         async (context) => {
+          const identityService = requestIdentityService(context.request)
           let authentication: Awaited<
             ReturnType<typeof identityService.validateCredentials>
           >
@@ -944,4 +1118,98 @@ let provider: ReturnType<typeof BetterAuthProvider> | undefined
 export const getBetterAuthProvider = () => {
   provider ??= BetterAuthProvider()
   return provider
+}
+
+async function requireAccountSession(context: GenericEndpointContext) {
+  const session = await getSessionFromCtx(context, { disableRefresh: true })
+  if (!session)
+    throw APIError.from('UNAUTHORIZED', {
+      code: 'unauthorized',
+      message: 'Entre novamente para continuar.',
+    })
+  return session
+}
+
+async function reconcileTechnicalName(
+  context: GenericEndpointContext,
+  accountId: string,
+  technicalName: string,
+  canonicalName: string,
+) {
+  if (technicalName === canonicalName) return
+  try {
+    await context.context.internalAdapter.updateUser(accountId, { name: canonicalName })
+  } catch {
+    telemetry.emit({
+      level: 'WARNING',
+      event: 'dependency.unavailable',
+      operation: 'dependency.check',
+      dependency: 'better-auth',
+      result: 'unavailable',
+    })
+  }
+}
+
+function toAccountProfile(
+  profile: Awaited<ReturnType<IdentityService['getAccountProfile']>>,
+) {
+  const parsed = z
+    .object({
+      account_id: z.string().min(1),
+      display_name: z.string().min(1),
+      email: z.string().min(1),
+      time_zone: z.string().nullable(),
+    })
+    .safeParse(profile)
+  if (!parsed.success)
+    throw APIError.from('SERVICE_UNAVAILABLE', {
+      code: 'invalid_response',
+      message: 'Não foi possível carregar a conta.',
+    })
+  return {
+    accountId: parsed.data.account_id,
+    displayName: parsed.data.display_name,
+    email: parsed.data.email,
+    timeZone: parsed.data.time_zone,
+  }
+}
+
+function throwAccountError(error: unknown, passwordChange = false): never {
+  if (error instanceof APIError) throw error
+  if (error instanceof RestError) {
+    if (error.statusCode === HTTP_STATUS_CODE.unauthorized)
+      throw APIError.from('UNAUTHORIZED', {
+        code: 'unauthorized',
+        message: 'Entre novamente para continuar.',
+      })
+    if (
+      error.statusCode === HTTP_STATUS_CODE.forbidden &&
+      error.code === 'invalid_current_password'
+    )
+      throw APIError.from('FORBIDDEN', {
+        code: error.code,
+        message: 'A senha atual está incorreta.',
+      })
+    if (
+      error.statusCode === HTTP_STATUS_CODE.badRequest &&
+      ['invalid_display_name', 'invalid_time_zone', 'invalid_new_password'].includes(
+        error.code ?? '',
+      )
+    )
+      throw APIError.from('BAD_REQUEST', {
+        code: error.code ?? 'invalid_input',
+        message: 'Confira o campo informado.',
+      })
+    if (error.statusCode > 0)
+      throw APIError.from('SERVICE_UNAVAILABLE', {
+        code: 'identity_unavailable',
+        message: 'Não foi possível concluir agora. Tente novamente.',
+      })
+  }
+  throw APIError.from('SERVICE_UNAVAILABLE', {
+    code: passwordChange ? 'result_uncertain' : 'identity_unavailable',
+    message: passwordChange
+      ? 'Não foi possível confirmar a troca.'
+      : 'Não foi possível carregar a conta.',
+  })
 }

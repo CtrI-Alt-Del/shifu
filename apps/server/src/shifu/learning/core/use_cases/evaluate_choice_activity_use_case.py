@@ -72,6 +72,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumSkillSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
@@ -103,26 +105,26 @@ class EvaluateChoiceActivityUseCase:
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...] = (),
         translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
-    ) -> None:
+    ) -> bool:
         should_return, mixed_results = self._prepare_mixed_results(
             attempt_id, run_id, code_decisions, translation_decisions
         )
         if should_return:
-            return
+            return False
         now = self._clock_provider.now()
         with self._learning_database.transaction() as repositories:
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
             if attempt is None or attempt.grading_snapshot is None:
-                return
+                return False
 
             experience = repositories.skill_experiences.find_by_id_for_update(
                 attempt.skill_experience_id
             )
             if experience is None:
-                return
+                return False
 
             if self._is_stale_diagnostic(attempt, experience):
-                return
+                return False
 
             evaluation = (
                 repositories.activity_evaluations.find_by_attempt_id_for_update(
@@ -134,11 +136,11 @@ class EvaluateChoiceActivityUseCase:
                 or evaluation.status is not ActivityEvaluationStatus.PENDING
                 or evaluation.run_id != run_id
             ):
-                return
+                return False
 
             goal = repositories.goals.find_by_id(experience.goal_id)
             if goal is None:
-                return
+                return False
 
             progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
                 experience.id, attempt.competency_id
@@ -176,7 +178,7 @@ class EvaluateChoiceActivityUseCase:
                 part_results,
                 now,
             )
-            return
+            return True
 
     def _get_part_results(
         self,
@@ -370,6 +372,8 @@ class EvaluateChoiceActivityUseCase:
             CurriculumChoiceQuestionSnapshot
             | CurriculumJavascriptStdinQuestionSnapshot
             | CurriculumReactQuestionSnapshot
+            | CurriculumHtmlCssJsQuestionSnapshot
+            | CurriculumReactFastifyQuestionSnapshot
             | CurriculumTranslationQuestionSnapshot,
             ...,
         ],
@@ -397,6 +401,8 @@ class EvaluateChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
                 code_result = code_results.get(question.key)
@@ -766,6 +772,8 @@ class EvaluateChoiceActivityUseCase:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                 ),
             )
         }
@@ -807,6 +815,8 @@ class EvaluateChoiceActivityUseCase:
         question: CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
@@ -817,6 +827,8 @@ class EvaluateChoiceActivityUseCase:
             (
                 CurriculumJavascriptStdinQuestionSnapshot,
                 CurriculumReactQuestionSnapshot,
+                CurriculumHtmlCssJsQuestionSnapshot,
+                CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
@@ -853,7 +865,9 @@ class EvaluateChoiceActivityUseCase:
         self,
         part: CurriculumCodeRubricPartSnapshot,
         question: CurriculumJavascriptStdinQuestionSnapshot
-        | CurriculumReactQuestionSnapshot,
+        | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> CodeRubricResult:

@@ -34,3 +34,6 @@ class MentorGenerationRequest:
     memories: tuple[
         LearnerMemoryContext, ...
     ] = ()  # learner declarations, read by the answer, writer and reviewer
+    curriculum_topics: tuple[
+        str, ...
+    ] = ()  # catalog Skill titles named in the message, read by the writer and reviewer

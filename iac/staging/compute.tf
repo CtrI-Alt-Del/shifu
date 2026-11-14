@@ -3,8 +3,8 @@ resource "aws_cloudwatch_log_group" "web" {
   retention_in_days = 14
 }
 
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${local.name}/api"
+resource "aws_cloudwatch_log_group" "server" {
+  name              = "/ecs/${local.name}/server"
   retention_in_days = 14
 }
 
@@ -17,14 +17,24 @@ resource "aws_ecs_cluster" "staging" {
   }
 }
 
+resource "aws_ecs_cluster_capacity_providers" "staging" {
+  cluster_name       = aws_ecs_cluster.staging.name
+  capacity_providers = ["FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
+}
+
 resource "aws_service_discovery_private_dns_namespace" "staging" {
   name        = "${var.environment}.${var.project_name}.internal"
   description = "Private service discovery for Shifu staging"
   vpc         = aws_vpc.staging.id
 }
 
-resource "aws_service_discovery_service" "api" {
-  name = "api"
+resource "aws_service_discovery_service" "server" {
+  name = "server"
 
   dns_config {
     namespace_id   = aws_service_discovery_private_dns_namespace.staging.id
@@ -48,7 +58,7 @@ resource "aws_ecs_task_definition" "web" {
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = "ARM64"
   }
 
   container_definitions = jsonencode([
@@ -65,9 +75,12 @@ resource "aws_ecs_task_definition" "web" {
       }]
       environment = [
         { name = "NODE_ENV", value = "production" },
+        { name = "SHIFU_WEB_APP_MODE", value = "staging" },
+        { name = "SHIFU_RELEASE_VERSION", value = var.web_image_tag },
         { name = "SHIFU_WEB_APP_PORT", value = "7000" },
-        { name = "SHIFU_WEB_APP_URL", value = "https://${var.hostname}" },
-        { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.api_discovery_name}:7777" },
+        { name = "SHIFU_WEB_APP_URL", value = local.public_origin },
+        { name = "SHIFU_USE_SECURE_COOKIES", value = tostring(local.is_https_enabled) },
+        { name = "SHIFU_IDENTITY_API_URL", value = "http://${local.server_discovery_name}:7777" },
         { name = "SHIFU_TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
       secrets = [
@@ -88,27 +101,27 @@ resource "aws_ecs_task_definition" "web" {
   ])
 }
 
-resource "aws_ecs_task_definition" "api" {
-  family                   = "${local.name}-api"
+resource "aws_ecs_task_definition" "server" {
+  family                   = "${local.name}-server"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = 512
   memory                   = 1024
-  execution_role_arn       = aws_iam_role.api_execution.arn
-  task_role_arn            = aws_iam_role.api_task.arn
+  execution_role_arn       = aws_iam_role.server_execution.arn
+  task_role_arn            = aws_iam_role.server_task.arn
 
   runtime_platform {
     operating_system_family = "LINUX"
-    cpu_architecture        = "X86_64"
+    cpu_architecture        = "ARM64"
   }
 
   container_definitions = jsonencode([
     {
-      name      = "api"
-      image     = "${aws_ecr_repository.api.repository_url}:${var.api_image_tag}"
+      name      = "server"
+      image     = "${aws_ecr_repository.server.repository_url}:${var.server_image_tag}"
       essential = true
       portMappings = [{
-        name          = "api"
+        name          = "server"
         containerPort = 7777
         hostPort      = 7777
         protocol      = "tcp"
@@ -117,11 +130,12 @@ resource "aws_ecs_task_definition" "api" {
       environment = [
         { name = "SHIFU_SERVER_APP_PORT", value = "7777" },
         { name = "SHIFU_SERVER_APP_MODE", value = "staging" },
-        { name = "SHIFU_AUTH_ISSUER", value = "https://${var.hostname}" },
+        { name = "SHIFU_RELEASE_VERSION", value = var.server_image_tag },
+        { name = "SHIFU_AUTH_ISSUER", value = local.public_origin },
         { name = "SHIFU_AUTH_AUDIENCE", value = "shifu-api" },
-        { name = "SHIFU_AUTH_JWKS_URL", value = "https://${var.hostname}/api/auth/jwks" },
+        { name = "SHIFU_AUTH_JWKS_URL", value = "${local.public_origin}/api/auth/jwks" },
         { name = "SHIFU_EMAIL_PROVIDER", value = "resend" },
-        { name = "SHIFU_CONFIRMATION_ACTION_ORIGIN", value = "https://${var.hostname}" },
+        { name = "SHIFU_CONFIRMATION_ACTION_ORIGIN", value = local.public_origin },
         { name = "SHIFU_EMAIL_TIMEOUT_SECONDS", value = "10" },
         { name = "INNGEST_APP_ID", value = local.name },
         { name = "INNGEST_DEV", value = "0" },
@@ -130,17 +144,17 @@ resource "aws_ecs_task_definition" "api" {
         { name = "TRUSTED_PROXY_IPS", value = var.vpc_cidr },
       ]
       secrets = [
-        for key in local.api_secret_keys : {
+        for key in local.server_secret_keys : {
           name      = key
-          valueFrom = "${aws_secretsmanager_secret.api.arn}:${key}::"
+          valueFrom = "${aws_secretsmanager_secret.server.arn}:${key}::"
         }
       ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          awslogs-group         = aws_cloudwatch_log_group.api.name
+          awslogs-group         = aws_cloudwatch_log_group.server.name
           awslogs-region        = var.aws_region
-          awslogs-stream-prefix = "api"
+          awslogs-stream-prefix = "server"
         }
       }
     },
@@ -152,9 +166,13 @@ resource "aws_ecs_service" "web" {
   cluster         = aws_ecs_cluster.staging.id
   task_definition = aws_ecs_task_definition.web.arn
   desired_count   = var.services_enabled ? 1 : 0
-  launch_type     = "FARGATE"
 
-  health_check_grace_period_seconds = 60
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
+
+  health_check_grace_period_seconds = 90
 
   deployment_circuit_breaker {
     enable   = true
@@ -164,7 +182,7 @@ resource "aws_ecs_service" "web" {
   network_configuration {
     subnets          = aws_subnet.application[*].id
     security_groups  = [aws_security_group.web.id]
-    assign_public_ip = false
+    assign_public_ip = true
   }
 
   load_balancer {
@@ -173,17 +191,29 @@ resource "aws_ecs_service" "web" {
     container_port   = 7000
   }
 
-  depends_on = [aws_lb_listener.https]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https, aws_ecs_cluster_capacity_providers.staging]
+
+  lifecycle {
+    # The deploy workflow registers a task definition revision with the new image
+    # and points the service at it. Terraform owns everything else, so it must not
+    # move the service back to the revision it created.
+    ignore_changes = [task_definition]
+  }
 }
 
-resource "aws_ecs_service" "api" {
-  name            = "${local.name}-api"
-  cluster         = aws_ecs_cluster.staging.id
-  task_definition = aws_ecs_task_definition.api.arn
-  desired_count   = var.services_enabled ? 1 : 0
-  launch_type     = "FARGATE"
 
-  health_check_grace_period_seconds = 60
+resource "aws_ecs_service" "server" {
+  name            = "${local.name}-server"
+  cluster         = aws_ecs_cluster.staging.id
+  task_definition = aws_ecs_task_definition.server.arn
+  desired_count   = var.services_enabled ? 1 : 0
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE_SPOT"
+    weight            = 1
+  }
+
+  health_check_grace_period_seconds = 240
 
   deployment_circuit_breaker {
     enable   = true
@@ -192,20 +222,28 @@ resource "aws_ecs_service" "api" {
 
   network_configuration {
     subnets          = aws_subnet.application[*].id
-    security_groups  = [aws_security_group.api.id]
-    assign_public_ip = false
+    security_groups  = [aws_security_group.server.id]
+    assign_public_ip = true
   }
 
   load_balancer {
-    target_group_arn = aws_lb_target_group.api.arn
-    container_name   = "api"
+    target_group_arn = aws_lb_target_group.server.arn
+    container_name   = "server"
     container_port   = 7777
   }
 
   service_registries {
-    registry_arn   = aws_service_discovery_service.api.arn
-    container_name = "api"
+    registry_arn   = aws_service_discovery_service.server.arn
+    container_name = "server"
   }
 
-  depends_on = [aws_lb_listener_rule.inngest]
+  depends_on = [aws_lb_listener_rule.inngest, aws_ecs_cluster_capacity_providers.staging]
+
+  lifecycle {
+    # The deploy workflow registers a task definition revision with the new image
+    # and points the service at it. Terraform owns everything else, so it must not
+    # move the service back to the revision it created.
+    ignore_changes = [task_definition]
+  }
 }
+

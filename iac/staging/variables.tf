@@ -1,11 +1,21 @@
 variable "aws_region" {
   description = "AWS region for staging resources."
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 
   validation {
-    condition     = var.aws_region == "us-east-1"
-    error_message = "The contracted staging region is us-east-1."
+    condition     = var.aws_region == "us-east-2"
+    error_message = "The contracted staging region is us-east-2."
+  }
+}
+
+variable "state_bucket_name" {
+  description = "Name of the bootstrap S3 bucket that holds the staging state. Used to scope the Terraform CI user."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.state_bucket_name))
+    error_message = "state_bucket_name must be a valid S3 bucket name."
   }
 }
 
@@ -43,17 +53,17 @@ variable "vpc_cidr" {
 }
 
 variable "availability_zones" {
-  description = "Exactly two available us-east-1 availability zones."
+  description = "Exactly two available us-east-2 availability zones."
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["us-east-2a", "us-east-2b"]
 
   validation {
     condition = (
       length(var.availability_zones) == 2 &&
       length(distinct(var.availability_zones)) == 2 &&
-      alltrue([for az in var.availability_zones : startswith(az, "us-east-1")])
+      alltrue([for az in var.availability_zones : startswith(az, "us-east-2")])
     )
-    error_message = "Provide exactly two distinct us-east-1 availability zones."
+    error_message = "Provide exactly two distinct us-east-2 availability zones."
   }
 }
 
@@ -91,22 +101,24 @@ variable "data_subnet_cidrs" {
 }
 
 variable "hostname" {
-  description = "Public staging hostname; DNS remains operator-managed."
+  description = "Public staging hostname; DNS remains operator-managed. Leave null with certificate_arn to serve plain HTTP on the ALB address."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$", var.hostname))
+    condition     = var.hostname == null || can(regex("^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$", var.hostname))
     error_message = "hostname must be a valid DNS hostname."
   }
 }
 
 variable "certificate_arn" {
-  description = "ARN of an existing ACM certificate for hostname."
+  description = "ARN of an existing ACM certificate for hostname. Leave null with hostname to serve plain HTTP on the ALB address."
   type        = string
+  default     = null
 
   validation {
-    condition     = can(regex("^arn:aws:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$", var.certificate_arn))
-    error_message = "certificate_arn must identify a us-east-1 ACM certificate."
+    condition     = var.certificate_arn == null || can(regex("^arn:aws:acm:us-east-2:[0-9]{12}:certificate/[0-9a-f-]+$", var.certificate_arn))
+    error_message = "certificate_arn must identify a us-east-2 ACM certificate."
   }
 }
 
@@ -120,18 +132,18 @@ variable "web_image_tag" {
   }
 }
 
-variable "api_image_tag" {
-  description = "Immutable, non-latest deployment tag for the API image."
+variable "server_image_tag" {
+  description = "Immutable, non-latest deployment tag for the server image."
   type        = string
 
   validation {
-    condition     = var.api_image_tag != "latest" && can(regex("^[A-Za-z0-9_][A-Za-z0-9_.-]{6,127}$", var.api_image_tag))
-    error_message = "api_image_tag must be an immutable tag of at least seven characters and cannot be latest."
+    condition     = var.server_image_tag != "latest" && can(regex("^[A-Za-z0-9_][A-Za-z0-9_.-]{6,127}$", var.server_image_tag))
+    error_message = "server_image_tag must be an immutable tag of at least seven characters and cannot be latest."
   }
 }
 
 variable "services_enabled" {
-  description = "Enable one Web and one API task only after secrets and migration are ready."
+  description = "Enable one Web and one server task only after secrets and migration are ready."
   type        = bool
   default     = false
 }
@@ -156,6 +168,17 @@ variable "final_snapshot_identifier" {
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,253}[a-z0-9]$", var.final_snapshot_identifier))
     error_message = "final_snapshot_identifier must be a valid RDS snapshot identifier."
+  }
+}
+
+variable "db_backup_retention_days" {
+  description = "RDS automated backup retention in days. Zero disables automated backups and point-in-time recovery; staging defaults to zero because the AWS Free Plan rejects the 7-day retention. Raise it after upgrading the plan."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.db_backup_retention_days >= 0 && var.db_backup_retention_days <= 35
+    error_message = "db_backup_retention_days must be between 0 and 35."
   }
 }
 

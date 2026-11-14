@@ -1,6 +1,7 @@
 import hashlib
 import re
 import unicodedata
+from contextlib import suppress
 from dataclasses import asdict, replace
 from typing import ClassVar
 
@@ -18,6 +19,7 @@ from shifu.intelligence.core.domain.enums import (
 )
 from shifu.intelligence.core.domain.structures import (
     LearnerMemoryContext,
+    MentorActionProposalDraft,
     MentorAttachmentContext,
     MentorConversationSummaryContext,
     MentorGenerationRequest,
@@ -35,17 +37,22 @@ from shifu.intelligence.core.interfaces import (
 from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case import (
     GetMentorAttachmentContextUseCase,
 )
+from shifu.intelligence.core.use_cases.mentor_action_planner import (
+    MentorActionPlan,
+    MentorActionPlanner,
+)
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
     start_response_attempt,
 )
-from shifu.shared.core.domain.errors import ServiceUnavailableError
+from shifu.shared.core.domain.errors import NotFoundError, ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorContextSnapshot
 from shifu.shared.core.interfaces import (
     ClockProvider,
     MentorAccessProvider,
     MentorCatalogProvider,
     MentorContextProvider,
+    MentorGoalDestinationsProvider,
 )
 
 
@@ -72,6 +79,13 @@ class PrepareMentorResponseUseCase:
     MEMORY_ACKNOWLEDGEMENT: ClassVar[str] = (
         'Anotado. Vou considerar isso nas próximas explicações.'
     )
+    LANGUAGE_NOTICE_BLOCK_KEY: ClassVar[str] = 'language-notice'
+    LANGUAGE_NOTICE: ClassVar[str] = 'O Mentor responde somente em português do Brasil.'
+    _OTHER_LANGUAGE: ClassVar[re.Pattern[str]] = re.compile(
+        r'\b(?:em|in)\s+(?:ingles|english|espanhol|spanish|frances|french|alemao|'
+        r'german|italiano|italian|japones|japanese|chines|chinese|coreano|korean|'
+        r'russo|russian)\b'
+    )
     MAX_PREFERENCE_MEMORIES: ClassVar[int] = 3
     MAX_RELEVANT_MEMORIES: ClassVar[int] = 5
 
@@ -87,6 +101,7 @@ class PrepareMentorResponseUseCase:
         memory_similarity: LearnerMemorySimilarityProvider,
         memory_relevance_threshold: float,
         generation_limit_provider: MentorGenerationLimitProvider,
+        goal_destinations_provider: MentorGoalDestinationsProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
@@ -98,6 +113,9 @@ class PrepareMentorResponseUseCase:
         self._memory_similarity = memory_similarity
         self._memory_relevance_threshold = memory_relevance_threshold
         self._generation_limit = generation_limit_provider
+        self._action_planner = MentorActionPlanner(
+            catalog_provider, goal_destinations_provider, route_provider
+        )
 
     def execute(
         self, attempt_id: str, execution_owner: str
@@ -166,7 +184,7 @@ class PrepareMentorResponseUseCase:
             learner.content, explicit, continuity
         )
         context = self._context_provider.read(attempt.account_id, references, **hints)
-        context, named_clarification = self._resolve_named_context(
+        context, named_clarification, curriculum_topics = self._resolve_named_context(
             attempt, learner.content, context, hints
         )
         with self._database.transaction() as repositories:
@@ -191,6 +209,9 @@ class PrepareMentorResponseUseCase:
         route = self._propose_catalog(
             attempt, learner.content, context, route, execution_owner
         )
+        action = self._plan_action(attempt, learner.content, context, hints, route)
+        if action is not None:
+            route = self._with_action(route, action)
         if statement_only and not self._attachment_ids(
             learner, route.generation_requests
         ):
@@ -201,11 +222,15 @@ class PrepareMentorResponseUseCase:
         local_blocks, requests = self._pedagogical_gate(
             learner.content, context, route.local_blocks, route.generation_requests
         )
+        local_blocks, requests = self._language_notice(
+            learner.content, statement_only, local_blocks, requests
+        )
         approved = (
             tuple(snapshot.blocks)
             if snapshot is not None and snapshot.attempt_id == attempt.id
             else ()
         )
+        action_proposal = self._retained_draft(action, local_blocks)
         attachment_context = self._attachment_context(
             learner,
             requests,
@@ -247,6 +272,7 @@ class PrepareMentorResponseUseCase:
                 approved_blocks=approved,
                 correction=None,
                 attachment_context=None,
+                curriculum_topics=curriculum_topics,
                 summary=summary,
                 memories=self._relevant_memories(attempt.account_id, learner),
             )
@@ -268,7 +294,65 @@ class PrepareMentorResponseUseCase:
             local_blocks=local_blocks,
             attachment_request=request,
             generation_fallback=fallback,
+            action_proposal=action_proposal,
         )
+
+    def _plan_action(
+        self,
+        attempt: MentorResponseAttempt,
+        content: str,
+        context: MentorContextSnapshot,
+        hints: dict[str, str | None],
+        route: MentorRouteResult,
+    ) -> MentorActionPlan | None:
+        """RF-01 to RF-04: an explicit add/remove request becomes a proposal or a text."""
+        if route.clarification is not None:
+            return None
+        return self._action_planner.plan(
+            attempt.account_id,
+            content,
+            context,
+            hints.get('goal_id'),
+            route,
+            lambda: assert_response_access(self._access_provider, attempt),
+        )
+
+    def _with_action(
+        self, route: MentorRouteResult, action: MentorActionPlan
+    ) -> MentorRouteResult:
+        """Add the action answer; the abstention stays last as the generation fallback."""
+        keep_abstention = bool(route.generation_requests)
+        others = tuple(
+            block
+            for block in route.local_blocks
+            if block.block_key != self.LOCAL_ABSTENTION_BLOCK_KEY
+        )
+        abstention = (
+            tuple(
+                block
+                for block in route.local_blocks
+                if block.block_key == self.LOCAL_ABSTENTION_BLOCK_KEY
+            )
+            if keep_abstention
+            else ()
+        )
+        return replace(
+            route,
+            local_blocks=tuple(
+                replace(block, ordinal=ordinal)
+                for ordinal, block in enumerate((*others, *action.blocks, *abstention))
+            ),
+        )
+
+    @staticmethod
+    def _retained_draft(
+        action: MentorActionPlan | None, blocks: tuple[MentorResponseBlock, ...]
+    ) -> MentorActionProposalDraft | None:
+        """The draft survives only while its proposal text block is still published."""
+        if action is None or action.draft is None:
+            return None
+        intent = MentorIntent(action.draft.kind.value)
+        return action.draft if any(block.intent is intent for block in blocks) else None
 
     def _may_generate(
         self,
@@ -408,6 +492,35 @@ class PrepareMentorResponseUseCase:
             ),
         )
 
+    @classmethod
+    def _language_notice(
+        cls,
+        content: str,
+        statement_only: bool,
+        blocks: tuple[MentorResponseBlock, ...],
+        requests: tuple[str, ...],
+    ) -> tuple[tuple[MentorResponseBlock, ...], tuple[str, ...]]:
+        """The Mentor answers only in pt-BR, and says so instead of ignoring the ask."""
+        decomposed = unicodedata.normalize('NFKD', content.casefold())
+        normalized = ''.join(
+            char for char in decomposed if not unicodedata.combining(char)
+        )
+        if not cls._OTHER_LANGUAGE.search(normalized):
+            return blocks, requests
+        notice = MentorResponseBlock(
+            block_key=cls.LANGUAGE_NOTICE_BLOCK_KEY,
+            ordinal=0,
+            intent=None,
+            content=cls.LANGUAGE_NOTICE,
+        )
+        # A bare preference has nothing else to answer; a question still is.
+        if statement_only:
+            return (notice,), ()
+        return (
+            notice,
+            *(replace(block, ordinal=block.ordinal + 1) for block in blocks),
+        ), requests
+
     def _relevant_memories(
         self, account_id: str, learner: MentorMessage
     ) -> tuple[LearnerMemoryContext, ...]:
@@ -540,12 +653,13 @@ class PrepareMentorResponseUseCase:
         content: str,
         context: MentorContextSnapshot,
         hints: dict[str, str | None],
-    ) -> tuple[MentorContextSnapshot, str | None]:
+    ) -> tuple[MentorContextSnapshot, str | None, tuple[str, ...]]:
         goals = self._named_goals(content, context)
         if len(goals) > 1:
             return (
                 context,
                 'Encontrei mais de um Objetivo com esse nome. Qual Objetivo você quer consultar?',
+                (),
             )
         if goals:
             assert_response_access(self._access_provider, attempt)
@@ -553,17 +667,21 @@ class PrepareMentorResponseUseCase:
         matches = self._catalog_provider.search(
             attempt.account_id, content, context.eligible_references
         )
-        explicit = tuple(
-            entry.reference_id
-            for entry in matches
-            if self._contains_title(content, entry.title)
+        named = tuple(
+            entry for entry in matches if self._contains_title(content, entry.title)
         )
+        explicit = tuple(entry.reference_id for entry in named)
         if explicit:
             assert_response_access(self._access_provider, attempt)
-            context = self._context_provider.read(
-                attempt.account_id, (*goals, *explicit), **hints
-            )
-        return context, None
+            # A named Skill outside the Objective is no context to open; an add
+            # request still reaches the action planner with the current context.
+            with suppress(NotFoundError):
+                context = self._context_provider.read(
+                    attempt.account_id, (*goals, *explicit), **hints
+                )
+        # The titles tell the writer the question is about the Curriculum, even
+        # when the Skill is outside every Objective of the learner.
+        return context, None, tuple(dict.fromkeys(entry.title for entry in named))
 
     @classmethod
     def _named_goals(

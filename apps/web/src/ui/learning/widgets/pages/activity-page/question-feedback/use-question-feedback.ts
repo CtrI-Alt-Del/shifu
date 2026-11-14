@@ -10,7 +10,12 @@ export function useQuestionFeedback({ question }: UseQuestionFeedbackProps) {
   const feedbackElementRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (question.kind !== 'javascript_stdin' && question.kind !== 'react') return
+    if (
+      question.kind !== 'javascript_stdin' &&
+      question.kind !== 'react' &&
+      question.kind !== 'react_fastify'
+    )
+      return
 
     feedbackElementRef.current?.scrollIntoView({
       behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches

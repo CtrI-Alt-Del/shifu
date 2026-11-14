@@ -5,6 +5,10 @@ from pydantic import BaseModel, Field
 from shifu.intelligence.core.domain.enums import (
     LearnerMemoryCategory,
     LearnerMemoryChangeKind,
+    MentorActionKind,
+    MentorActionProposalOutcome,
+    MentorActionProposalRejectionReason,
+    MentorActionProposalStatus,
     MentorAttachmentStatus,
 )
 from shifu.intelligence.core.domain.structures import MentorResponseSnapshot
@@ -67,6 +71,30 @@ class MentorSessionSchemas:
         previous_content: str | None
         created_at: datetime
 
+    class CandidateGoal(BaseModel):
+        goal_id: str
+        title: str
+        contains_skill: bool
+        skill_experience_id: str | None
+
+    class ActionItem(BaseModel):
+        id: str
+        source_message_id: str
+        kind: MentorActionKind
+        skill_id: str
+        skill_name: str
+        goal_id: str | None
+        goal_title: str | None
+        skill_experience_id: str | None
+        candidate_goals: list['MentorSessionSchemas.CandidateGoal']
+        justification: str | None
+        status: MentorActionProposalStatus
+        outcome: MentorActionProposalOutcome | None
+        rejection_reason: MentorActionProposalRejectionReason | None
+        resolved_goal_id: str | None
+        resolved_skill_experience_id: str | None
+        created_at: datetime
+
     class Detail(BaseModel):
         session: 'MentorSessionSchemas.Session'
         messages: 'MentorSessionSchemas.MessagesPage'
@@ -74,3 +102,4 @@ class MentorSessionSchemas:
         response: MentorResponseSnapshot | None = None
         summary: 'MentorSessionSchemas.SummaryState'
         memory_items: list['MentorSessionSchemas.MemoryItem'] = []
+        action_items: list['MentorSessionSchemas.ActionItem'] = []

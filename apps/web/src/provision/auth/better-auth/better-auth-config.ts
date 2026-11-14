@@ -25,6 +25,16 @@ function readTrustedProxyIPs() {
     .filter(Boolean)
 }
 
+function readUseSecureCookies() {
+  const configured = process.env.SHIFU_USE_SECURE_COOKIES
+
+  if (configured === undefined || configured === '') {
+    return process.env.NODE_ENV === 'production'
+  }
+
+  return configured !== 'false'
+}
+
 export const BetterAuthConfig = (): BetterAuthSettings => {
   const baseURL =
     process.env.SHIFU_WEB_APP_URL ??
@@ -48,7 +58,7 @@ export const BetterAuthConfig = (): BetterAuthSettings => {
     identityURL,
     secret: secret ?? 'shifu-local-better-auth-secret-change-me-32-chars',
     trustedProxyIPs: readTrustedProxyIPs(),
-    useSecureCookies: process.env.NODE_ENV === 'production',
+    useSecureCookies: readUseSecureCookies(),
   }
 }
 

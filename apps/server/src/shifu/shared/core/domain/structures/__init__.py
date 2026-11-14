@@ -1,6 +1,11 @@
 from .structure import structure as structure
 
 from .authenticated_user import AuthenticatedUser as AuthenticatedUser
+from .planned_goal_confirmation import (
+    PlannedGoalConfirmation as PlannedGoalConfirmation,
+)
+from .planned_goal_creation import PlannedGoalCreation as PlannedGoalCreation
+from .planned_goal_skill import PlannedGoalSkill as PlannedGoalSkill
 from .aware_timestamp import AwareTimestamp as AwareTimestamp
 from .bounded_integer import BoundedInteger as BoundedInteger
 from .chronological_period import ChronologicalPeriod as ChronologicalPeriod
@@ -71,6 +76,18 @@ from .curriculum_javascript_stdin_question_snapshot import (
 from .curriculum_learning_activity_snapshot import (
     CurriculumLearningActivitySnapshot as CurriculumLearningActivitySnapshot,
 )
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsQuestionSnapshot as CurriculumHtmlCssJsQuestionSnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsInitialFileSnapshot as CurriculumHtmlCssJsInitialFileSnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsDependencySnapshot as CurriculumHtmlCssJsDependencySnapshot,
+)
+from .curriculum_html_css_js_question_snapshot import (
+    CurriculumHtmlCssJsPermittedCommandSnapshot as CurriculumHtmlCssJsPermittedCommandSnapshot,
+)
 from .curriculum_react_question_snapshot import (
     CurriculumReactAdditionalFilePolicySnapshot as CurriculumReactAdditionalFilePolicySnapshot,
 )
@@ -133,3 +150,14 @@ from .mentor_usage import MentorUsage as MentorUsage
 from .mentor_catalog_entry import MentorCatalogEntry as MentorCatalogEntry
 
 from .mentor_context_snapshot import MentorContextSnapshot as MentorContextSnapshot
+
+from .mentor_goal_destination import MentorGoalDestination as MentorGoalDestination
+
+from .mentor_goal_destinations import MentorGoalDestinations as MentorGoalDestinations
+
+from .curriculum_react_fastify_http_example_snapshot import (
+    CurriculumReactFastifyHttpExampleSnapshot as CurriculumReactFastifyHttpExampleSnapshot,
+)
+from .curriculum_react_fastify_question_snapshot import (
+    CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
+)

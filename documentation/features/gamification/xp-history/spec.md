@@ -1,13 +1,13 @@
 ---
 title: XP history persistence and Histórico de XP tab
 status: completed
-revision: 1
+revision: 2
 source:
   type: issue
   ref: https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-81
 scope:
   - gamification
-last_updated_at: 2026-10-18
+last_updated_at: 2026-10-24
 ---
 
 # Objective
@@ -49,7 +49,7 @@ guarantee whose failure is silent and user-visible only as a wrong history.
 | Readable origin (Sistema) | `XpOrigin.label` becomes the subject title for all four current sources; the type-and-context descriptor is derived at read time from `XpOrigin.source` and, for achievements, the account's own `EarnedAchievement` criterion | Any change to XP amounts, eligibility, idempotency or the cascade itself |
 | Grant persistence (Sistema) | Confirmed as already delivered and preserved: amount, origin, fact date, concession date, one record per rewarded fact | New persistence, new columns, new tables or any backfill of existing rows |
 | Histórico de XP tab (Usuário) | A third tab in the existing shell, rendering the design's summary, record list, fact-date line and preservation note, with loading, empty, error and recovery states | The `Visão geral` tab present in design node `u8vl4` — still unowned by any delivered ticket |
-| Account lifecycle (Sistema) | Confirmed: grants purged with the rest of the Gamification state; a missing profile answers 404 | The 24-hour purge orchestration itself, already owned by the existing deletion job |
+| Account lifecycle (Sistema) | Confirmed: grants purged with the rest of the Gamification state; a missing profile answers the empty initial history (revision 2) | The 24-hour purge orchestration itself, already owned by the existing deletion job |
 
 Selected product outcomes for this bounded slice:
 
@@ -84,7 +84,7 @@ Design handoff for affected UI states and viewports:
 | RF-04 | RP-08 | The accumulated XP presented with the history equals the sum of the records presented with it. |
 | RF-05 | RP-08; JN-09, JN-12 | Removing an Objetivo or Habilidade in Learning leaves every record and its text intact, and the history offers no navigation to any origin, removed or not. |
 | RF-06 | RP-08 | The date of the fact and the date of the concession are preserved separately, and the fact date is presented only when it differs from the concession date. |
-| RF-07 | RP-01, RP-12; JN-13 | The read returns only the authenticated account's own records. An account without a Gamification profile receives 404; an unauthenticated request receives 401; a deleted account's records are purged with the rest of its state. |
+| RF-07 | RP-01, RP-12; JN-13 | The read returns only the authenticated account's own records. An account without a Gamification profile receives the empty initial history (total 0, no records); an unauthenticated request receives 401; a deleted account's records are purged with the rest of its state. |
 | RF-08 | RP-08 | A record holds only what the history needs — amount, origin, references and dates — and never copies answers, evaluations, progress or pedagogical feedback from Learning. |
 | RF-09 | RP-04, RP-08 | A record is never recomputed: a later change to XP values or to the level curve leaves every stored amount and date unchanged. |
 | RF-10 | RP-13 | The tab works on desktop and mobile, in pt-BR, is keyboard-operable, identifies each origin without relying on color or icon alone, and communicates its loading, empty, unavailable and recovery states clearly. |
@@ -102,7 +102,7 @@ Design handoff for affected UI states and viewports:
 | CA-09 | RF-03, RF-04 | An account with records on several dates, two of them sharing one concession instant | The history is read | Every record is returned newest-concession-first, the tied pair has a deterministic order, and the reported total equals the sum of the returned amounts | CI-01, CI-03 |
 | CA-10 | RF-03 | An account with a Gamification profile and no records | The history is read | The response is 200 with an empty record set and a total of 0 | CI-01, CI-03 |
 | CA-11 | RF-07 | Two accounts each with their own records | Account A reads the history | Only A's records are returned | CI-03 |
-| CA-12 | RF-07 | An authenticated account with no Gamification profile | The history is read | The API responds 404 | CI-01, CI-03 |
+| CA-12 | RF-07 | An authenticated account with no Gamification profile | The history is read | The API responds 200 with `totalXp` 0 and no entries | CI-01, CI-03 |
 | CA-13 | RF-07 | An account whose Gamification profile is deleted | The deletion path runs | Its XP-grant rows are removed with the rest of its state | CI-04 |
 | CA-14 | RF-05, RF-09 | An account with records | An Objetivo or Habilidade is removed in Learning | Every record, its amount, its dates and its text are unchanged | CI-01, CI-04 |
 | CA-15 | RF-03, RF-04, RF-10 | An authenticated learner with records | They open `/gamification` and select the Histórico de XP tab | The section title, description, accumulated total and every record — origin, descriptor, concession date and amount — render newest-first from real data in pt-BR with no console errors | CI-06, CI-09, VM-01, VM-02 |
@@ -168,7 +168,7 @@ descriptor (`CA-08`). No backfill is performed, by RF-09.
 | Create | Core / domain | `achievement_criterion_label` — `apps/server/src/shifu/gamification/core/domain/achievement_criterion_label.py` | The criterion phrasing currently private to `list_achievements_use_case.py:30`, promoted to a shared domain helper beside `achievement_catalog.py` so both read paths use one vocabulary. The function is named after its module, per [python-conventions](../../../rules/python-conventions-rules.md) |
 | Modify | Core / use case | `ListAchievementsUseCase` — `.../use_cases/list_achievements_use_case.py` | Import `achievement_criterion_label` and delete the private `_criterion_label`; no behavior change, and `test_list_achievements_use_case.py` must keep passing unedited because it asserts the rendered `criterion_label` output rather than the private helper |
 | Modify | Core / interface | `XpGrantsRepository` — `.../interfaces/xp_grants_repository.py` | Add `find_many_by_account_id` |
-| Create | Core / use case | `GetXpHistoryUseCase` — `.../use_cases/get_xp_history_use_case.py` | Project the account's grants into `XpHistory`; raise `GamificationProfileNotFoundError` when the account has no profile. **Deliberate divergence:** this matches `GetPracticeCalendarUseCase` but not `ListAchievementsUseCase`, which defaults to `level=1, total_xp=0` (`list_achievements_use_case.py:60-63`), so a profile-less account would see a working Conquistas tab beside an error-state Histórico tab. Profiles are created eagerly on account activation, so an absent profile on this path is corrupted state, and a ledger has no meaningful empty-but-valid default the way a locked catalogue does — 404 is the honest answer and matches two of the three reads |
+| Create | Core / use case | `GetXpHistoryUseCase` — `.../use_cases/get_xp_history_use_case.py` | Project the account's grants into `XpHistory`; an account with no profile has no grants and reads the empty history (revision 2 superseded the original divergence below). **Original deliberate divergence (superseded):** this matches `GetPracticeCalendarUseCase` but not `ListAchievementsUseCase`, which defaults to `level=1, total_xp=0` (`list_achievements_use_case.py:60-63`), so a profile-less account would see a working Conquistas tab beside an error-state Histórico tab. Profiles are created eagerly on account activation, so an absent profile on this path is corrupted state, and a ledger has no meaningful empty-but-valid default the way a locked catalogue does — 404 is the honest answer and matches two of the three reads |
 | Modify | Core / use case | `RecognizeDiagnosticCompletedUseCase` — `.../use_cases/recognize_diagnostic_completed_use_case.py` | `label=skill.name` instead of `f'Diagnóstico concluído: {skill.name}'` (line 68). The existing early return for an unknown Habilidade is unchanged |
 | Modify | Core / use case | `RecognizeCompetencyMasteredUseCase` — `.../use_cases/recognize_competency_mastered_use_case.py` | Accept `curriculum_content_provider` and a `skill_id` argument; resolve the Competência name through `get_skill_content(skill_id)` and store it as `label`, falling back to `'Competência dominada pela primeira vez'` when the Habilidade content or the Competência cannot be resolved |
 | Modify | Core / use case | `RecognizeSkillCompletedUseCase` — `.../use_cases/recognize_skill_completed_use_case.py` | Accept `curriculum_content_provider`; store `skill.name` as `label`, falling back to `'Habilidade concluída pela primeira vez'` |
@@ -345,8 +345,7 @@ naming in the controller-local Pydantic response model, which is what permits
 the two names to differ; the sibling `AchievementOverviewEntry.code` is not a
 precedent for renaming, since it keeps `code` on the wire.
 
-Errors flow to the global `AppErrorHandler`: a missing profile raises
-`GamificationProfileNotFoundError` (a `NotFoundError`) → 404; an unauthenticated
+Errors flow to the global `AppErrorHandler`: an unauthenticated
 request is rejected by `AuthenticationPipe` → 401. The route takes no query
 parameter, because RP-08 forbids pagination and filters.
 
@@ -514,9 +513,7 @@ Read — synchronous:
 flowchart TD
     A[GET /gamification/xp-history] --> B[AuthenticationPipe: AuthenticatedUser]
     B --> C[GetXpHistoryUseCase.execute account_id]
-    C --> D{profile exists?}
-    D -- no --> E[GamificationProfileNotFoundError -> 404]
-    D -- yes --> F[xp_grants.find_many_by_account_id -> newest first]
+    C --> F[xp_grants.find_many_by_account_id -> newest first]
     F --> G[earned_achievements.find_many_by_account_id -> criterion by achievement id]
     G --> H[project each grant: title from origin.label, detail from origin.source]
     H --> I[total = sum of projected amounts]
@@ -578,7 +575,7 @@ rule from `SHIFU-79`, not a labelling rule, and is out of scope here.
 
 **Criteria:** CA-03, CA-04, CA-05, CA-06, CA-08, CA-09, CA-10, CA-12, CA-14
 
-**Expected result:** Grants are projected newest-concession-first with the correct descriptor per source, the total equals the sum of the projected amounts, a legacy sentence title is returned unchanged, an account with no grants yields an empty set and a total of 0, and an account with no profile raises `GamificationProfileNotFoundError`.
+**Expected result:** Grants are projected newest-concession-first with the correct descriptor per source, the total equals the sum of the projected amounts, a legacy sentence title is returned unchanged, an account with no grants yields an empty set and a total of 0, and an account with no profile yields the same empty history without raising.
 
 **Setup / inputs:** Mocked `GamificationDatabase`. Equivalence classes over the grant set — empty; one grant; grants on distinct `granted_at`; two grants sharing one `granted_at` with different ids; one grant per `XpSource` that has a producer; an achievement grant with and without a matching `EarnedAchievement`; a grant whose stored label is a pre-delivery sentence. `CA-14` is asserted as the absence of any mutation on the read path: the use case calls no `add`, `update` or `remove` on any repository.
 
@@ -614,7 +611,7 @@ uv run pytest tests/gamification/core/use_cases/test_recognize_diagnostic_comple
 
 **Criteria:** CA-09, CA-10, CA-11, CA-12
 
-**Expected result:** 200 with the serialized total and records for the owning account, ordered newest-concession-first with the id tiebreak applied; 200 with an empty set for an account with a profile and no grants; 404 with no profile; 401 unauthenticated. Account A never sees account B's records.
+**Expected result:** 200 with the serialized total and records for the owning account, ordered newest-concession-first with the id tiebreak applied; 200 with an empty set for an account with a profile and no grants, and for an account with no profile; 401 unauthenticated. Account A never sees account B's records.
 
 **Setup / inputs:** Two seeded accounts with distinct grants, persisted through real repositories and migrations; one account additionally carries two grants written with a single `granted_at` and different ids.
 
@@ -851,6 +848,7 @@ screenshot is not a pass.
 
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
+| 2 | 2026-10-24 | Contract amendment | RF-07 and CA-12: an account without a Gamification profile now reads the empty initial history (total 0, no records) instead of 404, and `GetXpHistoryUseCase` no longer reads the profile. Reason: profiles are created by an Inngest job on `identity/account.activated`, so the window before that job commits, and any account inserted without activation, is a normal JN-01 state, not corrupted state. The 404 left the Histórico de XP tab in an error state beside working Visão geral and Conquistas tabs |
 | 1 | 2026-10-18 | Initial contract | SHIFU-81 against PRD — Gamification version 3. Consequential decisions: XP-grant persistence is confirmed as already delivered rather than rebuilt, so this slice adds only a read path and a tab; `XpOrigin.label` is repurposed from a full sentence to the subject's name with the descriptor derived at read time, because `Serialization.deserialize_value` indexes dataclass fields directly and a new `XpOrigin` field would raise `KeyError` on every stored row; rows written before this delivery are deliberately not backfilled and render their old sentence as a longer title; the achievement descriptor reads its criterion from the account's own `EarnedAchievement` rather than the catalogue, so a retired achievement keeps its criterion; the presented total is summed from the returned records rather than read from `gamification_profiles.total_xp`, because RP-08 requires the total to be explainable by exactly the set presented; and ordering is `granted_at` descending with an `id` tiebreak, because one achievement cascade writes several records at a single instant |
 
 ## Outcome

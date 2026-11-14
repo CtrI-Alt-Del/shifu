@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useRouter } from '@tanstack/react-router'
 
 import {
   ROUTES,
@@ -29,6 +29,7 @@ type NavigationArgs =
 
 export function useNavigation() {
   const navigate = useNavigate()
+  const router = useRouter()
 
   function navigateTo(...args: NavigationArgs) {
     const [route, ids, options] = args
@@ -47,7 +48,12 @@ export function useNavigation() {
     return navigate({ to: ROUTES[route] as never })
   }
 
+  async function refreshCurrentRoute() {
+    await router.invalidate({ sync: true })
+  }
+
   return {
+    refreshCurrentRoute,
     navigateTo,
     navigateToGoalDetail(goalId: string) {
       return navigate({ params: { goalId }, to: '/learning/goals/$goalId' })

@@ -12,6 +12,7 @@ import {
 } from '@/ui/shadcn/dropdown-menu'
 import { Input } from '@/ui/shadcn/input'
 import { Tabs, TabsList, TabsTrigger } from '@/ui/shadcn/tabs'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import {
@@ -44,7 +45,6 @@ export const MemoryFilters = (props: MemoryFiltersProps) => {
   const activeLabel =
     LEARNER_MEMORY_CATEGORY_OPTIONS.find((option) => option.category === category)
       ?.label ?? 'Todas'
-  const allLabel = totalCount === null ? 'Todas' : `Todas · ${totalCount}`
 
   return (
     <div className='space-y-4'>
@@ -137,7 +137,15 @@ export const MemoryFilters = (props: MemoryFiltersProps) => {
           type='button'
           variant='ghost'
         >
-          {allLabel}
+          {totalCount === null ? (
+            'Todas'
+          ) : (
+            <AnimatedNumber
+              delay={0.2}
+              format={(value) => `Todas · ${value}`}
+              value={totalCount}
+            />
+          )}
         </Button>
         {LEARNER_MEMORY_CATEGORY_OPTIONS.map((option) => (
           <Button

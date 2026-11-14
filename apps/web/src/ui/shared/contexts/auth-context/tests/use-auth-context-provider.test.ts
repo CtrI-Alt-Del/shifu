@@ -18,6 +18,9 @@ const providerValue = {
   registerAccount: vi.fn(),
   resendConfirmation: vi.fn(),
   signIn: vi.fn(),
+  getAccountProfile: vi.fn(),
+  updateAccountProfile: vi.fn(),
+  changeAccountPassword: vi.fn(),
   signOut: vi.fn(),
 }
 

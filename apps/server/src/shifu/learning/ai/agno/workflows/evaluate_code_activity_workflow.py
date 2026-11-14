@@ -36,6 +36,7 @@ if TYPE_CHECKING:
         LangfuseTelemetryProvider,
     )
     from shifu.shared.core.interfaces import CodeRubricAssessorProvider
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.messaging.agentos.agentos_handoff_store import (
         AgentOSHandoffStore,
@@ -66,6 +67,7 @@ class _Execution:
     assessment: CodeRubricAssessmentInput | None = None
     decisions: tuple[CodeQuestionAssessmentDecisions, ...] = ()
     failure: bool = False
+    completion_emitted: bool = False
 
 
 class EvaluateCodeActivityWorkflow(Workflow):
@@ -79,12 +81,14 @@ class EvaluateCodeActivityWorkflow(Workflow):
         assessor: CodeRubricAssessorProvider,
         handoffs: AgentOSHandoffStore,
         observability: LangfuseTelemetryProvider | None = None,
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         self._prepare_use_case = prepare_use_case
         self._evaluate_use_case = evaluate_use_case
         self._fail_use_case = fail_use_case
         self._assessor = assessor
         self._observability: LangfuseTelemetryProvider | None = observability
+        self._telemetry_provider = telemetry_provider
         self._handoffs = handoffs
         self._execution: ContextVar[_Execution | None] = ContextVar(
             'learning_code_activity_execution', default=None
@@ -122,6 +126,7 @@ class EvaluateCodeActivityWorkflow(Workflow):
             self._assessor,
             self._handoffs,
             self._observability,
+            self._telemetry_provider,
         )
         workflow.db = self.db
         if update:
@@ -281,17 +286,41 @@ class EvaluateCodeActivityWorkflow(Workflow):
                     raise ServiceUnavailableError(_UNAVAILABLE) from None
                 return StepOutput(content='failed')
             try:
-                self._evaluate_use_case.execute(
+                committed = self._evaluate_use_case.execute(
                     prepared.attempt_id,
                     prepared.run_id,
                     execution.decisions,
                 )
             except Exception:  # noqa: BLE001 - only a safe class crosses the run boundary.
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
+            if not committed:
+                return StepOutput(content='stale')
+            self._emit_completion_telemetry(execution, prepared.run_id)
             return StepOutput(content='completed')
         if execution.failure:
             return StepOutput(content='unavailable')
         return StepOutput(content='complete')
+
+    def _emit_completion_telemetry(
+        self,
+        execution: _Execution,
+        run_id: str,
+    ) -> None:
+        if self._telemetry_provider is None or execution.completion_emitted:
+            return
+        execution.completion_emitted = True
+        try:
+            self._telemetry_provider.emit(
+                {
+                    'level': 'INFO',
+                    'event': 'learning.evaluation.completed',
+                    'run_id': run_id,
+                    'operation': 'evaluation.complete',
+                    'result': 'success',
+                }
+            )
+        except Exception:  # noqa: BLE001 - telemetry must not change workflow result.
+            return
 
     def _complete_unavailable(self, reference: str) -> None:
         try:

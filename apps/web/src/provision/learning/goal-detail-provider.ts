@@ -1,13 +1,14 @@
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import type { GoalDetail } from '@/core/learning/goal-detail'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 
 export type GoalDetailProvider = ReturnType<typeof GoalDetailProvider>
 
-export const GoalDetailProvider = () => {
+export const GoalDetailProvider = (context?: RequestTelemetryContext) => {
   const learningService = LearningService(
-    AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+    createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
   )
 
   return {

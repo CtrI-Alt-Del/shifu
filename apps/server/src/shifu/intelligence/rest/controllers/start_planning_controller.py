@@ -1,19 +1,30 @@
-from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field, PlainSerializer, TypeAdapter, field_validator
+from fastapi import Response as FastApiResponse
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.interfaces import (
+    IntelligenceDatabase,
+    PlanningSessionsRepository,
+)
 from shifu.intelligence.core.use_cases import StartPlanningUseCase
 from shifu.intelligence.pipes import IntelligencePipe
+from shifu.intelligence.rest.schemas.planning_session_schemas import (
+    PlanningSessionSchemas,
+)
 from shifu.shared.core.domain.structures import AuthenticatedUser
-from shifu.shared.core.interfaces import ClockProvider, IdentifierProvider
+from shifu.shared.core.interfaces import (
+    ClockProvider,
+    IdentifierProvider,
+    MentorAccessProvider,
+)
 from shifu.shared.pipes import SharedPipe
 
 
 class Request(BaseModel):
-    initial_intent: str = Field(min_length=1)
+    model_config = ConfigDict(extra='forbid')
+    initial_intent: str = Field(min_length=1, max_length=4000)
 
     @field_validator('initial_intent')
     @classmethod
@@ -21,15 +32,11 @@ class Request(BaseModel):
         stripped_value = value.strip()
         if not stripped_value:
             raise ValueError('initial_intent must not be empty or whitespace-only')
-
         return stripped_value
 
 
-class Response(BaseModel):
-    id: str
-    created_at: Annotated[
-        datetime, PlainSerializer(lambda value: value.isoformat(), return_type=str)
-    ]
+class Response(PlanningSessionSchemas.Detail):
+    pass
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -38,35 +45,33 @@ _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
 class StartPlanningController:
     @staticmethod
     def handle(router: APIRouter) -> None:
-        @router.post(
-            '/planning-sessions',
-            response_model=Response,
-            status_code=201,
-        )
+        @router.post('/planning-sessions', response_model=Response, status_code=201)
         def _(
             request: Request,
+            response: FastApiResponse,
             user: Annotated[
-                AuthenticatedUser,
-                Depends(SharedPipe.get_authenticated_user),
+                AuthenticatedUser, Depends(SharedPipe.get_authenticated_user)
+            ],
+            sessions: Annotated[
+                PlanningSessionsRepository,
+                Depends(IntelligencePipe.get_planning_sessions_repository),
             ],
             database: Annotated[
-                IntelligenceDatabase,
-                Depends(IntelligencePipe.get_database),
+                IntelligenceDatabase, Depends(IntelligencePipe.get_database)
             ],
-            identifier_provider: Annotated[
-                IdentifierProvider,
-                Depends(IntelligencePipe.get_identifier_provider),
+            access: Annotated[
+                MentorAccessProvider,
+                Depends(IntelligencePipe.get_mentor_access_provider),
             ],
-            clock_provider: Annotated[
-                ClockProvider,
-                Depends(IntelligencePipe.get_clock_provider),
+            identifier: Annotated[
+                IdentifierProvider, Depends(IntelligencePipe.get_identifier_provider)
+            ],
+            clock: Annotated[
+                ClockProvider, Depends(IntelligencePipe.get_clock_provider)
             ],
         ) -> Response:
-            planning_session = StartPlanningUseCase(
-                database,
-                identifier_provider,
-                clock_provider,
+            session = StartPlanningUseCase(
+                sessions, database, access, identifier, clock
             ).execute(user.account_id, request.initial_intent)
-            return _RESPONSE_ADAPTER.validate_python(
-                planning_session, from_attributes=True
-            )
+            response.headers['Cache-Control'] = 'private, no-store'
+            return _RESPONSE_ADAPTER.validate_python(session, from_attributes=True)

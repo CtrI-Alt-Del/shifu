@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 import { useMutation } from '@tanstack/react-query'
 import { getMentorScopedService } from '@/provision/realtime/mentor-response-stream-server-provider'
@@ -13,11 +14,13 @@ const INPUT = z
   })
   .strict()
 export const cancelMentorResponseServer = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((data: unknown) => INPUT.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { service, accessToken } = await getMentorScopedService(
       getRequest(),
       data.accountEmail,
+      context,
     )
     return service.cancelMentorResponse(
       accessToken,

@@ -47,5 +47,35 @@
     "Como organizar meus estudos?",
     "Estou desanimado com o aprendizado",
     "Me ajude a refletir sobre minha aprendizagem"
+  ],
+  "add_skill": [
+    "Adicione Funções em Python ao meu Objetivo",
+    "Coloque Banco de Dados no meu Objetivo",
+    "Inclua a Habilidade de HTML no meu Objetivo",
+    "Quero adicionar Listas em Python ao meu Objetivo",
+    "Pode adicionar a Habilidade Variáveis ao meu Objetivo",
+    "Adicione esta Habilidade ao Objetivo Aprender a programar",
+    "Acrescente Estruturas de Repetição ao meu Objetivo",
+    "Inclua Funções em Python no Objetivo Aprender a programar",
+    "Adiciona Laços de Repetição no meu Objetivo",
+    "Por favor, adicione a Habilidade Tuplas ao meu Objetivo",
+    "Quero incluir a Habilidade de CSS no meu Objetivo",
+    "coloca funções em python no meu objetivo",
+    "adiciona variáveis no meu objetivo"
+  ],
+  "remove_skill": [
+    "Remova Funções em Python deste Objetivo",
+    "Tire Banco de Dados do meu Objetivo",
+    "Retire a Habilidade de HTML do meu Objetivo",
+    "Quero remover Listas em Python do meu Objetivo",
+    "Pode remover a Habilidade Variáveis do meu Objetivo",
+    "Remova esta Habilidade do Objetivo Aprender a programar",
+    "Exclua Estruturas de Repetição do meu Objetivo",
+    "Retire Funções em Python do Objetivo Aprender a programar",
+    "Remove Laços de Repetição deste Objetivo",
+    "Por favor, tire a Habilidade Tuplas do meu Objetivo",
+    "Quero tirar a Habilidade de CSS do meu Objetivo",
+    "tira funções em python do meu objetivo",
+    "remove variáveis deste objetivo"
   ]
 }

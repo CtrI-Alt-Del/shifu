@@ -30,6 +30,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumReactFastifyQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     TranslationRubricAssessmentInput,
 )
@@ -53,6 +55,7 @@ if TYPE_CHECKING:
         OutboxEvent,
         TranslationRubricAssessorProvider,
     )
+    from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
 
@@ -74,6 +77,7 @@ class LearningWorkflowsRegistry:
         *,
         outbox_engine: Engine,
         telemetry_client: Langfuse | None = None,
+        telemetry_provider: TelemetryProvider | None = None,
     ) -> None:
         database_url = settings.agentos_database_url
         observability = observability or LangfuseTelemetryProvider(
@@ -108,6 +112,7 @@ class LearningWorkflowsRegistry:
             assessor,
             self._handoffs,
             observability,
+            telemetry_provider,
         )
         translation_workflow = EvaluateTranslationActivityWorkflow(
             prepare_translation,
@@ -182,6 +187,8 @@ class LearningWorkflowsRegistry:
                 (
                     CurriculumJavascriptStdinQuestionSnapshot,
                     CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
                 ),
             )

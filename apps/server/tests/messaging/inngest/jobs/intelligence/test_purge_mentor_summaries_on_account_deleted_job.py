@@ -212,8 +212,6 @@ class TestPurgeMentorSummariesOnAccountDeletedJob:
             inngest_fixture, ids, account_id, unexpected='must be rejected'
         )
 
-        inngest_fixture.wait_for_log(
-            f'mentor_summary_account_deletion_payload_rejected event_id={event_id}'
-        )
+        inngest_fixture.wait_for_log(f'"event":"job.failed","event_id":"{event_id}"')
         with inngest_fixture.inspection_session() as session:
             assert session.get(MentorSessionSummaryModel, summary_id) is not None

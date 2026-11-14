@@ -1,4 +1,5 @@
 from .activity_answer import ActivityAnswer as ActivityAnswer
+from .goal_confirmation import GoalConfirmation as GoalConfirmation
 from .activity_recommendation import ActivityRecommendation as ActivityRecommendation
 from .adaptive_activity import AdaptiveActivity as AdaptiveActivity
 from .adaptive_competency_memory import (
@@ -124,6 +125,7 @@ from .unavailable_competency_detail import (
 from .unavailable_material_detail import (
     UnavailableMaterialDetail as UnavailableMaterialDetail,
 )
+from .mentor_action_resolution import MentorActionResolution as MentorActionResolution
 from .translation_answer import TranslationAnswer as TranslationAnswer
 from .translation_question_assessment_decisions import (
     TranslationQuestionAssessmentDecisions as TranslationQuestionAssessmentDecisions,

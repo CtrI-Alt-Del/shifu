@@ -9,8 +9,13 @@ export const Route = createFileRoute(
 )({
   server: {
     handlers: {
-      GET: ({ request, params }) =>
-        handleMentorAttachmentFile(request, params.sessionId, params.attachmentId),
+      GET: ({ request, params, context }) =>
+        handleMentorAttachmentFile(
+          request,
+          params.sessionId,
+          params.attachmentId,
+          context,
+        ),
     },
   },
 })

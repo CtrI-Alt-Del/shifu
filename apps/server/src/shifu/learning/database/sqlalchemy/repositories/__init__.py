@@ -13,7 +13,13 @@ from .concept_observations_repository import (
 from .concept_states_repository import (
     SqlalchemyConceptStatesRepository as SqlalchemyConceptStatesRepository,
 )
+from .goal_confirmations_repository import (
+    SqlalchemyGoalConfirmationsRepository as SqlalchemyGoalConfirmationsRepository,
+)
 from .goals_repository import SqlalchemyGoalsRepository as SqlalchemyGoalsRepository
+from .mentor_action_receipts_repository import (
+    SqlalchemyMentorActionReceiptsRepository as SqlalchemyMentorActionReceiptsRepository,
+)
 from .skill_experiences_repository import (
     SqlalchemySkillExperiencesRepository as SqlalchemySkillExperiencesRepository,
 )

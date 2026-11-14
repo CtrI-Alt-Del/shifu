@@ -1,14 +1,20 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_CARD } from '@/constants/motion-variants'
 import { ObjectiveCard } from '@/ui/learning/widgets/components/objective-card'
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
+import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { useGoalsListSection } from './use-goals-list-section'
 
 const SKELETON_CARD_KEYS = ['first', 'second', 'third'] as const
 
 export const GoalsListSection = () => {
-  const { goals, goalsCountLabel, handleRetry, state } = useGoalsListSection()
+  const { goals, goalsCount, formatGoalsCountLabel, handleRetry, state } =
+    useGoalsListSection()
 
   return (
     <section aria-labelledby='goals-list-section-heading'>
@@ -20,7 +26,12 @@ export const GoalsListSection = () => {
           Seus Objetivos
         </h2>
         {state === 'populated' && (
-          <span className='text-sm text-muted-foreground'>{goalsCountLabel}</span>
+          <AnimatedNumber
+            className='text-sm text-muted-foreground'
+            delay={0.2}
+            format={formatGoalsCountLabel}
+            value={goalsCount}
+          />
         )}
         {state === 'loading' && <Skeleton aria-hidden='true' className='h-4 w-20' />}
       </div>
@@ -71,17 +82,25 @@ export const GoalsListSection = () => {
       )}
 
       {state === 'populated' && (
-        <div className='home-page__goals mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+        // Goals load in the browser after the CSS intro, so the grid runs its
+        // own Motion entrance.
+        <MotionEntrance className='mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
           {goals.map((goal) => (
-            <ObjectiveCard
-              description={goal.description}
-              id={goal.id}
+            <motion.div
+              className='grid'
               key={goal.id}
-              skillCount={goal.skillCount}
-              title={goal.title}
-            />
+              variants={ENTRANCE_CARD}
+              whileHover={{ y: -4 }}
+            >
+              <ObjectiveCard
+                description={goal.description}
+                id={goal.id}
+                skillCount={goal.skillCount}
+                title={goal.title}
+              />
+            </motion.div>
           ))}
-        </div>
+        </MotionEntrance>
       )}
     </section>
   )

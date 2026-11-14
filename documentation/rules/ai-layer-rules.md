@@ -466,13 +466,35 @@ content against stale vectors.
 
 Use-case unit tests mock Core workflow/provider/repository protocols and verify
 business decisions. Provider and persistence adapters never own dedicated test files.
-For asynchronous AI/NLP capabilities, prove concrete agents, structured outputs,
-workflows and local NLP adapters through the owning module's registered AgentOS
-integration boundary, following Job Testing Rules. Non-AI asynchronous effects remain
-covered through registered Inngest jobs. Do not add parallel agent/output/workflow/NLP
-suites or call workflow/agent internals directly to duplicate that proof. Synchronous
-capabilities use their composed controller boundary instead. Existing dedicated AI
-suites are legacy evidence; changing them requires a scoped migration.
+Workflow orchestration uses the in-process boundary defined by Job Testing
+Rules: real use cases and persistence, mocked agents, and scripted routing/context
+ports. These tests do not prove the concrete local NLP adapters. Registered
+admission, routing and persisted HTTP effects use the composed application
+boundary; a Spec requiring real registered execution retains its explicit journey.
+Non-AI asynchronous effects use registered Inngest jobs. Do not create dedicated
+registry fixtures or call workflow internals to duplicate these boundaries.
+
+Offline Planning index preparation owns
+`tests/intelligence/preparation/test_prepare_planning_indexes.py`. It exercises
+the public preparation entrypoint and CLI against disposable storage, including
+corpus validation, reproducible artifacts, immutable versions, activation and
+rejection without mutation. Runtime Planning classification/retrieval integration
+owns `tests/intelligence/capabilities/test_planning_capabilities.py`. Enter through
+the public consuming use cases with real local adapters and PostgreSQL; control
+external inference/review at the transport boundary. These are capability tests,
+not provider-specific suites or infrastructure-free unit tests. They preserve
+lexical/semantic quality, ranking, eligibility, versions and typed failures that
+mocked workflow ports cannot establish. Do not import private adapter helpers.
+Other synchronous capabilities retain their composed controller boundary.
+Existing dedicated AI/provider suites require a scoped migration preserving their
+assertions, rather than deletion or relabeling as workflow proof.
+
+For a curricular question format that reuses the existing workflow, assessment
+port, and provider without changing them, verify the new normalization and
+destination selection through consuming use cases and HTTP integration. For this bounded change, do not require a new workflow or runtime suite
+solely for a new question discriminator. Verify the integrated path's registered execution in its manual
+journey. Changes to the workflow itself remain subject to Job Testing Rules'
+in-process workflow boundary.
 
 Consumer integration tests retain the relevant matrices:
 
@@ -511,3 +533,28 @@ not the location of a provider-neutral Shared contract.
 - [ ] Machine-consumed output is structured and validated.
 - [ ] Review loops and retries are bounded and owned by the correct layer.
 - [ ] Agent/Workflow code imports no FastAPI, SQLAlchemy, REST controller, or messaging transport; only its owning module registry composes local dependencies and Shared runtime resources.
+
+## Defensive registry composition contract
+
+The owning Planning controller suite may retain one labeled conformance case
+for the public registry constructor with its optional Curriculum catalog absent.
+Construct the registry without starting a worker, access its public Core
+`planning_skill_retrieval` port and assert the typed unavailable error. Other
+ports may be autospecced. Close the registry and all resources in teardown.
+This proves only unavailable composition that HTTP admission/read cannot observe;
+it is neither registered workflow execution nor concrete NLP adapter coverage.
+Do not import the private unavailable adapter, create a registry-owned suite or
+runtime fixture, or send directly to a queue. Reachable behavior continues through
+registered HTTP and the Spec's real execution journey.
+
+## Defensive Planning configuration guards
+
+The Planning preparation/capability boundaries may preserve three explicitly
+labeled public-constructor conformance guards that validated application inputs
+cannot reach: missing negation tokens, an empty/duplicate lexical catalog, and
+classifier thresholds outside the closed calibrated set. Keep them within the
+capability-owned integration modules, not provider-owned files. They prove only
+fail-closed composition before execution, not entrypoint/use-case traversal or
+NLP quality. All reachable preparation and runtime scenarios retain their public
+consumer boundaries and real local adapters. Close controlled HTTP clients even
+when construction raises. This is not a general exception for provider methods.

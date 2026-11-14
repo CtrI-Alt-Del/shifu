@@ -9,8 +9,8 @@ export const Route = createFileRoute(
 )({
   server: {
     handlers: {
-      POST: ({ request, params }) =>
-        handleMentorAttachmentUpload(request, params.batchId),
+      POST: ({ request, params, context }) =>
+        handleMentorAttachmentUpload(request, params.batchId, context),
     },
   },
 })

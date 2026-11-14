@@ -34,6 +34,7 @@ describe('useRegisterPage', () => {
       registerAccount: registerAccountMock,
     })
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToGoalDetail: vi.fn(),
       navigateToActivity: vi.fn(),

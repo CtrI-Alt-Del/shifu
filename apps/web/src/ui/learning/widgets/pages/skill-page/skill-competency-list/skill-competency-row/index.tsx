@@ -1,9 +1,12 @@
 import { Link } from '@tanstack/react-router'
+import { motion } from 'motion/react'
 
 import {
   COMPETENCY_STATUS_LABELS,
   type SkillCompetencySummary,
 } from '@/core/learning/skill-experience'
+import { ENTRANCE_FILL, ENTRANCE_ROW } from '@/constants/motion-variants'
+import { AnimatedNumber } from '@/ui/shared/widgets/components/animated-number'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 export type SkillCompetencyRowProps = {
@@ -26,6 +29,7 @@ export const SkillCompetencyRow = ({
 }: SkillCompetencyRowProps) => {
   const isBlocked = competency.availability === 'unavailable'
   const progress = competency.progress === null ? 0 : Math.round(competency.progress)
+  const fillPercentage = Math.max(0, Math.min(100, progress))
   const isMastered = competency.status === 'mastered' && progress >= 85
   const statusLabel =
     competency.progress === null
@@ -63,7 +67,15 @@ export const SkillCompetencyRow = ({
             isBlocked ? 'text-secondary-foreground' : 'text-foreground'
           }`}
         >
-          {competency.progress === null ? 'Sem evidência' : `${progress}%`}
+          {competency.progress === null ? (
+            'Sem evidência'
+          ) : (
+            <AnimatedNumber
+              delay={0.3}
+              format={(value) => `${value}%`}
+              value={progress}
+            />
+          )}
         </span>
       </span>
 
@@ -73,7 +85,7 @@ export const SkillCompetencyRow = ({
           competency.isFocus ? 'bg-surface-alt' : 'bg-muted'
         }`}
       >
-        <span
+        <motion.span
           className={`absolute inset-y-[1px] left-0 rounded-[3px] ${
             isBlocked
               ? 'bg-control-border'
@@ -81,7 +93,8 @@ export const SkillCompetencyRow = ({
                 ? 'bg-jade-solid'
                 : 'bg-jade-fill'
           }`}
-          style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
+          custom={fillPercentage}
+          variants={ENTRANCE_FILL}
         />
         {THRESHOLDS.map((threshold) => (
           <span
@@ -115,7 +128,7 @@ export const SkillCompetencyRow = ({
 
   if (isBlocked) {
     return (
-      <li>
+      <motion.li variants={ENTRANCE_ROW}>
         <button
           aria-describedby='skill-blocked-hint'
           className={rowClassName}
@@ -124,12 +137,12 @@ export const SkillCompetencyRow = ({
         >
           {content}
         </button>
-      </li>
+      </motion.li>
     )
   }
 
   return (
-    <li>
+    <motion.li variants={ENTRANCE_ROW}>
       <Link
         className={rowClassName}
         params={{ competencyId: competency.competencyId, goalId, skillId }}
@@ -137,6 +150,6 @@ export const SkillCompetencyRow = ({
       >
         {content}
       </Link>
-    </li>
+    </motion.li>
   )
 }

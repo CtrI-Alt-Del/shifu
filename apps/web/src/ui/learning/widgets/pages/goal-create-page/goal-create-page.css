@@ -1,0 +1,49 @@
+/*
+ * The heading and form fields are server-rendered on first paint, so their
+ * entrance is CSS: it plays immediately instead of waiting for hydration.
+ * Available Skills load in the browser and use the shared Motion entrance.
+ * A submission alert mounts later and must appear at once, so it is excluded.
+ */
+.goal-create-page > header > *,
+.goal-create-page > form > :not([role="alert"]) {
+  animation: goal-create-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.goal-create-page > header > :nth-child(2) {
+  animation-delay: 90ms;
+}
+
+.goal-create-page > header > :nth-child(3) {
+  animation-delay: 180ms;
+}
+
+.goal-create-page > form > :nth-child(1) {
+  animation-delay: 260ms;
+}
+
+.goal-create-page > form > :nth-child(2) {
+  animation-delay: 330ms;
+}
+
+.goal-create-page > form > :nth-child(n + 3) {
+  animation-delay: 400ms;
+}
+
+@keyframes goal-create-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-create-page > header > *,
+  .goal-create-page > form > :not([role="alert"]) {
+    animation: none;
+  }
+}

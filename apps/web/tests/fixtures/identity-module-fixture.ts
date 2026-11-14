@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { Pool } from 'pg'
-import type { Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 
 import { test as base, expect } from '@playwright/test'
 
@@ -22,12 +22,27 @@ export type SignInHandlerAccount = {
 }
 
 type IdentityModuleFixtures = {
+  accountRequest: APIRequestContext
   authenticatedPage: Page
   activeAccount: SignInHandlerAccount
   pendingAccount: SignInHandlerAccount
 }
 
 export const test = base.extend<IdentityModuleFixtures>({
+  accountRequest: async ({ playwright, baseURL, activeAccount }, use) => {
+    const request = await playwright.request.newContext({
+      baseURL,
+      extraHTTPHeaders: {
+        origin: new URL(baseURL as string).origin,
+        'x-forwarded-for': activeAccount.ipAddress,
+      },
+    })
+    try {
+      await use(request)
+    } finally {
+      await request.dispose()
+    }
+  },
   authenticatedPage: async ({ page }, use) => {
     await page.route('**/_serverFn/**', async (route) => {
       const serverFunction = Buffer.from(
@@ -107,6 +122,30 @@ export const test = base.extend<IdentityModuleFixtures>({
 
 export { expect }
 
+export async function prepareAccountForManualValidation(
+  runId: string,
+): Promise<SignInHandlerAccount> {
+  const pool = new Pool({ connectionString: databaseURL })
+  const account = makeAccount(runId, 'active')
+  try {
+    await seedAccount(pool, account, 'active')
+    return account
+  } finally {
+    await pool.end()
+  }
+}
+
+export async function cleanupAccountForManualValidation(
+  account: SignInHandlerAccount,
+): Promise<void> {
+  const pool = new Pool({ connectionString: databaseURL })
+  try {
+    await cleanupAccount(pool, account)
+  } finally {
+    await pool.end()
+  }
+}
+
 export async function navigateAuthenticatedPage(page: Page, route: string) {
   await page.evaluate((to) => {
     const router = (
@@ -167,7 +206,17 @@ async function seedAccount(
 }
 
 async function cleanupAccount(pool: Pool, account: SignInHandlerAccount) {
-  await pool.query("delete from events where payload->>'account_id' = $1", [
+  await pool.query(
+    `delete from events where payload->>'account_id' = $1
+    or payload->>'identity_action_token_id' in (select id from identity_account_action_tokens where account_id = $1)
+    or payload->>'communication_id' in (select communication_id from identity_account_action_tokens where account_id = $1)
+    or payload->>'communication_id' in (select id from communication_messages where account_id = $1)`,
+    [account.accountId],
+  )
+  await pool.query('delete from communication_messages where account_id = $1', [
+    account.accountId,
+  ])
+  await pool.query('delete from identity_account_action_tokens where account_id = $1', [
     account.accountId,
   ])
   await pool.query('delete from better_auth_verifications where value like $1', [

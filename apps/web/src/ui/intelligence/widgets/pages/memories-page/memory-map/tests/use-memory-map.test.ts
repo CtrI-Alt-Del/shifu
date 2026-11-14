@@ -269,6 +269,27 @@ describe('useMemoryMap', () => {
     expect(disconnectMock).toHaveBeenCalled()
   })
 
+  it('keeps the viewport when a memory is selected or the same list is read again', () => {
+    const { result, rerender } = renderMap()
+    act(() => {
+      result.current.containerRef.current = document.createElement('section')
+      result.current.handleInit({
+        zoomTo: zoomToMock,
+        fitView: fitViewMock,
+      } as unknown as ReactFlowInstance<MemoryMapFlowNode>)
+    })
+    rerender({ memories, selectedMemoryId: null })
+    fitViewMock.mockClear()
+
+    rerender({ memories, selectedMemoryId: memories[1].id })
+    rerender({
+      memories: memories.map((memory) => ({ ...memory })),
+      selectedMemoryId: null,
+    })
+
+    expect(fitViewMock).not.toHaveBeenCalled()
+  })
+
   it('fits the canvas on demand', () => {
     const { result } = renderMap()
     act(() =>

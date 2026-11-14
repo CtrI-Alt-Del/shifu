@@ -3,7 +3,7 @@ import { Anchor } from '@/ui/shared/widgets/components/anchor'
 export const MemoryRemovedNotice = () => (
   <section
     aria-label='Memória excluída'
-    className='space-y-4 rounded-[10px] border border-border bg-card p-5'
+    className='space-y-4 rounded-[12px] border border-border bg-card p-5'
   >
     <h2 className='font-serif text-2xl font-normal'>Memória excluída</h2>
     <p className='text-sm'>

@@ -358,8 +358,9 @@ and **deliberately diverging** from `GetPracticeCalendarUseCase` and
 area's landing surface: profiles are created by an Inngest job on
 `identity/account.activated`, so a learner who opens `/gamification` in the
 window before that job commits would otherwise land on an error state for a
-product state that JN-01 describes as normal. The two 404 reads keep their
-contracts; nothing in this slice changes them.
+product state that JN-01 describes as normal. The two 404 reads kept their
+contracts in this slice; both were later amended to the same initial-state
+reading (calendar and XP history Specs, revision 2).
 
 ### Gamification — REST
 

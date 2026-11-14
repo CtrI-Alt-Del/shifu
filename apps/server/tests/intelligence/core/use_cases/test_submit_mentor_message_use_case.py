@@ -12,7 +12,10 @@ from shifu.intelligence.core.domain.enums import (
     MentorResponseEventKind,
     MentorResponseStatus,
 )
+from shifu.fakers.intelligence.entities import MentorActionProposalFaker
+from shifu.intelligence.core.domain.enums import MentorActionProposalStatus
 from shifu.intelligence.core.domain.errors import (
+    MentorActionPendingError,
     MentorAttachmentConflictError,
     MentorInputInvalidError,
     MentorResponseConflictError,
@@ -101,6 +104,68 @@ class TestSubmitMentorMessageUseCase(MentorResponseTestSetup):
             )
         self.access.authorize.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def test_should_refuse_a_new_message_while_an_action_proposal_is_pending(
+        self,
+    ) -> None:
+        self.repositories.mentor_action_proposals.exists_pending.return_value = True
+
+        with pytest.raises(MentorActionPendingError):
+            self.subject.execute(
+                'account',
+                'session',
+                MentorSubmission(submission_key=self.key, content='sim'),
+            )
+
+        self.repositories.mentor_action_proposals.exists_pending.assert_called_once_with(
+            'account', 'session'
+        )
+        self.access.authorize.assert_not_called()
+        self.repositories.mentor_messages.add.assert_not_called()
+        self.repositories.mentor_response_attempts.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_return_the_stored_result_of_an_exact_replay_while_a_proposal_is_pending(
+        self,
+    ) -> None:
+        self.repositories.mentor_action_proposals.exists_pending.return_value = True
+        self.repositories.mentor_response_attempts.find_submission.return_value = (
+            self.attempt,
+            mentor_submission_fingerprint('texto', None),
+        )
+
+        result = self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(submission_key=self.key, content='texto'),
+        )
+
+        assert result.response == self.snapshot
+        assert self.subject.replayed is True
+        self.repositories.mentor_action_proposals.exists_pending.assert_not_called()
+
+    def test_should_return_the_action_items_of_the_conversation_in_the_detail(
+        self,
+    ) -> None:
+        proposal = MentorActionProposalFaker.fake(
+            session_id='session', learner_message_id='message'
+        )
+        self.repositories.mentor_action_proposals.find_many_by_session.return_value = [
+            proposal
+        ]
+
+        result = self.subject.execute(
+            'account',
+            'session',
+            MentorSubmission(submission_key=self.key, content='texto'),
+        )
+
+        assert [item.id for item in result.action_items] == [proposal.id]
+        assert result.action_items[0].source_message_id == 'message'
+        assert result.action_items[0].status is MentorActionProposalStatus.PENDING
+        self.repositories.mentor_action_proposals.find_many_by_session.assert_called_once_with(
+            'account', 'session'
+        )
 
     def test_should_hide_foreign_session_without_authorizing(self) -> None:
         self.repositories.mentor_sessions.find_by_id_for_update.return_value = None

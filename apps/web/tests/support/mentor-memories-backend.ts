@@ -339,7 +339,7 @@ const MESSAGE_PAGES: Record<
   },
 }
 
-function serverFnExport(url: string): string | null {
+export function serverFnExport(url: string): string | null {
   const segment = new URL(url).pathname.split('/_serverFn/')[1]
   if (!segment) return null
   try {
@@ -384,7 +384,7 @@ function unwrapServerFunctionInput(value: unknown): Record<string, unknown> {
   return record
 }
 
-function serverFnInput(request: {
+export function serverFnInput(request: {
   postData: () => string | null
   url: () => string
 }): Record<string, unknown> {

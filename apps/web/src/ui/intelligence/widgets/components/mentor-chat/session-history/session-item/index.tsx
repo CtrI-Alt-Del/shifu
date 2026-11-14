@@ -1,3 +1,6 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import type { MentorSession } from '@/rest/services/intelligence-service'
 import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -17,8 +20,9 @@ export const SessionItem = ({
   onRename,
   onRemove,
 }: SessionItemProps) => (
-  <li
+  <motion.li
     className={`rounded-md border p-2 ${isSelected ? 'border-primary bg-accent' : 'border-border bg-muted'}`}
+    variants={ENTRANCE_ROW}
   >
     <div className='flex min-w-0 items-center gap-1'>
       <Button
@@ -63,5 +67,5 @@ export const SessionItem = ({
         </Button>
       </div>
     </div>
-  </li>
+  </motion.li>
 )

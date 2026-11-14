@@ -20,12 +20,28 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
 }))
 vi.mock('@tanstack/react-start', () => ({
+  createStart: () => ({}),
+  createMiddleware: () => ({ server: (handler: unknown) => handler }),
   createServerFn: () => ({
+    middleware: () => ({
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          (context: { data: unknown }) =>
+            handler({
+              data: validate(context.data),
+              context: { requestId: 'test-request-id' },
+            } as never),
+      }),
+    }),
     validator: (validate: (data: unknown) => unknown) => ({
       handler:
         (handler: (context: { data: unknown }) => Promise<unknown>) =>
         (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
+          handler({
+            data: validate(context.data),
+            context: { requestId: 'test-request-id' },
+          } as never),
     }),
   }),
 }))
@@ -722,5 +738,55 @@ describe('useActivityPage route consumers', () => {
     await waitFor(() => expect(props.onNavigateToResult).toHaveBeenCalled())
     expect(mocks.post).toHaveBeenCalledTimes(2)
     expect(getDiagnosticRun(ids.goalId, ids.skillId)).toBeNull()
+  })
+  it('maps the integrated wire contract without changing commands or HTTP examples', async () => {
+    const question = wireActivity.questions[0]
+    if (!question) throw new Error('Expected fixture question')
+    mocks.get.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          ...wireActivity,
+          questions: [
+            {
+              ...question,
+              kind: 'react_fastify',
+              frontend_entrypoint: 'src/App.tsx',
+              api_entrypoint: 'server.js',
+              frontend_command_id: 'web',
+              api_command_id: 'api',
+              http_examples: [
+                {
+                  key: 'tasks',
+                  title: 'Listar tarefas',
+                  method: 'GET',
+                  path: '/api/tasks',
+                  body: null,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    )
+    const { result } = setup()
+    await waitFor(() =>
+      expect(result.current.currentQuestion?.kind).toBe('react_fastify'),
+    )
+    expect(result.current.currentQuestion).toMatchObject({
+      frontendEntrypoint: 'src/App.tsx',
+      apiEntrypoint: 'server.js',
+      frontendCommandId: 'web',
+      apiCommandId: 'api',
+      httpExamples: [
+        {
+          key: 'tasks',
+          title: 'Listar tarefas',
+          method: 'GET',
+          path: '/api/tasks',
+          body: null,
+        },
+      ],
+    })
   })
 })

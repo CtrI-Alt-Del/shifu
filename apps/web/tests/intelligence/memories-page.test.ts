@@ -312,6 +312,24 @@ test.describe('MemoriesPage', () => {
     expect(searchOf(page).get('memory')).toBeNull()
   })
 
+  test('keeps the scroll position when a memory is selected', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 500 })
+    await installMentorMemoriesBackend(page)
+    await openMemoriesPage(page)
+    const lastRow = rows(page).last()
+    await lastRow.scrollIntoViewIfNeeded()
+    const scrolled = await page.evaluate(() => window.scrollY)
+    expect(scrolled).toBeGreaterThan(0)
+
+    await lastRow.click()
+
+    await expect.poll(() => searchOf(page).get('memory')).not.toBeNull()
+    await expect(details(page)).toBeVisible()
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+  })
+
   test('reads a selected memory that is outside the active filter', async ({
     authenticatedPage: page,
   }) => {
@@ -529,8 +547,9 @@ test.describe('MemoriesPage', () => {
       nodes.map((node) => node.getAttribute('aria-label')),
     )) as string[]
     await page.getByRole('tab', { name: 'Lista' }).click()
+    // The list renders after the tab switch; read it only once every row is in.
+    await expect(rows(page)).toHaveCount(mapNames.length)
     const listTexts = await rows(page).allInnerTexts()
-    expect(listTexts).toHaveLength(mapNames.length)
     for (const name of mapNames) {
       const content = name.split(': ').slice(1).join(': ')
       expect(listTexts.some((text) => text.includes(content))).toBe(true)

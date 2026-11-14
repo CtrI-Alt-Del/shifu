@@ -16,3 +16,7 @@ from .mentor_response_requested_event import (
 from .mentor_response_requested_event import (
     MentorResponseRequestedPayload as MentorResponseRequestedPayload,
 )
+from .planning_operation_requested_event import (
+    PlanningOperationRequestedEvent as PlanningOperationRequestedEvent,
+    PlanningOperationRequestedPayload as PlanningOperationRequestedPayload,
+)

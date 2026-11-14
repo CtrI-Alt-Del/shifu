@@ -203,8 +203,9 @@ Use the canonical [Spec template](../templates/sdd/spec.md) and exactly seven
 sections: Objective; Scope; Behavior Contract; Technical Contract; Verification
 Contract; Documentation Alignment; Revision History.
 State each fact once and reference its identifier elsewhere. Create `evaluation.md`
-at implementation kickoff, not during Spec authoring. Save feature-local design
-references only when needed for the contract. No separate planning artifact exists.
+at implementation kickoff, not during Spec authoring. Reference the
+Penpot file directly; do not save feature-local design exports or handoff bundles.
+No separate planning artifact exists.
 
 ### Objective and Scope
 
@@ -242,17 +243,17 @@ Cover applicable authorization, account isolation, persistence, concurrency,
 provider failure, recovery, accessibility and secret boundaries. Specify results
 and guarantees; do not prescribe incidental algorithms or helper classes.
 
-For design-backed UI, reference one feature-local design inventory with required
-happy-path states, routes/surfaces, viewports, saved images, criteria mapping and
-allowed deviations. Reuse an existing `design/manifest.md` or `design/handoff.md`
-convention rather than duplicating it. Inspect saved references visually. Use Pencil
-skills/MCP for `.pen` inspection and exports; never read its contents with shell tools.
-Map affected widgets to source-verified semantic tokens and actual shared primitive
-variants in the handoff, including typography, spacing, surfaces, borders, focus
-and pending/error states where material. Identify preserved UI outside the change.
-Required references must be available before `ready`, or carry an explicitly
-accepted visual assumption. Negative, loading, error and recovery behavior belongs
-in automated acceptance coverage; it does not create additional manual journeys.
+For design-backed UI, write the Design Contract as a visual inventory: for each
+required happy-path state, the route/surface, the viewport, and the page, board
+and component names in the Penpot file, with criteria mapping and allowed
+deviations. Do not extract exports into a feature-local handoff or references
+folder. Inspect the boards through the Penpot MCP. Map affected widgets to source-verified semantic tokens and
+actual shared primitive variants in the contract, including typography, spacing,
+surfaces, borders, focus and pending/error states where material. Identify
+preserved UI outside the change. Required boards must exist in the Penpot file
+before `ready`, or the Spec carries an explicitly accepted visual assumption.
+Negative, loading, error and recovery behavior belongs in automated acceptance
+coverage; it does not create additional manual journeys.
 
 ### Technical Contract
 
@@ -301,7 +302,7 @@ the slice, plus permitted owning tests. Distinguish included agents from deferre
 capabilities; do not introduce agents or integrations just to fill out the tree.
 
 Reconcile the tree with accepted naming/composition changes, declarations,
-Architecture Mapping, design handoff and checker selections before presenting the
+Architecture Mapping, Design Contract and checker selections before presenting the
 written Spec. Ordinary private helpers need no exhaustive inventory and may evolve
 under the Rules without a Spec amendment when ownership, public contracts and
 guarantees remain unchanged.
@@ -419,11 +420,13 @@ keyboard/focus/narrow viewport and cleanup. Automated tests own systematic
 negative, failure/recovery and concurrency matrices. Mocks cannot prove required
 real authenticated/persisted journeys.
 
-Visual checks name the reference, state, viewport, comparison properties and
-accepted deviations. Capture during linked Manual journeys where possible and
-inspect images; saving a screenshot is not a visual pass. Keep runtime evidence
-under ignored browser/test output or CI artifacts; record paths/results in
-Evaluation, without new feature-local evidence folders. State why a category is
+Visual checks name the Penpot page, board and related components, state,
+viewport, comparison properties and accepted deviations. Compare fresh Penpot
+MCP exports with the matching Playwright CLI captures. Capture during linked
+Manual journeys where possible and inspect images; saving a screenshot is not a
+visual pass. Keep runtime evidence under ignored browser/test output or CI
+artifacts; record paths/results in Evaluation, without new feature-local evidence
+folders. State why a category is
 inapplicable instead of keeping empty placeholder blocks.
 
 ### Documentation Alignment and Revision History

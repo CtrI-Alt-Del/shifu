@@ -47,6 +47,7 @@ class _Manifest(BaseModel):
     faq_rerank_limit: int = Field(ge=2, le=6)
     faq_rerank_score_threshold: float = Field(allow_inf_nan=False)
     faq_rerank_margin: float = Field(gt=0, allow_inf_nan=False)
+    faq_tie_limit: int = Field(ge=1, le=3)
     calibration_status: str
     review_thresholds: dict[str, float]
 
@@ -129,6 +130,6 @@ class MentorResources:
             != '1427fd652930e4ba29e8149678df786c240d8825'
             or self.manifest.faq_rerank_document_format
             != 'question_variations_answer_v1'
-            or self.manifest.faq_query_policy_version != 2
+            or self.manifest.faq_query_policy_version != 3
         ):
             raise ValueError('Incompatible Mentor index configuration')

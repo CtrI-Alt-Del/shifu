@@ -1,13 +1,17 @@
 import axios from 'axios'
 
 import { RestResponse } from '@/core/shared/responses/rest-response'
+import type { TelemetryProvider } from '@/core/shared/interfaces/telemetry-provider'
 import { request } from '@/rest/axios/utils'
+import { observeResponseCorrelation } from '@/rest/telemetry/observe-response-correlation'
 import type { RestClient, RestRequestOptions } from '@/core/shared/interfaces/rest-client'
 
 const REST_REQUEST_TIMEOUT_MS = 15_000
 
 export type AxiosRestClientOptions = {
   defaultHeaders?: Record<string, string>
+  requestId?: string
+  telemetry?: TelemetryProvider
   withCredentials?: boolean
 }
 
@@ -20,13 +24,34 @@ export const AxiosRestClient = (
     timeout: REST_REQUEST_TIMEOUT_MS,
     withCredentials: options.withCredentials ?? true,
   })
+  const defaultHeaders = {
+    ...options.defaultHeaders,
+    ...(options.requestId ? { 'X-Request-ID': options.requestId } : {}),
+  }
+
+  async function execute<ResponseBody>(
+    method: string,
+    config: Parameters<typeof request<ResponseBody>>[1],
+  ): Promise<RestResponse<ResponseBody>> {
+    const response = await request<ResponseBody>(client, config)
+    const responseRequestId = Object.entries(response.headers ?? {}).find(
+      ([key]) => key.toLowerCase() === 'x-request-id',
+    )?.[1]
+    observeResponseCorrelation(options.telemetry, {
+      method,
+      requestId: options.requestId,
+      responseRequestId,
+      statusCode: response.statusCode,
+    })
+    return response
+  }
 
   function get<ResponseBody>(url: string, requestOptions: RestRequestOptions) {
-    return request<ResponseBody>(client, {
+    return execute<ResponseBody>('GET', {
       method: 'get',
       url,
       params: requestOptions?.params,
-      headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+      headers: { ...defaultHeaders, ...requestOptions?.headers },
     })
   }
 
@@ -34,11 +59,11 @@ export const AxiosRestClient = (
     get,
 
     async getFile(url, requestOptions) {
-      const response = await request<ArrayBuffer>(client, {
+      const response = await execute<ArrayBuffer>('GET', {
         method: 'get',
         url,
         params: requestOptions?.params,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
         signal: requestOptions?.signal,
         // Axios' Node adapter decodes `blob` responses as text. Use raw bytes
         // here because this client also runs in the server-side BFF.
@@ -59,11 +84,11 @@ export const AxiosRestClient = (
     },
 
     post<ResponseBody>(url: string, body?: unknown, requestOptions?: RestRequestOptions) {
-      return request<ResponseBody>(client, {
+      return execute<ResponseBody>('POST', {
         method: 'post',
         url,
         data: body,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
       })
     },
 
@@ -72,11 +97,11 @@ export const AxiosRestClient = (
       body: FormData,
       requestOptions?: RestRequestOptions,
     ) {
-      return request<ResponseBody>(client, {
+      return execute<ResponseBody>('POST', {
         method: 'post',
         url,
         data: body,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
         signal: requestOptions?.signal,
       })
     },
@@ -86,20 +111,20 @@ export const AxiosRestClient = (
       body?: unknown,
       requestOptions?: RestRequestOptions,
     ) {
-      return request<ResponseBody>(client, {
+      return execute<ResponseBody>('PATCH', {
         method: 'patch',
         url,
         data: body,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
       })
     },
 
     put<ResponseBody>(url: string, body?: unknown, requestOptions?: RestRequestOptions) {
-      return request<ResponseBody>(client, {
+      return execute<ResponseBody>('PUT', {
         method: 'put',
         url,
         data: body,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
       })
     },
 
@@ -108,11 +133,11 @@ export const AxiosRestClient = (
       body?: unknown,
       requestOptions?: RestRequestOptions,
     ) {
-      return request<ResponseBody>(client, {
+      return execute<ResponseBody>('DELETE', {
         method: 'delete',
         url,
         data: body,
-        headers: { ...options.defaultHeaders, ...requestOptions?.headers },
+        headers: { ...defaultHeaders, ...requestOptions?.headers },
       })
     },
   }

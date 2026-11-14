@@ -52,10 +52,13 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
   }, [dictationStatus, draft])
   const hasAcceptedSession = Boolean(mentor.selectedSessionId)
   const isResponsePending = Boolean(mentor.sessionDetail?.pendingLearnerMessageId)
+  const isActionBlocked = Boolean(mentor.blockingActionProposalId)
+  const canStartDictation = mentor.canStartDictation && !isActionBlocked
   const canSend =
     (Boolean(mentor.draft.trim()) || draftAttachments.length > 0) &&
     !mentor.isSubmittingFirstMessage &&
     !isResponsePending &&
+    !isActionBlocked &&
     !mentor.isDictationBusy &&
     !mentor.isPreparingAttachments &&
     draftAttachments.every(
@@ -63,7 +66,10 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
         !error && attachment && ['ready', 'partial'].includes(attachment.status),
     )
   const canManageAttachments =
-    !mentor.isSubmittingFirstMessage && !isResponsePending && !mentor.isDictationBusy
+    !mentor.isSubmittingFirstMessage &&
+    !isResponsePending &&
+    !isActionBlocked &&
+    !mentor.isDictationBusy
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -81,8 +87,10 @@ export const useComposer = (surface: 'page' | 'fab' = 'fab') => {
     ...mentor,
     canSend,
     canManageAttachments,
+    canStartDictation,
     draftAttachments,
     handleKeyDown,
+    isActionBlocked,
     isResponsePending,
     handleSubmit,
     hasAcceptedSession,

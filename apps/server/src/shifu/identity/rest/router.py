@@ -1,3 +1,15 @@
+from shifu.identity.rest.controllers.get_account_profile_controller import (
+    GetAccountProfileController,
+)
+
+from shifu.identity.rest.controllers.update_account_profile_controller import (
+    UpdateAccountProfileController,
+)
+
+from shifu.identity.rest.controllers.change_password_controller import (
+    ChangePasswordController,
+)
+
 from fastapi import APIRouter
 
 from shifu.identity.rest.controllers.get_current_session_controller import (
@@ -43,6 +55,9 @@ class IdentityRouter:
     @staticmethod
     def register() -> APIRouter:
         router = APIRouter(prefix='/identity', tags=['identity'])
+        GetAccountProfileController.handle(router)
+        UpdateAccountProfileController.handle(router)
+        ChangePasswordController.handle(router)
         SignInController.handle(router)
         GetCurrentSessionController.handle(router)
         MainPageEnteredController.handle(router)

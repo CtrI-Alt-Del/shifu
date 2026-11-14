@@ -189,7 +189,7 @@ class TestGetPracticeCalendarController:
 
         assert response.status_code == 400
 
-    def test_should_return_not_found_without_a_gamification_profile(
+    def test_should_return_the_initial_state_without_a_gamification_profile(
         self, client: TestClient
     ) -> None:
         response = client.get(
@@ -198,7 +198,12 @@ class TestGetPracticeCalendarController:
             headers={'Authorization': 'Bearer test-access-token'},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == 200
+        body = response.json()
+        assert body['streak'] == {'current': 0, 'longest': 0}
+        assert body['earliestPracticeDate'] is None
+        assert len(body['days']) == 31
+        assert {item['state'] for item in body['days']} == {'neutral'}
 
     def test_should_reject_an_unauthenticated_request(self, client: TestClient) -> None:
         response = client.get(

@@ -44,13 +44,21 @@ class RetryPasswordRecoveryUseCase:
         self._delivery_gateway = delivery_gateway
 
     def execute(self, recovery_handle: str) -> PasswordRecoveryRequestResult:
-        now = self._clock_provider.now()
         handle_hash = self._recovery_handle_provider.hash(recovery_handle)
         with self._identity_database.transaction() as repositories:
             token_repository = self._token_repository(repositories)
+            account_id = token_repository.find_account_id_by_pending_handle_hash(
+                handle_hash
+            )
+            if account_id is None:
+                return PasswordRecoveryRequestResult(
+                    recovery_handle=recovery_handle, is_decoy=True
+                )
+            account = repositories.accounts.find_by_id(account_id)
             token = token_repository.find_by_pending_handle_hash(handle_hash)
             if (
                 token is None
+                or token.account_id != account_id
                 or token.type is not AccountActionTokenType.PASSWORD_RECOVERY
             ):
                 return PasswordRecoveryRequestResult(
@@ -58,7 +66,6 @@ class RetryPasswordRecoveryUseCase:
                     is_decoy=True,
                 )
 
-            account = repositories.accounts.find_by_id(token.account_id)
             if account is None or account.status not in {
                 AccountStatus.ACTIVE,
                 AccountStatus.PENDING_CONFIRMATION,
@@ -74,6 +81,7 @@ class RetryPasswordRecoveryUseCase:
                     is_decoy=True,
                 )
 
+            now = self._clock_provider.now()
             if now >= token.expires_at:
                 token.expire(now)
                 token_repository.update(token)

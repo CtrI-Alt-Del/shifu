@@ -22,3 +22,7 @@ from .skill_completed_event import (
     SkillCompletedEvent as SkillCompletedEvent,
     SkillCompletedPayload as SkillCompletedPayload,
 )
+from .mentor_skill_action_resolved_event import (
+    MentorSkillActionResolvedEvent as MentorSkillActionResolvedEvent,
+    MentorSkillActionResolvedPayload as MentorSkillActionResolvedPayload,
+)

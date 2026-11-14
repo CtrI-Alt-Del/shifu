@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
 import { useStartPlanningAction } from '@/ui/intelligence/hooks/use-start-planning-action'
+import { consumePlanningEntry } from '@/ui/intelligence/planning-entry'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
@@ -46,6 +47,7 @@ describe('PlanningIntentComposer', () => {
       startPlanning: startPlanningMock,
     })
     useNavigationMock.mockReturnValue({
+      refreshCurrentRoute: vi.fn(),
       navigateTo: navigateToMock,
       navigateToActivity: vi.fn(),
       navigateToGoalDetail: vi.fn(),
@@ -121,6 +123,7 @@ describe('PlanningIntentComposer', () => {
       expect.objectContaining({ onSuccess: expect.any(Function) }),
     )
     expect(navigateToPlannerMock).toHaveBeenCalledWith('planning-123')
+    expect(consumePlanningEntry('planning-123')).toBe(true)
   })
 
   it('shows a pending state and disables the field while a session is starting', () => {

@@ -17,8 +17,8 @@ resource "aws_ecr_repository" "web" {
   }
 }
 
-resource "aws_ecr_repository" "api" {
-  name                 = "${local.name}-api"
+resource "aws_ecr_repository" "server" {
+  name                 = "${local.name}-server"
   image_tag_mutability = "IMMUTABLE_WITH_EXCLUSION"
   force_delete         = var.purge_data
 
@@ -41,8 +41,8 @@ resource "aws_ecr_lifecycle_policy" "web" {
   policy     = local.ecr_lifecycle_policy
 }
 
-resource "aws_ecr_lifecycle_policy" "api" {
-  repository = aws_ecr_repository.api.name
+resource "aws_ecr_lifecycle_policy" "server" {
+  repository = aws_ecr_repository.server.name
   policy     = local.ecr_lifecycle_policy
 }
 

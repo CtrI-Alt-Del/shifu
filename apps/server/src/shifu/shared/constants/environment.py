@@ -12,6 +12,8 @@ from pydantic import (
     model_validator,
 )
 
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryLevel
+
 
 DEFAULT_SERVER_APP_PORT = 7777
 DEFAULT_SERVER_APP_MODE = 'local'
@@ -26,6 +28,8 @@ DEFAULT_EMAIL_FROM = 'no-reply@shifu.local'
 DEFAULT_CONFIRMATION_ACTION_ORIGIN = 'http://localhost:7000'
 DEFAULT_EMAIL_TIMEOUT_SECONDS = 10.0
 DEFAULT_LOCAL_BFF_SHARED_SECRET = 'shifu-local-bff-shared-secret-change-me'
+DEFAULT_SERVER_LOG_LEVEL: TelemetryLevel = 'INFO'
+DEFAULT_RELEASE_VERSION = 'local-dev'
 ServerAppMode = Literal['dev', 'local', 'staging', 'production']
 EmailProvider = Literal['smtp', 'resend']
 POSTGRES_DSN_ADAPTER = TypeAdapter(PostgresDsn)
@@ -43,6 +47,8 @@ class EnvironmentSettings(BaseModel):
         le=65535,
     )
     server_app_mode: ServerAppMode = DEFAULT_SERVER_APP_MODE
+    server_log_level: TelemetryLevel = DEFAULT_SERVER_LOG_LEVEL
+    release_version: str = DEFAULT_RELEASE_VERSION
     database_url: str = DEFAULT_DATABASE_URL
     auth_issuer: str = DEFAULT_AUTH_ISSUER
     auth_audience: str = DEFAULT_AUTH_AUDIENCE
@@ -77,6 +83,12 @@ class EnvironmentSettings(BaseModel):
         if not self.bff_shared_secret.strip():
             raise ValueError('BFF shared secret is required')
 
+        if (
+            self.server_app_mode in {'staging', 'production'}
+            and not self.release_version.strip()
+        ):
+            raise ValueError('Release version is required outside local environments')
+
         if not self.communication_encryption_keys:
             raise ValueError('Communication encryption keys are required')
 
@@ -102,6 +114,11 @@ class EnvironmentSettings(BaseModel):
     ) -> 'EnvironmentSettings':
         values = environment if environment is not None else os.environ
         server_app_mode = values.get('SHIFU_SERVER_APP_MODE', DEFAULT_SERVER_APP_MODE)
+        release_version = values.get('SHIFU_RELEASE_VERSION')
+        if release_version is None or (
+            not release_version.strip() and server_app_mode in {'dev', 'local'}
+        ):
+            release_version = DEFAULT_RELEASE_VERSION
         email_provider = values.get('SHIFU_EMAIL_PROVIDER', DEFAULT_EMAIL_PROVIDER)
         raw_encryption_keys = values.get('SHIFU_COMMUNICATION_ENCRYPTION_KEYS')
 
@@ -119,6 +136,11 @@ class EnvironmentSettings(BaseModel):
                     str(DEFAULT_SERVER_APP_PORT),
                 ),
                 'server_app_mode': server_app_mode,
+                'server_log_level': values.get(
+                    'SHIFU_SERVER_LOG_LEVEL',
+                    DEFAULT_SERVER_LOG_LEVEL,
+                ),
+                'release_version': release_version,
                 'database_url': values.get('DATABASE_URL', DEFAULT_DATABASE_URL),
                 'auth_issuer': values.get('SHIFU_AUTH_ISSUER', DEFAULT_AUTH_ISSUER),
                 'auth_audience': values.get(

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { useReducedMotion } from 'motion/react'
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import type { IconName } from '@/ui/shared/widgets/components/icon'
@@ -76,7 +75,6 @@ export function useMessageItem(
       ],
     })
   const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({})
-  const shouldReduceMotion = useReducedMotion()
   const [initialBlockAnimations] = useState(
     () =>
       new Map(
@@ -86,8 +84,6 @@ export function useMessageItem(
         ]),
       ),
   )
-  const shouldAnimateEntrance =
-    !response || [...initialBlockAnimations.values()].some(Boolean)
   const [isCopied, setIsCopied] = useState(false)
   const [copyError, setCopyError] = useState(false)
   const [visibleLength, setVisibleLength] = useState<Record<string, number>>({})
@@ -208,8 +204,6 @@ export function useMessageItem(
     blocks,
     attachments,
     handleOpenAttachment,
-    shouldAnimateEntrance,
-    shouldReduceMotion,
     copyAccessibleLabel,
     copyContent,
     copyError,

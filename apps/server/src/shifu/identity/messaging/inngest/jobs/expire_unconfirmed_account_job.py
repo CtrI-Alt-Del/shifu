@@ -19,6 +19,10 @@ from shifu.identity.core.domain.events import (
     AccountExpiryRequestedPayload,
 )
 from shifu.identity.core.use_cases import ExpireUnconfirmedAccountsUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 
 
 class _Payload(BaseModel):
@@ -59,6 +63,8 @@ class ExpireUnconfirmedAccountJob:
     def handle(
         inngest: Inngest,
         use_case: ExpireUnconfirmedAccountsUseCase,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=ExpireUnconfirmedAccountJob.FUNCTION_ID,
@@ -67,6 +73,11 @@ class ExpireUnconfirmedAccountJob:
             concurrency=[
                 Concurrency(limit=ExpireUnconfirmedAccountJob._CONCURRENCY_LIMIT)
             ],
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=ExpireUnconfirmedAccountJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))

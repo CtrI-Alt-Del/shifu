@@ -10,8 +10,22 @@ import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { Conversation } from '..'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { type ConversationItem, useConversation } from '../use-conversation'
+import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
+import { useSkillActionCard } from '../message-list/skill-action-card/use-skill-action-card'
 
+// Entrance motion settles at once, so visibility assertions see the final
+// state; the shared entrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
+// The mascot's own hook test covers the animation player.
+vi.mock('@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot', () => ({
+  useMentorMascot: vi.fn(() => ({ containerRef: { current: null }, hasFailed: false })),
+}))
 vi.mock('../use-conversation', () => ({ useConversation: vi.fn() }))
+vi.mock('../message-list/skill-action-card/use-skill-action-card', () => ({
+  useSkillActionCard: vi.fn(),
+}))
 vi.mock('@/ui/shared/widgets/components/anchor', () => ({
   Anchor: ({ children, route, search, ...props }: AnchorProps) => (
     <a
@@ -43,6 +57,7 @@ vi.mock('../summary-marker/use-mentor-session-summary-query', () => ({
   }),
 }))
 const useConversationMock = vi.mocked(useConversation)
+const useSkillActionCardMock = vi.mocked(useSkillActionCard)
 const useMentorContextMock = vi.mocked(useMentorContext)
 const mockConversationValue = (value: object) => {
   const { visibleMessages, sessionDetail, conversationItems } = value as {
@@ -53,6 +68,7 @@ const mockConversationValue = (value: object) => {
   useConversationMock.mockReturnValue({
     visibleMessages: undefined,
     trailingMemoryItems: [],
+    trailingActionItems: [],
     conversationItems: (visibleMessages ?? sessionDetail?.messages.items ?? []).map(
       (message) => ({ kind: 'message' as const, message }),
     ),
@@ -272,6 +288,7 @@ describe('Conversation', () => {
         response,
         summary: { current: null, failureAfterMessageId: null },
         memoryItems: [],
+        actionItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -282,7 +299,7 @@ describe('Conversation', () => {
     expect(screen.getByText('Mensagem preservada')).toBeVisible()
     expect(screen.getByText('Explicação')).toBeVisible()
     expect(container.querySelector('script')).toBeNull()
-    expect(screen.getByText('perigoso').getAttribute('href')).not.toContain('javascript:')
+    expect(screen.getByText('perigoso')).not.toHaveAttribute('href')
     expect(screen.getByLabelText('Trecho de código')).toHaveTextContent(
       'const result = 42',
     )
@@ -505,6 +522,7 @@ describe('Conversation', () => {
         response,
         summary: { current: null, failureAfterMessageId: null },
         memoryItems: [],
+        actionItems: [],
       },
       handleScroll: vi.fn(),
       scrollRef: { current: null },
@@ -552,6 +570,7 @@ describe('Conversation', () => {
         response: null,
         summary: { current: null, failureAfterMessageId: null },
         memoryItems: [],
+        actionItems: [],
       },
       conversationItems: [
         { kind: 'message', message: messages[0] },
@@ -726,6 +745,131 @@ describe('Conversation', () => {
 
       expect(
         screen.queryByRole('list', { name: 'Memórias desta resposta' }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  describe('action cards', () => {
+    const learnerMessage: MentorMessage = {
+      id: 'learner',
+      sessionId: 'session',
+      role: 'learner',
+      content: 'Adicione Funções em Python ao meu Objetivo',
+      inReplyToMessageId: null,
+      createdAt: '',
+      attachments: [],
+    }
+    const proposal: MentorActionProposal = {
+      id: 'proposal',
+      sourceMessageId: 'learner',
+      kind: 'add_skill',
+      skillId: 'skill',
+      skillName: 'Funções em Python',
+      goalId: 'goal',
+      goalTitle: 'Aprender a programar',
+      skillExperienceId: null,
+      candidateGoals: [],
+      justification: null,
+      status: 'pending',
+      outcome: null,
+      rejectionReason: null,
+      resolvedGoalId: null,
+      resolvedSkillExperienceId: null,
+      createdAt: '',
+    }
+
+    function mockActions(overrides: object = {}) {
+      const value = {
+        ...mentorValue,
+        selectedSessionId: 'session',
+        handleScroll: vi.fn(),
+        scrollRef: { current: null },
+        shouldAnimateBlock: vi.fn(() => false),
+        markBlockPresented: vi.fn(),
+        ...overrides,
+      }
+      useMentorContextMock.mockReturnValue(value)
+      mockConversationValue(value)
+      useSkillActionCardMock.mockReturnValue({
+        icon: { name: 'graduation-cap', tone: 'jade' },
+        title: 'Adicionar Funções em Python?',
+        destination: 'Objetivo: Aprender a programar',
+        actions: [{ key: 'confirm', label: 'Adicionar habilidade', variant: 'primary' }],
+        picker: null,
+        swap: null,
+        resultRef: { current: null },
+        titleRef: { current: null },
+        handleSelectGoal: vi.fn(),
+      })
+    }
+
+    it('renders the card in the message list at the position the conversation gives it', () => {
+      mockActions({
+        conversationItems: [
+          { kind: 'message', message: learnerMessage },
+          { kind: 'action', proposal },
+        ],
+      })
+      render(<Conversation surface='page' />)
+      const list = screen.getByRole('list', { name: 'Mensagens da conversa' })
+      const items = within(list).getAllByRole('listitem')
+
+      expect(items[0]).toHaveTextContent('Adicione Funções em Python ao meu Objetivo')
+      expect(
+        within(items[1] as HTMLElement).getByRole('region', {
+          name: 'Adicionar Funções em Python?',
+        }),
+      ).toBeVisible()
+      expect(
+        within(items[1] as HTMLElement).getByRole('button', {
+          name: 'Adicionar habilidade',
+        }),
+      ).toBeVisible()
+    })
+
+    it('renders the card of the live turn after the live answer and its status', () => {
+      const response: MentorResponseSnapshot = {
+        attemptId: 'attempt',
+        learnerMessageId: 'learner',
+        status: 'processing',
+        blocks: [
+          {
+            blockKey: 'b1',
+            ordinal: 0,
+            intent: 'add_skill',
+            content: 'Preparei uma proposta para você confirmar.',
+            sources: [],
+          },
+        ],
+        consultations: [],
+        lastSequence: 2,
+        failureCode: null,
+      }
+      mockActions({
+        response,
+        conversationItems: [{ kind: 'message', message: learnerMessage }],
+        trailingActionItems: [proposal],
+      })
+      render(<Conversation surface='page' />)
+      const answer = screen.getByRole('list', { name: 'Resposta do Mentor' })
+      const trailing = screen.getByRole('list', {
+        name: 'Ações propostas nesta resposta',
+      })
+
+      expect(
+        within(trailing).getByRole('region', { name: 'Adicionar Funções em Python?' }),
+      ).toBeVisible()
+      expect(
+        answer.compareDocumentPosition(trailing) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy()
+    })
+
+    it('omits the trailing action slot when the live turn proposed nothing', () => {
+      mockActions({ conversationItems: [{ kind: 'message', message: learnerMessage }] })
+      render(<Conversation surface='page' />)
+
+      expect(
+        screen.queryByRole('list', { name: 'Ações propostas nesta resposta' }),
       ).not.toBeInTheDocument()
     })
   })

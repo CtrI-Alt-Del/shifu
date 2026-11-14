@@ -1,4 +1,6 @@
+from shifu.intelligence.core.domain.entities import MentorActionProposal
 from shifu.intelligence.core.domain.structures import (
+    MentorActionProposalItem,
     MentorSessionDetail,
     MentorSessionSummaryState,
     MentorSummaryMarker,
@@ -21,6 +23,40 @@ def _trigger_message_id(
     if attempt is None or attempt.session_id != session_id:
         return None
     return attempt.learner_message_id
+
+
+def mentor_action_item(proposal: MentorActionProposal) -> MentorActionProposalItem:
+    """Read projection of a proposal with its current state."""
+    return MentorActionProposalItem(
+        id=proposal.id,
+        source_message_id=proposal.learner_message_id,
+        kind=proposal.kind,
+        skill_id=proposal.skill_id,
+        skill_name=proposal.skill_name,
+        goal_id=proposal.goal_id,
+        goal_title=proposal.goal_title,
+        skill_experience_id=proposal.skill_experience_id,
+        candidate_goals=proposal.candidate_goals,
+        justification=proposal.justification,
+        status=proposal.status,
+        outcome=proposal.outcome,
+        rejection_reason=proposal.rejection_reason,
+        resolved_goal_id=proposal.resolved_goal_id,
+        resolved_skill_experience_id=proposal.resolved_skill_experience_id,
+        created_at=proposal.created_at,
+    )
+
+
+def load_mentor_action_items(
+    repositories: IntelligenceDatabaseRepositories, account_id: str, session_id: str
+) -> tuple[MentorActionProposalItem, ...]:
+    """Every proposal of the conversation, oldest first, with its current state."""
+    return tuple(
+        mentor_action_item(proposal)
+        for proposal in repositories.mentor_action_proposals.find_many_by_session(
+            account_id, session_id
+        )
+    )
 
 
 def load_mentor_summary_state(
@@ -80,4 +116,5 @@ def load_mentor_detail(
             memory_items=repositories.learner_memory_changes.find_items_by_session(
                 account_id, session_id
             ),
+            action_items=load_mentor_action_items(repositories, account_id, session_id),
         )

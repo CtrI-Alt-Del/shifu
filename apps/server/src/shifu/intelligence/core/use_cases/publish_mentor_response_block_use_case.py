@@ -1,15 +1,23 @@
 from dataclasses import asdict, replace
 
-from shifu.intelligence.core.domain.entities import MentorResponseAttempt
+from shifu.intelligence.core.domain.entities import (
+    MentorActionProposal,
+    MentorResponseAttempt,
+)
 from shifu.intelligence.core.domain.enums import (
     MentorResponseEventKind,
     MentorResponseStatus,
 )
 from shifu.intelligence.core.domain.structures import (
+    MentorActionProposalDraft,
     MentorResponseBlock,
     MentorResponseSnapshot,
 )
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.interfaces import (
+    IntelligenceDatabase,
+    IntelligenceDatabaseRepositories,
+)
+from shifu.intelligence.core.use_cases.mentor_detail import mentor_action_item
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
     response_event,
@@ -18,6 +26,7 @@ from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures import MentorContextSnapshot
 from shifu.shared.core.interfaces import (
     ClockProvider,
+    IdentifierProvider,
     MentorAccessProvider,
     MentorContextProvider,
 )
@@ -32,11 +41,13 @@ class PublishMentorResponseBlockUseCase:
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
         context_provider: MentorContextProvider,
+        identifier_provider: IdentifierProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
         self._access_provider = access_provider
         self._context_provider = context_provider
+        self._identifier_provider = identifier_provider
 
     def execute(
         self,
@@ -44,6 +55,7 @@ class PublishMentorResponseBlockUseCase:
         execution_owner: str,
         block: MentorResponseBlock,
         expected_context: MentorContextSnapshot,
+        action_proposal: MentorActionProposalDraft | None = None,
     ) -> bool:
         attempt = self._load_attempt(attempt_id)
         if attempt is None:
@@ -99,7 +111,37 @@ class PublishMentorResponseBlockUseCase:
                 MentorResponseStatus.PROCESSING,
             )
             repositories.mentor_response_events.append(replace(event, block=block))
+            if action_proposal is not None:
+                self._publish_action(repositories, attempt, action_proposal)
             return True
+
+    def _publish_action(
+        self,
+        repositories: IntelligenceDatabaseRepositories,
+        attempt: MentorResponseAttempt,
+        draft: MentorActionProposalDraft,
+    ) -> None:
+        """Persist the proposal and its `action` event beside the block, in one transaction."""
+        proposal = MentorActionProposal.create(
+            id=self._identifier_provider.generate(),
+            account_id=attempt.account_id,
+            session_id=attempt.session_id,
+            learner_message_id=attempt.learner_message_id,
+            attempt_id=attempt.id,
+            draft=draft,
+            created_at=self._clock_provider.now(),
+        )
+        repositories.mentor_action_proposals.add(proposal)
+        event = response_event(
+            attempt,
+            self._clock_provider,
+            repositories.mentor_response_events.next_sequence(attempt.session_id),
+            MentorResponseEventKind.ACTION,
+            MentorResponseStatus.PROCESSING,
+        )
+        repositories.mentor_response_events.append(
+            replace(event, action_proposal=mentor_action_item(proposal))
+        )
 
     def _load_attempt(self, attempt_id: str) -> MentorResponseAttempt | None:
         with self._database.transaction() as repositories:

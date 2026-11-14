@@ -14,6 +14,29 @@ class SqlalchemyAccountActionTokensRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
+    def find_account_id_by_hash(self, token_hash: str) -> str | None:
+        return self._session.scalar(
+            select(AccountActionTokenModel.account_id).where(
+                AccountActionTokenModel.token_hash == token_hash,
+                AccountActionTokenModel.type
+                == AccountActionTokenType.PASSWORD_RECOVERY.value,
+            )
+        )
+
+    def find_account_id_by_pending_handle_hash(
+        self, pending_handle_hash: str
+    ) -> str | None:
+        return self._session.scalar(
+            select(AccountActionTokenModel.account_id)
+            .where(
+                AccountActionTokenModel.pending_handle_hash == pending_handle_hash,
+                AccountActionTokenModel.type
+                == AccountActionTokenType.PASSWORD_RECOVERY.value,
+            )
+            .order_by(AccountActionTokenModel.issued_at.desc())
+            .limit(1)
+        )
+
     def find_by_hash(self, token_hash: str) -> AccountActionToken | None:
         model = self._session.scalar(
             select(AccountActionTokenModel)

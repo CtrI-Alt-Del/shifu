@@ -16,7 +16,13 @@ locals {
     var.data_subnet_cidrs,
   )
 
-  api_discovery_name = "api.${aws_service_discovery_private_dns_namespace.staging.name}"
+  is_https_enabled = var.certificate_arn != null
+
+  public_origin = local.is_https_enabled ? "https://${var.hostname}" : "http://${aws_lb.staging.dns_name}"
+
+  app_listener_arn = local.is_https_enabled ? aws_lb_listener.https[0].arn : aws_lb_listener.http.arn
+
+  server_discovery_name = "server.${aws_service_discovery_private_dns_namespace.staging.name}"
 
   web_secret_keys = [
     "BETTER_AUTH_DATABASE_URL",
@@ -24,7 +30,7 @@ locals {
     "SHIFU_BFF_SHARED_SECRET",
   ]
 
-  api_required_secret_keys = [
+  server_required_secret_keys = [
     "DATABASE_URL",
     "AGENTOS_DATABASE_URL",
     "REDIS_URL",
@@ -37,10 +43,10 @@ locals {
     "DIAGNOSTIC_REVISION_HMAC_KEY",
   ]
 
-  api_secret_keys = var.openrouter_enabled ? concat(
-    local.api_required_secret_keys,
+  server_secret_keys = var.openrouter_enabled ? concat(
+    local.server_required_secret_keys,
     ["OPENROUTER_API_KEY"],
-  ) : local.api_required_secret_keys
+  ) : local.server_required_secret_keys
 }
 
 check "subnet_layout" {

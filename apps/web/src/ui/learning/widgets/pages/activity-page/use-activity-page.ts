@@ -1,10 +1,13 @@
+import type { ReactFastifyPracticeRunner } from '@/core/learning/react-fastify-practice-runner'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 
 import { AuthError } from '@/core/errors/auth-error'
 import { RestError } from '@/core/errors/rest-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import {
   COMPETENCY_DETAIL_ID_PATTERN,
   type ActivityDifficulty,
@@ -21,11 +24,12 @@ import type {
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
+import type { HtmlCssJsPracticeRunner } from '@/core/learning/html-css-js-practice-runner'
 import type { ReactQuestionDraftStore } from '@/core/learning/react-question-draft/react-question-draft-store'
 import { IndexedDbReactQuestionDraftStore } from '@/provision/learning/indexed-db-react-question-draft-store'
 import type { DiagnosticSubmissionItem } from '@/core/learning/goal-detail'
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
-import { AxiosRestClient } from '@/rest/axios/axios-rest-client'
+import { createServerRequestClient } from '@/rest/axios/server-request-client'
 import { LearningService } from '@/rest/services/learning-service'
 import { BetterAuthConfig } from '@/provision/auth/better-auth/better-auth-config'
 import { getBetterAuthProvider } from '@/provision/auth/better-auth/better-auth-provider'
@@ -56,7 +60,9 @@ export type ActivityRouteProps = {
   onUnsentAnswersChange: (hasUnsentAnswers: boolean) => void
   onSessionExpired: () => void
   runnerFactory?: () => CodePracticeRunner
+  reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  htmlCssJsRunnerFactory?: () => HtmlCssJsPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
 }
 
@@ -64,7 +70,9 @@ type InjectedActivityProps = {
   activity: ChoiceActivityDetail
   onSubmit: (submission: ChoiceSubmission) => Promise<ChoiceSubmissionResult>
   runnerFactory?: () => CodePracticeRunner
+  reactFastifyRunnerFactory?: () => ReactFastifyPracticeRunner
   reactRunnerFactory?: () => ReactPracticeRunner
+  htmlCssJsRunnerFactory?: () => HtmlCssJsPracticeRunner
   reactDraftStore?: ReactQuestionDraftStore
   onPreview?: (
     questionKey: string,
@@ -115,6 +123,7 @@ class MissingActivityError extends RestError {
 }
 
 export const getActivityAction = createServerFn({ method: 'GET' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((input: unknown): ValidatedInput => {
     if (!isRecord(input)) return { kind: 'invalid-request' }
     if (
@@ -137,17 +146,24 @@ export const getActivityAction = createServerFn({ method: 'GET' })
   .handler(
     async ({
       data,
+      context,
+    }: {
+      data: ValidatedInput
+      context: RequestTelemetryContext
     }): Promise<(ChoiceActivityDetail & { accountId: string }) | GetActivityFailure> => {
       if ('kind' in data) return data
 
       let authenticatedAccountId: string | undefined
       try {
-        const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
         if (!access) return { kind: 'unauthorized' }
         authenticatedAccountId = access.accountId
 
         const learningService = LearningService(
-          AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         )
         try {
           const activity = await learningService.getChoiceActivity(
@@ -221,6 +237,7 @@ export const getActivityAction = createServerFn({ method: 'GET' })
   )
 
 export const submitActivityAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -233,26 +250,40 @@ export const submitActivityAction = createServerFn({ method: 'POST' })
       return { ids: input, submission: input.submission }
     },
   )
-  .handler(async ({ data }): Promise<ChoiceSubmissionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | { ids: ActivityRouteIds; submission: ChoiceSubmission }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<ChoiceSubmissionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).submitChoiceActivity(
-        access.accessToken,
-        data.ids,
-        data.submission,
-        data.ids.diagnosticRunId,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).submitChoiceActivity(
+          access.accessToken,
+          data.ids,
+          data.submission,
+          data.ids.diagnosticRunId,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export const submitDiagnosticAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -302,14 +333,28 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   .handler(
     async ({
       data,
+      context,
+    }: {
+      data:
+        | {
+            goalId: string
+            skillId: string
+            diagnosticRunId: string
+            submission: { submissionKey: string; items: DiagnosticSubmissionItem[] }
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
     }): Promise<{ status: 'pending'; replayed: boolean } | ActionFailure> => {
       if ('kind' in data) return data
 
       try {
-        const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
         if (!access) return { kind: 'unauthorized' }
         return await LearningService(
-          AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
         ).submitDiagnostic(
           access.accessToken,
           data.goalId,
@@ -324,6 +369,7 @@ export const submitDiagnosticAction = createServerFn({ method: 'POST' })
   )
 
 export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator(
     (
       input: unknown,
@@ -358,25 +404,43 @@ export const previewActivityQuestionAction = createServerFn({ method: 'POST' })
       }
     },
   )
-  .handler(async ({ data }): Promise<PreliminaryQuestionResult | ActionFailure> => {
-    if ('kind' in data) return data
+  .handler(
+    async ({
+      data,
+      context,
+    }: {
+      data:
+        | {
+            ids: ActivityRouteIds
+            questionKey: string
+            activityRevision: string
+            answer: ActivityAnswer
+          }
+        | { kind: 'invalid-request' }
+      context: RequestTelemetryContext
+    }): Promise<PreliminaryQuestionResult | ActionFailure> => {
+      if ('kind' in data) return data
 
-    try {
-      const access = await getBetterAuthProvider().getCurrentAccess(getRequest())
-      if (!access) return { kind: 'unauthorized' }
-      return await LearningService(
-        AxiosRestClient(BetterAuthConfig().identityURL, { withCredentials: false }),
-      ).previewActivityQuestion(
-        access.accessToken,
-        data.ids,
-        data.questionKey,
-        data.activityRevision,
-        data.answer,
-      )
-    } catch (error) {
-      return actionFailure(error)
-    }
-  })
+      try {
+        const access = await getBetterAuthProvider().getCurrentAccess(
+          getRequest(),
+          context.requestId,
+        )
+        if (!access) return { kind: 'unauthorized' }
+        return await LearningService(
+          createServerRequestClient(context, { baseUrl: BetterAuthConfig().identityURL }),
+        ).previewActivityQuestion(
+          access.accessToken,
+          data.ids,
+          data.questionKey,
+          data.activityRevision,
+          data.answer,
+        )
+      } catch (error) {
+        return actionFailure(error)
+      }
+    },
+  )
 
 export function useActivityPage(props: ActivityPageProps) {
   const reactDraftStore = useMemo(
@@ -779,11 +843,17 @@ export function useActivityPage(props: ActivityPageProps) {
   function handleCodeFilesChange(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
-      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react') ||
+      (currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
+        currentQuestion.kind !== 'react_fastify') ||
       isSubmitting ||
       isSubmissionLocked ||
       isAssessing ||
-      (currentQuestion.kind === 'react' && Boolean(feedback || frozenAnswer))
+      ((currentQuestion.kind === 'react' ||
+        currentQuestion.kind === 'html_css_js' ||
+        currentQuestion.kind === 'react_fastify') &&
+        Boolean(feedback || frozenAnswer))
     )
       return
     const answer: CodeAnswer = {
@@ -796,7 +866,12 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
-    if (currentQuestion.kind === 'react') setIsReactAnswerValid(files.length > 0)
+    if (
+      currentQuestion.kind === 'react' ||
+      currentQuestion.kind === 'html_css_js' ||
+      currentQuestion.kind === 'react_fastify'
+    )
+      setIsReactAnswerValid(files.length > 0)
     setFeedback(null)
     setFrozenAnswer(null)
     setHasFeedbackError(false)
@@ -833,7 +908,10 @@ export function useActivityPage(props: ActivityPageProps) {
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
-      (currentQuestion.kind !== 'javascript_stdin' && currentQuestion.kind !== 'react')
+      (currentQuestion.kind !== 'javascript_stdin' &&
+        currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
+        currentQuestion.kind !== 'react_fastify')
     )
       return
 
@@ -854,6 +932,8 @@ export function useActivityPage(props: ActivityPageProps) {
         !reevaluate &&
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
+        currentQuestion.kind !== 'react_fastify' &&
         currentQuestion.kind !== 'translation') ||
       !activity.activityRevision
     )
@@ -906,8 +986,15 @@ export function useActivityPage(props: ActivityPageProps) {
       !activity ||
       (!activity.isDiagnostic && !activity.canSubmit) ||
       !isLastQuestion ||
-      (currentQuestion?.kind === 'react' && !isReactAnswerValid) ||
-      (currentQuestion?.kind === 'react' && !injected && !isOnlineAuthority) ||
+      ((currentQuestion?.kind === 'react' ||
+        currentQuestion?.kind === 'html_css_js' ||
+        currentQuestion?.kind === 'react_fastify') &&
+        !isReactAnswerValid) ||
+      ((currentQuestion?.kind === 'react' ||
+        currentQuestion?.kind === 'html_css_js' ||
+        currentQuestion?.kind === 'react_fastify') &&
+        !injected &&
+        !isOnlineAuthority) ||
       (!activity.isDiagnostic &&
         isMixedActivity &&
         (!feedback || feedback.status !== 'conclusive')) ||
@@ -1068,6 +1155,8 @@ export function useActivityPage(props: ActivityPageProps) {
       if (
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
+        currentQuestion.kind !== 'html_css_js' &&
+        currentQuestion.kind !== 'react_fastify' &&
         currentQuestion.kind !== 'translation' &&
         hasValidSelection
       ) {
@@ -1107,6 +1196,8 @@ export function useActivityPage(props: ActivityPageProps) {
     activity,
     runnerFactory: props.runnerFactory,
     reactRunnerFactory: props.reactRunnerFactory,
+    htmlCssJsRunnerFactory: props.htmlCssJsRunnerFactory,
+    reactFastifyRunnerFactory: props.reactFastifyRunnerFactory,
     reactDraftStore,
     accountId,
     isOnlineAuthority,
@@ -1121,10 +1212,13 @@ export function useActivityPage(props: ActivityPageProps) {
           (!injected && !activity.activityRevision)
           ? false
           : currentQuestion?.kind === 'javascript_stdin' ||
-              currentQuestion?.kind === 'react'
+              currentQuestion?.kind === 'react' ||
+              currentQuestion?.kind === 'react_fastify'
             ? hasDiagnosticAnswer
             : hasValidSelection
-        : currentQuestion?.kind === 'react'
+        : currentQuestion?.kind === 'react' ||
+            currentQuestion?.kind === 'html_css_js' ||
+            currentQuestion?.kind === 'react_fastify'
           ? isReactAnswerValid && (injected || isOnlineAuthority)
           : feedback !== null ||
             frozenAnswer !== null ||
@@ -1280,7 +1374,12 @@ function isLegacyChoiceAnswer(
 
 function isActivityAnswer(value: unknown, questionKey: string): value is ActivityAnswer {
   if (!isRecord(value) || value.questionKey !== questionKey) return false
-  if (value.kind === 'javascript_stdin' || value.kind === 'react') {
+  if (
+    value.kind === 'javascript_stdin' ||
+    value.kind === 'react' ||
+    value.kind === 'html_css_js' ||
+    value.kind === 'react_fastify'
+  ) {
     return (
       Array.isArray(value.files) &&
       value.files.every(

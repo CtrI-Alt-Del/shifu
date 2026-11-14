@@ -23,6 +23,7 @@ class MaterialFaker:
         title: str | None = None,
         content: str | None = None,
         material_type: MaterialType = MaterialType.THEORY,
+        concept_ids: tuple[str, ...] = (),
     ) -> Material:
         return Material(
             id=id or cls._id_provider.generate(),
@@ -30,6 +31,7 @@ class MaterialFaker:
             title=title or cls._faker.sentence(nb_words=5).rstrip('.'),
             content=content or cls._faker.paragraph(nb_sentences=3),
             material_type=material_type,
+            concept_ids=concept_ids,
         )
 
     @classmethod

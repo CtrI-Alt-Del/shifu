@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { useMutation } from '@tanstack/react-query'
 
 import { createServerFn } from '@tanstack/react-start'
+import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
 import { getMentorScopedService } from '@/provision/realtime/mentor-response-stream-server-provider'
 import type { CreateMentorSessionInput } from '@/rest/services/intelligence-service'
@@ -30,11 +31,13 @@ const INPUT = z
   .refine((input) => !input.attachmentIds?.length || Boolean(input.attachmentBatchId))
   .strict()
 export const createMentorSessionServer = createServerFn({ method: 'POST' })
+  .middleware([serverFunctionTelemetryMiddleware])
   .validator((data: unknown) => INPUT.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { service, accessToken } = await getMentorScopedService(
       getRequest(),
       data.accountEmail,
+      context,
     )
     const { accountEmail, ...input } = data
     void accountEmail

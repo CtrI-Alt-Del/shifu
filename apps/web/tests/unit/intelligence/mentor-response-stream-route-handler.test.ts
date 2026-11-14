@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { RestResponse } from '@/core/shared/responses/rest-response'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 
 const mocks = vi.hoisted(() => ({
   getCurrentAccess: vi.fn(),
@@ -22,8 +23,8 @@ vi.mock('@/rest/axios/axios-rest-client', () => ({
   AxiosRestClient: vi.fn(() => ({})),
 }))
 vi.mock('@/rest/fetch/fetch-rest-stream-client', () => ({
-  FetchRestStreamClient: (url: string) => {
-    mocks.fetchRestStreamClient(url)
+  FetchRestStreamClient: (url: string, context: RequestTelemetryContext) => {
+    mocks.fetchRestStreamClient(url, context)
     return { getStream: mocks.getStream }
   },
 }))
@@ -39,6 +40,7 @@ type RouteWithHandlers = {
         GET?: (context: {
           request: Request
           params: { sessionId: string }
+          context: RequestTelemetryContext
         }) => Promise<Response>
       }
     }
@@ -53,6 +55,11 @@ function registeredGetHandler() {
 }
 
 describe('Mentor response stream API route handler', () => {
+  const telemetryContext = {
+    requestId: '11111111-1111-4111-8111-111111111111',
+    telemetry: { emit: vi.fn() },
+  } satisfies RequestTelemetryContext
+
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.getCurrentAccess.mockResolvedValue({
@@ -80,10 +87,17 @@ describe('Mentor response stream API route handler', () => {
     const response = await registeredGetHandler()({
       request,
       params: { sessionId: SESSION_ID },
+      context: telemetryContext,
     })
 
-    expect(mocks.getCurrentAccess).toHaveBeenCalledWith(request)
-    expect(mocks.fetchRestStreamClient).toHaveBeenCalledWith('http://shifu.test')
+    expect(mocks.getCurrentAccess).toHaveBeenCalledWith(
+      request,
+      telemetryContext.requestId,
+    )
+    expect(mocks.fetchRestStreamClient).toHaveBeenCalledWith(
+      'http://shifu.test',
+      telemetryContext,
+    )
     expect(mocks.getStream).toHaveBeenCalledOnce()
     const [path, options] = mocks.getStream.mock.calls[0] ?? []
     expect(path).toBe(`/intelligence/mentor-sessions/${SESSION_ID}/events`)
@@ -116,6 +130,7 @@ describe('Mentor response stream API route handler', () => {
     const response = await registeredGetHandler()({
       request,
       params: { sessionId: SESSION_ID },
+      context: telemetryContext,
     })
 
     expect(response.status).toBe(HTTP_STATUS_CODE.serviceUnavailable)

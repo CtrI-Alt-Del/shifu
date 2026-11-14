@@ -9,6 +9,10 @@ from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.gamification.core.use_cases import CreateGamificationProfileUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 from shifu.shared.core.interfaces import ClockProvider
 
 
@@ -68,11 +72,18 @@ class CreateProfileOnAccountActivatedJob:
         inngest: Inngest,
         use_case: CreateGamificationProfileUseCase,
         clock_provider: ClockProvider,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=CreateProfileOnAccountActivatedJob.FUNCTION_ID,
             trigger=TriggerEvent(event=CreateProfileOnAccountActivatedJob._EVENT_NAME),
             retries=3,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=CreateProfileOnAccountActivatedJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))

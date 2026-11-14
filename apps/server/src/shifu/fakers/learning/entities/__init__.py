@@ -7,3 +7,6 @@ from .competency_progress_faker import (
 )
 from .goal_faker import GoalFaker as GoalFaker
 from .skill_experience_faker import SkillExperienceFaker as SkillExperienceFaker
+from .mentor_action_receipt_faker import (
+    MentorActionReceiptFaker as MentorActionReceiptFaker,
+)

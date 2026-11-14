@@ -7,6 +7,7 @@ from shifu.learning.messaging.inngest.learning_inngest_messaging import (
     LearningInngestMessaging,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 
 
 def test_register_jobs_returns_the_learning_evaluation_handler() -> None:
@@ -18,6 +19,7 @@ def test_register_jobs_returns_the_learning_evaluation_handler() -> None:
             CurriculumContentProvider,
             instance=True,
         ),
+        telemetry_provider=create_autospec(TelemetryProvider, instance=True),
     )
 
     assert len(functions) == 1

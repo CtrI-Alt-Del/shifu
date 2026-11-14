@@ -1,6 +1,9 @@
 from .start_planning_controller import (
     StartPlanningController as StartPlanningController,
 )
+from .confirm_planning_controller import (
+    ConfirmPlanningController as ConfirmPlanningController,
+)
 from .create_mentor_session_controller import (
     CreateMentorSessionController as CreateMentorSessionController,
 )

@@ -24,7 +24,30 @@ const mentorProxyServers = mentorProxyURL
       },
     ]
   : []
-const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --port ${port}${mentorProxyURL ? ' --strictPort' : ''}`
+const defaultAccountProxyPort = String(
+  Number(identityPort) + (mentorProxyPort === String(Number(identityPort) + 1) ? 2 : 1),
+)
+const accountProxyPort =
+  process.env.SHIFU_IDENTITY_ACCOUNT_TEST_PROXY_PORT ??
+  process.env.SHIFU_ACCOUNT_TEST_PROXY_PORT ??
+  defaultAccountProxyPort
+process.env.SHIFU_ACCOUNT_TEST_PROXY_PORT = accountProxyPort
+const accountProxyURL = `http://127.0.0.1:${accountProxyPort}`
+if (accountProxyPort === mentorProxyPort)
+  throw new Error('Controlled upstreams require distinct loopback ports')
+const accountProxyServers = [
+  {
+    command: 'exec node tests/support/identity-account-upstream.mjs',
+    env: {
+      SHIFU_ACCOUNT_TEST_PROXY_PORT: accountProxyPort,
+      SHIFU_ACCOUNT_TEST_IDENTITY_ORIGIN: mentorProxyURL ?? identityURL,
+    },
+    url: `${accountProxyURL}/__account-control/health`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 30_000,
+  },
+]
+const webServerCommand = `exec ./node_modules/.bin/vite dev --host 0.0.0.0 --port ${port} --strictPort`
 
 export default defineConfig({
   testDir: './tests',
@@ -60,14 +83,16 @@ export default defineConfig({
       timeout: 60_000,
     },
     ...mentorProxyServers,
+    ...accountProxyServers,
     {
       command: webServerCommand,
       env: {
-        SHIFU_IDENTITY_API_URL: mentorProxyURL ?? identityURL,
+        CI: '1',
+        SHIFU_IDENTITY_API_URL: accountProxyURL,
         SHIFU_TRUSTED_PROXY_IPS: '127.0.0.1,::1',
       },
       url: `${baseURL}/login/`,
-      reuseExistingServer: mentorProxyURL ? false : !process.env.CI,
+      reuseExistingServer: false,
       timeout: 60_000,
     },
   ],

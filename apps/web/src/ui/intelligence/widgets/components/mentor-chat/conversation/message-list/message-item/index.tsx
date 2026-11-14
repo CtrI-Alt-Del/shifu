@@ -1,5 +1,7 @@
 import type { MentorResponseSnapshot } from '@/core/intelligence/mentor-response'
 import { motion } from 'motion/react'
+
+import { ENTRANCE_MESSAGE } from '@/constants/motion-variants'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
 import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -7,6 +9,7 @@ import { AnswerBlock } from './answer-block'
 import { useMessageItem } from './use-message-item'
 import { MentorAttachmentPreview } from '@/ui/intelligence/widgets/components/mentor-attachment-preview'
 import { MentorAttachmentTypeIcon } from '@/ui/intelligence/widgets/components/mentor-attachment-type-icon'
+import { MentorMascot } from '@/ui/intelligence/widgets/components/mentor-mascot'
 import { Sources } from './sources'
 
 export type MessageItemProps = {
@@ -23,8 +26,6 @@ export const MessageItem = ({
     blocks,
     attachments,
     handleOpenAttachment,
-    shouldAnimateEntrance,
-    shouldReduceMotion,
     copyAccessibleLabel,
     copyContent,
     copyError,
@@ -44,19 +45,25 @@ export const MessageItem = ({
       data-message-id={message.id}
       id={`mentor-message-${message.id}`}
       tabIndex={-1}
-      initial={
-        shouldAnimateEntrance && !shouldReduceMotion ? { opacity: 0.6, y: 6 } : false
-      }
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: shouldReduceMotion ? 0 : 0.5, ease: [0.16, 1, 0.3, 1] }}
+      custom={isLearnerMessage ? 1 : -1}
+      variants={ENTRANCE_MESSAGE}
       className={`min-w-0 max-w-[88%] break-words px-4 py-3 ${surface === 'fab' ? 'rounded-xl text-sm' : 'rounded-2xl sm:max-w-[560px]'} ${isLearnerMessage ? 'ml-auto bg-muted text-foreground' : `border border-border text-foreground ${surface === 'fab' ? 'bg-muted' : 'bg-card'}`}`}
     >
       {speakerLabel ? (
-        <p
-          className={`mb-2 text-xs font-semibold ${surface === 'fab' ? 'font-mono text-jade-text' : ''}`}
-        >
-          {speakerLabel}
-        </p>
+        <div className='mb-2 flex items-center gap-2'>
+          {isMentorMessage ? (
+            // Greets with the live answer; past answers show the settled mascot.
+            <MentorMascot
+              className={`shrink-0 ${surface === 'fab' ? 'size-6' : 'size-7'}`}
+              isAnimated={hasResponse}
+            />
+          ) : null}
+          <p
+            className={`text-xs font-semibold ${surface === 'fab' ? 'font-mono text-jade-text' : ''}`}
+          >
+            {speakerLabel}
+          </p>
+        </div>
       ) : null}
       {hasResponse ? (
         blocks.map((block) => (

@@ -83,9 +83,14 @@ class MentorReviewerAgent(MentorAgent):
                 ou recusa injustificada. Avalie somente o foco e a cobertura da resposta;
                 não rejeite este critério por erro factual, avaliado em fact_fidelity.
                 Não exija respostas a perguntas anteriores ou partes de outros blocos.
+                O Mentor responde sempre em português do Brasil: não exija outro
+                idioma, mesmo se pedido, e rejeite resposta em outro idioma.
                 Exemplos genéricos de código são permitidos. Sem request.attachment_context,
                 uma orientação breve e focada em aprendizagem a um pedido sem relação com
                 aprendizagem, explicando o que o Mentor pode ajudar, é aderente.
+                Um tema listado em request.curriculum_topics é uma Habilidade do
+                Currículo e, portanto, assunto de aprendizagem: rejeite uma recusa
+                ou um redirecionamento que não o explique.
                 fact_fidelity: orientação educacional geral pode usar conhecimento correto.
                 Quando candidate.content atribuir uma afirmação ao anexo ou à página,
                 compare-a com o conteúdo dos chunks correspondentes. Rejeite a afirmação

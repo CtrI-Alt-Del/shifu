@@ -30,6 +30,12 @@ vi.mock('@xyflow/react', () => ({
   ReactFlow: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
+// Entrances settle at once, so assertions see the final state; the shared
+// MotionEntrance owns its animated cases.
+vi.mock('@/ui/shared/hooks/use-reduced-motion-preference', () => ({
+  useReducedMotionPreference: vi.fn(() => ({ prefersReducedMotion: true })),
+}))
+
 vi.mock('../use-goal-detail-page', () => ({ useGoalDetailPage: vi.fn() }))
 
 const useGoalDetailPageMock = vi.mocked(useGoalDetailPage)

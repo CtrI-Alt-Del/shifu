@@ -32,9 +32,14 @@ dependencies = [
     "opentelemetry-sdk>=1.45.1",
     "langfuse>=3,<4",
     "scikit-learn>=1.9.1",
+    "huggingface-hub>=2.2.0,<3",
 ]
 
 [dependency-groups]
+# Installed in the staging image, because the seed builds its sample data with Faker.
+seed = [
+    "faker>=40.39.0",
+]
 dev = [
     "basedpyright>=1.38.2",
     "coverage>=7.16.2",
@@ -76,14 +81,23 @@ shell = "if [ -f .env.local ]; then uv run --env-file .env.local alembic current
 [tool.poe.tasks."db:seed"]
 cmd = "uv run --env-file .env.local python -m shifu.shared.database.seed"
 
+[tool.poe.tasks."db:index:planning"]
+cmd = "uv run --env-file .env.local python -m shifu.planning_indexes"
+
+[tool.poe.tasks."db:index:mentor"]
+cmd = "uv run --env-file .env.local python -m shifu.mentor_indexes"
+
+[tool.poe.tasks."planner:word-vectors"]
+cmd = "uv run python -m shifu.planning_word_vectors"
+
 [tool.poe.tasks.test]
 cmd = "pytest -s -x -vv"
 
 [tool.poe.tasks."test:unit"]
-shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
+shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
 
 [tool.poe.tasks."test:integration"]
-shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No server integration tests found'; fi"
+shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' -o -path 'tests/*/rest/handlers/test_*.py' -o -path 'tests/intelligence/preparation/test_prepare_planning_indexes.py' -o -path 'tests/intelligence/capabilities/test_planning_capabilities.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' -o -path 'tests/*/rest/handlers/test_*.py' -o -path 'tests/intelligence/preparation/test_prepare_planning_indexes.py' -o -path 'tests/intelligence/capabilities/test_planning_capabilities.py' \\) -print0 | xargs -0 pytest; else echo 'No server integration tests found'; fi"
 
 [tool.poe.tasks."test:jobs"]
 cmd = "pytest tests/messaging/inngest/jobs"

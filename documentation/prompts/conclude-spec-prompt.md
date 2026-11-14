@@ -100,8 +100,8 @@ git log -10 --format='%h %s'
 
 Classify exact delivery paths, required factual documentation, operational ledger
 changes and unrelated work. Include required delivery documentation in ordinary
-commits; preserve unrelated changes and explicitly exclude them. Never inspect
-`.pen` bytes with filesystem tools.
+commits; preserve unrelated changes and explicitly exclude them. Read the
+Penpot file only through the Penpot MCP.
 
 For every selected criterion, confirm current implementation satisfies the Spec
 and its concrete checker. Passing tests alone do not establish complete contract
@@ -143,6 +143,12 @@ Negative, loading, empty, error, recovery and unusual outcomes belong in automat
 tests. Do not add manual scenarios or captures during closure without an affected
 contract or concrete correction that requires them. Code and visual review run
 in parallel on the same candidate; no third serial reviewer is required.
+
+For design-backed UI, confirm that recorded visual comparisons used fresh
+Penpot MCP exports of the Penpot pages, boards and components
+named in the Design Contract. Feature-local saved design bundles are historical
+records. Reuse current accepted comparisons; closure alone does not require new
+exports.
 
 ## Verification ownership and failure loop
 

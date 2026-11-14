@@ -5,6 +5,16 @@ from shifu.identity.core.domain.enums import AccountActionTokenType
 
 
 class AccountActionTokensRepository(Protocol):
+    def find_account_id_by_hash(self, token_hash: str) -> str | None:
+        """Locate a PASSWORD_RECOVERY owner without locking any row."""
+        ...
+
+    def find_account_id_by_pending_handle_hash(
+        self, pending_handle_hash: str
+    ) -> str | None:
+        """Locate a PASSWORD_RECOVERY handle owner without locking any row."""
+        ...
+
     def find_by_hash(self, token_hash: str) -> AccountActionToken | None:
         """Find and lock a token by its persisted hash in the caller transaction."""
         ...

@@ -1,10 +1,11 @@
 import { Link } from '@tanstack/react-router'
+import './goal-skill-add-page.css'
 
 export type GoalSkillAddPageProps = { goalId: string }
 
 export const GoalSkillAddPage = ({ goalId }: GoalSkillAddPageProps) => {
   return (
-    <section className='rounded-lg border border-border bg-card p-8 text-center'>
+    <section className='goal-skill-add-page rounded-lg border border-border bg-card p-8 text-center'>
       <h1 className='font-serif text-3xl'>Adicionar Habilidade</h1>
       <p className='mx-auto mt-3 max-w-xl leading-7 text-muted-foreground'>
         Escolha uma Habilidade do currículo para incluí-la neste Objetivo.

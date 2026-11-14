@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from tests.fixtures.redis_fixture import RedisFixture
 
 pytest_plugins = (
+    'tests.fixtures.account_security_fixture',
     'tests.fixtures.inngest_fixture',
     'tests.fixtures.intelligence_fixture',
     'tests.fixtures.learning_fixture',
@@ -32,7 +33,7 @@ pytest_plugins = (
 
 
 @pytest.fixture(autouse=True)
-def _reset_rate_limit_state() -> Generator[None]:
+def _reset_rate_limit_state(redis_fixture: RedisFixture) -> Generator[None]:
     """Every REST test shares one client IP against one Redis instance, so the
     token bucket from `RateLimitMiddleware` persists across tests unless it is
     cleared; without this, tests later in the run see 429s that have nothing

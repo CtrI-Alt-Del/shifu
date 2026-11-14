@@ -97,6 +97,8 @@ export function useMemoriesPage() {
       to: ROUTES.intelligenceMemories,
       search: { q, category, view, memory: selectedMemoryId, ...patch },
       replace: true,
+      // Only the search changes: selecting or filtering keeps the reader's place.
+      resetScroll: false,
     })
   }
 

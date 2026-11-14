@@ -1,5 +1,6 @@
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AppError } from '@/core/errors/app-error'
+import type { RequestTelemetryContext } from '@/core/shared/interfaces/request-telemetry-context'
 import { RestError } from '@/core/errors/rest-error'
 import { getMentorScopedService } from '@/provision/realtime/mentor-response-stream-server-provider'
 
@@ -31,6 +32,7 @@ export const MentorAttachmentServerProvider = () => {
   async function handleMentorAttachmentUpload(
     request: Request,
     batchId: string,
+    context?: RequestTelemetryContext,
   ): Promise<Response> {
     if (!ULID_PATTERN.test(batchId))
       return jsonFailure(HTTP_STATUS_CODE.unprocessableEntity, {
@@ -128,7 +130,11 @@ export const MentorAttachmentServerProvider = () => {
       })
 
     try {
-      const { accessToken, service } = await getMentorScopedService(request)
+      const { accessToken, service } = await getMentorScopedService(
+        request,
+        undefined,
+        context,
+      )
       const normalizedFile =
         file.type.toLowerCase() === mediaType
           ? file
@@ -153,6 +159,7 @@ export const MentorAttachmentServerProvider = () => {
     request: Request,
     sessionId: string,
     attachmentId: string,
+    context?: RequestTelemetryContext,
   ): Promise<Response> {
     const headers = { ...RESPONSE_HEADERS }
     if (!ULID_PATTERN.test(sessionId) || !ULID_PATTERN.test(attachmentId))
@@ -171,7 +178,11 @@ export const MentorAttachmentServerProvider = () => {
     const preview = rawPreview === 'true'
 
     try {
-      const { accessToken, service } = await getMentorScopedService(request)
+      const { accessToken, service } = await getMentorScopedService(
+        request,
+        undefined,
+        context,
+      )
       const result = await service.readMentorAttachmentFile(
         accessToken,
         sessionId,

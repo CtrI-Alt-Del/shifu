@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { AccountPage } from '@/ui/identity/widgets/pages/account-page'
-import { requireAuthMiddleware } from '@/middlewares/require-auth-middleware'
+import { ROUTES } from '@/constants/routes'
 
 export const Route = createFileRoute('/account/')({
-  beforeLoad: () => requireAuthMiddleware(),
-  component: AccountPage,
+  beforeLoad: () => {
+    throw redirect({ to: ROUTES.accountProfile, replace: true })
+  },
 })

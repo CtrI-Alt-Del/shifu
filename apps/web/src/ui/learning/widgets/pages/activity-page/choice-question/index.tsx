@@ -1,3 +1,6 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_RISE } from '@/constants/motion-variants'
 import { Checkbox } from '@/ui/shadcn/checkbox'
 import { RadioGroup, RadioGroupItem } from '@/ui/shadcn/radio-group'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
@@ -34,9 +37,11 @@ export const ChoiceQuestion = ({
         totalQuestions={totalQuestions}
         showQuestionProgress={!isDiagnostic}
       />
-      <div className='choice-question-prompt'>
+      {/* The prompt and options rise in on every question; the page entrance
+        staggers them on the first one. */}
+      <motion.div variants={ENTRANCE_RISE}>
         <QuestionPrompt id={questionLabelId} prompt={question.prompt} />
-      </div>
+      </motion.div>
 
       {question.kind === 'single_choice' ? (
         <RadioGroup
@@ -48,13 +53,14 @@ export const ChoiceQuestion = ({
           value={selectedOptionKeys[0] ?? ''}
         >
           {question.options.map((option) => (
-            <RadioGroupItem
-              className='choice-question-option'
-              key={option.key}
-              disabled={disabled}
-              label={option.text}
-              value={option.key}
-            />
+            <motion.div key={option.key} variants={ENTRANCE_RISE}>
+              <RadioGroupItem
+                className='choice-question-option'
+                disabled={disabled}
+                label={option.text}
+                value={option.key}
+              />
+            </motion.div>
           ))}
         </RadioGroup>
       ) : (
@@ -63,14 +69,15 @@ export const ChoiceQuestion = ({
           className='choice-question-options space-y-2'
         >
           {question.options.map((option) => (
-            <Checkbox
-              className='choice-question-option'
-              key={option.key}
-              checked={selectedOptionKeys.includes(option.key)}
-              disabled={disabled}
-              label={option.text}
-              onCheckedChange={() => onToggleOption(option.key)}
-            />
+            <motion.div key={option.key} variants={ENTRANCE_RISE}>
+              <Checkbox
+                className='choice-question-option'
+                checked={selectedOptionKeys.includes(option.key)}
+                disabled={disabled}
+                label={option.text}
+                onCheckedChange={() => onToggleOption(option.key)}
+              />
+            </motion.div>
           ))}
         </fieldset>
       )}

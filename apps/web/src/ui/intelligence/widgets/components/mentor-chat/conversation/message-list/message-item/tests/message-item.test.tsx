@@ -1,12 +1,36 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { ROUTES } from '@/constants/routes'
 
 import type { MentorAttachment } from '@/core/intelligence/mentor-attachment'
 import { MessageItem } from '..'
 import { useMessageItem } from '../use-message-item'
+import { useMentorMascot } from '@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot'
 
 vi.mock('../use-message-item', () => ({ useMessageItem: vi.fn() }))
+vi.mock('@/ui/intelligence/widgets/components/mentor-mascot/use-mentor-mascot', () => ({
+  useMentorMascot: vi.fn(),
+}))
 const useMessageItemMock = vi.mocked(useMessageItem)
+const useMentorMascotMock = vi.mocked(useMentorMascot)
+const mentorMessage = {
+  id: '01J7T8AC91Z5K8M4JQ8C2D6F0D',
+  sessionId: 'session',
+  role: 'mentor' as const,
+  content: 'Separe pequenos blocos de estudo.',
+  createdAt: '2026-10-14T12:01:00Z',
+  inReplyToMessageId: null,
+  attachments: [],
+}
 const handleOpenAttachment = vi.fn()
 const handleCopyMessage = vi.fn()
 const attachment: MentorAttachment = {
@@ -27,8 +51,6 @@ const makeHookValue = (
   attachments: [],
   visibleLength: {},
   handleOpenAttachment,
-  shouldAnimateEntrance: false,
-  shouldReduceMotion: true,
   copyAccessibleLabel: 'Copiar mensagem',
   copyContent: 'Resposta do Mentor',
   copyError: false,
@@ -44,12 +66,80 @@ const makeHookValue = (
   ...overrides,
 })
 
+function leafRoute(router: { state: { matches: unknown[] } }) {
+  const { routeId, params } = router.state.matches.at(-1) as {
+    routeId: string
+    params: Record<string, string>
+  }
+  return { routeId, params }
+}
+
 describe('MessageItem', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useMessageItemMock.mockReturnValue(makeHookValue())
+    useMentorMascotMock.mockReturnValue({
+      containerRef: { current: null },
+      hasFailed: false,
+    })
   })
   afterEach(cleanup)
+
+  it('greets with the mascot on the live answer and shows it settled on past answers', () => {
+    useMessageItemMock.mockReturnValue(makeHookValue({ hasResponse: true }))
+    const { rerender } = render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).toHaveBeenLastCalledWith({ isAnimated: true })
+    expect(screen.getByText('Mentor').previousElementSibling).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+
+    useMessageItemMock.mockReturnValue(makeHookValue({ hasResponse: false }))
+    rerender(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).toHaveBeenLastCalledWith({ isAnimated: false })
+    expect(screen.getByText('Mentor').previousElementSibling).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+  })
+
+  it('keeps the Mentor label without a mascot when the animation cannot load', () => {
+    useMentorMascotMock.mockReturnValue({
+      containerRef: { current: null },
+      hasFailed: true,
+    })
+    render(
+      <ol>
+        <MessageItem message={mentorMessage} />
+      </ol>,
+    )
+    expect(screen.getByText('Mentor')).toBeVisible()
+    expect(screen.getByText('Mentor').previousElementSibling).toBeNull()
+  })
+
+  it('shows no mascot on learner messages', () => {
+    useMessageItemMock.mockReturnValue(
+      makeHookValue({
+        isLearnerMessage: true,
+        isMentorMessage: false,
+        speakerLabel: null,
+      }),
+    )
+    render(
+      <ol>
+        <MessageItem message={{ ...mentorMessage, role: 'learner' }} />
+      </ol>,
+    )
+    expect(useMentorMascotMock).not.toHaveBeenCalled()
+  })
 
   it('exposes a stable message id and a programmatically focusable root for reveal', () => {
     useMessageItemMock.mockReturnValue(
@@ -282,8 +372,6 @@ describe('MessageItem', () => {
         isLearnerMessage: true,
         isMentorMessage: false,
         speakerLabel: null,
-        shouldAnimateEntrance: true,
-        shouldReduceMotion: false,
       }),
     )
 
@@ -316,5 +404,104 @@ describe('MessageItem', () => {
     expect(
       screen.queryByRole('img', { name: 'Prévia de falhou.png' }),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('MessageItem internal answer links', () => {
+  const GOAL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F0D'
+  const SKILL_ID = '01J7T8AC91Z5K8M4JQ8C2D6F0E'
+  const content = [
+    `[criar um Objetivo](${ROUTES.learningGoalsNew})`,
+    `[Ver Objetivo](/learning/goals/${GOAL_ID})`,
+    `[Ver Habilidade](/learning/goals/${GOAL_ID}/skills/${SKILL_ID})`,
+    '[Página inventada](/learning/inventada)',
+    '[Documentação](https://example.com/ajuda)',
+  ].join(' · ')
+
+  async function renderAnswer() {
+    useMessageItemMock.mockReturnValue(makeHookValue())
+    const root = createRootRoute({
+      component: () => (
+        <>
+          <ol>
+            <MessageItem
+              message={{
+                id: 'mentor',
+                sessionId: 'session',
+                role: 'mentor',
+                content,
+                createdAt: '2026-10-14T12:00:00Z',
+                inReplyToMessageId: 'learner',
+                attachments: [],
+              }}
+            />
+          </ol>
+          <Outlet />
+        </>
+      ),
+    })
+    const destinations = [
+      ROUTES.learningGoalsNew,
+      ROUTES.learningGoal,
+      ROUTES.learningSkill,
+    ].map((path) =>
+      createRoute({
+        getParentRoute: () => root,
+        path,
+        component: () => <h1>{path}</h1>,
+      }),
+    )
+    const router = createRouter({
+      routeTree: root.addChildren(destinations),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+    render(<RouterProvider router={router} />)
+    await screen.findByRole('listitem')
+    return router
+  }
+
+  beforeEach(() => vi.clearAllMocks())
+  afterEach(cleanup)
+
+  it('renders the three internal destinations as router links with the route params', async () => {
+    const router = await renderAnswer()
+
+    expect(screen.getByRole('link', { name: 'criar um Objetivo' })).toHaveAttribute(
+      'href',
+      ROUTES.learningGoalsNew,
+    )
+    fireEvent.click(screen.getByRole('link', { name: 'Ver Objetivo' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/learning/goals/${GOAL_ID}`),
+    )
+    expect(leafRoute(router)).toEqual({
+      routeId: ROUTES.learningGoal,
+      params: { goalId: GOAL_ID },
+    })
+    fireEvent.click(screen.getByRole('link', { name: 'Ver Habilidade' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        `/learning/goals/${GOAL_ID}/skills/${SKILL_ID}`,
+      ),
+    )
+    expect(leafRoute(router)).toEqual({
+      routeId: ROUTES.learningSkill,
+      params: { goalId: GOAL_ID, skillId: SKILL_ID },
+    })
+  })
+
+  it('renders an unknown application path as plain text', async () => {
+    await renderAnswer()
+
+    expect(screen.getByText('Página inventada')).toBeVisible()
+    expect(screen.queryByRole('link', { name: 'Página inventada' })).toBeNull()
+  })
+
+  it('keeps an external link as a native anchor with a safe rel', async () => {
+    await renderAnswer()
+
+    const link = screen.getByRole('link', { name: 'Documentação' })
+    expect(link).toHaveAttribute('href', 'https://example.com/ajuda')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 })

@@ -1,4 +1,7 @@
 from datetime import UTC, datetime, timedelta
+from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
+    integrated_question,
+)
 from decimal import Decimal
 from unittest.mock import create_autospec
 
@@ -280,7 +283,10 @@ class TestGetChoiceAttemptUseCase:
         assert detail.questions[2].disclosed_correct_option_keys == ()
         assert detail.score == Decimal('33')
 
-    def test_should_preserve_react_kind_in_pending_and_completed_results(self) -> None:
+    @pytest.mark.parametrize('integrated', (False, True), ids=('react', 'integrated'))
+    def test_should_preserve_react_kind_in_pending_and_completed_results(
+        self, integrated: bool
+    ) -> None:
         original = snapshot()
         react_question = CurriculumReactQuestionSnapshot(
             key='q3',
@@ -315,12 +321,15 @@ class TestGetChoiceAttemptUseCase:
                 id='unknown', text='Inconclusive'
             ),
         )
+        code_question = (
+            integrated_question(react_question) if integrated else react_question
+        )
         grading_snapshot = CurriculumLearningActivitySnapshot(
             id=ACTIVITY_ID,
             competency_id=COMPETENCY_ID,
             difficulty='easy',
             title='React activity',
-            questions=(*original.questions[:2], react_question),
+            questions=(*original.questions[:2], code_question),
             parts=(
                 *original.parts[:2],
                 CurriculumCodeRubricPartSnapshot(
@@ -344,12 +353,21 @@ class TestGetChoiceAttemptUseCase:
                 CodeAnswer(
                     question_key='q3',
                     files=(
+                        *(
+                            (
+                                CodeSubmittedFile(
+                                    path='routes/api.js', content='saved api'
+                                ),
+                            )
+                            if integrated
+                            else ()
+                        ),
                         CodeSubmittedFile(path='src/App.jsx', content='updated'),
                         CodeSubmittedFile(
                             path='src/Badge.jsx', content='new component'
                         ),
                     ),
-                    kind='react',
+                    kind=code_question.kind,
                 ),
             ),
             submitted_at=NOW - timedelta(minutes=10),
@@ -366,7 +384,7 @@ class TestGetChoiceAttemptUseCase:
         )
         assert len(pending.questions) == 1
         assert isinstance(pending.questions[0], CodeResultDetail)
-        assert pending.questions[0].kind == 'react'
+        assert pending.questions[0].kind == code_question.kind
         assert pending.status is ActivityEvaluationStatus.PENDING
         assert pending.retry_allowed is False
         assert pending.score is None
@@ -377,6 +395,7 @@ class TestGetChoiceAttemptUseCase:
         assert tuple(
             (file.path, file.content) for file in pending.questions[0].submitted_files
         ) == (
+            *((('routes/api.js', 'saved api'),) if integrated else ()),
             ('src/App.jsx', 'updated'),
             ('src/Badge.jsx', 'new component'),
             ('src/style.css', 'frozen stylesheet'),
@@ -412,7 +431,7 @@ class TestGetChoiceAttemptUseCase:
         )
         assert len(completed.questions) == 1
         assert isinstance(completed.questions[0], CodeResultDetail)
-        assert completed.questions[0].kind == 'react'
+        assert completed.questions[0].kind == code_question.kind
         assert completed.status is ActivityEvaluationStatus.COMPLETED
         assert completed.retry_allowed is False
         assert completed.score == Decimal(75)

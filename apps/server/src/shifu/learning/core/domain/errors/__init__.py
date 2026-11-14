@@ -19,6 +19,9 @@ from .evaluation_pending_error import EvaluationPendingError as EvaluationPendin
 from .evaluation_unavailable_error import (
     EvaluationUnavailableError as EvaluationUnavailableError,
 )
+from .goal_confirmation_conflict_error import (
+    GoalConfirmationConflictError as GoalConfirmationConflictError,
+)
 from .goal_not_found_error import GoalNotFoundError as GoalNotFoundError
 from .invalid_attempt_error import InvalidAttemptError as InvalidAttemptError
 from .invalid_foundation_selection_error import (
@@ -39,4 +42,7 @@ from .skill_experience_not_found_error import (
 )
 from .skill_experience_transition_error import (
     SkillExperienceTransitionError as SkillExperienceTransitionError,
+)
+from .mentor_action_conflict_error import (
+    MentorActionConflictError as MentorActionConflictError,
 )

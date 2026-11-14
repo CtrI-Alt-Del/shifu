@@ -19,3 +19,6 @@ from .password_recovery import (
     PasswordResetRequest as PasswordResetRequest,
     PasswordResetResult as PasswordResetResult,
 )
+
+from .account_profile_update import AccountProfileUpdate as AccountProfileUpdate
+from .password_change_request import PasswordChangeRequest as PasswordChangeRequest

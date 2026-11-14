@@ -4,6 +4,8 @@ from shifu.curriculum.core.domain.structures import (
     CodeRubricEvaluationPart,
     EvaluationRule,
     ReactQuestion,
+    HtmlCssJsQuestion,
+    ReactFastifyQuestion,
     TranslationQuestion,
     TranslationRubricEvaluationPart,
 )
@@ -11,6 +13,13 @@ from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
 from shifu.shared.core.domain.entities import entity
 from shifu.shared.core.domain.structures import NonEmptyText
+
+_CODE_QUESTION_TYPES = (
+    JavascriptStdinQuestion,
+    ReactQuestion,
+    HtmlCssJsQuestion,
+    ReactFastifyQuestion,
+)
 
 
 def _validate_ai_graded_rubric_pairing(
@@ -20,8 +29,7 @@ def _validate_ai_graded_rubric_pairing(
     part_keys: set[str],
 ) -> None:
     has_code_question = any(
-        isinstance(question, (JavascriptStdinQuestion, ReactQuestion))
-        for question in questions
+        isinstance(question, _CODE_QUESTION_TYPES) for question in questions
     )
     has_translation_question = any(
         isinstance(question, TranslationQuestion) for question in questions
@@ -38,7 +46,7 @@ def _validate_ai_graded_rubric_pairing(
     parts = {part.question_key: part for part in evaluation_rule.parts}
     for question in questions:
         part = parts[question.key]
-        if isinstance(question, (JavascriptStdinQuestion, ReactQuestion)) != isinstance(
+        if isinstance(question, _CODE_QUESTION_TYPES) != isinstance(
             part, CodeRubricEvaluationPart
         ):
             raise InvalidActivityError
@@ -82,7 +90,10 @@ class Activity:
         )
 
         if self.activity_type == ActivityType.DIAGNOSTIC and any(
-            isinstance(question, (ReactQuestion, TranslationQuestion))
+            isinstance(
+                question,
+                (ReactQuestion, HtmlCssJsQuestion, ReactFastifyQuestion, TranslationQuestion),
+            )
             for question in self.questions
         ):
             raise InvalidActivityError

@@ -28,6 +28,7 @@ class Response(BaseModel):
     response: MentorResponseSnapshot | None = None
     summary: MentorSessionSchemas.SummaryState
     memory_items: list[MentorSessionSchemas.MemoryItem] = []
+    action_items: list[MentorSessionSchemas.ActionItem] = []
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

@@ -40,19 +40,19 @@ Na atualização de fechamento informada pelo solicitante em 28/09/2026, **todas
 
 As 11 histórias abaixo constam como compromisso da Sprint no [Backlog da Sprint 1 — Shifu](https://joaogoliveiragarcia.atlassian.net/wiki/spaces/Shifu/pages/84017153/Backlog+da+Sprint+1+Shifu). Os critérios estão resumidos a partir das descrições do Jira. Os estados refletem a atualização de fechamento informada pelo solicitante em 28/09/2026.
 
-| Chave | User Story | Épico | SP | Estado no Jira (fechamento) |
+| Chave | User Story | Épico | SP |
 | --- | --- | --- | ---: | --- |
-| [SHIFU-31](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-31) | Cadastrar e confirmar conta | SHIFU-24 — Identidade e Conta | 5 | Concluído |
-| [SHIFU-32](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-32) | Entrar, sair e recuperar senha esquecida | SHIFU-24 — Identidade e Conta | 5 | Concluído |
-| [SHIFU-34](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-34) | Criar e editar Objetivos manualmente | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 | Concluído |
-| [SHIFU-35](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-35) | Adicionar e visualizar Habilidades independentes | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 | Concluído |
-| [SHIFU-40](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-40) | Definir sequência curricular por Competência | SHIFU-27 — Currículo Completo | 3 | Concluído |
-| [SHIFU-41](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-41) | Definir regras de avaliação e pesos | SHIFU-27 — Currículo Completo | 8 | Concluído |
-| [SHIFU-16](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-16) | Realizar diagnóstico inicial por Habilidade | SHIFU-7 — Onboarding e Diagnóstico Inicial | 8 | Concluído |
-| [SHIFU-18](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-18) | Receber jornada inicial orientada pelo diagnóstico | SHIFU-9 — Jornada Inicial Orientada pelo Diagnóstico | 5 | Concluído |
-| [SHIFU-19](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-19) | Realizar Atividades práticas | SHIFU-10 — Atividades e Práticas | 5 | Concluído |
-| [SHIFU-20](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-20) | Receber resultado oficial de uma Atividade | SHIFU-11 — Avaliação e Resultados | 8 | Concluído |
-| [SHIFU-21](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-21) | Visualizar progresso por Competência e Habilidade | SHIFU-12 — Progresso | 5 | Concluído |
+| [SHIFU-31](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-31) | Cadastrar e confirmar conta | SHIFU-24 — Identidade e Conta | 5 |
+| [SHIFU-32](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-32) | Entrar, sair e recuperar senha esquecida | SHIFU-24 — Identidade e Conta | 5 |
+| [SHIFU-34](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-34) | Criar e editar Objetivos manualmente | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 |
+| [SHIFU-35](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-35) | Adicionar e visualizar Habilidades independentes | SHIFU-25 — Objetivos e Múltiplas Habilidades | 3 |
+| [SHIFU-40](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-40) | Definir sequência curricular por Competência | SHIFU-27 — Currículo Completo | 3 |
+| [SHIFU-41](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-41) | Definir regras de avaliação e pesos | SHIFU-27 — Currículo Completo | 8 |
+| [SHIFU-16](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-16) | Realizar diagnóstico inicial por Habilidade | SHIFU-7 — Onboarding e Diagnóstico Inicial | 8 |
+| [SHIFU-18](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-18) | Receber jornada inicial orientada pelo diagnóstico | SHIFU-9 — Jornada Inicial Orientada pelo Diagnóstico | 5 |
+| [SHIFU-19](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-19) | Realizar Atividades práticas | SHIFU-10 — Atividades e Práticas | 5 |
+| [SHIFU-20](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-20) | Receber resultado oficial de uma Atividade | SHIFU-11 — Avaliação e Resultados | 8 |
+| [SHIFU-21](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-21) | Visualizar progresso por Competência e Habilidade | SHIFU-12 — Progresso | 5 |
 
 **Total comprometido:** 58 SP, alinhados à capacidade inicial de referência registrada para a Sprint. **Concluído no Jira:** 58 SP em 11 histórias.
 
@@ -138,29 +138,29 @@ As 11 histórias abaixo constam como compromisso da Sprint no [Backlog da Sprint
 
 O Jira contém 21 tasks técnicas/lógicas na Sprint. Todas estão concluídas conforme a atualização de fechamento informada pelo solicitante em 28/09/2026. SP não foi preenchido no campo de estimativa consultado para essas tasks.
 
-| Chave | Task | Responsável | Estado no Jira (fechamento) |
+| Chave | Task | Responsável |
 | --- | --- | --- | --- |
-| [SHIFU-56](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-56) | Criar documentação e arquivo de design do projeto | Thigz | Concluído |
-| [SHIFU-57](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-57) | Configurar workflows de CI para cada aplicação | gabrielsoliveira1606 | Concluído |
-| [SHIFU-58](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-58) | Implementar rate limiting Redis no Shifu Server | Kauan Fonseca | Concluído |
-| [SHIFU-59](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-59) | Criar documentação da arquitetura de infraestrutura | gabrielsoliveira1606 | Concluído |
-| [SHIFU-60](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60) | Implementar Home de Objetivos e entrada do Planejador | Kauan Fonseca | Concluído |
-| [SHIFU-61](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61) | Implementar cadastro e confirmação de conta full-stack | gabrielsoliveira1606 | Concluído |
-| [SHIFU-62](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-62) | Implementar login full-stack e criação de sessão | João Pedro Carvalho | Concluído |
-| [SHIFU-63](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63) | Implementar recuperação e redefinição de senha full-stack | gabrielsoliveira1606 | Concluído |
-| [SHIFU-64](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64) | Implementar página de Objetivo com Grafo e Lista | João Gabriel | Concluído |
-| [SHIFU-65](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-65) | Implementar adição full-stack de Habilidade com bases sugeridas | Kauan Fonseca | Concluído |
-| [SHIFU-66](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-66) | Implementar experiência full-stack da Habilidade em aprendizagem | Thigz | Concluído |
-| [SHIFU-67](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67) | Implementar remoção atômica de Objetivo e experiências | Kauan Fonseca | Concluído |
-| [SHIFU-68](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-68) | Implementar remoção full-stack de Habilidade do Objetivo | João Gabriel | Concluído |
-| [SHIFU-69](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-69) | Implementar menu da conta e logout da sessão atual | gabrielsoliveira1606 | Concluído |
-| [SHIFU-70](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-70) | Implementar layout principal compartilhado do web app | João Pedro Carvalho | Concluído |
-| [SHIFU-71](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-71) | Implementar objetos de domínio de Identity, Curriculum, Communication e Learning | João Pedro Carvalho | Concluído |
-| [SHIFU-72](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-72) | Implementar experiência full-stack de detalhe da Competência | João Pedro Carvalho | Concluído |
-| [SHIFU-73](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-73) | Implementar experiência full-stack de Material de apoio | Thigz | Concluído |
-| [SHIFU-74](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74) | Implementar questões de escolha única e múltipla seleção | João Pedro Carvalho | Concluído |
-| [SHIFU-75](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-75) | Implementar questões de código em Atividades de aprendizagem | João Pedro Carvalho | Concluído |
-| [SHIFU-77](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77) | Implementar diagnóstico inicial completo por Habilidade | João Pedro Carvalho | Concluído |
+| [SHIFU-56](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-56) | Criar documentação e arquivo de design do projeto | Thigz |
+| [SHIFU-57](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-57) | Configurar workflows de CI para cada aplicação | gabrielsoliveira1606 |
+| [SHIFU-58](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-58) | Implementar rate limiting Redis no Shifu Server | Kauan Fonseca |
+| [SHIFU-59](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-59) | Criar documentação da arquitetura de infraestrutura | gabrielsoliveira1606 |
+| [SHIFU-60](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-60) | Implementar Home de Objetivos e entrada do Planejador | Kauan Fonseca |
+| [SHIFU-61](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-61) | Implementar cadastro e confirmação de conta full-stack | gabrielsoliveira1606 |
+| [SHIFU-62](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-62) | Implementar login full-stack e criação de sessão | João Pedro Carvalho |
+| [SHIFU-63](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-63) | Implementar recuperação e redefinição de senha full-stack | gabrielsoliveira1606 |
+| [SHIFU-64](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-64) | Implementar página de Objetivo com Grafo e Lista | João Gabriel |
+| [SHIFU-65](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-65) | Implementar adição full-stack de Habilidade com bases sugeridas | Kauan Fonseca |
+| [SHIFU-66](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-66) | Implementar experiência full-stack da Habilidade em aprendizagem | Thigz |
+| [SHIFU-67](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-67) | Implementar remoção atômica de Objetivo e experiências | Kauan Fonseca |
+| [SHIFU-68](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-68) | Implementar remoção full-stack de Habilidade do Objetivo | João Gabriel |
+| [SHIFU-69](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-69) | Implementar menu da conta e logout da sessão atual | gabrielsoliveira1606 |
+| [SHIFU-70](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-70) | Implementar layout principal compartilhado do web app | João Pedro Carvalho |
+| [SHIFU-71](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-71) | Implementar objetos de domínio de Identity, Curriculum, Communication e Learning | João Pedro Carvalho |
+| [SHIFU-72](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-72) | Implementar experiência full-stack de detalhe da Competência | João Pedro Carvalho |
+| [SHIFU-73](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-73) | Implementar experiência full-stack de Material de apoio | Thigz |
+| [SHIFU-74](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-74) | Implementar questões de escolha única e múltipla seleção | João Pedro Carvalho |
+| [SHIFU-75](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-75) | Implementar questões de código em Atividades de aprendizagem | João Pedro Carvalho |
+| [SHIFU-77](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-77) | Implementar diagnóstico inicial completo por Habilidade | João Pedro Carvalho |
 
 ## Métricas de fechamento
 

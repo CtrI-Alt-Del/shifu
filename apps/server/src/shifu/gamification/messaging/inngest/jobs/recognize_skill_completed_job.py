@@ -9,6 +9,10 @@ from inngest import Context, Function, Inngest, NonRetriableError, TriggerEvent
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from shifu.gamification.core.use_cases import RecognizeSkillCompletedUseCase
+from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
+from shifu.shared.messaging.inngest.job_lifecycle_telemetry import (
+    job_lifecycle_telemetry,
+)
 from shifu.shared.core.interfaces import ClockProvider
 
 
@@ -73,11 +77,18 @@ class RecognizeSkillCompletedJob:
         inngest: Inngest,
         use_case: RecognizeSkillCompletedUseCase,
         clock_provider: ClockProvider,
+        *,
+        telemetry_provider: TelemetryProvider,
     ) -> Function[None]:
         @inngest.create_function(
             fn_id=RecognizeSkillCompletedJob.FUNCTION_ID,
             trigger=TriggerEvent(event=RecognizeSkillCompletedJob._EVENT_NAME),
             retries=3,
+        )
+        @job_lifecycle_telemetry(
+            telemetry_provider,
+            function_id=RecognizeSkillCompletedJob.FUNCTION_ID,
+            max_attempts=4,
         )
         async def _(context: Context) -> None:
             data = cast('dict[str, object]', dict(context.event.data))

@@ -95,7 +95,7 @@
       }
     },
     {
-      "includes": ["apps/web/src/routeTree.gen.ts"],
+      "includes": ["apps/web/src/routeTree.gen.ts", "packages/studio/public/projects/**"],
       "linter": {
         "enabled": false
       },

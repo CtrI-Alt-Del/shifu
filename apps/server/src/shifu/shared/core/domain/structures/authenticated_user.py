@@ -6,3 +6,6 @@ class AuthenticatedUser:
     account_id: str
     display_name: str
     time_zone: str | None
+    session_id: str | None = None
+    token_access_version: int | None = None
+    account_access_version: int | None = None

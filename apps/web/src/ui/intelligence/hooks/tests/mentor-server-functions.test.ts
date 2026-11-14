@@ -35,14 +35,22 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/react-start', () => ({
-  createServerFn: () => ({
-    validator: (validate: (data: unknown) => unknown) => ({
-      handler:
-        (handler: (context: { data: unknown }) => Promise<unknown>) =>
-        async (context: { data: unknown }) =>
-          handler({ data: validate(context.data) }),
-    }),
-  }),
+  createServerFn: () => {
+    const builder = {
+      middleware: () => builder,
+      validator: (validate: (data: unknown) => unknown) => ({
+        handler:
+          (handler: (context: { data: unknown }) => Promise<unknown>) =>
+          async (context: { data: unknown }) =>
+            handler({ data: validate(context.data) }),
+      }),
+    }
+    return builder
+  },
+}))
+
+vi.mock('@/start', () => ({
+  serverFunctionTelemetryMiddleware: {},
 }))
 
 vi.mock('@tanstack/react-start/server', () => ({
@@ -50,7 +58,7 @@ vi.mock('@tanstack/react-start/server', () => ({
 }))
 
 vi.mock('@/constants/server-env', () => ({
-  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test' },
+  SERVER_ENV: { shifuServerAppUrl: 'http://shifu.test', bffSharedSecret: 'bff-secret' },
 }))
 
 vi.mock('@/provision/auth/better-auth/better-auth-provider', () => ({
@@ -113,6 +121,7 @@ describe('Mentor server functions', () => {
     expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(5)
     expect(mocks.getCurrentAccess).toHaveBeenCalledWith(request)
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
+      defaultHeaders: { 'X-Shifu-Bff-Secret': 'bff-secret' },
       withCredentials: false,
     })
     expect(mocks.intelligenceService).toHaveBeenCalledTimes(5)
@@ -450,6 +459,7 @@ describe('Learner memory server functions', () => {
     expect(mocks.getCurrentAccess).toHaveBeenCalledTimes(4)
     expect(mocks.getCurrentAccess).toHaveBeenCalledWith(mocks.request)
     expect(mocks.axiosRestClient).toHaveBeenCalledWith('http://shifu.test', {
+      defaultHeaders: { 'X-Shifu-Bff-Secret': 'bff-secret' },
       withCredentials: false,
     })
     expect(mocks.service.listLearnerMemories).toHaveBeenCalledWith('access-token', {

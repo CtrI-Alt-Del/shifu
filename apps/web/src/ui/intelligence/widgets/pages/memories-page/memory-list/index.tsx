@@ -1,3 +1,6 @@
+import { motion } from 'motion/react'
+
+import { ENTRANCE_STAGGER } from '@/constants/motion-variants'
 import type { LearnerMemory } from '@/core/intelligence/learner-memory'
 
 import { MemoryListItem } from './memory-list-item'
@@ -13,7 +16,11 @@ export const MemoryList = ({
   selectedMemoryId,
   onSelectMemory,
 }: MemoryListProps) => (
-  <ul aria-label='Lista de memórias' className='space-y-2'>
+  <motion.ul
+    aria-label='Lista de memórias'
+    className='space-y-2'
+    variants={ENTRANCE_STAGGER}
+  >
     {memories.map((memory) => (
       <MemoryListItem
         isSelected={memory.id === selectedMemoryId}
@@ -22,5 +29,5 @@ export const MemoryList = ({
         onSelect={onSelectMemory}
       />
     ))}
-  </ul>
+  </motion.ul>
 )
