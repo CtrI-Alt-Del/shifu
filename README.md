@@ -54,7 +54,7 @@ A GSW é uma empresa de tecnologia que desenvolve soluções corporativas e busc
 | Processamento assíncrono | – | Inngest, filas do Agno AgentOS e armazenamento S3 privado (MinIO local) |
 | Linguagem natural | – | NLTK, scikit-learn, spaCy e embeddings E5 com pgvector |
 | Testes | Vitest, React Testing Library e Playwright | pytest e Testcontainers |
-| Qualidade | Biome, `tsc` e SonarQube | Ruff, Pyright e SonarQube |
+| Qualidade | Biome, `tsc` e SonarCloud | Ruff, Pyright e SonarCloud |
 
 O repositório é um workspace pnpm. O servidor usa uv. A infraestrutura local roda com Docker Compose. A arquitetura completa e as decisões em aberto estão em [`documentation/architecture.md`](documentation/architecture.md).
 

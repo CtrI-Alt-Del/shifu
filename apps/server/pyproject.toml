@@ -96,6 +96,12 @@ cmd = "pytest -s -x -vv"
 [tool.poe.tasks."test:unit"]
 shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print0 | xargs -0 pytest; else echo 'No use-case unit tests found'; fi"
 
+[tool.poe.tasks."test:unit:coverage"]
+shell = "if find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/core/use_cases/test_*.py' -o -path 'tests/*/core/domain/test_*.py' -o -path 'tests/core/*/use_cases/test_*.py' \\) -print0 | xargs -0 coverage run -m pytest; else echo 'No use-case unit tests found'; fi"
+
+[tool.poe.tasks."test:coverage:report"]
+shell = "coverage combine && coverage xml -o coverage.xml"
+
 [tool.poe.tasks."test:integration"]
 shell = "if find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' -o -path 'tests/*/rest/handlers/test_*.py' -o -path 'tests/intelligence/preparation/test_prepare_planning_indexes.py' -o -path 'tests/intelligence/capabilities/test_planning_capabilities.py' \\) -print -quit | grep -q .; then find tests -type f \\( -path 'tests/*/server/test_*.py' -o -path 'tests/*/server/*/test_*.py' -o -path 'tests/rest/test_*.py' -o -path 'tests/rest/*/test_*.py' -o -path 'tests/*/rest/handlers/test_*.py' -o -path 'tests/intelligence/preparation/test_prepare_planning_indexes.py' -o -path 'tests/intelligence/capabilities/test_planning_capabilities.py' \\) -print0 | xargs -0 pytest; else echo 'No server integration tests found'; fi"
 
@@ -149,6 +155,12 @@ filterwarnings = [
 [tool.coverage.run]
 patch = ["subprocess"]
 sigterm = true
+source = ["src"]
+parallel = true
+relative_files = true
+
+[tool.coverage.report]
+include_namespace_packages = true
 
 [build-system]
 requires = ["setuptools", "wheel"]
