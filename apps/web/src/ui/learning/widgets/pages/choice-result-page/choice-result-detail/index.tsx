@@ -170,6 +170,8 @@ export const ChoiceResultDetail = ({
 
   if (isTranslationResultQuestion(result)) {
     const translationQuestion = question?.kind === 'translation' ? question : undefined
+    const label = translationResultLabel(result.score)
+    const labelClassName = translationResultLabelClassName(result.score)
     return (
       <details
         aria-labelledby={`choice-result-question-${questionNumber}`}
@@ -180,8 +182,8 @@ export const ChoiceResultDetail = ({
           id={`choice-result-question-${questionNumber}`}
         >
           <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
-            <span className='text-sm font-semibold text-success'>
-              Questão {questionNumber} · Tradução
+            <span className={`text-sm font-semibold ${labelClassName}`}>
+              Questão {questionNumber} · Tradução{label ? ` · ${label}` : ''}
             </span>
             <span aria-hidden='true' className='text-muted-foreground'>
               ·
@@ -193,7 +195,7 @@ export const ChoiceResultDetail = ({
           <span className='flex shrink-0 items-center justify-end gap-3'>
             <output
               aria-label={`Nota ${formatNullableScore(result.score)} de 100`}
-              className='font-mono text-xs font-semibold text-success'
+              className={`font-mono text-xs font-semibold ${labelClassName}`}
             >
               {formatNullableScore(result.score)}
               <span className='ml-1 text-xs font-normal text-muted-foreground'>
@@ -399,6 +401,20 @@ export const ChoiceResultDetail = ({
 
 function formatNullableScore(score: number | null) {
   return score === null ? '—' : SCORE_FORMATTER.format(Number(score))
+}
+
+function translationResultLabel(score: number | null): string | null {
+  if (score === null) return null
+  if (Number(score) === 100) return 'Resposta correta'
+  if (Number(score) === 0) return 'Resposta incorreta'
+  return 'Parcialmente correta'
+}
+
+function translationResultLabelClassName(score: number | null): string {
+  if (score === null) return 'text-muted-foreground'
+  if (Number(score) === 100) return 'text-success'
+  if (Number(score) === 0) return 'text-selo-text'
+  return 'text-amber-300'
 }
 
 function isCodeResultQuestion(

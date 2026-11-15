@@ -24,9 +24,14 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
+    TranslationInconclusiveComment,
+    TranslationQuestion,
+    TranslationRubricComment,
+    TranslationRubricCriterion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.learning.core.domain.structures import CodeAnswer
+from shifu.learning.core.domain.structures import CodeAnswer, TranslationAnswer
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
@@ -622,6 +627,109 @@ class TestSubmitChoiceActivityController:
         assert replay.status_code == 200
         assert replay.json()['attempt_id'] == attempt_id
 
+    def test_mixed_translation_submission_persists_the_saved_snapshot_and_text(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _mixed_translation_activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(activity.id),
+                headers=headers,
+            ),
+        )
+
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        body: dict[str, object] = {
+            'submission_key': '7c3c84ce-7185-43bc-8b75-c9b250000092',
+            'activity_revision': revision,
+            'answers': [
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q1',
+                    'selected_option_keys': ['a'],
+                },
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q2',
+                    'selected_option_keys': ['a'],
+                },
+                {
+                    'kind': 'translation',
+                    'question_key': 'q3',
+                    'text': 'Good morning',
+                },
+            ],
+        }
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                _attempts_path(activity.id),
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert response.status_code == 201, response.json()
+        attempt_id = cast('str', response.json()['attempt_id'])
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+
+        assert attempt is not None
+        assert attempt.grading_snapshot is not None
+        assert attempt.grading_snapshot.id == activity.id
+        translation_answer = attempt.answers[2]
+
+        assert isinstance(translation_answer, TranslationAnswer)
+        assert translation_answer.text == 'Good morning'
+        assert evaluation is not None
+        assert evaluation.status.value == 'pending'
+        assert evaluation.run_id is not None
+
+        replay = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                _attempts_path(activity.id),
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert replay.status_code == 200
+        assert replay.json()['attempt_id'] == attempt_id
+
+        conflicting_body = {
+            **body,
+            'answers': [
+                *cast('list[object]', body['answers'])[:2],
+                {'kind': 'translation', 'question_key': 'q3', 'text': 'Good evening'},
+            ],
+        }
+        conflicting_replay = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                _attempts_path(activity.id),
+                json=conflicting_body,
+                headers=headers,
+            ),
+        )
+
+        assert conflicting_replay.status_code == 409
+        assert conflicting_replay.json()['code'] == 'conflict'
+
 
 def _attempts_path(
     activity_id: str = _ACTIVITY_ID,
@@ -722,6 +830,73 @@ def _mixed_activity() -> Activity:
                 CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
                 CodeRubricEvaluationPart(
                     question_key='q3', weight_percentage=40, criteria=(criterion,)
+                ),
+            )
+        ),
+    )
+
+
+def _mixed_translation_activity() -> Activity:
+    questions = tuple(
+        SingleChoiceQuestion(
+            key=f'q{index}',
+            prompt='Escolha',
+            options=(
+                ChoiceOption(key='a', text='A', is_correct=True),
+                ChoiceOption(key='b', text='B', is_correct=False),
+            ),
+            correct_explanation='Certo',
+            incorrect_explanation='Errado',
+        )
+        for index in (1, 2)
+    )
+    translation = TranslationQuestion(
+        key='q3',
+        prompt='Traduza o texto a seguir.',
+        source_language='pt-BR',
+        target_language='en-US',
+        source_text='Bom dia',
+        reference_translations=('Good morning',),
+        concept_criteria=(),
+    )
+
+    def rubric_criterion(key: str, weight: int) -> TranslationRubricCriterion:
+        return TranslationRubricCriterion(
+            key=key,
+            name=key.replace('_', ' ').title(),
+            description=f'Evaluate {key}.',
+            weight_percentage=weight,
+            required=True,
+            fixed_comments=tuple(
+                TranslationRubricComment(
+                    id=f'{key}-{level}', level=level, text=f'Fixed comment {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=TranslationInconclusiveComment(
+                id=f'{key}-unknown', text='Inconclusivo'
+            ),
+        )
+
+    return Activity.create(
+        id='01SHF000000000000000000093',
+        competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade mista de tradução',
+        objective='Aprender',
+        questions=(*questions, translation),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
+                TranslationRubricEvaluationPart(
+                    question_key='q3',
+                    weight_percentage=40,
+                    criteria=(
+                        rubric_criterion('semantic_preservation', 70),
+                        rubric_criterion('grammatical_adequacy', 30),
+                    ),
                 ),
             )
         ),

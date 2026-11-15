@@ -1,3 +1,4 @@
+from dataclasses import fields
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
@@ -32,6 +33,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricCommentSnapshot,
     CurriculumTranslationRubricCriterionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
+    TranslationRubricAssessmentInput,
 )
 
 _ATTEMPT_ID = '01J000000000000000000000001'
@@ -218,6 +220,25 @@ def test_should_prepare_only_translation_questions_for_the_current_pending_run()
         _ATTEMPT_ID
     )
     cast('Mock', repositories.events.add).assert_not_called()
+
+
+def test_the_assessment_input_declares_only_privacy_minimized_fields() -> None:
+    field_names = {item.name for item in fields(TranslationRubricAssessmentInput)}
+
+    assert field_names == {
+        'question_kind',
+        'source_text',
+        'source_language',
+        'target_language',
+        'reference_translations',
+        'submitted_text',
+        'rubric_criteria',
+        'concept_criteria',
+    }
+    assert not any(
+        'account' in name or 'session' in name or 'email' in name
+        for name in field_names
+    )
 
 
 @pytest.mark.parametrize(

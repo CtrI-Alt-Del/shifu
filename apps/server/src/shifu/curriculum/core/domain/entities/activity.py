@@ -92,7 +92,12 @@ class Activity:
         if self.activity_type == ActivityType.DIAGNOSTIC and any(
             isinstance(
                 question,
-                (ReactQuestion, HtmlCssJsQuestion, ReactFastifyQuestion, TranslationQuestion),
+                (
+                    ReactQuestion,
+                    HtmlCssJsQuestion,
+                    ReactFastifyQuestion,
+                    TranslationQuestion,
+                ),
             )
             for question in self.questions
         ):

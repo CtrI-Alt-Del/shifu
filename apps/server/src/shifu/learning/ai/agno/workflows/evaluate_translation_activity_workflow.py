@@ -287,13 +287,15 @@ class EvaluateTranslationActivityWorkflow(Workflow):
                     raise ServiceUnavailableError(_UNAVAILABLE) from None
                 return StepOutput(content='failed')
             try:
-                self._evaluate_use_case.execute(
+                committed = self._evaluate_use_case.execute(
                     prepared.attempt_id,
                     prepared.run_id,
                     translation_decisions=execution.decisions,
                 )
             except Exception:  # noqa: BLE001 - only a safe class crosses the run boundary.
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
+            if not committed:
+                return StepOutput(content='stale')
             return StepOutput(content='completed')
         if execution.failure:
             return StepOutput(content='unavailable')
