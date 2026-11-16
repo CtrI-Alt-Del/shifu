@@ -448,7 +448,12 @@ test.describe('canonical account auth handlers', () => {
     })
     await signIn(page.request, activeAccount)
     await page.goto('/account')
-    await page.getByRole('tab', { name: 'Segurança' }).click()
+    await page
+      .getByRole('navigation', { name: 'Configurações da conta' })
+      .getByRole('link', { name: 'Segurança' })
+      .click()
+    await expect(page).toHaveURL(/\/account\/security\/?$/)
+    await page.waitForFunction(() => document.body.dataset.hydrated === 'true')
     let attempts = 0
     await page.route('**/api/auth/account/password', async (route) => {
       attempts += 1
