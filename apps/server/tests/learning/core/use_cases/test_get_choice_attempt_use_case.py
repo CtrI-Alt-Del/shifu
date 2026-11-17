@@ -8,6 +8,9 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
@@ -27,6 +30,11 @@ from shifu.learning.core.domain.structures import (
     CodeConceptObservationResult,
     CodeRubricResult,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
+    FillBlanksExpectedBlank,
+    FillBlanksPlacement,
+    FillBlanksResultDetail,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -553,6 +561,178 @@ class TestGetChoiceAttemptUseCase:
         self.repositories.activity_evaluations.find_many_by_attempt_ids.assert_called_once_with(
             (self.attempt.id, later.id)
         )
+
+    def _fill_result(
+        self, correct_keys: tuple[str, ...], score: str
+    ) -> FillBlanksEvaluationResult:
+        return FillBlanksEvaluationResult(
+            question_key='fill-1',
+            score=Decimal(score),
+            is_correct=len(correct_keys) == 3,
+            correct_blank_keys=correct_keys,
+            blank_count=3,
+            explanation='Almost there. Review the verb forms.',
+        )
+
+    def _complete_fill_attempt(
+        self,
+        pairs: tuple[tuple[str, str], ...],
+        result: FillBlanksEvaluationResult,
+        *,
+        attempt_id: str = 'attempt-1',
+        submitted_at_offset: timedelta = timedelta(minutes=-10),
+    ) -> tuple[ActivityAttempt, ActivityEvaluation]:
+        attempt = ActivityAttempt.create(
+            id=attempt_id,
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                FillBlanksAnswer(
+                    question_key='fill-1',
+                    placements=tuple(
+                        FillBlanksPlacement(blank_key=blank, word_key=word)
+                        for blank, word in pairs
+                    ),
+                ),
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+            ),
+            submitted_at=NOW + submitted_at_offset,
+            submission_key=f'submission-{attempt_id}',
+            grading_snapshot=CurriculumFillBlanksActivitySnapshotFaker.fake(
+                activity_id=ACTIVITY_ID, competency_id=COMPETENCY_ID
+            ),
+        )
+        evaluation = ActivityEvaluation.create(
+            id=f'evaluation-{attempt_id}',
+            attempt_id=attempt.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW,
+            run_id=f'run-{attempt_id}',
+        )
+        evaluation.status = ActivityEvaluationStatus.COMPLETED
+        evaluation.completed_at = NOW
+        evaluation.score = Decimal(50)
+        evaluation.parts = (
+            result,
+            ChoiceEvaluationResult(
+                question_key='q1', score=Decimal(100), is_correct=True, explanation='ok'
+            ),
+            ChoiceEvaluationResult(
+                question_key='q2', score=Decimal(100), is_correct=True, explanation='ok'
+            ),
+        )
+        return attempt, evaluation
+
+    def _show(
+        self, *entries: tuple[ActivityAttempt, ActivityEvaluation]
+    ) -> FillBlanksResultDetail:
+        self.attempt = entries[0][0]
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = entries[
+            0
+        ][1]
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt for attempt, _ in entries
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation for _, evaluation in entries
+        ]
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+        first = detail.questions[0]
+        assert isinstance(first, FillBlanksResultDetail)
+        return first
+
+    EXPECTED = (
+        FillBlanksExpectedBlank(blank_key='b1', accepted_words=('goes', 'walks')),
+        FillBlanksExpectedBlank(blank_key='b2', accepted_words=('does',)),
+        FillBlanksExpectedBlank(blank_key='b3', accepted_words=('day',)),
+    )
+
+    def test_should_show_the_submitted_fill_without_the_expected_words_before_release(
+        self,
+    ) -> None:
+        pairs = (('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2'))
+        entry = self._complete_fill_attempt(pairs, self._fill_result(('b1',), '33.33'))
+
+        fill = self._show(entry)
+
+        assert fill.kind == 'fill_blanks'
+        assert fill.question_key == 'fill-1'
+        assert fill.content_language == 'en'
+        assert fill.placements == tuple(
+            FillBlanksPlacement(blank_key=blank, word_key=word) for blank, word in pairs
+        )
+        assert (fill.score, fill.is_correct) == (Decimal('33.33'), False)
+        assert (fill.correct_blank_count, fill.blank_count) == (1, 3)
+        assert fill.explanation == 'Almost there. Review the verb forms.'
+        assert fill.disclosed_expected_blanks == ()
+        assert [word.key for word in fill.bank] == ['w1', 'w2', 'w3', 'w4', 'w5', 'w6']
+        assert not hasattr(fill, 'correct_blank_keys')
+
+    def test_should_release_the_expected_words_when_the_fill_is_fully_correct(
+        self,
+    ) -> None:
+        pairs = (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'))
+        entry = self._complete_fill_attempt(
+            pairs, self._fill_result(('b1', 'b2', 'b3'), '100')
+        )
+
+        assert self._show(entry).disclosed_expected_blanks == self.EXPECTED
+
+    def test_should_release_the_expected_words_after_a_later_fully_correct_attempt(
+        self,
+    ) -> None:
+        wrong = (('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2'))
+        first = self._complete_fill_attempt(wrong, self._fill_result(('b1',), '33.33'))
+        right = (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'))
+        later = self._complete_fill_attempt(
+            right,
+            self._fill_result(('b1', 'b2', 'b3'), '100'),
+            attempt_id='attempt-later',
+            submitted_at_offset=timedelta(minutes=-2),
+        )
+
+        assert self._show(first, later).disclosed_expected_blanks == self.EXPECTED
+
+    def test_should_keep_the_expected_words_hidden_after_a_later_wrong_or_pending_attempt(
+        self,
+    ) -> None:
+        wrong = (('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2'))
+        first = self._complete_fill_attempt(wrong, self._fill_result(('b1',), '33.33'))
+        still_wrong = self._complete_fill_attempt(
+            wrong,
+            self._fill_result(('b2',), '33.33'),
+            attempt_id='attempt-wrong',
+            submitted_at_offset=timedelta(minutes=-4),
+        )
+        pending_attempt, pending_evaluation = self._complete_fill_attempt(
+            (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4')),
+            self._fill_result(('b1', 'b2', 'b3'), '100'),
+            attempt_id='attempt-pending',
+            submitted_at_offset=timedelta(minutes=-2),
+        )
+        pending_evaluation.status = ActivityEvaluationStatus.PENDING
+
+        fill = self._show(first, still_wrong, (pending_attempt, pending_evaluation))
+
+        assert fill.disclosed_expected_blanks == ()
+
+    def test_should_release_the_expected_words_when_the_competency_is_mastered(
+        self,
+    ) -> None:
+        pairs = (('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2'))
+        entry = self._complete_fill_attempt(pairs, self._fill_result(('b1',), '33.33'))
+        progress = self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value
+        assert isinstance(progress, CompetencyProgress)
+        progress.status = CompetencyProgressStatus.MASTERED
+
+        assert self._show(entry).disclosed_expected_blanks == self.EXPECTED
 
     def test_should_not_project_legacy_next_action_for_adaptive_result(self) -> None:
         self.evaluation.status = ActivityEvaluationStatus.COMPLETED

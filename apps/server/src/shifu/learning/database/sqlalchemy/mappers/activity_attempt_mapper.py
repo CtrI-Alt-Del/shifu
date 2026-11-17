@@ -6,6 +6,8 @@ from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -15,6 +17,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -77,6 +80,7 @@ class ActivityAttemptMapper:
                     'react',
                     'html_css_js',
                     'react_fastify',
+                    'fill_blanks',
                 }
                 for question in questions
             ):
@@ -92,6 +96,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'html_css_js'
                     else CurriculumReactFastifyQuestionSnapshot
                     if question.get('kind') == 'react_fastify'
+                    else CurriculumFillBlanksQuestionSnapshot
+                    if question.get('kind') == 'fill_blanks'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
@@ -113,7 +119,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -155,6 +161,10 @@ class ActivityAttemptMapper:
         for item in serialized:
             question_key = cast('str', item['question_key'])
             question = questions.get(question_key)
+            if item.get('kind') == 'fill_blanks':
+                answers.append(ActivityAttemptMapper._fill_blanks_answer(item))
+                continue
+
             if 'files' in item:
                 serialized_files = cast('list[dict[str, str]]', item['files'])
                 answers.append(
@@ -205,6 +215,19 @@ class ActivityAttemptMapper:
             else:
                 raise TypeError('Stored activity answer does not match its snapshot.')
         return tuple(answers)
+
+    @staticmethod
+    def _fill_blanks_answer(item: dict[str, object]) -> FillBlanksAnswer:
+        placements = cast('list[dict[str, str]]', item['placements'])
+        return FillBlanksAnswer(
+            question_key=cast('str', item['question_key']),
+            placements=tuple(
+                FillBlanksPlacement(
+                    blank_key=placement['blank_key'], word_key=placement['word_key']
+                )
+                for placement in placements
+            ),
+        )
 
     @staticmethod
     def to_model(attempt: ActivityAttempt) -> ActivityAttemptModel:

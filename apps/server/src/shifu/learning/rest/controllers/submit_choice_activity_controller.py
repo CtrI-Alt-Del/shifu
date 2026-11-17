@@ -10,13 +10,15 @@ from fastapi import (
     Response as FastAPIResponse,
     status,
 )
-from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
@@ -45,6 +47,13 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -57,15 +66,26 @@ class AnswerRequest(BaseModel):
             'react',
             'html_css_js',
             'react_fastify',
+            'fill_blanks',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
+        if self.kind == 'fill_blanks':
+            if (
+                self.placements is None
+                or self.selected_option_keys is not None
+                or self.files is not None
+            ):
+                raise ValueError('Fill-blanks answers require placements only')
+        elif self.placements is not None:
+            raise ValueError('Only fill-blanks answers accept placements')
+        elif self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -152,7 +172,17 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        CodeAnswer(
+                        FillBlanksAnswer(
+                            question_key=answer.question_key,
+                            placements=tuple(
+                                FillBlanksPlacement(
+                                    blank_key=item.blank_key, word_key=item.word_key
+                                )
+                                for item in (answer.placements or ())
+                            ),
+                        )
+                        if answer.kind == 'fill_blanks'
+                        else CodeAnswer(
                             question_key=answer.question_key,
                             kind=answer.kind,
                             files=tuple(

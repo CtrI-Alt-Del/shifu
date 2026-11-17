@@ -8,6 +8,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
@@ -32,6 +34,12 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     kind: Literal[
@@ -41,14 +49,25 @@ class AnswerRequest(BaseModel):
         'react',
         'html_css_js',
         'react_fastify',
+        'fill_blanks',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
+        if self.kind == 'fill_blanks':
+            if (
+                self.placements is None
+                or self.selected_option_keys is not None
+                or self.files is not None
+            ):
+                raise ValueError('Fill-blanks answers require placements only')
+        elif self.placements is not None:
+            raise ValueError('Only fill-blanks answers accept placements')
+        elif self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -89,6 +108,8 @@ class Response(BaseModel):
     criteria: tuple[CriterionResponse, ...] = ()
     concept_observations: tuple[ConceptResponse, ...] = ()
     submitted_files: tuple[SubmittedFileResponse, ...] = ()
+    correct_blank_count: int | None = None
+    blank_count: int | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -128,7 +149,19 @@ class PreviewActivityQuestionFeedbackController:
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind in {
+            if payload.kind == 'fill_blanks':
+                answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer = (
+                    FillBlanksAnswer(
+                        question_key=payload.question_key,
+                        placements=tuple(
+                            FillBlanksPlacement(
+                                blank_key=item.blank_key, word_key=item.word_key
+                            )
+                            for item in (payload.placements or ())
+                        ),
+                    )
+                )
+            elif payload.kind in {
                 'javascript_stdin',
                 'react',
                 'html_css_js',

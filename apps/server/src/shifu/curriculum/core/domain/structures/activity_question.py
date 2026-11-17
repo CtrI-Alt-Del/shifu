@@ -1,4 +1,5 @@
 from .code_question import CodeQuestion
+from .fill_blanks_question import FillBlanksQuestion
 from .html_css_js_question import HtmlCssJsQuestion
 from .javascript_stdin_question import JavascriptStdinQuestion
 from .multiple_selection_question import MultipleSelectionQuestion
@@ -15,4 +16,5 @@ type ActivityQuestion = (
     | ReactQuestion
     | HtmlCssJsQuestion
     | ReactFastifyQuestion
+    | FillBlanksQuestion
 )

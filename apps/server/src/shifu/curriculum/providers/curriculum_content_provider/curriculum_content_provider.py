@@ -9,6 +9,7 @@ from shifu.curriculum.core.domain.structures import (
     CodeRubricEvaluationPart,
     CorrectnessEvaluationPart,
     MaterialSequenceItem,
+    FillBlanksQuestion,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
     ReactQuestion,
@@ -20,6 +21,9 @@ from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
     diagnostic_coverage_gaps,
 )
 from shifu.curriculum.core.interfaces import CurriculumDatabase
+from shifu.curriculum.providers.curriculum_content_provider.fill_blanks_snapshot_projection import (
+    FillBlanksSnapshotProjection,
+)
 from shifu.shared.core.domain.structures import (
     CurriculumActivitySnapshot,
     CurriculumChoiceActivitySnapshot,
@@ -38,6 +42,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsDependencySnapshot,
     CurriculumHtmlCssJsPermittedCommandSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumReactInitialFileSnapshot,
     CurriculumReactDependencySnapshot,
@@ -61,6 +66,15 @@ from shifu.shared.core.domain.structures import (
 from shifu.shared.core.interfaces import CurriculumContentProvider
 from shifu.shared.core.domain.errors import ValidationError
 from shifu.shared.database.sqlalchemy.serialization import Serialization
+
+
+_FULL_SCALE_EVIDENCE_QUESTIONS = (
+    JavascriptStdinQuestion,
+    ReactQuestion,
+    HtmlCssJsQuestion,
+    ReactFastifyQuestion,
+    FillBlanksQuestion,
+)
 
 
 class DatabaseCurriculumContentProvider(CurriculumContentProvider):
@@ -213,12 +227,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             (100,)
                             if isinstance(
                                 question,
-                                (
-                                    JavascriptStdinQuestion,
-                                    ReactQuestion,
-                                    HtmlCssJsQuestion,
-                                    ReactFastifyQuestion,
-                                ),
+                                _FULL_SCALE_EVIDENCE_QUESTIONS,
                             )
                             else tuple(
                                 score
@@ -240,15 +249,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 has_executable_evidence = (
                     all(
                         (
-                            isinstance(
-                                question,
-                                (
-                                    JavascriptStdinQuestion,
-                                    ReactQuestion,
-                                    HtmlCssJsQuestion,
-                                    ReactFastifyQuestion,
-                                ),
-                            )
+                            isinstance(question, _FULL_SCALE_EVIDENCE_QUESTIONS)
                             or (
                                 isinstance(
                                     question,
@@ -548,6 +549,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumReactQuestionSnapshot
                 | CurriculumHtmlCssJsQuestionSnapshot
                 | CurriculumReactFastifyQuestionSnapshot
+                | CurriculumFillBlanksQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
@@ -851,6 +853,14 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             ),
                         )
                     )
+                elif isinstance(question, FillBlanksQuestion):
+                    projected = FillBlanksSnapshotProjection.project(
+                        question, concept_ids, activity_type
+                    )
+                    if projected is None:
+                        return None
+
+                    questions.append(projected)
                 else:
                     return None
 

@@ -4,7 +4,15 @@ from decimal import Decimal
 from unittest.mock import Mock, call, create_autospec, patch
 
 import pytest
+from shifu.curriculum.core.domain.structures import FillBlanksConceptCriterion
+from shifu.fakers.curriculum.structures import FillBlanksQuestionFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
+from shifu.fakers.shared.curriculum_fill_blanks_question_snapshot_faker import (
+    CurriculumFillBlanksQuestionSnapshotFaker,
+)
 from shifu.learning.core.domain.entities import (
     ActivityAttempt,
     ActivityEvaluation,
@@ -33,6 +41,9 @@ from shifu.learning.core.domain.structures import (
     CodeQuestionAssessmentDecisions,
     CodeSubmittedFile,
     ConceptObservation,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
+    FillBlanksPlacement,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
 )
@@ -799,6 +810,176 @@ class TestEvaluateChoiceActivityUseCase:
             assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
             assert self.evaluation.score == Decimal(90)
             self.repositories.activity_evaluations.update.assert_called_once()
+
+    def _set_fill_blanks_attempt(
+        self,
+        *pairs: tuple[str, str],
+        kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+        fill_answer: object | None = None,
+    ) -> None:
+        question = CurriculumFillBlanksQuestionSnapshotFaker.fake(
+            FillBlanksQuestionFaker.fake(
+                concept_criteria=(
+                    FillBlanksConceptCriterion(
+                        concept_id='concept-1',
+                        criterion='Verb agreement',
+                        examples='She goes.',
+                        limits='None.',
+                        blank_keys=('b1', 'b2'),
+                    ),
+                    FillBlanksConceptCriterion(
+                        concept_id='concept-2',
+                        criterion='Time expressions',
+                        examples='every day.',
+                        limits='None.',
+                        blank_keys=('b3',),
+                    ),
+                )
+            )
+        )
+        self.attempt = ActivityAttempt.create(
+            id='attempt-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=kind,
+            answers=(
+                fill_answer  # type: ignore[arg-type]
+                or FillBlanksAnswer(
+                    question_key='fill-1',
+                    placements=tuple(
+                        FillBlanksPlacement(blank_key=blank, word_key=word)
+                        for blank, word in pairs
+                    ),
+                ),
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+            ),
+            submitted_at=NOW,
+            submission_key='submission-1',
+            grading_snapshot=CurriculumFillBlanksActivitySnapshotFaker.fake(
+                fill_blanks=question, choice_concept_id='concept-3'
+            ),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+
+    def test_should_score_fill_blanks_with_equal_credit_and_weight_the_activity(
+        self,
+    ) -> None:
+        self._set_fill_blanks_attempt(('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2'))
+
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
+
+        fill, first, second = self.evaluation.parts
+        assert fill == FillBlanksEvaluationResult(
+            question_key='fill-1',
+            score=Decimal('33.33'),
+            is_correct=False,
+            correct_blank_keys=('b1',),
+            blank_count=3,
+            explanation='Almost there. Review the verb forms.',
+        )
+        assert (first.score, second.score) == (Decimal(100), Decimal(0))
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.score == Decimal('43.332')
+        assert self.evaluation.effect_applied_at == NOW
+
+    def test_should_derive_concept_evidence_from_the_mapped_blanks_only(self) -> None:
+        self._set_fill_blanks_attempt(('b1', 'w1'), ('b2', 'w6'), ('b3', 'w4'))
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        scores = {item.concept_id: item.question_scores for item in observations}
+        assert scores == {
+            'concept-1': (Decimal('50.00'),),
+            'concept-2': (Decimal('100.00'),),
+            'concept-3': (Decimal(100), Decimal(0)),
+        }
+        assert self.evaluation.parts[0].score == Decimal('66.67')
+        self.repositories.competency_progresses.update.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_not_inherit_the_question_score_as_concept_evidence(self) -> None:
+        self._set_fill_blanks_attempt(('b1', 'w6'), ('b2', 'w3'), ('b3', 'w4'))
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        scores = {item.concept_id: item.question_scores for item in observations}
+        assert self.evaluation.parts[0].score == Decimal('66.67')
+        assert scores['concept-1'] == (Decimal('50.00'),)
+        assert scores['concept-2'] == (Decimal('100.00'),)
+
+    def test_should_record_a_review_fill_blanks_result_without_progress_effects(
+        self,
+    ) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self._set_fill_blanks_attempt(
+            ('b1', 'w1'),
+            ('b2', 'w3'),
+            ('b3', 'w4'),
+            kind=ActivityAttemptKind.REVIEW,
+        )
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.parts[0].score == Decimal('100.00')
+        assert self.evaluation.effect_applied_at == NOW
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_not_reapply_a_fill_blanks_evaluation_for_a_stale_or_finished_run(
+        self,
+    ) -> None:
+        self._set_fill_blanks_attempt(('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'))
+
+        assert self.subject.execute(self.attempt.id, 'stale-run') is False
+        self.evaluation.complete(Decimal('90'), NOW, ())
+        assert self.subject.execute(self.attempt.id, 'run-1') is False
+
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'fill_answer',
+        (
+            SingleChoiceAnswer(question_key='fill-1', selected_option_key='a'),
+            FillBlanksAnswer(
+                question_key='fill-1',
+                placements=(FillBlanksPlacement(blank_key='b1', word_key='w1'),),
+            ),
+            FillBlanksAnswer(
+                question_key='fill-1',
+                placements=(
+                    FillBlanksPlacement(blank_key='b1', word_key='w1'),
+                    FillBlanksPlacement(blank_key='b2', word_key='w1'),
+                    FillBlanksPlacement(blank_key='b3', word_key='w4'),
+                ),
+            ),
+        ),
+        ids=('foreign-answer', 'incomplete-stored-fill', 'repeated-stored-occurrence'),
+    )
+    def test_should_reject_a_saved_attempt_whose_fill_blanks_answer_is_invalid(
+        self, fill_answer: object
+    ) -> None:
+        self._set_fill_blanks_attempt(fill_answer=fill_answer)
+
+        with pytest.raises(InvalidAttemptError):
+            self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_reject_existing_observations_without_writing_duplicates(
         self,

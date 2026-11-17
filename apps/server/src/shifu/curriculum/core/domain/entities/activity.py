@@ -2,6 +2,8 @@ from shifu.curriculum.core.domain.structures import (
     ActivityQuestion,
     JavascriptStdinQuestion,
     CodeRubricEvaluationPart,
+    CorrectnessEvaluationPart,
+    FillBlanksQuestion,
     EvaluationRule,
     ReactQuestion,
     HtmlCssJsQuestion,
@@ -75,6 +77,8 @@ class Activity:
                 ) != isinstance(part, CodeRubricEvaluationPart):
                     raise InvalidActivityError
 
+        self._validate_fill_blanks(question_keys, part_keys)
+
         if self.activity_type == ActivityType.DIAGNOSTIC and any(
             isinstance(
                 question, (ReactQuestion, HtmlCssJsQuestion, ReactFastifyQuestion)
@@ -92,6 +96,25 @@ class Activity:
             for criterion in getattr(question, 'concept_criteria', ())
         }
         if assessed.intersection(self.required_concept_ids):
+            raise InvalidActivityError
+
+    def _validate_fill_blanks(
+        self, question_keys: set[str], part_keys: set[str]
+    ) -> None:
+        fill_blanks_keys = {
+            question.key
+            for question in self.questions
+            if isinstance(question, FillBlanksQuestion)
+        }
+        if fill_blanks_keys and (
+            self.activity_type == ActivityType.DIAGNOSTIC
+            or part_keys != question_keys
+            or any(
+                not isinstance(part, CorrectnessEvaluationPart)
+                for part in self.evaluation_rule.parts
+                if part.question_key in fill_blanks_keys
+            )
+        ):
             raise InvalidActivityError
 
     @classmethod

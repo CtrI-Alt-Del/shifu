@@ -46,6 +46,8 @@ from shifu.learning.core.domain.structures import (
     CompetencyCompletionSummary,
     ConceptObservation,
     EvaluationPartResult,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
     SkillCompletionSummary,
@@ -56,6 +58,7 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreviewActivityQuestionFeedbackUseCase,
 )
@@ -66,6 +69,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
@@ -364,7 +368,8 @@ class EvaluateChoiceActivityUseCase:
             | CurriculumJavascriptStdinQuestionSnapshot
             | CurriculumReactQuestionSnapshot
             | CurriculumHtmlCssJsQuestionSnapshot
-            | CurriculumReactFastifyQuestionSnapshot,
+            | CurriculumReactFastifyQuestionSnapshot
+            | CurriculumFillBlanksQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -380,7 +385,23 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, CodeRubricResult)
         }
+        fill_blanks_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, FillBlanksEvaluationResult)
+        }
         for question in questions:
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                fill_blanks_result = fill_blanks_results.get(question.key)
+                if fill_blanks_result is None:
+                    raise InvalidAttemptError
+
+                for concept_id, value in FillBlanksScoring.concept_observations(
+                    question, fill_blanks_result
+                ).items():
+                    observation_scores.setdefault(concept_id, []).append(value)
+                continue
+
             if isinstance(
                 question,
                 (
@@ -776,10 +797,14 @@ class EvaluateChoiceActivityUseCase:
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot,
+        | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumFillBlanksQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return self._score_fill_blanks_part(part, question, answer)
+
         if isinstance(
             question,
             (
@@ -812,6 +837,23 @@ class EvaluateChoiceActivityUseCase:
                 else question.incorrect_explanation
             ),
         )
+
+    @staticmethod
+    def _score_fill_blanks_part(
+        part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: ActivityAnswer,
+    ) -> FillBlanksEvaluationResult:
+        if not isinstance(part, CurriculumChoicePartSnapshot):
+            raise EvaluationUnavailableError
+
+        if not isinstance(answer, FillBlanksAnswer):
+            raise InvalidAttemptError
+
+        try:
+            return FillBlanksScoring.score(question, answer)
+        except ValidationError as error:
+            raise InvalidAttemptError from error
 
     def _score_code_part(
         self,

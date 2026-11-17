@@ -10,6 +10,7 @@ from shifu.curriculum.core.domain.structures import (
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
+    FillBlanksQuestion,
     JavascriptStdinQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
@@ -61,7 +62,14 @@ class ActivityMapper:
         | ReactQuestion
         | HtmlCssJsQuestion
         | ReactFastifyQuestion
+        | FillBlanksQuestion
     ):
+        if data.get('kind') == 'fill_blanks':
+            return cast(
+                'FillBlanksQuestion',
+                Serialization.deserialize_value(data, FillBlanksQuestion),
+            )
+
         if data.get('kind') == 'javascript_stdin':
             return cast(
                 'JavascriptStdinQuestion',
@@ -138,7 +146,8 @@ class ActivityMapper:
             | JavascriptStdinQuestion
             | ReactQuestion
             | HtmlCssJsQuestion
-            | ReactFastifyQuestion,
+            | ReactFastifyQuestion
+            | FillBlanksQuestion,
             ...,
         ],
     ) -> (

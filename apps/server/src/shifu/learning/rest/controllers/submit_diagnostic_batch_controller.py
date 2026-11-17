@@ -8,7 +8,7 @@ from fastapi import (
     Path,
     Response as FastAPIResponse,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
@@ -43,6 +43,15 @@ class ItemRequest(BaseModel):
     activity_id: str = Field(pattern=_ULID_PATTERN)
     activity_revision: str = Field(min_length=1)
     answers: tuple[AnswerRequest, ...]
+
+    @field_validator('answers')
+    @classmethod
+    def reject_fill_blanks_answers(
+        cls, answers: tuple[AnswerRequest, ...]
+    ) -> tuple[AnswerRequest, ...]:
+        if any(answer.kind == 'fill_blanks' for answer in answers):
+            raise ValueError('Fill-blanks answers are not accepted in the diagnostic')
+        return answers
 
 
 class Request(BaseModel):

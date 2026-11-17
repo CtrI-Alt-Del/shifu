@@ -6,10 +6,12 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeCriterionResult,
     CodeConceptObservationResult,
+    FillBlanksAnswer,
 )
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
 )
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
     CodeQuestionSnapshot,
@@ -28,6 +30,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
@@ -45,6 +48,8 @@ class PreliminaryQuestionResult:
     criteria: tuple[CodeCriterionResult, ...] = ()
     concept_observations: tuple[CodeConceptObservationResult, ...] = ()
     submitted_files: tuple[CodeSubmittedFile, ...] = ()
+    correct_blank_count: int | None = None
+    blank_count: int | None = None
 
 
 class PreviewActivityQuestionFeedbackUseCase:
@@ -69,7 +74,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission | CodeAnswer,
+        answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
@@ -86,6 +91,9 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
         if question is None or answer.question_key != question_key:
             raise ValidationError
+
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return self.fill_blanks_result(question, answer)
 
         if isinstance(
             question,
@@ -142,6 +150,24 @@ class PreviewActivityQuestionFeedbackUseCase:
             explanation=question.correct_explanation
             if correct
             else question.incorrect_explanation,
+        )
+
+    @staticmethod
+    def fill_blanks_result(
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer,
+    ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, FillBlanksAnswer):
+            raise ValidationError
+
+        result = FillBlanksScoring.score(question, answer)
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
+            correct_blank_count=len(result.correct_blank_keys),
+            blank_count=result.blank_count,
         )
 
     @staticmethod

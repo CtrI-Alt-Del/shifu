@@ -7,6 +7,9 @@ from shifu.shared.core.domain.structures.structure import structure
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
 from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapshot
+from .curriculum_fill_blanks_question_snapshot import (
+    CurriculumFillBlanksQuestionSnapshot,
+)
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
@@ -30,7 +33,8 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot,
+        | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumFillBlanksQuestionSnapshot,
         ...,
     ]
     parts: tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]
@@ -81,6 +85,11 @@ class CurriculumLearningActivitySnapshot:
             )
             if requires_code_rubric != isinstance(
                 parts[question.key], CurriculumCodeRubricPartSnapshot
+            ):
+                raise ValidationError
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot) and (
+                not isinstance(parts[question.key], CurriculumChoicePartSnapshot)
+                or self.activity_type == 'diagnostic'
             ):
                 raise ValidationError
             if self.activity_type == 'diagnostic' and isinstance(
