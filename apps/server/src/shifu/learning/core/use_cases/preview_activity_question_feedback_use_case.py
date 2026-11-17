@@ -25,6 +25,7 @@ from shifu.shared.core.domain.structures import (
     CodeRubricAssessmentInput,
     CodeRubricDecisions,
     CurriculumChoicePartSnapshot,
+    CurriculumCodeConceptCriterionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -201,20 +202,23 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
 
     @staticmethod
-    def code_result(
-        question: CodeQuestionSnapshot,
-        part: CurriculumCodeRubricPartSnapshot,
-        answer: CodeAnswer,
+    def _score_rubric(
+        part: CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        concept_criteria: tuple[CurriculumCodeConceptCriterionSnapshot, ...],
         decisions: CodeRubricDecisions,
-        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
-    ) -> PreliminaryQuestionResult:
+    ) -> tuple[
+        tuple[CodeCriterionResult, ...],
+        tuple[CodeConceptObservationResult, ...],
+        Decimal | None,
+    ]:
         criterion_by_key = {item.key: item.level for item in decisions.criterion_levels}
         concept_by_id = {
             item.concept_id: item.level for item in decisions.concept_levels
         }
         if set(criterion_by_key) != {item.key for item in part.criteria} or set(
             concept_by_id
-        ) != {item.concept_id for item in question.concept_criteria}:
+        ) != {item.concept_id for item in concept_criteria}:
             raise ServiceUnavailableError
 
         criteria: list[CodeCriterionResult] = []
@@ -241,7 +245,7 @@ class PreviewActivityQuestionFeedbackUseCase:
                 )
             )
         concepts: list[CodeConceptObservationResult] = []
-        for item in question.concept_criteria:
+        for item in concept_criteria:
             level = concept_by_id[item.concept_id]
             observation = (
                 item.inconclusive_observation
@@ -280,14 +284,29 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
         if any(item.level == 'inconclusive' for item in criteria):
             score = None
+        return tuple(criteria), tuple(concepts), score
+
+    @staticmethod
+    def code_result(
+        question: CodeQuestionSnapshot,
+        part: CurriculumCodeRubricPartSnapshot,
+        answer: CodeAnswer,
+        decisions: CodeRubricDecisions,
+        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
+    ) -> PreliminaryQuestionResult:
+        criteria, concepts, score = (
+            PreviewActivityQuestionFeedbackUseCase._score_rubric(
+                part, question.concept_criteria, decisions
+            )
+        )
         project = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
             question, part, answer, max_bytes
         )
         return PreliminaryQuestionResult(
             status='inconclusive' if score is None else 'conclusive',
             score=score,
-            criteria=tuple(criteria),
-            concept_observations=tuple(concepts),
+            criteria=criteria,
+            concept_observations=concepts,
             submitted_files=tuple(
                 CodeSubmittedFile(path=path, content=content)
                 for path, content in project.project_files
@@ -301,82 +320,15 @@ class PreviewActivityQuestionFeedbackUseCase:
         answer: TranslationAnswer,
         decisions: CodeRubricDecisions,
     ) -> PreliminaryQuestionResult:
-        criterion_by_key = {item.key: item.level for item in decisions.criterion_levels}
-        concept_by_id = {
-            item.concept_id: item.level for item in decisions.concept_levels
-        }
-        if set(criterion_by_key) != {item.key for item in part.criteria} or set(
-            concept_by_id
-        ) != {item.concept_id for item in question.concept_criteria}:
-            raise ServiceUnavailableError
-
-        criteria: list[CodeCriterionResult] = []
-        mandatory_inconclusive = False
-        for item in part.criteria:
-            level = criterion_by_key[item.key]
-            if level == 'inconclusive':
-                comment = item.inconclusive_comment
-                mandatory_inconclusive |= item.required
-            else:
-                comment = next(
-                    (value for value in item.fixed_comments if value.level == level),
-                    None,
-                )
-                if comment is None:
-                    raise ServiceUnavailableError
-            criteria.append(
-                CodeCriterionResult(
-                    key=item.key,
-                    weight_percentage=item.weight_percentage,
-                    level=level,
-                    comment_id=comment.id,
-                    comment=comment.text,
-                )
-            )
-        concepts: list[CodeConceptObservationResult] = []
-        for item in question.concept_criteria:
-            level = concept_by_id[item.concept_id]
-            observation = (
-                item.inconclusive_observation
-                if level == 'inconclusive'
-                else next(
-                    (
-                        value
-                        for value in item.level_observations
-                        if value.level == level
-                    ),
-                    None,
-                )
-            )
-            if observation is None:
-                raise ServiceUnavailableError
-
-            concepts.append(
-                CodeConceptObservationResult(
-                    concept_id=item.concept_id,
-                    level=level,
-                    observation_id=observation.id,
-                )
-            )
-        score = (
-            None
-            if mandatory_inconclusive
-            else sum(
-                (
-                    Decimal(value.level if isinstance(value.level, int) else 0)
-                    * value.weight_percentage
-                    / Decimal(100)
-                    for value in criteria
-                ),
-                Decimal(0),
+        criteria, concepts, score = (
+            PreviewActivityQuestionFeedbackUseCase._score_rubric(
+                part, question.concept_criteria, decisions
             )
         )
-        if any(item.level == 'inconclusive' for item in criteria):
-            score = None
         return PreliminaryQuestionResult(
             status='inconclusive' if score is None else 'conclusive',
             score=score,
-            criteria=tuple(criteria),
-            concept_observations=tuple(concepts),
+            criteria=criteria,
+            concept_observations=concepts,
             submitted_text=answer.text,
         )

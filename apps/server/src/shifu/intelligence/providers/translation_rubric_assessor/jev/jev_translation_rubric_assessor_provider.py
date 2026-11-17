@@ -1,29 +1,23 @@
-from time import sleep
-from typing import ClassVar, Literal
+from typing import Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, ValidationError as TransportValidationError
+from pydantic import BaseModel, ConfigDict
 
+from shifu.intelligence.providers.jev_rubric_assessor_support import (
+    ChoiceQuestion,
+    JevDecisionsClient,
+    build_criteria_questions_and_options,
+    build_rubric_decisions,
+)
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.domain.structures.code_rubric_decisions import (
-    CodeConceptDecision,
-    CodeCriterionDecision,
     CodeRubricDecisions,
-    CodeRubricLevel,
 )
 from shifu.shared.core.domain.structures.translation_rubric_assessment_input import (
     TranslationRubricAssessmentInput,
 )
 
 _UNAVAILABLE_MESSAGE = 'Avaliação de tradução temporariamente indisponível.'
-
-
-class _ChoiceQuestion(BaseModel):
-    model_config = ConfigDict(extra='forbid', strict=True)
-
-    type: Literal['choice'] = 'choice'
-    instructions: str
-    criteria: dict[str, str]
 
 
 class _DecisionState(BaseModel):
@@ -41,50 +35,11 @@ class _DecisionsRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
 
     model: Literal['typesafe/jev-1.13'] = 'typesafe/jev-1.13'
-    questions: dict[str, _ChoiceQuestion]
+    questions: dict[str, ChoiceQuestion]
     state: _DecisionState
 
 
-class _ChoiceAnswer(BaseModel):
-    model_config = ConfigDict(extra='ignore', strict=True)
-
-    type: Literal['choice']
-    choice: str
-
-
-class _DecisionsResponse(BaseModel):
-    model_config = ConfigDict(extra='ignore', strict=True)
-
-    answers: dict[str, _ChoiceAnswer]
-
-
-def _validated_level(level: int) -> CodeRubricLevel:
-    if level == 0:
-        return 0
-
-    if level == 25:
-        return 25
-
-    if level == 50:
-        return 50
-
-    if level == 75:
-        return 75
-
-    if level == 100:
-        return 100
-
-    raise ServiceUnavailableError(_UNAVAILABLE_MESSAGE)
-
-
 class JevTranslationRubricAssessorProvider:
-    _TIMEOUT_SECONDS: ClassVar[float] = 30.0
-    _RETRY_DELAY_SECONDS: ClassVar[float] = 0.5
-    _RETRYABLE_STATUS_CODES: ClassVar[frozenset[int]] = frozenset(
-        {429, 500, 502, 503, 504}
-    )
-    _UNAVAILABLE: ClassVar[str] = _UNAVAILABLE_MESSAGE
-
     def __init__(
         self,
         api_key: str | None,
@@ -92,63 +47,18 @@ class JevTranslationRubricAssessorProvider:
         decisions_url: str,
         model: Literal['typesafe/jev-1.13'],
     ) -> None:
-        self._api_key = api_key
-        self._client = client
-        self._decisions_url = decisions_url
+        self._decisions = JevDecisionsClient(
+            client, decisions_url, api_key, _UNAVAILABLE_MESSAGE
+        )
         self._model: Literal['typesafe/jev-1.13'] = model
 
     def assess(self, request: TranslationRubricAssessmentInput) -> CodeRubricDecisions:
-        if not self._api_key:
-            raise ServiceUnavailableError(self._UNAVAILABLE)
+        if not self._decisions.api_key:
+            raise ServiceUnavailableError(_UNAVAILABLE_MESSAGE)
 
-        questions: dict[str, _ChoiceQuestion] = {}
-        options: dict[str, dict[str, CodeRubricLevel]] = {}
-        for criterion in request.rubric_criteria:
-            question_id = f'rubric:{criterion.key}'
-            criteria = {
-                comment.id: f'{criterion.name}: {comment.text}'
-                for comment in criterion.fixed_comments
-            }
-            criteria[criterion.inconclusive_comment.id] = (
-                criterion.inconclusive_comment.text
-            )
-            questions[question_id] = _ChoiceQuestion(
-                instructions=criterion.description,
-                criteria=criteria,
-            )
-            options[question_id] = {
-                comment.id: _validated_level(comment.level)
-                for comment in criterion.fixed_comments
-            }
-            options[question_id][criterion.inconclusive_comment.id] = 'inconclusive'
-
-        for concept in request.concept_criteria:
-            question_id = f'concept:{concept.concept_id}'
-            criteria = {
-                observation.id: (
-                    f'{observation.evidence} '
-                    f'Limite de interpretação: {observation.interpretation_limit}'
-                )
-                for observation in concept.level_observations
-            }
-            criteria[concept.inconclusive_observation.id] = (
-                concept.inconclusive_observation.text
-            )
-            questions[question_id] = _ChoiceQuestion(
-                instructions=concept.description,
-                criteria=criteria,
-            )
-            options[question_id] = {
-                observation.id: _validated_level(observation.level)
-                for observation in concept.level_observations
-            }
-            options[question_id][concept.inconclusive_observation.id] = 'inconclusive'
-
-        if len(questions) != len(request.rubric_criteria) + len(
-            request.concept_criteria
-        ):
-            raise ServiceUnavailableError(self._UNAVAILABLE)
-
+        questions, options = build_criteria_questions_and_options(
+            request.rubric_criteria, request.concept_criteria, _UNAVAILABLE_MESSAGE
+        )
         payload = _DecisionsRequest(
             model=self._model,
             questions=questions,
@@ -161,61 +71,11 @@ class JevTranslationRubricAssessorProvider:
                 submitted_text=request.submitted_text,
             ),
         )
-        result = self._request_decisions(payload)
-
-        if set(result.answers) != set(options):
-            raise ServiceUnavailableError(self._UNAVAILABLE)
-
-        if any(
-            answer.choice not in options[question_id]
-            for question_id, answer in result.answers.items()
-        ):
-            raise ServiceUnavailableError(self._UNAVAILABLE)
-
-        return CodeRubricDecisions(
-            criterion_levels=tuple(
-                CodeCriterionDecision(
-                    key=criterion.key,
-                    level=options[f'rubric:{criterion.key}'][
-                        result.answers[f'rubric:{criterion.key}'].choice
-                    ],
-                )
-                for criterion in request.rubric_criteria
-            ),
-            concept_levels=tuple(
-                CodeConceptDecision(
-                    concept_id=concept.concept_id,
-                    level=options[f'concept:{concept.concept_id}'][
-                        result.answers[f'concept:{concept.concept_id}'].choice
-                    ],
-                )
-                for concept in request.concept_criteria
-            ),
+        result = self._decisions.request_decisions(payload)
+        return build_rubric_decisions(
+            result,
+            options,
+            request.rubric_criteria,
+            request.concept_criteria,
+            _UNAVAILABLE_MESSAGE,
         )
-
-    def _request_decisions(self, payload: _DecisionsRequest) -> _DecisionsResponse:
-        for attempt in range(2):
-            try:
-                response = self._client.post(
-                    self._decisions_url,
-                    headers={'Authorization': f'Bearer {self._api_key}'},
-                    json=payload.model_dump(),
-                    timeout=self._TIMEOUT_SECONDS,
-                )
-                if (
-                    attempt == 0
-                    and response.status_code in self._RETRYABLE_STATUS_CODES
-                ):
-                    sleep(self._RETRY_DELAY_SECONDS)
-                    continue
-
-                response.raise_for_status()
-                return _DecisionsResponse.model_validate(response.json())
-            except httpx.TransportError:
-                if attempt == 0:
-                    sleep(self._RETRY_DELAY_SECONDS)
-                    continue
-            except (httpx.HTTPError, ValueError, TransportValidationError):
-                pass
-            raise ServiceUnavailableError(self._UNAVAILABLE) from None
-        raise ServiceUnavailableError(self._UNAVAILABLE)

@@ -22,6 +22,9 @@ from shifu.learning.core.domain.structures import (
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
 from shifu.learning.pipes import LearningPipe
+from shifu.learning.rest.controllers.answer_request_shape import (
+    validate_answer_request_shape,
+)
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -68,27 +71,9 @@ class AnswerRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
-            if (
-                self.files is None
-                or self.selected_option_keys is not None
-                or self.text is not None
-            ):
-                raise ValueError('Code answers require files only')
-        elif self.kind == 'translation':
-            if (
-                self.text is None
-                or not self.text.strip()
-                or self.files is not None
-                or self.selected_option_keys is not None
-            ):
-                raise ValueError('Translation answers require text only')
-        elif (
-            self.selected_option_keys is None
-            or self.files is not None
-            or self.text is not None
-        ):
-            raise ValueError('Choice answers require selected option keys only')
+        validate_answer_request_shape(
+            self.kind, self.text, self.files, self.selected_option_keys
+        )
         return self
 
 
