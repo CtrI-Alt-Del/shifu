@@ -127,7 +127,7 @@ resource "aws_ecs_task_definition" "server" {
         protocol      = "tcp"
         appProtocol   = "http"
       }]
-      environment = [
+      environment = concat([
         { name = "SHIFU_SERVER_APP_PORT", value = "7777" },
         { name = "SHIFU_SERVER_APP_MODE", value = "staging" },
         { name = "SHIFU_RELEASE_VERSION", value = var.server_image_tag },
@@ -142,7 +142,7 @@ resource "aws_ecs_task_definition" "server" {
         { name = "INNGEST_API_BASE_URL", value = "https://api.inngest.com" },
         { name = "INNGEST_EVENT_API_BASE_URL", value = "https://inn.gs" },
         { name = "TRUSTED_PROXY_IPS", value = var.vpc_cidr },
-      ]
+      ], local.server_ai_quota_environment)
       secrets = [
         for key in local.server_secret_keys : {
           name      = key

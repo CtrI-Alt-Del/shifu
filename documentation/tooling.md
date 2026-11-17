@@ -114,6 +114,9 @@ Important local variables include:
 | `LANGFUSE_BASE_URL` | `http://localhost:7003` | Server telemetry destination |
 | `MENTOR_TELEMETRY_ENABLED` | `false` | Opt in to sanitized Intelligence and Learning agent monitoring |
 | `MENTOR_GENERATION_LIMIT_PER_HOUR` | `30` | Server setting: generated Mentor answers per account per rolling hour for questions without a local answer; `0` turns them off and the Mentor shows its local abstention |
+| `AI_QUOTA_MONTHLY_LIMIT_UNITS` | none (required) | Server setting: monthly AI quota, in weighted units, shared by the Mentor and the Planner and equal for every account. Greater than zero; the server does not start without it. Tests and CI use `1000` |
+| `AI_QUOTA_INPUT_WEIGHT` | none (required) | Server setting: units charged per input token. Greater than zero. Tests and CI use `1` |
+| `AI_QUOTA_OUTPUT_WEIGHT` | none (required) | Server setting: units charged per output token. Greater than zero. Tests and CI use `4` |
 | `SONAR_PORT` | `19000` | SonarQube web/API host port |
 | `MAILPIT_UI_PORT` | `54326` | Mailpit web UI host port |
 | `INNGEST_APP_URL` | `http://host.docker.internal:7777/api/inngest` | FastAPI Inngest endpoint discovered by the existing Compose Dev Server |

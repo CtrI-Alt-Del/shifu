@@ -9,6 +9,7 @@ from shifu.intelligence.core.domain.entities import (
     MentorSession,
 )
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorMessageRole,
     MentorResponseEventKind,
     MentorResponseStatus,
@@ -25,6 +26,7 @@ from shifu.intelligence.core.domain.events import (
     MentorResponseRequestedPayload,
 )
 from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
     CreateMentorSessionResult,
     MentorContextHint,
     MentorResponseEvent,
@@ -36,12 +38,14 @@ from shifu.intelligence.core.domain.structures.mentor_submission_fingerprint imp
     mentor_submission_fingerprint_v2,
 )
 from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
     GenerateMentorTitleProvider,
     IntelligenceDatabase,
 )
 from shifu.intelligence.core.interfaces.intelligence_database import (
     IntelligenceDatabaseRepositories,
 )
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from shifu.intelligence.core.use_cases.mentor_attachment_helpers import (
     attachment_fingerprint_values,
     selected_attachments,
@@ -61,7 +65,12 @@ class CreateMentorSessionUseCase:
         clock_provider: ClockProvider,
         title_provider: GenerateMentorTitleProvider,
         access_provider: MentorAccessProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
     ) -> None:
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
         self._access_provider: MentorAccessProvider = access_provider
         self._database = database
         self._identifier_provider = identifier_provider
@@ -109,6 +118,9 @@ class CreateMentorSessionUseCase:
                     legacy_fingerprint,
                     attachment_ids,
                 )
+            # An exhausted month refuses the start before the title call; the
+            # admission below stays the authority.
+            self._ledger.assert_available(repositories, account_id)
 
         title = self._generate_title(first_message)
         now = self._clock_provider.now()
@@ -150,6 +162,7 @@ class CreateMentorSessionUseCase:
                 created_at=now,
                 in_reply_to_message_id=None,
             )
+            attempt_id = self._identifier_provider.generate()
             selected = selected_attachments(
                 repositories,
                 account_id=account_id,
@@ -158,6 +171,14 @@ class CreateMentorSessionUseCase:
                 attachment_ids=attachment_ids,
                 now=now,
                 allow_unbound_session=True,
+            )
+            # Admission comes before any state: a refusal leaves no session,
+            # message, attempt or event behind.
+            self._ledger.admit(
+                repositories,
+                AiQuotaRequestKind.MENTOR_RESPONSE,
+                attempt_id,
+                account_id,
             )
             # Persist the parent row before attachment updates flush. The
             # attachment has a composite FK to its owning session, and these
@@ -178,7 +199,7 @@ class CreateMentorSessionUseCase:
             repositories.mentor_messages.add(message)
             self._access_provider.assert_current(grant)
             attempt = MentorResponseAttempt.create(
-                id=self._identifier_provider.generate(),
+                id=attempt_id,
                 account_id=account_id,
                 session_id=session.id,
                 learner_message_id=message.id,

@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { serverFunctionTelemetryMiddleware } from '@/start'
 import { getRequest } from '@tanstack/react-start/server'
+import { toMentorStartResult } from '@/provision/intelligence/mentor-start-result'
 import { getMentorScopedService } from '@/provision/realtime/mentor-response-stream-server-provider'
 import type { CreateMentorSessionInput } from '@/rest/services/intelligence-service'
 const ID = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)
@@ -41,7 +42,7 @@ export const createMentorSessionServer = createServerFn({ method: 'POST' })
     )
     const { accountEmail, ...input } = data
     void accountEmail
-    return service.createMentorSession(accessToken, input)
+    return toMentorStartResult(() => service.createMentorSession(accessToken, input))
   })
 
 export const useCreateMentorSessionAction = (accountEmail: string) => {

@@ -494,12 +494,30 @@ The application command `uv run python -m shifu.mentor_indexes` prepares the
 non-personal indexes offline. Registered Inngest processing publishes approved
 blocks through persisted SSE events; disconnect closes transport only.
 Identity authorizes Mentor reads and inference operations against the real active
-account and current access revision. Monthly quota and coordinated cross-module
-account closure are deferred by Mentor Context revision6; their absence does not
-block this delivery. Account guards remain distinct from the transactional
-session/attempt/deletion fences; separate account checks do not establish atomic
-account revocation across modules. Intelligence retains private idempotent inference
-receipts without commercial quota accounting. Langfuse is optional and receives
+account and current access revision. Coordinated cross-module account closure is
+deferred by Mentor Context revision6; its absence does not block this delivery.
+Account guards remain distinct from the transactional session/attempt/deletion
+fences; separate account checks do not establish atomic account revocation across
+modules. Intelligence retains private idempotent inference receipts.
+
+Intelligence persists one shared monthly AI quota per account in
+`intelligence_ai_quota_months` and `intelligence_ai_quota_charges`. The month is the
+calendar month in America/Sao_Paulo and renews on the first day. Usage is measured in
+weighted token units, with the limit and the input and output weights supplied by
+required server settings and passed to Core as an `AiQuotaPolicy`. `AiQuotaLedger`
+is a helper that each consuming use case builds; it has no transaction of its own and
+admits, charges and refunds inside the caller's database transaction. Admission to
+the five verified starts (new and retried Mentor messages, and new, restarted and
+retried planning) is refused with 429 `ai_quota_exhausted` once usage reaches the
+limit; operations already started always finish. Charging is idempotent and
+delta-based per request, and failed requests are refunded in full. Planner refunds run
+only after an accepted Redis compare-and-set, so a cancellation that wins the race
+keeps its charge. The lock order is the caller's existing Mentor rows, then the month
+row, then the charge row. The month's usage is exposed to the authenticated account
+as a percentage and renewal date through `GET /intelligence/ai-quota`. The
+`PurgeAiQuotaOnAccountDeletedJob` removes the account's quota records when the
+account-deleted event arrives. Titles, summaries, memory analysis and Learning code
+evaluation are not metered. Langfuse is optional and receives
 allowlisted operational metadata only from both Intelligence and Learning. Its local
 UI runs through the existing Compose profile. A dedicated SDK client is created in
 the application lifespan, shared across module telemetry providers, and closed after

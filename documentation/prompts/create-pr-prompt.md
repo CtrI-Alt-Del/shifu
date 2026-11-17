@@ -90,7 +90,7 @@ alterações de design que não pertençam à entrega atual.
 
 Toda alteração nova da entrega entra no PR. Isso vale para correções, mudanças
 pedidas pelo usuário durante ou depois da criação do PR, atualizações de Spec e
-Evaluation (status, CI, hashes) e qualquer arquivo alterado pela própria tarefa.
+Evaluation (status, hashes) e qualquer arquivo alterado pela própria tarefa.
 Não deixe essas alterações apenas na worktree e não as exclua do PR por
 iniciativa própria.
 

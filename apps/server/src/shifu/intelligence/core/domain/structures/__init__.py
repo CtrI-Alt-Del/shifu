@@ -116,3 +116,6 @@ from .mentor_action_proposal_draft import (
 from .mentor_action_proposal_item import (
     MentorActionProposalItem as MentorActionProposalItem,
 )
+from .ai_quota_policy import AiQuotaPolicy as AiQuotaPolicy
+from .ai_quota_usage import AiQuotaUsage as AiQuotaUsage
+from .ai_token_count import AiTokenCount as AiTokenCount

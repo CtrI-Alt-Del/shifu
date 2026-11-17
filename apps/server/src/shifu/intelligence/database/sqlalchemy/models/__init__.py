@@ -47,3 +47,5 @@ from .planning_skill_embedding_model import (
 from .mentor_session_summary_model import (
     MentorSessionSummaryModel as MentorSessionSummaryModel,
 )
+from .ai_quota_charge_model import AiQuotaChargeModel as AiQuotaChargeModel
+from .ai_quota_month_model import AiQuotaMonthModel as AiQuotaMonthModel

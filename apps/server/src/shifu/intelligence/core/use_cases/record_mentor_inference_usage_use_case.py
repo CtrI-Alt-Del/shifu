@@ -3,12 +3,21 @@ from contextlib import suppress
 from math import isfinite
 from typing import Any
 
-from shifu.intelligence.core.domain.enums import MentorResponseStatus
-from shifu.intelligence.core.domain.structures import MentorInferenceUsage
+from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
+    MentorResponseStatus,
+)
+from shifu.intelligence.core.domain.structures import (
+    AiQuotaPolicy,
+    AiTokenCount,
+    MentorInferenceUsage,
+)
 from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
     IntelligenceDatabase,
     MentorTelemetryProvider,
 )
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     assert_response_access,
 )
@@ -25,11 +34,16 @@ class RecordMentorInferenceUsageUseCase:
         database: IntelligenceDatabase,
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
         telemetry: MentorTelemetryProvider | None = None,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
         self._access_provider = access_provider
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
         self._telemetry = telemetry
 
     def execute(
@@ -41,7 +55,12 @@ class RecordMentorInferenceUsageUseCase:
         self._validate(usage)
         with self._database.transaction() as repositories:
             attempt = repositories.mentor_response_attempts.find_by_id(attempt_id)
-            if attempt is None or attempt.status is not MentorResponseStatus.PROCESSING:
+            # A cancel keeps the usage that occurred, including calls that finish
+            # while the cancelled execution winds down; its claim is still held.
+            if attempt is None or attempt.status not in (
+                MentorResponseStatus.PROCESSING,
+                MentorResponseStatus.CANCELLED,
+            ):
                 raise ServiceUnavailableError
             if not repositories.mentor_response_attempts.has_claim(
                 attempt_id, execution_owner, self._clock_provider.now()
@@ -56,6 +75,22 @@ class RecordMentorInferenceUsageUseCase:
             ):
                 raise ServiceUnavailableError
             calls = repositories.mentor_response_attempts.read_usage(attempt_id)
+            if calls:
+                # The charge shares the journal transaction, so the journal and the
+                # month never disagree. The attempt row is already locked here.
+                self._ledger.charge(
+                    repositories,
+                    AiQuotaRequestKind.MENTOR_RESPONSE,
+                    attempt_id,
+                    tuple(
+                        AiTokenCount(
+                            input_tokens=call.input_tokens,
+                            output_tokens=call.output_tokens,
+                            used_tokens=call.used_tokens,
+                        )
+                        for call in calls
+                    ),
+                )
         if self._telemetry is not None:
             with suppress(Exception):
                 self._telemetry.record_inference(
@@ -80,7 +115,7 @@ class RecordMentorInferenceUsageUseCase:
                 operation_key=attempt.operation_key,
                 attempt_id=attempt.id,
                 used_tokens=total,
-                cancelled=False,
+                cancelled=attempt.status is MentorResponseStatus.CANCELLED,
             ),
         )
 

@@ -1,12 +1,18 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { renderHook, waitFor } from '@testing-library/react'
+import { createElement, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createMentorSessionServer } from '../use-create-mentor-session-action'
 import { createMentorAttachmentBatchServer } from '../use-create-mentor-attachment-batch-action'
 import { getMentorSessionServer } from '../use-mentor-session-query'
 import { listMentorSessionsServer } from '../use-mentor-sessions-query'
+import { getAiQuotaUsageServer } from '../use-ai-quota-usage-query'
 import { removeMentorSessionServer } from '../use-remove-mentor-session-action'
 import { renameMentorSessionServer } from '../use-rename-mentor-session-action'
+import { retryMentorResponseServer } from '../use-retry-mentor-response-action'
 import { submitMentorMessageServer } from '../use-submit-mentor-message-action'
+import { useAiUsagePage } from '../../widgets/pages/ai-usage-page/use-ai-usage-page'
 import { editLearnerMemoryServer } from '../../widgets/pages/memories-page/use-edit-learner-memory-action'
 import { listLearnerMemoriesServer } from '../../widgets/pages/memories-page/use-learner-memories-query'
 import { getLearnerMemoryServer } from '../../widgets/pages/memories-page/use-learner-memory-query'
@@ -27,6 +33,7 @@ const mocks = vi.hoisted(() => ({
     removeMentorSession: vi.fn(),
     renameMentorSession: vi.fn(),
     submitMentorMessage: vi.fn(),
+    retryMentorResponse: vi.fn(),
     listLearnerMemories: vi.fn(),
     getLearnerMemory: vi.fn(),
     editLearnerMemory: vi.fn(),
@@ -38,6 +45,8 @@ vi.mock('@tanstack/react-start', () => ({
   createServerFn: () => {
     const builder = {
       middleware: () => builder,
+      handler: (handler: (context: { context: unknown }) => Promise<unknown>) => () =>
+        handler({ context: { requestId: 'request-1' } }),
       validator: (validate: (data: unknown) => unknown) => ({
         handler:
           (handler: (context: { data: unknown }) => Promise<unknown>) =>
@@ -335,8 +344,8 @@ describe('Mentor server functions', () => {
       },
     })
 
-    expect(created.session.id).toBe(sessionId)
-    expect(submitted.session.id).toBe(sessionId)
+    expect(created).toMatchObject({ ok: true, value: { session: { id: sessionId } } })
+    expect(submitted).toMatchObject({ ok: true, value: { session: { id: sessionId } } })
     expect(post).toHaveBeenNthCalledWith(
       1,
       '/intelligence/mentor-sessions',
@@ -370,6 +379,146 @@ describe('Mentor server functions', () => {
         },
       },
     )
+  })
+
+  it('returns a quota refusal as typed data for a first message, a message and a retry, and still throws other failures', async () => {
+    const sessionId = '01J7T8AC91Z5K8M4JQ8C2D6F0B'
+    const attemptId = '01J7T8AC91Z5K8M4JQ8C2D6F0C'
+    const submissionKey = 'e9cfaab2-fb57-40e6-96aa-e6d7afdd7259'
+    const quotaRefusal = new RestError('Cota esgotada.', 429, 'ai_quota_exhausted')
+    mocks.service.createMentorSession.mockRejectedValueOnce(quotaRefusal)
+    mocks.service.submitMentorMessage.mockRejectedValueOnce(quotaRefusal)
+    mocks.service.retryMentorResponse.mockRejectedValueOnce(quotaRefusal)
+
+    const created = await createMentorSessionServer({
+      data: {
+        accountEmail: 'learner@example.test',
+        submissionKey,
+        firstMessage: 'Olá',
+      },
+    })
+    const submitted = await submitMentorMessageServer({
+      data: {
+        accountEmail: 'learner@example.test',
+        sessionId,
+        submissionKey,
+        content: 'Olá',
+        contextHint: null,
+      },
+    })
+    const retried = await retryMentorResponseServer({
+      data: { accountEmail: 'learner@example.test', sessionId, attemptId, submissionKey },
+    })
+
+    expect(created).toEqual({ ok: false, failure: { kind: 'quota-exhausted' } })
+    expect(submitted).toEqual({ ok: false, failure: { kind: 'quota-exhausted' } })
+    expect(retried).toEqual({ ok: false, failure: { kind: 'quota-exhausted' } })
+
+    mocks.service.createMentorSession.mockRejectedValueOnce(
+      new RestError('Limite por hora.', 429, 'rate_limited'),
+    )
+    mocks.service.submitMentorMessage.mockRejectedValueOnce(
+      new RestError('Limite por hora.', 429, 'rate_limited'),
+    )
+    mocks.service.retryMentorResponse.mockRejectedValueOnce(
+      new RestError('Indisponível.', 503),
+    )
+    await expect(
+      createMentorSessionServer({
+        data: {
+          accountEmail: 'learner@example.test',
+          submissionKey,
+          firstMessage: 'Olá',
+        },
+      }),
+    ).rejects.toThrow('Limite por hora.')
+    await expect(
+      submitMentorMessageServer({
+        data: {
+          accountEmail: 'learner@example.test',
+          sessionId,
+          submissionKey,
+          content: 'Olá',
+          contextHint: null,
+        },
+      }),
+    ).rejects.toThrow('Limite por hora.')
+    await expect(
+      retryMentorResponseServer({
+        data: {
+          accountEmail: 'learner@example.test',
+          sessionId,
+          attemptId,
+          submissionKey,
+        },
+      }),
+    ).rejects.toThrow('Indisponível.')
+  })
+
+  it('maps the AI quota reading and returns the account id from the session', async () => {
+    const { IntelligenceService: createIntelligenceService } = await vi.importActual<
+      typeof import('@/rest/services/intelligence-service')
+    >('@/rest/services/intelligence-service')
+    const get = vi.fn().mockResolvedValue(
+      new RestResponse({
+        body: { percentage: 85, status: 'near_limit', renews_on: '2026-12-01' },
+        statusCode: 200,
+      }),
+    )
+    mocks.axiosRestClient.mockReturnValue({ get } as unknown as RestClient)
+    mocks.intelligenceService.mockImplementation((client: RestClient) =>
+      createIntelligenceService(client),
+    )
+    mocks.getCurrentAccess.mockResolvedValueOnce({
+      accessToken: 'access-token',
+      email: 'learner@example.test',
+      accountId: 'account-1',
+    })
+
+    const reading = await getAiQuotaUsageServer()
+
+    expect(get).toHaveBeenCalledWith('/intelligence/ai-quota', {
+      headers: { Authorization: 'Bearer access-token', 'Cache-Control': 'no-store' },
+    })
+    expect(reading).toEqual({
+      usage: { percentage: 85, status: 'near_limit', renewsOn: '2026-12-01' },
+      accountId: 'account-1',
+    })
+  })
+
+  it('fails the AI quota reading without a session and on an HTTP error, so the page is unavailable', async () => {
+    const { IntelligenceService: createIntelligenceService } = await vi.importActual<
+      typeof import('@/rest/services/intelligence-service')
+    >('@/rest/services/intelligence-service')
+    mocks.getCurrentAccess.mockResolvedValueOnce(null)
+
+    await expect(getAiQuotaUsageServer()).rejects.toThrow(
+      'Sua sessão expirou. Atualize a página.',
+    )
+
+    const get = vi
+      .fn()
+      .mockResolvedValue(
+        new RestResponse({ statusCode: 503, errorMessage: 'Indisponível.' }),
+      )
+    mocks.axiosRestClient.mockReturnValue({ get } as unknown as RestClient)
+    mocks.intelligenceService.mockImplementation((client: RestClient) =>
+      createIntelligenceService(client),
+    )
+    mocks.getCurrentAccess.mockResolvedValue({
+      accessToken: 'access-token',
+      email: 'learner@example.test',
+      accountId: 'account-1',
+    })
+
+    await expect(getAiQuotaUsageServer()).rejects.toBeInstanceOf(RestError)
+
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: new QueryClient() }, children)
+    const { result } = renderHook(() => useAiUsagePage(), { wrapper })
+
+    await waitFor(() => expect(result.current.viewState).toBe('unavailable'))
+    expect(result.current.status).toBeNull()
   })
 
   it('rejects a session with attachment ids that lack a batch before service access', async () => {

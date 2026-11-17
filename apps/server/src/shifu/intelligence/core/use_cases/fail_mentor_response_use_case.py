@@ -2,10 +2,16 @@ from dataclasses import replace
 from typing import Any
 
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorResponseEventKind,
     MentorResponseStatus,
 )
-from shifu.intelligence.core.interfaces import IntelligenceDatabase
+from shifu.intelligence.core.domain.structures import AiQuotaPolicy
+from shifu.intelligence.core.interfaces import (
+    AiQuotaCalendarProvider,
+    IntelligenceDatabase,
+)
+from shifu.intelligence.core.use_cases.ai_quota_ledger import AiQuotaLedger
 from shifu.intelligence.core.use_cases.mentor_response_phase_helpers import (
     claim_for_failure,
     response_event,
@@ -21,10 +27,15 @@ class FailMentorResponseUseCase:
         database: IntelligenceDatabase,
         clock_provider: ClockProvider,
         access_provider: MentorAccessProvider,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
     ) -> None:
         self._database = database
         self._clock_provider = clock_provider
         self._access_provider = access_provider
+        self._ledger: AiQuotaLedger = AiQuotaLedger(
+            quota_policy, quota_calendar, clock_provider
+        )
 
     def execute(
         self,
@@ -73,6 +84,10 @@ class FailMentorResponseUseCase:
                 attempt.access_revision,
             ):
                 return current.status
+            # The refund shares the transaction that writes FAILED.
+            self._ledger.refund(
+                repositories, AiQuotaRequestKind.MENTOR_RESPONSE, attempt_id
+            )
             repositories.mentor_action_proposals.remove_pending_by_attempt_id(
                 attempt.account_id, attempt_id
             )

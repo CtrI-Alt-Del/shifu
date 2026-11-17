@@ -1,13 +1,15 @@
-from unittest.mock import create_autospec
+from unittest.mock import Mock, create_autospec
 
 import pytest
 
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     PlanningIntentKind,
     PlanningOperationKind,
     PlanningSessionStatus,
 )
 from shifu.intelligence.core.domain.errors import (
+    AiQuotaExhaustedError,
     PlanningOperationConflictError,
     PlanningSessionNotFoundError,
 )
@@ -41,6 +43,11 @@ from tests.fixtures.curriculum_planning_boundary_fixture import (
     boundary_proposal,
     boundary_restart,
 )
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    QUOTA_LIMIT,
+    QUOTA_MONTH,
+    AiQuotaTestSetup,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NEXT_OPERATION_ID,
@@ -53,7 +60,7 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
 )
 
 
-class TestRestartPlanningUseCase:
+class TestRestartPlanningUseCase(AiQuotaTestSetup):
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.sessions = create_autospec(PlanningSessionsRepository, instance=True)
@@ -65,6 +72,7 @@ class TestRestartPlanningUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
+        self.prepare_quota(self.repositories, account_id=ACCOUNT_ID)
         self.access = create_autospec(MentorAccessProvider, instance=True)
         self.access.authorize.return_value = MentorAccessGrant(
             account_id=ACCOUNT_ID,
@@ -76,7 +84,13 @@ class TestRestartPlanningUseCase:
         self.clock = create_autospec(ClockProvider, instance=True)
         self.clock.now.return_value = NOW
         self.use_case = RestartPlanningUseCase(
-            self.sessions, self.database, self.access, self.identifiers, self.clock
+            self.sessions,
+            self.database,
+            self.access,
+            self.identifiers,
+            self.clock,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
     def test_should_open_a_new_generation_with_the_submitted_intent(self) -> None:
@@ -125,7 +139,7 @@ class TestRestartPlanningUseCase:
         with pytest.raises(PlanningOperationConflictError):
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
 
-        self.database.transaction.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_hide_a_missing_planning(self) -> None:
         self.sessions.find_by_id.return_value = None
@@ -165,6 +179,65 @@ class TestRestartPlanningUseCase:
         assert result.classification is None
         assert result.consulted_curriculum is False
         self.sessions.update.assert_called_once_with(result)
+
+    def test_should_admit_the_restart_operation_before_the_planning_reaches_redis(
+        self,
+    ) -> None:
+        session = started_session()
+        assert session.complete(OPERATION_ID, 1, PlanningOperationResult.failed(), NOW)
+        self.sessions.find_by_id.return_value = session
+        effects = Mock()
+        effects.attach_mock(self.quota_months.ensure_and_lock, 'lock_month')
+        effects.attach_mock(self.quota_charges.add, 'add_charge')
+        effects.attach_mock(self.database.transaction.return_value.__exit__, 'commit')
+        effects.attach_mock(self.sessions.update, 'redis_write')
+        effects.attach_mock(self.repositories.events.add, 'add_event')
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
+
+        assert [entry[0] for entry in effects.mock_calls] == [
+            'lock_month',
+            'add_charge',
+            'commit',
+            'redis_write',
+            'add_event',
+            'commit',
+        ]
+        self.quota_months.ensure_and_lock.assert_called_once_with(
+            ACCOUNT_ID, QUOTA_MONTH, QUOTA_LIMIT, NOW
+        )
+        charge = self.quota_charges.add.call_args.args[0]
+        assert charge.request_kind is AiQuotaRequestKind.PLANNING_OPERATION
+        assert charge.request_id == NEXT_OPERATION_ID
+        assert charge.account_id == ACCOUNT_ID
+
+    @pytest.mark.parametrize(
+        'used_units', [QUOTA_LIMIT, QUOTA_LIMIT + 1, 5 * QUOTA_LIMIT]
+    )
+    def test_should_refuse_at_or_above_the_limit_without_any_write(
+        self, used_units: int
+    ) -> None:
+        session = started_session()
+        assert session.complete(
+            OPERATION_ID, 1, PlanningOperationResult.for_proposal(proposal()), NOW
+        )
+        self.sessions.find_by_id.return_value = session
+        self.quota_month.used_units = used_units
+
+        with pytest.raises(AiQuotaExhaustedError):
+            self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
+
+        self.sessions.update.assert_not_called()
+        self.quota_charges.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_not_open_the_month_for_a_missing_planning(self) -> None:
+        self.sessions.find_by_id.return_value = None
+
+        with pytest.raises(PlanningSessionNotFoundError):
+            self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'Agora APIs')
+
+        self.quota_months.ensure_and_lock.assert_not_called()
 
 
 class TestRestartPlanningMigratedTransitions:

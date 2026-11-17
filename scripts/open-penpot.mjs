@@ -26,13 +26,16 @@ function fail(message) {
 
 const isWsl =
   os.platform() === 'linux' && /microsoft/i.test(fs.readFileSync('/proc/version', 'utf8'))
+const isWindows = os.platform() === 'win32'
+// Both run the Windows build of Chrome, whose process list comes from PowerShell.
+const usesWindowsChrome = isWsl || isWindows
 
 function powershell(command) {
   return execFileSync(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-Command', command],
     {
-      cwd: '/mnt/c',
+      cwd: isWsl ? '/mnt/c' : undefined,
       encoding: 'utf8',
     },
   )
@@ -59,6 +62,20 @@ function resolveTarget() {
       profileDirectory: `${powershell('$env:LOCALAPPDATA')}\\Chrome${folderName}`,
       chrome: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     }
+  }
+  if (isWindows) {
+    const localAppData =
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local')
+    const chrome = [
+      process.env.PROGRAMFILES,
+      process.env['PROGRAMFILES(X86)'],
+      localAppData,
+    ]
+      .filter(Boolean)
+      .map((base) => path.join(base, 'Google', 'Chrome', 'Application', 'chrome.exe'))
+      .find((candidate) => fs.existsSync(candidate))
+    if (!chrome) fail('Chrome not found')
+    return { profileDirectory: path.join(localAppData, `Chrome${folderName}`), chrome }
   }
   if (os.platform() === 'darwin') {
     return {
@@ -98,7 +115,7 @@ function readUserDataDirectory(commandLine) {
 // Main browser processes (not renderers or helpers) started with this profile.
 function findInstance(profileDirectory) {
   let processes
-  if (isWsl) {
+  if (usesWindowsChrome) {
     const json = powershell(
       `Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress`,
     )
@@ -115,7 +132,7 @@ function findInstance(profileDirectory) {
       .map(([, pid, commandLine]) => ({ pid: Number(pid), commandLine }))
   }
   const sameDirectory = (directory) =>
-    isWsl
+    usesWindowsChrome
       ? directory.toLowerCase() === profileDirectory.toLowerCase()
       : directory === profileDirectory
   return processes.filter((p) => {

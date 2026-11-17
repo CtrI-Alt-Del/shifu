@@ -4,7 +4,10 @@ from collections.abc import Callable
 from unittest.mock import create_autospec
 import pytest
 
+from shifu.fakers.intelligence.entities import AiQuotaChargeFaker
+from shifu.intelligence.core.domain.entities import AiQuotaCharge
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     MentorResponseStatus,
     MentorResponseEventKind,
     MentorIntent,
@@ -26,6 +29,7 @@ from shifu.intelligence.core.use_cases import ProcessMentorResponseUseCase
 from shifu.shared.core.domain.structures import MentorContextSnapshot
 from shifu.shared.core.domain.errors import ServiceUnavailableError
 from shifu.shared.core.interfaces import MentorContextProvider, MentorCatalogProvider
+from tests.intelligence.core.use_cases.ai_quota_test_setup import QUOTA_MONTH
 from tests.intelligence.core.use_cases.mentor_response_test_setup import (
     MentorResponseTestSetup,
 )
@@ -137,6 +141,8 @@ class TestProcessMentorResponseUseCase(MentorResponseTestSetup):
             self.router,
             self.workflow,
             self.catalog,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
     def test_should_complete_local_without_generator(self) -> None:
@@ -393,6 +399,8 @@ class TestProcessMentorResponseUseCase(MentorResponseTestSetup):
             self.router,
             self.workflow,
             self.catalog,
+            self.quota_policy,
+            self.quota_calendar,
             telemetry,
         )
         assert subject.execute('attempt') is MentorResponseStatus.COMPLETED
@@ -418,6 +426,8 @@ class TestProcessMentorResponseUseCase(MentorResponseTestSetup):
             self.router,
             self.workflow,
             self.catalog,
+            self.quota_policy,
+            self.quota_calendar,
             telemetry,
         )
         assert subject.execute('attempt') is MentorResponseStatus.COMPLETED
@@ -446,6 +456,8 @@ class TestProcessMentorResponseUseCase(MentorResponseTestSetup):
             self.router,
             self.workflow,
             self.catalog,
+            self.quota_policy,
+            self.quota_calendar,
             telemetry,
         )
         assert subject.execute('attempt') is MentorResponseStatus.FAILED
@@ -2312,3 +2324,76 @@ class TestProcessMentorResponseUseCase(MentorResponseTestSetup):
             call.args[0].kind
             for call in self.repositories.mentor_response_events.append.call_args_list
         ] == [MentorResponseEventKind.BLOCK]
+
+    def _wire_charge(self) -> AiQuotaCharge:
+        charge = AiQuotaChargeFaker.fake(
+            request_kind=AiQuotaRequestKind.MENTOR_RESPONSE,
+            request_id='attempt',
+            account_id='account',
+            month=QUOTA_MONTH,
+            charged_units=300,
+        )
+        self.quota_month.used_units = 500
+        self.quota_charges.find.return_value = charge
+        self.quota_charges.find_for_update.return_value = charge
+        return charge
+
+    def test_should_refund_the_attempt_in_the_transaction_that_writes_failed(
+        self,
+    ) -> None:
+        charge = self._wire_charge()
+        self.router.route.return_value = MentorRouteResult(
+            intents=(),
+            local_blocks=(self.block,),
+            generation_requests=('gerar',),
+            clarification=None,
+        )
+        self.workflow.run.side_effect = ServiceUnavailableError()
+
+        assert self.subject.execute('attempt') is MentorResponseStatus.FAILED
+
+        assert charge.refunded is True
+        assert self.quota_month.used_units == 200
+        self.quota_months.lock_existing.assert_called_once_with('account', QUOTA_MONTH)
+
+    def test_should_refund_when_access_is_revoked_before_inference(self) -> None:
+        charge = self._wire_charge()
+        self.access.assert_current.side_effect = ServiceUnavailableError()
+
+        assert self.subject.execute('attempt') is MentorResponseStatus.FAILED
+
+        assert charge.refunded is True
+        assert self.quota_month.used_units == 200
+
+    def test_should_keep_the_charge_when_the_response_completes(self) -> None:
+        charge = self._wire_charge()
+
+        assert self.subject.execute('attempt') is MentorResponseStatus.COMPLETED
+
+        assert charge.refunded is False
+        assert self.quota_month.used_units == 500
+        self.quota_months.update.assert_not_called()
+
+    def test_should_keep_the_charge_when_the_response_was_cancelled(self) -> None:
+        charge = self._wire_charge()
+        self.repositories.mentor_response_attempts.find_by_id_for_update.side_effect = [
+            self.attempt,
+            replace(self.attempt, status=MentorResponseStatus.CANCELLED),
+            replace(self.attempt, status=MentorResponseStatus.CANCELLED),
+            replace(self.attempt, status=MentorResponseStatus.CANCELLED),
+        ]
+
+        assert self.subject.execute('attempt') is MentorResponseStatus.CANCELLED
+
+        assert charge.refunded is False
+        assert self.quota_month.used_units == 500
+
+    def test_should_not_refund_when_the_failure_transition_is_lost(self) -> None:
+        charge = self._wire_charge()
+        self.access.assert_current.side_effect = ServiceUnavailableError()
+        self.repositories.mentor_response_attempts.transition.return_value = False
+
+        self.subject.execute('attempt')
+
+        assert charge.refunded is False
+        assert self.quota_month.used_units == 500

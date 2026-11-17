@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ROUTES } from '@/constants/routes'
+import { PlanningRequestError } from '@/ui/intelligence/hooks/planning-request-error'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useStartPlanningAction } from '@/ui/intelligence/hooks/use-start-planning-action'
 import { consumePlanningEntry } from '@/ui/intelligence/planning-entry'
 import type { AnchorProps } from '@/ui/shared/widgets/components/anchor'
@@ -16,6 +18,10 @@ import { PlanningIntentComposer } from '..'
 // rather than a generic useQuery result").
 vi.mock('@/ui/intelligence/hooks/use-start-planning-action', () => ({
   useStartPlanningAction: vi.fn(),
+}))
+
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
 }))
 
 vi.mock('@/ui/shared/widgets/components/anchor', () => ({
@@ -35,12 +41,29 @@ const navigateToMock = vi.fn()
 const navigateToPlannerMock = vi.fn()
 const useStartPlanningActionMock = vi.mocked(useStartPlanningAction)
 const useNavigationMock = vi.mocked(useNavigation)
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
+const BLOCKED_MESSAGE =
+  'Sua cota de IA acabou. O planejamento com IA volta em 1º de dezembro de 2026. Você pode criar um Objetivo manualmente agora.'
+
+/** The reading says blocked, or the start was refused on this screen. */
+function mockQuotaReading(isReadingBlocked: boolean) {
+  useAiQuotaBlockMock.mockImplementation((hasRefusal = false) => ({
+    isAiQuotaBlocked: isReadingBlocked || hasRefusal,
+    isAiQuotaNearLimit: false,
+    getAiQuotaBlockedMessage: (surface) => (surface === 'home' ? BLOCKED_MESSAGE : ''),
+    aiQuotaBlockedRole: hasRefusal ? 'alert' : 'status',
+    aiQuotaAccountId: 'account-1',
+    aiQuotaPercentage: 100,
+    aiQuotaRenewsOn: '2026-12-01',
+  }))
+}
 
 describe('PlanningIntentComposer', () => {
   afterEach(cleanup)
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockQuotaReading(false)
     useStartPlanningActionMock.mockReturnValue({
       error: null,
       isPending: false,
@@ -163,5 +186,98 @@ describe('PlanningIntentComposer', () => {
 
     render(<PlanningIntentComposer />)
     expect(screen.getByLabelText('O que você quer aprender?')).toHaveValue('')
+  })
+
+  describe('quota', () => {
+    it('disables the field and pauses the primary action behind the blocked card when the quota is exhausted', () => {
+      mockQuotaReading(true)
+      render(<PlanningIntentComposer />)
+
+      expect(screen.getByRole('status')).toHaveTextContent(BLOCKED_MESSAGE)
+      expect(screen.getByRole('link', { name: 'Ver uso da IA' })).toHaveAttribute(
+        'href',
+        ROUTES.accountAiUsage,
+      )
+      expect(screen.getByLabelText('O que você quer aprender?')).toBeDisabled()
+      const action = screen.getByRole('button', { name: 'Planejar com IA' })
+      expect(action).toHaveAttribute('aria-disabled', 'true')
+      expect(action).toBeEnabled()
+      expect(action).toHaveAccessibleDescription(expect.stringContaining(BLOCKED_MESSAGE))
+      action.focus()
+      expect(action).toHaveFocus()
+    })
+
+    it('places the blocked card between the field and the actions and drops the glow frame', () => {
+      mockQuotaReading(true)
+      const { container } = render(<PlanningIntentComposer />)
+
+      const field = screen.getByLabelText('O que você quer aprender?')
+      const card = screen.getByRole('status')
+      const action = screen.getByRole('button', { name: 'Planejar com IA' })
+      expect(field.compareDocumentPosition(card)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(card.compareDocumentPosition(action)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(container.querySelector('.border-glow')).toBeNull()
+    })
+
+    it('keeps the glow frame while the quota is open', () => {
+      mockQuotaReading(false)
+      const { container } = render(<PlanningIntentComposer />)
+
+      expect(container.querySelector('.border-glow')).not.toBeNull()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    it('ignores the blocked action without validation noise or a request and keeps manual creation', () => {
+      mockQuotaReading(true)
+      render(<PlanningIntentComposer />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Planejar com IA' }))
+
+      expect(startPlanningMock).not.toHaveBeenCalled()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Criar manualmente' })).toHaveAttribute(
+        'href',
+        ROUTES.learningGoalsNew,
+      )
+    })
+
+    it('shows the blocked card, not the generic error, after the server refuses the start', () => {
+      useStartPlanningActionMock.mockReturnValue({
+        error: new PlanningRequestError({ kind: 'quota-exhausted' }),
+        isPending: false,
+        startPlanning: startPlanningMock,
+      })
+      render(<PlanningIntentComposer />)
+
+      expect(useAiQuotaBlockMock).toHaveBeenCalledWith(true)
+      expect(screen.getByRole('alert')).toHaveTextContent(BLOCKED_MESSAGE)
+      expect(
+        screen.queryByText(
+          'Não foi possível iniciar o planejamento agora. Tente novamente.',
+        ),
+      ).not.toBeInTheDocument()
+      expect(screen.getByLabelText('O que você quer aprender?')).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Planejar com IA' })).toHaveAttribute(
+        'aria-disabled',
+        'true',
+      )
+    })
+
+    it('keeps other start failures on the generic error with the primary action active', () => {
+      useStartPlanningActionMock.mockReturnValue({
+        error: new PlanningRequestError({ kind: 'unavailable' }),
+        isPending: false,
+        startPlanning: startPlanningMock,
+      })
+      render(<PlanningIntentComposer />)
+
+      expect(useAiQuotaBlockMock).toHaveBeenCalledWith(false)
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Não foi possível iniciar o planejamento agora. Tente novamente.',
+      )
+      expect(screen.getByRole('button', { name: 'Planejar com IA' })).not.toHaveAttribute(
+        'aria-disabled',
+      )
+    })
   })
 })

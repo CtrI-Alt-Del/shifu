@@ -19,8 +19,20 @@ from shifu.shared.settings import get_settings
 from typing import TYPE_CHECKING
 
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     PlanningOperationStage,
     PlanningSessionStatus,
+)
+from shifu.intelligence.core.domain.structures import AiTokenCount
+from shifu.intelligence.core.use_cases import RecordPlanningInferenceUsageUseCase
+from shifu.shared.providers.system_clock_provider import SystemClockProvider
+from tests.intelligence.core.use_cases.ai_quota_test_setup import quota_policy
+from tests.intelligence.server.controllers.ai_quota_test_support import (
+    CALENDAR,
+    app_of,
+    pin_clock,
+    read_charge,
+    read_month,
 )
 from tests.intelligence.server.controllers.planning_test_support import (
     failed_session,
@@ -31,6 +43,7 @@ from tests.intelligence.server.controllers.planning_test_support import (
 )
 
 if TYPE_CHECKING:
+    from tests.fixtures.intelligence_fixture import IntelligenceFixture
     from tests.fixtures.redis_fixture import RedisFixture
     from tests.fixtures.postgres_fixture import PostgresDatabase
     from fastapi.testclient import TestClient
@@ -145,6 +158,90 @@ class TestGetPlanningSessionController:
         assert after.json()['status'] == 'processing'
 
 
+class TestGetPlanningSessionAiQuota:
+    def _start_and_spend(
+        self, fixture: IntelligenceFixture, client: TestClient
+    ) -> tuple[str, str]:
+        """Start a planning and report 140 units (100 + 10 * 4) for its operation."""
+        started = client.post(
+            '/intelligence/planning-sessions',
+            json={'initial_intent': 'Quero aprender a fazer sites'},
+        )
+        assert started.status_code == 201, started.text
+        planning_id = started.json()['id']
+        stored = sessions_of(client).find_by_id(planning_id)
+        assert stored is not None
+        assert stored.operation is not None
+        RecordPlanningInferenceUsageUseCase(
+            fixture.database, quota_policy(), CALENDAR, SystemClockProvider()
+        ).execute(
+            stored.operation.id,
+            AiTokenCount(input_tokens=100, output_tokens=10, used_tokens=110),
+        )
+        month = read_month(fixture)
+        assert month is not None
+        assert month.used_units == 140
+        return planning_id, stored.operation.id
+
+    def test_should_give_the_operation_units_back_when_the_read_expires_it(
+        self, intelligence_fixture: IntelligenceFixture, planning_client: TestClient
+    ) -> None:
+        planning_id, operation_id = self._start_and_spend(
+            intelligence_fixture, planning_client
+        )
+        # The operation timeout is three minutes by default.
+        pin_clock(app_of(planning_client), datetime.now(UTC) + timedelta(minutes=10))
+
+        response = planning_client.get(f'/intelligence/planning-sessions/{planning_id}')
+
+        assert response.status_code == 200, response.text
+        assert response.json()['failure_code'] == 'operation_timeout'
+        charge = read_charge(
+            intelligence_fixture, AiQuotaRequestKind.PLANNING_OPERATION, operation_id
+        )
+        assert charge is not None
+        assert charge.refunded is True
+        month = read_month(intelligence_fixture)
+        assert month is not None
+        assert month.used_units == 0
+
+    def test_should_keep_the_charge_while_the_operation_is_still_running(
+        self, intelligence_fixture: IntelligenceFixture, planning_client: TestClient
+    ) -> None:
+        planning_id, operation_id = self._start_and_spend(
+            intelligence_fixture, planning_client
+        )
+
+        response = planning_client.get(f'/intelligence/planning-sessions/{planning_id}')
+
+        assert response.status_code == 200, response.text
+        assert response.json()['status'] == 'processing'
+        charge = read_charge(
+            intelligence_fixture, AiQuotaRequestKind.PLANNING_OPERATION, operation_id
+        )
+        assert charge is not None
+        assert charge.refunded is False
+        assert charge.charged_units == 140
+
+    def test_should_refund_only_once_when_the_expired_planning_is_read_again(
+        self, intelligence_fixture: IntelligenceFixture, planning_client: TestClient
+    ) -> None:
+        planning_id, _ = self._start_and_spend(intelligence_fixture, planning_client)
+        pin_clock(app_of(planning_client), datetime.now(UTC) + timedelta(minutes=10))
+
+        for _ in range(2):
+            assert (
+                planning_client.get(
+                    f'/intelligence/planning-sessions/{planning_id}'
+                ).status_code
+                == 200
+            )
+
+        month = read_month(intelligence_fixture)
+        assert month is not None
+        assert month.used_units == 0
+
+
 class TestPlanningUnavailableCompositionContract:
     """Defensive public composition only; this does not claim registered execution."""
 
@@ -159,6 +256,8 @@ class TestPlanningUnavailableCompositionContract:
             create_autospec(MentorCatalogProvider, instance=True),
             create_autospec(MentorGoalDestinationsProvider, instance=True),
             outbox_engine=postgres_database.engine,
+            quota_policy=quota_policy(),
+            quota_calendar=CALENDAR,
             curriculum_catalog_provider=None,
         )
         try:

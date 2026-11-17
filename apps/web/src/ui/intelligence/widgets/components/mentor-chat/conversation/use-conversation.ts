@@ -4,6 +4,7 @@ import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-m
 import type { MentorActionProposal } from '@/core/intelligence/mentor-action-proposal'
 import type { MentorSummaryMarker } from '@/core/intelligence/mentor-session-summary'
 import type { MentorMessage } from '@/rest/services/intelligence-service'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 
 export type ConversationItem =
@@ -15,6 +16,7 @@ export type ConversationItem =
 
 export const useConversation = () => {
   const mentor = useMentorContext()
+  const { isAiQuotaBlocked } = useAiQuotaBlock(mentor.isAiQuotaRefused)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const previousScrollHeight = useRef(0)
   const wasLoadingOlder = useRef(false)
@@ -167,6 +169,7 @@ export const useConversation = () => {
 
   return {
     ...mentor,
+    isAiQuotaBlocked,
     handleScroll,
     scrollRef,
     visibleMessages,

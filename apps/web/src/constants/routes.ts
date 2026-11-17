@@ -25,6 +25,7 @@ export const ROUTES = {
   account: '/account',
   accountProfile: '/account/profile',
   accountSecurity: '/account/security',
+  accountAiUsage: '/account/ai-usage',
   accountDelete: '/account/delete',
   learningActivity:
     '/learning/goals/$goalId/skills/$skillId/competencies/$competencyId/activities/$activityId',

@@ -1,9 +1,10 @@
 from datetime import timedelta
-from unittest.mock import create_autospec
+from unittest.mock import Mock, create_autospec
 
 import pytest
 
 from shifu.intelligence.core.domain.enums import (
+    AiQuotaRequestKind,
     PlanningOperationKind,
     PlanningQuestionKind,
     PlanningSessionStatus,
@@ -47,6 +48,11 @@ from tests.fixtures.curriculum_planning_boundary_fixture import (
     boundary_retry,
     boundary_session,
 )
+from tests.intelligence.core.use_cases.ai_quota_test_setup import (
+    QUOTA_LIMIT,
+    QUOTA_MONTH,
+    AiQuotaTestSetup,
+)
 from tests.intelligence.core.use_cases.planning_test_setup import (
     ACCOUNT_ID,
     NEXT_OPERATION_ID,
@@ -62,7 +68,7 @@ from tests.intelligence.core.use_cases.planning_test_setup import (
 _VALID = (PlanningAnswer(question_id='q1', option_ids=('o2',)),)
 
 
-class TestAnswerPlanningQuestionsUseCase:
+class TestAnswerPlanningQuestionsUseCase(AiQuotaTestSetup):
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
         self.sessions = create_autospec(PlanningSessionsRepository, instance=True)
@@ -74,12 +80,18 @@ class TestAnswerPlanningQuestionsUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
+        self.prepare_quota(self.repositories, account_id=ACCOUNT_ID)
         self.identifiers = create_autospec(IdentifierProvider, instance=True)
         self.identifiers.generate.return_value = NEXT_OPERATION_ID
         self.clock = create_autospec(ClockProvider, instance=True)
         self.clock.now.return_value = NOW
         self.use_case = AnswerPlanningQuestionsUseCase(
-            self.sessions, self.database, self.identifiers, self.clock
+            self.sessions,
+            self.database,
+            self.identifiers,
+            self.clock,
+            self.quota_policy,
+            self.quota_calendar,
         )
 
     def test_should_record_the_batch_and_request_the_next_operation(self) -> None:
@@ -143,7 +155,7 @@ class TestAnswerPlanningQuestionsUseCase:
         with pytest.raises(PlanningOperationConflictError):
             self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'batch-1', _VALID)
 
-        self.database.transaction.assert_not_called()
+        self.repositories.events.add.assert_not_called()
 
     def test_should_hide_a_foreign_planning(self) -> None:
         self.sessions.find_by_id.return_value = interviewing_session(OTHER_ACCOUNT_ID)
@@ -289,6 +301,58 @@ class TestAnswerPlanningQuestionsUseCase:
         )
 
         assert result.answered_batches[0].items[0].selected_texts == ('Sites', 'APIs')
+
+    def test_should_register_the_operation_without_checking_the_limit_before_redis(
+        self,
+    ) -> None:
+        self.quota_month.used_units = 5 * QUOTA_LIMIT
+        self.sessions.find_by_id.return_value = interviewing_session()
+        effects = Mock()
+        effects.attach_mock(self.quota_months.ensure_and_lock, 'lock_month')
+        effects.attach_mock(self.quota_charges.add, 'add_charge')
+        effects.attach_mock(self.database.transaction.return_value.__exit__, 'commit')
+        effects.attach_mock(self.sessions.update, 'redis_write')
+        effects.attach_mock(self.repositories.events.add, 'add_event')
+
+        result = self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'batch-1', _VALID)
+
+        assert result.status is PlanningSessionStatus.PROCESSING
+        assert [entry[0] for entry in effects.mock_calls] == [
+            'lock_month',
+            'add_charge',
+            'commit',
+            'redis_write',
+            'add_event',
+            'commit',
+        ]
+        self.quota_months.ensure_and_lock.assert_called_once_with(
+            ACCOUNT_ID, QUOTA_MONTH, QUOTA_LIMIT, NOW
+        )
+        charge = self.quota_charges.add.call_args.args[0]
+        assert charge.request_kind is AiQuotaRequestKind.PLANNING_OPERATION
+        assert charge.request_id == NEXT_OPERATION_ID
+        assert charge.account_id == ACCOUNT_ID
+        assert charge.charged_units == 0
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize('used_units', [0, QUOTA_LIMIT - 1, QUOTA_LIMIT, 130_000])
+    def test_should_accept_answers_at_any_usage_level(self, used_units: int) -> None:
+        self.quota_month.used_units = used_units
+        self.sessions.find_by_id.return_value = interviewing_session()
+
+        self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'batch-1', _VALID)
+
+        self.sessions.update.assert_called_once()
+        self.quota_charges.add.assert_called_once()
+
+    def test_should_not_register_an_operation_for_invalid_answers(self) -> None:
+        self.sessions.find_by_id.return_value = interviewing_session()
+
+        with pytest.raises(PlanningAnswersInvalidError):
+            self.use_case.execute(ACCOUNT_ID, PLANNING_ID, 'batch-1', ())
+
+        self.quota_months.ensure_and_lock.assert_not_called()
+        self.quota_charges.add.assert_not_called()
 
 
 class TestAnswerPlanningQuestionsMigratedTransitions:

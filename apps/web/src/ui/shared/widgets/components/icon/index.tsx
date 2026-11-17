@@ -17,6 +17,7 @@ import {
   Circle,
   CircleCheck,
   CircleDashed,
+  CirclePause,
   CircleUserRound,
   Copy,
   Expand,
@@ -88,6 +89,7 @@ export type IconName =
   | 'circle'
   | 'circle-check'
   | 'circle-dashed'
+  | 'circle-pause'
   | 'copy'
   | 'expand'
   | 'file'
@@ -156,6 +158,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   circle: Circle,
   'circle-check': CircleCheck,
   'circle-dashed': CircleDashed,
+  'circle-pause': CirclePause,
   copy: Copy,
   expand: Expand,
   file: File,

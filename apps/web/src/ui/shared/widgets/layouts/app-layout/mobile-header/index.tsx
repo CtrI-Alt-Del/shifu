@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 
+import { AiQuotaIndicator } from '@/ui/intelligence/widgets/components/ai-quota-indicator'
 import { Anchor } from '@/ui/shared/widgets/components/anchor'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Navigation, type NavigationProps } from '../navigation'
@@ -23,17 +24,18 @@ export const MobileHeader = ({ accountMenu, items, pathname }: MobileHeaderProps
         <span className='font-serif text-[15px] leading-none text-selo-text'>師</span>
       </Anchor>
       <div className='flex items-center gap-2'>
+        <AiQuotaIndicator />
         {accountMenu}
         <div className='relative' ref={menuRef}>
           <button
             aria-controls='mobile-navigation'
             aria-expanded={isMenuOpen}
             aria-label={isMenuOpen ? 'Fechar menu' : 'Abrir menu'}
-            className='grid size-9 place-items-center rounded-md bg-muted text-foreground transition-colors hover:bg-muted/80'
+            className='grid size-11 place-items-center rounded-md bg-muted text-foreground transition-colors hover:bg-muted/80'
             onClick={handleMenuToggle}
             type='button'
           >
-            <Icon name={isMenuOpen ? 'x' : 'menu'} />
+            <Icon name={isMenuOpen ? 'x' : 'menu'} size={20} />
           </button>
           {isMenuOpen && (
             <nav

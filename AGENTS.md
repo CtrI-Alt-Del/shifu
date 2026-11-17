@@ -127,6 +127,14 @@ Other Penpot connectors for unrelated projects may be present. Before the first
 call, confirm that the connector in use points to the Shifu file. The Penpot
 plugin must be connected to the file, or every call fails.
 
+Whenever Penpot needs to be opened, including when a call fails because no
+Penpot instance is connected, run `node scripts/open-penpot.mjs` from the
+repository root. It opens Penpot in the dedicated Shifu Chrome profile, whose
+tabs never sleep, so the plugin keeps its connection. Do not open Penpot
+through `wslview`, `cmd.exe start`, or another browser window. After the script
+runs, ask the user to open the Shifu file and connect the Penpot MCP plugin,
+then wait for confirmation before the next call.
+
 There is no design extraction step: do not export boards into feature-local
 handoff or reference folders. The Spec names the Penpot pages, boards and
 components to match, and the agent exports them on demand with the MCP when it
