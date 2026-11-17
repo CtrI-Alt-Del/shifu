@@ -116,6 +116,8 @@ blocker until verified (decision Q5).
 
 ## Design Contract
 
+**Update (revision 3):** the user has no Penpot. The frames were exported from `shifu.fig` with OpenPencil: desktop "Atividade / Lacunas — Inglês" (0:75) and "— preenchidas" (0:138), mobile 0:2658 and 0:2742. No frame exists for the result detail. This is a recorded deviation from the Penpot requirement, not a Penpot pass.
+
 **Readiness blocker:** the Penpot MCP is not connected in this session, so
 none of the boards below has been verified. SHIFU-123 names the frames
 "Atividade / Lacunas — Inglês" and "Atividade / Lacunas — preenchidas" on the
@@ -1281,6 +1283,7 @@ no expected fill is shown.
 
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
+| 3 | 2026-11-17 | Design Contract: reference frames identified in `shifu.fig` with node ids; reference source deviation recorded | Visual evidence. No product behavior changed |
 | 2 | 2026-11-17 | Corrections found while implementing: an invalid fill maps to HTTP 400 (domain `ValidationError`) and a malformed body shape to 422; keyboard and assistive technology use select-then-place and drag is pointer/touch; the word bank owns a drop-target hook; shared outcome hook; partial icon; extra fakers, fixtures and seed files; CI-07 and CI-17 wording | Implementation evidence. No product behavior changed |
 | 1 | 2026-11-17 | Initial contract | SHIFU-123. Decisions: Q1 start from `main`; Q2 per-Concept evidence as the proportion of mapped blanks correct; Q3 edits allowed until advance, with feedback showing score, count and explanation only; Q4 `@dnd-kit/core` plus select-then-place; Q5 Penpot verification before `ready` |
 

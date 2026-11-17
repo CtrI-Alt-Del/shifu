@@ -9,13 +9,13 @@ last_updated_at: 2026-11-17
 
 | Field | State |
 | --- | --- |
-| Implementation | Complete for CA-01..CA-17, CA-19, CA-20. CA-18 (visual) not started: blocked on Penpot |
+| Implementation | Complete for CA-01..CA-17, CA-19, CA-20. CA-18 (visual) compared against the `shifu.fig` frames: behavior matches, layout does not (ACH-13) |
 | Automated checks | 16/17 passed. CI-16 Failed (pre-existing, outside this delivery) |
 | Type / lint / complexity | Passed for the affected scope: CI-13 (EV-13), CI-14 (EV-14), CI-15 (EV-15; configured lint only, no metrics tool) |
 | Manual checks | 2/2 passed (VM-01, VM-02) with one limitation: touch drag was not exercised |
-| Visual checks | 0/4. VM-03..VM-06 Blocked: Penpot MCP not connected |
-| Independent review | Implementation Reviewer: PASS, low findings only (ACH-05..ACH-12). Visual Reviewer not applicable until captures exist |
-| Blockers | Penpot MCP (VM-03..06); pre-existing test-integrity failure (CI-16) |
+| Visual checks | 0/4 passed. VM-03..VM-05 compared against `shifu.fig` (OpenPencil export, not Penpot) and Failed on layout (ACH-13). VM-06 has no reference frame: Blocked |
+| Independent review | Implementation Reviewer: PASS, low findings only (ACH-05..ACH-12). Visual Reviewer not run: no Penpot reference |
+| Blockers | No Penpot file or MCP (VM-06 and a real Penpot pass); open layout findings ACH-13; pre-existing test-integrity failure (CI-16) |
 | Candidate | `feat/shifu-123` on `main` 9b606f4b, uncommitted working tree (see Handoff) |
 
 # Progress
@@ -69,7 +69,7 @@ Candidate for every row: working tree on `feat/shifu-123`, 2026-11-17. Server co
 | EV-18 | Consumer regression / seed and shared unions | Passed | disposable PostgreSQL | `uv run pytest tests/learning/server/controllers tests/learning/rest/controllers tests/intelligence/server/controllers/test_confirm_planning_controller.py tests/intelligence/preparation/test_prepare_planning_indexes.py tests/curriculum` | 359 passed in 6m39s. Run before the later refactors, then the affected files were rerun |
 | EV-19 | VM-01 / Manual / CA-17 | Passed | 2026-11-17, real API, PostgreSQL, Redis and Inngest from Compose; migrated to head and `db:seed` run with the user's authorization; account `student.seed@shifu.com`; Chromium 1440×900 through the Playwright library (`playwright-cli` is not installed) | `AGENTOS_DATABASE_URL=<.env.example runtime login> uv run --env-file .env.local python src/main.py`; `pnpm dev`; script `apps/web/.playwright-cli/journey.mjs desktop` | Sign in, open the seeded Activity, fill by selection and by mouse drag, check, edit after feedback (feedback cleared, replaced word returned to the bank), re-check, submit four questions. The official evaluation completed through the real job: 4 of 4 questions correct, score 100. No console errors, no horizontal scroll. Captures in `apps/web/.playwright-cli/screenshots/fill-blanks-desktop-*.png` |
 | EV-20 | VM-02 / Manual / CA-17 | Passed with limitation | same runtime as EV-19; 390×844 with touch enabled | `node .playwright-cli/journey.mjs mobile` | Same journey by tap-select-then-tap-blank: score 100, no console errors, no horizontal scroll, captures `fill-blanks-mobile-*.png`. Limit: a touch drag gesture was not performed |
-| EV-21 | VM-03..VM-06 / Visual / CA-18 | Blocked | | fresh Penpot export vs Playwright capture | Penpot MCP not connected in this session. No visual pass is claimed |
+| EV-21 | VM-03..VM-06 / Visual / CA-18 | Failed (VM-03..05), Blocked (VM-06) | Reference: `shifu.fig` exported with `@open-pencil/cli` (`openpencil export --node`). This is a deviation: `AGENTS.md` calls the file historical and the Spec requires Penpot. Captures: fresh runs of `journey.mjs` on 2026-11-17 with a wait for the entry animation | frames 0:75 and 0:138 (desktop 1440×1080) and 0:2658 and 0:2742 (mobile 390×1230) vs `fill-blanks-{desktop,mobile}-{1-empty,3-q2-partial}.png` | The reference text renders garbled (font fallback), so only layout was compared. Behavior and tokens match. Layout differences are listed in ACH-13. VM-06 (result detail) has no frame in the file. No visual pass is claimed |
 
 Warnings observed in the test runs, all pre-existing and outside the delivery: `PytestAssertRewriteWarning` for a plugin imported early, Starlette `DeprecationWarning`s, and a `PytestCollectionWarning` for the `Test`-prefixed structure `TestCasesEvaluationPart`. The suites report no new warning from the changed code.
 
@@ -88,6 +88,7 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | ACH-10 | Reviewer: `fill_answer: object` plus a `type: ignore` in an evaluate test; new `mixed_question_snapshots.py` and prop names not listed in the Spec tree | Low | CI-13 | Open: cosmetic, to fold into the next Spec revision |
 | ACH-11 | Real journey: the preview and submit server functions rejected every fill-blanks answer because their shape validator did not know the kind, so no request reached the API. Mocked suites could not see it | High | CI-10, VM-01 | Resolved: validator accepts the kind; routed regression test `sends a fill-in-the-blank answer through the validator and the real service` (use-activity-page-routing, 37 passed) |
 | ACH-12 | Real journey: server functions deliver absent segment fields as `undefined`, not `null`. Strict `=== null` checks numbered every text segment as a blank and raised a React key warning on the result page | High | CI-09, CI-11, VM-01 | Resolved: value-based checks in the hook, text renderer and result hook; regression tests with undefined segment fields (learning UI suite 548 passed). The rerun journeys show no console error |
+| ACH-13 | Visual comparison with the `shifu.fig` frames: (1) the frame centers the heading, hint and text, mine is left-aligned inside bordered cards; (2) the frame has a "Banco de palavras" label and a grip icon on each bank word, mine has neither; (3) the frame shows the counter above the bank and a "Recomeçar" action, mine shows the counter below and has no reset; (4) the frame shows filled words as neutral buttons with a close mark, mine uses a red tint; (5) mobile frame adds the hint "Algumas palavras podem sobrar. Cada lacuna correta vale a mesma parte da nota." | Medium | CI-18, VM-03..VM-05 | Open: needs a decision. The frame is a historical file, and "Recomeçar" would add behavior not in the Spec. Behavior, accessibility and tokens are unaffected |
 | ACH-04 | `pnpm check:test-integrity` fails on `test_roadmap_skills_seed.py` | Medium | CI-16 | Open, pre-existing and outside scope: needs a separate maintenance fix or the user's explicit acceptance |
 
 # Lessons Learned
@@ -105,11 +106,11 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- |
 | Candidate | `feat/shifu-123` at `9b606f4b`, uncommitted. Nothing is staged or committed |
 | Completed | Server, API, persistence, job routing, seed, web widgets and all automated checks above |
-| Unfinished | VM-03..VM-06 and the CI-16 pre-existing failure. The local Compose database was migrated and seeded; the API and web processes started for the journeys were stopped |
+| Unfinished | Layout alignment (ACH-13), VM-06 and the CI-16 pre-existing failure. The local Compose database was migrated and seeded; the API and web processes started for the journeys were stopped |
 | Uncommitted work | `apps/server/src/shifu/{curriculum,shared,learning,fakers}`, `apps/server/tests`, `apps/server/rest-client/learning/activities.rest`, `apps/web/src`, `apps/web/tests/learning`, `apps/web/package.json`, `pnpm-lock.yaml`, this feature folder. Other stashes in the repository belong to the user and were left untouched |
 | Active processes | none (stub, API and dev server stopped; ports 7000 and 7777 free) |
-| Blockers | Penpot MCP; ACH-04 |
-| Next action | Connect Penpot and run VM-03..VM-06 |
+| Blockers | No Penpot file; ACH-13; ACH-04 |
+| Next action | Decide on ACH-13: align the widget with the frames, or accept the deviations in a Spec revision. Then rerun VM-03..VM-05 |
 
 # Delivery
 
@@ -117,7 +118,7 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- | --- | --- |
 | Curriculum RP-03, RP-04; JN-03, JN-04 | RF-01, RF-02, RF-03 / CA-01..CA-03, CA-19 | EV-01, EV-02, EV-03, EV-07 | implemented |
 | Learning RP-09, RP-13, RP-14, RP-15, RP-18, RP-20, RP-27; JN-07, JN-08, JN-13 | RF-04..RF-13 / CA-04..CA-16, CA-20 | EV-02, EV-04..EV-12, EV-17, EV-18 | implemented for automated proof; real-service journeys not run |
-| Learning RP-25 | RF-05 / CA-05, CA-18 | EV-09, EV-12, EV-19, EV-20 | partially_implemented: accessibility behavior proven in unit, browser and real journeys; visual match to Penpot and a touch drag gesture not verified |
+| Learning RP-25 | RF-05 / CA-05, CA-18 | EV-09, EV-12, EV-19, EV-20 | partially_implemented: accessibility behavior proven in unit, browser and real journeys; layout differs from the `shifu.fig` frames (ACH-13) and a touch drag gesture is not verified |
 | SHIFU-123 example content | RF-14 / CA-17 | EV-18, EV-19, EV-20 | implemented: the seeded English experience was used in both real journeys |
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
@@ -128,6 +129,6 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- |
 | Publication | not requested; local only |
 | Source verification | Learning PRD 83066881 (modified 2026-11-12) and Curriculum PRD 83034113 (modified 2026-11-02) read in full on 2026-11-17. The API gives no version number; SHIFU-123 cites 28 and 15 |
-| Documentation Alignment | No external write made. Penpot boards unverified |
+| Documentation Alignment | No external write made. Penpot unavailable; `shifu.fig` used as a reference, with layout differences (ACH-13) |
 | Revision History | Spec revision 2 records implementation corrections, no product behavior change |
-| Limitations | VM-03..VM-06 Blocked on Penpot; touch drag not exercised; CI-16 failing on a pre-existing file |
+| Limitations | VM-03..VM-05 Failed on layout against `shifu.fig` and VM-06 has no frame; touch drag not exercised; CI-16 failing on a pre-existing file |
