@@ -4,10 +4,13 @@ import type {
   ActivityQuestion,
   ActivityResultQuestion,
   CodeResultQuestion,
+  FillBlanksResultQuestion,
 } from '@/core/learning/choice-activity'
 import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
+
+import { FillBlanksResult } from './fill-blanks-result'
 
 import './choice-result-detail.css'
 
@@ -24,6 +27,9 @@ export const ChoiceResultDetail = ({
   questionNumber,
   result,
 }: ChoiceResultDetailProps) => {
+  if (isFillBlanksResultQuestion(result))
+    return <FillBlanksResult questionNumber={questionNumber} result={result} />
+
   if (isCodeResultQuestion(result)) {
     const codeQuestion =
       question?.kind === 'javascript_stdin' ||
@@ -173,7 +179,8 @@ export const ChoiceResultDetail = ({
     question.kind !== 'javascript_stdin' &&
     question.kind !== 'react' &&
     question.kind !== 'html_css_js' &&
-    question.kind !== 'react_fastify'
+    question.kind !== 'react_fastify' &&
+    question.kind !== 'fill_blanks'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -282,6 +289,12 @@ export const ChoiceResultDetail = ({
 
 function formatNullableScore(score: number | null) {
   return score === null ? '—' : SCORE_FORMATTER.format(Number(score))
+}
+
+function isFillBlanksResultQuestion(
+  result: ActivityResultQuestion,
+): result is FillBlanksResultQuestion {
+  return 'kind' in result && result.kind === 'fill_blanks'
 }
 
 function isCodeResultQuestion(

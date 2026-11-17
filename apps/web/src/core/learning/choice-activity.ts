@@ -100,12 +100,32 @@ export type ReactFastifyQuestion = Omit<ReactQuestion, 'kind' | 'entrypoint'> & 
   httpExamples: readonly ReactFastifyHttpExample[]
 }
 
+export type FillBlanksSegment = {
+  text: string | null
+  blankKey: string | null
+}
+
+export type FillBlanksWord = {
+  key: string
+  word: string
+}
+
+export type FillBlanksQuestion = {
+  key: string
+  kind: 'fill_blanks'
+  prompt: string
+  contentLanguage: string
+  segments: readonly FillBlanksSegment[]
+  bank: readonly FillBlanksWord[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
   | ReactQuestion
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
+  | FillBlanksQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -131,7 +151,18 @@ export type CodeAnswer = {
   files: readonly { path: string; content: string }[]
 }
 
-export type ActivityAnswer = ChoiceAnswer | CodeAnswer
+export type FillBlanksPlacement = {
+  blankKey: string
+  wordKey: string
+}
+
+export type FillBlanksAnswer = {
+  kind: 'fill_blanks'
+  questionKey: string
+  placements: readonly FillBlanksPlacement[]
+}
+
+export type ActivityAnswer = ChoiceAnswer | CodeAnswer | FillBlanksAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -146,6 +177,8 @@ export type PreliminaryQuestionResult = {
     comment: string
   }[]
   submittedFiles?: readonly { path: string; content: string }[]
+  correctBlankCount?: number
+  blankCount?: number
 }
 
 export type ChoiceSubmission = {
@@ -191,7 +224,26 @@ export type CodeResultQuestion = {
   }[]
 }
 
-export type ActivityResultQuestion = ChoiceResultQuestion | CodeResultQuestion
+export type FillBlanksResultQuestion = {
+  key: string
+  kind: 'fill_blanks'
+  prompt: string
+  contentLanguage: string
+  segments: readonly FillBlanksSegment[]
+  bank: readonly FillBlanksWord[]
+  placements: readonly FillBlanksPlacement[]
+  score: number
+  isCorrect: boolean
+  correctBlankCount: number
+  blankCount: number
+  explanation: string
+  expectedBlanks: readonly { blankKey: string; acceptedWords: readonly string[] }[]
+}
+
+export type ActivityResultQuestion =
+  | ChoiceResultQuestion
+  | CodeResultQuestion
+  | FillBlanksResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

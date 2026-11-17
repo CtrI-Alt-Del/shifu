@@ -16,6 +16,8 @@ import type {
   ChoiceActivityDetail,
   ActivityAnswer,
   CodeAnswer,
+  FillBlanksAnswer,
+  FillBlanksPlacement,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
@@ -756,11 +758,26 @@ export function useActivityPage(props: ActivityPageProps) {
       ) &&
       (currentQuestion.kind !== 'single_choice' || selectedOptionKeys.length === 1),
   )
+  const fillBlanksPlacements =
+    currentAnswer && 'placements' in currentAnswer ? currentAnswer.placements : []
+  const hasCompleteFillBlanks = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'fill_blanks' &&
+      currentQuestion.segments.every(
+        (segment) =>
+          segment.blankKey === null ||
+          fillBlanksPlacements.some(
+            (placement) => placement.blankKey === segment.blankKey,
+          ),
+      ),
+  )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
       ('files' in currentAnswer
         ? currentAnswer.files.length > 0
-        : currentAnswer.selectedOptionKeys.length > 0),
+        : 'placements' in currentAnswer
+          ? currentAnswer.placements.length > 0
+          : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -826,6 +843,31 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
+    setHasFeedbackError(false)
+  }
+
+  function handleFillBlanksChange(placements: readonly FillBlanksPlacement[]) {
+    if (
+      !activity ||
+      !currentQuestion ||
+      currentQuestion.kind !== 'fill_blanks' ||
+      isSubmitting ||
+      isAssessing ||
+      isSubmissionLocked
+    )
+      return
+
+    const answer: FillBlanksAnswer = {
+      kind: 'fill_blanks',
+      questionKey: currentQuestion.key,
+      placements: placements.map((placement) => ({ ...placement })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
     setHasFeedbackError(false)
   }
 
@@ -906,8 +948,14 @@ export function useActivityPage(props: ActivityPageProps) {
     const snapshot: ActivityAnswer =
       'files' in answer
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
-        : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
-    setFrozenAnswer(snapshot)
+        : 'placements' in answer
+          ? {
+              ...answer,
+              placements: answer.placements.map((placement) => ({ ...placement })),
+            }
+          : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+    // A fill stays editable until the learner advances, so it is never frozen.
+    setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
     try {
@@ -1110,6 +1158,13 @@ export function useActivityPage(props: ActivityPageProps) {
       return
     }
     if (!feedback) {
+      if (currentQuestion.kind === 'fill_blanks') {
+        const fillAnswer = answers.find(
+          (answer) => answer.questionKey === currentQuestion.key,
+        )
+        if (hasCompleteFillBlanks && fillAnswer) void assess(fillAnswer)
+        return
+      }
       if (frozenAnswer) {
         void assess(frozenAnswer, true)
         return
@@ -1179,13 +1234,19 @@ export function useActivityPage(props: ActivityPageProps) {
             currentQuestion?.kind === 'html_css_js' ||
             currentQuestion?.kind === 'react_fastify'
           ? isReactAnswerValid && (injected || isOnlineAuthority)
-          : feedback !== null || frozenAnswer !== null || hasValidSelection),
+          : feedback !== null ||
+            frozenAnswer !== null ||
+            hasValidSelection ||
+            hasCompleteFillBlanks),
     feedback,
     frozenAnswer,
     isAssessing,
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
