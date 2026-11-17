@@ -26,7 +26,7 @@ export function useFillBlanksResult({ result }: FillBlanksResultProps) {
   )
   let blankCounter = 0
   const filledSegments: FilledSegment[] = result.segments.map((segment) => {
-    if (segment.blankKey === null) return { segment, blankNumber: null, word: null }
+    if (!segment.blankKey) return { segment, blankNumber: null, word: null }
 
     blankCounter += 1
     return {
@@ -37,7 +37,7 @@ export function useFillBlanksResult({ result }: FillBlanksResultProps) {
   })
   const blankNumberByKey = new Map(
     filledSegments.flatMap((item) =>
-      item.segment.blankKey !== null && item.blankNumber !== null
+      item.segment.blankKey && item.blankNumber !== null
         ? [[item.segment.blankKey, item.blankNumber] as const]
         : [],
     ),

@@ -65,6 +65,25 @@ describe('useFillBlanksQuestion', () => {
     expect(result.current.sensors).toHaveLength(2)
   })
 
+  it('numbers the blanks when text segments arrive without null fields', () => {
+    const base = FillBlanksQuestionFaker.fake()
+    const question = {
+      ...base,
+      segments: base.segments.map((segment) => ({
+        text: segment.text ?? undefined,
+        blankKey: segment.blankKey ?? undefined,
+      })),
+    } as unknown as typeof base
+    const { result } = setup([], { question })
+
+    expect(result.current.blankCount).toBe(3)
+    expect(Object.fromEntries(result.current.blankNumberByKey)).toEqual({
+      b1: 1,
+      b2: 2,
+      b3: 3,
+    })
+  })
+
   it('selects a word and announces it, then cancels the selection on a second click', () => {
     const { result } = setup()
 

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
   CodeQuestion,
@@ -409,6 +409,24 @@ describe('ChoiceResultDetail', () => {
       open(FillBlanksQuestionFaker.fakeResult({ blankCount: 1, correctBlankCount: 1 }))
 
       expect(screen.getByText('1 de 1 lacuna correta')).toBeVisible()
+    })
+
+    it('numbers the blanks when the server function drops the null segment fields', () => {
+      const base = FillBlanksQuestionFaker.fakeResult()
+      const dropped = base.segments.map((segment) => ({
+        text: segment.text ?? undefined,
+        blankKey: segment.blankKey ?? undefined,
+      })) as unknown as typeof base.segments
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+      const { container } = open({ ...base, segments: dropped })
+
+      const fill = container.querySelector('p.whitespace-pre-wrap.rounded-md')
+      expect(fill).toHaveTextContent(/Lacuna 1:\s*goes/)
+      expect(fill).toHaveTextContent(/Lacuna 3:\s*day/)
+      expect(fill).not.toHaveTextContent(/Lacuna 4/)
+      expect(consoleError).not.toHaveBeenCalled()
+      consoleError.mockRestore()
     })
   })
 })

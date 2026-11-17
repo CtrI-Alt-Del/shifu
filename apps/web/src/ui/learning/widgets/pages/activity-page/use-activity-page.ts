@@ -765,7 +765,7 @@ export function useActivityPage(props: ActivityPageProps) {
       currentQuestion?.kind === 'fill_blanks' &&
       currentQuestion.segments.every(
         (segment) =>
-          segment.blankKey === null ||
+          !segment.blankKey ||
           fillBlanksPlacements.some(
             (placement) => placement.blankKey === segment.blankKey,
           ),
@@ -1402,6 +1402,17 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
           isRecord(file) &&
           typeof file.path === 'string' &&
           typeof file.content === 'string',
+      )
+    )
+  }
+  if (value.kind === 'fill_blanks') {
+    return (
+      Array.isArray(value.placements) &&
+      value.placements.every(
+        (placement: unknown) =>
+          isRecord(placement) &&
+          typeof placement.blankKey === 'string' &&
+          typeof placement.wordKey === 'string',
       )
     )
   }

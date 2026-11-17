@@ -12,10 +12,10 @@ last_updated_at: 2026-11-17
 | Implementation | Complete for CA-01..CA-17, CA-19, CA-20. CA-18 (visual) not started: blocked on Penpot |
 | Automated checks | 16/17 passed. CI-16 Failed (pre-existing, outside this delivery) |
 | Type / lint / complexity | Passed for the affected scope: CI-13 (EV-13), CI-14 (EV-14), CI-15 (EV-15; configured lint only, no metrics tool) |
-| Manual checks | 0/2. VM-01 and VM-02 Blocked: API cannot start locally and `db:seed` is not authorized |
+| Manual checks | 2/2 passed (VM-01, VM-02) with one limitation: touch drag was not exercised |
 | Visual checks | 0/4. VM-03..VM-06 Blocked: Penpot MCP not connected |
 | Independent review | Implementation Reviewer: PASS, low findings only (ACH-05..ACH-12). Visual Reviewer not applicable until captures exist |
-| Blockers | Penpot MCP (VM-03..06); local API startup and `db:seed` authorization (VM-01, VM-02); pre-existing test-integrity failure (CI-16) |
+| Blockers | Penpot MCP (VM-03..06); pre-existing test-integrity failure (CI-16) |
 | Candidate | `feat/shifu-123` on `main` 9b606f4b, uncommitted working tree (see Handoff) |
 
 # Progress
@@ -38,7 +38,7 @@ last_updated_at: 2026-11-17
 | CA-14 | RF-12 | Complete | Passed | CI-02, CI-06 / EV-02, EV-06 | none |
 | CA-15 | RF-12 | Complete | Passed | CI-02 / EV-02 | none |
 | CA-16 | RF-08, RF-12, RF-05 | Complete | Passed | CI-10, CI-11, CI-12 / EV-10, EV-11, EV-12 | none |
-| CA-17 | RF-03..RF-12, RF-14 | Complete | Blocked | VM-01, VM-02 Blocked; CI-12 covers browser composition only | real-service journeys |
+| CA-17 | RF-03..RF-12, RF-14 | Complete | Passed | VM-01, VM-02 / EV-19, EV-20; CI-12 | touch drag gesture |
 | CA-18 | RF-05 | Pending | Blocked | VM-03..VM-06 | Penpot MCP |
 | CA-19 | RF-01, RF-03 | Complete | Passed | CI-07 / EV-07 | none |
 | CA-20 | RF-02 | Complete | Passed | CI-17 / EV-17 | none |
@@ -67,8 +67,8 @@ Candidate for every row: working tree on `feat/shifu-123`, 2026-11-17. Server co
 | EV-16 | CI-16 / Architecture, build, integrity | Failed (pre-existing) | | `uv run poe check:architecture`, `uv run poe build`, `pnpm --filter web build` passed; `pnpm exec depcruise ...` passed under Node 24 (732 modules; the default Node 25 is unsupported by the tool); `pnpm check:test-integrity` **failed** | Only violation: `apps/server/tests/curriculum/database/test_roadmap_skills_seed.py`, from another delivery. Every file added or changed here is allowed. Not reported as a pass |
 | EV-17 | CI-17 / Automated / CA-20 | Passed | real app | `uv run pytest tests/learning/server/controllers/test_submit_diagnostic_batch_controller.py` | 2 passed. The valid-batch success path is covered by the legacy consumer file below |
 | EV-18 | Consumer regression / seed and shared unions | Passed | disposable PostgreSQL | `uv run pytest tests/learning/server/controllers tests/learning/rest/controllers tests/intelligence/server/controllers/test_confirm_planning_controller.py tests/intelligence/preparation/test_prepare_planning_indexes.py tests/curriculum` | 359 passed in 6m39s. Run before the later refactors, then the affected files were rerun |
-| EV-19 | VM-01 / Manual / CA-17 | Blocked | | real desktop journey | The API fails at startup (`AGENTOS_DATABASE_URL is required`) and the seeded English experience needs `db:seed`, which resets shared local data and is not authorized |
-| EV-20 | VM-02 / Manual / CA-17 | Blocked | | real mobile journey incl. touch drag | same cause as EV-19 |
+| EV-19 | VM-01 / Manual / CA-17 | Passed | 2026-11-17, real API, PostgreSQL, Redis and Inngest from Compose; migrated to head and `db:seed` run with the user's authorization; account `student.seed@shifu.com`; Chromium 1440×900 through the Playwright library (`playwright-cli` is not installed) | `AGENTOS_DATABASE_URL=<.env.example runtime login> uv run --env-file .env.local python src/main.py`; `pnpm dev`; script `apps/web/.playwright-cli/journey.mjs desktop` | Sign in, open the seeded Activity, fill by selection and by mouse drag, check, edit after feedback (feedback cleared, replaced word returned to the bank), re-check, submit four questions. The official evaluation completed through the real job: 4 of 4 questions correct, score 100. No console errors, no horizontal scroll. Captures in `apps/web/.playwright-cli/screenshots/fill-blanks-desktop-*.png` |
+| EV-20 | VM-02 / Manual / CA-17 | Passed with limitation | same runtime as EV-19; 390×844 with touch enabled | `node .playwright-cli/journey.mjs mobile` | Same journey by tap-select-then-tap-blank: score 100, no console errors, no horizontal scroll, captures `fill-blanks-mobile-*.png`. Limit: a touch drag gesture was not performed |
 | EV-21 | VM-03..VM-06 / Visual / CA-18 | Blocked | | fresh Penpot export vs Playwright capture | Penpot MCP not connected in this session. No visual pass is claimed |
 
 Warnings observed in the test runs, all pre-existing and outside the delivery: `PytestAssertRewriteWarning` for a plugin imported early, Starlette `DeprecationWarning`s, and a `PytestCollectionWarning` for the `Test`-prefixed structure `TestCasesEvaluationPart`. The suites report no new warning from the changed code.
@@ -86,6 +86,8 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | ACH-08 | Reviewer: the feedback region is mounted with its text, so some screen readers may not announce the outcome; dnd-kit drop announcement says "Palavra solta." even outside a target | Low | CI-09, VM-01 | Open: improve with the always-mounted output and verify with assistive technology in VM-01 |
 | ACH-09 | Reviewer: touch drag with `touch-action: manipulation` and a 200 ms delay is unverified against page scroll | Low | VM-02 | Open: blocked with VM-02 |
 | ACH-10 | Reviewer: `fill_answer: object` plus a `type: ignore` in an evaluate test; new `mixed_question_snapshots.py` and prop names not listed in the Spec tree | Low | CI-13 | Open: cosmetic, to fold into the next Spec revision |
+| ACH-11 | Real journey: the preview and submit server functions rejected every fill-blanks answer because their shape validator did not know the kind, so no request reached the API. Mocked suites could not see it | High | CI-10, VM-01 | Resolved: validator accepts the kind; routed regression test `sends a fill-in-the-blank answer through the validator and the real service` (use-activity-page-routing, 37 passed) |
+| ACH-12 | Real journey: server functions deliver absent segment fields as `undefined`, not `null`. Strict `=== null` checks numbered every text segment as a blank and raised a React key warning on the result page | High | CI-09, CI-11, VM-01 | Resolved: value-based checks in the hook, text renderer and result hook; regression tests with undefined segment fields (learning UI suite 548 passed). The rerun journeys show no console error |
 | ACH-04 | `pnpm check:test-integrity` fails on `test_roadmap_skills_seed.py` | Medium | CI-16 | Open, pre-existing and outside scope: needs a separate maintenance fix or the user's explicit acceptance |
 
 # Lessons Learned
@@ -94,6 +96,7 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- | --- |
 | A Spec naming an HTTP status for a domain error must be checked against `AppErrorHandler` | ACH-01 | No change: the REST Rule already says the handler maps errors |
 | `pnpm add` can rewrite unrelated lockfile entries with this pnpm version | ACH-03 | Pending proposal: none; handled locally |
+| A real-service journey catches contract mismatches that mocked server functions hide: shape validators and `null` versus `undefined` after serialization | ACH-11, ACH-12 | Pending proposal: run the real journey earlier for any new wire shape |
 | Playwright's accessible-name computation inserts spaces between inline-flex items that Testing Library does not | ACH-02 | No change: feature-specific |
 
 # Handoff
@@ -102,11 +105,11 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- |
 | Candidate | `feat/shifu-123` at `9b606f4b`, uncommitted. Nothing is staged or committed |
 | Completed | Server, API, persistence, job routing, seed, web widgets and all automated checks above |
-| Unfinished | VM-01, VM-02, VM-03..VM-06, the independent review disposition, and the CI-16 pre-existing failure |
+| Unfinished | VM-03..VM-06 and the CI-16 pre-existing failure. The local Compose database was migrated and seeded; the API and web processes started for the journeys were stopped |
 | Uncommitted work | `apps/server/src/shifu/{curriculum,shared,learning,fakers}`, `apps/server/tests`, `apps/server/rest-client/learning/activities.rest`, `apps/web/src`, `apps/web/tests/learning`, `apps/web/package.json`, `pnpm-lock.yaml`, this feature folder. Other stashes in the repository belong to the user and were left untouched |
-| Active processes | none (the health-only stub on port 7777 was stopped) |
-| Blockers | Penpot MCP; `AGENTOS_DATABASE_URL` and `db:seed` authorization; ACH-04 |
-| Next action | Reconcile the reviewer report, then ask the user to connect Penpot and to authorize the seed so VM-01..VM-06 can run |
+| Active processes | none (stub, API and dev server stopped; ports 7000 and 7777 free) |
+| Blockers | Penpot MCP; ACH-04 |
+| Next action | Connect Penpot and run VM-03..VM-06 |
 
 # Delivery
 
@@ -114,8 +117,8 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | --- | --- | --- | --- |
 | Curriculum RP-03, RP-04; JN-03, JN-04 | RF-01, RF-02, RF-03 / CA-01..CA-03, CA-19 | EV-01, EV-02, EV-03, EV-07 | implemented |
 | Learning RP-09, RP-13, RP-14, RP-15, RP-18, RP-20, RP-27; JN-07, JN-08, JN-13 | RF-04..RF-13 / CA-04..CA-16, CA-20 | EV-02, EV-04..EV-12, EV-17, EV-18 | implemented for automated proof; real-service journeys not run |
-| Learning RP-25 | RF-05 / CA-05, CA-18 | EV-09, EV-12 | partially_implemented: accessibility behavior proven in unit and browser composition; visual match and touch drag not verified |
-| SHIFU-123 example content | RF-14 / CA-17 | seed builds and loads (EV-18) | partially_implemented: the real journeys over the seed are not run |
+| Learning RP-25 | RF-05 / CA-05, CA-18 | EV-09, EV-12, EV-19, EV-20 | partially_implemented: accessibility behavior proven in unit, browser and real journeys; visual match to Penpot and a touch drag gesture not verified |
+| SHIFU-123 example content | RF-14 / CA-17 | EV-18, EV-19, EV-20 | implemented: the seeded English experience was used in both real journeys |
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
@@ -127,4 +130,4 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | Source verification | Learning PRD 83066881 (modified 2026-11-12) and Curriculum PRD 83034113 (modified 2026-11-02) read in full on 2026-11-17. The API gives no version number; SHIFU-123 cites 28 and 15 |
 | Documentation Alignment | No external write made. Penpot boards unverified |
 | Revision History | Spec revision 2 records implementation corrections, no product behavior change |
-| Limitations | VM-01..VM-06 Blocked; CI-12 ran against a stub API; CI-16 failing on a pre-existing file |
+| Limitations | VM-03..VM-06 Blocked on Penpot; touch drag not exercised; CI-16 failing on a pre-existing file |

@@ -63,8 +63,8 @@ export function useFillBlanksQuestion({
   )
   const blankNumberByKey = new Map<string, number>(
     question.segments
-      .filter((segment) => segment.blankKey !== null)
-      .map((segment, index) => [segment.blankKey as string, index + 1]),
+      .flatMap((segment) => (segment.blankKey ? [segment.blankKey] : []))
+      .map((blankKey, index) => [blankKey, index + 1]),
   )
   const placedWordKeyByBlank = new Map<string, string>(
     placements.map((placement) => [placement.blankKey, placement.wordKey]),
