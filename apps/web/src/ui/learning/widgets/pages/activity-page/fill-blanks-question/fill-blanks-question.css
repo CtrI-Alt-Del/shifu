@@ -27,7 +27,7 @@
 
 .fill-blanks-blank[data-filled="true"] {
   border-style: solid;
-  background: var(--accent);
+  background: var(--muted);
 }
 
 .fill-blanks-blank[data-over="true"],

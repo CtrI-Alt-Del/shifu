@@ -105,6 +105,9 @@ export const FillBlanksQuestion = (props: FillBlanksQuestionProps) => {
             segments={question.segments}
             wordByKey={wordByKey}
           />
+          <p className='text-sm text-muted-foreground'>
+            {filledBlankCount} de {blankCount} lacunas preenchidas
+          </p>
           <WordBank
             contentLanguage={question.contentLanguage}
             disabled={disabled}
@@ -113,7 +116,7 @@ export const FillBlanksQuestion = (props: FillBlanksQuestionProps) => {
             words={availableWords}
           />
           <p className='text-sm text-muted-foreground'>
-            {filledBlankCount} de {blankCount} lacunas preenchidas
+            Algumas palavras podem sobrar. Cada lacuna correta vale a mesma parte da nota.
           </p>
         </motion.div>
         <output aria-live='polite' className='sr-only'>

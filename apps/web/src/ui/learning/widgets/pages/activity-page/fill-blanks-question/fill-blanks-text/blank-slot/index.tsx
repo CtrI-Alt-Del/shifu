@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+
 import type { FillBlanksWord } from '@/core/learning/choice-activity'
 import { Button } from '@/ui/shadcn/button'
 
@@ -36,6 +38,7 @@ export const BlankSlot = (props: BlankSlotProps) => {
           <span className='sr-only'>Lacuna {blankNumber}:</span>{' '}
           <span lang={contentLanguage}>{placedWord.word}</span>
           <span className='sr-only'>. Ative para remover a palavra.</span>
+          <X aria-hidden='true' className='size-3.5 text-muted-foreground' />
         </>
       ) : (
         <>

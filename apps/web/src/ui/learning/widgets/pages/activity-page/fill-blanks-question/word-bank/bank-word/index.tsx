@@ -1,3 +1,5 @@
+import { GripVertical } from 'lucide-react'
+
 import type { FillBlanksWord } from '@/core/learning/choice-activity'
 import { Button } from '@/ui/shadcn/button'
 
@@ -29,6 +31,7 @@ export const BankWord = (props: BankWordProps) => {
       variant='outline'
       {...listeners}
     >
+      <GripVertical aria-hidden='true' className='size-3.5 text-muted-foreground' />
       <span lang={contentLanguage}>{word.word}</span>
       {isSelected ? (
         <span className='text-xs font-medium text-selo-text'>Selecionada</span>

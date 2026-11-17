@@ -21,7 +21,7 @@ export const FillBlanksText = ({
   segments,
   wordByKey,
 }: FillBlanksTextProps) => (
-  <p className='whitespace-pre-wrap rounded-md border border-border bg-card p-4 text-xl leading-[3rem] sm:p-6'>
+  <p className='whitespace-pre-wrap text-xl leading-[3rem]'>
     {segments.map((segment, index) =>
       !segment.blankKey ? (
         // biome-ignore lint/suspicious/noArrayIndexKey: the segment order is fixed by the Curriculum.
