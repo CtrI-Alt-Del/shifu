@@ -69,6 +69,49 @@ describe('useTranslationQuestion', () => {
     expect(onChangeMock).toHaveBeenCalledWith('Novo texto')
   })
 
+  it.each([
+    ['en-US', 'en-US'],
+    ['Inglês', 'en-US'],
+    ['Português', 'pt-BR'],
+  ])('dictates in the target language %s as %s', (targetLanguage, expected) => {
+    useSpeechRecognitionMock.mockReturnValue(speechRecognitionPorts())
+
+    renderHook(() =>
+      useTranslationQuestion({
+        onChange: vi.fn(),
+        question: { ...QUESTION, targetLanguage },
+        questionNumber: 1,
+        totalQuestions: 1,
+        value: '',
+      }),
+    )
+
+    expect(useSpeechRecognitionMock).toHaveBeenCalledWith(expected)
+  })
+
+  it('treats dictation as unavailable when the target language cannot be resolved', async () => {
+    const startRecognitionMock = vi.fn().mockResolvedValue('texto')
+    const onChangeMock = vi.fn()
+    useSpeechRecognitionMock.mockReturnValue(
+      speechRecognitionPorts({ startRecognition: startRecognitionMock }),
+    )
+    const { result } = renderHook(() =>
+      useTranslationQuestion({
+        onChange: onChangeMock,
+        question: { ...QUESTION, targetLanguage: 'Klingon' },
+        questionNumber: 1,
+        totalQuestions: 1,
+        value: '',
+      }),
+    )
+
+    await act(async () => result.current.handleStartDictation())
+
+    expect(result.current.languageAvailability).toBe('unavailable')
+    expect(startRecognitionMock).not.toHaveBeenCalled()
+    expect(onChangeMock).not.toHaveBeenCalled()
+  })
+
   it('blocks typed changes while disabled', () => {
     const onChangeMock = vi.fn()
     useSpeechRecognitionMock.mockReturnValue(speechRecognitionPorts())
