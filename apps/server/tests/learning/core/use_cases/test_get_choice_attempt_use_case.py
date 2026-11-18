@@ -672,7 +672,7 @@ class TestGetChoiceAttemptUseCase:
         assert (fill.correct_blank_count, fill.blank_count) == (1, 3)
         assert fill.explanation == 'Almost there. Review the verb forms.'
         assert fill.disclosed_expected_blanks == ()
-        assert [word.key for word in fill.bank] == ['w1', 'w2', 'w3', 'w4', 'w5', 'w6']
+        assert [word.key for word in fill.bank] == ['w4', 'w6', 'w3', 'w1', 'w5', 'w2']
         assert not hasattr(fill, 'correct_blank_keys')
 
     def test_should_release_the_expected_words_when_the_fill_is_fully_correct(

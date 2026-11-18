@@ -595,12 +595,12 @@ class TestGetChoiceActivityUseCase:
             FillBlanksSegmentDetail(text=' to school and ', blank_key=None),
         )
         assert fill.bank == (
-            FillBlanksWordDetail(key='w1', word='goes'),
-            FillBlanksWordDetail(key='w2', word='walks'),
-            FillBlanksWordDetail(key='w3', word='does'),
             FillBlanksWordDetail(key='w4', word='day'),
-            FillBlanksWordDetail(key='w5', word='day'),
             FillBlanksWordDetail(key='w6', word='go'),
+            FillBlanksWordDetail(key='w3', word='does'),
+            FillBlanksWordDetail(key='w1', word='goes'),
+            FillBlanksWordDetail(key='w5', word='day'),
+            FillBlanksWordDetail(key='w2', word='walks'),
         )
         for hidden in (
             'blanks',

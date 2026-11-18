@@ -1085,12 +1085,12 @@ class TestGetChoiceActivityController:
                 {'text': '.', 'blank_key': None},
             ],
             'bank': [
-                {'key': 'w1', 'word': 'goes'},
-                {'key': 'w2', 'word': 'walks'},
-                {'key': 'w3', 'word': 'does'},
                 {'key': 'w4', 'word': 'day'},
-                {'key': 'w5', 'word': 'day'},
                 {'key': 'w6', 'word': 'go'},
+                {'key': 'w3', 'word': 'does'},
+                {'key': 'w1', 'word': 'goes'},
+                {'key': 'w5', 'word': 'day'},
+                {'key': 'w2', 'word': 'walks'},
             ],
         }
         for hidden in (
