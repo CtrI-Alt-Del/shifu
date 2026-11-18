@@ -34,6 +34,7 @@ import {
   EyeOff,
   GitFork,
   GraduationCap,
+  GripVertical,
   House,
   Info,
   Layers,
@@ -104,6 +105,7 @@ export type IconName =
   | 'eye-off'
   | 'git-fork'
   | 'graduation-cap'
+  | 'grip-vertical'
   | 'home'
   | 'info'
   | 'layers'
@@ -172,6 +174,7 @@ const ICON_COMPONENTS: Record<IconName, LucideIcon> = {
   'eye-off': EyeOff,
   'git-fork': GitFork,
   'graduation-cap': GraduationCap,
+  'grip-vertical': GripVertical,
   home: House,
   info: Info,
   layers: Layers,

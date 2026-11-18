@@ -1,3 +1,4 @@
+import { fillBlanksSegmentKeys } from '@/core/learning/fill-blanks-segment-keys'
 import type { FillBlanksSegment, FillBlanksWord } from '@/core/learning/choice-activity'
 
 import { BlankSlot } from './blank-slot'
@@ -20,27 +21,30 @@ export const FillBlanksText = ({
   placedWordKeyByBlank,
   segments,
   wordByKey,
-}: FillBlanksTextProps) => (
-  <p className='whitespace-pre-wrap text-xl leading-[3rem]'>
-    {segments.map((segment, index) =>
-      !segment.blankKey ? (
-        // biome-ignore lint/suspicious/noArrayIndexKey: the segment order is fixed by the Curriculum.
-        <span key={`text-${index}`} lang={contentLanguage}>
-          {segment.text}
-        </span>
-      ) : (
-        <BlankSlot
-          blankKey={segment.blankKey}
-          blankNumber={blankNumberByKey.get(segment.blankKey) ?? 0}
-          contentLanguage={contentLanguage}
-          disabled={disabled}
-          key={segment.blankKey}
-          onActivate={onActivateBlank}
-          placedWord={
-            wordByKey.get(placedWordKeyByBlank.get(segment.blankKey) ?? '') ?? null
-          }
-        />
-      ),
-    )}
-  </p>
-)
+}: FillBlanksTextProps) => {
+  const segmentKeys = fillBlanksSegmentKeys(segments)
+
+  return (
+    <p className='whitespace-pre-wrap text-xl leading-[3rem]'>
+      {segments.map((segment, index) =>
+        !segment.blankKey ? (
+          <span key={segmentKeys[index]} lang={contentLanguage}>
+            {segment.text}
+          </span>
+        ) : (
+          <BlankSlot
+            blankKey={segment.blankKey}
+            blankNumber={blankNumberByKey.get(segment.blankKey) ?? 0}
+            contentLanguage={contentLanguage}
+            disabled={disabled}
+            key={segmentKeys[index]}
+            onActivate={onActivateBlank}
+            placedWord={
+              wordByKey.get(placedWordKeyByBlank.get(segment.blankKey) ?? '') ?? null
+            }
+          />
+        ),
+      )}
+    </p>
+  )
+}

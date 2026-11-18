@@ -46,12 +46,12 @@ class FillBlanksQuestionFaker:
             bank=bank
             if bank is not None
             else (
-                FillBlanksBankWord(key='w1', word='goes'),
-                FillBlanksBankWord(key='w2', word='walks'),
-                FillBlanksBankWord(key='w3', word='does'),
                 FillBlanksBankWord(key='w4', word='day'),
-                FillBlanksBankWord(key='w5', word='day'),
                 FillBlanksBankWord(key='w6', word='go'),
+                FillBlanksBankWord(key='w3', word='does'),
+                FillBlanksBankWord(key='w1', word='goes'),
+                FillBlanksBankWord(key='w5', word='day'),
+                FillBlanksBankWord(key='w2', word='walks'),
             ),
             correct_explanation='Correct. The third person singular takes -s or -es.',
             incorrect_explanation='Review the third person singular of the present.',

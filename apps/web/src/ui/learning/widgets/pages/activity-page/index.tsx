@@ -404,6 +404,7 @@ export const ActivityPage = (props: ActivityPageProps) => {
             activityTitle={activity.title}
             difficulty={activity.difficulty}
             disabled={!activity.canSubmit || isQuestionReadOnly || isFillBlanksLocked}
+            feedback={feedback}
             key={currentQuestion.key}
             onPlacementsChange={handleFillBlanksChange}
             placements={fillBlanksPlacements}

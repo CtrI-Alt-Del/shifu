@@ -4,8 +4,6 @@ from decimal import Decimal
 from unittest.mock import Mock, call, create_autospec, patch
 
 import pytest
-from shifu.curriculum.core.domain.structures import FillBlanksConceptCriterion
-from shifu.fakers.curriculum.structures import FillBlanksQuestionFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
 from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
     CurriculumFillBlanksActivitySnapshotFaker,
@@ -53,6 +51,7 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.learning.core.use_cases import EvaluateChoiceActivityUseCase
 from shifu.shared.core.domain.structures import (
+    CurriculumFillBlanksConceptCriterionSnapshot,
     CodeCriterionDecision,
     CodeRubricDecisions,
     CurriculumActivitySnapshot,
@@ -818,23 +817,21 @@ class TestEvaluateChoiceActivityUseCase:
         fill_answer: object | None = None,
     ) -> None:
         question = CurriculumFillBlanksQuestionSnapshotFaker.fake(
-            FillBlanksQuestionFaker.fake(
-                concept_criteria=(
-                    FillBlanksConceptCriterion(
-                        concept_id='concept-1',
-                        criterion='Verb agreement',
-                        examples='She goes.',
-                        limits='None.',
-                        blank_keys=('b1', 'b2'),
-                    ),
-                    FillBlanksConceptCriterion(
-                        concept_id='concept-2',
-                        criterion='Time expressions',
-                        examples='every day.',
-                        limits='None.',
-                        blank_keys=('b3',),
-                    ),
-                )
+            concept_criteria=(
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='concept-1',
+                    criterion='Verb agreement',
+                    examples='She goes.',
+                    limits='None.',
+                    blank_keys=('b1', 'b2'),
+                ),
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='concept-2',
+                    criterion='Time expressions',
+                    examples='every day.',
+                    limits='None.',
+                    blank_keys=('b3',),
+                ),
             )
         )
         self.attempt = ActivityAttempt.create(

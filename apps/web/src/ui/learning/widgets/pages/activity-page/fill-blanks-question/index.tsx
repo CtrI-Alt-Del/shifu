@@ -5,6 +5,7 @@ import { ENTRANCE_RISE } from '@/constants/motion-variants'
 import type { ActivityDifficulty } from '@/core/learning/competency-detail'
 import type {
   FillBlanksPlacement,
+  PreliminaryQuestionResult,
   FillBlanksQuestion as FillBlanksQuestionContent,
 } from '@/core/learning/choice-activity'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
@@ -20,6 +21,7 @@ export type FillBlanksQuestionProps = {
   activityTitle?: string
   difficulty?: ActivityDifficulty
   disabled?: boolean
+  feedback?: PreliminaryQuestionResult | null
   onPlacementsChange: (placements: readonly FillBlanksPlacement[]) => void
   placements: readonly FillBlanksPlacement[]
   question: FillBlanksQuestionContent
@@ -30,11 +32,12 @@ export type FillBlanksQuestionProps = {
 const SCREEN_READER_INSTRUCTIONS =
   'Para colocar uma palavra com o teclado, selecione a palavra no banco e depois a lacuna.'
 
+// The hook owns the single polite region, so the library announcements stay silent.
 const ANNOUNCEMENTS = {
-  onDragStart: () => 'Arrastando a palavra. Solte sobre uma lacuna.',
+  onDragStart: () => undefined,
   onDragOver: () => undefined,
-  onDragEnd: () => 'Palavra solta.',
-  onDragCancel: () => 'Arrasto cancelado.',
+  onDragEnd: () => undefined,
+  onDragCancel: () => undefined,
 }
 
 export const FillBlanksQuestion = (props: FillBlanksQuestionProps) => {

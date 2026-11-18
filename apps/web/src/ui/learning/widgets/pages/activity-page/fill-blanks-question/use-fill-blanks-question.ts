@@ -5,9 +5,11 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { FillBlanksPlacement, FillBlanksWord } from '@/core/learning/choice-activity'
+
+import { useFillBlanksOutcome } from '@/ui/learning/hooks/use-fill-blanks-outcome'
 
 import type { FillBlanksQuestionProps } from '.'
 
@@ -40,12 +42,24 @@ function removeBlank(placements: readonly FillBlanksPlacement[], blankKey: strin
 
 export function useFillBlanksQuestion({
   disabled = false,
+  feedback = null,
   onPlacementsChange,
   placements,
   question,
 }: FillBlanksQuestionProps) {
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const outcome = useFillBlanksOutcome({
+    blankCount: feedback?.blankCount,
+    correctBlankCount: feedback?.correctBlankCount,
+    score: feedback?.score,
+  })
+  const outcomeAnnouncement = outcome ? `${outcome.label}. ${outcome.countText}.` : null
+
+  // The live region stays mounted, so the result is announced as a text change.
+  useEffect(() => {
+    if (outcomeAnnouncement) setAnnouncement(outcomeAnnouncement)
+  }, [outcomeAnnouncement])
   // Keyboard and assistive technology use select-then-place; drag is for pointer and touch.
   const sensors = useSensors(
     useSensor(PointerSensor, {

@@ -27,7 +27,9 @@ function setup(
     totalQuestions: 4,
     ...overrides,
   }
-  const rendered = renderHook(() => useFillBlanksQuestion(props))
+  const rendered = renderHook((extra: Partial<FillBlanksQuestionProps> = {}) =>
+    useFillBlanksQuestion({ ...props, ...extra }),
+  )
   return { ...rendered, onPlacementsChange }
 }
 
@@ -238,5 +240,23 @@ describe('useFillBlanksQuestion', () => {
     expect(result.current.selectedWordKey).toBeNull()
     expect(result.current.announcement).toBe('')
     expect(onPlacementsChange).not.toHaveBeenCalled()
+  })
+
+  it('announces the result in the same live region when the feedback arrives', () => {
+    const { result, rerender } = setup([], { feedback: null })
+    expect(result.current.announcement).toBe('')
+
+    rerender({
+      feedback: {
+        status: 'conclusive',
+        score: 66.67,
+        correctBlankCount: 2,
+        blankCount: 3,
+      },
+    })
+
+    expect(result.current.announcement).toBe(
+      'Parcialmente correta. 2 de 3 lacunas corretas.',
+    )
   })
 })

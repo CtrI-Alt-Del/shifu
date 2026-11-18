@@ -306,6 +306,58 @@ describe('useChoiceResultPage routed result consumers', () => {
     )
   })
 
+  it('maps a snake_case fill-in-the-blank attempt and fills the segment fields the API omits', async () => {
+    respondWithAttempt(
+      attemptWire('completed', [
+        {
+          question_key: 'fill-1',
+          kind: 'fill_blanks',
+          prompt: 'Complete o texto.',
+          content_language: 'en',
+          segments: [{ text: 'She ' }, { blank_key: 'b1' }, { text: '.' }],
+          bank: [
+            { key: 'w1', word: 'goes' },
+            { key: 'w2', word: 'go' },
+          ],
+          placements: [{ blank_key: 'b1', word_key: 'w1' }],
+          score: 100,
+          is_correct: true,
+          correct_blank_count: 1,
+          blank_count: 1,
+          explanation: 'Correto.',
+          disclosed_expected_blanks: [{ blank_key: 'b1', accepted_words: ['goes'] }],
+        },
+      ]),
+    )
+    const { result } = setup()
+    await waitFor(() => expect(result.current.pageState).toBe('result'))
+
+    expect(result.current.attempt?.questions).toEqual([
+      {
+        key: 'fill-1',
+        kind: 'fill_blanks',
+        prompt: 'Complete o texto.',
+        contentLanguage: 'en',
+        segments: [
+          { text: 'She ', blankKey: null },
+          { text: null, blankKey: 'b1' },
+          { text: '.', blankKey: null },
+        ],
+        bank: [
+          { key: 'w1', word: 'goes' },
+          { key: 'w2', word: 'go' },
+        ],
+        placements: [{ blankKey: 'b1', wordKey: 'w1' }],
+        score: 100,
+        isCorrect: true,
+        correctBlankCount: 1,
+        blankCount: 1,
+        explanation: 'Correto.',
+        expectedBlanks: [{ blankKey: 'b1', acceptedWords: ['goes'] }],
+      },
+    ])
+  })
+
   it('reloads the activity and the attempt through the shared retry-load handler', async () => {
     const { result } = setup()
     await waitFor(() => expect(result.current.pageState).toBe('result'))

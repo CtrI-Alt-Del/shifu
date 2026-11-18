@@ -102,7 +102,7 @@ type ActivityWire = {
         kind: 'fill_blanks'
         prompt: string
         content_language: string
-        segments: { text: string | null; blank_key: string | null }[]
+        segments: { text?: string | null; blank_key?: string | null }[]
         bank: { key: string; word: string }[]
       }
   >
@@ -125,8 +125,8 @@ function mapActivityQuestion(
       prompt: question.prompt,
       contentLanguage: question.content_language,
       segments: question.segments.map((segment) => ({
-        text: segment.text,
-        blankKey: segment.blank_key,
+        text: segment.text ?? null,
+        blankKey: segment.blank_key ?? null,
       })),
       bank: question.bank,
     }
@@ -317,7 +317,7 @@ type AttemptWire = {
         kind: 'fill_blanks'
         prompt: string
         content_language: string
-        segments: { text: string | null; blank_key: string | null }[]
+        segments: { text?: string | null; blank_key?: string | null }[]
         bank: { key: string; word: string }[]
         placements: { blank_key: string; word_key: string }[]
         score: number
@@ -359,8 +359,8 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           prompt: question.prompt,
           contentLanguage: question.content_language,
           segments: question.segments.map((segment) => ({
-            text: segment.text,
-            blankKey: segment.blank_key,
+            text: segment.text ?? null,
+            blankKey: segment.blank_key ?? null,
           })),
           bank: question.bank,
           placements: question.placements.map((placement) => ({

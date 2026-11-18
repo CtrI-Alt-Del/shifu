@@ -1,5 +1,3 @@
-from shifu.curriculum.core.domain.structures import FillBlanksQuestion
-from shifu.fakers.curriculum.structures import FillBlanksQuestionFaker
 from shifu.shared.core.domain.structures import (
     CurriculumFillBlanksBlankSnapshot,
     CurriculumFillBlanksConceptCriterionSnapshot,
@@ -10,43 +8,73 @@ from shifu.shared.core.domain.structures import (
 
 
 class CurriculumFillBlanksQuestionSnapshotFaker:
+    """Three blanks: two share a grammar Concept, one has a vocabulary Concept."""
+
     @classmethod
     def fake(
-        cls, question: FillBlanksQuestion | None = None
+        cls,
+        *,
+        key: str = 'fill-1',
+        segments: tuple[CurriculumFillBlanksSegmentSnapshot, ...] | None = None,
+        blanks: tuple[CurriculumFillBlanksBlankSnapshot, ...] | None = None,
+        bank: tuple[CurriculumFillBlanksWordSnapshot, ...] | None = None,
+        concept_criteria: tuple[CurriculumFillBlanksConceptCriterionSnapshot, ...]
+        | None = None,
+        partial_explanation: str | None = 'Almost there. Review the verb forms.',
     ) -> CurriculumFillBlanksQuestionSnapshot:
-        """Project a Curriculum fill-blanks question (the faker default) as a snapshot."""
-        source = question or FillBlanksQuestionFaker.fake()
         return CurriculumFillBlanksQuestionSnapshot(
-            key=source.key,
-            prompt=source.prompt,
-            content_language=source.content_language,
-            segments=tuple(
-                CurriculumFillBlanksSegmentSnapshot(
-                    text=item.text, blank_key=item.blank_key
-                )
-                for item in source.segments
+            key=key,
+            prompt='Complete o texto com as palavras do banco.',
+            content_language='en',
+            segments=segments
+            if segments is not None
+            else (
+                CurriculumFillBlanksSegmentSnapshot(text='She '),
+                CurriculumFillBlanksSegmentSnapshot(blank_key='b1'),
+                CurriculumFillBlanksSegmentSnapshot(text=' to school and '),
+                CurriculumFillBlanksSegmentSnapshot(blank_key='b2'),
+                CurriculumFillBlanksSegmentSnapshot(text=' her homework every '),
+                CurriculumFillBlanksSegmentSnapshot(blank_key='b3'),
+                CurriculumFillBlanksSegmentSnapshot(text='.'),
             ),
-            blanks=tuple(
+            blanks=blanks
+            if blanks is not None
+            else (
                 CurriculumFillBlanksBlankSnapshot(
-                    key=item.key, accepted_words=item.accepted_words
-                )
-                for item in source.blanks
+                    key='b1', accepted_words=('goes', 'walks')
+                ),
+                CurriculumFillBlanksBlankSnapshot(key='b2', accepted_words=('does',)),
+                CurriculumFillBlanksBlankSnapshot(key='b3', accepted_words=('day',)),
             ),
-            bank=tuple(
-                CurriculumFillBlanksWordSnapshot(key=item.key, word=item.word)
-                for item in source.bank
+            bank=bank
+            if bank is not None
+            else (
+                CurriculumFillBlanksWordSnapshot(key='w4', word='day'),
+                CurriculumFillBlanksWordSnapshot(key='w6', word='go'),
+                CurriculumFillBlanksWordSnapshot(key='w3', word='does'),
+                CurriculumFillBlanksWordSnapshot(key='w1', word='goes'),
+                CurriculumFillBlanksWordSnapshot(key='w5', word='day'),
+                CurriculumFillBlanksWordSnapshot(key='w2', word='walks'),
             ),
-            correct_explanation=source.correct_explanation,
-            incorrect_explanation=source.incorrect_explanation,
-            partial_explanation=source.partial_explanation,
-            concept_criteria=tuple(
+            correct_explanation='Correct. The third person singular takes -s or -es.',
+            incorrect_explanation='Review the third person singular of the present.',
+            partial_explanation=partial_explanation,
+            concept_criteria=concept_criteria
+            if concept_criteria is not None
+            else (
                 CurriculumFillBlanksConceptCriterionSnapshot(
-                    concept_id=item.concept_id,
-                    criterion=item.criterion,
-                    examples=item.examples,
-                    limits=item.limits,
-                    blank_keys=item.blank_keys,
-                )
-                for item in source.concept_criteria
+                    concept_id='concept-grammar',
+                    criterion='Verb agreement in the third person singular.',
+                    examples='She goes; she does.',
+                    limits='Spelling is not observed.',
+                    blank_keys=('b1', 'b2'),
+                ),
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='concept-vocabulary',
+                    criterion='Common time expressions.',
+                    examples='every day.',
+                    limits='Only the expression in the text.',
+                    blank_keys=('b3',),
+                ),
             ),
         )

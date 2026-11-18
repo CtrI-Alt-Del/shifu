@@ -12,11 +12,11 @@ last_updated_at: 2026-11-17
 | Implementation | Complete for CA-01..CA-17, CA-19, CA-20. CA-18 (visual) compared against the `shifu.fig` frames: behavior matches, layout does not (ACH-13) |
 | Automated checks | 16/17 passed. CI-16 Failed (pre-existing, outside this delivery) |
 | Type / lint / complexity | Passed for the affected scope: CI-13 (EV-13), CI-14 (EV-14), CI-15 (EV-15; configured lint only, no metrics tool) |
-| Manual checks | 2/2 passed (VM-01, VM-02) with one limitation: touch drag was not exercised |
+| Manual checks | VM-01 passed. VM-02 Partial: the tap path passed, the required touch drag gesture was not performed |
 | Visual checks | 0/4 passed. VM-03..VM-05 compared against `shifu.fig` (OpenPencil export, not Penpot) and Failed on layout (ACH-13). VM-06 has no reference frame: Blocked |
 | Independent review | Implementation Reviewer: PASS, low findings only (ACH-05..ACH-12). Visual Reviewer not run: no Penpot reference |
 | Blockers | No Penpot file or MCP (VM-06 and a real Penpot pass); open layout findings ACH-13; pre-existing test-integrity failure (CI-16) |
-| Candidate | `feat/shifu-123` on `main` 9b606f4b, uncommitted working tree (see Handoff) |
+| Candidate | `feat/shifu-123` on `main` 9b606f4b, published as PR #53. Head `e0392743` plus the review-fix commit that follows it; current-head CI for the fix commit is pending (see Delivery and Handoff) |
 
 # Progress
 
@@ -25,8 +25,8 @@ last_updated_at: 2026-11-17
 | CA-01 | RF-01 | Complete | Passed | CI-01 / EV-01 | none |
 | CA-02 | RF-01, RF-02 | Complete | Passed | CI-01 / EV-01 | none |
 | CA-03 | RF-02, RF-03, RF-13 | Complete | Passed | CI-02, CI-03, CI-07 / EV-02, EV-03, EV-07 | none |
-| CA-04 | RF-04, RF-05 | Complete | Passed | CI-09 / EV-09; CI-12 keyboard and mouse drag / EV-12 | touch drag only in VM-02 (Blocked) |
-| CA-05 | RF-05 | Complete | Partial | CI-09 / EV-09; VM-03..06 Blocked | visual comparison |
+| CA-04 | RF-04, RF-05 | Complete | Partial | CI-09 / EV-09; CI-12 keyboard and mouse drag / EV-12 | touch drag gesture not performed (VM-02 Partial) |
+| CA-05 | RF-05 | Complete | Partial | CI-09 / EV-09; VM-03..05 Failed on layout (EV-21), VM-06 no frame | layout decisions (ACH-13), VM-06 |
 | CA-06 | RF-06, RF-08, RF-09 | Complete | Passed | CI-10 / EV-10 | none |
 | CA-07 | RF-07, RF-08 | Complete | Passed | CI-02 / EV-02 | none |
 | CA-08 | RF-06, RF-13 | Complete | Passed | CI-02, CI-04 / EV-02, EV-04 | none |
@@ -38,8 +38,8 @@ last_updated_at: 2026-11-17
 | CA-14 | RF-12 | Complete | Passed | CI-02, CI-06 / EV-02, EV-06 | none |
 | CA-15 | RF-12 | Complete | Passed | CI-02 / EV-02 | none |
 | CA-16 | RF-08, RF-12, RF-05 | Complete | Passed | CI-10, CI-11, CI-12 / EV-10, EV-11, EV-12 | none |
-| CA-17 | RF-03..RF-12, RF-14 | Complete | Passed | VM-01, VM-02 / EV-19, EV-20; CI-12 | touch drag gesture |
-| CA-18 | RF-05 | Pending | Blocked | VM-03..VM-06 | Penpot MCP |
+| CA-17 | RF-03..RF-12, RF-14 | Complete | Partial | VM-01 Passed, VM-02 Partial / EV-19, EV-20; CI-12 | touch drag gesture |
+| CA-18 | RF-05 | Partial | Failed (VM-03..05), Blocked (VM-06) | EV-21 against `shifu.fig` | decide ACH-13, recapture after the layout change, find or accept a result-detail reference |
 | CA-19 | RF-01, RF-03 | Complete | Passed | CI-07 / EV-07 | none |
 | CA-20 | RF-02 | Complete | Passed | CI-17 / EV-17 | none |
 
@@ -68,7 +68,7 @@ Candidate for every row: working tree on `feat/shifu-123`, 2026-11-17. Server co
 | EV-17 | CI-17 / Automated / CA-20 | Passed | real app | `uv run pytest tests/learning/server/controllers/test_submit_diagnostic_batch_controller.py` | 2 passed. The valid-batch success path is covered by the legacy consumer file below |
 | EV-18 | Consumer regression / seed and shared unions | Passed | disposable PostgreSQL | `uv run pytest tests/learning/server/controllers tests/learning/rest/controllers tests/intelligence/server/controllers/test_confirm_planning_controller.py tests/intelligence/preparation/test_prepare_planning_indexes.py tests/curriculum` | 359 passed in 6m39s. Run before the later refactors, then the affected files were rerun |
 | EV-19 | VM-01 / Manual / CA-17 | Passed | 2026-11-17, real API, PostgreSQL, Redis and Inngest from Compose; migrated to head and `db:seed` run with the user's authorization; account `student.seed@shifu.com`; Chromium 1440×900 through the Playwright library (`playwright-cli` is not installed) | `AGENTOS_DATABASE_URL=<.env.example runtime login> uv run --env-file .env.local python src/main.py`; `pnpm dev`; script `apps/web/.playwright-cli/journey.mjs desktop` | Sign in, open the seeded Activity, fill by selection and by mouse drag, check, edit after feedback (feedback cleared, replaced word returned to the bank), re-check, submit four questions. The official evaluation completed through the real job: 4 of 4 questions correct, score 100. No console errors, no horizontal scroll. Captures in `apps/web/.playwright-cli/screenshots/fill-blanks-desktop-*.png` |
-| EV-20 | VM-02 / Manual / CA-17 | Passed with limitation | same runtime as EV-19; 390×844 with touch enabled | `node .playwright-cli/journey.mjs mobile` | Same journey by tap-select-then-tap-blank: score 100, no console errors, no horizontal scroll, captures `fill-blanks-mobile-*.png`. Limit: a touch drag gesture was not performed |
+| EV-20 | VM-02 / Manual / CA-17 | Partial | same runtime as EV-19; 390×844 with touch enabled | `node .playwright-cli/journey.mjs mobile` | Same journey by tap-select-then-tap-blank: score 100, no console errors, no horizontal scroll, captures `fill-blanks-mobile-*.png`. Limit: a touch drag gesture was not performed |
 | EV-21 | VM-03..VM-06 / Visual / CA-18 | Failed (VM-03..05), Blocked (VM-06) | Reference: `shifu.fig` exported with `@open-pencil/cli` (`openpencil export --node`). This is a deviation: `AGENTS.md` calls the file historical and the Spec requires Penpot. Captures: fresh runs of `journey.mjs` on 2026-11-17 with a wait for the entry animation | frames 0:75 and 0:138 (desktop 1440×1080) and 0:2658 and 0:2742 (mobile 390×1230) vs `fill-blanks-{desktop,mobile}-{1-empty,3-q2-partial}.png` | The reference text renders garbled (font fallback), so only layout was compared. Behavior and tokens match. Layout differences are listed in ACH-13. VM-06 (result detail) has no frame in the file. No visual pass is claimed |
 
 Warnings observed in the test runs, all pre-existing and outside the delivery: `PytestAssertRewriteWarning` for a plugin imported early, Starlette `DeprecationWarning`s, and a `PytestCollectionWarning` for the `Test`-prefixed structure `TestCasesEvaluationPart`. The suites report no new warning from the changed code.
@@ -89,6 +89,14 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 | ACH-11 | Real journey: the preview and submit server functions rejected every fill-blanks answer because their shape validator did not know the kind, so no request reached the API. Mocked suites could not see it | High | CI-10, VM-01 | Resolved: validator accepts the kind; routed regression test `sends a fill-in-the-blank answer through the validator and the real service` (use-activity-page-routing, 37 passed) |
 | ACH-12 | Real journey: server functions deliver absent segment fields as `undefined`, not `null`. Strict `=== null` checks numbered every text segment as a blank and raised a React key warning on the result page | High | CI-09, CI-11, VM-01 | Resolved: value-based checks in the hook, text renderer and result hook; regression tests with undefined segment fields (learning UI suite 548 passed). The rerun journeys show no console error |
 | ACH-13 | Visual comparison with the `shifu.fig` frames: (1) the frame centers the heading, hint and text, mine is left-aligned inside bordered cards; (2) the frame has a "Banco de palavras" label and a grip icon on each bank word, mine has neither; (3) the frame shows the counter above the bank and a "Recomeçar" action, mine shows the counter below and has no reset; (4) the frame shows filled words as neutral buttons with a close mark, mine uses a red tint; (5) mobile frame adds the hint "Algumas palavras podem sobrar. Cada lacuna correta vale a mesma parte da nota." | Medium | CI-18, VM-03..VM-05 | Partly resolved: items 2, 4, 5 and the counter order of 3 are implemented (visible bank label, grip icon, neutral filled blank with a close mark, hint text, counter above the bank) and the text and bank lose their card borders. Open by choice: centered alignment (sibling widgets are left-aligned) and "Recomeçar" (new behavior outside the Spec). Not recaptured against the frames after the change; unit suite (19 files, 306 passed), types and the 8 browser scenarios pass |
+| ACH-14 | Review: the word bank order gave away the answer key (accepted words in blank order, distractors last) in the seed and in the faker | High | CI-07, CI-13 | Resolved: seed and fakers list the bank out of blank order with distractors mixed in; keys are unchanged. The API still returns the Curriculum order. A deterministic shuffle in the projection is not implemented and stays a Spec decision |
+| ACH-15 | Review: Learning use case tests imported Curriculum structures through the snapshot faker | Medium | CI-13 | Resolved: the snapshot faker takes overrides in snapshot types and has its own defaults; no Learning test imports Curriculum structures for fill-blanks |
+| ACH-16 | Review: the diagnostic controller test asserted `!= 422` | Medium | CI-17 | Resolved: asserts 409 with code `conflict` (no open diagnostic run), the observed result. The reviewer guessed 404 |
+| ACH-17 | Review: icons imported from `lucide-react` in the widgets | Medium | CI-13 | Resolved: shared `Icon` with a new `grip-vertical` name; `x` already existed |
+| ACH-18 | Review: two `biome-ignore noArrayIndexKey` suppressions | Medium | CI-14 | Resolved: stable keys from `fillBlanksSegmentKeys`; both ignores removed |
+| ACH-19 | Review: the attempt mapper had no test and the segment wire fields were typed as always present | Medium | CI-11 | Resolved: optional wire fields normalized with `?? null`, a routed test with a snake_case attempt that omits null fields, and the cast-based test removed |
+| ACH-20 | Review: the result was announced by a region that mounts already filled, and the dnd-kit announcer duplicated the polite region | Medium | CI-09, VM-01 | Resolved in code: one always-mounted polite region announces the result as a text change; the feedback section is not live for this kind; the library announcements are silent. Unit test added. No screen reader verification was done, so ACH-08 stays open |
+| ACH-21 | Review: the Evaluation was out of date with the candidate | Medium | none | Resolved: this reconciliation |
 | ACH-04 | `pnpm check:test-integrity` fails on `test_roadmap_skills_seed.py` | Medium | CI-16 | Open, pre-existing and outside scope: needs a separate maintenance fix or the user's explicit acceptance |
 
 # Lessons Learned
@@ -123,12 +131,12 @@ Warnings observed in the test runs, all pre-existing and outside the delivery: `
 
 | PR | Current head SHA | CI / review state | Run / artifacts |
 | --- | --- | --- | --- |
-| none | none | not applicable | not applicable |
+| #53 | Reviewed `e0392743`; the review-fix commit follows it | SonarCloud quality gates passed on `e0392743`. The server and web CI jobs ran on that head (the integration shards passed in the jobs listed by `gh pr checks 53`); current-head CI for the fix commit is pending. One reviewer requested changes with eight inline comments, all addressed in the fix commit and answered on the PR | `gh pr checks 53` |
 
 | Field | Result |
 | --- | --- |
-| Publication | not requested; local only |
+| Publication | PR #53 open against `main` |
 | Source verification | Learning PRD 83066881 (modified 2026-11-12) and Curriculum PRD 83034113 (modified 2026-11-02) read in full on 2026-11-17. The API gives no version number; SHIFU-123 cites 28 and 15 |
 | Documentation Alignment | No external write made. Penpot unavailable; `shifu.fig` used as a reference, with layout differences (ACH-13) |
-| Revision History | Spec revision 2 records implementation corrections, no product behavior change |
-| Limitations | VM-03..VM-05 Failed on layout against `shifu.fig` and VM-06 has no frame; touch drag not exercised; CI-16 failing on a pre-existing file |
+| Revision History | Spec revision 3 records the design-reference source; revision 4 records the review corrections. No product behavior change |
+| Limitations | The design deviation is not accepted yet: it needs an explicit decision. VM-03..VM-05 Failed on layout against `shifu.fig`, VM-06 has no frame, and the frames were not recaptured after commit `e0392743` and the review fixes; touch drag not exercised; CI-16 failing on a pre-existing file |

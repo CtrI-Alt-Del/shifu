@@ -1,3 +1,4 @@
+import { fillBlanksSegmentKeys } from '@/core/learning/fill-blanks-segment-keys'
 import type { FillBlanksSegment } from '@/core/learning/choice-activity'
 import { useFillBlanksOutcome } from '@/ui/learning/hooks/use-fill-blanks-outcome'
 
@@ -6,6 +7,7 @@ import type { FillBlanksResultProps } from '.'
 const SCORE_FORMATTER = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 })
 
 export type FilledSegment = {
+  key: string
   segment: FillBlanksSegment
   blankNumber: number | null
   word: string | null
@@ -24,12 +26,15 @@ export function useFillBlanksResult({ result }: FillBlanksResultProps) {
       wordByKey.get(placement.wordKey) ?? null,
     ]),
   )
+  const segmentKeys = fillBlanksSegmentKeys(result.segments)
   let blankCounter = 0
-  const filledSegments: FilledSegment[] = result.segments.map((segment) => {
-    if (!segment.blankKey) return { segment, blankNumber: null, word: null }
+  const filledSegments: FilledSegment[] = result.segments.map((segment, index) => {
+    const key = segmentKeys[index] ?? `segment-${index}`
+    if (!segment.blankKey) return { key, segment, blankNumber: null, word: null }
 
     blankCounter += 1
     return {
+      key,
       segment,
       blankNumber: blankCounter,
       word: placedWordByBlank.get(segment.blankKey) ?? null,

@@ -1,6 +1,5 @@
-import { GripVertical } from 'lucide-react'
-
 import type { FillBlanksWord } from '@/core/learning/choice-activity'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 import { Button } from '@/ui/shadcn/button'
 
 import { useBankWord } from './use-bank-word'
@@ -31,7 +30,12 @@ export const BankWord = (props: BankWordProps) => {
       variant='outline'
       {...listeners}
     >
-      <GripVertical aria-hidden='true' className='size-3.5 text-muted-foreground' />
+      <Icon
+        aria-hidden='true'
+        className='text-muted-foreground'
+        name='grip-vertical'
+        size={14}
+      />
       <span lang={contentLanguage}>{word.word}</span>
       {isSelected ? (
         <span className='text-xs font-medium text-selo-text'>Selecionada</span>

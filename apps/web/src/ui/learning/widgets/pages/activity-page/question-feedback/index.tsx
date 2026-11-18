@@ -32,7 +32,7 @@ export const QuestionFeedback = ({
   return (
     <section
       aria-label='Resultado'
-      aria-live='polite'
+      aria-live={question.kind === 'fill_blanks' ? undefined : 'polite'}
       className='question-feedback-session scroll-mt-6 mt-6 space-y-4 rounded-lg border border-border bg-card p-4 shadow-card sm:p-5'
       ref={feedbackElementRef}
     >

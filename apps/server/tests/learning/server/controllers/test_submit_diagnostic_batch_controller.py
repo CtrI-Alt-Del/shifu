@@ -139,7 +139,7 @@ class TestSubmitDiagnosticBatchController:
         assert response.status_code == 422, response.json()
         assert FillBlanksActivityFixture.write_counts(postgres_database) == before
 
-    def test_should_only_reject_the_fill_blanks_kind_at_the_request_boundary(
+    def test_should_let_other_kinds_past_the_request_boundary_to_the_run_check(
         self, client: TestClient, postgres_database: PostgresDatabase
     ) -> None:
         before = FillBlanksActivityFixture.write_counts(postgres_database)
@@ -155,5 +155,7 @@ class TestSubmitDiagnosticBatchController:
             ),
         )
 
-        assert response.status_code != 422, response.json()
+        # The kind passes the request boundary; no diagnostic run is open for the goal.
+        assert response.status_code == 409, response.json()
+        assert response.json()['code'] == 'conflict'
         assert FillBlanksActivityFixture.write_counts(postgres_database) == before

@@ -84,16 +84,15 @@ export const FillBlanksResult = (props: FillBlanksResultProps) => {
             <span className='text-xs text-muted-foreground'>Somente leitura</span>
           </div>
           <p className='whitespace-pre-wrap rounded-md border border-border bg-card p-3 text-sm leading-8'>
-            {filledSegments.map((item, index) =>
+            {filledSegments.map((item) =>
               item.blankNumber === null ? (
-                // biome-ignore lint/suspicious/noArrayIndexKey: the segment order is fixed by the Curriculum.
-                <span key={`text-${index}`} lang={result.contentLanguage}>
+                <span key={item.key} lang={result.contentLanguage}>
                   {item.segment.text}
                 </span>
               ) : (
                 <span
                   className='mx-1 inline-block rounded-md border border-control-border bg-accent px-2 font-semibold'
-                  key={item.segment.blankKey}
+                  key={item.key}
                 >
                   <span className='sr-only'>Lacuna {item.blankNumber}: </span>
                   <span lang={result.contentLanguage}>{item.word ?? '—'}</span>

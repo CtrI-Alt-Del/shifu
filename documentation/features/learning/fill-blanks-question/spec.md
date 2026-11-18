@@ -1,7 +1,7 @@
 ---
 title: Learning Activity fill-in-the-blank questions with a word bank
 status: ready
-revision: 2
+revision: 4
 source:
   type: issue
   ref: "https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-123"
@@ -116,7 +116,7 @@ blocker until verified (decision Q5).
 
 ## Design Contract
 
-**Update (revision 3):** the user has no Penpot. The frames were exported from `shifu.fig` with OpenPencil: desktop "Atividade / Lacunas — Inglês" (0:75) and "— preenchidas" (0:138), mobile 0:2658 and 0:2742. No frame exists for the result detail. This is a recorded deviation from the Penpot requirement, not a Penpot pass.
+**Update (revision 3, still current in revision 4):** the user has no Penpot. The frames were exported from `shifu.fig` with OpenPencil: desktop "Atividade / Lacunas — Inglês" (0:75) and "— preenchidas" (0:138), mobile 0:2658 and 0:2742. No frame exists for the result detail. This is a recorded deviation from the Penpot requirement, not a Penpot pass.
 
 **Readiness blocker:** the Penpot MCP is not connected in this session, so
 none of the boards below has been verified. SHIFU-123 names the frames
@@ -131,10 +131,10 @@ only. Before `ready`, inspect the Shifu Penpot file and:
 
 | Surface / route | State / viewport | Penpot page / board / components | CA / Visual check | Allowed deviations |
 | --- | --- | --- | --- | --- |
-| Activity page, fill-blanks question | Empty fill / desktop 1440×900 | Desktop / "Atividade / Lacunas — Inglês" (pending verification) | CA-18 / VM-03 | Real seed copy and word count |
-| Activity page, fill-blanks question | Filled with provisional feedback (partial) / desktop 1440×900 | Desktop / "Atividade / Lacunas — preenchidas" (pending verification) | CA-18 / VM-04 | Feedback copy from seed |
-| Activity page, fill-blanks question | Empty and filled / mobile 390×844 | Mobile / matching boards (pending; to be confirmed in Penpot) | CA-18 / VM-05 | Same as desktop |
-| Result page, fill-blanks result detail | Partial result, expected fill hidden / desktop and mobile | Pending verification in Penpot | CA-18 / VM-06 | None beyond seed copy |
+| Activity page, fill-blanks question | Empty fill / desktop 1440×900 | `shifu.fig` Desktop section "Atividade / Lacunas" / "Atividade / Lacunas — Inglês" (0:75). Penpot not verified | CA-18 / VM-03 | Real seed copy and word count |
+| Activity page, fill-blanks question | Filled with provisional feedback (partial) / desktop 1440×900 | `shifu.fig` / "Atividade / Lacunas — preenchidas" (0:138). Penpot not verified | CA-18 / VM-04 | Feedback copy from seed |
+| Activity page, fill-blanks question | Empty and filled / mobile 390×844 | `shifu.fig` mobile section / frames 0:2658 (empty) and 0:2742 (filled). Penpot not verified | CA-18 / VM-05 | Same as desktop |
+| Result page, fill-blanks result detail | Partial result, expected fill hidden / desktop and mobile | No frame in `shifu.fig`; pending | CA-18 / VM-06 | None beyond seed copy |
 
 Token and primitive mapping, kept consistent with `documentation/design.md`
 and the existing choice question:
@@ -1283,6 +1283,7 @@ no expected fill is shown.
 
 | Revision | Date | Contract change | Reason / source |
 | --- | --- | --- | --- |
+| 4 | 2026-11-18 | Review corrections on PR #53: stable keys, shared `Icon`, optional wire segment fields normalized in the mapper, one polite live region that also announces the result, bank order no longer reveals the key in seed and fakers, snapshot faker without Curriculum imports. Design Contract: the widget now shows a visible bank label, a grip icon, neutral filled blanks, the hint and the counter above the bank; centered layout and a reset action stay open | Review and visual evidence. No product behavior changed |
 | 3 | 2026-11-17 | Design Contract: reference frames identified in `shifu.fig` with node ids; reference source deviation recorded | Visual evidence. No product behavior changed |
 | 2 | 2026-11-17 | Corrections found while implementing: an invalid fill maps to HTTP 400 (domain `ValidationError`) and a malformed body shape to 422; keyboard and assistive technology use select-then-place and drag is pointer/touch; the word bank owns a drop-target hook; shared outcome hook; partial icon; extra fakers, fixtures and seed files; CI-07 and CI-17 wording | Implementation evidence. No product behavior changed |
 | 1 | 2026-11-17 | Initial contract | SHIFU-123. Decisions: Q1 start from `main`; Q2 per-Concept evidence as the proportion of mapped blanks correct; Q3 edits allowed until advance, with feedback showing score, count and explanation only; Q4 `@dnd-kit/core` plus select-then-place; Q5 Penpot verification before `ready` |

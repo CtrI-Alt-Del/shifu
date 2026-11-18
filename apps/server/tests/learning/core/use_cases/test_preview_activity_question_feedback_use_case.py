@@ -5,13 +5,6 @@ from unittest.mock import create_autospec
 import httpx
 import pytest
 
-from shifu.curriculum.core.domain.structures import (
-    FillBlanksBankWord,
-    FillBlanksBlank,
-    FillBlanksConceptCriterion,
-    FillBlanksSegment,
-)
-from shifu.fakers.curriculum.structures import FillBlanksQuestionFaker
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
 from shifu.fakers.shared.curriculum_fill_blanks_question_snapshot_faker import (
     CurriculumFillBlanksQuestionSnapshotFaker,
@@ -45,6 +38,10 @@ from shifu.shared.core.domain.errors import (
     ValidationError,
 )
 from shifu.shared.core.domain.structures import (
+    CurriculumFillBlanksBlankSnapshot,
+    CurriculumFillBlanksConceptCriterionSnapshot,
+    CurriculumFillBlanksSegmentSnapshot,
+    CurriculumFillBlanksWordSnapshot,
     CodeCriterionDecision,
     CodeRubricDecisions,
     CurriculumChoiceOptionSnapshot,
@@ -985,24 +982,24 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         self,
     ) -> None:
         single = CurriculumFillBlanksQuestionSnapshotFaker.fake(
-            FillBlanksQuestionFaker.fake(
-                segments=(FillBlanksSegment(blank_key='b1'),),
-                blanks=(FillBlanksBlank(key='b1', accepted_words=('goes',)),),
-                bank=(
-                    FillBlanksBankWord(key='w1', word='goes'),
-                    FillBlanksBankWord(key='w2', word='go'),
+            segments=(CurriculumFillBlanksSegmentSnapshot(blank_key='b1'),),
+            blanks=(
+                CurriculumFillBlanksBlankSnapshot(key='b1', accepted_words=('goes',)),
+            ),
+            bank=(
+                CurriculumFillBlanksWordSnapshot(key='w1', word='goes'),
+                CurriculumFillBlanksWordSnapshot(key='w2', word='go'),
+            ),
+            concept_criteria=(
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='c',
+                    criterion='x',
+                    examples='y',
+                    limits='z',
+                    blank_keys=('b1',),
                 ),
-                concept_criteria=(
-                    FillBlanksConceptCriterion(
-                        concept_id='c',
-                        criterion='x',
-                        examples='y',
-                        limits='z',
-                        blank_keys=('b1',),
-                    ),
-                ),
-                partial_explanation=None,
-            )
+            ),
+            partial_explanation=None,
         )
         result = self._execute_fill(
             _fill(('b1', 'w2')),
@@ -1075,31 +1072,32 @@ class TestPreviewActivityQuestionFeedbackUseCase:
     def test_should_round_a_tied_percentage_half_up(self) -> None:
         keys = [f'b{number}' for number in range(1, 33)]
         question = CurriculumFillBlanksQuestionSnapshotFaker.fake(
-            FillBlanksQuestionFaker.fake(
-                segments=tuple(FillBlanksSegment(blank_key=key) for key in keys),
-                blanks=tuple(
-                    FillBlanksBlank(key=key, accepted_words=('ok',)) for key in keys
+            segments=tuple(
+                CurriculumFillBlanksSegmentSnapshot(blank_key=key) for key in keys
+            ),
+            blanks=tuple(
+                CurriculumFillBlanksBlankSnapshot(key=key, accepted_words=('ok',))
+                for key in keys
+            ),
+            bank=(
+                *(
+                    CurriculumFillBlanksWordSnapshot(key=f'w{number}', word='ok')
+                    for number in range(1, 33)
                 ),
-                bank=(
-                    *(
-                        FillBlanksBankWord(key=f'w{number}', word='ok')
-                        for number in range(1, 33)
-                    ),
-                    *(
-                        FillBlanksBankWord(key=f'n{number}', word='no')
-                        for number in range(2, 33)
-                    ),
+                *(
+                    CurriculumFillBlanksWordSnapshot(key=f'n{number}', word='no')
+                    for number in range(2, 33)
                 ),
-                concept_criteria=(
-                    FillBlanksConceptCriterion(
-                        concept_id='c',
-                        criterion='x',
-                        examples='y',
-                        limits='z',
-                        blank_keys=tuple(keys),
-                    ),
+            ),
+            concept_criteria=(
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='c',
+                    criterion='x',
+                    examples='y',
+                    limits='z',
+                    blank_keys=tuple(keys),
                 ),
-            )
+            ),
         )
         answer = FillBlanksAnswer(
             question_key=question.key,
