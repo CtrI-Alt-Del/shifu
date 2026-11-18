@@ -1,0 +1,18 @@
+SHIFU-126 — consulta de custos AWS
+Data da consulta: 17/11/2026 (America/Sao_Paulo)
+Responsável indicado na task: gabrielsoliveira1606
+Conta: 565725315792; perfil: shifu-lab.
+
+$ aws ce get-cost-and-usage --time-period Start=2026-11-17,End=2026-11-18 --granularity DAILY --metrics UnblendedCost --group-by Type=DIMENSION,Key=SERVICE --region us-east-1 --output json
+AccessDeniedException: User arn:aws:iam::565725315792:user/shifu-storage-lab is not authorized to perform ce:GetCostAndUsage; no identity-based policy allows the action.
+
+Observação do responsável da task: o saldo de créditos exibido no console passou
+de US$ 112 para US$ 111. A redução aparente é de aproximadamente US$ 1. As
+datas e horários exatos dessas duas leituras não foram informados; o console
+apresentou os valores sem centavos.
+
+Estimativa reportada: aproximadamente US$ 1 de redução no saldo de créditos.
+Esse delta não identifica quanto foi causado pelo laboratório S3 nem separa
+outros usos da conta. A medição por serviço não pôde ser obtida porque a chamada
+Cost Explorer acima retornou AccessDenied. Não se afirma que o custo do
+laboratório foi exatamente US$ 1 nem que o custo total da conta foi zero.

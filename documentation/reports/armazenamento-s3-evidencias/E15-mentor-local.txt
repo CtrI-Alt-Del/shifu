@@ -1,0 +1,49 @@
+SHIFU-126 — tentativa de anexos fictícios pelo Mentor local
+Data: 17/11/2026 (America/Sao_Paulo)
+Responsável indicado na task: gabrielsoliveira1606
+Execução técnica assistida por Codex.
+Conta AWS: 565725315792; perfil shifu-lab; região us-east-2.
+Bucket configurado temporariamente no adaptador: shifu-storage-lab-6dadc912.
+
+O Shifu local foi iniciado com a integração S3 existente, endpoint AWS padrão e
+credenciais do perfil. Não foram alterados arquivos de configuração do usuário
+nem o código da aplicação. O chat foi aberto em http://localhost:7000/intelligence.
+
+Resultados da tentativa de upload:
+- JSON, 120 bytes: HTTP 201; objeto privado criado e arquivo listado como
+  disponível na mensagem após recarregar a conversa.
+- CSV, 134 bytes: HTTP 201; objeto privado criado e arquivo listado como
+  disponível na mensagem após recarregar a conversa.
+- TXT, 60 bytes: HTTP 201; objeto privado criado e arquivo listado como
+  disponível na mensagem após recarregar a conversa.
+- PNG, 11.239 bytes: HTTP 201 na tentativa de upload, mas a interface ficou
+  em “Preparando arquivo…”. Não foi enviado como anexo concluído. A listagem
+  final do prefixo do Mentor continha apenas os três objetos persistidos.
+- PDF v1, 616 bytes: HTTP 422 com corpo
+  {"code":"unsupported_attachment","message":"Não foi possível processar este arquivo."}.
+  O PDF v2 não foi tentado no Mentor após a rejeição do v1. As duas versões
+  foram enviadas e verificadas separadamente via CLI S3 (E13/E14).
+
+Mensagem local enviada: “Arquivos fictícios para a atividade de armazenamento
+em nuvem: JSON, CSV e TXT. Registro técnico SHIFU-126.” Após recarregar, a
+conversa continuou mostrando os três anexos como “Arquivo disponível”. A
+interface confirmou vínculo e persistência; não foi feita uma chamada separada
+para baixar os bytes autenticados. A resposta da IA falhou no ambiente local,
+mas o envio da mensagem e dos anexos foi confirmado.
+
+Listagem S3 final do prefixo mentor-attachments/:
+- mentor-attachments/01M7P5VFZP0RKB1H5XGPP4PADZ/1/original — 60 bytes (TXT)
+- mentor-attachments/01M7P5VG1DVP3MJFHDM9TGSNR4/1/original — 134 bytes (CSV)
+- mentor-attachments/01M7P5VG37P5KYTKT5GHEA0TXH/1/original — 120 bytes (JSON)
+
+Um GET anônimo, sem assinatura AWS, para o objeto privado TXT acima retornou
+AccessDenied (HTTP 403). A demonstração pública permaneceu no prefixo
+academic/storage-activity/public/ e não foi anexada ao chat.
+
+Captura após o envio: apps/web/.playwright-cli/screenshots/
+shifu126-mentor-attachments.png. Snapshots locais da execução ficam em
+apps/web/.playwright-cli/snapshots/; não incluem estado de autenticação.
+
+Limitação registrada: PDF recusado pelo endpoint de anexos e PNG preso no
+estado de preparação da interface. A causa exata do PDF não foi confirmada.
+Não foi feita correção de código, conforme o escopo da atividade.

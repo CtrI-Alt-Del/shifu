@@ -1,0 +1,36 @@
+# E13 — uploads dos fixtures no S3
+Data: 2026-11-17 (America/Sao_Paulo)
+Responsável SHIFU-126: gabrielsoliveira1606; execução técnica assistida por Codex.
+Conta: 565725315792; Região: us-east-2; Bucket: shifu-storage-lab-6dadc912
+> aws s3 cp fixtures/private/exemplo.png s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.png --region us-east-2 --content-type image/png
+Completed 11.0 KiB/11.0 KiB (14.0 KiB/s) with 1 file(s) remaining
+upload: fixtures\private\exemplo.png to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.png
+Exit code: 0
+> aws s3 cp fixtures/private/documento-v1.pdf s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/documento-versoes.pdf --region us-east-2 --content-type application/pdf
+Completed 616 Bytes/616 Bytes (856 Bytes/s) with 1 file(s) remaining
+upload: fixtures\private\documento-v1.pdf to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/documento-versoes.pdf
+Exit code: 0
+> aws s3 cp fixtures/private/documento-v2.pdf s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/documento-versoes.pdf --region us-east-2 --content-type application/pdf
+Completed 622 Bytes/622 Bytes (870 Bytes/s) with 1 file(s) remaining
+upload: fixtures\private\documento-v2.pdf to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/documento-versoes.pdf
+Exit code: 0
+> aws s3 cp fixtures/private/exemplo.json s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.json --region us-east-2 --content-type application/json
+Completed 120 Bytes/120 Bytes (171 Bytes/s) with 1 file(s) remaining
+upload: fixtures\private\exemplo.json to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.json
+Exit code: 0
+> aws s3 cp fixtures/private/exemplo.csv s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.csv --region us-east-2 --content-type text/csv
+Completed 134 Bytes/134 Bytes (186 Bytes/s) with 1 file(s) remaining
+upload: fixtures\private\exemplo.csv to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.csv
+Exit code: 0
+> aws s3 cp fixtures/private/exemplo.txt s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.txt --region us-east-2 --content-type text/plain
+Completed 60 Bytes/60 Bytes (84 Bytes/s) with 1 file(s) remaining
+upload: fixtures\private\exemplo.txt to s3://shifu-storage-lab-6dadc912/academic/storage-activity/private/exemplo.txt
+Exit code: 0
+> aws s3 cp fixtures/public/exemplo.txt s3://shifu-storage-lab-6dadc912/academic/storage-activity/public/exemplo.txt --region us-east-2 --content-type text/plain
+Completed 56 Bytes/56 Bytes (77 Bytes/s) with 1 file(s) remaining
+upload: fixtures\public\exemplo.txt to s3://shifu-storage-lab-6dadc912/academic/storage-activity/public/exemplo.txt
+Exit code: 0
+> aws s3 cp fixtures/archive/historico.csv s3://shifu-storage-lab-6dadc912/academic/storage-activity/archive/historico.csv --region us-east-2 --content-type text/csv
+Completed 482.0 KiB/482.0 KiB (877.4 KiB/s) with 1 file(s) remaining
+upload: fixtures\archive\historico.csv to s3://shifu-storage-lab-6dadc912/academic/storage-activity/archive/historico.csv
+Exit code: 0

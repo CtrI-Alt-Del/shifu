@@ -1,0 +1,36 @@
+SHIFU-126 — validação local do laboratório S3
+Data: 17/11/2026 — America/Sao_Paulo
+Responsável indicado na task: gabrielsoliveira1606; coleta técnica assistida por Codex.
+Diretório: packages/iac
+Commit-base: 0bc77d5652ec9badd3c21e2cbddd254e5b5160bc
+
+Ferramenta observada:
+$ terraform version
+Terraform v1.16.4
+on windows_amd64
+
+Inicialização final, com acesso de rede fora do sandbox:
+$ terraform init -backend=false -input=false -lockfile=readonly -no-color
+- Installed hashicorp/aws v6.67.0 (signed by HashiCorp)
+- Installed hashicorp/random v3.9.1 (signed by HashiCorp)
+Terraform has been successfully initialized!
+Código de saída: 0
+
+Validação final, com comunicação local dos plugins fora do sandbox:
+$ terraform fmt -check -recursive
+Sem saída; código de saída: 0.
+$ terraform validate -no-color
+Success! The configuration is valid.
+Código de saída: 0. Nenhum aviso emitido.
+
+Tentativas anteriores preservadas:
+- init dentro do sandbox falhou na resolução de registry.terraform.io
+  (lookup registry.terraform.io: no such host).
+- validate dentro do sandbox falhou ao carregar os schemas dos providers
+  aws e random (Plugin did not respond).
+- As duas restrições foram superadas repetindo os comandos fora do sandbox.
+
+Limites da evidência:
+Não foram executados terraform plan, apply ou destroy. A validação não prova
+autenticação AWS, provisionamento, upload, acesso público ou remoção de recursos.
+O lockfile foi usado com -lockfile=readonly; não houve atualização de providers.
