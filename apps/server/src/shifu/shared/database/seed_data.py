@@ -203,7 +203,6 @@ SEED_GRAPH_EXPERIENCE_IDS = (
     *(f'01SHF000000000000000000{number:03d}' for number in range(240, 243)),
     '01SHF000000000000000000233',
 )
-SEED_MENTOR_PICKER_EXPERIENCE_ID = '01SHF000000000000000000224'
 SEED_INITIAL_DIAGNOSTIC_GOAL_ID = '01SHF000000000000000000220'
 SEED_INITIAL_DIAGNOSTIC_EXPERIENCE_ID = '01SHF000000000000000000221'
 SEED_INITIAL_DIAGNOSTIC_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000222'
@@ -2618,11 +2617,6 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             'apis': SEED_GRAPH_APIS_SKILL_ID,
         }
     )
-    mentor_picker_skill = next(
-        skill
-        for skill in roadmap.skills
-        if skill.name == 'Teste de ordenação de etapas'
-    )
 
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
@@ -2681,22 +2675,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         + logic_curriculum.curriculum_sequences
         + roadmap.curriculum_sequences,
         goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
-        skill_experiences=(
-            *(
-                experience
-                for experience in skill_experiences
-                if experience.id in retained_experience_ids
-            ),
-            SkillExperienceFaker.fake(
-                id=SEED_MENTOR_PICKER_EXPERIENCE_ID,
-                goal_id=SEED_GOAL_ID,
-                skill_id=mentor_picker_skill.id,
-                inclusion_reason='Demonstração de ordenação com acesso direto à Atividade.',
-                status=SkillExperienceStatus.LEARNING,
-                started_at=SEED_CREATED_AT,
-                created_at=SEED_CREATED_AT,
-                updated_at=SEED_CREATED_AT,
-            ),
+        skill_experiences=tuple(
+            experience
+            for experience in skill_experiences
+            if experience.id in retained_experience_ids
         ),
         competency_progresses=tuple(
             progress
@@ -2717,22 +2699,6 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
-        )
-        + (
-            CompetencyProgressFaker.fake(
-                id='01SHF000000000000000000225',
-                skill_experience_id=SEED_MENTOR_PICKER_EXPERIENCE_ID,
-                competency_id=next(
-                    competency.id
-                    for competency in roadmap.competencies
-                    if competency.skill_id == mentor_picker_skill.id
-                ),
-                content_released=True,
-                initial_progress=Decimal('0'),
-                current_progress=Decimal('0'),
-                created_at=SEED_CREATED_AT,
-                updated_at=SEED_CREATED_AT,
-            ),
         ),
         activity_attempts=tuple(
             attempt
