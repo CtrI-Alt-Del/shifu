@@ -1,6 +1,7 @@
 import { motion } from 'motion/react'
 
 import { ENTRANCE_CARD, ENTRANCE_POP, ENTRANCE_RISE } from '@/constants/motion-variants'
+import { AiQuotaBlockedCard } from '@/ui/intelligence/widgets/components/ai-quota-blocked-card'
 import { Button } from '@/ui/shadcn/button'
 import { Skeleton } from '@/ui/shadcn/skeleton'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -19,6 +20,7 @@ import './planner-page.css'
 export type { PlannerPageProps } from './use-planner-page'
 
 const PAGE_TITLE = 'Planeje seu objetivo'
+const AI_QUOTA_BLOCKED_ID = 'planner-ai-quota-blocked'
 const COMPACT_ACTION = 'w-full gap-1.5 sm:w-auto lg:min-h-[38px] lg:px-[18px] lg:text-sm'
 const WIDE_ACTION = 'w-full gap-1.5 sm:w-auto'
 
@@ -42,6 +44,10 @@ export const PlannerPage = (props: PlannerPageProps) => {
     restartErrorMessage,
     goalCreation,
     generation,
+    isAiQuotaBlocked,
+    aiQuotaFailureMessage,
+    aiQuotaProposalMessage,
+    aiQuotaBlockedRole,
     isSubmitting,
     isRetrying,
     isRestarting,
@@ -228,6 +234,13 @@ export const PlannerPage = (props: PlannerPageProps) => {
               title='Não conseguimos continuar agora'
               tone='failure'
             />
+            {isAiQuotaBlocked ? (
+              <AiQuotaBlockedCard
+                id={AI_QUOTA_BLOCKED_ID}
+                message={aiQuotaFailureMessage}
+                role={aiQuotaBlockedRole}
+              />
+            ) : null}
             {errorMessage ? (
               <p className='flex items-center gap-2 text-sm text-selo-text' role='alert'>
                 <Icon className='shrink-0' name='circle-alert' size={16} />
@@ -246,6 +259,8 @@ export const PlannerPage = (props: PlannerPageProps) => {
               </Button>
               <Button
                 aria-busy={isRetrying}
+                aria-describedby={isAiQuotaBlocked ? AI_QUOTA_BLOCKED_ID : undefined}
+                aria-disabled={isAiQuotaBlocked || undefined}
                 className={`order-1 sm:order-2 ${WIDE_ACTION}`}
                 disabled={isRetrying || isCancelling}
                 onClick={() => void handleRetry()}
@@ -332,8 +347,18 @@ export const PlannerPage = (props: PlannerPageProps) => {
           <PlanningOutcome
             actions={
               <>
+                {isAiQuotaBlocked ? (
+                  <AiQuotaBlockedCard
+                    className='order-first w-full text-left'
+                    id={AI_QUOTA_BLOCKED_ID}
+                    message={aiQuotaFailureMessage}
+                    role={aiQuotaBlockedRole}
+                  />
+                ) : null}
                 <Button
                   aria-busy={isRetrying}
+                  aria-describedby={isAiQuotaBlocked ? AI_QUOTA_BLOCKED_ID : undefined}
+                  aria-disabled={isAiQuotaBlocked || undefined}
                   className={`order-1 sm:order-3 ${WIDE_ACTION}`}
                   disabled={isRetrying || isCancelling}
                   onClick={() => void handleRetry()}
@@ -381,8 +406,11 @@ export const PlannerPage = (props: PlannerPageProps) => {
         {view === 'proposal' && intent && proposal ? (
           <MotionEntrance key={`proposal:${generation}`}>
             <PlanningProposalReview
+              aiQuotaBlockedMessage={aiQuotaProposalMessage}
+              aiQuotaBlockedRole={aiQuotaBlockedRole}
               goalCreation={goalCreation}
               intent={intent}
+              isAiQuotaBlocked={isAiQuotaBlocked}
               isCancelling={isCancelling}
               isRestarting={isRestarting}
               key={`${props.planningId}:${generation}`}

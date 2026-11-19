@@ -82,7 +82,8 @@ export const QuestionFeedback = ({
               question.kind === 'javascript_stdin' ||
               question.kind === 'react' ||
               question.kind === 'html_css_js' ||
-              question.kind === 'react_fastify'
+              question.kind === 'react_fastify' ||
+              question.kind === 'translation'
                 ? question.criteria.find(({ key }) => key === criterion.key)?.name
                 : undefined
             const scoreClassName =
@@ -134,6 +135,15 @@ export const QuestionFeedback = ({
               </pre>
             </div>
           ))}
+        </details>
+      ) : frozenAnswer?.kind === 'translation' ? (
+        <details>
+          <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>
+            Texto avaliado
+          </summary>
+          <pre className='mt-3 overflow-x-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap'>
+            {feedback.submittedText ?? frozenAnswer.text}
+          </pre>
         </details>
       ) : null}
     </section>

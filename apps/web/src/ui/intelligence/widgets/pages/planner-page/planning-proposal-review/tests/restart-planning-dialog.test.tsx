@@ -18,6 +18,7 @@ function renderDialog(overrides: Partial<RestartPlanningDialogProps> = {}) {
     isOpen: true,
     initialIntent: 'Quero automatizar tarefas com Python.',
     isSubmitting: false,
+    isAiQuotaBlocked: false,
     errorMessage: null,
     restoreFocusRef: { current: null },
     onClose: vi.fn(),
@@ -66,5 +67,14 @@ describe('RestartPlanningDialog', () => {
     expect(props.onClose).toHaveBeenCalledOnce()
     rerenderWith({ isOpen: false })
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+  })
+
+  it('closes by itself when the quota blocks a new planning while it is open', () => {
+    const { props, rerenderWith } = renderDialog()
+    expect(props.onClose).not.toHaveBeenCalled()
+
+    rerenderWith({ isAiQuotaBlocked: true })
+
+    expect(props.onClose).toHaveBeenCalledOnce()
   })
 })

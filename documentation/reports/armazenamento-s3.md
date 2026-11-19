@@ -2,221 +2,241 @@
 
 ## Primeira entrega / Versão 1 — Cenário A: Amazon S3
 
-**Projeto:** Shifu\
-**Disciplina:** Computação em Nuvem II\
-**Instituição:** FATEC\
-**Curso:** Desenvolvimento de Software Multiplataforma (DSM)\
-**Status:** esboço; resultados da execução e evidências pendentes.
+| Campo | Valor |
+| --- | --- |
+| Projeto | Shifu |
+| Disciplina | Computação em Nuvem II — FATEC |
+| Curso | Desenvolvimento de Software Multiplataforma (DSM) |
+| Task | SHIFU-126 |
+| Status | Laboratório S3 executado e destruído; anexos JSON, CSV e TXT persistiram no Mentor local. O PDF foi rejeitado pelo adaptador e o PNG não concluiu a preparação na interface. A limitação está registrada sem alteração no código da aplicação. |
 
 | Identificação | Informação |
 | --- | --- |
 | Grupo | Ctrl Alt Del |
-| Integrantes | Thiago Martins; Gabriel da Silva; Kauan Fonseca; João Pedro Carvalho; João Gabriel |
-| Turma / semestre | DSM — 6º semestre |
-| Data de elaboração do esboço | 01/10/2026 |
-| Data da entrega | [01/10/2026] |
-| Conta AWS | [shifu] |
+| Integrantes informados no esboço | Thiago Martins; Gabriel da Silva; Kauan Fonseca; João Pedro Carvalho; João Gabriel |
+| Turma / semestre | DSM — 6º semestre, conforme o esboço existente |
+| Esboço original | 01/10/2026 |
+| Execução e coleta | 17/11/2026 — America/Sao_Paulo; horários AWS registrados em UTC |
+| Data de entrega | Não realizada nesta execução |
+| Responsável da task | `gabrielsoliveira1606` |
+| Operação técnica | Codex, em execução assistida |
+| Conta AWS | `565725315792`; usuário IAM `shifu-storage-lab`; perfil `shifu-lab` |
+| Região AWS do projeto | `us-east-2` (Ohio) |
+| Bucket criado e removido | `shifu-storage-lab-6dadc912` |
 | Repositório | [CtrI-Alt-Del/shifu](https://github.com/CtrI-Alt-Del/shifu) |
-| Commit da configuração utilizada | `221965ac5a4e404096e84cc603637280b213af2d` |
-| Bucket criado | [Nome retornado pelo Terraform] |
-| URL do arquivo público | [URL retornada por `s3_public_demo_url`] |
 
-> Preencher os campos entre colchetes após a execução. A configuração presente
-> no repositório não comprova criação do bucket, upload ou acesso aos arquivos.
-
-A configuração Terraform em `packages/iac`, limitada ao laboratório S3,
-está versionada no commit `221965ac5a4e404096e84cc603637280b213af2d`.
-Esse registro identifica o código e não comprova implantação na AWS.
+O texto distingue configuração, evidência local e resultados observados nos
+serviços. O custo aparece como estimativa baseada no saldo de créditos informado
+pelo responsável. A descrição da SHIFU-126 foi fornecida pelo usuário; a
+consulta ao Jira retornou 404 e a busca retornou 403.
 
 ## 1. Contexto e objetivo
 
-O Shifu é um sistema de apoio à aprendizagem. Esta primeira entrega investiga
-o armazenamento de arquivos na AWS por meio de um laboratório de Amazon S3,
-independente da aplicação.
+O laboratório demonstra um bucket S3, cinco tipos de arquivo, separação de
+acesso público e privado, duas versões de um PDF e uma regra de lifecycle. Os
+arquivos contêm dados fictícios de estudo. RDS, DynamoDB, produção e mudanças nas
+aplicações estão fora do escopo.
 
-O objetivo é criar um bucket, enviar pelo menos cinco tipos de arquivo,
-diferenciar acesso público e privado e demonstrar duas versões de um mesmo
-objeto. A configuração também inclui uma regra de lifecycle, descrita no
-template sugerido da atividade.
+A infraestrutura e os passos reproduzíveis estão em
+[packages/iac](../../packages/iac/README.md). Os anexos do Mentor foram
+experimentados com o Shifu local configurado para o bucket. O comportamento
+parcial do adaptador foi registrado sem alterar o produto.
 
-O pacote [packages/iac](../../packages/iac/README.md) declara a infraestrutura
-em Terraform/HCL. Os arquivos fictícios são enviados manualmente pela AWS CLI.
-Esta entrega cobre somente o Cenário A; RDS, DynamoDB e a análise comparativa
-consolidada pertencem às etapas seguintes.
-
-No projeto, o uso futuro previsto para S3 é armazenar anexos do Mentor. Esse
-uso permanece planejado: o laboratório não implementa upload no site nem
-conecta arquivos a conversas reais. A política pública da demonstração não é
-destinada aos anexos do produto.
+Há uma diferença de redação nas referências: `documentation/infrastructure.md`
+ainda descreve o uso do S3 como planejado, enquanto `documentation/architecture.md`
+e o adaptador atual registram armazenamento privado implementado. Esta execução
+confirma o uso local do adaptador, mas não altera a documentação arquitetural.
 
 ## 2. Amazon S3
 
-### 2.1 Configuração do bucket
+### 2.1 Configuração e execução
 
-A configuração define um bucket com nome formado pelo prefixo do projeto e
-um sufixo aleatório. A região é parametrizável; o exemplo usa `us-east-1`.
-As definições estão em [s3.tf](../../packages/iac/s3.tf).
-
-| Configuração | Definição no código / resultado a registrar |
+| Configuração | Resultado observado |
 | --- | --- |
-| Nome do bucket | Exemplo configurado: `shifu-storage-lab-<sufixo aleatório>`; nome efetivo: [preencher] |
-| Região | `us-east-1` no arquivo de exemplo; região efetivamente usada: [confirmar após execução] |
-| Justificativa da região | Proposta: manter uma única região para o laboratório, simplificando sua reprodução. A escolha final e os custos devem ser confirmados pelo grupo. |
-| Versionamento | Habilitado na configuração; resultado observado: [preencher] |
-| Criptografia padrão | SSE-S3 (`AES256`); resultado observado: [preencher] |
-| Propriedade dos objetos | `BucketOwnerEnforced`, sem uso de ACLs |
-| Acesso público | Leitura permitida somente ao objeto público de demonstração |
-| Estado Terraform | Local, mantido fora do Git |
+| Bucket | `shifu-storage-lab-6dadc912` |
+| Região | `us-east-2` |
+| Versionamento | Ativado |
+| Criptografia padrão | SSE-S3, `AES256` |
+| Propriedade | `BucketOwnerEnforced`, sem ACLs de objetos |
+| Bloqueio público do bucket | ACLs públicas bloqueadas/ignoradas; política pública permitida para a demonstração restrita |
+| Política pública | `s3:GetObject` somente para `academic/storage-activity/public/exemplo.txt` |
+| Endpoint de demonstração | <https://shifu-storage-lab-6dadc912.s3.us-east-2.amazonaws.com/academic/storage-activity/public/exemplo.txt> |
+| Ferramentas | Terraform 1.16.4 (`windows_amd64`); AWS CLI; providers AWS 6.67.0 e Random 3.9.1 conforme lockfile |
 
-**Procedimento previsto — terminal Linux/WSL:**
+O perfil `shifu-lab` autenticou por STS como `arn:aws:iam::565725315792:user/shifu-storage-lab`.
+A captura de configurações do projeto indicava `us-east-2`. A primeira tentativa
+em `us-east-1` recebeu uma negação explícita da política da organização; com a
+região do projeto, o plano de oito recursos foi aplicado com sucesso. A tentativa
+inicial não representa o resultado final de permissões da conta.
 
-```bash
-cd packages/iac
-export AWS_PROFILE=shifu
-cp terraform.tfvars.example terraform.tfvars
-# Ajustar a região e o prefixo em terraform.tfvars.
-terraform init
+Foram executados em `packages/iac`:
+
+```powershell
+terraform init -backend=false -input=false -lockfile=readonly -no-color
 terraform fmt -check -recursive
-terraform validate
-terraform plan
-# Após revisar o plano:
-terraform apply
-terraform output
+terraform validate -no-color
+terraform plan -input=false -lock=false -no-color -var="aws_region=us-east-2"
+terraform apply -input=false -auto-approve -no-color -var="aws_region=us-east-2"
 ```
 
-**Ferramentas verificadas no ambiente local em 01/10/2026:**
+A inicialização e as verificações terminaram com código zero; a validação não
+emitiu avisos. O plano na região correta previu oito criações e o estado Terraform
+confirmou oito recursos durante a coleta. Os outputs registraram a região, o
+bucket e a URL pública. Os dados de aplicação e configuração AWS constam de
+[E01](armazenamento-s3-evidencias/E01-provisionamento-s3.txt),
+[E02](armazenamento-s3-evidencias/E02-validacao-local.txt) e
+[E08](armazenamento-s3-evidencias/E08-preflight-aws.txt).
 
-| Ferramenta | Versão / ambiente |
-| --- | --- |
-| Terraform CLI | 1.15.8, `linux_amd64` |
-| AWS CLI | 2.37.8, Linux/WSL2 |
-| Provider AWS | 6.67.0, registrado em `.terraform.lock.hcl` |
+O padrão do laboratório e seu exemplo de `terraform.tfvars` agora usam `us-east-2`,
+região confirmada para o projeto do grupo. Ela continua configurável para outros
+ambientes.
 
-A configuração local foi inicializada com `terraform init -backend=false -input=false`; `terraform fmt -check -recursive` e `terraform validate`
-concluíram com sucesso. A validação verifica a configuração, mas não comprova
-permissões AWS nem criação de recursos. Não há evidência de `plan` ou `apply`
-nesta preparação. O perfil AWS chamado `shifu` não foi encontrado na consulta
-local realizada para preencher este esboço; a conta utilizada permanece pendente.
+### 2.2 Arquivos, acesso e anexos do Mentor
 
-**Registro da execução na AWS:** [Data, integrante responsável, perfil e
-conta utilizados e resumo do resultado real. Registrar erros e correções.]
+Os uploads CLI abaixo foram realizados com fixtures fictícios:
 
-**Evidência E01:** [Print do bucket com nome e região visíveis.]\
-**Evidência E02:** [Comandos executados e resultados de validação/aplicação,
-sem credenciais ou conteúdo do arquivo de estado.]
-
-### 2.2 Arquivos enviados e permissões
-
-Os arquivos disponíveis em `packages/iac/fixtures` têm conteúdo fictício.
-O grupo deve preencher a coluna de confirmação depois de realizar os uploads.
-
-| Arquivo local | Tipo | Chave no bucket | Acesso previsto | Upload confirmado |
-| --- | --- | --- | --- | --- |
-| `private/exemplo.svg` | Imagem SVG | `academic/storage-activity/private/exemplo.svg` | Privado | [Preencher] |
-| `private/documento-v1.pdf` e `private/documento-v2.pdf` | PDF | `academic/storage-activity/private/documento-versoes.pdf` | Privado; duas versões na mesma chave | [Preencher] |
-| `private/exemplo.json` | JSON | `academic/storage-activity/private/exemplo.json` | Privado | [Preencher] |
-| `private/exemplo.csv` | CSV | `academic/storage-activity/private/exemplo.csv` | Privado | [Preencher] |
-| `private/exemplo.txt` | TXT | `academic/storage-activity/private/exemplo.txt` | Privado | [Preencher] |
-| `public/exemplo.txt` | TXT | `academic/storage-activity/public/exemplo.txt` | Público | [Preencher] |
-| `archive/historico.csv` | CSV | `academic/storage-activity/archive/historico.csv` | Privado; usado no lifecycle | [Preencher] |
-
-O critério é expor somente um arquivo fictício para demonstrar leitura anônima.
-A política concede `s3:GetObject` à chave pública específica; não libera
-listagem, escrita ou leitura dos objetos privados. As ACLs públicas ficam
-bloqueadas. A exceção de política depende também das configurações de bloqueio
-de acesso público da conta AWS.
-
-Os comandos individuais de upload estão no
-[README do pacote](../../packages/iac/README.md#s3).
-
-**Evidência E03:** [Print da listagem com os cinco tipos de arquivo.]\
-**Evidência E04:** [URL pública e print do arquivo carregado no navegador.]\
-**Verificação complementar E05:** [Resultado do acesso anônimo a um objeto
-privado e sua interpretação.]\
-**Responsável e data:** [Preencher.]
-
-### 2.3 Versionamento
-
-O Terraform configura o versionamento como `Enabled`. Para demonstrá-lo,
-enviar `documento-v1.pdf` e depois `documento-v2.pdf` à mesma chave
-`academic/storage-activity/private/documento-versoes.pdf`.
-
-Após os uploads, consultar as versões:
-
-```bash
-bucket=$(terraform output -raw s3_bucket_name)
-aws s3api list-object-versions \
-  --bucket "$bucket" \
-  --prefix academic/storage-activity/private/documento-versoes.pdf \
-  --query 'Versions[*].[VersionId,LastModified,IsLatest]' \
-  --output table
-```
-
-| Versão enviada | Version ID | Data/hora registrada | É a versão atual? |
+| Fixture | Tipo / tamanho | Chave S3 | Resultado |
 | --- | --- | --- | --- |
-| PDF v1 | [Preencher] | [Preencher] | [Preencher] |
-| PDF v2 | [Preencher] | [Preencher] | [Preencher] |
+| `private/exemplo.png` | PNG / 11.239 bytes | `academic/storage-activity/private/exemplo.png` | Upload concluído |
+| `private/documento-v1.pdf` | PDF / 616 bytes | `academic/storage-activity/private/documento-versoes.pdf` | Upload concluído; versão anterior |
+| `private/documento-v2.pdf` | PDF / 622 bytes | `academic/storage-activity/private/documento-versoes.pdf` | Upload concluído; versão atual |
+| `private/exemplo.json` | JSON / 120 bytes | `academic/storage-activity/private/exemplo.json` | Upload concluído |
+| `private/exemplo.csv` | CSV / 134 bytes | `academic/storage-activity/private/exemplo.csv` | Upload concluído |
+| `private/exemplo.txt` | TXT / 60 bytes | `academic/storage-activity/private/exemplo.txt` | Upload concluído |
+| `public/exemplo.txt` | TXT / 56 bytes | `academic/storage-activity/public/exemplo.txt` | Upload concluído; único objeto público |
+| `archive/historico.csv` | CSV / 493.543 bytes | `academic/storage-activity/archive/historico.csv` | Upload concluído; elegível para a regra após 30 dias |
 
-**Resultado observado:** [Confirmar duas versões distintas na mesma chave.]\
-**Evidência E06:** [Print da aba de versões ou output da CLI com os IDs e
-timestamps.]\
-**Responsável e data:** [Preencher.]
+O acesso anônimo ao TXT público retornou **HTTP 200** com o conteúdo de
+demonstração. O acesso anônimo ao TXT privado retornou **HTTP 403**. Depois de
+enviar anexos pelo Mentor, também foi testado anonimamente um objeto sob
+`mentor-attachments/`; o S3 retornou `AccessDenied`. Os anexos permanecem
+privados e distintos do objeto público do laboratório.
+
+No Mentor local, a API foi configurada temporariamente para o perfil `shifu-lab`,
+o bucket acima e a região `us-east-2`, sem overrides do endpoint ou chaves do
+MinIO. A interface indicava limite de 2.000.000 bytes por arquivo e até cinco
+anexos por mensagem. Resultados observados:
+
+| Tipo | Resultado no Mentor |
+| --- | --- |
+| JSON | HTTP 201; anexado à mensagem e continuou listado como “Arquivo disponível” após recarregar a conversa |
+| CSV | HTTP 201; anexado à mensagem e continuou listado como “Arquivo disponível” após recarregar a conversa |
+| TXT | HTTP 201; anexado à mensagem e continuou listado como “Arquivo disponível” após recarregar a conversa |
+| PNG | HTTP 201 na tentativa de upload, mas a interface permaneceu em “Preparando arquivo…”; não foi enviado como anexo concluído |
+| PDF v1 | HTTP 422, `unsupported_attachment`; não foi anexado. O PDF v2 não foi tentado no Mentor após a rejeição do v1 |
+
+O envio persistido contém três anexos privados (JSON, CSV e TXT), comprovados
+após recarregar a conversa. A captura é
+[shifu126-mentor-attachments.png](../../apps/web/.playwright-cli/screenshots/shifu126-mentor-attachments.png);
+o registro detalhado de respostas, estados e objetos S3 é
+[E15](armazenamento-s3-evidencias/E15-mentor-local.txt). A interface confirmou
+o vínculo e disponibilidade dos três anexos; não foi feita uma verificação
+separada do download autenticado de seus bytes. A resposta de IA não concluiu
+nesse ambiente local, embora o envio da mensagem e dos três anexos tenha sido
+confirmado.
+
+O PDF é aceito pelo fixture e abre localmente, porém a API respondeu
+`unsupported_attachment`. A causa exata não foi confirmada. O PNG recebeu HTTP
+201 e ficou travado na preparação da interface. A limitação foi documentada sem
+mudança no adaptador ou nas aplicações, como pede o escopo. A listagem final do
+bucket mostrou três objetos gerados pelo Mentor, correspondentes aos anexos
+persistidos JSON, CSV e TXT.
+
+### 2.3 Versionamento do PDF
+
+Os dois PDFs fictícios têm uma página, conteúdo diferente e hashes locais
+registrados em [E09](armazenamento-s3-evidencias/E09-fixtures.txt). Foram
+enviados sequencialmente à mesma chave S3:
+
+| Arquivo | Version ID | Última modificação (UTC) | Atual | Tamanho |
+| --- | --- | --- | --- | ---: |
+| PDF v1 | `NWovtCByPW.GwO.VSEfN0ks3O9pYfEWV` | `2026-11-18T01:33:52+00:00` | Não | 616 bytes |
+| PDF v2 | `tcktSUQgy4146Svr2fnDbeu3tRhNNp_c` | `2026-11-18T01:33:54+00:00` | Sim | 622 bytes |
+
+A consulta `list-object-versions` retornou dois identificadores distintos; a
+versão v2 era a atual. Os horários da AWS estão em UTC e correspondem à noite de
+17/11 em `America/Sao_Paulo`. A saída consta em
+[E14](armazenamento-s3-evidencias/E14-s3-validacao.txt).
 
 ### 2.4 Regra de lifecycle
 
-A regra configurada aplica-se ao prefixo `academic/storage-activity/archive/`:
+A consulta real ao bucket retornou a regra `archive-lab-objects-after-30-days`,
+com status `Enabled`, filtro `academic/storage-activity/archive/`, transição
+para `STANDARD_IA` após 30 dias e expiração das versões não atuais após 90 dias.
+O mínimo configurado para transições é `all_storage_classes_128K`. O fixture
+`historico.csv` tem 493.543 bytes, acima de 128 KB.
 
-| Ação | Prazo configurado |
-| --- | --- |
-| Transição para `STANDARD_IA` | Após 30 dias |
-| Exclusão de versões não atuais nesse prefixo | Após 90 dias |
+A configuração foi observada na AWS. A transição e expiração não foram aguardadas
+nem são declaradas como ocorridas; os prazos são 30 e 90 dias. Consulte E14 e a
+[documentação AWS sobre transições](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html).
 
-O arquivo `historico.csv` permite demonstrar o prefixo abrangido pela regra.
-Esses prazos não permitem comprovar uma transição imediata durante o
-laboratório; o relatório deve distinguir a regra configurada de uma mudança
-de classe efetivamente observada.
+### 2.5 Custos
 
-**Resultado observado:** [Registrar o status e as configurações da regra.]\
-**Evidência E07:** [Print da regra, incluindo prefixo, prazo e classe de destino.]\
-**Responsável e data:** [Preencher.]
+O responsável informou que o saldo de créditos exibido no console passou de
+**US$ 112 para US$ 111**, uma redução aparente de aproximadamente **US$ 1**.
+Esse valor é uma estimativa baseada no saldo mostrado, sem datas exatas do
+intervalo e sem detalhamento por serviço. Ele não permite atribuir a redução
+somente ao laboratório. A consulta `ce:GetCostAndUsage` retornou `AccessDenied`
+para o usuário `shifu-storage-lab`, sem permissão para o Cost Explorer. O relato
+e a resposta da consulta estão em [E11](armazenamento-s3-evidencias/E11-custos.txt).
 
-## 3. Síntese da primeira entrega
+## 3. Síntese da entrega e remoção
 
-| Item | Resultado real | Evidência |
+| Item | Resultado | Evidência |
 | --- | --- | --- |
-| Bucket criado, com nome e região identificados | [Pendente / realizado] | E01–E02 |
-| Cinco tipos de arquivo enviados | [Pendente / realizado] | E03 |
-| Um arquivo público acessível no navegador | [Pendente / realizado] | E04 |
-| Pelo menos um arquivo privado identificado | [Pendente / realizado] | E03 / E05 |
-| Duas versões do mesmo arquivo | [Pendente / realizado] | E06 |
-| Regra de lifecycle documentada | [Pendente / realizado] | E07 |
+| Identidade e conta AWS | Aprovado; conta `565725315792`, usuário IAM `shifu-storage-lab` | E08 |
+| Terraform `fmt` e `validate` | Aprovados, sem avisos de validação | E02 |
+| Bucket S3 | Criado na região correta e removido ao encerrar | E01, E12 |
+| Tipos PNG, PDF, JSON, CSV e TXT no S3 | Upload CLI concluído | E13, E14 |
+| Acesso público ao objeto de demonstração | HTTP 200 | E14 |
+| Acesso anônimo a objeto privado e anexo do Mentor | HTTP 403 / AccessDenied | E14, E15 |
+| Duas versões do PDF | Confirmadas; IDs distintos e v2 atual | E14 |
+| Regra lifecycle | Configuração consultada; prazos não transcorreram | E14 |
+| Anexos no Mentor | JSON, CSV e TXT persistiram; PNG travou e PDF recebeu 422 | E15 |
+| Estimativa pelo saldo de créditos | Redução aparente de ~US$ 1 (US$ 112 → US$ 111); não isolada por serviço | E11 |
+| Recursos AWS ao final | Bucket, objetos e configurações removidos via Terraform | E12 |
 
-**Conclusão:** [Resumir os resultados confirmados, o que permanece pendente
-e o que foi aprendido sobre objetos, permissões e versionamento.]
+Após coletar as evidências, `terraform destroy` removeu os oito recursos do
+estado do laboratório. A lista posterior não mostrou bucket com o nome usado e
+`terraform state list` ficou vazio. O registro inclui o resultado real da
+remoção em [E12](armazenamento-s3-evidencias/E12-apply-destroy.txt). O estado e
+os planos não foram versionados. Os serviços Docker compartilhados permaneceram
+em execução; API, web e sessão de navegador iniciadas para esta coleta foram
+encerradas.
 
-**Custos e encerramento:** [Registrar custos observados, período do laboratório
-e se o bucket foi mantido ou removido. Não presumir gratuidade. Se houve
-remoção, registrar data, responsável e resultado.]
+**Conclusão:** o laboratório S3 foi criado na região autorizada do projeto,
+validado com os oito objetos de estudo e removido. O acesso público ficou restrito
+ao objeto de demonstração; objetos privados, inclusive anexos do Mentor, não
+permitiram leitura anônima. O versionamento e a regra de lifecycle foram
+observados. O Mentor persistiu JSON, CSV e TXT; a falha de PDF e o PNG preso na
+preparação permanecem como limitações registradas. O custo total não pôde ser
+consultado por falta de permissão do Cost Explorer; o saldo de créditos informado
+indica uma redução aproximada de US$ 1, sem permitir atribuí-la apenas ao S3.
 
 ## 4. Reflexão do grupo
 
-[Redigir pelo menos dez linhas, conforme o template. Relatar a divisão das
-tarefas, configuração da conta e ferramentas, dificuldades com permissões,
-upload, versionamento e lifecycle, soluções adotadas e aprendizados. Usar
-experiências reais do grupo; identificar a contribuição dos integrantes.]
+Estas observações descrevem a execução assistida.
 
-| Integrante | Contribuição realizada | Evidências relacionadas |
-| --- | --- | --- |
-| Thiago Martins | [Preencher] | [Preencher] |
-| Gabriel da Silva | [Preencher] | [Preencher] |
-| Kauan Fonseca | [Preencher] | [Preencher] |
-| João Pedro Carvalho | [Preencher] | [Preencher] |
-| João Gabriel | [Preencher] | [Preencher] |
+1. A região configurada no projeto AWS precisava ser usada no Terraform; a primeira tentativa em `us-east-1` foi negada, e o laboratório funcionou em `us-east-2`.
+2. `terraform fmt -check -recursive` e `terraform validate` passaram sem avisos.
+3. O versionamento preservou o PDF v1 ao enviar o v2 para a mesma chave.
+4. A política pública permitiu somente o TXT de demonstração; o privado retornou HTTP 403.
+5. O S3 confirmou a configuração de lifecycle, mas a atividade não aguardou 30 ou 90 dias para observar ações futuras.
+6. O Mentor persistiu os anexos JSON, CSV e TXT após recarregar a conversa.
+7. O PDF foi rejeitado e o PNG ficou em preparação; esses resultados foram relatados sem alterar código.
+8. O Cost Explorer não permitiu consultar valores para o usuário do laboratório.
+9. Terraform removeu o bucket e os recursos ao encerrar o laboratório.
 
-## 5. Referências
+## 5. Referências e continuidade
 
-- Enunciado e template: **Atividade 3 — Relato Armazenamento**, disponibilizado
-  pela disciplina Computação em Nuvem II.
+- Enunciado informado: **Atividade 3 — Relato Armazenamento**, Computação em Nuvem II; descrição da SHIFU-126 fornecida no chat.
+- [Procedimentos e fixtures do laboratório](../../packages/iac/README.md).
+- [Infraestrutura](../infrastructure.md) e [arquitetura](../architecture.md).
 - [Documentação do Amazon S3](https://docs.aws.amazon.com/pt_br/s3/).
-- [Configuração e procedimentos do laboratório Shifu](../../packages/iac/README.md).
-- [Infraestrutura definida para o Shifu](../infrastructure.md).
+- [Considerações sobre lifecycle](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html).
+
+As capturas do navegador, snapshots e logs usados nesta execução ficam sob
+`apps/web/.playwright-cli/{screenshots,snapshots,logs}`. Nenhuma credencial,
+chave, estado Terraform, plano ou estado autenticado do navegador foi incluído
+nas evidências versionadas. Não houve commit, publicação nem alteração no Jira
+ou Confluence.

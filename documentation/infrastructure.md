@@ -23,7 +23,7 @@ Para a arquitetura das aplicações e os limites dos módulos de produto, consul
 | Provedor de nuvem | AWS |
 | Execução das aplicações | Dois serviços ECS com Fargate: Web/BFF e API |
 | Banco relacional | Amazon RDS for PostgreSQL |
-| Arquivos de anexos do Mentor | Amazon S3; integração planejada, com objetos privados |
+| Arquivos de anexos do Mentor | Amazon S3, com objetos privados; bucket ainda não criado no staging |
 | Cache e limitação de requisições | Amazon ElastiCache for Redis, em rede privada, com AUTH e TLS; capacidade de produção a definir |
 | Processamento assíncrono | Inngest Cloud |
 | E-mail transacional | Resend |
@@ -44,7 +44,7 @@ Navegador → HTTPS/ALB → Web/BFF (TanStack Start, TypeScript)
                             └─ chamadas autenticadas → API (Python, FastAPI)
                                                         ├─ RDS PostgreSQL
                                                         ├─ Redis
-                                                        ├─ S3 (anexos privados do Mentor; planejado)
+                                                        ├─ S3 (anexos privados do Mentor)
                                                         ├─ Inngest Cloud
                                                         └─ OpenRouter
 
@@ -126,36 +126,34 @@ abrir a sub-rede de dados.
 
 O uso definido de S3 no Shifu é **somente para anexos do Mentor**, como imagens,
 PDFs e outros arquivos enviados nas conversas. Materiais didáticos não fazem
-parte desse uso. A integração com o Mentor é planejada; esta decisão de
-infraestrutura não afirma que upload, leitura de anexos ou processamento pela
-IA já estejam implementados ou aprovados no PRD de Intelligence.
+parte desse uso. Os anexos já estão implementados na aplicação, conforme o
+contrato em `documentation/features/intelligence/mentor-attachments/`. A API
+fala com qualquer armazenamento compatível com S3: no ambiente local, o MinIO
+do Docker Compose faz esse papel. O Terraform do staging ainda não cria o bucket
+de anexos nem passa as variáveis `MENTOR_ATTACHMENT_STORAGE_*` para a API.
 
-O S3 guarda o conteúdo dos arquivos. O PostgreSQL guarda seus metadados e
-vínculos: identificador do anexo, usuário, conversa, nome original, tipo,
-tamanho e chave do objeto. O caminho segue o domínio proprietário:
-
-```text
-intelligence/mentor/users/{userId}/conversations/{conversationId}/attachments/{attachmentId}/{filename}
-```
-
-Exemplo com identificadores fictícios:
+O armazenamento guarda o conteúdo dos arquivos. O PostgreSQL guarda os
+metadados e vínculos de cada anexo, como usuário, conversa, nome original,
+tipo, tamanho e chave do objeto. A API gera a chave a partir do identificador
+do anexo:
 
 ```text
-intelligence/mentor/users/u123/conversations/c456/attachments/a789/exercicio.pdf
+mentor-attachments/{attachmentId}/1/original
 ```
 
-A API deve construir a chave, validar o arquivo e verificar a autorização
-para a conversa. O prefixo organiza os objetos, mas não concede acesso. Os
-anexos reais permanecem privados, com bloqueio de acesso público no bucket.
-A identidade IAM da API deve ter somente as permissões necessárias. Não são
-fornecidas credenciais AWS ao navegador.
+O arquivo nunca vai direto do navegador para o armazenamento. O navegador envia
+o arquivo ao Web/BFF, que o repassa à API. A API valida o tipo e o tamanho,
+confere a autorização para a conversa e grava o objeto. A leitura segue o
+mesmo caminho: o Web/BFF pede o arquivo à API, que confere a autorização antes
+de devolvê-lo. A chave organiza os objetos, mas não concede acesso. Os anexos
+permanecem privados, e o navegador não recebe credenciais nem URLs do
+armazenamento.
 
-O fluxo planejado usa URLs pré-assinadas de duração limitada para upload e
-download, emitidas após autorização. Antes de disponibilizar o anexo à
-conversa, a API deve confirmar o upload e seus metadados. A URL temporária não
-é o identificador persistente do arquivo; persiste-se a chave do objeto.
-Tipos aceitos, limites de tamanho, retenção, exclusão e integração com a IA
-precisam de definição no contrato da funcionalidade antes da implementação.
+Depois do upload, a API coloca na fila do AgentOS do módulo Intelligence o
+pedido para preparar o anexo, extraindo o texto que o Mentor vai usar. A
+limpeza de anexos descartados passa pela mesma fila, não pelo Inngest. Em staging e produção, o bucket deve bloquear acesso público, e a
+identidade IAM da API deve ter só as permissões de gravar, ler e apagar
+objetos nele.
 
 ### Laboratório acadêmico de S3 — primeira entrega
 
@@ -175,8 +173,8 @@ O laboratório deve demonstrar:
   utilizados e identificação dos integrantes.
 
 Os arquivos privados do laboratório usam `academic/storage-activity/private/`
-e conteúdos fictícios, conforme o README do pacote. O prefixo de domínio
-`intelligence/mentor/` permanece definido para a futura integração do produto.
+e conteúdos fictícios, conforme o README do pacote. Esse prefixo não se mistura
+com o prefixo `mentor-attachments/` que a aplicação usa para os anexos reais.
 O objeto público existe somente para a demonstração:
 
 ```text
@@ -289,7 +287,7 @@ Os detalhes de configuração, de operação e de falhas estão em `iac/README.m
 
 | Ambiente | Execução e integrações |
 | --- | --- |
-| Local | `docker-compose.yaml` fornece PostgreSQL, Redis, Inngest Dev Server e Mailpit. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
+| Local | `docker-compose.yaml` fornece PostgreSQL 17 com pgvector, Redis, Inngest Dev Server, Mailpit, MinIO para os anexos do Mentor e SonarQube para a análise de qualidade do código. O perfil opcional `langfuse` sobe o Langfuse, que registra as chamadas de IA. Web e API rodam pelos comandos dos respectivos manifests. E-mails são capturados pelo Mailpit. |
 | Laboratório | Configuração Terraform em `packages/iac`, somente com S3 e arquivos fictícios para a primeira entrega. Independente do runtime do Shifu. |
 | Staging | Em `iac/`, com estado remoto no S3 e segredos próprios. ECS Fargate Spot ARM64, uma tarefa por serviço (0,5 vCPU, 1 GiB) e IP público nas tarefas, sem NAT Gateway. RDS PostgreSQL 17 Single-AZ (`db.t4g.micro`), ElastiCache Redis 7.1 privado (`cache.t4g.micro`), Inngest Cloud e Resend. HTTP puro no endereço do ALB. Dados recriados a cada deploy. |
 | Produção | Configuração Terraform, estado e segredos próprios; serviços ECS em duas AZs, RDS Multi-AZ, NAT por AZ, Inngest Cloud e Resend. |
@@ -352,8 +350,8 @@ packages/iac/
   do PDF.
 
 O pacote é um laboratório acadêmico de S3. Não provisiona rede, RDS, DynamoDB,
-EFS ou serviços da aplicação e não implementa anexos do Mentor. A arquitetura
-de staging e produção continua planejada, com configuração e estado próprios.
+EFS ou serviços da aplicação e não guarda anexos do Mentor. O staging tem
+configuração e estado próprios em `iac/`, e a produção continua planejada.
 
 ### Estado e execução
 

@@ -1,13 +1,29 @@
-import { act, cleanup, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
+import { createElement } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { MentorContextValue } from '@/ui/intelligence/contexts/mentor-context/types'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { useMentorContext } from '@/ui/intelligence/hooks/use-mentor-context'
 import { useComposer } from '../use-composer'
 
 vi.mock('@/ui/intelligence/hooks/use-mentor-context', () => ({
   useMentorContext: vi.fn(),
 }))
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
+}))
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
+const NOT_BLOCKED_QUOTA: ReturnType<typeof useAiQuotaBlock> = {
+  isAiQuotaBlocked: false,
+  isAiQuotaNearLimit: false,
+  getAiQuotaBlockedMessage: () => 'Sua cota de IA acabou.',
+  aiQuotaBlockedRole: 'status',
+  aiQuotaAccountId: 'account-1',
+  aiQuotaPercentage: 85,
+  aiQuotaRenewsOn: '2026-12-01',
+}
+beforeEach(() => useAiQuotaBlockMock.mockReturnValue(NOT_BLOCKED_QUOTA))
 const useMentorContextMock = vi.mocked(useMentorContext)
 
 describe('useComposer', () => {
@@ -313,5 +329,119 @@ describe('useComposer dictation', () => {
     expect(focus).toHaveBeenCalledOnce()
     unmount()
     expect(context.releaseDictationSurface).toHaveBeenCalledWith('page')
+  })
+})
+
+describe('useComposer quota block', () => {
+  afterEach(cleanup)
+
+  function quotaContext(overrides: object = {}) {
+    return {
+      selectedSessionId: 'session-1',
+      draft: 'texto',
+      draftAttachments: [{ attachment: { status: 'ready' }, error: null }],
+      isSubmittingFirstMessage: false,
+      isDictationBusy: false,
+      canStartDictation: true,
+      isSummarizingContext: false,
+      isAiQuotaRefused: false,
+      sessionDetail: { pendingLearnerMessageId: null },
+      blockingActionProposalId: null,
+      sendFirstMessage: vi.fn(),
+      setDraft: vi.fn(),
+      ...overrides,
+    }
+  }
+
+  it('blocks sending and dictation with a paused field and keeps the draft attachments editable', () => {
+    const context = quotaContext({ isAiQuotaRefused: true })
+    useMentorContextMock.mockReturnValue(context as unknown as MentorContextValue)
+    useAiQuotaBlockMock.mockReturnValue({
+      ...NOT_BLOCKED_QUOTA,
+      isAiQuotaBlocked: true,
+      aiQuotaBlockedRole: 'alert',
+    })
+    const { result } = renderHook(() => useComposer())
+
+    expect(useAiQuotaBlockMock).toHaveBeenCalledWith(true)
+    expect(result.current.isAiQuotaBlocked).toBe(true)
+    expect(result.current.aiQuotaBlockedRole).toBe('alert')
+    expect(result.current.aiQuotaBlockedMessage).toBe('Sua cota de IA acabou.')
+    expect(result.current.placeholder).toBe('Envio pausado até a renovação da cota')
+    expect(result.current.canSend).toBe(false)
+    expect(result.current.canStartDictation).toBe(false)
+    expect(result.current.canManageAttachments).toBe(true)
+    result.current.handleSubmit({
+      preventDefault: vi.fn(),
+    } as unknown as React.FormEvent<HTMLFormElement>)
+    expect(context.sendFirstMessage).not.toHaveBeenCalled()
+  })
+
+  it('ignores the Enter key while the quota is blocked', () => {
+    useMentorContextMock.mockReturnValue(quotaContext() as unknown as MentorContextValue)
+    useAiQuotaBlockMock.mockReturnValue({ ...NOT_BLOCKED_QUOTA, isAiQuotaBlocked: true })
+    const { result } = renderHook(() => useComposer())
+    const requestSubmit = vi.fn()
+
+    result.current.handleKeyDown({
+      key: 'Enter',
+      shiftKey: false,
+      nativeEvent: { isComposing: false },
+      preventDefault: vi.fn(),
+      currentTarget: { form: { requestSubmit } },
+    } as unknown as React.KeyboardEvent<HTMLTextAreaElement>)
+
+    expect(requestSubmit).not.toHaveBeenCalled()
+  })
+
+  it('keeps sending available and forwards the warning data below the limit', () => {
+    useMentorContextMock.mockReturnValue(quotaContext() as unknown as MentorContextValue)
+    useAiQuotaBlockMock.mockReturnValue({
+      ...NOT_BLOCKED_QUOTA,
+      isAiQuotaNearLimit: true,
+    })
+    const { result } = renderHook(() => useComposer())
+
+    expect(result.current.isAiQuotaBlocked).toBe(false)
+    expect(result.current.isAiQuotaNearLimit).toBe(true)
+    expect(result.current.aiQuotaAccountId).toBe('account-1')
+    expect(result.current.aiQuotaPercentage).toBe(85)
+    expect(result.current.aiQuotaRenewsOn).toBe('2026-12-01')
+    expect(result.current.placeholder).toBe('Pergunte ao Mentor…')
+    expect(result.current.canSend).toBe(true)
+    expect(result.current.canStartDictation).toBe(true)
+  })
+
+  describe('blocked placeholder width', () => {
+    function PlaceholderProbe() {
+      const { placeholder, textareaRef } = useComposer()
+      return createElement('textarea', { placeholder, ref: textareaRef })
+    }
+
+    function mockFieldWidth(width: number) {
+      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width)
+    }
+
+    it('keeps the long text in a wide field and shortens it in a narrow one to stay on one line', () => {
+      useMentorContextMock.mockReturnValue(
+        quotaContext() as unknown as MentorContextValue,
+      )
+      useAiQuotaBlockMock.mockReturnValue({
+        ...NOT_BLOCKED_QUOTA,
+        isAiQuotaBlocked: true,
+      })
+
+      mockFieldWidth(770)
+      const wide = render(createElement(PlaceholderProbe))
+      expect(screen.getByRole('textbox')).toHaveAttribute(
+        'placeholder',
+        'Envio pausado até a renovação da cota',
+      )
+      wide.unmount()
+
+      mockFieldWidth(146)
+      render(createElement(PlaceholderProbe))
+      expect(screen.getByRole('textbox')).toHaveAttribute('placeholder', 'Envio pausado')
+    })
   })
 })

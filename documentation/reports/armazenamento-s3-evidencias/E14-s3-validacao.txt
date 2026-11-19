@@ -1,0 +1,94 @@
+# E14 — versões, configuração, listagem e acesso anônimo
+Data: 2026-11-17 (America/Sao_Paulo)
+Responsável SHIFU-126: gabrielsoliveira1606; execução técnica assistida por Codex.
+Conta: 565725315792; Região: us-east-2; Bucket: shifu-storage-lab-6dadc912
+> aws s3api list-object-versions --bucket shifu-storage-lab-6dadc912 --prefix academic/storage-activity/private/documento-versoes.pdf --region us-east-2 --query Versions[*].[Key,VersionId,LastModified,IsLatest,Size] --output table
+----------------------------------------------------------------------------------------------------------------------------------------------
+|                                                             ListObjectVersions                                                             |
++----------------------------------------------------------+------------------------------------+----------------------------+--------+------+
+|  academic/storage-activity/private/documento-versoes.pdf |  tcktSUQgy4146Svr2fnDbeu3tRhNNp_c  |  2026-11-18T01:33:54+00:00 |  True  |  622 |
+|  academic/storage-activity/private/documento-versoes.pdf |  NWovtCByPW.GwO.VSEfN0ks3O9pYfEWV  |  2026-11-18T01:33:52+00:00 |  False |  616 |
++----------------------------------------------------------+------------------------------------+----------------------------+--------+------+
+Exit code: 0
+> aws s3api list-objects-v2 --bucket shifu-storage-lab-6dadc912 --region us-east-2 --query Contents[*].[Key,Size,StorageClass] --output table
+-----------------------------------------------------------------------------------
+|                                  ListObjectsV2                                  |
++----------------------------------------------------------+---------+------------+
+|  academic/storage-activity/archive/historico.csv         |  493543 |  STANDARD  |
+|  academic/storage-activity/private/documento-versoes.pdf |  622    |  STANDARD  |
+|  academic/storage-activity/private/exemplo.csv           |  134    |  STANDARD  |
+|  academic/storage-activity/private/exemplo.json          |  120    |  STANDARD  |
+|  academic/storage-activity/private/exemplo.png           |  11239  |  STANDARD  |
+|  academic/storage-activity/private/exemplo.txt           |  60     |  STANDARD  |
+|  academic/storage-activity/public/exemplo.txt            |  56     |  STANDARD  |
++----------------------------------------------------------+---------+------------+
+Exit code: 0
+> aws s3api get-bucket-versioning --bucket shifu-storage-lab-6dadc912 --region us-east-2 --output json
+{
+    "Status": "Enabled"
+}
+Exit code: 0
+> aws s3api get-bucket-encryption --bucket shifu-storage-lab-6dadc912 --region us-east-2 --output json
+{
+    "ServerSideEncryptionConfiguration": {
+        "Rules": [
+            {
+                "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                },
+                "BucketKeyEnabled": false,
+                "BlockedEncryptionTypes": {
+                    "EncryptionType": [
+                        "SSE-C"
+                    ]
+                }
+            }
+        ]
+    }
+}
+Exit code: 0
+> aws s3api get-bucket-lifecycle-configuration --bucket shifu-storage-lab-6dadc912 --region us-east-2 --output json
+{
+    "TransitionDefaultMinimumObjectSize": "all_storage_classes_128K",
+    "Rules": [
+        {
+            "ID": "archive-lab-objects-after-30-days",
+            "Filter": {
+                "Prefix": "academic/storage-activity/archive/"
+            },
+            "Status": "Enabled",
+            "Transitions": [
+                {
+                    "Days": 30,
+                    "StorageClass": "STANDARD_IA"
+                }
+            ],
+            "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 90
+            }
+        }
+    ]
+}
+Exit code: 0
+> aws s3api get-public-access-block --bucket shifu-storage-lab-6dadc912 --region us-east-2 --output json
+{
+    "PublicAccessBlockConfiguration": {
+        "BlockPublicAcls": true,
+        "IgnorePublicAcls": true,
+        "BlockPublicPolicy": false,
+        "RestrictPublicBuckets": false
+    }
+}
+Exit code: 0
+> aws s3api get-bucket-policy-status --bucket shifu-storage-lab-6dadc912 --region us-east-2 --output json
+{
+    "PolicyStatus": {
+        "IsPublic": true
+    }
+}
+Exit code: 0
+> GET anônimo https://shifu-storage-lab-6dadc912.s3.us-east-2.amazonaws.com/academic/storage-activity/public/exemplo.txt
+HTTP 200
+Conteúdo: Arquivo publico de demonstracao da Atividade 3 - Shifu.
+> GET anônimo https://shifu-storage-lab-6dadc912.s3.us-east-2.amazonaws.com/academic/storage-activity/private/exemplo.txt
+HTTP 403

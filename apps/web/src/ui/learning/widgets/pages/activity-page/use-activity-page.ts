@@ -22,6 +22,7 @@ import type {
   ChoiceQuestion,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
@@ -747,6 +748,8 @@ export function useActivityPage(props: ActivityPageProps) {
     currentAnswer && 'selectedOptionKeys' in currentAnswer
       ? currentAnswer.selectedOptionKeys
       : []
+  const translationAnswerText =
+    currentAnswer && 'text' in currentAnswer ? currentAnswer.text : ''
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
@@ -771,13 +774,21 @@ export function useActivityPage(props: ActivityPageProps) {
           ),
       ),
   )
+  const hasValidTranslationText = Boolean(
+    currentQuestion?.kind === 'translation' &&
+      currentAnswer &&
+      'text' in currentAnswer &&
+      currentAnswer.text.trim().length > 0,
+  )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
       ('files' in currentAnswer
         ? currentAnswer.files.length > 0
         : 'placements' in currentAnswer
           ? currentAnswer.placements.length > 0
-          : currentAnswer.selectedOptionKeys.length > 0),
+          : 'text' in currentAnswer
+            ? currentAnswer.text.trim().length > 0
+            : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -912,6 +923,30 @@ export function useActivityPage(props: ActivityPageProps) {
     setIsReactAnswerValid(isValid)
   }
 
+  function handleTranslationAnswerChange(text: string) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'translation' ||
+      isSubmitting ||
+      isSubmissionLocked ||
+      isAssessing
+    )
+      return
+    const answer: TranslationAnswer = {
+      kind: 'translation',
+      questionKey: currentQuestion.key,
+      text,
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
+    setFrozenAnswer(null)
+    setHasFeedbackError(false)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -940,7 +975,8 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
-        currentQuestion.kind !== 'react_fastify') ||
+        currentQuestion.kind !== 'react_fastify' &&
+        currentQuestion.kind !== 'translation') ||
       !activity.activityRevision
     )
       return
@@ -953,8 +989,9 @@ export function useActivityPage(props: ActivityPageProps) {
               ...answer,
               placements: answer.placements.map((placement) => ({ ...placement })),
             }
-          : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
-    // A fill stays editable until the learner advances, so it is never frozen.
+          : 'text' in answer
+            ? { ...answer }
+            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
@@ -1174,6 +1211,7 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
+        currentQuestion.kind !== 'translation' &&
         hasValidSelection
       ) {
         void assess({
@@ -1181,6 +1219,8 @@ export function useActivityPage(props: ActivityPageProps) {
           questionKey: currentQuestion.key,
           selectedOptionKeys,
         })
+      } else if (currentQuestion.kind === 'translation' && hasValidTranslationText) {
+        void assess(currentAnswer as TranslationAnswer)
       }
       return
     }
@@ -1237,7 +1277,8 @@ export function useActivityPage(props: ActivityPageProps) {
           : feedback !== null ||
             frozenAnswer !== null ||
             hasValidSelection ||
-            hasCompleteFillBlanks),
+            hasCompleteFillBlanks ||
+            hasValidTranslationText),
     feedback,
     frozenAnswer,
     isAssessing,
@@ -1247,6 +1288,7 @@ export function useActivityPage(props: ActivityPageProps) {
     handleFillBlanksChange,
     fillBlanksPlacements,
     isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
+    handleTranslationAnswerChange,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
@@ -1275,6 +1317,7 @@ export function useActivityPage(props: ActivityPageProps) {
     isLastQuestion,
     isSubmitting,
     selectedOptionKeys,
+    translationAnswerText,
     totalQuestions: activity?.questions.length ?? 0,
   }
 }
@@ -1415,6 +1458,9 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
           typeof placement.wordKey === 'string',
       )
     )
+  }
+  if (value.kind === 'translation') {
+    return typeof value.text === 'string' && value.text.trim().length > 0
   }
   return (
     (value.kind === 'single_choice' || value.kind === 'multiple_selection') &&

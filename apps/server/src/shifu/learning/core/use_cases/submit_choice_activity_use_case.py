@@ -18,6 +18,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceSubmissionOutcome,
     CodeAnswer,
     FillBlanksAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
@@ -50,6 +51,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -81,7 +83,7 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer, ...],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
         time_zone: str | None = None,
@@ -116,9 +118,19 @@ class SubmitChoiceActivityUseCase:
             self._curriculum_content_provider, 'get_learning_activity', None
         )
         snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-        if not isinstance(
-            snapshot, CurriculumLearningActivitySnapshot
-        ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
+        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
+            isinstance(
+                item,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
+                ),
+            )
+            for item in snapshot.questions
+        ):
             snapshot = self._curriculum_content_provider.get_choice_activity(
                 activity_id
             )
@@ -265,7 +277,7 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer, ...],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
@@ -298,7 +310,7 @@ class SubmitChoiceActivityUseCase:
     @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer, ...],
+        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer, ...],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
@@ -330,6 +342,15 @@ class SubmitChoiceActivityUseCase:
                     raise ValidationError
 
                 normalized.append(FillBlanksScoring.normalize(question, answer))
+                continue
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                if not isinstance(answer, TranslationAnswer):
+                    raise ValidationError
+                normalized.append(
+                    TranslationAnswer(
+                        question_key=answer.question_key, text=answer.text
+                    )
+                )
                 continue
 
             if not isinstance(answer, ChoiceAnswerSubmission):

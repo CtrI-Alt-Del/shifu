@@ -6,11 +6,17 @@ from __future__ import annotations
 import json
 from unittest.mock import Mock
 
+from agno.exceptions import ModelProviderError
+from agno.models.openai import OpenAIChat
+from agno.models.response import ModelResponse
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 import pytest
 
 from shifu.intelligence.ai.agno.agents import MentorTitleAgent
+from shifu.intelligence.ai.agno.agents.mentor_agent import (
+    _MentorOpenAIChat,  # pyright: ignore[reportPrivateUsage] - the test drives the real Mentor model class.
+)
 from shifu.intelligence.ai.agno.outputs import MentorTitleOutput
 from shifu.intelligence.ai.agno.workflows import AgnoGenerateMentorTitleWorkflow
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
@@ -118,3 +124,54 @@ class TestAgnoGenerateMentorTitleWorkflow:
 
         agent.run.assert_not_called()
         assert handoffs.take_result(reference, capability=CAPABILITY) == 'invalid'
+
+
+class TestAgnoGenerateMentorTitleWorkflowWithTheMentorModel:
+    """The real title agent and Mentor model; only the provider call is replaced.
+
+    The Mentor model reads its transport failure from a scope the workflow must
+    open. A mocked agent cannot show a run that leaves the scope out."""
+
+    @staticmethod
+    def real_agent(monkeypatch: pytest.MonkeyPatch) -> MentorTitleAgent:
+        def respond(*_args: object, **_kwargs: object) -> ModelResponse:
+            return ModelResponse(
+                role='assistant',
+                content=MentorTitleOutput(
+                    title='Frações equivalentes'
+                ).model_dump_json(),
+            )
+
+        monkeypatch.setattr(OpenAIChat, 'invoke', respond)
+        agent = MentorTitleAgent()
+        agent.model = _MentorOpenAIChat(id='openai/test-model', api_key='test-key')
+        return agent
+
+    def test_generates_a_title_through_the_mentor_model(
+        self, monkeypatch: pytest.MonkeyPatch, handoffs: AgentOSHandoffStore
+    ) -> None:
+        workflow = AgnoGenerateMentorTitleWorkflow(
+            self.real_agent(monkeypatch), handoffs
+        )
+        reference = handoffs.create(capability=CAPABILITY, input_value=FIRST_MESSAGE)
+
+        assert submit(workflow, reference) == {'status': 'complete'}
+
+        assert handoffs.take_result(reference, capability=CAPABILITY) == (
+            'Frações equivalentes'
+        )
+
+    def test_marks_the_title_unavailable_when_the_provider_fails(
+        self, monkeypatch: pytest.MonkeyPatch, handoffs: AgentOSHandoffStore
+    ) -> None:
+        def fail(*_args: object, **_kwargs: object) -> ModelResponse:
+            raise ModelProviderError('provider down', status_code=503)
+
+        agent = self.real_agent(monkeypatch)
+        monkeypatch.setattr(OpenAIChat, 'invoke', fail)
+        workflow = AgnoGenerateMentorTitleWorkflow(agent, handoffs)
+        reference = handoffs.create(capability=CAPABILITY, input_value=FIRST_MESSAGE)
+
+        assert submit(workflow, reference) == {'status': 'unavailable'}
+
+        assert handoffs.take_result(reference, capability=CAPABILITY) == 'unavailable'

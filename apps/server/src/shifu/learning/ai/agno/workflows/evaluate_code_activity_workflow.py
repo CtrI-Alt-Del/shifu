@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from contextvars import ContextVar
 from dataclasses import dataclass
 from time import perf_counter
@@ -12,8 +11,15 @@ from uuid import uuid4
 from agno.workflow.step import Step
 from agno.workflow.types import StepInput, StepOutput
 from agno.workflow.workflow import Workflow
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
+from shifu.learning.ai.agno.workflows.agentos_assessment_support import (
+    HandoffAssessmentInput,
+    OfficialRunInput,
+    complete_unavailable,
+    execution_for_step,
+    safe_native_input,
+)
 from shifu.learning.core.domain.structures import (
     CodeQuestionAssessmentDecisions,
 )
@@ -47,21 +53,10 @@ _HANDOFF_CAPABILITY = 'learning-code-assessment'
 _UNAVAILABLE = 'Code assessment is unavailable.'
 
 
-class _OfficialInput(BaseModel):
-    model_config = ConfigDict(strict=True, extra='forbid')
-    attempt_id: str = Field(min_length=1, max_length=64)
-    run_id: str = Field(min_length=1, max_length=64)
-
-
-class _AssessmentInput(BaseModel):
-    model_config = ConfigDict(strict=True, extra='forbid')
-    handoff_ref: str = Field(min_length=20, max_length=128)
-
-
 @dataclass(slots=True)
 class _Execution:
     raw_input: object
-    official: _OfficialInput | None = None
+    official: OfficialRunInput | None = None
     handoff_ref: str | None = None
     prepared: PreparedCodeActivityEvaluation | None = None
     assessment: CodeRubricAssessmentInput | None = None
@@ -140,41 +135,20 @@ class EvaluateCodeActivityWorkflow(Workflow):
         execution = _Execution(raw_input=input)
         token = self._execution.set(execution)
         try:
-            return super().run(input=self._safe_native_input(input))
+            return super().run(input=safe_native_input(input, _UNAVAILABLE))
         finally:
             self._execution.reset(token)
 
-    @staticmethod
-    def _safe_native_input(raw: object) -> str:
-        if isinstance(raw, str):
-            try:
-                value = json.loads(raw)
-            except json.JSONDecodeError:
-                raise ServiceUnavailableError(_UNAVAILABLE) from None
-        else:
-            value = raw
-        try:
-            official = _OfficialInput.model_validate(value, strict=True)
-            return official.model_dump_json()
-        except ValidationError:
-            try:
-                assessment = _AssessmentInput.model_validate(value, strict=True)
-                return assessment.model_dump_json()
-            except ValidationError:
-                raise ServiceUnavailableError(_UNAVAILABLE) from None
-
     def _execution_for_step(self, step_input: StepInput) -> _Execution:
-        execution = self._execution.get()
-        if execution is None:
-            execution = _Execution(raw_input=step_input.input)
-            self._execution.set(execution)
-        return execution
+        return execution_for_step(
+            self._execution, step_input, lambda raw: _Execution(raw_input=raw)
+        )
 
     def _prepare(self, step_input: StepInput) -> StepOutput:
         execution = self._execution_for_step(step_input)
         try:
-            official = _OfficialInput.model_validate_json(
-                self._safe_native_input(execution.raw_input), strict=True
+            official = OfficialRunInput.model_validate_json(
+                safe_native_input(execution.raw_input, _UNAVAILABLE), strict=True
             )
         except (ServiceUnavailableError, ValidationError):
             official = None
@@ -192,8 +166,8 @@ class EvaluateCodeActivityWorkflow(Workflow):
             )
 
         try:
-            request = _AssessmentInput.model_validate_json(
-                self._safe_native_input(execution.raw_input), strict=True
+            request = HandoffAssessmentInput.model_validate_json(
+                safe_native_input(execution.raw_input, _UNAVAILABLE), strict=True
             )
             source = self._handoffs.read_input(
                 request.handoff_ref, capability=_HANDOFF_CAPABILITY
@@ -261,7 +235,9 @@ class EvaluateCodeActivityWorkflow(Workflow):
         except Exception:  # noqa: BLE001 - Jev content never enters run state.
             execution.failure = True
             if execution.handoff_ref is not None:
-                self._complete_unavailable(execution.handoff_ref)
+                complete_unavailable(
+                    self._handoffs, execution.handoff_ref, _HANDOFF_CAPABILITY
+                )
             if execution.official is not None:
                 raise ServiceUnavailableError(_UNAVAILABLE) from None
             return StepOutput(content='unavailable')
@@ -320,16 +296,6 @@ class EvaluateCodeActivityWorkflow(Workflow):
                 }
             )
         except Exception:  # noqa: BLE001 - telemetry must not change workflow result.
-            return
-
-    def _complete_unavailable(self, reference: str) -> None:
-        try:
-            self._handoffs.complete(
-                reference,
-                capability=_HANDOFF_CAPABILITY,
-                result_value='unavailable',
-            )
-        except KeyError:
             return
 
 

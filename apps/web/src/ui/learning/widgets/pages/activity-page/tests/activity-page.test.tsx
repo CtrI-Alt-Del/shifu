@@ -109,6 +109,8 @@ function createControllerMock(
     handleFillBlanksChange: vi.fn(),
     fillBlanksPlacements: [],
     isFillBlanksLocked: false,
+    handleTranslationAnswerChange: vi.fn(),
+    translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
     currentQuestionIndex: 0,
     currentQuestionNumber: 1,

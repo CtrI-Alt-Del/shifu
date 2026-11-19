@@ -12,6 +12,7 @@ import type {
   PlanningSession,
 } from '@/core/intelligence/planning-session'
 import { registerPlanningEntry } from '@/ui/intelligence/planning-entry'
+import { useAiQuotaBlock } from '@/ui/intelligence/hooks/use-ai-quota-block'
 import { planningSessionQueryKey } from '@/ui/intelligence/hooks/use-planning-session-query'
 import { useNavigation } from '@/ui/shared/hooks/use-navigation'
 
@@ -61,11 +62,33 @@ vi.mock('@/rest/services/intelligence-service', () => ({
   IntelligenceService: () => mocks.service,
 }))
 
+vi.mock('@/ui/intelligence/hooks/use-ai-quota-block', () => ({
+  useAiQuotaBlock: vi.fn(),
+}))
+
 vi.mock('@/ui/shared/hooks/use-navigation', () => ({
   useNavigation: vi.fn(),
 }))
 
 const useNavigationMock = vi.mocked(useNavigation)
+const useAiQuotaBlockMock = vi.mocked(useAiQuotaBlock)
+const FAILURE_MESSAGE = 'Mensagem de falha com a cota esgotada.'
+const PROPOSAL_MESSAGE = 'Mensagem de proposta com a cota esgotada.'
+
+/** The reading says blocked, or a start was refused on this screen. */
+function mockQuotaReading(isReadingBlocked: boolean) {
+  useAiQuotaBlockMock.mockImplementation((hasRefusal = false) => ({
+    isAiQuotaBlocked: isReadingBlocked || hasRefusal,
+    isAiQuotaNearLimit: false,
+    getAiQuotaBlockedMessage: (surface) =>
+      surface === 'planner-proposal' ? PROPOSAL_MESSAGE : FAILURE_MESSAGE,
+    aiQuotaBlockedRole: hasRefusal ? 'alert' : 'status',
+    aiQuotaAccountId: 'account-1',
+    aiQuotaPercentage: 100,
+    aiQuotaRenewsOn: '2026-12-01',
+  }))
+}
+const QUOTA_REFUSAL = () => new RestError('Cota esgotada.', 429, 'ai_quota_exhausted')
 const navigateToMock = vi.fn(async () => undefined)
 const navigateToGoalDetailMock = vi.fn(async () => undefined)
 const CONFIRMATION_KEY = '3f0c2b9e-8d1a-4c57-9b2e-6a1d4f8c0e21'
@@ -150,6 +173,7 @@ describe('usePlannerPage', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockQuotaReading(false)
     navigateToMock.mockResolvedValue(undefined)
     useNavigationMock.mockReturnValue({
       refreshCurrentRoute: vi.fn(),
@@ -407,6 +431,53 @@ describe('usePlannerPage', () => {
       support: 'Estamos verificando o que falta esclarecer.',
       busyLabel: 'Processando…',
     })
+  })
+
+  it('blocks the retry behind the quota card and shows no generic error after a refused retry', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'failed', batch: null, answeredBatchCount: 1 }),
+    )
+    mocks.service.retryPlanning.mockRejectedValueOnce(QUOTA_REFUSAL())
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('failed'))
+    expect(result.current.isAiQuotaBlocked).toBe(false)
+
+    await act(async () => {
+      await result.current.handleRetry()
+    })
+
+    expect(mocks.service.retryPlanning).toHaveBeenCalledOnce()
+    await waitFor(() => expect(result.current.isAiQuotaBlocked).toBe(true))
+    expect(result.current.aiQuotaBlockedRole).toBe('alert')
+    expect(result.current.aiQuotaFailureMessage).toBe(FAILURE_MESSAGE)
+    expect(result.current.aiQuotaProposalMessage).toBe(PROPOSAL_MESSAGE)
+    expect(result.current.errorMessage).toBeNull()
+    expect(result.current.view).toBe('failed')
+
+    await act(async () => {
+      await result.current.handleRetry()
+    })
+    expect(mocks.service.retryPlanning).toHaveBeenCalledOnce()
+  })
+
+  it('ignores the retry without a request while the reading is blocked', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    mockQuotaReading(true)
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'failed', batch: null, answeredBatchCount: 1 }),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('failed'))
+    expect(result.current.isAiQuotaBlocked).toBe(true)
+    expect(result.current.aiQuotaBlockedRole).toBe('status')
+
+    await act(async () => {
+      await result.current.handleRetry()
+    })
+
+    expect(mocks.service.retryPlanning).not.toHaveBeenCalled()
+    expect(result.current.errorMessage).toBeNull()
   })
 
   it('maps the reported stage and the operation kind to the processing copy (CA-08)', async () => {
@@ -671,6 +742,55 @@ describe('usePlannerPage', () => {
     expect(result.current.restartErrorMessage).toBe(
       'Não foi possível reiniciar o planejamento agora. Sua proposta continua nesta página; tente novamente.',
     )
+  })
+
+  it('blocks the restart without a restart error after a quota refusal and keeps the proposal', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    const proposal = PlanningSessionFaker.fakeProposal()
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'proposal', batch: null, proposal }),
+    )
+    mocks.service.restartPlanning.mockRejectedValueOnce(QUOTA_REFUSAL())
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+
+    let restarted = true
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+
+    expect(restarted).toBe(false)
+    await waitFor(() => expect(result.current.isAiQuotaBlocked).toBe(true))
+    expect(result.current.aiQuotaBlockedRole).toBe('alert')
+    expect(result.current.restartErrorMessage).toBeNull()
+    expect(result.current.view).toBe('proposal')
+    expect(result.current.proposal).toEqual(proposal)
+
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+    expect(restarted).toBe(false)
+    expect(mocks.service.restartPlanning).toHaveBeenCalledOnce()
+  })
+
+  it('ignores the restart without a request while the reading is blocked and keeps the review actions', async () => {
+    registerPlanningEntry(PLANNING_ID)
+    mockQuotaReading(true)
+    const proposal = PlanningSessionFaker.fakeProposal()
+    mocks.service.getPlanningSession.mockResolvedValue(
+      interviewSession({ status: 'proposal', batch: null, proposal }),
+    )
+    const { result } = renderPlannerPage()
+    await waitFor(() => expect(result.current.view).toBe('proposal'))
+
+    let restarted = true
+    await act(async () => {
+      restarted = await result.current.handleRestart('Quero aprender APIs web')
+    })
+
+    expect(restarted).toBe(false)
+    expect(mocks.service.restartPlanning).not.toHaveBeenCalled()
+    expect(result.current.isAiQuotaBlocked).toBe(true)
   })
 
   it('ignores a restart outside the review and creates nothing outside the proposal', async () => {

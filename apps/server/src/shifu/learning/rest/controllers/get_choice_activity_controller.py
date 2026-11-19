@@ -99,6 +99,14 @@ class FillBlanksQuestionResponse(BaseModel):
     content_language: str
     segments: tuple[FillBlanksSegmentResponse, ...]
     bank: tuple[FillBlanksWordResponse, ...]
+class TranslationQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['translation']
+    prompt: str
+    source_language: str
+    target_language: str
+    source_text: str
+    criteria: tuple[CriterionResponse, ...]
 
 
 class Response(BaseModel):
@@ -106,7 +114,7 @@ class Response(BaseModel):
     title: str
     difficulty: str
     questions: tuple[
-        ChoiceQuestionResponse | CodeQuestionResponse | FillBlanksQuestionResponse, ...
+        ChoiceQuestionResponse | CodeQuestionResponse | FillBlanksQuestionResponse | TranslationQuestionResponse, ...
     ]
     can_submit: bool
     latest_attempt_id: str | None

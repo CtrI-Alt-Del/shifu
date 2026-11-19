@@ -68,6 +68,9 @@ from tests.fixtures.react_activity_fixture import (
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
 )
+from tests.learning.rest.controllers.translation_controller_fixture import (
+    TranslationControllerFixture,
+)
 
 if TYPE_CHECKING:
     from httpx import Response
@@ -678,6 +681,57 @@ class TestGetChoiceActivityController:
         assert html['criteria'] == [
             {'key': 'quality', 'name': 'Qualidade visual', 'weight_percentage': 100}
         ]
+        assert 'Private comment' not in str(body)
+        assert 'is_correct' not in str(body)
+
+    def test_returns_persisted_translation_project_and_public_rubric(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = TranslationControllerFixture.activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                TranslationControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'translation',
+        ]
+        translation = body['questions'][2]
+        assert translation['prompt'] == TranslationControllerFixture.PROMPT
+        assert translation['source_language'] == (
+            TranslationControllerFixture.SOURCE_LANGUAGE
+        )
+        assert translation['target_language'] == (
+            TranslationControllerFixture.TARGET_LANGUAGE
+        )
+        assert translation['source_text'] == TranslationControllerFixture.SOURCE_TEXT
+        assert translation['criteria'] == [
+            {
+                'key': 'semantic_preservation',
+                'name': 'Semantic Preservation',
+                'weight_percentage': 70,
+            },
+            {
+                'key': 'grammatical_adequacy',
+                'name': 'Grammatical Adequacy',
+                'weight_percentage': 30,
+            },
+        ]
+        assert 'reference_translations' not in translation
+        assert TranslationControllerFixture.REFERENCE_TRANSLATION not in str(body)
         assert 'Private comment' not in str(body)
         assert 'is_correct' not in str(body)
 

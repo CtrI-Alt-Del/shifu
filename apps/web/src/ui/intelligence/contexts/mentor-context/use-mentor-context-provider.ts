@@ -10,6 +10,8 @@ import type { MentorConversationMemoryItem } from '@/core/intelligence/learner-m
 import type { MentorSessionSummaryState } from '@/core/intelligence/mentor-session-summary'
 import { NativeMentorEventSource } from '@/provision/realtime/native-mentor-event-source'
 import { useMentorResponseStream } from '@/ui/intelligence/hooks/use-mentor-response-stream'
+import type { AiQuotaUsageReading } from '@/core/intelligence/ai-quota-usage'
+import { AI_QUOTA_USAGE_QUERY_KEY } from '@/ui/intelligence/hooks/ai-quota-usage-query-key'
 import { useSubmitMentorMessageAction } from '@/ui/intelligence/hooks/use-submit-mentor-message-action'
 import { useCancelMentorResponseAction } from '@/ui/intelligence/hooks/use-cancel-mentor-response-action'
 import { useRetryMentorResponseAction } from '@/ui/intelligence/hooks/use-retry-mentor-response-action'
@@ -109,6 +111,25 @@ export function useMentorContextProvider(
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
+  const [isAiQuotaRefused, setIsAiQuotaRefused] = useState(false)
+  // A refusal wins over a stale reading; only a reading newer than it can lift it.
+  const registerQuotaRefusal = useCallback(
+    async function registerQuotaRefusal() {
+      const refusedAt = Date.now()
+      setIsAiQuotaRefused(true)
+      await queryClient.invalidateQueries({ queryKey: AI_QUOTA_USAGE_QUERY_KEY })
+      const state = queryClient.getQueryState<AiQuotaUsageReading>(
+        AI_QUOTA_USAGE_QUERY_KEY,
+      )
+      if (
+        state?.data &&
+        state.dataUpdatedAt >= refusedAt &&
+        state.data.usage.status !== 'blocked'
+      )
+        setIsAiQuotaRefused(false)
+    },
+    [queryClient],
+  )
   // biome-ignore lint/correctness/useExhaustiveDependencies: route/account changes invalidate the active dictation scope.
   useEffect(
     function cancelOnNavigation() {
@@ -772,7 +793,7 @@ export function useMentorContextProvider(
       submissionMessage.current = draft
       setSubmissionError(null)
       try {
-        const detail = selectedSessionId
+        const started = selectedSessionId
           ? await submitMentorMessage({
               sessionId: selectedSessionId,
               submissionKey: stableKey,
@@ -787,6 +808,13 @@ export function useMentorContextProvider(
               ...attachmentInput,
             })
         if (generation !== detailGeneration.current) return
+        if (!started.ok) {
+          // The quota card explains the refusal, so no generic error is shown.
+          void registerQuotaRefusal()
+          return
+        }
+        const detail = started.value
+        setIsAiQuotaRefused(false)
         setSelectedSessionId(detail.session.id)
         setSessionDetail(detail)
         setDraft('')
@@ -816,6 +844,7 @@ export function useMentorContextProvider(
       draft,
       isCreatingMentorSession,
       readHistory,
+      registerQuotaRefusal,
       submissionKey,
       contextHint,
       selectedSessionId,
@@ -976,9 +1005,19 @@ export function useMentorContextProvider(
     const submissionKey = controlKeys.current.get(key) ?? crypto.randomUUID()
     controlKeys.current.set(key, submissionKey)
     try {
-      const snapshot = await (action === 'cancel'
-        ? cancelMentorResponse
-        : retryMentorResponse)({ sessionId, attemptId, submissionKey })
+      let snapshot: MentorResponseSnapshot
+      if (action === 'cancel') {
+        snapshot = await cancelMentorResponse({ sessionId, attemptId, submissionKey })
+      } else {
+        const retried = await retryMentorResponse({ sessionId, attemptId, submissionKey })
+        if (generation !== detailGeneration.current) return
+        if (!retried.ok) {
+          void registerQuotaRefusal()
+          return
+        }
+        setIsAiQuotaRefused(false)
+        snapshot = retried.value
+      }
       if (generation !== detailGeneration.current) return
       setSessionDetail((current) => {
         if (
@@ -1019,8 +1058,17 @@ export function useMentorContextProvider(
       return
     const generation = detailGeneration.current
     try {
-      const detail = await submitMentorMessage({ ...input, sessionId: selectedSessionId })
-      if (generation === detailGeneration.current) setSessionDetail(detail)
+      const started = await submitMentorMessage({
+        ...input,
+        sessionId: selectedSessionId,
+      })
+      if (generation !== detailGeneration.current) return
+      if (!started.ok) {
+        void registerQuotaRefusal()
+        return
+      }
+      setIsAiQuotaRefused(false)
+      setSessionDetail(started.value)
     } catch (error) {
       if (isMentorScopeError(error)) clearPrivateState()
       else setSubmissionError('Não foi possível enviar sua mensagem. Tente novamente.')
@@ -1298,6 +1346,7 @@ export function useMentorContextProvider(
     submissionError,
     renameError,
     removalError,
+    isAiQuotaRefused,
     openPanel,
     closePanel,
     showPanelHistory,

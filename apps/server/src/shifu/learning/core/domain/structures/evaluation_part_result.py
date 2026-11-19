@@ -11,6 +11,9 @@ from shifu.learning.core.domain.structures.fill_blanks_evaluation_result import 
 from shifu.learning.core.domain.structures.qualitative_evaluation_result import (
     QualitativeEvaluationResult,
 )
+from shifu.learning.core.domain.structures.translation_rubric_result import (
+    TranslationRubricResult,
+)
 
 type EvaluationPartResult = (
     ChoiceEvaluationResult
@@ -18,4 +21,5 @@ type EvaluationPartResult = (
     | CodeRubricResult
     | QualitativeEvaluationResult
     | FillBlanksEvaluationResult
+    | TranslationRubricResult
 )

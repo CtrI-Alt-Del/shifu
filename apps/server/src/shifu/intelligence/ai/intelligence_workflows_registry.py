@@ -39,6 +39,7 @@ from shifu.intelligence.core.use_cases import (
     PrepareMentorAttachmentUseCase,
     PrepareMentorResponseUseCase,
     PublishMentorResponseBlockUseCase,
+    PurgeAiQuotaForAccountUseCase,
     PurgeLearnerMemoriesForAccountUseCase,
     PurgeMentorActionProposalsForAccountUseCase,
     PurgeMentorAttachmentsUseCase,
@@ -46,6 +47,7 @@ from shifu.intelligence.core.use_cases import (
     RecordMentorActionOutcomeUseCase,
     RecordMentorInferenceUsageUseCase,
     RecordMentorResponseProgressUseCase,
+    RecordPlanningInferenceUsageUseCase,
     ReleaseMentorAttachmentClaimUseCase,
     ReleaseMentorResponseClaimUseCase,
     RenewMentorAttachmentClaimUseCase,
@@ -62,6 +64,9 @@ from shifu.intelligence.core.use_cases.get_mentor_attachment_context_use_case im
 from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
+)
+from shifu.intelligence.providers.translation_rubric_assessor.jev.jev_translation_rubric_assessor_provider import (
+    JevTranslationRubricAssessorProvider,
 )
 from shifu.intelligence.providers.generation_limit.redis.redis_mentor_generation_limit_provider import (
     RedisMentorGenerationLimitProvider,
@@ -120,11 +125,13 @@ if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
 
     from shifu.intelligence.core.domain.structures import (
+        AiQuotaPolicy,
         MentorInferenceUsage,
         PlanningQuery,
         PlanningSkillRanking,
     )
     from shifu.intelligence.core.interfaces import (
+        AiQuotaCalendarProvider,
         GenerateMentorTitleProvider,
         IntelligenceDatabase,
         LearnerMemoryAnalyzerProvider,
@@ -152,6 +159,7 @@ if TYPE_CHECKING:
         MentorContextProvider,
         MentorGoalDestinationsProvider,
         OutboxEvent,
+        TranslationRubricAssessorProvider,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
@@ -276,6 +284,8 @@ class IntelligenceWorkflowsRegistry:
         mentor_goal_destinations_provider: MentorGoalDestinationsProvider,
         *,
         outbox_engine: Engine,
+        quota_policy: AiQuotaPolicy,
+        quota_calendar: AiQuotaCalendarProvider,
         telemetry_client: Langfuse | None = None,
         route_provider: MentorRouteProvider | None = None,
         telemetry: MentorTelemetryProvider | None = None,
@@ -460,12 +470,18 @@ class IntelligenceWorkflowsRegistry:
         )
         release_response_claim = ReleaseMentorResponseClaimUseCase(self._database)
         fail_response = FailMentorResponseUseCase(
-            self._database, self._clock_provider, access_provider
+            self._database,
+            self._clock_provider,
+            access_provider,
+            quota_policy,
+            quota_calendar,
         )
         record_response_usage = RecordMentorInferenceUsageUseCase(
             self._database,
             self._clock_provider,
             access_provider,
+            quota_policy,
+            quota_calendar,
             self._telemetry,
         )
         record_response_progress = RecordMentorResponseProgressUseCase(
@@ -499,6 +515,7 @@ class IntelligenceWorkflowsRegistry:
         self._purge_mentor_action_proposals_use_case = (
             PurgeMentorActionProposalsForAccountUseCase(self._database)
         )
+        self._purge_ai_quota_use_case = PurgeAiQuotaForAccountUseCase(self._database)
         self._record_mentor_action_outcome_use_case = RecordMentorActionOutcomeUseCase(
             self._database, self._clock_provider
         )
@@ -537,6 +554,10 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_client = self._build_code_rubric_provider(
             settings, self._code_rubric_http_client
         )
+        self._translation_rubric_http_client = self._build_translation_rubric_client()
+        self._translation_rubric_client = self._build_translation_rubric_provider(
+            settings, self._translation_rubric_http_client
+        )
         # Planner ports share the decisions client; the index loads on first use only.
         self._planning_intent_classifier: PlanningIntentClassifierProvider = (
             JevPlanningIntentClassifierProvider(
@@ -569,10 +590,17 @@ class IntelligenceWorkflowsRegistry:
                 self._planning_sessions, access_provider
             ),
             complete_use_case=CompletePlanningOperationUseCase(
-                self._planning_sessions, self._clock_provider
+                self._planning_sessions,
+                self._clock_provider,
+                self._database,
+                quota_policy,
+                quota_calendar,
             ),
             progress_use_case=ReportPlanningProgressUseCase(
                 self._planning_sessions, self._clock_provider
+            ),
+            record_usage_use_case=RecordPlanningInferenceUsageUseCase(
+                self._database, quota_policy, quota_calendar, self._clock_provider
             ),
             classify_use_case=ClassifyPlanningIntentUseCase(
                 self._planning_intent_classifier
@@ -648,6 +676,10 @@ class IntelligenceWorkflowsRegistry:
         return self._code_rubric_client
 
     @property
+    def translation_rubric_assessor_provider(self) -> TranslationRubricAssessorProvider:
+        return self._translation_rubric_client
+
+    @property
     def mentor_title_provider(self) -> GenerateMentorTitleProvider:
         return self._mentor_title_provider
 
@@ -670,6 +702,10 @@ class IntelligenceWorkflowsRegistry:
     @property
     def purge_learner_memories_use_case(self) -> PurgeLearnerMemoriesForAccountUseCase:
         return self._purge_learner_memories_use_case
+
+    @property
+    def purge_ai_quota_use_case(self) -> PurgeAiQuotaForAccountUseCase:
+        return self._purge_ai_quota_use_case
 
     @property
     def purge_mentor_action_proposals_use_case(
@@ -826,6 +862,7 @@ class IntelligenceWorkflowsRegistry:
             await self._runtime.close()
         self._storage_provider.close()
         self._code_rubric_http_client.close()
+        self._translation_rubric_http_client.close()
         if self._generation_limit_client is not None:
             self._generation_limit_client.close()
         self._planning_redis_client.close()
@@ -845,6 +882,21 @@ class IntelligenceWorkflowsRegistry:
         settings: Settings, client: httpx.Client
     ) -> JevCodeRubricAssessorProvider:
         return JevCodeRubricAssessorProvider(
+            api_key=settings.openrouter_api_key,
+            client=client,
+            decisions_url=str(settings.openrouter_decisions_url),
+            model=settings.jev_model,
+        )
+
+    @staticmethod
+    def _build_translation_rubric_client() -> httpx.Client:
+        return httpx.Client()
+
+    @staticmethod
+    def _build_translation_rubric_provider(
+        settings: Settings, client: httpx.Client
+    ) -> JevTranslationRubricAssessorProvider:
+        return JevTranslationRubricAssessorProvider(
             api_key=settings.openrouter_api_key,
             client=client,
             decisions_url=str(settings.openrouter_decisions_url),

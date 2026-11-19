@@ -8,6 +8,7 @@ import {
 } from '../support/mentor-summary-journey'
 import { ROUTES } from '../../src/constants/routes'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
+import { expectBox, installAiQuotaReading } from '../support/ai-quota-backend'
 import {
   ACTION_IDS,
   ADD_JUSTIFICATION,
@@ -312,6 +313,77 @@ test.describe('AppLayout', () => {
     await expect(authenticatedPage).toHaveURL(/\/account\/profile\/?$/)
     await expect(
       authenticatedPage.getByRole('heading', { name: 'Sua conta' }),
+    ).toBeVisible()
+  })
+
+  test('shows the AI quota indicator in the desktop header and opens the usage page (CA-16)', async ({
+    authenticatedPage,
+  }) => {
+    await installAiQuotaReading(authenticatedPage, 42)
+    await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+    await navigateAuthenticatedPage(authenticatedPage, ROUTES.gamification)
+
+    const indicator = authenticatedPage.getByRole('link', {
+      name: 'Uso da IA: 42% da cota mensal',
+      exact: true,
+    })
+    await expect(indicator).toBeVisible()
+    await expect(indicator).toHaveText('IA · 42%')
+    // The normal state has no icon, as on the design board.
+    await expect(indicator.locator('svg')).toHaveCount(0)
+    await expect(indicator).toHaveAttribute('href', ROUTES.accountAiUsage)
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Abrir menu da conta' }),
+    ).toBeVisible()
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Abrir menu', exact: true }),
+    ).toBeHidden()
+
+    await indicator.click()
+
+    await expect(authenticatedPage).toHaveURL(/\/account\/ai-usage\/?$/)
+    await expect(
+      authenticatedPage
+        .getByRole('region', { name: 'Uso da IA' })
+        .getByText('42%', { exact: true }),
+    ).toBeVisible()
+  })
+
+  test('shows the AI quota indicator beside the 44 px menu button at 390 x 844 (CA-16, CA-23)', async ({
+    authenticatedPage,
+  }) => {
+    await installAiQuotaReading(authenticatedPage, 42)
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await navigateAuthenticatedPage(authenticatedPage, ROUTES.gamification)
+
+    const indicator = authenticatedPage.getByRole('link', {
+      name: 'Uso da IA: 42% da cota mensal',
+      exact: true,
+    })
+    const menuButton = authenticatedPage.getByRole('button', {
+      name: 'Abrir menu',
+      exact: true,
+    })
+    await expect(indicator).toBeVisible()
+    await expect(indicator).toHaveText('IA · 42%')
+    // The normal state has no icon, as on the design board.
+    await expect(indicator.locator('svg')).toHaveCount(0)
+    await expectBox(indicator, { height: 44 })
+    await expect(menuButton).toBeVisible()
+    const menuBox = await menuButton.boundingBox()
+    expect(menuBox?.width).toBeGreaterThanOrEqual(44)
+    expect(menuBox?.height).toBeGreaterThanOrEqual(44)
+    expect(
+      await authenticatedPage.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(390)
+
+    await indicator.click()
+
+    await expect(authenticatedPage).toHaveURL(/\/account\/ai-usage\/?$/)
+    await expect(
+      authenticatedPage
+        .getByRole('region', { name: 'Uso da IA' })
+        .getByText('42%', { exact: true }),
     ).toBeVisible()
   })
 })

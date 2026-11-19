@@ -38,6 +38,9 @@ from .list_home_goals_use_case import ListHomeGoalsUseCase as ListHomeGoalsUseCa
 from .prepare_code_activity_evaluation_use_case import (
     PrepareCodeActivityEvaluationUseCase as PrepareCodeActivityEvaluationUseCase,
 )
+from .prepare_translation_activity_evaluation_use_case import (
+    PrepareTranslationActivityEvaluationUseCase as PrepareTranslationActivityEvaluationUseCase,
+)
 from .remove_goal_use_case import RemoveGoalUseCase as RemoveGoalUseCase
 from .remove_skill_experience_from_mentor_use_case import (
     RemoveSkillExperienceFromMentorUseCase as RemoveSkillExperienceFromMentorUseCase,

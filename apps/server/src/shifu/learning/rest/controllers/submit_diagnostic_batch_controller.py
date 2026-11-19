@@ -14,6 +14,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.submit_diagnostic_batch_use_case import (
@@ -117,6 +118,11 @@ class SubmitDiagnosticBatchController:
                                 ),
                             )
                             if answer.kind == 'javascript_stdin'
+                            else TranslationAnswer(
+                                question_key=answer.question_key,
+                                text=answer.text or '',
+                            )
+                            if answer.kind == 'translation'
                             else ChoiceAnswerSubmission(
                                 question_key=answer.question_key,
                                 selected_option_keys=answer.selected_option_keys or (),

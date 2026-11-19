@@ -30,6 +30,7 @@ import type {
   MentorSessionSummaryContent,
   MentorSessionSummaryState,
 } from '@/core/intelligence/mentor-session-summary'
+import type { AiQuotaUsage } from '@/core/intelligence/ai-quota-usage'
 import type { RestClient } from '@/core/shared/interfaces/rest-client'
 import type { RestResponse } from '@/core/shared/responses/rest-response'
 
@@ -235,6 +236,12 @@ type MentorResponseSnapshotDto = {
   last_sequence: number
   failure_code: string | null
 }
+type AiQuotaUsageDto = {
+  percentage: number
+  status: AiQuotaUsage['status']
+  renews_on: string
+}
+
 type PlanningSessionDto = {
   id: string
   status: PlanningSession['status']
@@ -510,6 +517,18 @@ export const IntelligenceService = (
   }
 
   return {
+    async getAiQuotaUsage(accessToken: string): Promise<AiQuotaUsage> {
+      const response = await restClient.get<AiQuotaUsageDto>(
+        '/intelligence/ai-quota',
+        auth(accessToken),
+      )
+      if (response.isFailure) response.throwError()
+      return {
+        percentage: response.body.percentage,
+        status: response.body.status,
+        renewsOn: response.body.renews_on,
+      }
+    },
     async submitMentorMessage(
       accessToken: string,
       sessionId: string,

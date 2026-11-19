@@ -1,0 +1,28 @@
+SHIFU-126 — provisionamento real do laboratório S3
+Data: 17/11/2026 (America/Sao_Paulo)
+Responsável indicado na task: gabrielsoliveira1606
+Execução técnica assistida por Codex.
+Perfil: shifu-lab; conta STS: 565725315792; região: us-east-2 (Ohio).
+
+Terraform plan na região do projeto: 8 to add, 0 to change, 0 to destroy.
+Terraform apply terminou com sucesso. A consulta ao estado, ainda antes da
+remoção, retornou:
+
+$ terraform state list
+aws_s3_bucket.storage_lab
+aws_s3_bucket_lifecycle_configuration.storage_lab
+aws_s3_bucket_ownership_controls.storage_lab
+aws_s3_bucket_policy.public_demo_object
+aws_s3_bucket_public_access_block.storage_lab
+aws_s3_bucket_server_side_encryption_configuration.storage_lab
+aws_s3_bucket_versioning.storage_lab
+random_id.bucket_suffix
+
+$ terraform output -json
+aws_region = us-east-2
+s3_bucket_name = shifu-storage-lab-6dadc912
+s3_public_demo_url = https://shifu-storage-lab-6dadc912.s3.us-east-2.amazonaws.com/academic/storage-activity/public/exemplo.txt
+
+O primeiro apply em us-east-1 foi negado pela política efetiva da organização.
+Após confirmar que o projeto usa us-east-2, o apply nessa região criou o
+laboratório. Não foram alteradas políticas IAM, SCP ou recursos preexistentes.

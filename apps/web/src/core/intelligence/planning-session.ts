@@ -99,6 +99,7 @@ export type PlanningFailureKind =
   | 'not-found'
   | 'conflict'
   | 'invalid-request'
+  | 'quota-exhausted'
   | 'unavailable'
 export type PlanningFailure = {
   kind: PlanningFailureKind
@@ -113,6 +114,7 @@ const PLANNING_FAILURE_KINDS: readonly PlanningFailureKind[] = [
   'not-found',
   'conflict',
   'invalid-request',
+  'quota-exhausted',
   'unavailable',
 ]
 

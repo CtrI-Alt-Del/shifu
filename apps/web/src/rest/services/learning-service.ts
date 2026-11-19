@@ -105,6 +105,15 @@ type ActivityWire = {
         segments: { text?: string | null; blank_key?: string | null }[]
         bank: { key: string; word: string }[]
       }
+    | {
+        key: string
+        kind: 'translation'
+        prompt: string
+        source_language: string
+        target_language: string
+        source_text: string
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
   >
   can_submit: boolean
   latest_attempt_id?: string | null
@@ -197,6 +206,21 @@ function mapActivityQuestion(
       })),
     }
   }
+  if (question.kind === 'translation') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      sourceLanguage: question.source_language,
+      targetLanguage: question.target_language,
+      sourceText: question.source_text,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
@@ -213,6 +237,13 @@ function mapFillBlanksAnswer(answer: FillBlanksAnswer) {
 
 function mapAnswer(answer: ActivityAnswer) {
   if ('placements' in answer) return mapFillBlanksAnswer(answer)
+  if ('text' in answer) {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      text: answer.text,
+    }
+  }
   if (!('selectedOptionKeys' in answer)) {
     return {
       kind: answer.kind,
@@ -327,6 +358,25 @@ type AttemptWire = {
         explanation: string
         disclosed_expected_blanks: { blank_key: string; accepted_words: string[] }[]
       }
+    | {
+        question_key: string
+        kind: 'translation'
+        prompt: string
+        submitted_text: string
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
   >
 }
 
@@ -391,6 +441,27 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           prompt: question.prompt,
           score: question.score,
           submittedFiles: question.submitted_files,
+          criterionResults: question.criterion_results.map((criterion) => ({
+            key: criterion.key,
+            weightPercentage: criterion.weight_percentage,
+            level: criterion.level,
+            commentId: criterion.comment_id,
+            comment: criterion.comment,
+          })),
+          conceptObservations: question.concept_observations.map((observation) => ({
+            conceptId: observation.concept_id,
+            level: observation.level,
+            observationId: observation.observation_id,
+          })),
+        }
+      }
+      if ('kind' in question && question.kind === 'translation') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          score: question.score,
+          submittedText: question.submitted_text,
           criterionResults: question.criterion_results.map((criterion) => ({
             key: criterion.key,
             weightPercentage: criterion.weight_percentage,
@@ -731,6 +802,7 @@ export const LearningService = (restClient: RestClient) => {
         submitted_files?: { path: string; content: string }[]
         correct_blank_count?: number
         blank_count?: number
+        submitted_text?: string
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
         { activity_revision: activityRevision, answer: mapAnswer(answer) },
@@ -754,6 +826,7 @@ export const LearningService = (restClient: RestClient) => {
         submittedFiles: body.submitted_files,
         correctBlankCount: body.correct_blank_count,
         blankCount: body.blank_count,
+        submittedText: body.submitted_text,
       }
     },
 

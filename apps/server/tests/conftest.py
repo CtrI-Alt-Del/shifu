@@ -12,6 +12,12 @@ os.environ.setdefault(
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
 )
 
+# The quota values the use-case expectations rely on; assigned, not defaulted, so a
+# developer's .env.local or shell cannot change test results.
+os.environ['AI_QUOTA_MONTHLY_LIMIT_UNITS'] = '1000'
+os.environ['AI_QUOTA_INPUT_WEIGHT'] = '1'
+os.environ['AI_QUOTA_OUTPUT_WEIGHT'] = '4'
+
 from shifu.app import FastAPIApp
 from shifu.shared.settings import get_settings
 from shifu.shared.constants import ENVIRONMENT

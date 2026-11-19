@@ -22,6 +22,7 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     FillBlanksAnswer,
     FillBlanksPlacement,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -61,11 +62,17 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactPermittedCommandSnapshot,
     CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumTranslationInconclusiveCommentSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricCommentSnapshot,
+    CurriculumTranslationRubricCriterionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    TranslationRubricAssessorProvider,
 )
 
 
@@ -286,8 +293,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
         self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.return_value = []
+        self.translation_assessor = create_autospec(
+            TranslationRubricAssessorProvider, instance=True
+        )
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor
+            self.database, self.provider, self.assessor, self.translation_assessor
         )
 
     def _execute(
@@ -420,7 +430,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         self.provider.get_learning_activity.return_value = snapshot
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, limit
+            self.database,
+            self.provider,
+            self.assessor,
+            self.translation_assessor,
+            limit,
         )
         answer = code_answer_at_size(question, limit + extra_byte)
 
@@ -770,7 +784,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             result = self._execute(
                 CodeAnswer(
@@ -799,7 +813,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -826,7 +840,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -877,7 +891,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
 
     def test_rejects_large_effective_project_before_assessor(self) -> None:
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, 2
+            self.database, self.provider, self.assessor, self.translation_assessor, 2
         )
         with pytest.raises(ValidationError):
             self._execute(
@@ -1114,3 +1128,133 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
 
         assert (result.score, result.correct_blank_count) == (Decimal('3.13'), 1)
+    def _translation_criterion(
+        self, key: str, weight: int
+    ) -> CurriculumTranslationRubricCriterionSnapshot:
+        return CurriculumTranslationRubricCriterionSnapshot(
+            key=key,
+            name=key,
+            description=f'Evaluate {key}',
+            weight_percentage=weight,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'{key}-level-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id=f'{key}-unknown', text='Inconclusive'
+            ),
+        )
+
+    def _use_translation_snapshot(self) -> None:
+        filler = tuple(
+            CurriculumChoiceQuestionSnapshot(
+                key=f'q{number}',
+                kind='single_choice',
+                prompt='Choose',
+                options=(
+                    CurriculumChoiceOptionSnapshot(key='a', text='A', is_correct=True),
+                ),
+                correct_explanation='Correct',
+                incorrect_explanation='Wrong',
+            )
+            for number in (1, 2)
+        )
+        question = CurriculumTranslationQuestionSnapshot(
+            key='qt',
+            prompt='Translate',
+            source_language='pt-BR',
+            target_language='en-US',
+            source_text='Bom dia',
+            reference_translations=('Good morning',),
+            concept_criteria=(),
+        )
+        part = CurriculumTranslationRubricPartSnapshot(
+            question_key='qt',
+            weight_percentage=Decimal(40),
+            criteria=(
+                self._translation_criterion('semantic_preservation', 70),
+                self._translation_criterion('grammatical_adequacy', 30),
+            ),
+        )
+        snapshot = CurriculumLearningActivitySnapshot(
+            id='activity-1',
+            competency_id='competency-1',
+            difficulty='easy',
+            title='Translation',
+            questions=(*filler, question),
+            parts=(
+                CurriculumChoicePartSnapshot(
+                    question_key='q1', weight_percentage=Decimal(30)
+                ),
+                CurriculumChoicePartSnapshot(
+                    question_key='q2', weight_percentage=Decimal(30)
+                ),
+                part,
+            ),
+            required_concept_ids=(),
+            activity_type='learning',
+            schema_version=1,
+            revision='revision-1',
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+
+    def test_should_score_a_conclusive_translation_answer(self) -> None:
+        self._use_translation_snapshot()
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+        answer = TranslationAnswer(question_key='qt', text='Good morning')
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            answer,
+        )
+
+        assert result.status == 'conclusive'
+        assert (
+            result.score
+            == Decimal(100) * Decimal(70) / 100 + Decimal(75) * Decimal(30) / 100
+        )
+        assert result.submitted_text == 'Good morning'
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_mandatory_inconclusive_translation_criterion_has_no_score(self) -> None:
+        self._use_translation_snapshot()
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(
+                    key='semantic_preservation', level='inconclusive'
+                ),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+        answer = TranslationAnswer(question_key='qt', text='Good morning')
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            answer,
+        )
+
+        assert result.status == 'inconclusive'
+        assert result.score is None
+        assert result.submitted_text == 'Good morning'

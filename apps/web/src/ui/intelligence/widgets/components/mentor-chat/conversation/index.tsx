@@ -1,3 +1,5 @@
+import { useId } from 'react'
+
 import { MemoryChangeMarker } from './memory-change-marker'
 import { MessageItem } from './message-list/message-item'
 import { ResponseStatus } from './response-status'
@@ -18,6 +20,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     isCancellingResponse,
     isRetryingResponse,
     isSummarizingContext,
+    isAiQuotaBlocked,
     cancelResponse,
     retryResponse,
     conversationError,
@@ -33,12 +36,13 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
     trailingMemoryItems,
     trailingActionItems,
   } = useConversation()
+  const aiQuotaBlockedId = useId()
   const messages = sessionDetail?.messages.items ?? []
 
   return (
     <section aria-label='Conversa com o Mentor' className='flex min-h-0 flex-1 flex-col'>
       <div
-        className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin] ${surface === 'fab' ? 'px-6' : 'px-4'}`}
+        className={`flex min-h-0 flex-1 flex-col overflow-y-auto py-2 sm:py-5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin] ${surface === 'fab' ? 'px-6' : 'px-4'}`}
         onScroll={handleScroll}
         ref={scrollRef}
       >
@@ -101,6 +105,8 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
             isPending={isCancellingResponse || isRetryingResponse}
             onCancel={cancelResponse}
             onRetry={retryResponse}
+            isAiQuotaBlocked={isAiQuotaBlocked}
+            aiQuotaBlockedId={aiQuotaBlockedId}
           />
         ) : null}
         {trailingActionItems.length > 0 ? (
@@ -127,7 +133,7 @@ export const Conversation = ({ surface = 'fab' }: ConversationProps) => {
           </p>
         ) : null}
       </div>
-      <Composer surface={surface} />
+      <Composer aiQuotaBlockedId={aiQuotaBlockedId} surface={surface} />
     </section>
   )
 }

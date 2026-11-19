@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createServerFn } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
 
@@ -9,7 +9,11 @@ import {
 } from '@/core/intelligence/planning-session'
 import { withPlanningService } from '@/provision/planning/planning-server-provider'
 
-import { unwrapPlanningResult } from './planning-request-error'
+import {
+  isPlanningQuotaExhaustedError,
+  unwrapPlanningResult,
+} from './planning-request-error'
+import { AI_QUOTA_USAGE_QUERY_KEY } from './ai-quota-usage-query-key'
 
 const INPUT = z
   .object({
@@ -27,11 +31,16 @@ export const restartPlanningServer = createServerFn({ method: 'POST' })
   )
 
 export const useRestartPlanningAction = (planningId: string) => {
+  const queryClient = useQueryClient()
   const { error, isPending, mutateAsync } = useMutation({
     mutationFn: async (initialIntent: string) =>
       unwrapPlanningResult(
         await restartPlanningServer({ data: { planningId, initialIntent } }),
       ),
+    onError: (error) => {
+      if (isPlanningQuotaExhaustedError(error))
+        void queryClient.invalidateQueries({ queryKey: AI_QUOTA_USAGE_QUERY_KEY })
+    },
   })
 
   return {

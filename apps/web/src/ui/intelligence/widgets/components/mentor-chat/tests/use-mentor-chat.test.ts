@@ -71,6 +71,7 @@ const baseValue: MentorContextValue = {
   submissionError: null,
   renameError: null,
   removalError: null,
+  isAiQuotaRefused: false,
   openPanel: vi.fn(),
   closePanel: vi.fn(),
   showPanelHistory: vi.fn(),

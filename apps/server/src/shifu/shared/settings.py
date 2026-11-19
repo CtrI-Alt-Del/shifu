@@ -1,3 +1,4 @@
+from decimal import Decimal
 from functools import lru_cache
 from typing import Annotated, Literal
 
@@ -15,6 +16,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env.local', extra='ignore')
 
     redis_url: str
+    # Shared monthly AI quota. Required: a missing or zero value stops the server.
+    ai_quota_monthly_limit_units: int = Field(gt=0)
+    ai_quota_input_weight: Decimal = Field(gt=0)
+    ai_quota_output_weight: Decimal = Field(gt=0)
     diagnostic_revision_hmac_key: SecretStr | None = None
     openrouter_api_key: str | None = None
     openrouter_prompt_logging_disabled: bool = False

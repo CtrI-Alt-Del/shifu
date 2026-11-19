@@ -119,6 +119,16 @@ export type FillBlanksQuestion = {
   bank: readonly FillBlanksWord[]
 }
 
+export type TranslationQuestion = {
+  key: string
+  kind: 'translation'
+  prompt: string
+  sourceLanguage: string
+  targetLanguage: string
+  sourceText: string
+  criteria: readonly { key: string; name: string; weightPercentage: number }[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
@@ -126,6 +136,7 @@ export type ActivityQuestion =
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
   | FillBlanksQuestion
+  | TranslationQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -162,7 +173,17 @@ export type FillBlanksAnswer = {
   placements: readonly FillBlanksPlacement[]
 }
 
-export type ActivityAnswer = ChoiceAnswer | CodeAnswer | FillBlanksAnswer
+export type TranslationAnswer = {
+  kind: 'translation'
+  questionKey: string
+  text: string
+}
+
+export type ActivityAnswer =
+  | ChoiceAnswer
+  | CodeAnswer
+  | FillBlanksAnswer
+  | TranslationAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -179,6 +200,7 @@ export type PreliminaryQuestionResult = {
   submittedFiles?: readonly { path: string; content: string }[]
   correctBlankCount?: number
   blankCount?: number
+  submittedText?: string
 }
 
 export type ChoiceSubmission = {
@@ -240,10 +262,31 @@ export type FillBlanksResultQuestion = {
   expectedBlanks: readonly { blankKey: string; acceptedWords: readonly string[] }[]
 }
 
+export type TranslationResultQuestion = {
+  key: string
+  kind: 'translation'
+  prompt: string
+  score: number | null
+  submittedText: string
+  criterionResults: readonly {
+    key: string
+    weightPercentage: number
+    level: number | string
+    commentId: string
+    comment: string
+  }[]
+  conceptObservations: readonly {
+    conceptId: string
+    level: number | string
+    observationId: string
+  }[]
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
   | FillBlanksResultQuestion
+  | TranslationResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

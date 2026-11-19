@@ -1,0 +1,22 @@
+SHIFU-126 — verificação real dos fixtures locais
+Data: 17/11/2026 — America/Sao_Paulo
+Responsável indicado na task: gabrielsoliveira1606; coleta técnica assistida por Codex.
+Diretório de execução: raiz do repositório
+Verificação: Python local de apps/server, Pillow e pypdf; csv/json da biblioteca padrão.
+
+packages/iac/fixtures/private/documento-v1.pdf: 616 bytes; SHA-256=f72ef2d3268a25b10110346523bae0eb54f25103ad73296a3f3c11af4bdb640f
+  PDF legível: 1 página; texto=Shifu storage lab - versao 1 do PDF
+packages/iac/fixtures/private/documento-v2.pdf: 622 bytes; SHA-256=642ddc65a85d7f5dec1cce30510d7e1a4067a3751e71ffa601d3bce004ea976a
+  PDF legível: 1 página; texto=Shifu storage lab - versao 2 do mesmo PDF
+packages/iac/fixtures/private/exemplo.csv: 134 bytes; SHA-256=89d3a2e1b3909a02e1eef735959fa7566d9948c7bd602d01f3a28147ca8be12b
+  CSV legível: 4 linhas incluindo cabeçalho.
+packages/iac/fixtures/private/exemplo.json: 120 bytes; SHA-256=93bc24ca2918235c072edc1cd7a7f765d8a9afbb41ece9947e1f567a3fd36475
+  JSON válido.
+packages/iac/fixtures/private/exemplo.png: 11239 bytes; SHA-256=f62e30274e1e4dfaf4b90cc120b211808c724c94c80e8233b59b5a052cac09e9
+  PNG decodificado: 720x300; modo=RGBA
+packages/iac/fixtures/private/exemplo.txt: 60 bytes; SHA-256=ee5c191d167f82a9ee13a23c2cb4b86e702162f28603fcb5538b6dc6e8b9b414
+  TXT UTF-8 legível.
+
+archive/historico.csv: 493543 bytes; 7001 linhas incluindo cabeçalho.
+Cinco tipos privados verificados; seis arquivos privados abaixo de 2.000.000 bytes.
+SVG removido. Nenhum upload, VersionId, resposta do Mentor ou transição S3 foi comprovado por esta verificação.

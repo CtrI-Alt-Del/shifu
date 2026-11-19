@@ -96,6 +96,14 @@ class FillBlanksQuestionResultResponse(BaseModel):
     blank_count: int
     explanation: str
     disclosed_expected_blanks: tuple[FillBlanksExpectedBlankResponse, ...]
+class TranslationQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: str
+    prompt: str
+    submitted_text: str
+    score: Decimal | None
+    criterion_results: tuple[CriterionResultResponse, ...]
+    concept_observations: tuple[ConceptObservationResponse, ...]
 
 
 class Response(BaseModel):
@@ -114,7 +122,8 @@ class Response(BaseModel):
     questions: tuple[
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
-        | FillBlanksQuestionResultResponse,
+        | FillBlanksQuestionResultResponse
+        | TranslationQuestionResultResponse,
         ...,
     ] = ()
 

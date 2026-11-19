@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from datetime import timedelta
 from json import dumps, loads
-from typing import TYPE_CHECKING, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, ClassVar, Literal, TypeGuard, cast
 
+from agno.metrics import RunMetrics
 from agno.run.base import RunStatus
 from agno.workflow import Loop
 from agno.workflow.step import Step
@@ -29,6 +31,7 @@ from shifu.intelligence.core.domain.enums import (
     PlanningQuestionKind,
 )
 from shifu.intelligence.core.domain.structures import (
+    AiTokenCount,
     PlanningOperationContext,
     PlanningOperationResult,
     PlanningOption,
@@ -66,6 +69,7 @@ if TYPE_CHECKING:
         ClassifyPlanningIntentUseCase,
         CompletePlanningOperationUseCase,
         PreparePlanningOperationUseCase,
+        RecordPlanningInferenceUsageUseCase,
         ReportPlanningProgressUseCase,
         RetrievePlanningSkillsUseCase,
     )
@@ -75,6 +79,7 @@ if TYPE_CHECKING:
     )
 
 
+_logger = logging.getLogger(__name__)
 _UNAVAILABLE = 'Planning operation processing is unavailable.'
 _HANDOFF_CAPABILITY = 'plan-goal'
 _ULID = r'^[0-7][0-9A-HJKMNP-TV-Z]{25}$'
@@ -101,6 +106,47 @@ class _StepReference(BaseModel):
 
 
 @dataclass(slots=True)
+class _PlanningUsage:
+    """Token counts accumulated over the agent runs of one operation attempt."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_only_tokens: int = 0
+    counted: bool = False
+
+    def add(self, metrics: object) -> None:
+        if not isinstance(metrics, RunMetrics):
+            return
+        inputs, outputs, total = (
+            metrics.input_tokens,
+            metrics.output_tokens,
+            metrics.total_tokens,
+        )
+        if self._is_count(inputs) and self._is_count(outputs) and inputs + outputs > 0:
+            self.counted = True
+            self.input_tokens += inputs
+            self.output_tokens += outputs
+        elif self._is_count(total) and total > 0:
+            self.counted = True
+            self.total_only_tokens += total
+
+    @staticmethod
+    def _is_count(value: object) -> TypeGuard[int]:
+        return type(value) is int and value >= 0
+
+    def cumulative(self) -> AiTokenCount:
+        if not self.counted:
+            return AiTokenCount(input_tokens=None, output_tokens=None, used_tokens=None)
+        # A run that reported only a total is charged at the input weight.
+        inputs = self.input_tokens + self.total_only_tokens
+        return AiTokenCount(
+            input_tokens=inputs,
+            output_tokens=self.output_tokens,
+            used_tokens=inputs + self.output_tokens,
+        )
+
+
+@dataclass(slots=True)
 class _ExecutionState:
     context: PlanningOperationContext | None
     classification: PlanningIntentKind | None = None
@@ -109,6 +155,7 @@ class _ExecutionState:
     problems: tuple[str, ...] = ()
     drafts: int = 0
     result: PlanningOperationResult | None = None
+    usage: _PlanningUsage = field(default_factory=_PlanningUsage)
 
 
 class PlanGoalWorkflow(Workflow):
@@ -122,6 +169,7 @@ class PlanGoalWorkflow(Workflow):
         prepare_use_case: PreparePlanningOperationUseCase,
         complete_use_case: CompletePlanningOperationUseCase,
         progress_use_case: ReportPlanningProgressUseCase,
+        record_usage_use_case: RecordPlanningInferenceUsageUseCase,
         classify_use_case: ClassifyPlanningIntentUseCase,
         retrieve_use_case: RetrievePlanningSkillsUseCase,
         interview_agent: PlanningInterviewAgent,
@@ -132,6 +180,7 @@ class PlanGoalWorkflow(Workflow):
         self._prepare = prepare_use_case
         self._complete = complete_use_case
         self._progress = progress_use_case
+        self._record_usage = record_usage_use_case
         self._classify = classify_use_case
         self._retrieve = retrieve_use_case
         self._interview = interview_agent
@@ -183,6 +232,7 @@ class PlanGoalWorkflow(Workflow):
             prepare_use_case=self._prepare,
             complete_use_case=self._complete,
             progress_use_case=self._progress,
+            record_usage_use_case=self._record_usage,
             classify_use_case=self._classify,
             retrieve_use_case=self._retrieve,
             interview_agent=copy_agent(self._interview),
@@ -245,7 +295,7 @@ class PlanGoalWorkflow(Workflow):
         self._report(context, PlanningOperationStage.INTERVIEWING)
         try:
             output = PlanningInterviewOutput.model_validate(
-                self._run_agent(self._interview, self._interview_payload(state)),
+                self._run_agent(self._interview, self._interview_payload(state), state),
                 strict=True,
             )
         except Exception:  # noqa: BLE001 - private model failures fail closed.
@@ -269,7 +319,7 @@ class PlanGoalWorkflow(Workflow):
             self._report(context, PlanningOperationStage.COMPOSING)
         try:
             output = PlanningProposalOutput.model_validate(
-                self._run_agent(self._proposal, self._proposal_payload(state)),
+                self._run_agent(self._proposal, self._proposal_payload(state), state),
                 strict=True,
             )
         except Exception:  # noqa: BLE001 - private model failures fail closed.
@@ -355,11 +405,33 @@ class PlanGoalWorkflow(Workflow):
             return True
         return reference.decision != 'retry'
 
-    def _run_agent(self, agent: Agent, payload: dict[str, object]) -> object:
+    def _report_usage(
+        self, context: PlanningOperationContext, usage: _PlanningUsage
+    ) -> None:
+        if usage.total_only_tokens:
+            _logger.warning(
+                'ai_quota_total_only_usage kind=planning_operation request_id=%s',
+                context.operation_id,
+            )
+        try:
+            self._record_usage.execute(context.operation_id, usage.cumulative())
+        except Exception:  # noqa: BLE001 - usage is reported best effort, like progress.
+            _logger.warning(
+                'ai_quota_usage_report_failed kind=planning_operation request_id=%s',
+                context.operation_id,
+            )
+
+    def _run_agent(
+        self, agent: Agent, payload: dict[str, object], state: _ExecutionState
+    ) -> object:
         with mentor_transport_failure_scope() as failure:
             response: RunOutput = agent.run(  # pyright: ignore[reportUnknownMemberType] - Agno Agent lacks complete stubs.
                 input=dumps(payload, ensure_ascii=False)
             )
+            # The run spent tokens whatever its outcome, so it is reported first.
+            if state.context is not None:
+                state.usage.add(response.metrics)
+                self._report_usage(state.context, state.usage)
             failure.raise_if_failed()
         if response.status != RunStatus.completed:
             raise ServiceUnavailableError(_UNAVAILABLE)

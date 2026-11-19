@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import pytest
 from fastapi import FastAPI
@@ -23,6 +23,7 @@ from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeQuestionAssessmentDecisions,
+    TranslationQuestionAssessmentDecisions,
 )
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import (
@@ -57,6 +58,9 @@ from tests.fixtures.react_activity_fixture import (
 )
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
+)
+from tests.learning.rest.controllers.translation_controller_fixture import (
+    TranslationControllerFixture,
 )
 
 if TYPE_CHECKING:
@@ -217,6 +221,99 @@ class TestGetChoiceAttemptController:
             'script.js',
             'styles.css',
         ]
+
+    @pytest.mark.parametrize(
+        ('decisions', 'expected_question_score', 'expected_activity_score'),
+        [
+            ((100, 100), '100', '100.00'),
+            ((100, 50), '85', '94.00'),
+            ((0, 0), '0', '60.00'),
+        ],
+        ids=('full', 'partial', 'none'),
+    )
+    def test_translation_attempt_discloses_score_band_and_hides_reference(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        decisions: tuple[Literal[0, 25, 50, 75, 100], Literal[0, 25, 50, 75, 100]],
+        expected_question_score: str,
+        expected_activity_score: str,
+    ) -> None:
+        activity = TranslationControllerFixture.activity()
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many([activity])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                TranslationControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                TranslationControllerFixture.attempts_path(),
+                json=TranslationControllerFixture.submission(revision),
+                headers=headers,
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        semantic_level, grammar_level = decisions
+        EvaluateChoiceActivityUseCase(
+            learning,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(
+            attempt_id,
+            evaluation.run_id,
+            translation_decisions=(
+                TranslationQuestionAssessmentDecisions(
+                    question_key='q3',
+                    decisions=CodeRubricDecisions(
+                        criterion_levels=(
+                            CodeCriterionDecision(
+                                key='semantic_preservation', level=semantic_level
+                            ),
+                            CodeCriterionDecision(
+                                key='grammatical_adequacy', level=grammar_level
+                            ),
+                        ),
+                        concept_levels=(),
+                    ),
+                ),
+            ),
+        )
+
+        result = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{TranslationControllerFixture.attempts_path()}/{attempt_id}',
+                headers=headers,
+            ),
+        )
+        assert result.status_code == 200, result.json()
+        body = result.json()
+        assert body['status'] == 'completed'
+        assert body['score'] == expected_activity_score
+        translation = body['questions'][2]
+        assert translation['kind'] == 'translation'
+        assert translation['submitted_text'] == (
+            TranslationControllerFixture.SUBMITTED_TEXT
+        )
+        assert translation['score'] == expected_question_score
+        assert 'reference_translations' not in translation
 
     def test_integrated_history_preserves_snapshot_after_curriculum_changes(
         self,

@@ -90,9 +90,9 @@ than phases/task trees. Handoff does not replace actionable authorized work.
 | --- | --- | --- | --- |
 | <actual IDs> | <RF/CA IDs> | <EV IDs> | <implemented/partially_implemented/not_implemented/not_applicable> |
 
-| PR | Current head SHA | CI / review state | Run / artifacts |
-| --- | --- | --- | --- |
-| <authorized delivery PR URL> | <actual checked head> | <Pending/Passed/Failed; blocking conversations> | <applicable run URLs/results> |
+| PR | Current head SHA | Review state |
+| --- | --- | --- |
+| <authorized delivery PR URL> | <actual head> | <blocking conversations> |
 
 | Field | Result |
 | --- | --- |
@@ -102,8 +102,9 @@ than phases/task trees. Handoff does not replace actionable authorized work.
 | Revision History | <material amendments in Spec or no contract change> |
 | Limitations | <waivers, partial scope, outstanding obligations or none> |
 
-Populate PR rows only when applicable; preserve superseded heads and failed runs.
-Published delivery completes after required current-head CI and blocking review
-conversations are resolved. Local closure records publication/CI as not requested
-or not applicable, with its reason. Follow [SDD](../../sdd.md) and
+Populate PR rows only when applicable; preserve superseded heads. Do not record
+GitHub CI results here: the PR checks are the record. Published delivery completes
+after required current-head CI passes and blocking review conversations are
+resolved. Local closure records publication as not requested or not applicable,
+with its reason. Follow [SDD](../../sdd.md) and
 [Conclude Spec](../../prompts/conclude-spec-prompt.md).

@@ -17,6 +17,7 @@ from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     ChoiceAnswerSubmission,
     CodeAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -49,7 +50,7 @@ class DiagnosticSubmissionItem:
     competency_id: str
     activity_id: str
     activity_revision: str
-    answers: tuple[ChoiceAnswerSubmission | CodeAnswer, ...]
+    answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...]
 
 
 @dataclass(frozen=True)
