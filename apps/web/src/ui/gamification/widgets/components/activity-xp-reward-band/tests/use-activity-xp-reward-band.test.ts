@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ActivityXpReward } from '@/core/gamification/activity-xp-reward'
 
+import { createQueryClientWrapper } from '@/ui/gamification/tests/streak-reminder-transport-support'
+
 import { useActivityXpRewardBand } from '../use-activity-xp-reward-band'
 import {
   MAX_POLL_ATTEMPTS,
@@ -47,7 +49,12 @@ describe('useActivityXpRewardBand', () => {
   beforeEach(() => mockQuery())
 
   it('reports pending while the query has not resolved yet', () => {
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({ status: 'pending' })
   })
@@ -59,7 +66,12 @@ describe('useActivityXpRewardBand', () => {
       pollAttempts: MAX_POLL_ATTEMPTS - 1,
     })
 
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({ status: 'pending' })
   })
@@ -71,7 +83,12 @@ describe('useActivityXpRewardBand', () => {
       pollAttempts: MAX_POLL_ATTEMPTS,
     })
 
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({ status: 'unavailable' })
   })
@@ -87,7 +104,12 @@ describe('useActivityXpRewardBand', () => {
       isLoadingReward: false,
     })
 
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({
       status: 'granted',
@@ -103,7 +125,12 @@ describe('useActivityXpRewardBand', () => {
       isLoadingReward: false,
     })
 
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({
       status: 'no-additional',
@@ -115,8 +142,78 @@ describe('useActivityXpRewardBand', () => {
   it('reports unavailable when the query rejects', () => {
     mockQuery({ rewardError: new Error('unavailable'), isLoadingReward: false })
 
-    const { result } = renderHook(() => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID))
+    const { result } = renderHook(
+      () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+      {
+        wrapper: createQueryClientWrapper().wrapper,
+      },
+    )
 
     expect(result.current).toEqual({ status: 'unavailable' })
+  })
+
+  describe('streak reminder refresh', () => {
+    function renderWithClient() {
+      const { client, wrapper } = createQueryClientWrapper()
+      const invalidateQueriesSpy = vi.spyOn(client, 'invalidateQueries')
+      const rendered = renderHook(
+        () => useActivityXpRewardBand(ACTIVITY_ID, ATTEMPT_ID),
+        {
+          wrapper,
+        },
+      )
+      return { ...rendered, invalidateQueriesSpy }
+    }
+
+    it('does not refresh the invite state while the reward is pending', () => {
+      const { invalidateQueriesSpy } = renderWithClient()
+
+      expect(invalidateQueriesSpy).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      [
+        'granted',
+        { state: 'granted', additionalXp: 6, grantedXp: 6, maximumXp: 10 } as const,
+      ],
+      [
+        'no-additional',
+        { state: 'no-additional', grantedXp: 10, maximumXp: 10 } as const,
+      ],
+    ])(
+      'refreshes the invite state once when the reward leaves pending as %s',
+      (_status, settled) => {
+        const { rerender, invalidateQueriesSpy } = renderWithClient()
+
+        mockQuery({ reward: reward(settled), isLoadingReward: false })
+        rerender()
+        rerender()
+
+        expect(invalidateQueriesSpy).toHaveBeenCalledOnce()
+        expect(invalidateQueriesSpy).toHaveBeenCalledWith({
+          queryKey: ['gamification', 'streak-reminder'],
+        })
+      },
+    )
+
+    it('refreshes the invite state when the pending reward becomes unavailable', () => {
+      const { rerender, invalidateQueriesSpy } = renderWithClient()
+
+      mockQuery({ rewardError: new Error('unavailable'), isLoadingReward: false })
+      rerender()
+
+      expect(invalidateQueriesSpy).toHaveBeenCalledOnce()
+    })
+
+    it('does not refresh the invite state when the reward was already settled', () => {
+      mockQuery({
+        reward: reward({ state: 'no-additional', grantedXp: 10, maximumXp: 10 }),
+        isLoadingReward: false,
+      })
+
+      const { invalidateQueriesSpy } = renderWithClient()
+
+      expect(invalidateQueriesSpy).not.toHaveBeenCalled()
+    })
   })
 })

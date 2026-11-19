@@ -3,6 +3,7 @@ import type { PropsWithChildren, ReactNode } from 'react'
 
 import { ROUTES } from '@/constants/routes'
 
+import { StreakReminderInvite } from '@/ui/gamification/widgets/components/streak-reminder-invite'
 import { MentorContextProvider } from '@/ui/intelligence/contexts/mentor-context'
 import { MentorFab } from '@/ui/intelligence/widgets/components/mentor-fab'
 
@@ -59,6 +60,7 @@ export const AppLayout = ({
         isMemoriesPage={pathname.replace(/\/+$/, '') === ROUTES.intelligenceMemories}
         isMentorPage={pathname.replace(/\/+$/, '') === ROUTES.intelligence}
       />
+      <StreakReminderInvite accountEmail={account.email} />
     </MentorContextProvider>
   )
 }

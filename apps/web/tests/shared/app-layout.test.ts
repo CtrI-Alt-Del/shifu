@@ -20,6 +20,13 @@ import {
   SKILL_NAME,
 } from '../support/mentor-actions-backend'
 import {
+  collectApplicationErrors,
+  installBrowserPushStub,
+  installStreakReminderBackend,
+  pushStubCalls,
+  STUB_SUBSCRIPTION,
+} from '../support/streak-reminder-backend'
+import {
   installMentorMemoriesBackend,
   MEMORY_IDS,
   openMentorFabConversation,
@@ -549,4 +556,206 @@ test('declines a card in the floating Mentor and releases the composer', async (
   await expect(panel.getByRole('textbox')).toBeEnabled({ timeout: 15_000 })
   expect(backend.callsOf('declineMentorActionProposalServer')).toHaveLength(1)
   expect(backend.callsOf('confirmMentorSkill')).toHaveLength(0)
+})
+
+const INVITE_TITLE = 'Quer um lembrete para manter sua sequência?'
+
+const INVITE_VIEWPORTS = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+] as const
+
+// Browser integration with a mocked transport and a stubbed Push API: proves the
+// invite's rendered contract and the order of its requests, not real delivery.
+test.describe('AppLayout streak reminder invite', () => {
+  for (const viewport of INVITE_VIEWPORTS) {
+    test(`opens after the first practice day, enrolls this browser and saves the hour by keyboard at ${viewport.width} x ${viewport.height}`, async ({
+      authenticatedPage: page,
+    }) => {
+      const errors = collectApplicationErrors(page)
+      await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      const backend = await installStreakReminderBackend(page, {
+        inviteStatus: 'pending',
+        hour: 18,
+      })
+      await installBrowserPushStub(page, {
+        permission: 'default',
+        requestResult: 'granted',
+      })
+      await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+      const invite = page.getByRole('dialog', { name: INVITE_TITLE })
+      await expect(invite).toBeVisible()
+      await expect(
+        invite.getByText('O navegador vai pedir sua permissão.', { exact: false }),
+      ).toBeVisible()
+      // The benefit is explained before any permission request or answer.
+      expect(await pushStubCalls(page)).toEqual([])
+      expect(backend.writeOrder()).toEqual([])
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width)
+
+      const enable = invite.getByRole('button', { name: 'Ativar lembretes' })
+      // The primary action takes the initial focus, not the dialog container.
+      await expect(enable).toBeFocused()
+      // Visual order and keyboard order agree: "Agora não" comes first on both viewports.
+      const [declineBox, enableBox] = await Promise.all([
+        invite.getByRole('button', { name: 'Agora não' }).boundingBox(),
+        enable.boundingBox(),
+      ])
+      expect(declineBox?.x).toBeLessThan(enableBox?.x ?? 0)
+      expect(Math.abs((declineBox?.y ?? 0) - (enableBox?.y ?? 0))).toBeLessThan(2)
+      expect(
+        await invite.evaluate((element) => getComputedStyle(element).outlineStyle),
+      ).toBe('none')
+      await page.keyboard.press('Enter')
+
+      const hourStep = page.getByRole('dialog', { name: 'Lembretes ativados' })
+      await expect(hourStep).toBeVisible()
+      const hourField = hourStep.getByRole('combobox', { name: 'Horário do lembrete' })
+      await expect(hourField).toContainText('18:00')
+      await expect(hourField).toBeFocused()
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(viewport.width)
+
+      await hourField.focus()
+      await page.keyboard.press('Enter')
+      await page.getByRole('option', { name: '19:00' }).click()
+      await expect(hourField).toContainText('19:00')
+      await hourStep.getByRole('button', { name: 'Salvar horário' }).focus()
+      await page.keyboard.press('Enter')
+
+      await expect(hourStep).not.toBeVisible()
+      expect(backend.writeOrder()).toEqual([
+        'answer',
+        'public-key',
+        'subscription',
+        'preference',
+        'hour',
+      ])
+      expect(backend.callsNamed('subscription')[0].data).toMatchObject({
+        accountEmail: 'playwright@shifu.local',
+        ...STUB_SUBSCRIPTION,
+      })
+      expect(backend.callsNamed('preference')[0].data).toMatchObject({ enabled: true })
+      expect(backend.callsNamed('hour')[0].data).toMatchObject({ hour: 19 })
+      expect(await pushStubCalls(page)).toEqual([
+        'requestPermission',
+        'register /sw.js',
+        'subscribe',
+      ])
+      expect(errors).toEqual([])
+
+      await navigateAuthenticatedPage(page, ROUTES.root)
+      await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toHaveCount(0)
+    })
+  }
+
+  test('answers "Agora não" once, requests no permission and never reopens', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installStreakReminderBackend(page, { inviteStatus: 'pending' })
+    await installBrowserPushStub(page)
+    await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+    const invite = page.getByRole('dialog', { name: INVITE_TITLE })
+    await expect(invite).toBeVisible()
+    await invite.getByRole('button', { name: 'Agora não' }).click()
+
+    await expect(invite).not.toBeVisible()
+    expect(backend.writeOrder()).toEqual(['answer'])
+    expect(await pushStubCalls(page)).toEqual([])
+    await navigateAuthenticatedPage(page, ROUTES.root)
+    await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toHaveCount(0)
+    expect(backend.writeOrder()).toEqual(['answer'])
+  })
+
+  test('closes with Escape and records the answer', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installStreakReminderBackend(page, { inviteStatus: 'pending' })
+    await installBrowserPushStub(page)
+    await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+    const invite = page.getByRole('dialog', { name: INVITE_TITLE })
+    await expect(invite).toBeVisible()
+    await expect(invite.getByRole('button', { name: 'Fechar' })).toBeVisible()
+    await page.keyboard.press('Escape')
+
+    await expect(invite).not.toBeVisible()
+    await expect.poll(() => backend.writeOrder()).toEqual(['answer'])
+    expect(await pushStubCalls(page)).toEqual([])
+  })
+
+  test('closes without enrolling when the browser blocks notifications', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installStreakReminderBackend(page, { inviteStatus: 'pending' })
+    await installBrowserPushStub(page, { permission: 'default', requestResult: 'denied' })
+    await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+    const invite = page.getByRole('dialog', { name: INVITE_TITLE })
+    await invite.getByRole('button', { name: 'Ativar lembretes' }).click()
+
+    await expect(invite).not.toBeVisible()
+    await expect(
+      page.getByText('Sem problema. Você pode ativar os lembretes depois em Sua conta.'),
+    ).toBeVisible()
+    expect(backend.writeOrder()).toEqual(['answer'])
+    expect(await pushStubCalls(page)).toEqual(['requestPermission'])
+  })
+
+  test('does not open and stays unanswered in a browser without push support', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installStreakReminderBackend(page, { inviteStatus: 'pending' })
+    await installBrowserPushStub(page, { supported: false })
+    await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+    await expect.poll(() => backend.callsNamed('reminder-read').length).toBeGreaterThan(0)
+    await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toHaveCount(0)
+    expect(backend.writeOrder()).toEqual([])
+  })
+
+  test('stays closed before the first practice day and opens after the state refresh on navigation', async ({
+    authenticatedPage: page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    const backend = await installStreakReminderBackend(page, {
+      inviteStatus: 'not-eligible',
+    })
+    await installBrowserPushStub(page)
+    await navigateAuthenticatedPage(page, ROUTES.gamification)
+
+    await expect.poll(() => backend.callsNamed('reminder-read').length).toBeGreaterThan(0)
+    await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toHaveCount(0)
+
+    backend.state.inviteStatus = 'pending'
+    await navigateAuthenticatedPage(page, ROUTES.intelligence)
+
+    await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toBeVisible()
+  })
+
+  test('mounts no invite on public routes and requests no reminder state', async ({
+    page,
+  }) => {
+    let reminderReads = 0
+    await page.route('**/_serverFn/**', async (route) => {
+      if ((serverFnExport(route.request().url()) ?? '').startsWith('getStreakReminder_'))
+        reminderReads += 1
+      await route.fallback()
+    })
+
+    await page.goto('/login/')
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.getByRole('dialog', { name: INVITE_TITLE })).toHaveCount(0)
+    expect(reminderReads).toBe(0)
+  })
 })
