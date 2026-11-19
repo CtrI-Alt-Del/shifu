@@ -7,6 +7,7 @@ from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeSubmittedFile,
     MultipleSelectionAnswer,
+    OrderingAnswer,
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
@@ -19,6 +20,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -27,7 +29,7 @@ from shifu.shared.database.sqlalchemy.serialization import Serialization
 class ActivityAttemptMapper:
     @staticmethod
     def to_domain(model: ActivityAttemptModel) -> ActivityAttempt:
-        grading_snapshot = ActivityAttemptMapper._deserialize_snapshot(
+        grading_snapshot = ActivityAttemptMapper.snapshot_to_domain(
             model.grading_snapshot
         )
         return ActivityAttempt(
@@ -48,7 +50,7 @@ class ActivityAttemptMapper:
         )
 
     @staticmethod
-    def _deserialize_snapshot(
+    def snapshot_to_domain(
         value: object | None,
     ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if value is None:
@@ -77,6 +79,7 @@ class ActivityAttemptMapper:
                     'react',
                     'html_css_js',
                     'react_fastify',
+                    'ordering',
                 }
                 for question in questions
             ):
@@ -92,6 +95,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'html_css_js'
                     else CurriculumReactFastifyQuestionSnapshot
                     if question.get('kind') == 'react_fastify'
+                    else CurriculumOrderingQuestionSnapshot
+                    if question.get('kind') == 'ordering'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
@@ -113,7 +118,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -184,6 +189,15 @@ class ActivityAttemptMapper:
                         question_key=question_key,
                         selected_option_keys=tuple(
                             cast('list[str]', item['selected_option_keys'])
+                        ),
+                    )
+                )
+            elif question is not None and question.kind == 'ordering':
+                answers.append(
+                    OrderingAnswer(
+                        question_key=question_key,
+                        ordered_step_keys=tuple(
+                            cast('list[str]', item['ordered_step_keys'])
                         ),
                     )
                 )

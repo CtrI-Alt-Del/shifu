@@ -15,6 +15,7 @@ from shifu.curriculum.core.domain.structures import (
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     MultipleSelectionQuestion,
+    OrderingQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
     TestCasesEvaluationPart,
@@ -61,11 +62,18 @@ class ActivityMapper:
         | ReactQuestion
         | HtmlCssJsQuestion
         | ReactFastifyQuestion
+        | OrderingQuestion
     ):
         if data.get('kind') == 'javascript_stdin':
             return cast(
                 'JavascriptStdinQuestion',
                 Serialization.deserialize_value(data, JavascriptStdinQuestion),
+            )
+
+        if data.get('kind') == 'ordering':
+            return cast(
+                'OrderingQuestion',
+                Serialization.deserialize_value(data, OrderingQuestion),
             )
 
         if data.get('kind') == 'react_fastify':
@@ -138,7 +146,8 @@ class ActivityMapper:
             | JavascriptStdinQuestion
             | ReactQuestion
             | HtmlCssJsQuestion
-            | ReactFastifyQuestion,
+            | ReactFastifyQuestion
+            | OrderingQuestion,
             ...,
         ],
     ) -> (

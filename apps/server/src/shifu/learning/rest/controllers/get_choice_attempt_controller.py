@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path
 from pydantic import BaseModel, TypeAdapter
@@ -62,6 +62,23 @@ class CodeQuestionResultResponse(BaseModel):
     concept_observations: tuple[ConceptObservationResponse, ...]
 
 
+class OrderingStepResultResponse(BaseModel):
+    key: str
+    text: str
+
+
+class OrderingQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['ordering']
+    prompt: str
+    steps: tuple[OrderingStepResultResponse, ...]
+    submitted_step_keys: tuple[str, ...]
+    score: Decimal
+    is_correct: bool
+    explanation: str
+    accepted_orders: tuple[tuple[str, ...], ...] = ()
+
+
 class Response(BaseModel):
     attempt_id: str
     activity_id: str
@@ -76,7 +93,10 @@ class Response(BaseModel):
     status_after: str | None = None
     next_action: NextActionResponse | None = None
     questions: tuple[
-        ChoiceQuestionResultResponse | CodeQuestionResultResponse, ...
+        ChoiceQuestionResultResponse
+        | CodeQuestionResultResponse
+        | OrderingQuestionResultResponse,
+        ...,
     ] = ()
 
 

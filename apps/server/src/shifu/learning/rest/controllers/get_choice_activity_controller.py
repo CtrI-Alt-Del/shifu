@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -25,6 +26,27 @@ class ChoiceQuestionResponse(BaseModel):
     kind: Literal['single_choice', 'multiple_selection']
     prompt: str
     options: tuple[OptionResponse, ...]
+
+
+class OrderingStepResponse(BaseModel):
+    key: str
+    text: str
+
+
+class VerifiedOrderingResponse(BaseModel):
+    ordered_step_keys: tuple[str, ...]
+    score: Decimal
+    is_correct: bool
+    explanation: str
+
+
+class OrderingQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['ordering']
+    prompt: str
+    steps: tuple[OrderingStepResponse, ...]
+    initial_ordered_step_keys: tuple[str, ...]
+    verified: VerifiedOrderingResponse | None = None
 
 
 class FileResponse(BaseModel):
@@ -86,12 +108,15 @@ class Response(BaseModel):
     activity_id: str
     title: str
     difficulty: str
-    questions: tuple[ChoiceQuestionResponse | CodeQuestionResponse, ...]
+    questions: tuple[
+        ChoiceQuestionResponse | CodeQuestionResponse | OrderingQuestionResponse, ...
+    ]
     can_submit: bool
     latest_attempt_id: str | None
     unresolved_attempt_id: str | None
     is_diagnostic: bool = False
     activity_revision: str | None = None
+    ordering_passage_key: str | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)

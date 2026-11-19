@@ -67,6 +67,75 @@ describe('useActivityPage', () => {
     expect(result.current.runnerFactory).toBe(runnerFactory)
   })
 
+  it('verifies an ordering and submits the same frozen sequence with its passage key', async () => {
+    const orderingActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'order-1',
+          kind: 'ordering',
+          prompt: 'Organize as etapas.',
+          steps: [
+            { key: 'wash', text: 'Lavar' },
+            { key: 'cut', text: 'Cortar' },
+            { key: 'cook', text: 'Cozinhar' },
+          ],
+          initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+          verified: null,
+        },
+      ],
+    }
+    const uuidMock = vi
+      .fn()
+      .mockReturnValueOnce('passage-key')
+      .mockReturnValueOnce('submission-key')
+    vi.stubGlobal('crypto', { randomUUID: uuidMock })
+    const onPreviewMock = vi.fn().mockResolvedValue({
+      status: 'conclusive',
+      score: 100,
+      isCorrect: true,
+      explanation: 'Correto.',
+    })
+    const onSubmitMock = vi.fn().mockResolvedValue(submitted)
+    const { result } = renderHook(
+      () =>
+        useActivityPage({
+          activity: orderingActivity,
+          onPreview: onPreviewMock,
+          onSubmit: onSubmitMock,
+        }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleOrderingOrderChange(['cut', 'wash', 'cook']))
+    await act(async () => result.current.handleContinue())
+
+    expect(onPreviewMock).toHaveBeenCalledWith(
+      'order-1',
+      'revision-1',
+      {
+        kind: 'ordering',
+        questionKey: 'order-1',
+        orderedStepKeys: ['cut', 'wash', 'cook'],
+      },
+      'passage-key',
+    )
+    expect(result.current.feedback?.score).toBe(100)
+    await act(async () => result.current.handleContinue())
+    expect(onSubmitMock).toHaveBeenCalledWith({
+      activityRevision: 'revision-1',
+      answers: [
+        {
+          kind: 'ordering',
+          questionKey: 'order-1',
+          orderedStepKeys: ['cut', 'wash', 'cook'],
+        },
+      ],
+      passageKey: 'passage-key',
+      submissionKey: 'submission-key',
+    })
+  })
+
   it('preserves direct choice-only advance and submission without preliminary or revision', async () => {
     const legacyActivity = {
       ...activity,

@@ -11,11 +11,13 @@ from shifu.curriculum.core.domain.structures import (
     MaterialSequenceItem,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
+    OrderingQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     SingleChoiceQuestion,
 )
+from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
     diagnostic_coverage_gaps,
 )
@@ -27,6 +29,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceOptionSnapshot,
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumJavascriptInitialFileSnapshot,
@@ -197,8 +201,6 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             def activity_snapshot(
                 activity: object, position: int
             ) -> CurriculumActivitySnapshot:
-                from shifu.curriculum.core.domain.entities import Activity
-
                 if not isinstance(activity, Activity):
                     raise TypeError('Expected Curriculum Activity')
 
@@ -237,48 +239,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     concept_id: sum(scores) // len(scores)
                     for concept_id, scores in possible_scores.items()
                 }
-                has_executable_evidence = (
-                    all(
-                        (
-                            isinstance(
-                                question,
-                                (
-                                    JavascriptStdinQuestion,
-                                    ReactQuestion,
-                                    HtmlCssJsQuestion,
-                                    ReactFastifyQuestion,
-                                ),
-                            )
-                            or (
-                                isinstance(
-                                    question,
-                                    (SingleChoiceQuestion, MultipleSelectionQuestion),
-                                )
-                                and all(
-                                    criterion.correct_score is not None
-                                    or criterion.incorrect_score is not None
-                                    for criterion in question.concept_criteria
-                                )
-                            )
-                        )
-                        and bool(question.concept_criteria)
-                        for question in activity.questions
-                    )
-                    and len(activity.evaluation_rule.parts) == len(activity.questions)
-                    and bool(maximum)
-                    and all(
-                        isinstance(
-                            part, (CorrectnessEvaluationPart, CodeRubricEvaluationPart)
-                        )
-                        for part in activity.evaluation_rule.parts
-                    )
-                    and {part.question_key for part in activity.evaluation_rule.parts}
-                    == {question.key for question in activity.questions}
-                    and (
-                        activity.activity_type.value == 'diagnostic'
-                        or 3 <= len(activity.questions) <= 5
-                    )
-                )
+                executable_evidence = has_executable_evidence(activity, maximum)
                 return CurriculumActivitySnapshot(
                     id=activity.id,
                     title=activity.title,
@@ -289,7 +250,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     required_concept_ids=activity.required_concept_ids,
                     question_count_by_concept=tuple(sorted(counts.items())),
                     maximum_evidence_by_concept=tuple(sorted(maximum.items())),
-                    executable_concept_evidence=has_executable_evidence,
+                    executable_concept_evidence=executable_evidence,
                 )
 
             snapshot_competencies: list[CurriculumCompetencySnapshot] = []
@@ -544,6 +505,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
             }
             questions: list[
                 CurriculumChoiceQuestionSnapshot
+                | CurriculumOrderingQuestionSnapshot
                 | CurriculumJavascriptStdinQuestionSnapshot
                 | CurriculumReactQuestionSnapshot
                 | CurriculumHtmlCssJsQuestionSnapshot
@@ -553,7 +515,55 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
             ] = []
             for question in activity.questions:
-                if isinstance(
+                if isinstance(question, OrderingQuestion):
+                    if (
+                        activity_type != 'learning'
+                        or not question.accepted_orders
+                        or not question.concept_criteria
+                        or not {
+                            criterion.concept_id
+                            for criterion in question.concept_criteria
+                        }.issubset(concept_ids)
+                    ):
+                        return None
+
+                    questions.append(
+                        CurriculumOrderingQuestionSnapshot(
+                            key=question.key,
+                            kind='ordering',
+                            prompt=question.prompt,
+                            steps=tuple(
+                                CurriculumOrderingStepSnapshot(
+                                    key=step.key,
+                                    text=step.text,
+                                )
+                                for step in question.steps
+                            ),
+                            accepted_orders=question.accepted_orders,
+                            correct_explanation=question.correct_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumChoiceConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    correct_score=(
+                                        Decimal(criterion.correct_score)
+                                        if criterion.correct_score is not None
+                                        else None
+                                    ),
+                                    incorrect_score=(
+                                        Decimal(criterion.incorrect_score)
+                                        if criterion.incorrect_score is not None
+                                        else None
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                elif isinstance(
                     question, (SingleChoiceQuestion, MultipleSelectionQuestion)
                 ):
                     if (
@@ -971,3 +981,53 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 )
 
             return tuple(overviews)
+
+
+def has_executable_evidence(activity: Activity, maximum: dict[str, int]) -> bool:
+    return (
+        all(
+            (
+                isinstance(
+                    question,
+                    (
+                        JavascriptStdinQuestion,
+                        ReactQuestion,
+                        HtmlCssJsQuestion,
+                        ReactFastifyQuestion,
+                    ),
+                )
+                or (
+                    isinstance(question, OrderingQuestion)
+                    and all(
+                        criterion.correct_score is not None
+                        and criterion.incorrect_score is not None
+                        for criterion in question.concept_criteria
+                    )
+                )
+                or (
+                    isinstance(
+                        question, (SingleChoiceQuestion, MultipleSelectionQuestion)
+                    )
+                    and all(
+                        criterion.correct_score is not None
+                        or criterion.incorrect_score is not None
+                        for criterion in question.concept_criteria
+                    )
+                )
+            )
+            and bool(question.concept_criteria)
+            for question in activity.questions
+        )
+        and len(activity.evaluation_rule.parts) == len(activity.questions)
+        and bool(maximum)
+        and all(
+            isinstance(part, (CorrectnessEvaluationPart, CodeRubricEvaluationPart))
+            for part in activity.evaluation_rule.parts
+        )
+        and {part.question_key for part in activity.evaluation_rule.parts}
+        == {question.key for question in activity.questions}
+        and (
+            activity.activity_type.value == 'diagnostic'
+            or 3 <= len(activity.questions) <= 5
+        )
+    )

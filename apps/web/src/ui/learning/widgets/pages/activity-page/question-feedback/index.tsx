@@ -5,6 +5,7 @@ import type {
   ActivityAnswer,
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
+import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import './question-feedback.css'
 import { useQuestionFeedback } from './use-question-feedback'
@@ -45,6 +46,15 @@ export const QuestionFeedback = ({
         </p>
       ) : (
         <>
+          {question.kind === 'ordering' && feedback.isCorrect !== undefined ? (
+            <p className='flex items-center gap-2 text-sm font-semibold'>
+              <Icon
+                name={feedback.isCorrect ? 'circle-check' : 'circle-alert'}
+                size={18}
+              />
+              {feedback.isCorrect ? 'Ordem correta' : 'Ordem incorreta'}
+            </p>
+          ) : null}
           <p className={`text-sm font-medium ${scoreClassName}`}>
             Pontuação: <span className='font-mono'>{feedback.score ?? 0}%</span>
           </p>

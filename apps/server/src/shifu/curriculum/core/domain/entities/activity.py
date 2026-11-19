@@ -2,10 +2,12 @@ from shifu.curriculum.core.domain.structures import (
     ActivityQuestion,
     JavascriptStdinQuestion,
     CodeRubricEvaluationPart,
+    CorrectnessEvaluationPart,
     EvaluationRule,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
+    OrderingQuestion,
 )
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
@@ -42,56 +44,32 @@ class Activity:
         ):
             raise InvalidActivityError
 
-        has_code_question = any(
-            isinstance(
-                question,
-                (
-                    JavascriptStdinQuestion,
-                    ReactQuestion,
-                    HtmlCssJsQuestion,
-                    ReactFastifyQuestion,
-                ),
-            )
-            for question in self.questions
-        )
-        if has_code_question:
-            if (
-                len(part_keys) != len(self.evaluation_rule.parts)
-                or part_keys != question_keys
-            ):
-                raise InvalidActivityError
-
-            parts = {part.question_key: part for part in self.evaluation_rule.parts}
-            for question in self.questions:
-                part = parts[question.key]
-                if isinstance(
-                    question,
-                    (
-                        JavascriptStdinQuestion,
-                        ReactQuestion,
-                        HtmlCssJsQuestion,
-                        ReactFastifyQuestion,
-                    ),
-                ) != isinstance(part, CodeRubricEvaluationPart):
-                    raise InvalidActivityError
+        if _has_invalid_code_parts(
+            self.questions, self.evaluation_rule.parts, question_keys, part_keys
+        ):
+            raise InvalidActivityError
 
         if self.activity_type == ActivityType.DIAGNOSTIC and any(
             isinstance(
-                question, (ReactQuestion, HtmlCssJsQuestion, ReactFastifyQuestion)
+                question,
+                (
+                    ReactQuestion,
+                    HtmlCssJsQuestion,
+                    ReactFastifyQuestion,
+                    OrderingQuestion,
+                ),
             )
             for question in self.questions
         ):
             raise InvalidActivityError
 
+        if _has_invalid_ordering_part(self.questions, self.evaluation_rule.parts):
+            raise InvalidActivityError
+
         if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
             raise InvalidActivityError
 
-        assessed = {
-            criterion.concept_id
-            for question in self.questions
-            for criterion in getattr(question, 'concept_criteria', ())
-        }
-        if assessed.intersection(self.required_concept_ids):
+        if _has_required_concept_overlap(self.questions, self.required_concept_ids):
             raise InvalidActivityError
 
     @classmethod
@@ -119,3 +97,75 @@ class Activity:
             evaluation_rule=evaluation_rule,
             required_concept_ids=required_concept_ids,
         )
+
+
+def _has_invalid_ordering_part(
+    questions: tuple[ActivityQuestion, ...],
+    parts: tuple[object, ...],
+) -> bool:
+    parts_by_key = {
+        part.question_key: part
+        for part in parts
+        if isinstance(part, CorrectnessEvaluationPart | CodeRubricEvaluationPart)
+    }
+    return any(
+        isinstance(question, OrderingQuestion)
+        and not isinstance(parts_by_key.get(question.key), CorrectnessEvaluationPart)
+        for question in questions
+    )
+
+
+def _has_required_concept_overlap(
+    questions: tuple[ActivityQuestion, ...],
+    required_concept_ids: tuple[str, ...],
+) -> bool:
+    assessed = {
+        criterion.concept_id
+        for question in questions
+        for criterion in getattr(question, 'concept_criteria', ())
+    }
+    return bool(assessed.intersection(required_concept_ids))
+
+
+def _has_invalid_code_parts(
+    questions: tuple[ActivityQuestion, ...],
+    parts: tuple[object, ...],
+    question_keys: set[str],
+    part_keys: set[str],
+) -> bool:
+    code_questions = tuple(
+        question
+        for question in questions
+        if isinstance(
+            question,
+            (
+                JavascriptStdinQuestion,
+                ReactQuestion,
+                HtmlCssJsQuestion,
+                ReactFastifyQuestion,
+            ),
+        )
+    )
+    if not code_questions:
+        return False
+    if len(part_keys) != len(parts) or part_keys != question_keys:
+        return True
+
+    parts_by_key = {
+        part.question_key: part
+        for part in parts
+        if isinstance(part, CorrectnessEvaluationPart | CodeRubricEvaluationPart)
+    }
+    return any(
+        isinstance(
+            question,
+            (
+                JavascriptStdinQuestion,
+                ReactQuestion,
+                HtmlCssJsQuestion,
+                ReactFastifyQuestion,
+            ),
+        )
+        != isinstance(parts_by_key.get(question.key), CodeRubricEvaluationPart)
+        for question in questions
+    )

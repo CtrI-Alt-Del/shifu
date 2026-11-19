@@ -16,7 +16,11 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+    OrderingAnswer,
+    OrderingAnswerSubmission,
+    VerifiedOrdering,
 )
+from shifu.learning.core.domain.entities import OrderingPassage
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
     code_answer_at_size,
@@ -46,6 +50,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumCompetencySnapshot,
     CurriculumConceptSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactAdditionalFilePolicySnapshot,
     CurriculumReactInitialFileSnapshot,
@@ -253,6 +259,7 @@ class TestSubmitChoiceActivityUseCase:
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -1268,6 +1275,99 @@ class TestSubmitChoiceActivityUseCase:
         event = self.repositories.events.add.call_args.args[0]
         assert event.payload.attempt_id == attempt.id
         assert event.payload.run_id == evaluation.run_id
+
+    def test_should_submit_only_the_verified_order_and_consume_its_passage(
+        self,
+    ) -> None:
+        base = mixed_snapshot()
+        ordering_question = CurriculumOrderingQuestionSnapshot(
+            key='q3',
+            kind='ordering',
+            prompt='Organize as etapas.',
+            steps=tuple(
+                CurriculumOrderingStepSnapshot(key=key, text=text)
+                for key, text in (
+                    ('prepare', 'Preparar'),
+                    ('cook', 'Cozinhar'),
+                    ('serve', 'Servir'),
+                )
+            ),
+            accepted_orders=(
+                ('prepare', 'cook', 'serve'),
+                ('prepare', 'serve', 'cook'),
+            ),
+            correct_explanation='Sequência aceita.',
+            incorrect_explanation='Revise a sequência.',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id='concept-3',
+                    criterion='Ordem do processo',
+                    examples='Preparar antes de cozinhar.',
+                    limits='A apresentação pode variar.',
+                    correct_score=Decimal(100),
+                    incorrect_score=Decimal(0),
+                ),
+            ),
+        )
+        ordering_snapshot = replace(
+            base,
+            questions=(*base.questions[:2], ordering_question),
+            parts=(
+                *base.parts[:2],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        passage = OrderingPassage.create(
+            id='01JSHIFU000000000000000001',
+            skill_experience_id=EXPERIENCE_ID,
+            activity_id=ACTIVITY_ID,
+            passage_key='00000000-0000-4000-8000-000000000001',
+            activity_revision=ordering_snapshot.revision,
+            grading_snapshot=ordering_snapshot,
+        )
+        passage.add_verified(
+            VerifiedOrdering(
+                question_key='q3',
+                ordered_step_keys=('prepare', 'cook', 'serve'),
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Sequência aceita.',
+            )
+        )
+        self.repositories.ordering_passages.find_active.return_value = passage
+        self.provider.get_learning_activity.return_value = ordering_snapshot
+
+        self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'ordering-submission-key',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+            ),
+            ordering_snapshot.revision,
+            passage_key=passage.passage_key,
+        )
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert isinstance(attempt.answers[-1], OrderingAnswer)
+        assert (
+            attempt.answers[-1].ordered_step_keys
+            == passage.verified_orderings[0].ordered_step_keys
+        )
+        assert attempt.grading_snapshot == ordering_snapshot
+        assert passage.status == 'consumed'
+        self.repositories.ordering_passages.update.assert_called_once_with(passage)
+        self.repositories.events.add.assert_called_once()
 
 
 class TestSubmitChoiceActivityAnswerNormalization:

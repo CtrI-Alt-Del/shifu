@@ -6,6 +6,7 @@ from shifu.shared.core.domain.structures.structure import structure
 
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
+from .curriculum_ordering_question_snapshot import CurriculumOrderingQuestionSnapshot
 from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapshot
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
@@ -27,6 +28,7 @@ class CurriculumLearningActivitySnapshot:
     title: str
     questions: tuple[
         CurriculumChoiceQuestionSnapshot
+        | CurriculumOrderingQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
@@ -83,12 +85,19 @@ class CurriculumLearningActivitySnapshot:
                 parts[question.key], CurriculumCodeRubricPartSnapshot
             ):
                 raise ValidationError
-            if self.activity_type == 'diagnostic' and isinstance(
-                question,
-                (
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                ),
+            if isinstance(question, CurriculumOrderingQuestionSnapshot) and isinstance(
+                parts[question.key], CurriculumCodeRubricPartSnapshot
+            ):
+                raise ValidationError
+            if self.activity_type == 'diagnostic' and (
+                isinstance(
+                    question,
+                    (
+                        CurriculumOrderingQuestionSnapshot,
+                        CurriculumReactQuestionSnapshot,
+                        CurriculumHtmlCssJsQuestionSnapshot,
+                        CurriculumReactFastifyQuestionSnapshot,
+                    ),
+                )
             ):
                 raise ValidationError

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
+    OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
 )
@@ -19,6 +20,7 @@ from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
 )
 from shifu.shared.pipes import AuthenticationPipe
 
@@ -41,14 +43,23 @@ class AnswerRequest(BaseModel):
         'react',
         'html_css_js',
         'react_fastify',
+        'ordering',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    ordered_step_keys: tuple[str, ...] | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
+        if self.kind == 'ordering':
+            if (
+                self.ordered_step_keys is None
+                or self.files is not None
+                or self.selected_option_keys is not None
+            ):
+                raise ValueError('Ordering answers require ordered step keys only')
+        elif self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
             if self.files is None or self.selected_option_keys is not None:
                 raise ValueError('Code answers require files only')
         elif self.selected_option_keys is None or self.files is not None:
@@ -59,6 +70,7 @@ class AnswerRequest(BaseModel):
 class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     activity_revision: str = Field(min_length=1, max_length=128)
+    passage_key: str | None = Field(default=None, min_length=1, max_length=36)
     answer: AnswerRequest
 
 
@@ -123,12 +135,20 @@ class PreviewActivityQuestionFeedbackController:
                 CodeRubricAssessorProvider,
                 Depends(LearningPipe.get_code_rubric_assessor_provider),
             ],
+            identifiers: Annotated[
+                IdentifierProvider, Depends(LearningPipe.get_identifier_provider)
+            ],
             max_assessment_bytes: Annotated[
                 int, Depends(LearningPipe.get_max_code_assessment_input_bytes)
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind in {
+            if payload.kind == 'ordering':
+                answer = OrderingAnswerSubmission(
+                    question_key=payload.question_key,
+                    ordered_step_keys=payload.ordered_step_keys or (),
+                )
+            elif payload.kind in {
                 'javascript_stdin',
                 'react',
                 'html_css_js',
@@ -148,7 +168,7 @@ class PreviewActivityQuestionFeedbackController:
                     selected_option_keys=payload.selected_option_keys or (),
                 )
             result: PreliminaryQuestionResult = PreviewActivityQuestionFeedbackUseCase(
-                database, provider, assessor, max_assessment_bytes
+                database, provider, assessor, max_assessment_bytes, identifiers
             ).execute(
                 user.account_id,
                 goal_id,
@@ -158,5 +178,6 @@ class PreviewActivityQuestionFeedbackController:
                 question_key,
                 request.activity_revision,
                 answer,
+                request.passage_key,
             )
             return _RESPONSE_ADAPTER.validate_python(result, from_attributes=True)

@@ -1,7 +1,11 @@
 from decimal import Decimal
 
+from shifu.learning.core.domain.entities import OrderingPassage
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
+    OrderingAnswerSubmission,
+    VerifiedOrdering,
     CodeAnswer,
     CodeSubmittedFile,
     CodeCriterionResult,
@@ -14,7 +18,13 @@ from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
     CodeQuestionSnapshot,
 )
-from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.interfaces import (
+    LearningDatabase,
+    LearningDatabaseRepositories,
+)
+from shifu.learning.core.use_cases.ordering_answer_validation import (
+    OrderingAnswerValidation,
+)
 from shifu.shared.core.domain.errors import (
     ConflictError,
     ServiceUnavailableError,
@@ -28,10 +38,14 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumLearningActivitySnapshot,
 )
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
 )
 from shifu.shared.core.domain.structures import structure
 
@@ -54,11 +68,13 @@ class PreviewActivityQuestionFeedbackUseCase:
         curriculum_content_provider: CurriculumContentProvider,
         code_rubric_assessor_provider: CodeRubricAssessorProvider,
         max_code_assessment_input_bytes: int = 262144,
+        identifier_provider: IdentifierProvider | None = None,
     ) -> None:
         self._learning_database = learning_database
         self._curriculum_content_provider = curriculum_content_provider
         self._code_rubric_assessor_provider = code_rubric_assessor_provider
         self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
+        self._identifier_provider = identifier_provider
 
     def execute(
         self,
@@ -69,22 +85,36 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission | CodeAnswer,
+        answer: ChoiceAnswerSubmission | CodeAnswer | OrderingAnswerSubmission,
+        passage_key: str | None = None,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
         ).execute(account_id, goal_id, skill_id, competency_id, activity_id)
-        if detail.activity_revision != activity_revision:
-            raise ConflictError
+        self._assert_revision(detail.activity_revision, activity_revision)
+        self._assert_question_key(answer.question_key, question_key)
+
+        if isinstance(answer, OrderingAnswerSubmission):
+            return self._verify_ordering(
+                account_id,
+                goal_id,
+                skill_id,
+                competency_id,
+                activity_id,
+                activity_revision,
+                passage_key,
+                answer,
+            )
 
         snapshot = self._curriculum_content_provider.get_learning_activity(activity_id)
-        if snapshot is None or snapshot.revision != activity_revision:
+        if snapshot is None:
             raise ConflictError
+        self._assert_revision(snapshot.revision, activity_revision)
 
         question = next(
             (item for item in snapshot.questions if item.key == question_key), None
         )
-        if question is None or answer.question_key != question_key:
+        if question is None:
             raise ValidationError
 
         if isinstance(
@@ -122,6 +152,9 @@ class PreviewActivityQuestionFeedbackUseCase:
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
 
+        if not isinstance(question, CurriculumChoiceQuestionSnapshot):
+            raise ValidationError
+
         selected = answer.selected_option_keys
         option_keys = {item.key for item in question.options}
         if (
@@ -142,6 +175,180 @@ class PreviewActivityQuestionFeedbackUseCase:
             explanation=question.correct_explanation
             if correct
             else question.incorrect_explanation,
+        )
+
+    @staticmethod
+    def _assert_revision(actual: str | None, expected: str) -> None:
+        if actual != expected:
+            raise ConflictError
+
+    @staticmethod
+    def _assert_question_key(actual: str, expected: str) -> None:
+        if actual != expected:
+            raise ValidationError
+
+    def _verify_ordering(
+        self,
+        account_id: str,
+        goal_id: str,
+        skill_id: str,
+        competency_id: str,
+        activity_id: str,
+        activity_revision: str,
+        passage_key: str | None,
+        answer: OrderingAnswerSubmission,
+    ) -> PreliminaryQuestionResult:
+        if not passage_key or self._identifier_provider is None:
+            raise ValidationError
+
+        with self._learning_database.transaction() as repositories:
+            experience_id, active, snapshot = self._ordering_context(
+                repositories,
+                account_id,
+                goal_id,
+                skill_id,
+                competency_id,
+                activity_id,
+                activity_revision,
+                passage_key,
+            )
+
+            question = next(
+                (
+                    item
+                    for item in snapshot.questions
+                    if item.key == answer.question_key
+                ),
+                None,
+            )
+            if not isinstance(question, CurriculumOrderingQuestionSnapshot):
+                raise ValidationError
+
+            verified = OrderingAnswerValidation.verify(
+                question, answer.ordered_step_keys
+            )
+            previous = self._previous_ordering(active, answer)
+            if previous is not None:
+                return self._ordering_result(previous)
+
+            if active is None:
+                active = OrderingPassage.create(
+                    id=self._identifier_provider.generate(),
+                    skill_experience_id=experience_id,
+                    activity_id=activity_id,
+                    passage_key=passage_key,
+                    activity_revision=activity_revision,
+                    grading_snapshot=snapshot,
+                )
+                active.add_verified(verified)
+                repositories.ordering_passages.add(active)
+            else:
+                active.add_verified(verified)
+                repositories.ordering_passages.update(active)
+            return self._ordering_result(verified)
+
+    def _ordering_context(
+        self,
+        repositories: LearningDatabaseRepositories,
+        account_id: str,
+        goal_id: str,
+        skill_id: str,
+        competency_id: str,
+        activity_id: str,
+        activity_revision: str,
+        passage_key: str,
+    ) -> tuple[str, OrderingPassage | None, CurriculumLearningActivitySnapshot]:
+        goal = repositories.goals.find_by_id(goal_id)
+        experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
+            goal_id, skill_id
+        )
+        if (
+            goal is None
+            or goal.account_id != account_id
+            or experience is None
+            or experience.goal_id != goal_id
+            or experience.skill_id != skill_id
+        ):
+            raise ConflictError
+
+        experience = repositories.skill_experiences.find_by_id_for_update(experience.id)
+        if experience is None:
+            raise ConflictError
+
+        progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
+            experience.id, competency_id
+        )
+        unresolved = (
+            repositories.activity_evaluations.find_unresolved_by_skill_experience_id(
+                experience.id
+            )
+        )
+        if (
+            experience.status
+            not in {SkillExperienceStatus.LEARNING, SkillExperienceStatus.COMPLETED}
+            or progress is None
+            or not progress.content_released
+            or unresolved is not None
+        ):
+            raise ConflictError
+
+        active = repositories.ordering_passages.find_active(experience.id, activity_id)
+        keyed = repositories.ordering_passages.find_by_key(
+            experience.id, activity_id, passage_key
+        )
+        if keyed is not None and keyed.status == 'consumed':
+            raise ConflictError
+        if active is not None and active.passage_key != passage_key:
+            raise ConflictError
+
+        if active is not None:
+            snapshot = active.grading_snapshot
+            if active.activity_revision != activity_revision:
+                raise ConflictError
+        else:
+            snapshot = self._curriculum_content_provider.get_learning_activity(
+                activity_id
+            )
+            if snapshot is None or snapshot.revision != activity_revision:
+                raise ConflictError
+
+        if (
+            snapshot.id != activity_id
+            or snapshot.competency_id != competency_id
+            or snapshot.activity_type != 'learning'
+        ):
+            raise ConflictError
+        return experience.id, active, snapshot
+
+    @staticmethod
+    def _previous_ordering(
+        active: OrderingPassage | None,
+        answer: OrderingAnswerSubmission,
+    ) -> VerifiedOrdering | None:
+        if active is None:
+            return None
+        previous = next(
+            (
+                item
+                for item in active.verified_orderings
+                if item.question_key == answer.question_key
+            ),
+            None,
+        )
+        if (
+            previous is not None
+            and previous.ordered_step_keys != answer.ordered_step_keys
+        ):
+            raise ConflictError
+        return previous
+
+    @staticmethod
+    def _ordering_result(result: VerifiedOrdering) -> PreliminaryQuestionResult:
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
         )
 
     @staticmethod

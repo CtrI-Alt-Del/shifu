@@ -225,13 +225,13 @@ class AppErrorHandler:
     ) -> JSONResponse:
         if request.url.path in AppErrorHandler._IDENTITY_PUBLIC_PATHS:
             return AppErrorHandler._build_response(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 code='invalid_input',
                 message='Os dados enviados são inválidos.',
             )
 
         return AppErrorHandler._build_response(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             code='validation_error',
             message='Os dados enviados são inválidos.',
         )
@@ -310,7 +310,7 @@ class AppErrorHandler:
                 'unsupported_media_type',
                 'O formato do conteúdo enviado não é compatível.',
             ),
-            status.HTTP_422_UNPROCESSABLE_ENTITY: (
+            status.HTTP_422_UNPROCESSABLE_CONTENT: (
                 'validation_error',
                 'Os dados enviados são inválidos.',
             ),

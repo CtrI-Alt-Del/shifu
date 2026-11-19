@@ -19,6 +19,26 @@ export type ChoiceQuestion = {
   options: readonly ChoiceOption[]
 }
 
+export type OrderingQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  initialOrderedStepKeys: readonly string[]
+  verified: null | {
+    orderedStepKeys: readonly string[]
+    score: number
+    isCorrect: boolean
+    explanation: string
+  }
+}
+
+export type OrderingAnswer = {
+  kind: 'ordering'
+  questionKey: string
+  orderedStepKeys: readonly string[]
+}
+
 export type CodeQuestion = {
   key: string
   kind: 'javascript_stdin'
@@ -106,6 +126,7 @@ export type ActivityQuestion =
   | ReactQuestion
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
+  | OrderingQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -117,6 +138,7 @@ export type ChoiceActivityDetail = {
   latestAttemptId: string | null
   unresolvedAttemptId: string | null
   isDiagnostic?: boolean
+  orderingPassageKey?: string | null
 }
 
 export type ChoiceAnswer = {
@@ -131,7 +153,7 @@ export type CodeAnswer = {
   files: readonly { path: string; content: string }[]
 }
 
-export type ActivityAnswer = ChoiceAnswer | CodeAnswer
+export type ActivityAnswer = ChoiceAnswer | CodeAnswer | OrderingAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -151,6 +173,7 @@ export type PreliminaryQuestionResult = {
 export type ChoiceSubmission = {
   submissionKey: string
   activityRevision?: string
+  passageKey?: string
   answers: readonly ActivityAnswer[]
 }
 
@@ -169,6 +192,18 @@ export type ChoiceResultQuestion = {
   isCorrect: boolean
   explanation: string
   correctOptionKeys?: readonly string[]
+}
+
+export type OrderingResultQuestion = {
+  key: string
+  kind: 'ordering'
+  prompt: string
+  steps: readonly { key: string; text: string }[]
+  submittedStepKeys: readonly string[]
+  score: number
+  isCorrect: boolean
+  explanation: string
+  acceptedOrders?: readonly (readonly string[])[]
 }
 
 export type CodeResultQuestion = {
@@ -191,7 +226,10 @@ export type CodeResultQuestion = {
   }[]
 }
 
-export type ActivityResultQuestion = ChoiceResultQuestion | CodeResultQuestion
+export type ActivityResultQuestion =
+  | ChoiceResultQuestion
+  | CodeResultQuestion
+  | OrderingResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string
