@@ -69,6 +69,7 @@ last_updated_at: 2026-11-18
 | EV-29 | CI-07 / Automated / CA-10 and changed web type coverage | Passed | Same candidate, 2026-11-18, local Vitest/TypeScript | Focused Vitest for ordering widget/activity page hooks (52 tests), `use-activity-page-route.test.ts` (84 tests), and `tsc -p tsconfig.json --noEmit` from `apps/web` | 136 tests passed after the mobile action layout change; TypeScript passed. The route suite printed jsdom's existing `HTMLCanvasElement.getContext()` not-implemented notice while passing. Playwright geometry assertions independently verify the mobile CTA clears the Mentor FAB and bottom navigation. |
 | EV-30 | Independent implementation and visual re-review / Review / CA-01–11, VM-04 | Passed with recorded limitations | Same candidate, 2026-11-18, current integrated worktree | Read-only reconciliation of current diff, Evaluation and six runtime captures against Spec revision 1 | Implementation reviewer found no new source issue and identified stale Evaluation entries, corrected here. Visual reviewer confirms correct/incorrect desktop and mobile states, including mobile CTA geometry and non-color outcome cues. User waived Penpot source comparison. |
 | EV-31 | XP REST transport regression / Automated / out of SHIFU-129 scope | Failed | Same candidate, 2026-11-18, isolated Vite/proxy browser setup | Two `routed REST transport` Playwright cases in `tests/learning/activity-page.test.ts` | Both attempts failed because the expected XP reward region was absent, including in an isolated proxy/Vite setup. These cases concern existing XP transport behavior, not ordering, and are not counted as SHIFU-129 coverage. |
+| EV-32 | Commit and push / Delivery / SDD handoff | Passed | Branch `codex/shifu-129-ordering-questions`, commit `921aac5d8f83cb337930270f07e989e3d46d99f1`, 2026-11-19 | Staged diff review, `git diff --cached --check`, pre-commit Biome and commitlint hooks, `git push -u origin codex/shifu-129-ordering-questions` | Commit and push succeeded. Biome reported four warnings in unchanged Studio files and no errors. No PR was opened, as requested. The two original task files flagged by formatting were corrected before the successful commit. |
 
 # Findings
 
@@ -88,6 +89,7 @@ last_updated_at: 2026-11-18
 | ACH-12 | First preview of a new ordering passage persisted an empty passage before appending its first verification, so reload lost the order and final submit conflicted | High | EV-21, EV-26 | Resolved; append the verified answer before the initial repository insert. Full PostgreSQL controller suite passes, including concurrency, reload, submit and result cases. |
 | ACH-13 | Latest full basedpyright run finds an unknown JSON value type in an unchanged Intelligence controller test, outside SHIFU-129 | Limitation | EV-28 | Open; leave the unrelated file untouched. Record full type validation as partial until the existing error is addressed in its owning scope. |
 | ACH-14 | On mobile after provisional verification, the global Mentor FAB overlapped the final ordering CTA and obscured its right edge; CA-10 | Medium | EV-17, EV-27 | Resolved; ordering feedback layout reserves the FAB width on mobile. Playwright verifies 44 px minimum height and no overlap with the FAB or bottom navigation; current mobile capture confirms the spacing. |
+| ACH-15 | Windows `npx --no -- commitlint` resolved the local CLI outside the repository path, preventing the authorized commit | Low | EV-32 | Resolved; `.husky/commit-msg` now invokes the installed local CLI directly. The commitlint hook passed for the SHIFU-129 commit. |
 
 # Lessons Learned
 
@@ -99,10 +101,10 @@ last_updated_at: 2026-11-18
 
 | Field | Detail |
 | --- | --- |
-| Candidate | `main`, HEAD `81a11fb9fcec3943780d89caf2d1cb41e4c3cb4f`, current worktree. |
+| Candidate | Branch `codex/shifu-129-ordering-questions`; implementation commit `921aac5d8f83cb337930270f07e989e3d46d99f1`, pushed to `origin`. |
 | Completed | Server/web implementation for ordering content, private verification passage, final submission/evaluation/result, schema migration and UI. 303 focused server tests, 37 PostgreSQL-backed controller tests, 4 Inngest job tests, 82 web tests and 20 Playwright route tests passed. Changed-path Ruff/format passed. Web TypeScript/full Biome and server packaging passed in earlier evidence. First-passage persistence and an ambiguous Playwright locator were corrected and rerun. |
 | Unfinished | No known SHIFU-129 code change remains. Manual live-user sessions were not performed; automated persistence/privacy/controller coverage is recorded instead. Two out-of-scope XP transport tests fail. Full basedpyright retains one unrelated error. Package registry DNS blocked pnpm bootstrap and the declared uv build wrapper; the root uv metadata warning remains. Penpot source comparison was waived by the user. See ACH-02, ACH-03, ACH-06, ACH-13 and EV-31. |
-| Uncommitted work | SHIFU-129 changes across `apps/server`, `apps/web`, `documentation/features/learning/ordering-questions/evaluation.md`, and `documentation/design.md`; preserve pre-existing user changes and untracked `SHIFU-129-diagnostico.md`/`penpot-mcp.example.toml`. No staging or commit. |
+| Uncommitted work | No SHIFU-129 implementation changes remain unstaged. Unrelated existing Intelligence UI/graph changes, the goal graph hook, and local untracked `SHIFU-129-diagnostico.md`/`penpot-mcp.example.toml` remain untouched. |
 | Active processes | No task-started process intentionally left running. Shared Docker services were not stopped. |
 | Blockers | No known implementation blocker remains. Validation limitations are the unrelated basedpyright error, unavailable package registry for declared wrappers, failed out-of-scope XP transport cases, and no separate live-user sessions. Penpot validation was waived by the user. |
 | Next action | User may validate the completed ordering flow. Preserve the unrelated type, package registry and XP transport findings for their owning follow-up scopes. |
@@ -115,7 +117,7 @@ last_updated_at: 2026-11-18
 
 | Field | Result |
 | --- | --- |
-| Publication | Not requested; local-only work. |
+| Publication | Branch pushed to `origin`; no PR opened, per user request. |
 | Source verification | Learning PRD ID `83066881`, v33 and Curriculum PRD ID `83034113`, v19 were read earlier in this task. No external write. Reconfirm versions before closure. |
 | Documentation Alignment | Local `documentation/design.md` records the Ordering account-retention contract. Feature Evaluation created. No PRD/Jira changes. |
 | Revision History | No contract change; Spec revision 1 remains. |
