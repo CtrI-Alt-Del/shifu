@@ -5,7 +5,7 @@ be created from any combination; the content itself is marked as "[Teste]".
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from shifu.curriculum.core.domain.entities import (
     Activity,
@@ -16,6 +16,9 @@ from shifu.curriculum.core.domain.entities import (
 )
 from shifu.curriculum.core.domain.structures import (
     CurriculumSequence,
+    ChoiceConceptCriterion,
+    OrderingQuestion,
+    OrderingStep,
     SkillFoundation,
 )
 from shifu.fakers.curriculum.ready_skill_content_faker import (
@@ -393,8 +396,8 @@ _ROADMAP_SKILLS = (
     ),
     _RoadmapSkill(
         'mentor_picker_test',
-        'Habilidade de teste do picker do Mentor',
-        'Conteúdo demonstrativo para testar a escolha do Objetivo ao adicionar uma Habilidade pelo Mentor.',
+        'Teste de ordenação de etapas',
+        'Abra a primeira Atividade para testar a ordenação, sem diagnóstico inicial.',
         ('git',),
     ),
 )
@@ -431,12 +434,13 @@ def build_roadmap_skills_seed(anchors: Mapping[str, str]) -> RoadmapSkillsSeed:
             SkillFoundation(skill_id=skill.id, foundation_skill_id=known_ids[key])
             for key in roadmap_skill.foundations
         )
-        contents.append(
-            ReadySkillContentFaker.fake(
-                skill=skill,
-                id_for=lambda item, index=index: _roadmap_id(index, item),
-            )
+        content = ReadySkillContentFaker.fake(
+            skill=skill,
+            id_for=lambda item, index=index: _roadmap_id(index, item),
         )
+        if roadmap_skill.key == 'mentor_picker_test':
+            content = _ordering_demo_content(content)
+        contents.append(content)
 
     return RoadmapSkillsSeed(
         skills=tuple(skills),
@@ -449,3 +453,58 @@ def build_roadmap_skills_seed(anchors: Mapping[str, str]) -> RoadmapSkillsSeed:
         ),
         curriculum_sequences=tuple(content.curriculum_sequence for content in contents),
     )
+
+
+def _ordering_demo_content(content: ReadySkillContent) -> ReadySkillContent:
+    scenarios = (
+        (
+            'Ordene as etapas para salvar uma alteração com Git.',
+            (
+                'Editar o arquivo',
+                'Adicionar ao stage com git add',
+                'Criar o commit com git commit',
+            ),
+        ),
+        (
+            'Ordene as etapas para executar um programa.',
+            ('Escrever o código', 'Salvar o arquivo', 'Executar o programa'),
+        ),
+        (
+            'Ordene as etapas para corrigir um erro.',
+            ('Reproduzir o erro', 'Corrigir o código', 'Verificar a correção'),
+        ),
+    )
+    activity = replace(
+        content.activities[0],
+        title='Ordenação de etapas — teste do picker',
+        objective='Reorganizar as etapas e verificar a sequência escolhida.',
+        questions=tuple(
+            OrderingQuestion(
+                key=key,
+                prompt=prompt,
+                steps=tuple(
+                    OrderingStep(key=str(index), text=text)
+                    for index, text in enumerate(steps, start=1)
+                ),
+                accepted_orders=(('1', '2', '3'),),
+                correct_explanation='A sequência segue a ordem necessária das etapas.',
+                incorrect_explanation='Confira o que precisa acontecer antes de cada etapa.',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=content.concept.id,
+                        criterion='Organiza as etapas em uma sequência válida.',
+                        examples='Preparar, realizar e verificar a ação.',
+                        limits='A ordenação não mede a execução prática.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
+            )
+            for key, (prompt, steps) in zip(
+                ('question-one', 'question-two', 'question-three'),
+                scenarios,
+                strict=True,
+            )
+        ),
+    )
+    return replace(content, activities=(activity, *content.activities[1:]))
