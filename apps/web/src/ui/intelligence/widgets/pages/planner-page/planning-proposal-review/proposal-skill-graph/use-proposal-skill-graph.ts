@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import ELK from 'elkjs/lib/elk.bundled.js'
+import ELK from 'elkjs/lib/elk-api.js'
+import elkWorkerUrl from 'elkjs/lib/elk-worker.min.js?url'
 import type { Edge, NodeChange, ReactFlowInstance } from '@xyflow/react'
 
 import type {
@@ -97,7 +98,7 @@ export function useProposalSkillGraph(
     let isCurrent = true
     const geometry = geometryFor(layoutWidth, skills, edges)
     const sizedNodes = buildNodes(title, skills, edges, geometry)
-    const elk = new ELK()
+    const elk = new ELK({ workerUrl: elkWorkerUrl })
     const graph = {
       id: 'proposal-skill-graph',
       layoutOptions: {
@@ -148,6 +149,7 @@ export function useProposalSkillGraph(
       })
     return () => {
       isCurrent = false
+      elk.terminateWorker()
     }
   }, [edges, layoutWidth, skills, title])
 

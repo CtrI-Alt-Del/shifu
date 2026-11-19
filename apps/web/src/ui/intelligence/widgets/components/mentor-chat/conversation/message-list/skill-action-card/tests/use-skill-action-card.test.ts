@@ -713,7 +713,7 @@ describe('useSkillActionCard', () => {
     it('moves focus to the result region when the card state changes', async () => {
       confirmSkillAdditionMock.mockResolvedValue(outcomeOf({}))
       const { result } = renderCard(makeProposal())
-      const region = document.createElement('div')
+      const region = document.createElement('output')
       region.tabIndex = -1
       document.body.append(region)
       result.current.resultRef.current = region

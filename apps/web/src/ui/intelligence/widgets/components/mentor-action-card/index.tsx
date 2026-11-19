@@ -26,7 +26,7 @@ export type MentorActionCardProps = {
   statusText?: string
   actions: MentorActionCardAction[]
   children?: ReactNode
-  resultRef?: Ref<HTMLDivElement>
+  resultRef?: Ref<HTMLOutputElement>
   titleRef?: Ref<HTMLHeadingElement>
 }
 
@@ -99,20 +99,23 @@ export const MentorActionCard = ({
           {consequences}
         </p>
       ) : null}
-      <div
+      <output
         aria-live='polite'
         className='flex flex-col gap-3 outline-none empty:sr-only'
         ref={resultRef}
-        role='status'
         tabIndex={-1}
       >
         {result ? (
-          <p className='break-words text-sm text-secondary-foreground'>{result}</p>
+          <span className='block break-words text-sm text-secondary-foreground'>
+            {result}
+          </span>
         ) : null}
         {statusText ? (
-          <p className='break-words text-[13px] text-muted-foreground'>{statusText}</p>
+          <span className='block break-words text-[13px] text-muted-foreground'>
+            {statusText}
+          </span>
         ) : null}
-      </div>
+      </output>
       {actions.length > 0 ? (
         <div className='flex justify-end gap-2.5 max-[480px]:flex-col max-[480px]:[&>*]:w-full'>
           {actions.map((action) =>
