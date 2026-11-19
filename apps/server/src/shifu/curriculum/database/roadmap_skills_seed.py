@@ -391,6 +391,12 @@ _ROADMAP_SKILLS = (
         'Projetar sistemas distribuídos equilibrando escala, consistência e custo.',
         ('scalability', 'consistency', 'resilience'),
     ),
+    _RoadmapSkill(
+        'mentor_picker_test',
+        'Habilidade de teste do picker do Mentor',
+        'Conteúdo demonstrativo para testar a escolha do Objetivo ao adicionar uma Habilidade pelo Mentor.',
+        ('git',),
+    ),
 )
 
 # Every roadmap id starts with this prefix, so tools can tell them apart.

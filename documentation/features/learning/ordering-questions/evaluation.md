@@ -2,15 +2,15 @@
 title: Questões de ordenação de etapas — evaluation
 status: in_progress
 spec: ./spec.md
-last_updated_at: 2026-11-18
+last_updated_at: 2026-11-19
 ---
 
 # Current State
 
 | Field | State |
 | --- | --- |
-| Implementation | Curriculum/Learning contracts, persistence, evaluation and web flow are implemented. The user explicitly waived Penpot validation; runtime screenshots were reviewed against the Spec. |
-| Automated checks | 303 focused server tests, 37 PostgreSQL controller tests, 4 Inngest job tests, 82-test web selection, additional 136 focused web tests and 20 Playwright route tests passed in recorded runs. Web TypeScript/Biome and changed-path Ruff passed. Full basedpyright reports one unrelated Intelligence test error. |
+| Implementation | Curriculum/Learning contracts, persistence, evaluation and web flow are implemented. A dedicated unassigned Curriculum seed candidate is available for exercising the Mentor Objective picker. The user explicitly waived Penpot validation. |
+| Automated checks | 303 focused server tests, 37 PostgreSQL controller tests, 4 Inngest job tests, 82-test web selection, additional 136 focused web tests and 20 Playwright route tests passed in recorded runs. The development seed builder confirmed the picker candidate has ready content and no pre-linked experience; changed-path Ruff passed. Web TypeScript/Biome passed earlier. Full basedpyright reports one unrelated Intelligence test error. |
 | Type / lint / complexity | Changed-path Ruff/format passed. Web TypeScript, full Biome and scoped architecture checks passed earlier. The latest full basedpyright run has one error in an unchanged Intelligence test. Root uv metadata and unavailable declared build command remain unresolved. |
 | Manual checks | 0/3 live-user sessions. Automated PostgreSQL/controller and browser selections cover core persistence, privacy, submission and result assertions. The user plans final functional validation. |
 | Visual checks | Runtime screenshots for initial, correct and incorrect desktop/mobile states were reviewed. The user waived Penpot comparison and page-wide design checks. Visual review found readable states, non-color outcome cues, and mobile actions clear of navigation and Mentor FAB. |
@@ -70,6 +70,7 @@ last_updated_at: 2026-11-18
 | EV-30 | Independent implementation and visual re-review / Review / CA-01–11, VM-04 | Passed with recorded limitations | Same candidate, 2026-11-18, current integrated worktree | Read-only reconciliation of current diff, Evaluation and six runtime captures against Spec revision 1 | Implementation reviewer found no new source issue and identified stale Evaluation entries, corrected here. Visual reviewer confirms correct/incorrect desktop and mobile states, including mobile CTA geometry and non-color outcome cues. User waived Penpot source comparison. |
 | EV-31 | XP REST transport regression / Automated / out of SHIFU-129 scope | Failed | Same candidate, 2026-11-18, isolated Vite/proxy browser setup | Two `routed REST transport` Playwright cases in `tests/learning/activity-page.test.ts` | Both attempts failed because the expected XP reward region was absent, including in an isolated proxy/Vite setup. These cases concern existing XP transport behavior, not ordering, and are not counted as SHIFU-129 coverage. |
 | EV-32 | Commit and push / Delivery / SDD handoff | Passed | Branch `codex/shifu-129-ordering-questions`, commit `921aac5d8f83cb337930270f07e989e3d46d99f1`, 2026-11-19 | Staged diff review, `git diff --cached --check`, pre-commit Biome and commitlint hooks, `git push -u origin codex/shifu-129-ordering-questions` | Commit and push succeeded. Biome reported four warnings in unchanged Studio files and no errors. No PR was opened, as requested. The two original task files flagged by formatting were corrected before the successful commit. |
+| EV-33 | Development seed candidate / Automated delivery evidence / Mentor picker | Passed | Branch `codex/shifu-129-ordering-questions`, 2026-11-19, isolated `build_development_seed()` construction | From `apps/server`, call `build_development_seed()` with the test encryption/quota settings; assert the named Skill, ready Competency content and no pre-linked SkillExperience. Run `ruff check --no-fix src/shifu/curriculum/database/roadmap_skills_seed.py`. | Seed construction produced exactly one `Habilidade de teste do picker do Mentor`, with one ready Competência, no pre-linked experience and the three demo Objectives. Ruff passed. This inspected the generated object only and did not execute the destructive database seed command. |
 
 # Findings
 
@@ -101,19 +102,19 @@ last_updated_at: 2026-11-18
 
 | Field | Detail |
 | --- | --- |
-| Candidate | Branch `codex/shifu-129-ordering-questions`; implementation commit `921aac5d8f83cb337930270f07e989e3d46d99f1`, pushed to `origin`. |
-| Completed | Server/web implementation for ordering content, private verification passage, final submission/evaluation/result, schema migration and UI. 303 focused server tests, 37 PostgreSQL-backed controller tests, 4 Inngest job tests, 82 web tests and 20 Playwright route tests passed. Changed-path Ruff/format passed. Web TypeScript/full Biome and server packaging passed in earlier evidence. First-passage persistence and an ambiguous Playwright locator were corrected and rerun. |
+| Candidate | Branch `codex/shifu-129-ordering-questions`; SHIFU-129 implementation and follow-up commits are pushed to `origin`. |
+| Completed | Server/web implementation for ordering content, private verification passage, final submission/evaluation/result, schema migration and UI. Added an unassigned ready Curriculum seed skill for testing the Mentor Objective picker. The seed builder and changed-file Ruff pass. 303 focused server tests, 37 PostgreSQL-backed controller tests, 4 Inngest job tests, 82 web tests and 20 Playwright route tests passed in recorded runs. |
 | Unfinished | No known SHIFU-129 code change remains. Manual live-user sessions were not performed; automated persistence/privacy/controller coverage is recorded instead. Two out-of-scope XP transport tests fail. Full basedpyright retains one unrelated error. Package registry DNS blocked pnpm bootstrap and the declared uv build wrapper; the root uv metadata warning remains. Penpot source comparison was waived by the user. See ACH-02, ACH-03, ACH-06, ACH-13 and EV-31. |
 | Uncommitted work | No SHIFU-129 implementation changes remain unstaged. Unrelated existing Intelligence UI/graph changes, the goal graph hook, and local untracked `SHIFU-129-diagnostico.md`/`penpot-mcp.example.toml` remain untouched. |
 | Active processes | No task-started process intentionally left running. Shared Docker services were not stopped. |
 | Blockers | No known implementation blocker remains. Validation limitations are the unrelated basedpyright error, unavailable package registry for declared wrappers, failed out-of-scope XP transport cases, and no separate live-user sessions. Penpot validation was waived by the user. |
-| Next action | User may validate the completed ordering flow. Preserve the unrelated type, package registry and XP transport findings for their owning follow-up scopes. |
+| Next action | Re-run the local development seed before testing against a database that has already been seeded. The explicit seed command rebuilds permitted local seed data. User may then validate the picker and ordering flow. Preserve unrelated type, package registry and XP transport findings for their owning follow-up scopes. |
 
 # Delivery
 
 | RP/JN | RF / CA coverage | Accepted evidence | Disposition and limitations |
 | --- | --- | --- | --- |
-| Curriculum RP-03/04/06; Learning RP-09/13/14/18/20/25/27/29/33; JN-03/04/07/08/13 | RF-01–09; CA-01–11 | EV-01–31 | partially_implemented; implementation, database/job tests and controlled browser journeys are complete. Penpot comparison was waived by the user. Required live-user manual sessions remain unperformed; full basedpyright has one unrelated error, and declared tooling is limited by registry DNS. Publication was not requested. |
+| Curriculum RP-03/04/06; Learning RP-09/13/14/18/20/25/27/29/33; JN-03/04/07/08/13 | RF-01–09; CA-01–11 | EV-01–33 | partially_implemented; implementation, database/job tests, controlled browser journeys and the dedicated seed candidate are complete. Penpot comparison was waived by the user. Required live-user manual sessions remain unperformed; full basedpyright has one unrelated error, and declared tooling is limited by registry DNS. Branch is pushed; no PR was requested. |
 
 | Field | Result |
 | --- | --- |
