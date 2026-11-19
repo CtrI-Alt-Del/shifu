@@ -8,7 +8,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 import json
 import re
-from time import monotonic
+from time import monotonic, sleep
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from agno.eval import Case, arun_cases
@@ -319,22 +319,62 @@ class Eval(ABC):
         )
 
     def run_local_cases(self, selected: tuple[Any, ...]) -> list[dict[str, Any]]:
-        """Run `Eval.LocalCase`s one by one; a provider eval may override for batch work."""
+        """Run `Eval.LocalCase`s one by one; a provider eval may override for batch work.
+
+        A case whose model call fails with a passing provider status, such as a rate
+        limit, runs again after a wait that grows each time, like an Agno case. A
+        rejected answer is a verdict and is never run again.
+        """
         reports: list[dict[str, Any]] = []
         for case in selected:
             started = monotonic()
-            try:
-                outcome = self.run_case(case)
-            except Exception:  # noqa: BLE001 - provider errors can contain case data.
-                outcome = self.CaseOutcome(
-                    passed=False, failure_code=self.unavailable_failure_code
-                )
-            reports.append(
-                self.local_case_report(
-                    case.name, outcome, duration=monotonic() - started
-                )
+            retried: list[dict[str, Any]] = []
+            failure: Eval.ProviderFailure | None = None
+            outcome = self.CaseOutcome(
+                passed=False, failure_code=self.unavailable_failure_code
             )
+            for attempt in range(1, self.MAX_CASE_ATTEMPTS + 1):
+                try:
+                    outcome = self.run_case(case)
+                    failure = None
+                    break
+                except Exception as error:  # noqa: BLE001 - provider errors can contain case data.
+                    outcome = self.CaseOutcome(
+                        passed=False, failure_code=self.unavailable_failure_code
+                    )
+                    failure = self._local_provider_failure(error)
+                    if (
+                        failure is None
+                        or not failure.retryable
+                        or attempt == self.MAX_CASE_ATTEMPTS
+                    ):
+                        break
+                    retried.append(failure.as_report())
+                    sleep(self.RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1))
+            report = self.local_case_report(
+                case.name, outcome, duration=monotonic() - started
+            )
+            if retried:
+                report['attempts'] = len(retried) + 1
+                report['retried_errors'] = retried
+            if failure is not None:
+                report['error'] = failure.as_report()
+            reports.append(report)
         return reports
+
+    @classmethod
+    def _local_provider_failure(
+        cls, error: BaseException
+    ) -> Eval.ProviderFailure | None:
+        """The failed model call along an error's causes, kept as class names and a status."""
+        current: BaseException | None = error
+        for _depth in range(8):
+            if current is None:
+                return None
+            if isinstance(current, ModelProviderError):
+                return cls._provider_failure_of(current)
+            current = current.__cause__
+        return None
 
     def run_case(self, case: Eval.LocalCase) -> Eval.CaseOutcome:
         raise NotImplementedError(f'{type(self).__name__} runs no local cases')

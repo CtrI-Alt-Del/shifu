@@ -24,6 +24,12 @@ class PrepareMentorAttachmentEval(Eval):
             input='synthetic-legible-page',
             expected={'legible': True, 'required_terms': ('1/2', '2/4')},
         ),
+        Eval.LocalCase(
+            name='vision_marks_noise_page_illegible',
+            tags=('vision', 'coverage', 'safety'),
+            input='synthetic-illegible-page',
+            expected={'legible': False, 'description': ''},
+        ),
     )
 
     def __init__(self, *, mode: str) -> None:
@@ -38,7 +44,10 @@ class PrepareMentorAttachmentEval(Eval):
             self.require_model(self.agent)
             self.model_profile = 'configured-vision-profile'
         self.agents = (self.agent,)
-        self.pages = {'synthetic-legible-page': self.synthetic_page()}
+        self.pages = {
+            'synthetic-legible-page': self.synthetic_page(legible=True),
+            'synthetic-illegible-page': self.synthetic_page(legible=False),
+        }
 
     def cases(self) -> tuple[Eval.LocalCase, ...]:
         return self.CASES
@@ -57,26 +66,39 @@ class PrepareMentorAttachmentEval(Eval):
         if isinstance(output, dict):
             legible = output.get('legible')
             description = output.get('description')
-        normalized = description.casefold() if isinstance(description, str) else ''
-        passed = bool(legible) and all(
-            term in normalized for term in case.expected['required_terms']
-        )
+        expected = case.expected
+        if expected['legible']:
+            normalized = description.casefold() if isinstance(description, str) else ''
+            passed = bool(legible) and all(
+                term in normalized for term in expected['required_terms']
+            )
+        else:
+            passed = legible is False and description == expected['description']
         return self.CaseOutcome(passed, None if passed else 'vision_coverage_rejected')
 
     @staticmethod
-    def synthetic_response(_user_text: str, _schema: Any) -> dict[str, Any]:
+    def synthetic_response(user_text: str, _schema: Any) -> dict[str, Any]:
+        illegible = 'synthetic-illegible-page' in user_text
         return {
-            'legible': True,
-            'description': 'A página mostra que 1/2 é equivalente a 2/4.',
+            'legible': not illegible,
+            'description': ''
+            if illegible
+            else 'A página mostra que 1/2 é equivalente a 2/4.',
         }
 
     @staticmethod
-    def synthetic_page() -> bytes:
+    def synthetic_page(*, legible: bool) -> bytes:
         image = Image.new('RGB', (960, 320), color='white')
         draw = ImageDraw.Draw(image)
         font = ImageFont.load_default(size=42)
-        draw.text((52, 70), 'FRACOES EQUIVALENTES', fill='black', font=font)
-        draw.text((52, 160), '1/2 = 2/4', fill='black', font=font)
+        if legible:
+            draw.text((52, 70), 'FRACOES EQUIVALENTES', fill='black', font=font)
+            draw.text((52, 160), '1/2 = 2/4', fill='black', font=font)
+        else:
+            for y in range(20, 300, 18):
+                for x in range(20, 940, 18):
+                    color = ((x * 7 + y * 3) % 256, (x * 11 + y) % 256, (y * 13) % 256)
+                    draw.rectangle((x, y, x + 8, y + 8), fill=color)
         buffer = BytesIO()
         image.save(buffer, format='PNG', optimize=False)
         return buffer.getvalue()

@@ -175,3 +175,127 @@ def test_the_wait_before_each_retry_grows(monkeypatch: pytest.MonkeyPatch) -> No
     _run(model)
 
     assert waits == [2.0, 4.0, 8.0]
+
+
+class _UnavailableTargetError(Exception):
+    """What an attachment-style target raises: the original provider error is its cause."""
+
+
+class _LocalFlakyEval(Eval):
+    """A local case that fails its first runs with the given errors, then passes."""
+
+    selector = 'local-flaky'
+    workflow_id = 'local-flaky'
+    prompt_revision = 'test'
+
+    def __init__(self, failures: list[Exception], *, passes: bool = True) -> None:
+        super().__init__(mode='real')
+        self.failures = failures
+        self.passes = passes
+        self.calls = 0
+
+    def cases(self) -> tuple[Eval.LocalCase, ...]:
+        return (
+            Eval.LocalCase(
+                name='local_case', tags=(), input=PRIVATE_TEXT, expected=None
+            ),
+        )
+
+    def run_case(self, case: Eval.LocalCase) -> Eval.CaseOutcome:
+        del case
+        self.calls += 1
+        if self.calls <= len(self.failures):
+            raise self.failures[self.calls - 1]
+        return self.CaseOutcome(
+            self.passes, None if self.passes else 'vision_coverage_rejected'
+        )
+
+
+def _unavailable(status_code: int) -> Exception:
+    error = _UnavailableTargetError(PRIVATE_TEXT)
+    error.__cause__ = _provider_error(status_code, cause=ConnectionError(PRIVATE_TEXT))
+    return error
+
+
+def _run_local(evaluator: _LocalFlakyEval) -> tuple[dict[str, Any], dict[str, Any]]:
+    report = evaluator.run(evaluator.cases())
+    assert PRIVATE_TEXT not in json.dumps(report)
+    return report, report['cases'][0]
+
+
+def test_a_local_case_passes_after_rate_limit_failures() -> None:
+    evaluator = _LocalFlakyEval([_unavailable(429), _unavailable(429)])
+
+    report, case = _run_local(evaluator)
+
+    assert report['status'] == 'passed'
+    assert evaluator.calls == 3
+    assert case['attempts'] == 3
+    assert [error['status_code'] for error in case['retried_errors']] == [429, 429]
+    assert 'error' not in case
+
+
+def test_a_local_case_fails_with_the_last_error_when_every_attempt_fails() -> None:
+    evaluator = _LocalFlakyEval([_unavailable(429) for _ in range(10)])
+
+    report, case = _run_local(evaluator)
+
+    assert report['status'] == 'failed'
+    assert evaluator.calls == Eval.MAX_CASE_ATTEMPTS
+    assert case['failure_code'] == 'eval_target_unavailable'
+    assert case['attempts'] == Eval.MAX_CASE_ATTEMPTS
+    assert case['error'] == {
+        'type': 'ModelProviderError',
+        'cause_type': 'ConnectionError',
+        'status_code': 429,
+    }
+    assert len(case['retried_errors']) == Eval.MAX_CASE_ATTEMPTS - 1
+
+
+@pytest.mark.parametrize('status_code', [400, 401, 403, 404])
+def test_a_local_case_with_a_permanent_provider_error_is_not_retried(
+    status_code: int,
+) -> None:
+    evaluator = _LocalFlakyEval([_unavailable(status_code)])
+
+    _report, case = _run_local(evaluator)
+
+    assert evaluator.calls == 1
+    assert case['failure_code'] == 'eval_target_unavailable'
+    assert case['error']['status_code'] == status_code
+    assert 'attempts' not in case
+
+
+def test_a_local_error_without_a_provider_failure_is_not_retried() -> None:
+    evaluator = _LocalFlakyEval([RuntimeError(PRIVATE_TEXT)])
+
+    _report, case = _run_local(evaluator)
+
+    assert evaluator.calls == 1
+    assert case['failure_code'] == 'eval_target_unavailable'
+    assert 'attempts' not in case
+    assert 'error' not in case
+
+
+def test_a_rejected_local_answer_is_a_verdict_and_is_not_retried() -> None:
+    evaluator = _LocalFlakyEval([], passes=False)
+
+    report, case = _run_local(evaluator)
+
+    assert report['status'] == 'failed'
+    assert evaluator.calls == 1
+    assert case['failure_code'] == 'vision_coverage_rejected'
+    assert 'attempts' not in case
+
+
+def test_the_wait_before_each_local_retry_grows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    waits: list[float] = []
+    monkeypatch.setattr(Eval, 'RETRY_BASE_DELAY_SECONDS', 2.0)
+    monkeypatch.setattr('evals.eval.sleep', waits.append)
+    evaluator = _LocalFlakyEval([_unavailable(429) for _ in range(10)])
+
+    _run_local(evaluator)
+
+    assert waits == [2.0, 4.0, 8.0]
