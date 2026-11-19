@@ -345,6 +345,7 @@ class TestGetChoiceActivityUseCase:
         self,
     ) -> None:
         self._configure_diagnostic()
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = None
 
         detail = self.subject.execute(
             ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, 'diagnostic-run'

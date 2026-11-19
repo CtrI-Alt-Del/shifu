@@ -65,16 +65,6 @@ class GetChoiceActivityUseCase:
             ):
                 raise NotFoundError
 
-            progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
-                experience.id, competency_id
-            )
-            if (
-                progress is None
-                or progress.skill_experience_id != experience.id
-                or progress.competency_id != competency_id
-            ):
-                raise NotFoundError
-
             diagnostic = experience.status is SkillExperienceStatus.DIAGNOSING
             if diagnostic and (
                 diagnostic_run_id is None
@@ -82,8 +72,17 @@ class GetChoiceActivityUseCase:
             ):
                 raise ConflictError
 
-            if not diagnostic and not progress.content_released:
-                raise NotFoundError
+            if not diagnostic:
+                progress = repositories.competency_progresses.find_by_skill_experience_id_and_competency_id(
+                    experience.id, competency_id
+                )
+                if (
+                    progress is None
+                    or progress.skill_experience_id != experience.id
+                    or progress.competency_id != competency_id
+                    or not progress.content_released
+                ):
+                    raise NotFoundError
 
             active_passage = (
                 repositories.ordering_passages.find_active(experience.id, activity_id)
