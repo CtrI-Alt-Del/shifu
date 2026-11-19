@@ -4,3 +4,6 @@ from .gamification_profile_not_found_error import (
 from .invalid_gamification_error import (
     InvalidGamificationError as InvalidGamificationError,
 )
+from .invalid_streak_reminder_hour_error import (
+    InvalidStreakReminderHourError as InvalidStreakReminderHourError,
+)

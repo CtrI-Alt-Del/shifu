@@ -1,5 +1,6 @@
 from .structure import structure as structure
 
+from .active_account import ActiveAccount as ActiveAccount
 from .authenticated_user import AuthenticatedUser as AuthenticatedUser
 from .planned_goal_confirmation import (
     PlannedGoalConfirmation as PlannedGoalConfirmation,

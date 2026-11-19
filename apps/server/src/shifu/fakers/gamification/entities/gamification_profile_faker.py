@@ -20,6 +20,8 @@ class GamificationProfileFaker:
         streak: PracticeStreak | None = None,
         created_at: datetime | None = None,
         updated_at: datetime | None = None,
+        reminder_hour: int = GamificationProfile.DEFAULT_REMINDER_HOUR,
+        reminder_invite_answered_at: datetime | None = None,
     ) -> GamificationProfile:
         created = created_at or updated_at or datetime.now(UTC)
         return GamificationProfile(
@@ -34,4 +36,6 @@ class GamificationProfileFaker:
             streak=streak if streak is not None else PracticeStreak(),
             created_at=created,
             updated_at=updated_at or created,
+            reminder_hour=reminder_hour,
+            reminder_invite_answered_at=reminder_invite_answered_at,
         )
