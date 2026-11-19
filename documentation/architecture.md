@@ -571,6 +571,18 @@ Business modules do not import one another. They exchange identifiers, stable Sh
 contracts, and business events through application composition and adapters. Shared
 contains `AuthenticationProvider` and immutable `AuthenticatedUser`; Identity supplies
 the implementation while protected modules depend only on that Shared contract.
+The same holds for `ActiveAccountProvider` and `ActiveAccount`, the batch lookup that
+tells Gamification which accounts may still receive effects and their current time
+zone; `IdentityActiveAccountProvider` implements it. Application composition may
+import Gamification, so the local `reminders:send-now` demo command can call its use
+case.
+
+Communication also owns browser push: it stores push subscriptions and the
+account-wide streak-reminder preference, and delivers the reminder through a
+`PushNotificationProvider` port implemented with pywebpush and VAPID keys
+(`SHIFU_WEB_PUSH_*`). Gamification decides who is due and publishes
+`gamification/streak-reminder.requested`; Communication consumes it through an event
+name injected by composition.
 
 ### Business dependencies
 
