@@ -1,6 +1,6 @@
 ---
 title: SHIFU-132 — Streak reminder by browser push at the chosen hour
-status: implemented
+status: completed
 revision: 5
 source:
   type: issue

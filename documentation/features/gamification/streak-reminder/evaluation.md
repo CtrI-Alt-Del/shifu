@@ -1,6 +1,6 @@
 ---
 title: SHIFU-132 — Streak reminder by browser push evaluation
-status: ready
+status: completed
 spec: ./spec.md
 last_updated_at: 2026-11-19
 ---
@@ -151,7 +151,7 @@ probabilistic; L-3 the focus ring on the invite step is not visible in the captu
 
 | Field | Result |
 | --- | --- |
-| Publication | Published on 2026-11-19 (explicit `conclude-spec` invocation). Branch `feat/shifu-132` from `main` at `81a11fb9`; `origin/main` was fetched and already contained in the branch, so synchronization changed nothing and no check was reopened. Commits: `828cdcf6` server, `1bf02bb0` web, `c5365107` iac and staging secrets script, `14ba0d81` documentation. PR: https://github.com/CtrI-Alt-Del/shifu/pull/54 (base `main`, title "[SHIFU-132] Lembrete de sequência por push no horário escolhido"). Spec stays `implemented` and Evaluation `ready` until current-head CI and any blocking review conversations are resolved |
+| Publication | Published on 2026-11-19 (explicit `conclude-spec` invocation). Branch `feat/shifu-132` from `main` at `81a11fb9`; `origin/main` was fetched and already contained in the branch, so synchronization changed nothing and no check was reopened. Commits: `828cdcf6` server, `1bf02bb0` web, `c5365107` iac and staging secrets script, `14ba0d81` documentation. PR: https://github.com/CtrI-Alt-Del/shifu/pull/54 (base `main`, title "[SHIFU-132] Lembrete de sequência por push no horário escolhido"). Spec and Evaluation set to `completed` once current-head CI passed and no review conversation was open; the PR checks are the record. Later commits on the branch: `2d24f275`, `df204237` and `0f38e04c` (evals changes recorded under Limitations) |
 | Source verification | Reconfirmed read-only again at conclusion on 2026-11-19, with the same versions (first confirmed 2026-11-18, end of implementation): Gamification PRD 82903042 version 4 (2026-11-11T23:25:13Z), Communication PRD 86114306 version 4 (2026-11-11T23:24:00Z), Identity PRD 83001345 version 5 (2026-11-11T23:25:35Z), all unchanged from the Spec. Jira SHIFU-132 status "A fazer", last updated 2026-11-12. No external write was made. |
 | Documentation Alignment | Updated: architecture (browser push, Shared contract, Composition → Gamification), tooling (env vars, key generation, demo command), telemetry (24 job identifiers), `.env.example`, staging secrets script and IaC. `modules.md` already states the reminder ownership: confirmed, no change. PRD versions: see Source verification |
 | Revision History | Revision 1 initial; revision 2 adds Sonner, IaC keys, Poe fix and records implementation facts; revision 3 (2026-11-19) adds CA-23, the demo command clearing a skipped or failed reminder of the day; revision 4 (same day) makes it clear every status, by user decision; revision 5 (same day) refuses a mismatched VAPID pair at startup |
