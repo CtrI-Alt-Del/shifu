@@ -5,14 +5,21 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, ClassVar
 
-from shifu.learning.ai.agno.workflows import EvaluateCodeActivityWorkflow
+from shifu.learning.ai.agno.workflows import (
+    EvaluateCodeActivityWorkflow,
+    EvaluateTranslationActivityWorkflow,
+)
 from shifu.learning.ai.agno.workflows.evaluate_code_activity_workflow import (
     AgentOSCodeRubricAssessorProvider,
+)
+from shifu.learning.ai.agno.workflows.evaluate_translation_activity_workflow import (
+    AgentOSTranslationRubricAssessorProvider,
 )
 from shifu.learning.core.use_cases import (
     EvaluateChoiceActivityUseCase,
     FailCodeActivityEvaluationUseCase,
     PrepareCodeActivityEvaluationUseCase,
+    PrepareTranslationActivityEvaluationUseCase,
 )
 from shifu.learning.pipes import LearningPipe
 from shifu.shared.core.domain.errors import ServiceUnavailableError
@@ -25,6 +32,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    TranslationRubricAssessmentInput,
 )
 from shifu.shared.messaging.agentos.agentos_handoff_store import AgentOSHandoffStore
 from shifu.shared.messaging.agentos.agentos_runtime import AgentOSRuntime
@@ -44,6 +53,7 @@ if TYPE_CHECKING:
         CurriculumContentProvider,
         MentorAccessProvider,
         OutboxEvent,
+        TranslationRubricAssessorProvider,
     )
     from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
@@ -61,6 +71,7 @@ class LearningWorkflowsRegistry:
         settings: Settings,
         observability: LangfuseTelemetryProvider | None,
         assessor: CodeRubricAssessorProvider,
+        translation_assessor: TranslationRubricAssessorProvider,
         access_provider: MentorAccessProvider,
         curriculum_content_provider: CurriculumContentProvider,
         *,
@@ -75,6 +86,7 @@ class LearningWorkflowsRegistry:
         self._observability_provider: LangfuseTelemetryProvider = observability
         self._settings = settings
         self._assessor = assessor
+        self._translation_assessor = translation_assessor
         self._access_provider = access_provider
         self._curriculum_content_provider = curriculum_content_provider
         self._database: LearningDatabase = LearningPipe.create_database(outbox_engine)
@@ -90,6 +102,9 @@ class LearningWorkflowsRegistry:
             curriculum_content_provider,
             max_code_assessment_input_bytes=settings.max_code_assessment_input_bytes,
         )
+        prepare_translation = PrepareTranslationActivityEvaluationUseCase(
+            self._database
+        )
         workflow = EvaluateCodeActivityWorkflow(
             prepare,
             evaluate,
@@ -99,6 +114,14 @@ class LearningWorkflowsRegistry:
             observability,
             telemetry_provider,
         )
+        translation_workflow = EvaluateTranslationActivityWorkflow(
+            prepare_translation,
+            evaluate,
+            fail,
+            translation_assessor,
+            self._handoffs,
+            observability,
+        )
         self._runtime = (
             AgentOSRuntime(
                 module='learning',
@@ -107,7 +130,7 @@ class LearningWorkflowsRegistry:
                 database_url=str(database_url),
                 redis_url=settings.redis_url,
                 queue_settings=AgentOSQueueSettings.for_module('learning', settings),
-                workflows=[workflow],
+                workflows=[workflow, translation_workflow],
                 workflow_event_projector=self._project_event,
                 outbox_engine=outbox_engine,
                 observability=observability,
@@ -120,6 +143,13 @@ class LearningWorkflowsRegistry:
             AgentOSCodeRubricAssessorProvider(self._runtime.client, self._handoffs)
             if self._runtime is not None
             else _UnavailableCodeRubricAssessorProvider()
+        )
+        self._translation_assessment_provider: TranslationRubricAssessorProvider = (
+            AgentOSTranslationRubricAssessorProvider(
+                self._runtime.client, self._handoffs
+            )
+            if self._runtime is not None
+            else _UnavailableTranslationRubricAssessorProvider()
         )
         self._closed = False
 
@@ -138,10 +168,64 @@ class LearningWorkflowsRegistry:
         return self._assessment_provider
 
     @property
+    def translation_rubric_assessor_provider(self) -> TranslationRubricAssessorProvider:
+        return self._translation_assessment_provider
+
+    @property
     def observability_provider(self) -> LangfuseTelemetryProvider:
         return self._observability_provider
 
     def destination_for_event(self, event: OutboxEvent) -> str | None:
+        snapshot = self._event_snapshot(event)
+        if snapshot is None:
+            return None
+        if isinstance(snapshot, CurriculumChoiceActivitySnapshot):
+            return 'inngest'
+        is_ai_graded = any(
+            isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
+                ),
+            )
+            for question in snapshot.questions
+        )
+        return 'agentos:learning' if is_ai_graded else 'inngest'
+
+    def _project_event(
+        self,
+        event: OutboxEvent,
+    ) -> tuple[str, Mapping[str, str]] | None:
+        attempt_id = event.payload.get('attempt_id')
+        run_id = event.payload.get('run_id')
+        if not all(isinstance(value, str) and value for value in (attempt_id, run_id)):
+            return None
+        snapshot = self._event_snapshot(event)
+        if snapshot is None:
+            return None
+        is_translation = isinstance(
+            snapshot, CurriculumLearningActivitySnapshot
+        ) and any(
+            isinstance(question, CurriculumTranslationQuestionSnapshot)
+            for question in snapshot.questions
+        )
+        workflow_id = (
+            'learning-evaluate-translation-activity'
+            if is_translation
+            else 'learning-evaluate-code-activity'
+        )
+        return (
+            workflow_id,
+            {'attempt_id': str(attempt_id), 'run_id': str(run_id)},
+        )
+
+    def _event_snapshot(
+        self, event: OutboxEvent
+    ) -> CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot | None:
         if event.name != _EVENT_NAME:
             return None
         attempt_id = event.payload.get('attempt_id')
@@ -152,38 +236,12 @@ class LearningWorkflowsRegistry:
         if attempt is None:
             return None
         snapshot = attempt.grading_snapshot
-        if isinstance(snapshot, CurriculumChoiceActivitySnapshot):
-            return 'inngest'
-        if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
+        if not isinstance(
+            snapshot,
+            (CurriculumChoiceActivitySnapshot, CurriculumLearningActivitySnapshot),
+        ):
             return None
-        is_code = any(
-            isinstance(
-                question,
-                (
-                    CurriculumJavascriptStdinQuestionSnapshot,
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                ),
-            )
-            for question in snapshot.questions
-        )
-        return 'agentos:learning' if is_code else 'inngest'
-
-    @staticmethod
-    def _project_event(
-        event: OutboxEvent,
-    ) -> tuple[str, Mapping[str, str]] | None:
-        if event.name != _EVENT_NAME:
-            return None
-        attempt_id = event.payload.get('attempt_id')
-        run_id = event.payload.get('run_id')
-        if not all(isinstance(value, str) and value for value in (attempt_id, run_id)):
-            return None
-        return (
-            'learning-evaluate-code-activity',
-            {'attempt_id': str(attempt_id), 'run_id': str(run_id)},
-        )
+        return snapshot
 
     @asynccontextmanager
     async def lifespan(self) -> AsyncGenerator[None]:
@@ -212,3 +270,9 @@ class _UnavailableCodeRubricAssessorProvider:
     def assess(self, request: CodeRubricAssessmentInput) -> CodeRubricDecisions:
         del request
         raise ServiceUnavailableError('Code assessment is unavailable.')
+
+
+class _UnavailableTranslationRubricAssessorProvider:
+    def assess(self, request: TranslationRubricAssessmentInput) -> CodeRubricDecisions:
+        del request
+        raise ServiceUnavailableError('Translation assessment is unavailable.')

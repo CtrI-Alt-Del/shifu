@@ -5,6 +5,7 @@ from .multiple_selection_question import MultipleSelectionQuestion
 from .react_question import ReactQuestion
 from .react_fastify_question import ReactFastifyQuestion
 from .single_choice_question import SingleChoiceQuestion
+from .translation_question import TranslationQuestion
 
 
 type ActivityQuestion = (
@@ -15,4 +16,5 @@ type ActivityQuestion = (
     | ReactQuestion
     | HtmlCssJsQuestion
     | ReactFastifyQuestion
+    | TranslationQuestion
 )

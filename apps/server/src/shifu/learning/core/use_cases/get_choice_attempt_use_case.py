@@ -16,15 +16,21 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeResultDetail,
     CodeRubricResult,
+    TranslationAnswer,
+    TranslationResultDetail,
+    TranslationRubricResult,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
+    CurriculumChoicePartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
@@ -105,7 +111,7 @@ class GetChoiceAttemptUseCase:
                         if evaluation.status is ActivityEvaluationStatus.FAILED
                         else None
                     ),
-                    questions=self._pending_code_details(attempt),
+                    questions=self._pending_question_details(attempt),
                 )
 
             all_attempts = (
@@ -202,7 +208,7 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
-    ) -> tuple[ChoiceResultDetail | CodeResultDetail, ...]:
+    ) -> tuple[ChoiceResultDetail | CodeResultDetail | TranslationResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise NotFoundError
@@ -218,7 +224,14 @@ class GetChoiceAttemptUseCase:
             for result in evaluation.parts
             if isinstance(result, CodeRubricResult)
         }
-        details: list[ChoiceResultDetail | CodeResultDetail] = []
+        translation_results = {
+            result.question_key: result
+            for result in evaluation.parts
+            if isinstance(result, TranslationRubricResult)
+        }
+        details: list[
+            ChoiceResultDetail | CodeResultDetail | TranslationResultDetail
+        ] = []
         for question in snapshot.questions:
             answer = answers.get(question.key)
             result = results.get(question.key)
@@ -231,38 +244,19 @@ class GetChoiceAttemptUseCase:
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
-                code_answer = answer if isinstance(answer, CodeAnswer) else None
-                code_result = code_results.get(question.key)
-                if code_answer is None or code_result is None:
-                    continue
-
-                part = next(
-                    (
-                        item
-                        for item in snapshot.parts
-                        if item.question_key == question.key
-                    ),
-                    None,
+                code_detail = GetChoiceAttemptUseCase._code_result_detail(
+                    question, answer, code_results.get(question.key), snapshot.parts
                 )
-                if not isinstance(part, CurriculumCodeRubricPartSnapshot):
-                    continue
+                if code_detail is not None:
+                    details.append(code_detail)
+                continue
 
-                project = {item.path: item.content for item in question.initial_files}
-                project.update({item.path: item.content for item in code_answer.files})
-                details.append(
-                    CodeResultDetail(
-                        question_key=question.key,
-                        kind=question.kind,
-                        prompt=question.prompt,
-                        submitted_files=tuple(
-                            CodeSubmittedFile(path=path, content=content)
-                            for path, content in sorted(project.items())
-                        ),
-                        score=code_result.score,
-                        criterion_results=code_result.criterion_results,
-                        concept_observations=code_result.concept_observations,
-                    )
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                translation_detail = GetChoiceAttemptUseCase._translation_result_detail(
+                    question, answer, translation_results.get(question.key)
                 )
+                if translation_detail is not None:
+                    details.append(translation_detail)
                 continue
 
             if answer is None or result is None:
@@ -296,12 +290,72 @@ class GetChoiceAttemptUseCase:
         return tuple(details)
 
     @staticmethod
-    def _pending_code_details(attempt: ActivityAttempt) -> tuple[CodeResultDetail, ...]:
+    def _code_result_detail(
+        question: CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
+        answer: object | None,
+        result: CodeRubricResult | None,
+        parts: tuple[
+            CurriculumChoicePartSnapshot
+            | CurriculumCodeRubricPartSnapshot
+            | CurriculumTranslationRubricPartSnapshot,
+            ...,
+        ],
+    ) -> CodeResultDetail | None:
+        if not isinstance(answer, CodeAnswer) or result is None:
+            return None
+
+        part = next(
+            (item for item in parts if item.question_key == question.key),
+            None,
+        )
+        if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+            return None
+
+        project = {item.path: item.content for item in question.initial_files}
+        project.update({item.path: item.content for item in answer.files})
+        return CodeResultDetail(
+            question_key=question.key,
+            kind=question.kind,
+            prompt=question.prompt,
+            submitted_files=tuple(
+                CodeSubmittedFile(path=path, content=content)
+                for path, content in sorted(project.items())
+            ),
+            score=result.score,
+            criterion_results=result.criterion_results,
+            concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _translation_result_detail(
+        question: CurriculumTranslationQuestionSnapshot,
+        answer: object | None,
+        result: TranslationRubricResult | None,
+    ) -> TranslationResultDetail | None:
+        if not isinstance(answer, TranslationAnswer) or result is None:
+            return None
+        return TranslationResultDetail(
+            question_key=question.key,
+            kind=question.kind,
+            prompt=question.prompt,
+            submitted_text=answer.text,
+            score=result.score,
+            criterion_results=result.criterion_results,
+            concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _pending_question_details(
+        attempt: ActivityAttempt,
+    ) -> tuple[CodeResultDetail | TranslationResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             return ()
 
-        questions = {
+        code_questions = {
             item.key: item
             for item in snapshot.questions
             if isinstance(
@@ -314,29 +368,45 @@ class GetChoiceAttemptUseCase:
                 ),
             )
         }
-        details: list[CodeResultDetail] = []
+        translation_questions = {
+            item.key: item
+            for item in snapshot.questions
+            if isinstance(item, CurriculumTranslationQuestionSnapshot)
+        }
+        details: list[CodeResultDetail | TranslationResultDetail] = []
         for answer in attempt.answers:
-            if (
-                not isinstance(answer, CodeAnswer)
-                or answer.question_key not in questions
-            ):
-                continue
-
-            question = questions[answer.question_key]
-            project = {item.path: item.content for item in question.initial_files}
-            project.update({item.path: item.content for item in answer.files})
-            details.append(
-                CodeResultDetail(
-                    question_key=question.key,
-                    kind=question.kind,
-                    prompt=question.prompt,
-                    submitted_files=tuple(
-                        CodeSubmittedFile(path=path, content=content)
-                        for path, content in sorted(project.items())
-                    ),
-                    score=None,
-                    criterion_results=(),
-                    concept_observations=(),
+            if isinstance(answer, CodeAnswer) and answer.question_key in code_questions:
+                question = code_questions[answer.question_key]
+                project = {item.path: item.content for item in question.initial_files}
+                project.update({item.path: item.content for item in answer.files})
+                details.append(
+                    CodeResultDetail(
+                        question_key=question.key,
+                        kind=question.kind,
+                        prompt=question.prompt,
+                        submitted_files=tuple(
+                            CodeSubmittedFile(path=path, content=content)
+                            for path, content in sorted(project.items())
+                        ),
+                        score=None,
+                        criterion_results=(),
+                        concept_observations=(),
+                    )
                 )
-            )
+            elif (
+                isinstance(answer, TranslationAnswer)
+                and answer.question_key in translation_questions
+            ):
+                translation_question = translation_questions[answer.question_key]
+                details.append(
+                    TranslationResultDetail(
+                        question_key=translation_question.key,
+                        kind=translation_question.kind,
+                        prompt=translation_question.prompt,
+                        submitted_text=answer.text,
+                        score=None,
+                        criterion_results=(),
+                        concept_observations=(),
+                    )
+                )
         return tuple(details)

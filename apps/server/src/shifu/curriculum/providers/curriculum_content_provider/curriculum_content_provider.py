@@ -15,6 +15,8 @@ from shifu.curriculum.core.domain.structures import (
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     SingleChoiceQuestion,
+    TranslationQuestion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.core.domain.structures.diagnostic_coverage import (
     diagnostic_coverage_gaps,
@@ -57,6 +59,11 @@ from shifu.shared.core.domain.structures import (
     CurriculumMaterialSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
+    CurriculumTranslationInconclusiveCommentSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricCommentSnapshot,
+    CurriculumTranslationRubricCriterionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
 from shifu.shared.core.domain.errors import ValidationError
@@ -218,6 +225,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                     ReactQuestion,
                                     HtmlCssJsQuestion,
                                     ReactFastifyQuestion,
+                                    TranslationQuestion,
                                 ),
                             )
                             else tuple(
@@ -247,6 +255,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                     ReactQuestion,
                                     HtmlCssJsQuestion,
                                     ReactFastifyQuestion,
+                                    TranslationQuestion,
                                 ),
                             )
                             or (
@@ -268,7 +277,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                     and bool(maximum)
                     and all(
                         isinstance(
-                            part, (CorrectnessEvaluationPart, CodeRubricEvaluationPart)
+                            part,
+                            (
+                                CorrectnessEvaluationPart,
+                                CodeRubricEvaluationPart,
+                                TranslationRubricEvaluationPart,
+                            ),
                         )
                         for part in activity.evaluation_rule.parts
                     )
@@ -548,9 +562,12 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumReactQuestionSnapshot
                 | CurriculumHtmlCssJsQuestionSnapshot
                 | CurriculumReactFastifyQuestionSnapshot
+                | CurriculumTranslationQuestionSnapshot
             ] = []
             parts: list[
-                CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot
+                CurriculumChoicePartSnapshot
+                | CurriculumCodeRubricPartSnapshot
+                | CurriculumTranslationRubricPartSnapshot
             ] = []
             for question in activity.questions:
                 if isinstance(
@@ -773,6 +790,42 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             ),
                         )
                     )
+                elif isinstance(question, TranslationQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    questions.append(
+                        CurriculumTranslationQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            source_language=question.source_language,
+                            target_language=question.target_language,
+                            source_text=question.source_text,
+                            reference_translations=question.reference_translations,
+                            concept_criteria=tuple(
+                                CurriculumCodeConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    description=criterion.description,
+                                    level_observations=tuple(
+                                        CurriculumCodeLevelObservationSnapshot(
+                                            id=observation.id,
+                                            level=observation.level,
+                                            evidence=observation.evidence,
+                                            interpretation_limit=observation.interpretation_limit,
+                                        )
+                                        for observation in criterion.level_observations
+                                    ),
+                                    inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
+                                        id=criterion.inconclusive_observation.id,
+                                        text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
                 elif isinstance(question, ReactFastifyQuestion):
                     if activity_type == 'diagnostic' or not {
                         criterion.concept_id for criterion in question.concept_criteria
@@ -883,6 +936,35 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                         for comment in criterion.fixed_comments
                                     ),
                                     inconclusive_comment=CurriculumCodeInconclusiveCommentSnapshot(
+                                        id=criterion.inconclusive_comment.id,
+                                        text=criterion.inconclusive_comment.text,
+                                    ),
+                                )
+                                for criterion in part.criteria
+                            ),
+                        )
+                    )
+                elif isinstance(part, TranslationRubricEvaluationPart):
+                    parts.append(
+                        CurriculumTranslationRubricPartSnapshot(
+                            question_key=part.question_key,
+                            weight_percentage=Decimal(part.weight_percentage),
+                            criteria=tuple(
+                                CurriculumTranslationRubricCriterionSnapshot(
+                                    key=criterion.key,
+                                    name=criterion.name,
+                                    description=criterion.description,
+                                    weight_percentage=criterion.weight_percentage,
+                                    required=criterion.required,
+                                    fixed_comments=tuple(
+                                        CurriculumTranslationRubricCommentSnapshot(
+                                            id=comment.id,
+                                            level=comment.level,
+                                            text=comment.text,
+                                        )
+                                        for comment in criterion.fixed_comments
+                                    ),
+                                    inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
                                         id=criterion.inconclusive_comment.id,
                                         text=criterion.inconclusive_comment.text,
                                     ),

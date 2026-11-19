@@ -18,6 +18,8 @@ from shifu.curriculum.core.domain.structures import (
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
     TestCasesEvaluationPart,
+    TranslationQuestion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy.models import ActivityModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
@@ -61,6 +63,7 @@ class ActivityMapper:
         | ReactQuestion
         | HtmlCssJsQuestion
         | ReactFastifyQuestion
+        | TranslationQuestion
     ):
         if data.get('kind') == 'javascript_stdin':
             return cast(
@@ -84,6 +87,12 @@ class ActivityMapper:
             return cast(
                 'HtmlCssJsQuestion',
                 Serialization.deserialize_value(data, HtmlCssJsQuestion),
+            )
+
+        if data.get('kind') == 'translation':
+            return cast(
+                'TranslationQuestion',
+                Serialization.deserialize_value(data, TranslationQuestion),
             )
 
         if 'kind' in data:
@@ -138,7 +147,8 @@ class ActivityMapper:
             | JavascriptStdinQuestion
             | ReactQuestion
             | HtmlCssJsQuestion
-            | ReactFastifyQuestion,
+            | ReactFastifyQuestion
+            | TranslationQuestion,
             ...,
         ],
     ) -> (
@@ -146,6 +156,7 @@ class ActivityMapper:
         | TestCasesEvaluationPart
         | QualitativeEvaluationPart
         | CodeRubricEvaluationPart
+        | TranslationRubricEvaluationPart
     ):
         question = next(
             (item for item in questions if item.key == data.get('question_key')), None
@@ -153,11 +164,14 @@ class ActivityMapper:
         criteria = data.get('criteria')
         if isinstance(criteria, list) and criteria:
             first = cast('object', criteria[0])
-            part_type = (
-                CodeRubricEvaluationPart
-                if isinstance(first, dict) and 'fixed_comments' in first
-                else QualitativeEvaluationPart
-            )
+            if isinstance(first, dict) and 'fixed_comments' in first:
+                part_type = (
+                    TranslationRubricEvaluationPart
+                    if isinstance(question, TranslationQuestion)
+                    else CodeRubricEvaluationPart
+                )
+            else:
+                part_type = QualitativeEvaluationPart
         elif 'criteria' in data:
             part_type = QualitativeEvaluationPart
         elif isinstance(question, CodeQuestion):
@@ -165,7 +179,7 @@ class ActivityMapper:
         else:
             part_type = CorrectnessEvaluationPart
         return cast(
-            'CorrectnessEvaluationPart | TestCasesEvaluationPart | QualitativeEvaluationPart | CodeRubricEvaluationPart',
+            'CorrectnessEvaluationPart | TestCasesEvaluationPart | QualitativeEvaluationPart | CodeRubricEvaluationPart | TranslationRubricEvaluationPart',
             Serialization.deserialize_value(data, part_type),
         )
 

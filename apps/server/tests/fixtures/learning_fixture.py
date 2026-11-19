@@ -23,6 +23,11 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
+    TranslationInconclusiveComment,
+    TranslationQuestion,
+    TranslationRubricComment,
+    TranslationRubricCriterion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
@@ -47,6 +52,7 @@ from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeSubmittedFile,
     SingleChoiceAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
 from shifu.shared.providers.system_clock_provider import SystemClockProvider
@@ -57,6 +63,9 @@ if TYPE_CHECKING:
 
 CODE_QUESTION_KEY = 'q3'
 CODE_CRITERION_KEY = 'correctness'
+TRANSLATION_QUESTION_KEY = 'q3'
+TRANSLATION_SEMANTIC_CRITERION_KEY = 'semantic_preservation'
+TRANSLATION_GRAMMAR_CRITERION_KEY = 'grammatical_adequacy'
 
 
 @dataclass(frozen=True)
@@ -246,3 +255,175 @@ def seed_code_activity_attempt(
         repos.activity_attempts.add(attempt)
         repos.activity_evaluations.add(evaluation)
     return SeededCodeActivity(database, provider, attempt, evaluation)
+
+
+@dataclass(frozen=True)
+class SeededTranslationActivity:
+    """One mixed activity (two choice questions, one translation question) with a
+    pending evaluation of a submitted attempt."""
+
+    database: SqlalchemyLearningDatabase
+    content_provider: DatabaseCurriculumContentProvider
+    attempt: ActivityAttempt
+    evaluation: ActivityEvaluation
+
+    @property
+    def run_id(self) -> str:
+        assert self.evaluation.run_id is not None
+        return self.evaluation.run_id
+
+    def current_evaluation(self) -> ActivityEvaluation:
+        with self.database.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                self.attempt.id
+            )
+        assert evaluation is not None
+        return evaluation
+
+
+def seed_translation_activity_attempt(
+    engine: Engine, *, submitted_text: str = 'Good morning'
+) -> SeededTranslationActivity:
+    ids = SystemIdentifierProvider()
+    now = SystemClockProvider().now()
+    account = AccountFaker.fake(created_at=now)
+    skill = SkillFaker.fake()
+    competency = CompetencyFaker.fake(skill_id=skill.id)
+    choice_questions = tuple(
+        SingleChoiceQuestion(
+            key=f'q{number}',
+            prompt=f'Pergunta {number}?',
+            options=(
+                ChoiceOption(key='correct', text='Correta', is_correct=True),
+                ChoiceOption(key='incorrect', text='Incorreta', is_correct=False),
+            ),
+            correct_explanation='Correta',
+            incorrect_explanation='Incorreta',
+            concept_criteria=(),
+        )
+        for number in (1, 2)
+    )
+    translation_question = TranslationQuestion(
+        key=TRANSLATION_QUESTION_KEY,
+        prompt='Traduza o texto a seguir.',
+        source_language='pt-BR',
+        target_language='en-US',
+        source_text='Bom dia',
+        reference_translations=('Good morning',),
+        concept_criteria=(),
+    )
+
+    def rubric_criterion(key: str, weight: int) -> TranslationRubricCriterion:
+        return TranslationRubricCriterion(
+            key=key,
+            name=key.replace('_', ' ').title(),
+            description=f'Evaluate {key}.',
+            weight_percentage=weight,
+            required=True,
+            fixed_comments=tuple(
+                TranslationRubricComment(
+                    id=f'{key}-{level}', level=level, text=f'Comment {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=TranslationInconclusiveComment(
+                id=f'{key}-inconclusive', text='Inconclusivo'
+            ),
+        )
+
+    activity = Activity.create(
+        id=ids.generate(),
+        competency_id=competency.id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade mista do workflow de tradução',
+        objective='Avaliar escolha e tradução.',
+        questions=(*choice_questions, translation_question),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
+                TranslationRubricEvaluationPart(
+                    question_key=TRANSLATION_QUESTION_KEY,
+                    weight_percentage=40,
+                    criteria=(
+                        rubric_criterion(TRANSLATION_SEMANTIC_CRITERION_KEY, 70),
+                        rubric_criterion(TRANSLATION_GRAMMAR_CRITERION_KEY, 30),
+                    ),
+                ),
+            )
+        ),
+    )
+    goal = GoalFaker.fake(account_id=account.id, created_at=now, updated_at=now)
+    experience = SkillExperienceFaker.fake(
+        goal_id=goal.id,
+        skill_id=skill.id,
+        status=SkillExperienceStatus.LEARNING,
+        created_at=now,
+        updated_at=now,
+    )
+    progress = CompetencyProgressFaker.fake(
+        skill_experience_id=experience.id,
+        competency_id=competency.id,
+        content_released=True,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+        created_at=now,
+        updated_at=now,
+    )
+    with SqlalchemyIdentityDatabase(engine, id_provider=ids).transaction() as repos:
+        repos.accounts.add(account)
+    curriculum_database = SqlalchemyCurriculumDatabase(engine)
+    with curriculum_database.transaction() as repos:
+        repos.skills.add_many([skill])
+        repos.competencies.add_many([competency])
+        repos.activities.add_many([activity])
+        repos.curriculum_sequences.add_many(
+            [
+                CurriculumSequence(
+                    competency_id=competency.id,
+                    items=(ActivitySequenceItem(activity_id=activity.id, position=1),),
+                )
+            ]
+        )
+    database = SqlalchemyLearningDatabase(engine, id_provider=ids)
+    with database.transaction() as repos:
+        repos.goals.add(goal)
+        repos.skill_experiences.add_many([experience])
+        repos.competency_progresses.add(progress)
+    provider = DatabaseCurriculumContentProvider(
+        curriculum_database,
+        diagnostic_revision_hmac_key=b'workflow-test-diagnostic-revision-key',
+    )
+    snapshot = provider.get_learning_activity(activity.id)
+    assert snapshot is not None
+    attempt = ActivityAttempt.create(
+        id=ids.generate(),
+        skill_experience_id=experience.id,
+        competency_id=activity.competency_id,
+        activity_id=activity.id,
+        kind=ActivityAttemptKind.LEARNING,
+        answers=(
+            SingleChoiceAnswer(question_key='q1', selected_option_key='correct'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='correct'),
+            TranslationAnswer(
+                question_key=TRANSLATION_QUESTION_KEY, text=submitted_text
+            ),
+        ),
+        submitted_at=now,
+        submission_key=ids.generate(),
+        grading_snapshot=snapshot,
+    )
+    evaluation = ActivityEvaluation.create(
+        id=ids.generate(),
+        attempt_id=attempt.id,
+        status=ActivityEvaluationStatus.PENDING,
+        parts=(),
+        started_at=now,
+        run_id=ids.generate(),
+    )
+    with database.transaction() as repos:
+        repos.activity_attempts.add(attempt)
+        repos.activity_evaluations.add(evaluation)
+    return SeededTranslationActivity(database, provider, attempt, evaluation)

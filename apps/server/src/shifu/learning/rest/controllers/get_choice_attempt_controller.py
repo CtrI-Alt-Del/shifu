@@ -62,6 +62,16 @@ class CodeQuestionResultResponse(BaseModel):
     concept_observations: tuple[ConceptObservationResponse, ...]
 
 
+class TranslationQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: str
+    prompt: str
+    submitted_text: str
+    score: Decimal | None
+    criterion_results: tuple[CriterionResultResponse, ...]
+    concept_observations: tuple[ConceptObservationResponse, ...]
+
+
 class Response(BaseModel):
     attempt_id: str
     activity_id: str
@@ -76,7 +86,10 @@ class Response(BaseModel):
     status_after: str | None = None
     next_action: NextActionResponse | None = None
     questions: tuple[
-        ChoiceQuestionResultResponse | CodeQuestionResultResponse, ...
+        ChoiceQuestionResultResponse
+        | CodeQuestionResultResponse
+        | TranslationQuestionResultResponse,
+        ...,
     ] = ()
 
 
