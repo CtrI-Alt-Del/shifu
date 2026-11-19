@@ -16,6 +16,8 @@ import type {
   ChoiceActivityDetail,
   ActivityAnswer,
   CodeAnswer,
+  FillBlanksAnswer,
+  FillBlanksPlacement,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
@@ -759,6 +761,19 @@ export function useActivityPage(props: ActivityPageProps) {
       ) &&
       (currentQuestion.kind !== 'single_choice' || selectedOptionKeys.length === 1),
   )
+  const fillBlanksPlacements =
+    currentAnswer && 'placements' in currentAnswer ? currentAnswer.placements : []
+  const hasCompleteFillBlanks = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'fill_blanks' &&
+      currentQuestion.segments.every(
+        (segment) =>
+          !segment.blankKey ||
+          fillBlanksPlacements.some(
+            (placement) => placement.blankKey === segment.blankKey,
+          ),
+      ),
+  )
   const hasValidTranslationText = Boolean(
     currentQuestion?.kind === 'translation' &&
       currentAnswer &&
@@ -769,9 +784,11 @@ export function useActivityPage(props: ActivityPageProps) {
     currentAnswer &&
       ('files' in currentAnswer
         ? currentAnswer.files.length > 0
-        : 'text' in currentAnswer
-          ? currentAnswer.text.trim().length > 0
-          : currentAnswer.selectedOptionKeys.length > 0),
+        : 'placements' in currentAnswer
+          ? currentAnswer.placements.length > 0
+          : 'text' in currentAnswer
+            ? currentAnswer.text.trim().length > 0
+            : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -837,6 +854,31 @@ export function useActivityPage(props: ActivityPageProps) {
       answer,
     ])
     setUnsentAnswers(true)
+    setHasFeedbackError(false)
+  }
+
+  function handleFillBlanksChange(placements: readonly FillBlanksPlacement[]) {
+    if (
+      !activity ||
+      !currentQuestion ||
+      currentQuestion.kind !== 'fill_blanks' ||
+      isSubmitting ||
+      isAssessing ||
+      isSubmissionLocked
+    )
+      return
+
+    const answer: FillBlanksAnswer = {
+      kind: 'fill_blanks',
+      questionKey: currentQuestion.key,
+      placements: placements.map((placement) => ({ ...placement })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
     setHasFeedbackError(false)
   }
 
@@ -942,10 +984,15 @@ export function useActivityPage(props: ActivityPageProps) {
     const snapshot: ActivityAnswer =
       'files' in answer
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
-        : 'text' in answer
-          ? { ...answer }
-          : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
-    setFrozenAnswer(snapshot)
+        : 'placements' in answer
+          ? {
+              ...answer,
+              placements: answer.placements.map((placement) => ({ ...placement })),
+            }
+          : 'text' in answer
+            ? { ...answer }
+            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+    setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
     try {
@@ -1148,6 +1195,13 @@ export function useActivityPage(props: ActivityPageProps) {
       return
     }
     if (!feedback) {
+      if (currentQuestion.kind === 'fill_blanks') {
+        const fillAnswer = answers.find(
+          (answer) => answer.questionKey === currentQuestion.key,
+        )
+        if (hasCompleteFillBlanks && fillAnswer) void assess(fillAnswer)
+        return
+      }
       if (frozenAnswer) {
         void assess(frozenAnswer, true)
         return
@@ -1223,6 +1277,7 @@ export function useActivityPage(props: ActivityPageProps) {
           : feedback !== null ||
             frozenAnswer !== null ||
             hasValidSelection ||
+            hasCompleteFillBlanks ||
             hasValidTranslationText),
     feedback,
     frozenAnswer,
@@ -1230,6 +1285,9 @@ export function useActivityPage(props: ActivityPageProps) {
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
     handleTranslationAnswerChange,
     currentQuestion,
     currentQuestionIndex,
@@ -1387,6 +1445,17 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
           isRecord(file) &&
           typeof file.path === 'string' &&
           typeof file.content === 'string',
+      )
+    )
+  }
+  if (value.kind === 'fill_blanks') {
+    return (
+      Array.isArray(value.placements) &&
+      value.placements.every(
+        (placement: unknown) =>
+          isRecord(placement) &&
+          typeof placement.blankKey === 'string' &&
+          typeof placement.wordKey === 'string',
       )
     )
   }

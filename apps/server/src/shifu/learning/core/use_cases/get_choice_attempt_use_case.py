@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import timedelta
 
 from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
@@ -16,23 +17,39 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeResultDetail,
     CodeRubricResult,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
+    FillBlanksExpectedBlank,
+    FillBlanksResultDetail,
     TranslationAnswer,
     TranslationResultDetail,
     TranslationRubricResult,
 )
 from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases.get_choice_activity_use_case import (
+    GetChoiceActivityUseCase,
+)
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
+    CurriculumChoiceQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
+
+type ResultDetail = (
+    ChoiceResultDetail
+    | CodeResultDetail
+    | FillBlanksResultDetail
+    | TranslationResultDetail
+)
 
 
 class GetChoiceAttemptUseCase:
@@ -179,7 +196,8 @@ class GetChoiceAttemptUseCase:
         released: set[str] = {
             item.question_key
             for item in current_evaluation.parts
-            if isinstance(item, ChoiceEvaluationResult) and item.is_correct
+            if isinstance(item, ChoiceEvaluationResult | FillBlanksEvaluationResult)
+            and item.is_correct
         }
         for later_attempt in attempts:
             if (
@@ -199,7 +217,8 @@ class GetChoiceAttemptUseCase:
             released.update(
                 item.question_key
                 for item in later_evaluation.parts
-                if isinstance(item, ChoiceEvaluationResult) and item.is_correct
+                if isinstance(item, ChoiceEvaluationResult | FillBlanksEvaluationResult)
+                and item.is_correct
             )
         return frozenset(released)
 
@@ -208,33 +227,28 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
-    ) -> tuple[ChoiceResultDetail | CodeResultDetail | TranslationResultDetail, ...]:
+    ) -> tuple[ResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise NotFoundError
 
         answers = {answer.question_key: answer for answer in attempt.answers}
-        results: dict[str, ChoiceEvaluationResult] = {
-            result.question_key: result
-            for result in evaluation.parts
-            if isinstance(result, ChoiceEvaluationResult)
-        }
-        code_results = {
-            result.question_key: result
-            for result in evaluation.parts
-            if isinstance(result, CodeRubricResult)
-        }
-        translation_results = {
-            result.question_key: result
-            for result in evaluation.parts
-            if isinstance(result, TranslationRubricResult)
-        }
-        details: list[
-            ChoiceResultDetail | CodeResultDetail | TranslationResultDetail
-        ] = []
+        results = GetChoiceAttemptUseCase._parts_of(evaluation, ChoiceEvaluationResult)
+        code_results = GetChoiceAttemptUseCase._parts_of(evaluation, CodeRubricResult)
+        translation_results = GetChoiceAttemptUseCase._parts_of(
+            evaluation, TranslationRubricResult
+        )
+        fill_blanks_details = GetChoiceAttemptUseCase._fill_blanks_details(
+            snapshot.questions, answers, evaluation, disclosed_keys
+        )
+        details: list[ResultDetail] = []
         for question in snapshot.questions:
             answer = answers.get(question.key)
-            result = results.get(question.key)
+            detail: ResultDetail | None
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                details.extend(fill_blanks_details.get(question.key, ()))
+                continue
+
             if isinstance(
                 question,
                 (
@@ -244,50 +258,121 @@ class GetChoiceAttemptUseCase:
                     CurriculumReactFastifyQuestionSnapshot,
                 ),
             ):
-                code_detail = GetChoiceAttemptUseCase._code_result_detail(
+                detail = GetChoiceAttemptUseCase._code_result_detail(
                     question, answer, code_results.get(question.key), snapshot.parts
                 )
-                if code_detail is not None:
-                    details.append(code_detail)
-                continue
-
-            if isinstance(question, CurriculumTranslationQuestionSnapshot):
-                translation_detail = GetChoiceAttemptUseCase._translation_result_detail(
+            elif isinstance(question, CurriculumTranslationQuestionSnapshot):
+                detail = GetChoiceAttemptUseCase._translation_result_detail(
                     question, answer, translation_results.get(question.key)
                 )
-                if translation_detail is not None:
-                    details.append(translation_detail)
-                continue
-
-            if answer is None or result is None:
-                continue
-
-            if isinstance(answer, SingleChoiceAnswer):
-                selected_keys = (answer.selected_option_key,)
-            elif isinstance(answer, MultipleSelectionAnswer):
-                selected_keys = answer.selected_option_keys
             else:
-                continue
-            details.append(
-                ChoiceResultDetail(
-                    question_key=question.key,
-                    prompt=question.prompt,
-                    selected_option_keys=selected_keys,
-                    score=result.score,
-                    is_correct=result.is_correct,
-                    explanation=result.explanation,
-                    disclosed_correct_option_keys=(
-                        tuple(
-                            option.key
-                            for option in question.options
-                            if option.is_correct
-                        )
-                        if question.key in disclosed_keys
-                        else ()
-                    ),
+                detail = GetChoiceAttemptUseCase._choice_result_detail(
+                    question, answer, results.get(question.key), disclosed_keys
                 )
-            )
+            if detail is not None:
+                details.append(detail)
         return tuple(details)
+
+    @staticmethod
+    def _parts_of[PartT](
+        evaluation: ActivityEvaluation, part_type: type[PartT]
+    ) -> dict[str, PartT]:
+        return {
+            part.question_key: part
+            for part in evaluation.parts
+            if isinstance(part, part_type)
+        }
+
+    @staticmethod
+    def _choice_result_detail(
+        question: CurriculumChoiceQuestionSnapshot,
+        answer: object | None,
+        result: ChoiceEvaluationResult | None,
+        disclosed_keys: frozenset[str],
+    ) -> ChoiceResultDetail | None:
+        if answer is None or result is None:
+            return None
+
+        if isinstance(answer, SingleChoiceAnswer):
+            selected_keys = (answer.selected_option_key,)
+        elif isinstance(answer, MultipleSelectionAnswer):
+            selected_keys = answer.selected_option_keys
+        else:
+            return None
+        return ChoiceResultDetail(
+            question_key=question.key,
+            prompt=question.prompt,
+            selected_option_keys=selected_keys,
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
+            disclosed_correct_option_keys=(
+                tuple(option.key for option in question.options if option.is_correct)
+                if question.key in disclosed_keys
+                else ()
+            ),
+        )
+
+    @staticmethod
+    def _fill_blanks_details(
+        questions: tuple[object, ...],
+        answers: Mapping[str, object],
+        evaluation: ActivityEvaluation,
+        disclosed_keys: frozenset[str],
+    ) -> dict[str, tuple[FillBlanksResultDetail, ...]]:
+        results = {
+            result.question_key: result
+            for result in evaluation.parts
+            if isinstance(result, FillBlanksEvaluationResult)
+        }
+        details: dict[str, tuple[FillBlanksResultDetail, ...]] = {}
+        for question in questions:
+            if not isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                continue
+
+            detail = GetChoiceAttemptUseCase._fill_blanks_result_detail(
+                question,
+                answers.get(question.key),
+                results.get(question.key),
+                question.key in disclosed_keys,
+            )
+            details[question.key] = () if detail is None else (detail,)
+        return details
+
+    @staticmethod
+    def _fill_blanks_result_detail(
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: object,
+        result: FillBlanksEvaluationResult | None,
+        disclosed: bool,
+    ) -> FillBlanksResultDetail | None:
+        if not isinstance(answer, FillBlanksAnswer) or result is None:
+            return None
+
+        public = GetChoiceActivityUseCase.fill_blanks_question_detail(question)
+        return FillBlanksResultDetail(
+            question_key=question.key,
+            prompt=question.prompt,
+            content_language=question.content_language,
+            segments=public.segments,
+            bank=public.bank,
+            placements=answer.placements,
+            score=result.score,
+            is_correct=result.is_correct,
+            correct_blank_count=len(result.correct_blank_keys),
+            blank_count=result.blank_count,
+            explanation=result.explanation,
+            disclosed_expected_blanks=(
+                tuple(
+                    FillBlanksExpectedBlank(
+                        blank_key=blank.key, accepted_words=blank.accepted_words
+                    )
+                    for blank in question.blanks
+                )
+                if disclosed
+                else ()
+            ),
+        )
 
     @staticmethod
     def _code_result_detail(

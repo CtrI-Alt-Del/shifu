@@ -9,6 +9,7 @@ import type {
   ActivityAnswer,
   ActivityQuestion,
   ActivityResultQuestion,
+  FillBlanksAnswer,
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
@@ -98,6 +99,14 @@ type ActivityWire = {
       }
     | {
         key: string
+        kind: 'fill_blanks'
+        prompt: string
+        content_language: string
+        segments: { text?: string | null; blank_key?: string | null }[]
+        bank: { key: string; word: string }[]
+      }
+    | {
+        key: string
         kind: 'translation'
         prompt: string
         source_language: string
@@ -117,6 +126,19 @@ function mapActivityQuestion(
 ): ActivityQuestion {
   if (question.kind === 'single_choice' || question.kind === 'multiple_selection') {
     return question
+  }
+  if (question.kind === 'fill_blanks') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      contentLanguage: question.content_language,
+      segments: question.segments.map((segment) => ({
+        text: segment.text ?? null,
+        blankKey: segment.blank_key ?? null,
+      })),
+      bank: question.bank,
+    }
   }
   if (question.kind === 'javascript_stdin') {
     return {
@@ -202,7 +224,19 @@ function mapActivityQuestion(
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
+function mapFillBlanksAnswer(answer: FillBlanksAnswer) {
+  return {
+    kind: answer.kind,
+    question_key: answer.questionKey,
+    placements: answer.placements.map((placement) => ({
+      blank_key: placement.blankKey,
+      word_key: placement.wordKey,
+    })),
+  }
+}
+
 function mapAnswer(answer: ActivityAnswer) {
+  if ('placements' in answer) return mapFillBlanksAnswer(answer)
   if ('text' in answer) {
     return {
       kind: answer.kind,
@@ -311,6 +345,21 @@ type AttemptWire = {
       }
     | {
         question_key: string
+        kind: 'fill_blanks'
+        prompt: string
+        content_language: string
+        segments: { text?: string | null; blank_key?: string | null }[]
+        bank: { key: string; word: string }[]
+        placements: { blank_key: string; word_key: string }[]
+        score: number
+        is_correct: boolean
+        correct_blank_count: number
+        blank_count: number
+        explanation: string
+        disclosed_expected_blanks: { blank_key: string; accepted_words: string[] }[]
+      }
+    | {
+        question_key: string
         kind: 'translation'
         prompt: string
         submitted_text: string
@@ -353,6 +402,32 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         }
       : wire.next_action,
     questions: wire.questions?.map((question): ActivityResultQuestion => {
+      if ('kind' in question && question.kind === 'fill_blanks') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          contentLanguage: question.content_language,
+          segments: question.segments.map((segment) => ({
+            text: segment.text ?? null,
+            blankKey: segment.blank_key ?? null,
+          })),
+          bank: question.bank,
+          placements: question.placements.map((placement) => ({
+            blankKey: placement.blank_key,
+            wordKey: placement.word_key,
+          })),
+          score: question.score,
+          isCorrect: question.is_correct,
+          correctBlankCount: question.correct_blank_count,
+          blankCount: question.blank_count,
+          explanation: question.explanation,
+          expectedBlanks: question.disclosed_expected_blanks.map((blank) => ({
+            blankKey: blank.blank_key,
+            acceptedWords: blank.accepted_words,
+          })),
+        }
+      }
       if (
         'kind' in question &&
         (question.kind === 'javascript_stdin' ||
@@ -725,6 +800,8 @@ export const LearningService = (restClient: RestClient) => {
           comment: string
         }[]
         submitted_files?: { path: string; content: string }[]
+        correct_blank_count?: number
+        blank_count?: number
         submitted_text?: string
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
@@ -747,6 +824,8 @@ export const LearningService = (restClient: RestClient) => {
           comment: criterion.comment,
         })),
         submittedFiles: body.submitted_files,
+        correctBlankCount: body.correct_blank_count,
+        blankCount: body.blank_count,
         submittedText: body.submitted_text,
       }
     },

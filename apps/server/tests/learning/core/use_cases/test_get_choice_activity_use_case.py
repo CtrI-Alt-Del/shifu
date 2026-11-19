@@ -8,9 +8,15 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
 from shifu.learning.core.domain.entities import CompetencyProgress
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
+    FillBlanksQuestionDetail,
+    FillBlanksSegmentDetail,
+    FillBlanksWordDetail,
     ChoiceActivityDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
@@ -561,6 +567,68 @@ class TestGetChoiceActivityUseCase:
         self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
         self.provider.get_choice_activity.assert_called_once_with(ACTIVITY_ID)
         self.provider.get_skill_content.assert_called_once_with(SKILL_ID)
+
+    def test_should_project_fill_blanks_without_answer_keys_or_concept_criteria(
+        self,
+    ) -> None:
+        mixed = CurriculumFillBlanksActivitySnapshotFaker.fake(
+            activity_id=ACTIVITY_ID, competency_id=COMPETENCY_ID
+        )
+        self.provider.get_learning_activity.return_value = mixed
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        assert tuple(question.key for question in detail.questions) == (
+            'fill-1',
+            'q1',
+            'q2',
+        )
+        fill = detail.questions[0]
+        assert isinstance(fill, FillBlanksQuestionDetail)
+        assert fill.kind == 'fill_blanks'
+        assert fill.content_language == 'en'
+        assert fill.segments[:3] == (
+            FillBlanksSegmentDetail(text='She ', blank_key=None),
+            FillBlanksSegmentDetail(text=None, blank_key='b1'),
+            FillBlanksSegmentDetail(text=' to school and ', blank_key=None),
+        )
+        assert fill.bank == (
+            FillBlanksWordDetail(key='w4', word='day'),
+            FillBlanksWordDetail(key='w6', word='go'),
+            FillBlanksWordDetail(key='w3', word='does'),
+            FillBlanksWordDetail(key='w1', word='goes'),
+            FillBlanksWordDetail(key='w5', word='day'),
+            FillBlanksWordDetail(key='w2', word='walks'),
+        )
+        for hidden in (
+            'blanks',
+            'accepted_words',
+            'concept_criteria',
+            'correct_explanation',
+            'incorrect_explanation',
+            'partial_explanation',
+        ):
+            assert not hasattr(fill, hidden)
+        assert detail.activity_revision == mixed.revision
+        assert detail.can_submit is True
+        self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
+        self.provider.get_choice_activity.assert_not_called()
+
+    def test_should_hide_fill_blanks_activity_from_another_accounts_goal(self) -> None:
+        self.provider.get_learning_activity.return_value = (
+            CurriculumFillBlanksActivitySnapshotFaker.fake(
+                activity_id=ACTIVITY_ID, competency_id=COMPETENCY_ID
+            )
+        )
+
+        with pytest.raises(NotFoundError):
+            self.subject.execute(
+                'account-2', GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+            )
+
+        self.provider.get_learning_activity.assert_not_called()
 
     def test_should_reject_mixed_snapshot_for_another_competency(self) -> None:
         mixed = react_snapshot()

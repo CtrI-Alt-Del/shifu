@@ -6,11 +6,19 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
 from shifu.learning.core.domain.entities import ActivityAttempt, ActivityEvaluation
 from shifu.learning.core.domain.enums import (
     ActivityAttemptKind,
     ActivityEvaluationStatus,
     SkillExperienceStatus,
+)
+from shifu.learning.core.domain.structures import (
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    SingleChoiceAnswer,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -123,6 +131,46 @@ class TestRetryChoiceEvaluationUseCase:
 
         assert event.payload.attempt_id == self.attempt.id
         assert event.payload.run_id == 'run-2'
+
+    def test_should_retry_the_same_fill_blanks_attempt_without_a_new_attempt(
+        self,
+    ) -> None:
+        answers = (
+            FillBlanksAnswer(
+                question_key='fill-1',
+                placements=(
+                    FillBlanksPlacement(blank_key='b1', word_key='w1'),
+                    FillBlanksPlacement(blank_key='b2', word_key='w3'),
+                    FillBlanksPlacement(blank_key='b3', word_key='w4'),
+                ),
+            ),
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+        )
+        self.attempt = replace(
+            self.attempt,
+            answers=answers,
+            grading_snapshot=CurriculumFillBlanksActivitySnapshotFaker.fake(
+                activity_id=ACTIVITY_ID, competency_id=COMPETENCY_ID
+            ),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, self.attempt.id
+        )
+
+        assert detail.attempt_id == self.attempt.id
+        assert detail.status is ActivityEvaluationStatus.PENDING
+        assert self.attempt.answers == answers
+        assert self.evaluation.run_id == 'run-2'
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        event = self.repositories.events.add.call_args.args[0]
+        assert (event.payload.attempt_id, event.payload.run_id) == (
+            self.attempt.id,
+            'run-2',
+        )
 
     def test_should_retry_the_same_diagnostic_answer_in_the_active_run(self) -> None:
         self.experience.status = SkillExperienceStatus.DIAGNOSING

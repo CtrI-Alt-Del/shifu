@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChoiceActivityDetail } from '@/core/learning/choice-activity'
+import { FillBlanksQuestionFaker } from '@/core/learning/fakers'
 import type { HtmlCssJsQuestion as HtmlQuestion } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import {
@@ -105,6 +106,9 @@ function createControllerMock(
     hasFeedbackError: false,
     handleAssessCode: vi.fn(),
     handleCodeFilesChange: vi.fn(),
+    handleFillBlanksChange: vi.fn(),
+    fillBlanksPlacements: [],
+    isFillBlanksLocked: false,
     handleTranslationAnswerChange: vi.fn(),
     translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
@@ -790,5 +794,107 @@ describe('ActivityPage', () => {
     fireEvent.click(screen.getByText('Arquivos avaliados'))
     expect(screen.getByText('frozen response')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeDisabled()
+  })
+  describe('with a fill-in-the-blank question', () => {
+    const fillQuestion = FillBlanksQuestionFaker.fake()
+    const fillActivity: ChoiceActivityDetail = {
+      ...ACTIVITY,
+      activityRevision: 'revision-1',
+      questions: [fillQuestion],
+    }
+
+    function renderFill(overrides: Partial<ActivityPageController> = {}) {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: fillActivity,
+          currentQuestion: fillQuestion,
+          currentQuestionNumber: 1,
+          feedback: null,
+          fillBlanksPlacements: [],
+          isLastQuestion: false,
+          isMixedActivity: true,
+          totalQuestions: 3,
+          ...overrides,
+        }),
+      )
+      return render(<ActivityPage activity={fillActivity} onSubmit={vi.fn()} />)
+    }
+
+    it('renders the blanks and the word bank and keeps the check disabled until the fill is complete', () => {
+      renderFill({ canContinue: false })
+
+      expect(screen.getByRole('button', { name: 'Lacuna 1: vazia' })).toBeVisible()
+      expect(screen.getByRole('region', { name: 'Banco de palavras' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+      expect(screen.queryByRole('radio')).toBeNull()
+    })
+
+    it('enables the check once every blank is filled and delegates it', () => {
+      const handleContinue = vi.fn()
+      renderFill({
+        canContinue: true,
+        fillBlanksPlacements: [
+          { blankKey: 'b1', wordKey: 'w1' },
+          { blankKey: 'b2', wordKey: 'w3' },
+          { blankKey: 'b3', wordKey: 'w4' },
+        ],
+        handleContinue,
+      })
+
+      expect(screen.getByText('3 de 3 lacunas preenchidas')).toBeVisible()
+      fireEvent.click(screen.getByRole('button', { name: 'Avaliar resposta' }))
+      expect(handleContinue).toHaveBeenCalledOnce()
+    })
+
+    it('places a selected word through the real widget and reports the new placements', () => {
+      const handleFillBlanksChange = vi.fn()
+      renderFill({ handleFillBlanksChange })
+
+      fireEvent.click(screen.getByRole('button', { name: 'goes' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Lacuna 1: vazia' }))
+
+      expect(handleFillBlanksChange).toHaveBeenCalledWith([
+        { blankKey: 'b1', wordKey: 'w1' },
+      ])
+    })
+
+    it('locks the blanks and the bank while the question is being assessed or submitted', () => {
+      renderFill({ isFillBlanksLocked: true })
+
+      expect(screen.getByRole('button', { name: 'Lacuna 1: vazia' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'walks' })).toBeDisabled()
+    })
+
+    it.each([
+      [100, 3, 'Resposta correta', '3 de 3 lacunas corretas'],
+      [66.67, 2, 'Parcialmente correta', '2 de 3 lacunas corretas'],
+      [0, 0, 'Resposta incorreta', '0 de 3 lacunas corretas'],
+    ])(
+      'shows the provisional result at %s with its label, count and explanation',
+      (score, correctBlankCount, label, count) => {
+        renderFill({
+          feedback: {
+            status: 'conclusive',
+            score,
+            explanation: 'Explicação predefinida da questão.',
+            isCorrect: score === 100,
+            correctBlankCount,
+            blankCount: 3,
+          },
+          fillBlanksPlacements: [
+            { blankKey: 'b1', wordKey: 'w1' },
+            { blankKey: 'b2', wordKey: 'w3' },
+            { blankKey: 'b3', wordKey: 'w4' },
+          ],
+        })
+
+        const result = screen.getByRole('region', { name: 'Resultado' })
+        expect(result).toHaveTextContent(label)
+        expect(result).toHaveTextContent(count)
+        expect(result).toHaveTextContent('Explicação predefinida da questão.')
+        expect(result).not.toHaveTextContent('Arquivos avaliados')
+        expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeVisible()
+      },
+    )
   })
 })

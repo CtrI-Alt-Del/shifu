@@ -11,9 +11,25 @@ def validate_answer_request_shape(
     text: str | None,
     files: object | None,
     selected_option_keys: object | None,
+    placements: object | None = None,
 ) -> None:
-    if kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
-        if files is None or selected_option_keys is not None or text is not None:
+    if kind == 'fill_blanks':
+        if (
+            placements is None
+            or selected_option_keys is not None
+            or files is not None
+            or text is not None
+        ):
+            raise ValueError('Fill-blanks answers require placements only')
+    elif placements is not None:
+        raise ValueError('Only fill-blanks answers accept placements')
+    elif kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
+        if (
+            files is None
+            or selected_option_keys is not None
+            or text is not None
+            or placements is not None
+        ):
             raise ValueError('Code answers require files only')
     elif kind == 'translation':
         if (

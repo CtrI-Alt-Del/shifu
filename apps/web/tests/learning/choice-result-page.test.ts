@@ -6,6 +6,7 @@ import {
   ChoiceAttemptDetailFaker,
   ChoiceQuestionFaker,
   ChoiceResultQuestionFaker,
+  FillBlanksQuestionFaker,
   LearningRouteIdsFaker,
 } from '@/core/learning/fakers'
 import { expect, navigateAuthenticatedPage, signInPassword, test } from '../playwright'
@@ -1119,3 +1120,87 @@ test.describe('Activity XP reward routed REST transport', () => {
     })
   }
 })
+
+for (const viewport of [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]) {
+  for (const disclosed of [false, true]) {
+    test(`renders the fill-in-the-blank result on ${viewport.name} with the expected fill ${disclosed ? 'released' : 'protected'}`, async ({
+      authenticatedPage,
+      bff,
+    }) => {
+      await authenticatedPage.setViewportSize({
+        width: viewport.width,
+        height: viewport.height,
+      })
+      const fillActivity = {
+        ...activity,
+        activityRevision: 'fill-revision-1',
+        questions: [FillBlanksQuestionFaker.fake()],
+      }
+      const fillAttempt = {
+        ...completedAttempt,
+        score: 66.67,
+        questions: [
+          FillBlanksQuestionFaker.fakeResult(
+            disclosed
+              ? {
+                  expectedBlanks: [
+                    { blankKey: 'b1', acceptedWords: ['goes', 'walks'] },
+                    { blankKey: 'b2', acceptedWords: ['does'] },
+                    { blankKey: 'b3', acceptedWords: ['day'] },
+                  ],
+                }
+              : {},
+          ),
+        ],
+      }
+      await bff.route(async (route) => {
+        const payload = decodeURIComponent(
+          `${route.request().url()} ${route.request().postData() ?? ''}`,
+        )
+        if (payload.includes(ids.attemptId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: fillAttempt }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        if (payload.includes(ids.activityId)) {
+          await route.fulfill({
+            body: JSON.stringify({ result: fillActivity }),
+            contentType: 'application/json',
+          })
+          return
+        }
+        await route.fallback()
+      })
+
+      await navigateAuthenticatedPage(authenticatedPage, attemptPath)
+
+      const summary = authenticatedPage.locator('summary').filter({
+        hasText: 'Questão 1 · lacunas · Parcialmente correta',
+      })
+      await expect(summary).toBeVisible()
+      await summary.focus()
+      await authenticatedPage.keyboard.press('Space')
+
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Seu preenchimento' }),
+      ).toBeVisible()
+      await expect(authenticatedPage.getByText('2 de 3 lacunas corretas')).toBeVisible()
+      await expect(authenticatedPage.getByText('Somente leitura')).toBeVisible()
+      await expect(
+        authenticatedPage.getByRole('heading', { name: 'Preenchimento esperado' }),
+      ).toHaveCount(disclosed ? 1 : 0)
+      if (disclosed)
+        await expect(authenticatedPage.getByText('goes ou walks')).toBeVisible()
+      expect(
+        await authenticatedPage.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true)
+    })
+  }
+}

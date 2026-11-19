@@ -58,6 +58,7 @@ from shifu.shared.database.seed_data import (
     SEED_LOGIC_EXPERIENCE_ID,
     build_development_seed,
 )
+from tests.fixtures.fill_blanks_activity_fixture import FillBlanksActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
@@ -1099,6 +1100,114 @@ class TestGetChoiceActivityController:
         assert detail.json()['latest_attempt_id'] == attempt_id
         assert detail.json()['unresolved_attempt_id'] == attempt_id
         assert detail.json()['can_submit'] is False
+
+    def test_returns_the_public_fill_blanks_projection_without_answer_keys(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(), headers=headers
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['key'] for question in body['questions']] == [
+            'fill-1',
+            'q1',
+            'q2',
+        ]
+        assert body['questions'][0] == {
+            'key': 'fill-1',
+            'kind': 'fill_blanks',
+            'prompt': 'Complete o texto com as palavras do banco.',
+            'content_language': 'en',
+            'segments': [
+                {'text': 'She ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b1'},
+                {'text': ' to school and ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b2'},
+                {'text': ' her homework every ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b3'},
+                {'text': '.', 'blank_key': None},
+            ],
+            'bank': [
+                {'key': 'w4', 'word': 'day'},
+                {'key': 'w6', 'word': 'go'},
+                {'key': 'w3', 'word': 'does'},
+                {'key': 'w1', 'word': 'goes'},
+                {'key': 'w5', 'word': 'day'},
+                {'key': 'w2', 'word': 'walks'},
+            ],
+        }
+        for hidden in (
+            'accepted_words',
+            'concept_criteria',
+            'correct_explanation',
+            'incorrect_explanation',
+            'partial_explanation',
+            'Almost there',
+            'third person singular',
+        ):
+            assert hidden not in response.text
+        assert body['activity_revision']
+
+    def test_hides_the_fill_blanks_activity_from_another_goal_owner(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(
+                    goal_id='01SHF000000000000000000099',
+                    activity_id=FillBlanksActivityFixture.ACTIVITY_ID,
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'Recurso não encontrado.',
+        }
+
+    def test_does_not_publish_a_fill_blanks_concept_outside_the_competency(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many(
+                [
+                    FillBlanksActivityFixture.activity(
+                        concept_id='01SHF000000000000000000999'
+                    )
+                ]
+            )
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
 
 
 def _activity_path(

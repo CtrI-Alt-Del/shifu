@@ -161,3 +161,18 @@ from .curriculum_react_fastify_http_example_snapshot import (
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
 )
+from .curriculum_fill_blanks_blank_snapshot import (
+    CurriculumFillBlanksBlankSnapshot as CurriculumFillBlanksBlankSnapshot,
+)
+from .curriculum_fill_blanks_concept_criterion_snapshot import (
+    CurriculumFillBlanksConceptCriterionSnapshot as CurriculumFillBlanksConceptCriterionSnapshot,
+)
+from .curriculum_fill_blanks_question_snapshot import (
+    CurriculumFillBlanksQuestionSnapshot as CurriculumFillBlanksQuestionSnapshot,
+)
+from .curriculum_fill_blanks_segment_snapshot import (
+    CurriculumFillBlanksSegmentSnapshot as CurriculumFillBlanksSegmentSnapshot,
+)
+from .curriculum_fill_blanks_word_snapshot import (
+    CurriculumFillBlanksWordSnapshot as CurriculumFillBlanksWordSnapshot,
+)
