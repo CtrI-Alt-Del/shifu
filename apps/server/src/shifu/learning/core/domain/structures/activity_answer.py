@@ -9,5 +9,9 @@ from shifu.learning.core.domain.structures.single_choice_answer import (
 from shifu.learning.core.domain.structures.translation_answer import TranslationAnswer
 
 type ActivityAnswer = (
-    SingleChoiceAnswer | MultipleSelectionAnswer | CodeAnswer | FillBlanksAnswer | TranslationAnswer
+    SingleChoiceAnswer
+    | MultipleSelectionAnswer
+    | CodeAnswer
+    | FillBlanksAnswer
+    | TranslationAnswer
 )

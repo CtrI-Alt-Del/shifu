@@ -35,8 +35,8 @@ from shifu.learning.core.domain.structures import (
     CodeAnswer,
     FillBlanksAnswer,
     FillBlanksPlacement,
+    TranslationAnswer,
 )
-from shifu.learning.core.domain.structures import CodeAnswer, TranslationAnswer
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
@@ -690,64 +690,6 @@ class TestSubmitChoiceActivityController:
             repositories
         ):
             attempt = repositories.activity_attempts.find_by_id(attempt_id)
-
-    def test_mixed_translation_submission_persists_the_saved_snapshot_and_text(
-        self,
-        client: TestClient,
-        postgres_database: PostgresDatabase,
-    ) -> None:
-        activity = _mixed_translation_activity()
-        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
-        with curriculum_database.transaction() as repositories:
-            repositories.activities.add_many([activity])
-
-        headers = {'Authorization': 'Bearer test-access-token'}
-        detail = cast(
-            'Response',
-            client.get(  # pyright: ignore[reportUnknownMemberType]
-                _activity_path(activity.id),
-                headers=headers,
-            ),
-        )
-
-        assert detail.status_code == 200, detail.json()
-        revision = cast('str', detail.json()['activity_revision'])
-        body: dict[str, object] = {
-            'submission_key': '7c3c84ce-7185-43bc-8b75-c9b250000092',
-            'activity_revision': revision,
-            'answers': [
-                {
-                    'kind': 'single_choice',
-                    'question_key': 'q1',
-                    'selected_option_keys': ['a'],
-                },
-                {
-                    'kind': 'single_choice',
-                    'question_key': 'q2',
-                    'selected_option_keys': ['a'],
-                },
-                {
-                    'kind': 'translation',
-                    'question_key': 'q3',
-                    'text': 'Good morning',
-                },
-            ],
-        }
-
-        response = cast(
-            'Response',
-            client.post(  # pyright: ignore[reportUnknownMemberType]
-                _attempts_path(activity.id),
-                json=body,
-                headers=headers,
-            ),
-        )
-
-        assert response.status_code == 201, response.json()
-        attempt_id = cast('str', response.json()['attempt_id'])
-        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
-        with learning_database.transaction() as repositories:
-            attempt = repositories.activity_attempts.find_by_id(attempt_id)
             evaluation = repositories.activity_evaluations.find_by_attempt_id(
                 attempt_id
             )
@@ -879,6 +821,67 @@ class TestSubmitChoiceActivityController:
 
         assert second.status_code == 409, second.json()
         assert FillBlanksActivityFixture.write_counts(postgres_database) == pending
+
+    def test_mixed_translation_submission_persists_the_saved_snapshot_and_text(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _mixed_translation_activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(activity.id),
+                headers=headers,
+            ),
+        )
+
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        body: dict[str, object] = {
+            'submission_key': '7c3c84ce-7185-43bc-8b75-c9b250000092',
+            'activity_revision': revision,
+            'answers': [
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q1',
+                    'selected_option_keys': ['a'],
+                },
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q2',
+                    'selected_option_keys': ['a'],
+                },
+                {
+                    'kind': 'translation',
+                    'question_key': 'q3',
+                    'text': 'Good morning',
+                },
+            ],
+        }
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                _attempts_path(activity.id),
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert response.status_code == 201, response.json()
+        attempt_id = cast('str', response.json()['attempt_id'])
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
 
         assert attempt is not None
         assert attempt.grading_snapshot is not None

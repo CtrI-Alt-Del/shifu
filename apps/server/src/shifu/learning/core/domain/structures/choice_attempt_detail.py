@@ -36,5 +36,9 @@ class ChoiceAttemptDetail:
     status_after: CompetencyProgressStatus | None = None
     next_action: ActivityRecommendation | None = None
     questions: tuple[
-        ChoiceResultDetail | CodeResultDetail | FillBlanksResultDetail | TranslationResultDetail, ...
+        ChoiceResultDetail
+        | CodeResultDetail
+        | FillBlanksResultDetail
+        | TranslationResultDetail,
+        ...,
     ] = ()

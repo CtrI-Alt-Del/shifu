@@ -1128,6 +1128,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
 
         assert (result.score, result.correct_blank_count) == (Decimal('3.13'), 1)
+
     def _translation_criterion(
         self, key: str, weight: int
     ) -> CurriculumTranslationRubricCriterionSnapshot:

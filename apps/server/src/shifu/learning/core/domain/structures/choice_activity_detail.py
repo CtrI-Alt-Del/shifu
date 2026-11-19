@@ -20,7 +20,11 @@ class ChoiceActivityDetail:
     title: str
     difficulty: ActivityDifficulty
     questions: tuple[
-        ChoiceQuestionDetail | CodeQuestionDetail | FillBlanksQuestionDetail | TranslationQuestionDetail, ...
+        ChoiceQuestionDetail
+        | CodeQuestionDetail
+        | FillBlanksQuestionDetail
+        | TranslationQuestionDetail,
+        ...,
     ]
     can_submit: bool
     latest_attempt_id: str | None = None

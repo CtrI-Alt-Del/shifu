@@ -96,6 +96,8 @@ class FillBlanksQuestionResultResponse(BaseModel):
     blank_count: int
     explanation: str
     disclosed_expected_blanks: tuple[FillBlanksExpectedBlankResponse, ...]
+
+
 class TranslationQuestionResultResponse(BaseModel):
     question_key: str
     kind: str

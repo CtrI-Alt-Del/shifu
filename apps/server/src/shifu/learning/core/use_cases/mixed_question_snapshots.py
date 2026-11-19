@@ -4,6 +4,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
 )
 
 type QuestionSnapshots = tuple[object, ...]
@@ -16,7 +17,11 @@ class MixedQuestionSnapshots:
         CurriculumHtmlCssJsQuestionSnapshot,
         CurriculumReactFastifyQuestionSnapshot,
     )
-    NON_CHOICE = (*CODE, CurriculumFillBlanksQuestionSnapshot)
+    NON_CHOICE = (
+        *CODE,
+        CurriculumFillBlanksQuestionSnapshot,
+        CurriculumTranslationQuestionSnapshot,
+    )
 
     @staticmethod
     def has_non_choice(questions: QuestionSnapshots) -> bool:

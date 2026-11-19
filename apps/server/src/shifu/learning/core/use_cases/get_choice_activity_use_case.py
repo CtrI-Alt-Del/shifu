@@ -12,12 +12,12 @@ from shifu.learning.core.domain.structures import (
     TranslationQuestionDetail,
 )
 from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
-)
-from shifu.learning.core.use_cases.mixed_question_snapshots import (
-    MixedQuestionSnapshots,
 )
 from shifu.shared.core.domain.errors import ConflictError, NotFoundError
 from shifu.shared.core.domain.structures import (
@@ -97,19 +97,9 @@ class GetChoiceActivityUseCase:
                 self._curriculum_content_provider, 'get_learning_activity', None
             )
             snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-            if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-                isinstance(
-                    item,
-                    (
-                        CurriculumJavascriptStdinQuestionSnapshot,
-                        CurriculumReactQuestionSnapshot,
-                        CurriculumHtmlCssJsQuestionSnapshot,
-                        CurriculumReactFastifyQuestionSnapshot,
-                        CurriculumTranslationQuestionSnapshot,
-                    ),
-                )
-                for item in snapshot.questions
-            ):
+            if not isinstance(
+                snapshot, CurriculumLearningActivitySnapshot
+            ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
                 snapshot = self._curriculum_content_provider.get_choice_activity(
                     activity_id
                 )

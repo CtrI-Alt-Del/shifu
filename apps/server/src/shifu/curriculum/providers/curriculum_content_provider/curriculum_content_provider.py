@@ -81,6 +81,7 @@ _FULL_SCALE_EVIDENCE_QUESTIONS = (
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     FillBlanksQuestion,
+    TranslationQuestion,
 )
 
 
@@ -232,16 +233,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                         )
                         possible = (
                             (100,)
-                            if isinstance(
-                                question,
-                                (
-                                    JavascriptStdinQuestion,
-                                    ReactQuestion,
-                                    HtmlCssJsQuestion,
-                                    ReactFastifyQuestion,
-                                    TranslationQuestion,
-                                ),
-                            )
+                            if isinstance(question, _FULL_SCALE_EVIDENCE_QUESTIONS)
                             else tuple(
                                 score
                                 for score in (
@@ -262,16 +254,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 has_executable_evidence = (
                     all(
                         (
-                            isinstance(
-                                question,
-                                (
-                                    JavascriptStdinQuestion,
-                                    ReactQuestion,
-                                    HtmlCssJsQuestion,
-                                    ReactFastifyQuestion,
-                                    TranslationQuestion,
-                                ),
-                            )
+                            isinstance(question, _FULL_SCALE_EVIDENCE_QUESTIONS)
                             or (
                                 isinstance(
                                     question,

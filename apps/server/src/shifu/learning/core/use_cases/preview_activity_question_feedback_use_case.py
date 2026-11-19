@@ -60,6 +60,11 @@ class PreliminaryQuestionResult:
     submitted_text: str | None = None
 
 
+type PreviewAnswer = (
+    ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer
+)
+
+
 class PreviewActivityQuestionFeedbackUseCase:
     def __init__(
         self,
@@ -86,7 +91,7 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer,
+        answer: PreviewAnswer,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
@@ -116,28 +121,7 @@ class PreviewActivityQuestionFeedbackUseCase:
                 CurriculumReactFastifyQuestionSnapshot,
             ),
         ):
-            if not isinstance(answer, CodeAnswer):
-                raise ValidationError
-
-            part = next(
-                (item for item in snapshot.parts if item.question_key == question_key),
-                None,
-            )
-            if not isinstance(part, CurriculumCodeRubricPartSnapshot):
-                raise ValidationError
-
-            request = self.build_code_assessment_input(
-                question, part, answer, self._max_code_assessment_input_bytes
-            )
-
-            decisions = self._code_rubric_assessor_provider.assess(request)
-            return self.code_result(
-                question,
-                part,
-                answer,
-                decisions,
-                self._max_code_assessment_input_bytes,
-            )
+            return self._execute_code(question, answer, snapshot.parts)
 
         if isinstance(question, CurriculumTranslationQuestionSnapshot):
             return self._execute_translation(question, answer, snapshot.parts)
@@ -167,10 +151,43 @@ class PreviewActivityQuestionFeedbackUseCase:
             else question.incorrect_explanation,
         )
 
+    def _execute_code(
+        self,
+        question: CurriculumJavascriptStdinQuestionSnapshot
+        | CurriculumReactQuestionSnapshot
+        | CurriculumHtmlCssJsQuestionSnapshot
+        | CurriculumReactFastifyQuestionSnapshot,
+        answer: PreviewAnswer,
+        parts: tuple[
+            CurriculumChoicePartSnapshot
+            | CurriculumCodeRubricPartSnapshot
+            | CurriculumTranslationRubricPartSnapshot,
+            ...,
+        ],
+    ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, CodeAnswer):
+            raise ValidationError
+
+        part = next((item for item in parts if item.question_key == question.key), None)
+        if not isinstance(part, CurriculumCodeRubricPartSnapshot):
+            raise ValidationError
+
+        request = self.build_code_assessment_input(
+            question, part, answer, self._max_code_assessment_input_bytes
+        )
+        decisions = self._code_rubric_assessor_provider.assess(request)
+        return self.code_result(
+            question,
+            part,
+            answer,
+            decisions,
+            self._max_code_assessment_input_bytes,
+        )
+
     def _execute_translation(
         self,
         question: CurriculumTranslationQuestionSnapshot,
-        answer: ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer,
+        answer: PreviewAnswer,
         parts: tuple[
             CurriculumChoicePartSnapshot
             | CurriculumCodeRubricPartSnapshot
@@ -201,7 +218,7 @@ class PreviewActivityQuestionFeedbackUseCase:
     @staticmethod
     def fill_blanks_result(
         question: CurriculumFillBlanksQuestionSnapshot,
-        answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer,
+        answer: PreviewAnswer,
     ) -> PreliminaryQuestionResult:
         if not isinstance(answer, FillBlanksAnswer):
             raise ValidationError

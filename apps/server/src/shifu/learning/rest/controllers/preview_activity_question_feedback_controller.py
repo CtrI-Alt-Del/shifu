@@ -155,16 +155,19 @@ class PreviewActivityQuestionFeedbackController:
         ) -> Response:
             payload = request.answer
             if payload.kind == 'fill_blanks':
-                answer: ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer = (
-                    FillBlanksAnswer(
-                        question_key=payload.question_key,
-                        placements=tuple(
-                            FillBlanksPlacement(
-                                blank_key=item.blank_key, word_key=item.word_key
-                            )
-                            for item in (payload.placements or ())
-                        ),
-                    )
+                answer: (
+                    ChoiceAnswerSubmission
+                    | CodeAnswer
+                    | FillBlanksAnswer
+                    | TranslationAnswer
+                ) = FillBlanksAnswer(
+                    question_key=payload.question_key,
+                    placements=tuple(
+                        FillBlanksPlacement(
+                            blank_key=item.blank_key, word_key=item.word_key
+                        )
+                        for item in (payload.placements or ())
+                    ),
                 )
             elif payload.kind in {
                 'javascript_stdin',

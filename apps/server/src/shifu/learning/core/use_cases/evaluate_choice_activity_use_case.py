@@ -390,20 +390,15 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, ChoiceEvaluationResult)
         }
-        code_results = {
-            item.question_key: item
-            for item in part_results
-            if isinstance(item, CodeRubricResult)
-        }
         fill_blanks_results = {
             item.question_key: item
             for item in part_results
             if isinstance(item, FillBlanksEvaluationResult)
         }
-        translation_results = {
+        rubric_results = {
             item.question_key: item
             for item in part_results
-            if isinstance(item, TranslationRubricResult)
+            if isinstance(item, CodeRubricResult | TranslationRubricResult)
         }
         for question in questions:
             if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
@@ -424,24 +419,14 @@ class EvaluateChoiceActivityUseCase:
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
                 ),
             ):
-                code_result = code_results.get(question.key)
-                if code_result is None:
+                rubric_result = rubric_results.get(question.key)
+                if rubric_result is None:
                     raise InvalidAttemptError
 
-                for item in code_result.concept_observations:
-                    observation_scores.setdefault(item.concept_id, []).append(
-                        Decimal(item.level) if isinstance(item.level, int) else None
-                    )
-                continue
-
-            if isinstance(question, CurriculumTranslationQuestionSnapshot):
-                translation_result = translation_results.get(question.key)
-                if translation_result is None:
-                    raise InvalidAttemptError
-
-                for item in translation_result.concept_observations:
+                for item in rubric_result.concept_observations:
                     observation_scores.setdefault(item.concept_id, []).append(
                         Decimal(item.level) if isinstance(item.level, int) else None
                     )
@@ -888,7 +873,9 @@ class EvaluateChoiceActivityUseCase:
 
     @staticmethod
     def _score_fill_blanks_part(
-        part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
         question: CurriculumFillBlanksQuestionSnapshot,
         answer: ActivityAnswer,
     ) -> FillBlanksEvaluationResult:

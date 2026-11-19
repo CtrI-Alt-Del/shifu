@@ -103,7 +103,7 @@ class CurriculumLearningActivitySnapshot:
                 not isinstance(parts[question.key], CurriculumChoicePartSnapshot)
                 or self.activity_type == 'diagnostic'
             ):
-                raise InvalidActivityError
+                raise ValidationError
             requires_translation_rubric = isinstance(
                 question, CurriculumTranslationQuestionSnapshot
             )
