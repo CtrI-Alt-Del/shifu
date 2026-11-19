@@ -58,8 +58,20 @@ from .skill_foundation import SkillFoundation as SkillFoundation
 from .test_cases_evaluation_part import (
     TestCasesEvaluationPart as TestCasesEvaluationPart,
 )
-
 from .react_fastify_http_example import (
     ReactFastifyHttpExample as ReactFastifyHttpExample,
 )
 from .react_fastify_question import ReactFastifyQuestion as ReactFastifyQuestion
+from .translation_question import TranslationQuestion as TranslationQuestion
+from .translation_rubric_criterion import (
+    TranslationInconclusiveComment as TranslationInconclusiveComment,
+)
+from .translation_rubric_criterion import (
+    TranslationRubricComment as TranslationRubricComment,
+)
+from .translation_rubric_criterion import (
+    TranslationRubricCriterion as TranslationRubricCriterion,
+)
+from .translation_rubric_evaluation_part import (
+    TranslationRubricEvaluationPart as TranslationRubricEvaluationPart,
+)

@@ -7,6 +7,8 @@ import type {
   CodeResultQuestion,
   HtmlCssJsQuestion,
   ChoiceResultQuestion,
+  TranslationQuestion,
+  TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
 
 import { ChoiceResultDetail } from '..'
@@ -42,6 +44,18 @@ const HTML_QUESTION: HtmlCssJsQuestion = {
   fixedDependencies: [{ name: 'vite', version: '7.0.0' }],
   permittedCommands: [],
   criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
+}
+const TRANSLATION_QUESTION: TranslationQuestion = {
+  key: 'translation-question-1',
+  kind: 'translation',
+  prompt: 'Traduza o texto a seguir.',
+  sourceLanguage: 'pt-BR',
+  targetLanguage: 'en-US',
+  sourceText: 'Bom dia',
+  criteria: [
+    { key: 'semantic_preservation', name: 'Preservação semântica', weightPercentage: 70 },
+    { key: 'grammatical_adequacy', name: 'Adequação gramatical', weightPercentage: 30 },
+  ],
 }
 
 describe('ChoiceResultDetail', () => {
@@ -317,5 +331,68 @@ describe('ChoiceResultDetail', () => {
     expect(screen.getByText('Integração correta')).toBeVisible()
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Prévia isolada React + Fastify')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [100, 'Resposta correta'],
+    [75, 'Parcialmente correta'],
+    [0, 'Resposta incorreta'],
+  ])('labels a translation result scoring %d as "%s"', (score, label) => {
+    const result: TranslationResultQuestion = {
+      key: TRANSLATION_QUESTION.key,
+      kind: 'translation',
+      prompt: TRANSLATION_QUESTION.prompt,
+      score,
+      submittedText: 'Good morning',
+      criterionResults: [
+        {
+          key: 'semantic_preservation',
+          weightPercentage: 70,
+          level: score,
+          commentId: 'comment-1',
+          comment: 'Feedback da tradução.',
+        },
+      ],
+      conceptObservations: [],
+    }
+    render(
+      <ChoiceResultDetail
+        question={TRANSLATION_QUESTION}
+        questionNumber={5}
+        result={result}
+      />,
+    )
+
+    expect(screen.getByText(new RegExp(`Questão 5 · Tradução · ${label}`))).toBeVisible()
+    fireEvent.click(screen.getByText(new RegExp(`Questão 5 · Tradução · ${label}`)))
+    expect(screen.getByLabelText(`Nota ${score} de 100`)).toBeVisible()
+    expect(screen.getByText('Good morning')).toBeVisible()
+    expect(
+      screen.getByText(`Preservação semântica · peso 70% · nível ${score}`),
+    ).toBeVisible()
+    expect(screen.getByText('Feedback da tradução.')).toBeVisible()
+    expect(screen.queryByText('Bom dia')).not.toBeInTheDocument()
+  })
+
+  it('renders no score and no label while the translation evaluation is pending', () => {
+    const result: TranslationResultQuestion = {
+      key: TRANSLATION_QUESTION.key,
+      kind: 'translation',
+      prompt: TRANSLATION_QUESTION.prompt,
+      score: null,
+      submittedText: 'Good morning',
+      criterionResults: [],
+      conceptObservations: [],
+    }
+    render(
+      <ChoiceResultDetail
+        question={TRANSLATION_QUESTION}
+        questionNumber={5}
+        result={result}
+      />,
+    )
+
+    expect(screen.getByText(/Questão 5 · Tradução$/)).toBeVisible()
+    expect(screen.getByLabelText('Nota — de 100')).toBeVisible()
   })
 })

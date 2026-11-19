@@ -79,6 +79,16 @@ class OrderingQuestionResultResponse(BaseModel):
     accepted_orders: tuple[tuple[str, ...], ...] = ()
 
 
+class TranslationQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: str
+    prompt: str
+    submitted_text: str
+    score: Decimal | None
+    criterion_results: tuple[CriterionResultResponse, ...]
+    concept_observations: tuple[ConceptObservationResponse, ...]
+
+
 class Response(BaseModel):
     attempt_id: str
     activity_id: str
@@ -95,7 +105,8 @@ class Response(BaseModel):
     questions: tuple[
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
-        | OrderingQuestionResultResponse,
+        | OrderingQuestionResultResponse
+        | TranslationQuestionResultResponse,
         ...,
     ] = ()
 

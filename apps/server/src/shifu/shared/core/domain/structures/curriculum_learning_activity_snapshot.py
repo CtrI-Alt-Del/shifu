@@ -18,6 +18,12 @@ from .curriculum_html_css_js_question_snapshot import (
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot,
 )
+from .curriculum_translation_question_snapshot import (
+    CurriculumTranslationQuestionSnapshot,
+)
+from .curriculum_translation_rubric_part_snapshot import (
+    CurriculumTranslationRubricPartSnapshot,
+)
 
 
 @structure
@@ -32,10 +38,16 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot,
+        | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumTranslationQuestionSnapshot,
         ...,
     ]
-    parts: tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]
+    parts: tuple[
+        CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        ...,
+    ]
     required_concept_ids: tuple[str, ...]
     activity_type: str
     schema_version: int
@@ -85,19 +97,37 @@ class CurriculumLearningActivitySnapshot:
                 parts[question.key], CurriculumCodeRubricPartSnapshot
             ):
                 raise ValidationError
-            if isinstance(question, CurriculumOrderingQuestionSnapshot) and isinstance(
-                parts[question.key], CurriculumCodeRubricPartSnapshot
+            requires_translation_rubric = isinstance(
+                question, CurriculumTranslationQuestionSnapshot
+            )
+            if requires_translation_rubric != isinstance(
+                parts[question.key], CurriculumTranslationRubricPartSnapshot
             ):
                 raise ValidationError
-            if self.activity_type == 'diagnostic' and (
-                isinstance(
-                    question,
-                    (
-                        CurriculumOrderingQuestionSnapshot,
-                        CurriculumReactQuestionSnapshot,
-                        CurriculumHtmlCssJsQuestionSnapshot,
-                        CurriculumReactFastifyQuestionSnapshot,
-                    ),
-                )
+            if self.activity_type == 'diagnostic' and isinstance(
+                question,
+                (
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
+                    CurriculumOrderingQuestionSnapshot,
+                ),
             ):
                 raise ValidationError
+        if any(
+            isinstance(question, CurriculumTranslationQuestionSnapshot)
+            for question in self.questions
+        ) and any(
+            isinstance(
+                question,
+                (
+                    CurriculumJavascriptStdinQuestionSnapshot,
+                    CurriculumReactQuestionSnapshot,
+                    CurriculumHtmlCssJsQuestionSnapshot,
+                    CurriculumReactFastifyQuestionSnapshot,
+                ),
+            )
+            for question in self.questions
+        ):
+            raise ValidationError

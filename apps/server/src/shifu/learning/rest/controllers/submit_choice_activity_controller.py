@@ -18,10 +18,14 @@ from shifu.learning.core.domain.structures import (
     OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
 from shifu.learning.pipes import LearningPipe
+from shifu.learning.rest.controllers.answer_request_shape import (
+    validate_answer_request_shape,
+)
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -59,27 +63,24 @@ class AnswerRequest(BaseModel):
             'html_css_js',
             'react_fastify',
             'ordering',
+            'translation',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
     ordered_step_keys: tuple[str, ...] | None = None
+    text: str | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind == 'ordering':
-            if (
-                self.ordered_step_keys is None
-                or self.files is not None
-                or self.selected_option_keys is not None
-            ):
-                raise ValueError('Ordering answers require ordered step keys only')
-        elif self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
-            if self.files is None or self.selected_option_keys is not None:
-                raise ValueError('Code answers require files only')
-        elif self.selected_option_keys is None or self.files is not None:
-            raise ValueError('Choice answers require selected option keys only')
+        validate_answer_request_shape(
+            self.kind,
+            self.text,
+            self.files,
+            self.selected_option_keys,
+            self.ordered_step_keys,
+        )
         return self
 
 
@@ -178,6 +179,11 @@ class SubmitChoiceActivityController:
                         )
                         if answer.kind
                         in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}
+                        else TranslationAnswer(
+                            question_key=answer.question_key,
+                            text=answer.text or '',
+                        )
+                        if answer.kind == 'translation'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

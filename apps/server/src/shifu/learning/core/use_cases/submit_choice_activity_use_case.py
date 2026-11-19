@@ -19,6 +19,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
     ActivitySubmissionRequestedEvent,
@@ -47,6 +48,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -82,7 +84,11 @@ class SubmitChoiceActivityUseCase:
         activity_id: str,
         submission_key: str,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | OrderingAnswerSubmission, ...
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
         ],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
@@ -104,14 +110,6 @@ class SubmitChoiceActivityUseCase:
                 raise ConflictError
 
             experience_id = experience.id
-            active_ordering_passage = repositories.ordering_passages.find_active(
-                experience_id, activity_id
-            )
-            if (
-                active_ordering_passage is not None
-                and active_ordering_passage.passage_key != passage_key
-            ):
-                raise ConflictError
             existing = repositories.activity_attempts.find_by_skill_experience_id_and_submission_key(
                 experience_id, submission_key
             )
@@ -122,6 +120,15 @@ class SubmitChoiceActivityUseCase:
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
+
+            active_ordering_passage = repositories.ordering_passages.find_active(
+                experience_id, activity_id
+            )
+            if (
+                active_ordering_passage is not None
+                and active_ordering_passage.passage_key != passage_key
+            ):
+                raise ConflictError
 
         if active_ordering_passage is not None:
             snapshot = active_ordering_passage.grading_snapshot
@@ -139,6 +146,7 @@ class SubmitChoiceActivityUseCase:
                         CurriculumHtmlCssJsQuestionSnapshot,
                         CurriculumReactFastifyQuestionSnapshot,
                         CurriculumOrderingQuestionSnapshot,
+                        CurriculumTranslationQuestionSnapshot,
                     ),
                 )
                 for item in snapshot.questions
@@ -330,7 +338,11 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | OrderingAnswerSubmission, ...
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
         ],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
@@ -365,7 +377,11 @@ class SubmitChoiceActivityUseCase:
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | OrderingAnswerSubmission, ...
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
         ],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
@@ -401,6 +417,16 @@ class SubmitChoiceActivityUseCase:
                     OrderingAnswer(
                         question_key=answer.question_key,
                         ordered_step_keys=answer.ordered_step_keys,
+                    )
+                )
+                continue
+
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                if not isinstance(answer, TranslationAnswer):
+                    raise ValidationError
+                normalized.append(
+                    TranslationAnswer(
+                        question_key=answer.question_key, text=answer.text
                     )
                 )
                 continue

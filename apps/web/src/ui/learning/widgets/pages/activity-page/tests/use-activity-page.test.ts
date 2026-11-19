@@ -136,6 +136,88 @@ describe('useActivityPage', () => {
     })
   })
 
+  it('submits ordering and translation together while preserving their distinct verification rules', async () => {
+    const mixedActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'order-1',
+          kind: 'ordering',
+          prompt: 'Organize as etapas.',
+          steps: [
+            { key: 'wash', text: 'Lavar' },
+            { key: 'cut', text: 'Cortar' },
+            { key: 'cook', text: 'Cozinhar' },
+          ],
+          initialOrderedStepKeys: ['cut', 'wash', 'cook'],
+          verified: null,
+        },
+        {
+          key: 'translation-1',
+          kind: 'translation',
+          prompt: 'Traduza o texto.',
+          sourceLanguage: 'pt-BR',
+          targetLanguage: 'en-US',
+          sourceText: 'Bom dia',
+          criteria: [
+            { key: 'semantic_preservation', name: 'Sentido', weightPercentage: 70 },
+            { key: 'grammatical_adequacy', name: 'Gramática', weightPercentage: 30 },
+          ],
+        },
+        activity.questions[0],
+      ],
+    }
+    vi.stubGlobal('crypto', {
+      randomUUID: vi
+        .fn()
+        .mockReturnValueOnce('passage-key')
+        .mockReturnValueOnce('submission-key'),
+    })
+    const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 100 })
+    const onSubmit = vi.fn().mockResolvedValue(submitted)
+    const { result } = renderHook(
+      () => useActivityPage({ activity: mixedActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleOrderingOrderChange(['wash', 'cut', 'cook']))
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleOrderingOrderChange(['cook', 'cut', 'wash']))
+    expect(result.current.currentOrderingOrder).toEqual(['wash', 'cut', 'cook'])
+    await act(async () => result.current.handleContinue())
+    expect(result.current.currentQuestion?.kind).toBe('translation')
+
+    act(() => result.current.handleTranslationAnswerChange('Good moorning'))
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleTranslationAnswerChange('Good morning'))
+    expect(result.current.feedback).toBeNull()
+    await act(async () => result.current.handleContinue())
+    expect(onPreview).toHaveBeenLastCalledWith('translation-1', 'revision-1', {
+      kind: 'translation',
+      questionKey: 'translation-1',
+      text: 'Good morning',
+    })
+    await act(async () => result.current.handleContinue())
+    act(() => result.current.handleToggleOption('a'))
+    await act(async () => result.current.handleContinue())
+    await act(async () => result.current.handleContinue())
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      activityRevision: 'revision-1',
+      passageKey: 'passage-key',
+      submissionKey: 'submission-key',
+      answers: [
+        {
+          kind: 'ordering',
+          questionKey: 'order-1',
+          orderedStepKeys: ['wash', 'cut', 'cook'],
+        },
+        { kind: 'translation', questionKey: 'translation-1', text: 'Good morning' },
+        { kind: 'single_choice', questionKey: 'single-1', selectedOptionKeys: ['a'] },
+      ],
+    })
+  })
+
   it('preserves direct choice-only advance and submission without preliminary or revision', async () => {
     const legacyActivity = {
       ...activity,
@@ -331,6 +413,102 @@ describe('useActivityPage', () => {
       kind: 'javascript_stdin',
       questionKey: 'code-1',
       files: [{ path: 'index.js', content: 'return "positivo"' }],
+    })
+    expect(result.current.feedback?.score).toBe(100)
+  })
+
+  it('previews, freezes, and submits a typed translation answer', async () => {
+    const translationActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'translation-1',
+          kind: 'translation',
+          prompt: 'Traduza o texto.',
+          sourceLanguage: 'pt-BR',
+          targetLanguage: 'en-US',
+          sourceText: 'Bom dia',
+          criteria: [
+            { key: 'semantic_preservation', name: 'Sentido', weightPercentage: 70 },
+            { key: 'grammatical_adequacy', name: 'Gramática', weightPercentage: 30 },
+          ],
+        },
+      ],
+    }
+    const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 100 })
+    const onSubmit = vi.fn().mockResolvedValue(submitted)
+    vi.stubGlobal('crypto', { randomUUID: () => 'stable-key' })
+    const { result } = renderHook(
+      () => useActivityPage({ activity: translationActivity, onPreview, onSubmit }),
+      { wrapper: wrapper() },
+    )
+
+    expect(result.current.canContinue).toBe(false)
+    act(() => result.current.handleTranslationAnswerChange('Good morning'))
+    expect(result.current.translationAnswerText).toBe('Good morning')
+    expect(result.current.canContinue).toBe(true)
+
+    await act(async () => result.current.handleContinue())
+    expect(onPreview).toHaveBeenCalledWith('translation-1', 'revision-1', {
+      kind: 'translation',
+      questionKey: 'translation-1',
+      text: 'Good morning',
+    })
+    expect(result.current.feedback?.score).toBe(100)
+
+    await act(async () => result.current.handleContinue())
+    expect(onSubmit).toHaveBeenCalledWith({
+      submissionKey: 'stable-key',
+      activityRevision: 'revision-1',
+      answers: [
+        { kind: 'translation', questionKey: 'translation-1', text: 'Good morning' },
+      ],
+    })
+    expect(result.current.hasUnsentAnswers).toBe(false)
+  })
+
+  it('lets translation text change after feedback and reassesses the updated answer', async () => {
+    const translationActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'translation-1',
+          kind: 'translation',
+          prompt: 'Traduza o texto.',
+          sourceLanguage: 'pt-BR',
+          targetLanguage: 'en-US',
+          sourceText: 'Bom dia',
+          criteria: [
+            { key: 'semantic_preservation', name: 'Sentido', weightPercentage: 70 },
+            { key: 'grammatical_adequacy', name: 'Gramática', weightPercentage: 30 },
+          ],
+        },
+      ],
+    }
+    const onPreview = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 'conclusive', score: 50 })
+      .mockResolvedValueOnce({ status: 'conclusive', score: 100 })
+    const { result } = renderHook(
+      () =>
+        useActivityPage({ activity: translationActivity, onPreview, onSubmit: vi.fn() }),
+      { wrapper: wrapper() },
+    )
+
+    act(() => result.current.handleTranslationAnswerChange('Good moorning'))
+    await act(async () => result.current.handleContinue())
+    expect(result.current.feedback?.score).toBe(50)
+
+    act(() => result.current.handleTranslationAnswerChange('Good morning'))
+    expect(result.current.feedback).toBeNull()
+    expect(result.current.frozenAnswer).toBeNull()
+
+    await act(async () => result.current.handleContinue())
+    expect(onPreview).toHaveBeenCalledTimes(2)
+    expect(onPreview).toHaveBeenLastCalledWith('translation-1', 'revision-1', {
+      kind: 'translation',
+      questionKey: 'translation-1',
+      text: 'Good morning',
     })
     expect(result.current.feedback?.score).toBe(100)
   })

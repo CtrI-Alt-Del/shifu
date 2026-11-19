@@ -109,6 +109,15 @@ type ActivityWire = {
         permitted_commands: { id: string; executable: string; arguments: string[] }[]
         criteria: { key: string; name: string; weight_percentage: number }[]
       }
+    | {
+        key: string
+        kind: 'translation'
+        prompt: string
+        source_language: string
+        target_language: string
+        source_text: string
+        criteria: { key: string; name: string; weight_percentage: number }[]
+      }
   >
   can_submit: boolean
   ordering_passage_key?: string | null
@@ -206,6 +215,21 @@ function mapActivityQuestion(
       })),
     }
   }
+  if (question.kind === 'translation') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      sourceLanguage: question.source_language,
+      targetLanguage: question.target_language,
+      sourceText: question.source_text,
+      criteria: question.criteria.map((criterion) => ({
+        key: criterion.key,
+        name: criterion.name,
+        weightPercentage: criterion.weight_percentage,
+      })),
+    }
+  }
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
@@ -215,6 +239,13 @@ function mapAnswer(answer: ActivityAnswer) {
       kind: answer.kind,
       question_key: answer.questionKey,
       ordered_step_keys: answer.orderedStepKeys,
+    }
+  }
+  if ('text' in answer) {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      text: answer.text,
     }
   }
   if (!('selectedOptionKeys' in answer)) {
@@ -327,6 +358,25 @@ type AttemptWire = {
           observation_id: string
         }[]
       }
+    | {
+        question_key: string
+        kind: 'translation'
+        prompt: string
+        submitted_text: string
+        score: number | null
+        criterion_results: {
+          key: string
+          weight_percentage: number
+          level: number | string
+          comment_id: string
+          comment: string
+        }[]
+        concept_observations: {
+          concept_id: string
+          level: number | string
+          observation_id: string
+        }[]
+      }
   >
 }
 
@@ -390,6 +440,27 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           isCorrect: question.is_correct,
           explanation: question.explanation,
           acceptedOrders: question.accepted_orders,
+        }
+      }
+      if ('kind' in question && question.kind === 'translation') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          score: question.score,
+          submittedText: question.submitted_text,
+          criterionResults: question.criterion_results.map((criterion) => ({
+            key: criterion.key,
+            weightPercentage: criterion.weight_percentage,
+            level: criterion.level,
+            commentId: criterion.comment_id,
+            comment: criterion.comment,
+          })),
+          conceptObservations: question.concept_observations.map((observation) => ({
+            conceptId: observation.concept_id,
+            level: observation.level,
+            observationId: observation.observation_id,
+          })),
         }
       }
       if (!('selected_option_keys' in question)) {
@@ -721,6 +792,7 @@ export const LearningService = (restClient: RestClient) => {
           comment: string
         }[]
         submitted_files?: { path: string; content: string }[]
+        submitted_text?: string
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
         {
@@ -746,6 +818,7 @@ export const LearningService = (restClient: RestClient) => {
           comment: criterion.comment,
         })),
         submittedFiles: body.submitted_files,
+        submittedText: body.submitted_text,
       }
     },
 

@@ -118,6 +118,8 @@ function createControllerMock(
     hasFeedbackError: false,
     handleAssessCode: vi.fn(),
     handleCodeFilesChange: vi.fn(),
+    handleTranslationAnswerChange: vi.fn(),
+    translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
     currentQuestionIndex: 0,
     currentQuestionNumber: 1,

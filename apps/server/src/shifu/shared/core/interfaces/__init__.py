@@ -25,8 +25,11 @@ from .mentor_context_provider import MentorContextProvider as MentorContextProvi
 from .mentor_gamification_facts_provider import (
     MentorGamificationFactsProvider as MentorGamificationFactsProvider,
 )
-from .outbox_event import OutboxEvent as OutboxEvent
 from .mentor_goal_destinations_provider import (
     MentorGoalDestinationsProvider as MentorGoalDestinationsProvider,
 )
+from .outbox_event import OutboxEvent as OutboxEvent
 from .planned_goal_provider import PlannedGoalProvider as PlannedGoalProvider
+from .translation_rubric_assessor_provider import (
+    TranslationRubricAssessorProvider as TranslationRubricAssessorProvider,
+)

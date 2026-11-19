@@ -60,6 +60,11 @@ from shifu.curriculum.core.domain.structures import (
     SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
+    TranslationInconclusiveComment,
+    TranslationQuestion,
+    TranslationRubricComment,
+    TranslationRubricCriterion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.core.domain.enums import (
     ActivityDifficulty,
@@ -140,6 +145,7 @@ SEED_ACTIVITY_REPETITION_EASY_ID = '01SHF000000000000000000023'
 SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
 SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
+SEED_ACTIVITY_TRANSLATION_ID = '01SHF000000000000000000992'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -253,6 +259,129 @@ class _GamificationSeed:
 class _MultipleSelectionSeedQuestion:
     prompt: str
     options: tuple[tuple[str, str, bool], ...]
+
+
+def _translation_seed_part(question_key: str) -> TranslationRubricEvaluationPart:
+    criteria = (
+        ('semantic_preservation', 'Preservação semântica', 70),
+        ('grammatical_adequacy', 'Adequação gramatical', 30),
+    )
+    return TranslationRubricEvaluationPart(
+        question_key=question_key,
+        weight_percentage=40,
+        criteria=tuple(
+            TranslationRubricCriterion(
+                key=key,
+                name=name,
+                description=f'Avalia {name.lower()} da tradução.',
+                weight_percentage=weight,
+                required=True,
+                fixed_comments=tuple(
+                    TranslationRubricComment(
+                        id=f'seed-{question_key}-{key}-{level}',
+                        level=level,
+                        text=(
+                            f'{name}: a tradução ainda precisa de ajustes.'
+                            if level < 100
+                            else f'{name}: a tradução está adequada.'
+                        ),
+                    )
+                    for level in (0, 25, 50, 75, 100)
+                ),
+                inconclusive_comment=TranslationInconclusiveComment(
+                    id=f'seed-{question_key}-{key}-inconclusive',
+                    text='Não foi possível avaliar a resposta; tente novamente.',
+                ),
+            )
+            for key, name, weight in criteria
+        ),
+    )
+
+
+def _translation_seed_concept_criteria() -> tuple[CodeConceptCriterion, ...]:
+    return (
+        CodeConceptCriterion(
+            concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+            description='Preserva o sentido da frase ao traduzi-la.',
+            level_observations=tuple(
+                CodeLevelObservation(
+                    id=f'seed-translation-concept-{level}',
+                    level=level,
+                    evidence=f'A tradução preserva o sentido no nível {level}.',
+                    interpretation_limit='A tradução não mede domínio de vocabulário avançado.',
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_observation=CodeInconclusiveObservation(
+                id='seed-translation-concept-inconclusive',
+                text='Não há evidência suficiente para concluir.',
+            ),
+        ),
+    )
+
+
+def _translation_seed_activity() -> Activity:
+    return Activity.create(
+        id=SEED_ACTIVITY_TRANSLATION_ID,
+        competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Tradução de português para inglês',
+        objective='Traduzir frases curtas do português para o inglês.',
+        questions=(
+            SingleChoiceQuestion(
+                key='q1',
+                prompt='Qual é a tradução de "obrigado" para o inglês?',
+                options=(
+                    ChoiceOption(key='a', text='Thank you', is_correct=True),
+                    ChoiceOption(key='b', text='Please', is_correct=False),
+                ),
+                correct_explanation='"Obrigado" é "thank you" em inglês.',
+                incorrect_explanation='Pense na expressão usada para agradecer.',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+                        criterion='Reconhece a tradução de uma expressão simples.',
+                        examples='Thank you',
+                        limits='A escolha não mede produção escrita.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
+            ),
+            TranslationQuestion(
+                key='q2',
+                prompt='Traduza a frase a seguir para o inglês.',
+                source_language='pt-BR',
+                target_language='en-US',
+                source_text='Bom dia, como você está?',
+                reference_translations=(
+                    'Good morning, how are you?',
+                    'Good morning, how is it going?',
+                ),
+                concept_criteria=_translation_seed_concept_criteria(),
+            ),
+            TranslationQuestion(
+                key='q3',
+                prompt='Traduza a frase a seguir para o inglês.',
+                source_language='pt-BR',
+                target_language='en-US',
+                source_text='Eu gosto de estudar programação à noite.',
+                reference_translations=(
+                    'I like to study programming at night.',
+                    'I like studying programming at night.',
+                ),
+                concept_criteria=_translation_seed_concept_criteria(),
+            ),
+        ),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
+                _translation_seed_part('q2'),
+                _translation_seed_part('q3'),
+            )
+        ),
+    )
 
 
 def _adaptive_choice_activity(
@@ -2222,6 +2351,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 )
             ),
         ),
+        _translation_seed_activity(),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -2290,6 +2420,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                     for position, activity_id in enumerate(
                         SEED_ADAPTIVE_ACTIVITY_IDS[3:], start=2
                     )
+                ),
+                ActivitySequenceItem(
+                    position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 2,
+                    activity_id=SEED_ACTIVITY_TRANSLATION_ID,
                 ),
             ),
         ),

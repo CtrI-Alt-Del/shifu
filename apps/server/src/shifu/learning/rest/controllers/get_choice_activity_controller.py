@@ -104,12 +104,26 @@ class CodeQuestionResponse(BaseModel):
     http_examples: tuple[HttpExampleResponse, ...] = ()
 
 
+class TranslationQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['translation']
+    prompt: str
+    source_language: str
+    target_language: str
+    source_text: str
+    criteria: tuple[CriterionResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
     difficulty: str
     questions: tuple[
-        ChoiceQuestionResponse | CodeQuestionResponse | OrderingQuestionResponse, ...
+        ChoiceQuestionResponse
+        | CodeQuestionResponse
+        | OrderingQuestionResponse
+        | TranslationQuestionResponse,
+        ...,
     ]
     can_submit: bool
     latest_attempt_id: str | None

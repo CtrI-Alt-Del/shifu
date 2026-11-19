@@ -19,18 +19,23 @@ from shifu.learning.core.domain.structures import (
     OrderingAnswer,
     OrderingResultDetail,
     OrderingStepDetail,
+    TranslationAnswer,
+    TranslationResultDetail,
+    TranslationRubricResult,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.shared.core.domain.errors import NotFoundError
 from shifu.shared.core.domain.structures import (
+    CurriculumChoicePartSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
-    CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
 
@@ -111,7 +116,7 @@ class GetChoiceAttemptUseCase:
                         if evaluation.status is ActivityEvaluationStatus.FAILED
                         else None
                     ),
-                    questions=self._pending_code_details(attempt),
+                    questions=self._pending_question_details(attempt),
                 )
 
             all_attempts = (
@@ -208,7 +213,13 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
-    ) -> tuple[ChoiceResultDetail | CodeResultDetail | OrderingResultDetail, ...]:
+    ) -> tuple[
+        ChoiceResultDetail
+        | CodeResultDetail
+        | OrderingResultDetail
+        | TranslationResultDetail,
+        ...,
+    ]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise NotFoundError
@@ -224,7 +235,17 @@ class GetChoiceAttemptUseCase:
             for result in evaluation.parts
             if isinstance(result, CodeRubricResult)
         }
-        details: list[ChoiceResultDetail | CodeResultDetail | OrderingResultDetail] = []
+        translation_results = {
+            result.question_key: result
+            for result in evaluation.parts
+            if isinstance(result, TranslationRubricResult)
+        }
+        details: list[
+            ChoiceResultDetail
+            | CodeResultDetail
+            | OrderingResultDetail
+            | TranslationResultDetail
+        ] = []
         for question in snapshot.questions:
             answer = answers.get(question.key)
             result = results.get(question.key)
@@ -238,6 +259,14 @@ class GetChoiceAttemptUseCase:
                 details.append(code_detail)
                 continue
 
+            if isinstance(question, CurriculumTranslationQuestionSnapshot):
+                translation_detail = GetChoiceAttemptUseCase._translation_result_detail(
+                    question, answer, translation_results.get(question.key)
+                )
+                if translation_detail is not None:
+                    details.append(translation_detail)
+                continue
+
             if answer is None or result is None:
                 continue
 
@@ -248,34 +277,41 @@ class GetChoiceAttemptUseCase:
                 details.append(ordering_result)
                 continue
 
-            if isinstance(answer, SingleChoiceAnswer):
-                selected_keys = (answer.selected_option_key,)
-            elif isinstance(answer, MultipleSelectionAnswer):
-                selected_keys = answer.selected_option_keys
-            else:
-                continue
-            if not isinstance(question, CurriculumChoiceQuestionSnapshot):
-                continue
-            details.append(
-                ChoiceResultDetail(
-                    question_key=question.key,
-                    prompt=question.prompt,
-                    selected_option_keys=selected_keys,
-                    score=result.score,
-                    is_correct=result.is_correct,
-                    explanation=result.explanation,
-                    disclosed_correct_option_keys=(
-                        tuple(
-                            option.key
-                            for option in question.options
-                            if option.is_correct
-                        )
-                        if question.key in disclosed_keys
-                        else ()
-                    ),
-                )
+            choice_result = GetChoiceAttemptUseCase._choice_result_detail(
+                question, answer, result, disclosed_keys
             )
+            if choice_result is not None:
+                details.append(choice_result)
         return tuple(details)
+
+    @staticmethod
+    def _choice_result_detail(
+        question: object,
+        answer: object,
+        result: ChoiceEvaluationResult,
+        disclosed_keys: frozenset[str],
+    ) -> ChoiceResultDetail | None:
+        if isinstance(answer, SingleChoiceAnswer):
+            selected_keys = (answer.selected_option_key,)
+        elif isinstance(answer, MultipleSelectionAnswer):
+            selected_keys = answer.selected_option_keys
+        else:
+            return None
+        if not isinstance(question, CurriculumChoiceQuestionSnapshot):
+            return None
+        return ChoiceResultDetail(
+            question_key=question.key,
+            prompt=question.prompt,
+            selected_option_keys=selected_keys,
+            score=result.score,
+            is_correct=result.is_correct,
+            explanation=result.explanation,
+            disclosed_correct_option_keys=(
+                tuple(option.key for option in question.options if option.is_correct)
+                if question.key in disclosed_keys
+                else ()
+            ),
+        )
 
     @staticmethod
     def _code_result_detail(
@@ -283,7 +319,10 @@ class GetChoiceAttemptUseCase:
         answer: object,
         result: CodeRubricResult | None,
         parts: tuple[
-            CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...
+            CurriculumChoicePartSnapshot
+            | CurriculumCodeRubricPartSnapshot
+            | CurriculumTranslationRubricPartSnapshot,
+            ...,
         ],
     ) -> CodeResultDetail | None:
         if (
@@ -347,12 +386,32 @@ class GetChoiceAttemptUseCase:
         )
 
     @staticmethod
-    def _pending_code_details(attempt: ActivityAttempt) -> tuple[CodeResultDetail, ...]:
+    def _translation_result_detail(
+        question: CurriculumTranslationQuestionSnapshot,
+        answer: object | None,
+        result: TranslationRubricResult | None,
+    ) -> TranslationResultDetail | None:
+        if not isinstance(answer, TranslationAnswer) or result is None:
+            return None
+        return TranslationResultDetail(
+            question_key=question.key,
+            kind=question.kind,
+            prompt=question.prompt,
+            submitted_text=answer.text,
+            score=result.score,
+            criterion_results=result.criterion_results,
+            concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _pending_question_details(
+        attempt: ActivityAttempt,
+    ) -> tuple[CodeResultDetail | TranslationResultDetail, ...]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             return ()
 
-        questions = {
+        code_questions = {
             item.key: item
             for item in snapshot.questions
             if isinstance(
@@ -365,29 +424,45 @@ class GetChoiceAttemptUseCase:
                 ),
             )
         }
-        details: list[CodeResultDetail] = []
+        translation_questions = {
+            item.key: item
+            for item in snapshot.questions
+            if isinstance(item, CurriculumTranslationQuestionSnapshot)
+        }
+        details: list[CodeResultDetail | TranslationResultDetail] = []
         for answer in attempt.answers:
-            if (
-                not isinstance(answer, CodeAnswer)
-                or answer.question_key not in questions
-            ):
-                continue
-
-            question = questions[answer.question_key]
-            project = {item.path: item.content for item in question.initial_files}
-            project.update({item.path: item.content for item in answer.files})
-            details.append(
-                CodeResultDetail(
-                    question_key=question.key,
-                    kind=question.kind,
-                    prompt=question.prompt,
-                    submitted_files=tuple(
-                        CodeSubmittedFile(path=path, content=content)
-                        for path, content in sorted(project.items())
-                    ),
-                    score=None,
-                    criterion_results=(),
-                    concept_observations=(),
+            if isinstance(answer, CodeAnswer) and answer.question_key in code_questions:
+                question = code_questions[answer.question_key]
+                project = {item.path: item.content for item in question.initial_files}
+                project.update({item.path: item.content for item in answer.files})
+                details.append(
+                    CodeResultDetail(
+                        question_key=question.key,
+                        kind=question.kind,
+                        prompt=question.prompt,
+                        submitted_files=tuple(
+                            CodeSubmittedFile(path=path, content=content)
+                            for path, content in sorted(project.items())
+                        ),
+                        score=None,
+                        criterion_results=(),
+                        concept_observations=(),
+                    )
                 )
-            )
+            elif (
+                isinstance(answer, TranslationAnswer)
+                and answer.question_key in translation_questions
+            ):
+                translation_question = translation_questions[answer.question_key]
+                details.append(
+                    TranslationResultDetail(
+                        question_key=translation_question.key,
+                        kind=translation_question.kind,
+                        prompt=translation_question.prompt,
+                        submitted_text=answer.text,
+                        score=None,
+                        criterion_results=(),
+                        concept_observations=(),
+                    )
+                )
         return tuple(details)

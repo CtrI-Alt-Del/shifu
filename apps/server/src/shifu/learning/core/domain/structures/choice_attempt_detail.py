@@ -16,6 +16,9 @@ from shifu.learning.core.domain.structures.code_result_detail import CodeResultD
 from shifu.learning.core.domain.structures.ordering_result_detail import (
     OrderingResultDetail,
 )
+from shifu.learning.core.domain.structures.translation_result_detail import (
+    TranslationResultDetail,
+)
 
 
 @structure
@@ -33,5 +36,9 @@ class ChoiceAttemptDetail:
     status_after: CompetencyProgressStatus | None = None
     next_action: ActivityRecommendation | None = None
     questions: tuple[
-        ChoiceResultDetail | CodeResultDetail | OrderingResultDetail, ...
+        ChoiceResultDetail
+        | CodeResultDetail
+        | OrderingResultDetail
+        | TranslationResultDetail,
+        ...,
     ] = ()

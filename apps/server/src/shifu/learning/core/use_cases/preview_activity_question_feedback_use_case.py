@@ -10,6 +10,7 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeCriterionResult,
     CodeConceptObservationResult,
+    TranslationAnswer,
 )
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
@@ -33,6 +34,8 @@ from shifu.shared.core.domain.errors import (
 from shifu.shared.core.domain.structures import (
     CodeRubricAssessmentInput,
     CodeRubricDecisions,
+    CurriculumChoicePartSnapshot,
+    CurriculumCodeConceptCriterionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -41,11 +44,15 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoiceQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
+    TranslationRubricAssessmentInput,
 )
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
     IdentifierProvider,
+    TranslationRubricAssessorProvider,
 )
 from shifu.shared.core.domain.structures import structure
 
@@ -59,6 +66,7 @@ class PreliminaryQuestionResult:
     criteria: tuple[CodeCriterionResult, ...] = ()
     concept_observations: tuple[CodeConceptObservationResult, ...] = ()
     submitted_files: tuple[CodeSubmittedFile, ...] = ()
+    submitted_text: str | None = None
 
 
 class PreviewActivityQuestionFeedbackUseCase:
@@ -67,12 +75,16 @@ class PreviewActivityQuestionFeedbackUseCase:
         learning_database: LearningDatabase,
         curriculum_content_provider: CurriculumContentProvider,
         code_rubric_assessor_provider: CodeRubricAssessorProvider,
+        translation_rubric_assessor_provider: TranslationRubricAssessorProvider,
         max_code_assessment_input_bytes: int = 262144,
         identifier_provider: IdentifierProvider | None = None,
     ) -> None:
         self._learning_database = learning_database
         self._curriculum_content_provider = curriculum_content_provider
         self._code_rubric_assessor_provider = code_rubric_assessor_provider
+        self._translation_rubric_assessor_provider = (
+            translation_rubric_assessor_provider
+        )
         self._max_code_assessment_input_bytes = max_code_assessment_input_bytes
         self._identifier_provider = identifier_provider
 
@@ -85,7 +97,10 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission | CodeAnswer | OrderingAnswerSubmission,
+        answer: ChoiceAnswerSubmission
+        | CodeAnswer
+        | OrderingAnswerSubmission
+        | TranslationAnswer,
         passage_key: str | None = None,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
@@ -106,7 +121,9 @@ class PreviewActivityQuestionFeedbackUseCase:
                 answer,
             )
 
-        snapshot = self._curriculum_content_provider.get_learning_activity(activity_id)
+        snapshot = self._preview_snapshot(
+            goal_id, skill_id, activity_id, detail.ordering_passage_key
+        )
         if snapshot is None:
             raise ConflictError
         self._assert_revision(snapshot.revision, activity_revision)
@@ -149,6 +166,51 @@ class PreviewActivityQuestionFeedbackUseCase:
                 self._max_code_assessment_input_bytes,
             )
 
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            return self._execute_translation(question, answer, snapshot.parts)
+
+        return self._choice_result(question, answer)
+
+    def _preview_snapshot(
+        self,
+        goal_id: str,
+        skill_id: str,
+        activity_id: str,
+        passage_key: str | None,
+    ) -> CurriculumLearningActivitySnapshot | None:
+        if passage_key is None:
+            return self._curriculum_content_provider.get_learning_activity(activity_id)
+
+        with self._learning_database.transaction() as repositories:
+            experience = repositories.skill_experiences.find_by_goal_id_and_skill_id(
+                goal_id, skill_id
+            )
+            if (
+                experience is None
+                or experience.goal_id != goal_id
+                or experience.skill_id != skill_id
+            ):
+                raise ConflictError
+
+            passage = repositories.ordering_passages.find_active(
+                experience.id, activity_id
+            )
+            if (
+                passage is None
+                or passage.skill_experience_id != experience.id
+                or passage.activity_id != activity_id
+                or passage.passage_key != passage_key
+                or passage.status != 'active'
+            ):
+                raise ConflictError
+
+            return passage.grading_snapshot
+
+    @staticmethod
+    def _choice_result(
+        question: object,
+        answer: ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer,
+    ) -> PreliminaryQuestionResult:
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
 
@@ -176,6 +238,37 @@ class PreviewActivityQuestionFeedbackUseCase:
             if correct
             else question.incorrect_explanation,
         )
+
+    def _execute_translation(
+        self,
+        question: CurriculumTranslationQuestionSnapshot,
+        answer: ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer,
+        parts: tuple[
+            CurriculumChoicePartSnapshot
+            | CurriculumCodeRubricPartSnapshot
+            | CurriculumTranslationRubricPartSnapshot,
+            ...,
+        ],
+    ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, TranslationAnswer):
+            raise ValidationError
+
+        part = next((item for item in parts if item.question_key == question.key), None)
+        if not isinstance(part, CurriculumTranslationRubricPartSnapshot):
+            raise ValidationError
+
+        request = TranslationRubricAssessmentInput(
+            question_kind=question.kind,
+            source_text=question.source_text,
+            source_language=question.source_language,
+            target_language=question.target_language,
+            reference_translations=question.reference_translations,
+            submitted_text=answer.text,
+            rubric_criteria=part.criteria,
+            concept_criteria=question.concept_criteria,
+        )
+        decisions = self._translation_rubric_assessor_provider.assess(request)
+        return self.translation_result(question, part, answer, decisions)
 
     @staticmethod
     def _assert_revision(actual: str | None, expected: str) -> None:
@@ -363,20 +456,23 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
 
     @staticmethod
-    def code_result(
-        question: CodeQuestionSnapshot,
-        part: CurriculumCodeRubricPartSnapshot,
-        answer: CodeAnswer,
+    def _score_rubric(
+        part: CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        concept_criteria: tuple[CurriculumCodeConceptCriterionSnapshot, ...],
         decisions: CodeRubricDecisions,
-        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
-    ) -> PreliminaryQuestionResult:
+    ) -> tuple[
+        tuple[CodeCriterionResult, ...],
+        tuple[CodeConceptObservationResult, ...],
+        Decimal | None,
+    ]:
         criterion_by_key = {item.key: item.level for item in decisions.criterion_levels}
         concept_by_id = {
             item.concept_id: item.level for item in decisions.concept_levels
         }
         if set(criterion_by_key) != {item.key for item in part.criteria} or set(
             concept_by_id
-        ) != {item.concept_id for item in question.concept_criteria}:
+        ) != {item.concept_id for item in concept_criteria}:
             raise ServiceUnavailableError
 
         criteria: list[CodeCriterionResult] = []
@@ -403,7 +499,7 @@ class PreviewActivityQuestionFeedbackUseCase:
                 )
             )
         concepts: list[CodeConceptObservationResult] = []
-        for item in question.concept_criteria:
+        for item in concept_criteria:
             level = concept_by_id[item.concept_id]
             observation = (
                 item.inconclusive_observation
@@ -442,16 +538,51 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
         if any(item.level == 'inconclusive' for item in criteria):
             score = None
+        return tuple(criteria), tuple(concepts), score
+
+    @staticmethod
+    def code_result(
+        question: CodeQuestionSnapshot,
+        part: CurriculumCodeRubricPartSnapshot,
+        answer: CodeAnswer,
+        decisions: CodeRubricDecisions,
+        max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
+    ) -> PreliminaryQuestionResult:
+        criteria, concepts, score = (
+            PreviewActivityQuestionFeedbackUseCase._score_rubric(
+                part, question.concept_criteria, decisions
+            )
+        )
         project = PreviewActivityQuestionFeedbackUseCase.build_code_assessment_input(
             question, part, answer, max_bytes
         )
         return PreliminaryQuestionResult(
             status='inconclusive' if score is None else 'conclusive',
             score=score,
-            criteria=tuple(criteria),
-            concept_observations=tuple(concepts),
+            criteria=criteria,
+            concept_observations=concepts,
             submitted_files=tuple(
                 CodeSubmittedFile(path=path, content=content)
                 for path, content in project.project_files
             ),
+        )
+
+    @staticmethod
+    def translation_result(
+        question: CurriculumTranslationQuestionSnapshot,
+        part: CurriculumTranslationRubricPartSnapshot,
+        answer: TranslationAnswer,
+        decisions: CodeRubricDecisions,
+    ) -> PreliminaryQuestionResult:
+        criteria, concepts, score = (
+            PreviewActivityQuestionFeedbackUseCase._score_rubric(
+                part, question.concept_criteria, decisions
+            )
+        )
+        return PreliminaryQuestionResult(
+            status='inconclusive' if score is None else 'conclusive',
+            score=score,
+            criteria=criteria,
+            concept_observations=concepts,
+            submitted_text=answer.text,
         )

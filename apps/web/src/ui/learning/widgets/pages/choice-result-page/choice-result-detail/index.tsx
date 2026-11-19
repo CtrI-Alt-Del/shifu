@@ -4,6 +4,7 @@ import type {
   ActivityQuestion,
   ActivityResultQuestion,
   CodeResultQuestion,
+  TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
 import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -263,14 +264,132 @@ export const ChoiceResultDetail = ({
     )
   }
 
+  if (isTranslationResultQuestion(result)) {
+    const translationQuestion = question?.kind === 'translation' ? question : undefined
+    const label = translationResultLabel(result.score)
+    const labelClassName = translationResultLabelClassName(result.score)
+    return (
+      <details
+        aria-labelledby={`choice-result-question-${questionNumber}`}
+        className='choice-result-card group rounded-md border border-border bg-muted'
+      >
+        <summary
+          className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
+          id={`choice-result-question-${questionNumber}`}
+        >
+          <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
+            <span className={`text-sm font-semibold ${labelClassName}`}>
+              Questão {questionNumber} · Tradução{label ? ` · ${label}` : ''}
+            </span>
+            <span aria-hidden='true' className='text-muted-foreground'>
+              ·
+            </span>
+            <span className='min-w-0 truncate text-sm text-muted-foreground'>
+              {result.prompt}
+            </span>
+          </span>
+          <span className='flex shrink-0 items-center justify-end gap-3'>
+            <output
+              aria-label={`Nota ${formatNullableScore(result.score)} de 100`}
+              className={`font-mono text-xs font-semibold ${labelClassName}`}
+            >
+              {formatNullableScore(result.score)}
+              <span className='ml-1 text-xs font-normal text-muted-foreground'>
+                / 100
+              </span>
+            </output>
+            <Icon
+              className='shrink-0 text-muted-foreground transition-transform duration-300 ease-out group-open:rotate-90'
+              name='chevron-right'
+              size={16}
+            />
+          </span>
+        </summary>
+        <div className='space-y-4 border-t border-border p-3 sm:p-4'>
+          <QuestionPrompt
+            id={`choice-result-question-${questionNumber}-prompt`}
+            prompt={result.prompt}
+            size='result'
+          />
+          <section
+            aria-labelledby={`translation-result-text-${questionNumber}`}
+            className='space-y-2'
+          >
+            <h3
+              className='text-sm font-semibold'
+              id={`translation-result-text-${questionNumber}`}
+            >
+              Texto enviado
+            </h3>
+            <pre className='overflow-x-auto whitespace-pre-wrap rounded-md border border-border bg-card p-3 font-mono text-xs text-foreground'>
+              {result.submittedText}
+            </pre>
+          </section>
+          {result.criterionResults.length > 0 ? (
+            <section
+              aria-labelledby={`translation-result-rubric-${questionNumber}`}
+              className='space-y-2'
+            >
+              <h3
+                className='text-sm font-semibold'
+                id={`translation-result-rubric-${questionNumber}`}
+              >
+                Rubrica da questão
+              </h3>
+              <ul className='space-y-2'>
+                {result.criterionResults.map((criterion) => (
+                  <li
+                    className='rounded-md border border-border bg-card p-3'
+                    key={criterion.key}
+                  >
+                    <p className='text-sm font-semibold'>
+                      {translationQuestion?.criteria.find(
+                        ({ key }) => key === criterion.key,
+                      )?.name ?? criterion.key}{' '}
+                      · peso {criterion.weightPercentage}% · nível {criterion.level}
+                    </p>
+                    <p className='mt-1 text-sm text-muted-foreground'>
+                      {criterion.comment}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+          {result.conceptObservations.length > 0 ? (
+            <section
+              aria-labelledby={`translation-result-concepts-${questionNumber}`}
+              className='space-y-2'
+            >
+              <h3
+                className='text-sm font-semibold'
+                id={`translation-result-concepts-${questionNumber}`}
+              >
+                Evidências de Conceito
+              </h3>
+              <ul className='space-y-1 text-sm text-muted-foreground'>
+                {result.conceptObservations.map((observation) => (
+                  <li key={`${observation.conceptId}-${observation.observationId}`}>
+                    {observation.conceptId} · nível {observation.level}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </div>
+      </details>
+    )
+  }
+
   const formattedScore = SCORE_FORMATTER.format(Number(result.score))
   const choiceQuestion =
     question &&
-    question.kind !== 'ordering' &&
     question.kind !== 'javascript_stdin' &&
     question.kind !== 'react' &&
     question.kind !== 'html_css_js' &&
-    question.kind !== 'react_fastify'
+    question.kind !== 'react_fastify' &&
+    question.kind !== 'ordering' &&
+    question.kind !== 'translation'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -381,6 +500,20 @@ function formatNullableScore(score: number | null) {
   return score === null ? '—' : SCORE_FORMATTER.format(Number(score))
 }
 
+function translationResultLabel(score: number | null): string | null {
+  if (score === null) return null
+  if (Number(score) === 100) return 'Resposta correta'
+  if (Number(score) === 0) return 'Resposta incorreta'
+  return 'Parcialmente correta'
+}
+
+function translationResultLabelClassName(score: number | null): string {
+  if (score === null) return 'text-muted-foreground'
+  if (Number(score) === 100) return 'text-success'
+  if (Number(score) === 0) return 'text-selo-text'
+  return 'text-amber-300'
+}
+
 function isCodeResultQuestion(
   result: ActivityResultQuestion,
 ): result is CodeResultQuestion {
@@ -391,4 +524,10 @@ function isCodeResultQuestion(
       result.kind === 'html_css_js' ||
       result.kind === 'react_fastify')
   )
+}
+
+function isTranslationResultQuestion(
+  result: ActivityResultQuestion,
+): result is TranslationResultQuestion {
+  return 'kind' in result && result.kind === 'translation'
 }

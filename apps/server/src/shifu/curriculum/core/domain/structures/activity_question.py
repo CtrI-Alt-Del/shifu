@@ -6,6 +6,7 @@ from .ordering_question import OrderingQuestion
 from .react_question import ReactQuestion
 from .react_fastify_question import ReactFastifyQuestion
 from .single_choice_question import SingleChoiceQuestion
+from .translation_question import TranslationQuestion
 
 
 type ActivityQuestion = (
@@ -17,4 +18,5 @@ type ActivityQuestion = (
     | HtmlCssJsQuestion
     | ReactFastifyQuestion
     | OrderingQuestion
+    | TranslationQuestion
 )

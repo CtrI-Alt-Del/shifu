@@ -9,6 +9,7 @@ from shifu.learning.core.domain.structures import (
     MultipleSelectionAnswer,
     OrderingAnswer,
     SingleChoiceAnswer,
+    TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
 from shifu.shared.core.domain.structures import (
@@ -22,6 +23,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.database.sqlalchemy.serialization import Serialization
 
@@ -80,6 +83,7 @@ class ActivityAttemptMapper:
                     'html_css_js',
                     'react_fastify',
                     'ordering',
+                    'translation',
                 }
                 for question in questions
             ):
@@ -97,16 +101,25 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'react_fastify'
                     else CurriculumOrderingQuestionSnapshot
                     if question.get('kind') == 'ordering'
+                    else CurriculumTranslationQuestionSnapshot
+                    if question.get('kind') == 'translation'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
                 )
                 for question in normalized['questions']
             )
+            question_kind_by_key = {
+                cast('str', question['key']): question.get('kind')
+                for question in normalized['questions']
+            }
             mixed_parts = tuple(
                 Serialization.deserialize_value(
                     part,
-                    CurriculumCodeRubricPartSnapshot
+                    CurriculumTranslationRubricPartSnapshot
+                    if question_kind_by_key.get(cast('str', part.get('question_key')))
+                    == 'translation'
+                    else CurriculumCodeRubricPartSnapshot
                     if 'criteria' in part
                     else CurriculumChoicePartSnapshot,
                 )
@@ -118,11 +131,11 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumOrderingQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumTranslationQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
-                    'tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot, ...]',
+                    'tuple[CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot | CurriculumTranslationRubricPartSnapshot, ...]',
                     mixed_parts,
                 ),
                 required_concept_ids=tuple(
@@ -214,6 +227,13 @@ class ActivityAttemptMapper:
                     SingleChoiceAnswer(
                         question_key=question_key,
                         selected_option_key=cast('str', item['selected_option_key']),
+                    )
+                )
+            elif 'text' in item:
+                answers.append(
+                    TranslationAnswer(
+                        question_key=question_key,
+                        text=cast('str', item['text']),
                     )
                 )
             else:

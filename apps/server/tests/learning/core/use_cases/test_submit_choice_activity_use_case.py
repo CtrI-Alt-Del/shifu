@@ -1276,7 +1276,7 @@ class TestSubmitChoiceActivityUseCase:
         assert event.payload.attempt_id == attempt.id
         assert event.payload.run_id == evaluation.run_id
 
-    def test_should_submit_only_the_verified_order_and_consume_its_passage(
+    def test_should_submit_verified_order_and_replay_after_a_new_passage_starts(
         self,
     ) -> None:
         base = mixed_snapshot()
@@ -1366,6 +1366,48 @@ class TestSubmitChoiceActivityUseCase:
         )
         assert attempt.grading_snapshot == ordering_snapshot
         assert passage.status == 'consumed'
+        self.repositories.ordering_passages.update.assert_called_once_with(passage)
+        self.repositories.events.add.assert_called_once()
+
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+        newer_passage = replace(
+            passage,
+            id='01JSHIFU000000000000000002',
+            passage_key='00000000-0000-4000-8000-000000000002',
+            status='active',
+            verified_orderings=(),
+        )
+        self.repositories.ordering_passages.find_active.return_value = newer_passage
+
+        replayed = self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            'ordering-submission-key',
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+            ),
+            ordering_snapshot.revision,
+            passage_key=passage.passage_key,
+        )
+
+        assert replayed.replayed is True
+        assert replayed.attempt.attempt_id == attempt.id
+        assert newer_passage.status == 'active'
+        assert newer_passage.verified_orderings == ()
+        self.repositories.activity_attempts.add.assert_called_once()
+        self.repositories.activity_evaluations.add.assert_called_once()
         self.repositories.ordering_passages.update.assert_called_once_with(passage)
         self.repositories.events.add.assert_called_once()
 
