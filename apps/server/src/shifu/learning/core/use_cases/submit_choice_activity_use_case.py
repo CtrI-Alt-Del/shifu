@@ -14,6 +14,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceAttemptDetail,
     MultipleSelectionAnswer,
+    OrderingAnswer,
+    OrderingAnswerSubmission,
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
@@ -45,12 +47,16 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
     IdentifierProvider,
+)
+from shifu.learning.core.use_cases.ordering_answer_validation import (
+    OrderingAnswerValidation,
 )
 
 
@@ -77,10 +83,17 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
+        ],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
         time_zone: str | None = None,
+        passage_key: str | None = None,
     ) -> ChoiceSubmissionOutcome:
         if not submission_key.strip():
             raise ValidationError
@@ -108,26 +121,39 @@ class SubmitChoiceActivityUseCase:
                     repositories, existing, competency_id, activity_id, answers
                 )
 
-        mixed_getter = getattr(
-            self._curriculum_content_provider, 'get_learning_activity', None
-        )
-        snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-        if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-            isinstance(
-                item,
-                (
-                    CurriculumJavascriptStdinQuestionSnapshot,
-                    CurriculumReactQuestionSnapshot,
-                    CurriculumHtmlCssJsQuestionSnapshot,
-                    CurriculumReactFastifyQuestionSnapshot,
-                    CurriculumTranslationQuestionSnapshot,
-                ),
+            active_ordering_passage = repositories.ordering_passages.find_active(
+                experience_id, activity_id
             )
-            for item in snapshot.questions
-        ):
-            snapshot = self._curriculum_content_provider.get_choice_activity(
-                activity_id
+            if (
+                active_ordering_passage is not None
+                and active_ordering_passage.passage_key != passage_key
+            ):
+                raise ConflictError
+
+        if active_ordering_passage is not None:
+            snapshot = active_ordering_passage.grading_snapshot
+        else:
+            mixed_getter = getattr(
+                self._curriculum_content_provider, 'get_learning_activity', None
             )
+            snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
+            if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
+                isinstance(
+                    item,
+                    (
+                        CurriculumJavascriptStdinQuestionSnapshot,
+                        CurriculumReactQuestionSnapshot,
+                        CurriculumHtmlCssJsQuestionSnapshot,
+                        CurriculumReactFastifyQuestionSnapshot,
+                        CurriculumOrderingQuestionSnapshot,
+                        CurriculumTranslationQuestionSnapshot,
+                    ),
+                )
+                for item in snapshot.questions
+            ):
+                snapshot = self._curriculum_content_provider.get_choice_activity(
+                    activity_id
+                )
 
         if (
             snapshot is None
@@ -145,6 +171,12 @@ class SubmitChoiceActivityUseCase:
         ):
             raise ConflictError
 
+        has_ordering = isinstance(snapshot, CurriculumLearningActivitySnapshot) and any(
+            isinstance(item, CurriculumOrderingQuestionSnapshot)
+            for item in snapshot.questions
+        )
+        if has_ordering != (passage_key is not None):
+            raise ConflictError
         normalized_answers = self.normalize_answers(
             snapshot, answers, self._max_code_assessment_input_bytes
         )
@@ -186,6 +218,37 @@ class SubmitChoiceActivityUseCase:
                 return self._replayed_outcome(
                     repositories, existing, competency_id, activity_id, answers
                 )
+
+            ordering_passage = repositories.ordering_passages.find_active(
+                experience_id, activity_id
+            )
+            if has_ordering:
+                if (
+                    ordering_passage is None
+                    or ordering_passage.passage_key != passage_key
+                    or ordering_passage.activity_revision != snapshot.revision
+                ):
+                    raise ConflictError
+                for ordering in (
+                    item
+                    for item in normalized_answers
+                    if isinstance(item, OrderingAnswer)
+                ):
+                    verified = next(
+                        (
+                            item
+                            for item in ordering_passage.verified_orderings
+                            if item.question_key == ordering.question_key
+                        ),
+                        None,
+                    )
+                    if (
+                        verified is None
+                        or verified.ordered_step_keys != ordering.ordered_step_keys
+                    ):
+                        raise ConflictError
+            elif passage_key is not None:
+                raise ConflictError
 
             if isinstance(
                 snapshot, CurriculumChoiceActivitySnapshot
@@ -253,6 +316,9 @@ class SubmitChoiceActivityUseCase:
                     )
                 )
             )
+            if ordering_passage is not None:
+                ordering_passage.consume()
+                repositories.ordering_passages.update(ordering_passage)
             return ChoiceSubmissionOutcome(
                 attempt=ChoiceAttemptDetail(
                     attempt_id=attempt_id,
@@ -271,7 +337,13 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
+        ],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
@@ -304,7 +376,13 @@ class SubmitChoiceActivityUseCase:
     @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | OrderingAnswerSubmission
+            | TranslationAnswer,
+            ...,
+        ],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
@@ -328,6 +406,18 @@ class SubmitChoiceActivityUseCase:
                     raise ValidationError
                 normalized.append(
                     CodeAnswerValidation.normalize(question, answer, max_bytes)
+                )
+                continue
+
+            if isinstance(question, CurriculumOrderingQuestionSnapshot):
+                if not isinstance(answer, OrderingAnswerSubmission):
+                    raise ValidationError
+                OrderingAnswerValidation.validate(question, answer.ordered_step_keys)
+                normalized.append(
+                    OrderingAnswer(
+                        question_key=answer.question_key,
+                        ordered_step_keys=answer.ordered_step_keys,
+                    )
                 )
                 continue
 

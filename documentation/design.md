@@ -32,7 +32,7 @@ Não criar telas para nada abaixo. Todos são exclusões explícitas dos PRDs.
 - Modo "prática" separado de modo "avaliação"
 - Marcar material como lido / percentual de leitura / biblioteca geral de materiais
 - Desafio final obrigatório após dominar todas as Competências
-- Rascunhos no servidor ou sincronizados entre dispositivos. Questões de código com frontend usam autosave local no navegador; diagnóstico não salva rascunhos
+- Rascunhos de diagnóstico ou respostas ainda editáveis de outros formatos no servidor ou entre dispositivos. A Preparação Prática culinária mantém rascunho editável na conta, conforme Learning RP-32. Na ordenação de etapas, somente a sequência já verificada e o retorno provisório são retomáveis pela conta, inclusive entre dispositivos, conforme Learning RP-09. Questões de código com frontend usam autosave local no navegador
 - Configuração de IA pelo usuário (modelo, chave, parâmetros)
 - Exportação de dados ou de conversas
 - Painel de métricas / analytics

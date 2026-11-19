@@ -129,6 +129,179 @@ test('runs the actual Activity route, preserves the answer, and blocks unsent in
   ).toBe(true)
 })
 
+const registerOrderingAnswerTest = (outcome: 'correct' | 'incorrect') =>
+  test(`verifies and submits ${outcome === 'correct' ? 'a correct' : 'an incorrect'} ordering answer through the Activity route`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    const isCorrect = outcome === 'correct'
+    const orderingActivity = {
+      ...activity,
+      activityRevision: 'ordering-revision-1',
+      orderingPassageKey: null,
+      questions: [
+        {
+          key: 'ordering-1',
+          kind: 'ordering' as const,
+          prompt: 'Organize o preparo.',
+          steps: [
+            { key: 'wash', text: 'Lavar os legumes' },
+            { key: 'cut', text: 'Cortar os legumes' },
+            { key: 'cook', text: 'Aquecer a frigideira' },
+          ],
+          initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+          verified: null,
+        },
+      ],
+    }
+    const requests: string[] = []
+    const passageKeys: string[] = []
+    await bff.route(async (route) => {
+      const body = route.request().postData() ?? ''
+      const envelope = body ? (JSON.parse(body) as { t?: SerializedServerValue }) : null
+      const serverPayload = envelope?.t ? decodeServerValue(envelope.t) : null
+      const data = (serverPayload as { data?: Record<string, unknown> } | null)?.data
+      const submission = data?.submission as Record<string, unknown> | undefined
+      const passageKey = data?.passageKey ?? submission?.passageKey
+      if (typeof passageKey === 'string') passageKeys.push(passageKey)
+      const payload = decodeURIComponent(`${route.request().url()} ${body}`)
+      if (!payload.includes(ids.activityId)) return route.fallback()
+      requests.push(payload)
+      if (!payload.includes('questionKey') && !payload.includes('submissionKey')) {
+        await route.fulfill({
+          body: JSON.stringify({ result: orderingActivity }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+        await route.fulfill({
+          body: JSON.stringify({
+            result: {
+              attemptId: ids.attemptId,
+              status: 'pending',
+              resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+            },
+          }),
+          contentType: 'application/json',
+        })
+        return
+      }
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            status: 'conclusive',
+            score: isCorrect ? 100 : 0,
+            isCorrect,
+            explanation: isCorrect ? 'Ordem correta.' : 'Ordem incorreta.',
+          },
+        }),
+        contentType: 'application/json',
+      })
+    })
+
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    const prompt = authenticatedPage.getByRole('heading', { name: 'Organize o preparo.' })
+    await expect
+      .poll(
+        () =>
+          prompt.evaluate((element) => {
+            let opacity = 1
+            let current: HTMLElement | null = element as HTMLElement
+            while (current) {
+              opacity *= Number(getComputedStyle(current).opacity)
+              current = current.parentElement
+            }
+            return opacity
+          }),
+        { timeout: 5000 },
+      )
+      .toBeGreaterThan(0.99)
+    await authenticatedPage.setViewportSize({ width: 1440, height: 980 })
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-initial-${outcome}-desktop-1440.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-initial-${outcome}-mobile-390.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 1440, height: 980 })
+    if (isCorrect)
+      await authenticatedPage
+        .getByRole('button', { name: 'Mover para baixo: Lavar os legumes' })
+        .click()
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Verificar' }),
+    ).toBeEnabled()
+    await authenticatedPage.getByRole('button', { name: 'Verificar' }).click()
+    await expect(
+      authenticatedPage.getByText(isCorrect ? 'Ordem correta.' : 'Ordem incorreta.', {
+        exact: true,
+      }),
+    ).toBeVisible()
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-${outcome}-desktop-1440.png`,
+      fullPage: true,
+      animations: 'disabled',
+    })
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    const submitButton = authenticatedPage.getByRole('button', {
+      name: 'Enviar atividade',
+    })
+    await authenticatedPage.evaluate(() =>
+      window.scrollTo(0, document.documentElement.scrollHeight),
+    )
+    const submitBounds = await submitButton.boundingBox()
+    const bottomNavigationBounds = await authenticatedPage
+      .getByRole('navigation', { name: 'Navegação inferior' })
+      .boundingBox()
+    const mentorFabBounds = await authenticatedPage
+      .getByRole('button', { name: 'Abrir Mentor' })
+      .boundingBox()
+    if (!submitBounds || !bottomNavigationBounds || !mentorFabBounds)
+      throw new Error('Ordering mobile actions must have visible bounds')
+    expect(submitBounds.height).toBeGreaterThanOrEqual(44)
+    expect(submitBounds.y + submitBounds.height).toBeLessThanOrEqual(
+      bottomNavigationBounds.y,
+    )
+    expect(submitBounds.x + submitBounds.width).toBeLessThanOrEqual(mentorFabBounds.x)
+    await authenticatedPage.screenshot({
+      path: `.playwright-cli/screenshots/shifu-129-ordering-${outcome}-mobile-390.png`,
+      animations: 'disabled',
+    })
+    await authenticatedPage.getByRole('button', { name: 'Enviar atividade' }).click()
+    await expect(authenticatedPage).toHaveURL(new RegExp(`${ids.attemptId}/?$`))
+
+    expect(requests.some((payload) => payload.includes('orderedStepKeys'))).toBe(true)
+    expect(passageKeys).toHaveLength(2)
+    expect(passageKeys[0]).toBeTruthy()
+    expect(passageKeys[1]).toBe(passageKeys[0])
+  })
+
+registerOrderingAnswerTest('correct')
+registerOrderingAnswerTest('incorrect')
+
+type SerializedServerValue = {
+  t?: number
+  s?: unknown
+  a?: SerializedServerValue[]
+  p?: { k?: string[]; v?: SerializedServerValue[] }
+}
+
+const decodeServerValue = (value: SerializedServerValue): unknown => {
+  if (value.t === 1) return value.s
+  if (value.t === 9) return value.a?.map(decodeServerValue) ?? []
+  if (value.t === 10 && value.p?.k && value.p.v)
+    return Object.fromEntries(
+      value.p.k.map((key, index) => [key, decodeServerValue(value.p?.v?.[index] ?? {})]),
+    )
+  return null
+}
+
 const decodeSerializedMarkup = (payload: string) => payload.replace(/\\{1,2}x3[cC]/g, '<')
 
 test('assesses and submits an HTML/CSS/JavaScript question through the protected Activity route', async ({

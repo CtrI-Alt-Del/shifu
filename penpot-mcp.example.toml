@@ -1,0 +1,7 @@
+# Copie este conteúdo para .codex/config.toml neste repositório.
+# Substitua YOUR_MCP_KEY pela chave de Penpot > Conta > Integrações.
+# .codex/ é ignorado pelo Git. Nunca versione a URL com a chave.
+[mcp_servers.penpot]
+url = "https://design.penpot.app/mcp/stream?userToken=YOUR_MCP_KEY"
+startup_timeout_sec = 20
+tool_timeout_sec = 60

@@ -15,11 +15,13 @@ import {
 
 const mocks = vi.hoisted(() => ({
   layout: vi.fn(),
+  terminateWorker: vi.fn(),
 }))
 
-vi.mock('elkjs/lib/elk.bundled.js', () => ({
+vi.mock('elkjs/lib/elk-api.js', () => ({
   default: class {
     layout = mocks.layout
+    terminateWorker = mocks.terminateWorker
   },
 }))
 
@@ -183,5 +185,16 @@ describe('useProposalSkillGraph', () => {
     act(() => result.current.handleRestore())
     expect(flow.setViewport).not.toHaveBeenCalled()
     expect(mocks.layout).toHaveBeenCalledTimes(1)
+  })
+
+  it('terminates the layout worker when the graph is disposed', async () => {
+    const { unmount } = renderHook(() =>
+      useProposalSkillGraph('Automação com Python', skills, relations),
+    )
+    await waitFor(() => expect(mocks.layout).toHaveBeenCalledOnce())
+
+    unmount()
+
+    expect(mocks.terminateWorker).toHaveBeenCalledOnce()
   })
 })

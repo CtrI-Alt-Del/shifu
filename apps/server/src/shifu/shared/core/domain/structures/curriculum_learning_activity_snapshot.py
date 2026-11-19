@@ -6,6 +6,7 @@ from shifu.shared.core.domain.structures.structure import structure
 
 from .curriculum_choice_part_snapshot import CurriculumChoicePartSnapshot
 from .curriculum_choice_question_snapshot import CurriculumChoiceQuestionSnapshot
+from .curriculum_ordering_question_snapshot import CurriculumOrderingQuestionSnapshot
 from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapshot
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
@@ -33,6 +34,7 @@ class CurriculumLearningActivitySnapshot:
     title: str
     questions: tuple[
         CurriculumChoiceQuestionSnapshot
+        | CurriculumOrderingQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
@@ -109,6 +111,7 @@ class CurriculumLearningActivitySnapshot:
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
+                    CurriculumOrderingQuestionSnapshot,
                 ),
             ):
                 raise ValidationError

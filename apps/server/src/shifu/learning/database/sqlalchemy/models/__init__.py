@@ -16,4 +16,5 @@ from .goal_model import GoalModel as GoalModel
 from .mentor_action_receipt_model import (
     MentorActionReceiptModel as MentorActionReceiptModel,
 )
+from .ordering_passage_model import OrderingPassageModel as OrderingPassageModel
 from .skill_experience_model import SkillExperienceModel as SkillExperienceModel

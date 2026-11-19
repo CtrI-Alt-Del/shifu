@@ -2,10 +2,12 @@ from shifu.curriculum.core.domain.structures import (
     ActivityQuestion,
     JavascriptStdinQuestion,
     CodeRubricEvaluationPart,
+    CorrectnessEvaluationPart,
     EvaluationRule,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
+    OrderingQuestion,
     TranslationQuestion,
     TranslationRubricEvaluationPart,
 )
@@ -96,6 +98,7 @@ class Activity:
                     ReactQuestion,
                     HtmlCssJsQuestion,
                     ReactFastifyQuestion,
+                    OrderingQuestion,
                     TranslationQuestion,
                 ),
             )
@@ -103,15 +106,13 @@ class Activity:
         ):
             raise InvalidActivityError
 
+        if _has_invalid_ordering_part(self.questions, self.evaluation_rule.parts):
+            raise InvalidActivityError
+
         if len(self.required_concept_ids) != len(set(self.required_concept_ids)):
             raise InvalidActivityError
 
-        assessed = {
-            criterion.concept_id
-            for question in self.questions
-            for criterion in getattr(question, 'concept_criteria', ())
-        }
-        if assessed.intersection(self.required_concept_ids):
+        if _has_required_concept_overlap(self.questions, self.required_concept_ids):
             raise InvalidActivityError
 
     @classmethod
@@ -139,3 +140,31 @@ class Activity:
             evaluation_rule=evaluation_rule,
             required_concept_ids=required_concept_ids,
         )
+
+
+def _has_invalid_ordering_part(
+    questions: tuple[ActivityQuestion, ...],
+    parts: tuple[object, ...],
+) -> bool:
+    parts_by_key = {
+        part.question_key: part
+        for part in parts
+        if isinstance(part, CorrectnessEvaluationPart | CodeRubricEvaluationPart)
+    }
+    return any(
+        isinstance(question, OrderingQuestion)
+        and not isinstance(parts_by_key.get(question.key), CorrectnessEvaluationPart)
+        for question in questions
+    )
+
+
+def _has_required_concept_overlap(
+    questions: tuple[ActivityQuestion, ...],
+    required_concept_ids: tuple[str, ...],
+) -> bool:
+    assessed = {
+        criterion.concept_id
+        for question in questions
+        for criterion in getattr(question, 'concept_criteria', ())
+    }
+    return bool(assessed.intersection(required_concept_ids))

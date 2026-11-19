@@ -9,12 +9,14 @@ from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
-from shifu.learning.core.domain.entities import CompetencyProgress
+from shifu.learning.core.domain.entities import CompetencyProgress, OrderingPassage
+from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     TranslationAnswer,
+    VerifiedOrdering,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -49,6 +51,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactPermittedCommandSnapshot,
     CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumOrderingQuestionSnapshot,
+    CurriculumOrderingStepSnapshot,
+    CurriculumChoiceConceptCriterionSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricCommentSnapshot,
@@ -59,6 +64,7 @@ from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubric
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    IdentifierProvider,
     TranslationRubricAssessorProvider,
 )
 
@@ -245,6 +251,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
     def setup(self) -> None:
         self.database = create_autospec(LearningDatabase, instance=True)
         self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
@@ -1010,3 +1017,259 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         assert result.status == 'inconclusive'
         assert result.score is None
         assert result.submitted_text == 'Good morning'
+
+    @pytest.mark.parametrize('catalog_present', (True, False))
+    def test_should_preview_translation_from_pinned_ordering_passage_after_catalog_change(
+        self, catalog_present: bool
+    ) -> None:
+        self._use_translation_snapshot()
+        snapshot = self.provider.get_learning_activity.return_value
+        assert isinstance(snapshot, CurriculumLearningActivitySnapshot)
+        ordering = CurriculumOrderingQuestionSnapshot(
+            key='q2',
+            kind='ordering',
+            prompt='Order the steps',
+            steps=tuple(
+                CurriculumOrderingStepSnapshot(key=key, text=key)
+                for key in ('prepare', 'cook', 'serve')
+            ),
+            accepted_orders=(('prepare', 'cook', 'serve'),),
+            correct_explanation='Correct',
+            incorrect_explanation='Wrong',
+            concept_criteria=(
+                CurriculumChoiceConceptCriterionSnapshot(
+                    concept_id='concept-order',
+                    criterion='Orders steps',
+                    examples='Prepare first',
+                    limits='No practical execution',
+                    correct_score=Decimal(100),
+                    incorrect_score=Decimal(0),
+                ),
+            ),
+        )
+        pinned = replace(
+            snapshot, questions=(snapshot.questions[0], ordering, snapshot.questions[2])
+        )
+        passage = OrderingPassage.create(
+            id='passage-1',
+            skill_experience_id='experience-1',
+            activity_id='activity-1',
+            passage_key='passage-key',
+            activity_revision='revision-1',
+            grading_snapshot=pinned,
+        )
+        passage.add_verified(
+            VerifiedOrdering(
+                question_key='q2',
+                ordered_step_keys=('prepare', 'cook', 'serve'),
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            )
+        )
+        self.repositories.ordering_passages.find_active.return_value = passage
+        self.provider.get_learning_activity.return_value = (
+            replace(snapshot, revision='revision-2') if catalog_present else None
+        )
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+                CodeCriterionDecision(key='grammatical_adequacy', level=100),
+            ),
+            concept_levels=(),
+        )
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            TranslationAnswer(question_key='qt', text='Good morning'),
+        )
+
+        assert result.status == 'conclusive'
+        assert result.score == Decimal(100)
+        assert result.submitted_text == 'Good morning'
+        self.provider.get_learning_activity.assert_not_called()
+        request = self.translation_assessor.assess.call_args.args[0]
+        assert request.reference_translations == ('Good morning',)
+        assert request.submitted_text == 'Good morning'
+        assert passage.status == 'active'
+        assert len(passage.verified_orderings) == 1
+        self.repositories.activity_attempts.add.assert_not_called()
+
+
+class TestPreviewOrderingQuestion:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.database = create_autospec(LearningDatabase, instance=True)
+        self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        base = mixed_snapshot()
+        self.snapshot = replace(
+            base,
+            questions=(
+                *base.questions[:2],
+                CurriculumOrderingQuestionSnapshot(
+                    key='q3',
+                    kind='ordering',
+                    prompt='Organize as etapas.',
+                    steps=tuple(
+                        CurriculumOrderingStepSnapshot(key=key, text=text)
+                        for key, text in (
+                            ('prepare', 'Preparar'),
+                            ('cook', 'Cozinhar'),
+                            ('serve', 'Servir'),
+                        )
+                    ),
+                    accepted_orders=(
+                        ('prepare', 'cook', 'serve'),
+                        ('prepare', 'serve', 'cook'),
+                    ),
+                    correct_explanation='Sequência aceita.',
+                    incorrect_explanation='Revise a sequência.',
+                    concept_criteria=(
+                        CurriculumChoiceConceptCriterionSnapshot(
+                            concept_id='concept-order',
+                            criterion='Ordem do processo',
+                            examples='Preparar antes de cozinhar.',
+                            limits='A apresentação pode variar.',
+                            correct_score=Decimal(100),
+                            incorrect_score=Decimal(0),
+                        ),
+                    ),
+                ),
+            ),
+            parts=tuple(
+                CurriculumChoicePartSnapshot(
+                    question_key=f'q{index}', weight_percentage=Decimal(weight)
+                )
+                for index, weight in ((1, 30), (2, 30), (3, 40))
+            ),
+        )
+        self.provider.get_learning_activity.return_value = self.snapshot
+        self.assessor = create_autospec(CodeRubricAssessorProvider, instance=True)
+        self.identifiers = create_autospec(IdentifierProvider, instance=True)
+        self.identifiers.generate.return_value = '01JSHIFU129ORDERINGPASS'
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id='goal-1', account_id='account-1'
+        )
+        experience = SkillExperienceFaker.fake(
+            id='experience-1',
+            goal_id='goal-1',
+            skill_id='skill-1',
+            status=SkillExperienceStatus.LEARNING,
+        )
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = experience
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            experience
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = CompetencyProgress(
+            id='progress-1',
+            skill_experience_id='experience-1',
+            competency_id='competency-1',
+            content_released=True,
+            created_at=experience.created_at,
+            updated_at=experience.updated_at,
+        )
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
+        self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.return_value = []
+        self.passages: list[OrderingPassage] = []
+
+        def find_active(
+            _skill_experience_id: str,
+            _activity_id: str,
+        ) -> OrderingPassage | None:
+            return self.passages[0] if self.passages else None
+
+        def find_by_key(
+            _skill_experience_id: str,
+            _activity_id: str,
+            _passage_key: str,
+        ) -> OrderingPassage | None:
+            return self.passages[0] if self.passages else None
+
+        def add_passage(passage: OrderingPassage) -> None:
+            self.passages.append(passage)
+
+        def update_passage(_passage: OrderingPassage) -> None:
+            return None
+
+        self.repositories.ordering_passages.find_active.side_effect = find_active
+        self.repositories.ordering_passages.find_by_key.side_effect = find_by_key
+        self.repositories.ordering_passages.add.side_effect = add_passage
+        self.repositories.ordering_passages.update.side_effect = update_passage
+        self.subject = PreviewActivityQuestionFeedbackUseCase(
+            self.database,
+            self.provider,
+            self.assessor,
+            translation_rubric_assessor_provider=create_autospec(
+                TranslationRubricAssessorProvider, instance=True
+            ),
+            identifier_provider=self.identifiers,
+        )
+
+    def _verify(self, ordered: tuple[str, ...]) -> PreliminaryQuestionResult:
+        from shifu.learning.core.domain.structures import OrderingAnswerSubmission
+
+        return self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'q3',
+            'revision-1',
+            OrderingAnswerSubmission(question_key='q3', ordered_step_keys=ordered),
+            'passage-uuid',
+        )
+
+    def test_should_persist_verified_order_and_replay_immutable_result(self) -> None:
+        first = self._verify(('prepare', 'cook', 'serve'))
+        replay = self._verify(('prepare', 'cook', 'serve'))
+
+        assert first == replay
+        assert first.score == Decimal(100)
+        assert first.is_correct is True
+        assert first.explanation == 'Sequência aceita.'
+        assert len(self.passages) == 1
+        assert len(self.passages[0].verified_orderings) == 1
+        self.repositories.ordering_passages.update.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_different_order_after_first_verification(self) -> None:
+        self._verify(('prepare', 'cook', 'serve'))
+
+        with pytest.raises(ConflictError):
+            self._verify(('cook', 'prepare', 'serve'))
+
+        assert len(self.passages[0].verified_orderings) == 1
+        self.repositories.ordering_passages.update.assert_not_called()
+
+    def test_should_reject_route_and_ordering_question_key_mismatch(self) -> None:
+        from shifu.learning.core.domain.structures import OrderingAnswerSubmission
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                'q1',
+                'revision-1',
+                OrderingAnswerSubmission(
+                    question_key='q3',
+                    ordered_step_keys=('prepare', 'cook', 'serve'),
+                ),
+                'passage-uuid',
+            )
+
+        assert not self.passages
+        self.repositories.ordering_passages.add.assert_not_called()

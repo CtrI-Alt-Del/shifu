@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -19,6 +20,9 @@ from shifu.curriculum.core.domain.structures import (
     EvaluationRule,
     JavascriptInitialFile,
     JavascriptStdinQuestion,
+    ChoiceConceptCriterion,
+    OrderingQuestion,
+    OrderingStep,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
@@ -36,6 +40,7 @@ from shifu.shared.core.interfaces import CodeRubricAssessorProvider
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
     SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
@@ -72,6 +77,17 @@ class _TestAuthenticationProvider:
         return AuthenticatedUser(
             account_id=SEED_ACCOUNT_ID,
             display_name='Pessoa Estudante',
+            time_zone='America/Sao_Paulo',
+        )
+
+
+class _OtherAccountAuthenticationProvider:
+    def authenticate(self, access_token: str) -> AuthenticatedUser:
+        if access_token != 'test-access-token':
+            raise AuthorizationError
+        return AuthenticatedUser(
+            account_id='01SHF000000000000000009999',
+            display_name='Outra pessoa',
             time_zone='America/Sao_Paulo',
         )
 
@@ -157,6 +173,215 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestPreviewActivityQuestionFeedbackController:
+    def test_concurrent_orderings_register_only_one_verification(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _ordering_activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = _ordering_activity_path()
+        initial = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert initial.status_code == 200, initial.json()
+        revision = cast('str', initial.json()['activity_revision'])
+        passage_key = '4e62089c-f4f5-4bf3-8749-8c4a91b11001'
+        orders = (
+            ['first', 'second', 'third'],
+            ['first', 'third', 'second'],
+        )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = tuple(
+                cast(
+                    'Response',
+                    future.result(timeout=15),
+                )
+                for future in (
+                    executor.submit(
+                        client.post,
+                        f'{path}/questions/q1/preliminary-evaluations',
+                        headers=headers,
+                        json={
+                            'activity_revision': revision,
+                            'passage_key': passage_key,
+                            'answer': {
+                                'kind': 'ordering',
+                                'question_key': 'q1',
+                                'ordered_step_keys': order,
+                            },
+                        },
+                    )
+                    for order in orders
+                )
+            )
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        with SqlalchemyLearningDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            assert experience is not None
+            passage = repositories.ordering_passages.find_by_key(
+                experience.id, activity.id, passage_key
+            )
+            active = repositories.ordering_passages.find_active(
+                experience.id, activity.id
+            )
+
+        assert passage is not None
+        assert active is not None
+        assert passage.id == active.id
+        assert len(passage.verified_orderings) == 1
+
+    def test_ordering_preview_is_idempotent_private_and_has_no_official_effects(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _ordering_activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = _ordering_activity_path()
+        initial = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+
+        assert initial.status_code == 200, initial.json()
+        initial_body = initial.json()
+        questions = cast('list[dict[str, object]]', initial_body['questions'])
+        ordering = questions[0]
+        assert ordering['kind'] == 'ordering'
+        steps = cast('list[dict[str, str]]', ordering['steps'])
+        step_keys = [step['key'] for step in steps]
+        assert len(step_keys) == 3
+        initial_order = cast('list[str]', ordering['initial_ordered_step_keys'])
+        assert set(initial_order) == set(step_keys)
+        assert initial_order != ['first', 'second', 'third']
+        assert ordering['verified'] is None
+        assert 'accepted_orders' not in ordering
+        assert 'correct_explanation' not in ordering
+
+        revision = cast('str', initial_body['activity_revision'])
+        passage_key = '1e62089c-f4f5-4bf3-8749-8c4a91b11001'
+        request_body: dict[str, object] = {
+            'activity_revision': revision,
+            'passage_key': passage_key,
+            'answer': {
+                'kind': 'ordering',
+                'question_key': 'q1',
+                'ordered_step_keys': ['first', 'second', 'third'],
+            },
+        }
+        counts_before = _learning_write_counts(postgres_database)
+
+        verified = cast(
+            'Response',
+            client.post(
+                f'{path}/questions/q1/preliminary-evaluations',
+                headers=headers,
+                json=request_body,
+            ),  # pyright: ignore[reportUnknownMemberType]
+        )
+
+        assert verified.status_code == 200, verified.json()
+        assert verified.json() == {
+            'status': 'conclusive',
+            'score': '100',
+            'explanation': 'A ordem correta explica o processo.',
+            'is_correct': True,
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+        }
+        assert _learning_write_counts(postgres_database) == counts_before
+
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            assert experience is not None
+            passage = repositories.ordering_passages.find_by_key(
+                experience.id, activity.id, passage_key
+            )
+        assert passage is not None
+        assert passage.status == 'active'
+        assert len(passage.verified_orderings) == 1
+        assert passage.verified_orderings[0].ordered_step_keys == (
+            'first',
+            'second',
+            'third',
+        )
+
+        replay = cast(
+            'Response',
+            client.post(
+                f'{path}/questions/q1/preliminary-evaluations',
+                headers=headers,
+                json=request_body,
+            ),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert replay.status_code == 200
+        assert replay.json() == verified.json()
+
+        conflicting_body = {
+            **request_body,
+            'answer': {
+                'kind': 'ordering',
+                'question_key': 'q1',
+                'ordered_step_keys': ['first', 'third', 'second'],
+            },
+        }
+        conflict = cast(
+            'Response',
+            client.post(
+                f'{path}/questions/q1/preliminary-evaluations',
+                headers=headers,
+                json=conflicting_body,
+            ),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert conflict.status_code == 409
+
+        resumed = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert resumed.status_code == 200
+        resumed_questions = cast('list[dict[str, object]]', resumed.json()['questions'])
+        resumed_ordering = resumed_questions[0]
+        assert resumed_ordering['verified'] == {
+            'ordered_step_keys': ['first', 'second', 'third'],
+            'score': '100',
+            'is_correct': True,
+            'explanation': 'A ordem correta explica o processo.',
+        }
+        assert 'accepted_orders' not in resumed_ordering
+
+        application.state.authentication_provider = (
+            _OtherAccountAuthenticationProvider()
+        )
+        private_read = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert private_read.status_code == 404
+
     def test_html_preliminary_assesses_composed_project_without_official_effects(
         self,
         client: TestClient,
@@ -567,6 +792,61 @@ class TestPreviewActivityQuestionFeedbackController:
 
 
 def _activity_path() -> str:
+    return (
+        f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
+        f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'
+        f'/activities/{_ACTIVITY_ID}'
+    )
+
+
+def _ordering_activity() -> Activity:
+    questions = tuple(
+        OrderingQuestion(
+            key=f'q{index}',
+            prompt='Organize as etapas.',
+            steps=(
+                OrderingStep(key='first', text='Preparar os ingredientes.'),
+                OrderingStep(key='second', text='Misturar os ingredientes.'),
+                OrderingStep(key='third', text='Assar a mistura.'),
+            ),
+            accepted_orders=(
+                ('first', 'second', 'third'),
+                ('first', 'third', 'second'),
+            ),
+            correct_explanation='A ordem correta explica o processo.',
+            incorrect_explanation='A ordem precisa ser revista.',
+            concept_criteria=(
+                ChoiceConceptCriterion(
+                    concept_id=SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
+                    criterion='Compreende a sequência.',
+                    examples='Prepara antes de misturar.',
+                    limits='Não presume etapas ausentes.',
+                    correct_score=100,
+                    incorrect_score=0,
+                ),
+            ),
+        )
+        for index in (1, 2, 3)
+    )
+    return Activity.create(
+        id=_ACTIVITY_ID,
+        competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade de ordenação',
+        objective='Organizar um processo.',
+        questions=questions,
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=34),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=33),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=33),
+            )
+        ),
+    )
+
+
+def _ordering_activity_path() -> str:
     return (
         f'/learning/goals/{SEED_ADAPTIVE_LAB_GOAL_ID}/skills/{SEED_ADAPTIVE_LAB_SKILL_ID}'
         f'/competencies/{SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID}'

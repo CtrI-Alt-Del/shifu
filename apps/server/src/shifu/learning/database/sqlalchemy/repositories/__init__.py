@@ -20,6 +20,9 @@ from .goals_repository import SqlalchemyGoalsRepository as SqlalchemyGoalsReposi
 from .mentor_action_receipts_repository import (
     SqlalchemyMentorActionReceiptsRepository as SqlalchemyMentorActionReceiptsRepository,
 )
+from .ordering_passages_repository import (
+    SqlalchemyOrderingPassagesRepository as SqlalchemyOrderingPassagesRepository,
+)
 from .skill_experiences_repository import (
     SqlalchemySkillExperiencesRepository as SqlalchemySkillExperiencesRepository,
 )

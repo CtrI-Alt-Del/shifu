@@ -47,7 +47,7 @@ describe('MentorActionCard', () => {
   })
 
   it('announces the result and the status line through one status region', () => {
-    const resultRef = createRef<HTMLDivElement>()
+    const resultRef = createRef<HTMLOutputElement>()
     renderCard({
       title: 'Funções em Python removida',
       result: 'A experiência e seu histórico foram removidos.',

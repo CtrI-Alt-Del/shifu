@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
+    OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
     TranslationAnswer,
@@ -61,18 +62,24 @@ class AnswerRequest(BaseModel):
             'react',
             'html_css_js',
             'react_fastify',
+            'ordering',
             'translation',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    ordered_step_keys: tuple[str, ...] | None = None
     text: str | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
         validate_answer_request_shape(
-            self.kind, self.text, self.files, self.selected_option_keys
+            self.kind,
+            self.text,
+            self.files,
+            self.selected_option_keys,
+            self.ordered_step_keys,
         )
         return self
 
@@ -81,6 +88,7 @@ class Request(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
     submission_key: UUID
+    passage_key: UUID | None = None
     answers: tuple[AnswerRequest, ...]
     activity_revision: str | None = None
 
@@ -156,7 +164,12 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        CodeAnswer(
+                        OrderingAnswerSubmission(
+                            question_key=answer.question_key,
+                            ordered_step_keys=answer.ordered_step_keys or (),
+                        )
+                        if answer.kind == 'ordering'
+                        else CodeAnswer(
                             question_key=answer.question_key,
                             kind=answer.kind,
                             files=tuple(
@@ -180,6 +193,9 @@ class SubmitChoiceActivityController:
                     request.activity_revision,
                     str(diagnostic_run_id) if diagnostic_run_id is not None else None,
                     user.time_zone,
+                    str(request.passage_key)
+                    if request.passage_key is not None
+                    else None,
                 ),
                 from_attributes=True,
             )

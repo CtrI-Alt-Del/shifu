@@ -47,6 +47,7 @@ from shifu.learning.core.domain.structures import (
     ConceptObservation,
     EvaluationPartResult,
     MultipleSelectionAnswer,
+    OrderingAnswer,
     SingleChoiceAnswer,
     SkillCompletionSummary,
     TranslationAnswer,
@@ -74,6 +75,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
+    CurriculumOrderingQuestionSnapshot,
     CurriculumSkillSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
@@ -374,6 +376,7 @@ class EvaluateChoiceActivityUseCase:
             | CurriculumReactQuestionSnapshot
             | CurriculumHtmlCssJsQuestionSnapshot
             | CurriculumReactFastifyQuestionSnapshot
+            | CurriculumOrderingQuestionSnapshot
             | CurriculumTranslationQuestionSnapshot,
             ...,
         ],
@@ -817,6 +820,7 @@ class EvaluateChoiceActivityUseCase:
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumOrderingQuestionSnapshot
         | CurriculumTranslationQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
@@ -842,6 +846,20 @@ class EvaluateChoiceActivityUseCase:
             )
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
+        if isinstance(question, CurriculumOrderingQuestionSnapshot):
+            if not isinstance(answer, OrderingAnswer):
+                raise InvalidAttemptError
+            correct = answer.ordered_step_keys in question.accepted_orders
+            return ChoiceEvaluationResult(
+                question_key=question.key,
+                score=Decimal(100 if correct else 0),
+                is_correct=correct,
+                explanation=(
+                    question.correct_explanation
+                    if correct
+                    else question.incorrect_explanation
+                ),
+            )
         if isinstance(answer, SingleChoiceAnswer):
             selected = {answer.selected_option_key}
         elif isinstance(answer, MultipleSelectionAnswer):

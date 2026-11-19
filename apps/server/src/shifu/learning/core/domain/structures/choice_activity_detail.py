@@ -6,6 +6,9 @@ from shifu.shared.core.domain.structures import structure
 from shifu.learning.core.domain.structures.code_question_detail import (
     CodeQuestionDetail,
 )
+from shifu.learning.core.domain.structures.ordering_question_detail import (
+    OrderingQuestionDetail,
+)
 from shifu.learning.core.domain.structures.translation_question_detail import (
     TranslationQuestionDetail,
 )
@@ -17,10 +20,15 @@ class ChoiceActivityDetail:
     title: str
     difficulty: ActivityDifficulty
     questions: tuple[
-        ChoiceQuestionDetail | CodeQuestionDetail | TranslationQuestionDetail, ...
+        ChoiceQuestionDetail
+        | CodeQuestionDetail
+        | OrderingQuestionDetail
+        | TranslationQuestionDetail,
+        ...,
     ]
     can_submit: bool
     latest_attempt_id: str | None = None
     unresolved_attempt_id: str | None = None
     is_diagnostic: bool = False
     activity_revision: str | None = None
+    ordering_passage_key: str | None = None

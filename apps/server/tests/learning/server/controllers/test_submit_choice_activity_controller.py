@@ -23,6 +23,9 @@ from shifu.curriculum.core.domain.structures import (
     EvaluationRule,
     JavascriptInitialFile,
     JavascriptStdinQuestion,
+    ChoiceConceptCriterion,
+    OrderingQuestion,
+    OrderingStep,
     SingleChoiceQuestion,
     TranslationInconclusiveComment,
     TranslationQuestion,
@@ -31,7 +34,11 @@ from shifu.curriculum.core.domain.structures import (
     TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.learning.core.domain.structures import CodeAnswer, TranslationAnswer
+from shifu.learning.core.domain.structures import (
+    CodeAnswer,
+    OrderingAnswer,
+    TranslationAnswer,
+)
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
@@ -48,6 +55,8 @@ from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+    SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
+    SEED_ADAPTIVE_LAB_EXPERIENCE_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
@@ -135,6 +144,127 @@ def client(application: FastAPI) -> Iterator[TestClient]:
 
 
 class TestSubmitChoiceActivityController:
+    def test_ordering_submission_consumes_verified_passage_and_replays_immutably(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = _ordering_activity()
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        headers = {'Authorization': 'Bearer test-access-token'}
+        path = _activity_path(activity.id)
+        detail = cast(
+            'Response',
+            client.get(path, headers=headers),  # pyright: ignore[reportUnknownMemberType]
+        )
+
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        passage_key = 'bf180869-1f71-42da-b621-363af4fd0001'
+        accepted_order = ['first', 'second', 'third']
+        for question_key in ('q1', 'q2', 'q3'):
+            preview = cast(
+                'Response',
+                client.post(
+                    f'{path}/questions/{question_key}/preliminary-evaluations',
+                    headers=headers,
+                    json={
+                        'activity_revision': revision,
+                        'passage_key': passage_key,
+                        'answer': {
+                            'kind': 'ordering',
+                            'question_key': question_key,
+                            'ordered_step_keys': accepted_order,
+                        },
+                    },
+                ),  # pyright: ignore[reportUnknownMemberType]
+            )
+            assert preview.status_code == 200, preview.json()
+            assert preview.json()['score'] == '100'
+
+        body: dict[str, object] = {
+            'submission_key': '3498265c-cd47-4ef2-a9f7-8d131e7bc001',
+            'passage_key': passage_key,
+            'activity_revision': revision,
+            'answers': [
+                {
+                    'kind': 'ordering',
+                    'question_key': question_key,
+                    'ordered_step_keys': accepted_order,
+                }
+                for question_key in ('q1', 'q2', 'q3')
+            ],
+        }
+
+        created = cast(
+            'Response',
+            client.post(_attempts_path(activity.id), headers=headers, json=body),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            experience = repositories.skill_experiences.find_by_id(
+                SEED_ADAPTIVE_LAB_EXPERIENCE_ID
+            )
+            assert experience is not None
+            passage = repositories.ordering_passages.find_by_key(
+                experience.id, activity.id, passage_key
+            )
+            active_passage = repositories.ordering_passages.find_active(
+                experience.id, activity.id
+            )
+
+        assert attempt is not None
+        assert attempt.grading_snapshot is not None
+        assert [answer.question_key for answer in attempt.answers] == [
+            'q1',
+            'q2',
+            'q3',
+        ]
+        ordering_answers = tuple(
+            answer for answer in attempt.answers if isinstance(answer, OrderingAnswer)
+        )
+        assert len(ordering_answers) == len(attempt.answers) == 3
+        assert all(
+            answer.ordered_step_keys == tuple(accepted_order)
+            for answer in ordering_answers
+        )
+        assert passage is not None
+        assert passage.status == 'consumed'
+        assert active_passage is None
+
+        replay = cast(
+            'Response',
+            client.post(_attempts_path(activity.id), headers=headers, json=body),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert replay.status_code == 200, replay.json()
+        assert replay.json() == created.json()
+
+        late_preview = cast(
+            'Response',
+            client.post(
+                f'{path}/questions/q1/preliminary-evaluations',
+                headers=headers,
+                json={
+                    'activity_revision': revision,
+                    'passage_key': passage_key,
+                    'answer': {
+                        'kind': 'ordering',
+                        'question_key': 'q1',
+                        'ordered_step_keys': accepted_order,
+                    },
+                },
+            ),  # pyright: ignore[reportUnknownMemberType]
+        )
+        assert late_preview.status_code == 409
+
     @pytest.mark.parametrize('with_policy', [True, False])
     def test_integrated_submission_is_immutable_replayed_and_sent_to_learning(
         self,
@@ -218,12 +348,28 @@ class TestSubmitChoiceActivityController:
                 'files': [],
                 'selected_option_keys': ['a'],
             },
+            {'kind': 'ordering', 'question_key': 'q1'},
+            {
+                'kind': 'ordering',
+                'question_key': 'q1',
+                'ordered_step_keys': ['a', 'b', 'c'],
+                'text': 'Texto que pertence ao formato tradução.',
+            },
+            {
+                'kind': 'translation',
+                'question_key': 'q1',
+                'text': 'Uma tradução.',
+                'ordered_step_keys': ['a', 'b', 'c'],
+            },
         ),
         ids=(
             'code-without-files',
             'mixed-code-shape',
             'choice-without-options',
             'mixed-choice-shape',
+            'ordering-without-steps',
+            'ordering-with-translation-text',
+            'translation-with-ordering-steps',
         ),
     )
     def test_should_reject_malformed_answer_shape_before_persistence(
@@ -773,6 +919,53 @@ def _body(client: TestClient) -> dict[str, object]:
 
 def _activity_path(activity_id: str) -> str:
     return _attempts_path(activity_id).removesuffix('/attempts')
+
+
+def _ordering_activity() -> Activity:
+    questions = tuple(
+        OrderingQuestion(
+            key=f'q{index}',
+            prompt='Organize as etapas.',
+            steps=(
+                OrderingStep(key='first', text='Preparar os ingredientes.'),
+                OrderingStep(key='second', text='Misturar os ingredientes.'),
+                OrderingStep(key='third', text='Assar a mistura.'),
+            ),
+            accepted_orders=(
+                ('first', 'second', 'third'),
+                ('first', 'third', 'second'),
+            ),
+            correct_explanation='A ordem correta explica o processo.',
+            incorrect_explanation='A ordem precisa ser revista.',
+            concept_criteria=(
+                ChoiceConceptCriterion(
+                    concept_id=SEED_ADAPTIVE_LAB_CONDITIONS_CONCEPT_ID,
+                    criterion='Compreende a sequência.',
+                    examples='Prepara antes de misturar.',
+                    limits='Não presume etapas ausentes.',
+                    correct_score=100,
+                    incorrect_score=0,
+                ),
+            ),
+        )
+        for index in (1, 2, 3)
+    )
+    return Activity.create(
+        id='01SHF000000000000000000091',
+        competency_id=SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade de ordenação',
+        objective='Organizar um processo.',
+        questions=questions,
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=34),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=33),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=33),
+            )
+        ),
+    )
 
 
 def _mixed_activity() -> Activity:

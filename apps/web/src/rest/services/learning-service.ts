@@ -49,6 +49,19 @@ type ActivityWire = {
       }
     | {
         key: string
+        kind: 'ordering'
+        prompt: string
+        steps: { key: string; text: string }[]
+        initial_ordered_step_keys: string[]
+        verified: null | {
+          ordered_step_keys: string[]
+          score: number
+          is_correct: boolean
+          explanation: string
+        }
+      }
+    | {
+        key: string
         kind: 'javascript_stdin'
         prompt: string
         initial_files: { path: string; content: string; editable: boolean }[]
@@ -107,6 +120,7 @@ type ActivityWire = {
       }
   >
   can_submit: boolean
+  ordering_passage_key?: string | null
   latest_attempt_id?: string | null
   unresolved_attempt_id?: string | null
   is_diagnostic?: boolean
@@ -117,6 +131,23 @@ function mapActivityQuestion(
 ): ActivityQuestion {
   if (question.kind === 'single_choice' || question.kind === 'multiple_selection') {
     return question
+  }
+  if (question.kind === 'ordering') {
+    return {
+      key: question.key,
+      kind: 'ordering',
+      prompt: question.prompt,
+      steps: question.steps,
+      initialOrderedStepKeys: question.initial_ordered_step_keys,
+      verified: question.verified
+        ? {
+            orderedStepKeys: question.verified.ordered_step_keys,
+            score: question.verified.score,
+            isCorrect: question.verified.is_correct,
+            explanation: question.verified.explanation,
+          }
+        : null,
+    }
   }
   if (question.kind === 'javascript_stdin') {
     return {
@@ -203,6 +234,13 @@ function mapActivityQuestion(
 }
 
 function mapAnswer(answer: ActivityAnswer) {
+  if (answer.kind === 'ordering') {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      ordered_step_keys: answer.orderedStepKeys,
+    }
+  }
   if ('text' in answer) {
     return {
       kind: answer.kind,
@@ -251,6 +289,17 @@ type AttemptWire = {
         is_correct: boolean
         explanation: string
         disclosed_correct_option_keys?: string[]
+      }
+    | {
+        question_key: string
+        kind: 'ordering'
+        prompt: string
+        steps: { key: string; text: string }[]
+        submitted_step_keys: string[]
+        score: number
+        is_correct: boolean
+        explanation: string
+        accepted_orders?: string[][]
       }
     | {
         question_key: string
@@ -378,6 +427,19 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
             level: observation.level,
             observationId: observation.observation_id,
           })),
+        }
+      }
+      if ('kind' in question && question.kind === 'ordering') {
+        return {
+          key: question.question_key,
+          kind: 'ordering',
+          prompt: question.prompt,
+          steps: question.steps,
+          submittedStepKeys: question.submitted_step_keys,
+          score: question.score,
+          isCorrect: question.is_correct,
+          explanation: question.explanation,
+          acceptedOrders: question.accepted_orders,
         }
       }
       if ('kind' in question && question.kind === 'translation') {
@@ -685,7 +747,10 @@ export const LearningService = (restClient: RestClient) => {
       const body = response.body
       const questions = body.questions.map(mapActivityQuestion)
       const isDiagnostic = body.is_diagnostic ?? false
-      if (isDiagnostic && questions.some(({ kind }) => kind === 'html_css_js')) {
+      if (
+        isDiagnostic &&
+        questions.some(({ kind }) => kind === 'html_css_js' || kind === 'ordering')
+      ) {
         throw new AppError(
           'Tipo de questão indisponível para Diagnóstico.',
           'Atividade inválida',
@@ -698,6 +763,7 @@ export const LearningService = (restClient: RestClient) => {
         difficulty: body.difficulty,
         activityRevision: body.activity_revision,
         questions,
+        orderingPassageKey: body.ordering_passage_key ?? null,
         canSubmit: body.can_submit,
         latestAttemptId: body.latest_attempt_id ?? null,
         unresolvedAttemptId: body.unresolved_attempt_id ?? null,
@@ -711,6 +777,7 @@ export const LearningService = (restClient: RestClient) => {
       questionKey: string,
       activityRevision: string,
       answer: ActivityAnswer,
+      passageKey?: string,
     ): Promise<PreliminaryQuestionResult> {
       const response = await restClient.post<{
         status: 'conclusive' | 'inconclusive'
@@ -728,7 +795,11 @@ export const LearningService = (restClient: RestClient) => {
         submitted_text?: string
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
-        { activity_revision: activityRevision, answer: mapAnswer(answer) },
+        {
+          activity_revision: activityRevision,
+          ...(passageKey ? { passage_key: passageKey } : {}),
+          answer: mapAnswer(answer),
+        },
         { headers: { Authorization: `Bearer ${accessToken}` } },
       )
       if (response.isFailure) response.throwError()
@@ -769,6 +840,7 @@ export const LearningService = (restClient: RestClient) => {
           ...(submission.activityRevision
             ? { activity_revision: submission.activityRevision }
             : {}),
+          ...(submission.passageKey ? { passage_key: submission.passageKey } : {}),
           answers: submission.answers.map((answer) =>
             submission.activityRevision
               ? mapAnswer(answer)

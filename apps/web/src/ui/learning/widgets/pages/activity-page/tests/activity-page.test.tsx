@@ -84,6 +84,19 @@ const HTML_CSS_JS_QUESTION: HtmlQuestion = {
   criteria: [{ key: 'semantic', name: 'HTML semântico', weightPercentage: 100 }],
 }
 
+const ORDERING_QUESTION = {
+  key: 'ordering-question-1',
+  kind: 'ordering',
+  prompt: 'Organize as etapas.',
+  steps: [
+    { key: 'wash', text: 'Lavar' },
+    { key: 'cut', text: 'Cortar' },
+    { key: 'cook', text: 'Cozinhar' },
+  ],
+  initialOrderedStepKeys: ['wash', 'cut', 'cook'],
+  verified: null,
+} as const
+
 function createControllerMock(
   overrides: Partial<ActivityPageController> = {},
 ): ActivityPageController {
@@ -114,6 +127,9 @@ function createControllerMock(
     handleRetryLoad: vi.fn(),
     handleReturnToSkill: vi.fn(),
     handleToggleOption: vi.fn(),
+    currentOrderingOrder: [],
+    handleOrderingOrderChange: vi.fn(),
+    isOrderingVerified: false,
     hasSubmissionError: false,
     hasUnsentAnswers: true,
     isSubmissionLocked: false,
@@ -160,6 +176,31 @@ describe('ActivityPage', () => {
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     clearDiagnosticRun('goal-test', 'skill-test')
+  })
+
+  it('renders the ordering controls and the verify action', () => {
+    const handleOrderingOrderChangeMock = vi.fn()
+    useActivityPageMock.mockReturnValue(
+      createControllerMock({
+        activity: {
+          ...ACTIVITY,
+          activityRevision: 'revision-1',
+          questions: [ORDERING_QUESTION],
+        },
+        currentQuestion: ORDERING_QUESTION,
+        currentOrderingOrder: ['wash', 'cut', 'cook'],
+        handleOrderingOrderChange: handleOrderingOrderChangeMock,
+        feedback: null,
+        frozenAnswer: null,
+        isOrderingVerified: false,
+      }),
+    )
+
+    render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mover para baixo: Lavar' }))
+    expect(handleOrderingOrderChangeMock).toHaveBeenCalledWith(['cut', 'wash', 'cook'])
+    expect(screen.getByRole('button', { name: 'Verificar' })).toBeEnabled()
   })
 
   it('announces loading without exposing stale question controls', () => {
