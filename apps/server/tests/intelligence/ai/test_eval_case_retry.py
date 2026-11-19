@@ -174,7 +174,7 @@ def test_the_wait_before_each_retry_grows(monkeypatch: pytest.MonkeyPatch) -> No
 
     _run(model)
 
-    assert waits == [2.0, 4.0, 8.0]
+    assert waits == [2.0, 4.0, 8.0, 16.0, 30.0, 30.0, 30.0]
 
 
 class _UnavailableTargetError(Exception):
@@ -298,4 +298,4 @@ def test_the_wait_before_each_local_retry_grows(
 
     _run_local(evaluator)
 
-    assert waits == [2.0, 4.0, 8.0]
+    assert waits == [2.0, 4.0, 8.0, 16.0, 30.0, 30.0, 30.0]

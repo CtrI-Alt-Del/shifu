@@ -48,8 +48,9 @@ class Eval(ABC):
     # error envelope (Agno reports it as 502), or the connection drops. Such a case
     # runs again, a few times, waiting longer each time. The scorer is never retried:
     # a rejected answer is a verdict, not a provider failure.
-    MAX_CASE_ATTEMPTS: ClassVar[int] = 4
+    MAX_CASE_ATTEMPTS: ClassVar[int] = 8
     RETRY_BASE_DELAY_SECONDS: ClassVar[float] = 2.0
+    RETRY_MAX_DELAY_SECONDS: ClassVar[float] = 30.0
     RETRYABLE_STATUS_CODES: ClassVar[frozenset[int]] = frozenset(
         {408, 409, 425, 429, 500, 502, 503, 504, 529}
     )
@@ -229,7 +230,7 @@ class Eval(ABC):
                 failure = runs[index].failure
                 if failure is not None:
                     runs[index].retried_errors.append(failure.as_report())
-            await asyncio.sleep(self.RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1))
+            await asyncio.sleep(self._retry_delay(attempt))
         return [runs[index] for index in range(len(selected))]
 
     async def _run_round(
@@ -350,7 +351,7 @@ class Eval(ABC):
                     ):
                         break
                     retried.append(failure.as_report())
-                    sleep(self.RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1))
+                    sleep(self._retry_delay(attempt))
             report = self.local_case_report(
                 case.name, outcome, duration=monotonic() - started
             )
@@ -361,6 +362,14 @@ class Eval(ABC):
                 report['error'] = failure.as_report()
             reports.append(report)
         return reports
+
+    @classmethod
+    def _retry_delay(cls, attempt: int) -> float:
+        """The wait after a failed attempt: it doubles each time, up to a cap."""
+        return min(
+            cls.RETRY_BASE_DELAY_SECONDS * 2 ** (attempt - 1),
+            cls.RETRY_MAX_DELAY_SECONDS,
+        )
 
     @classmethod
     def _local_provider_failure(
