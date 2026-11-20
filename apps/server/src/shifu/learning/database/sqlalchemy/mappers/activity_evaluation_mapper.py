@@ -9,11 +9,15 @@ from shifu.learning.core.domain.structures import (
     ChoiceEvaluationResult,
     CodeEvaluationResult,
     CodeRubricResult,
+    FillBlanksEvaluationResult,
     EvaluationPartResult,
     QualitativeEvaluationResult,
+    TranslationRubricResult,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityEvaluationModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
+
+_TRANSLATION_KIND_MARKER = 'translation'
 
 
 class ActivityEvaluationMapper:
@@ -22,10 +26,17 @@ class ActivityEvaluationMapper:
         serialized_parts = cast('list[dict[str, object]]', value)
         parts: list[EvaluationPartResult] = []
         for serialized_part in serialized_parts:
-            if 'is_correct' in serialized_part:
+            if serialized_part.get('kind') == 'fill_blanks':
+                part_type = FillBlanksEvaluationResult
+            elif 'is_correct' in serialized_part:
                 part_type = ChoiceEvaluationResult
             elif 'cases' in serialized_part:
                 part_type = CodeEvaluationResult
+            elif (
+                'criterion_results' in serialized_part
+                and serialized_part.get('kind') == _TRANSLATION_KIND_MARKER
+            ):
+                part_type = TranslationRubricResult
             elif 'criterion_results' in serialized_part:
                 part_type = CodeRubricResult
             elif 'criteria' in serialized_part:
@@ -35,6 +46,18 @@ class ActivityEvaluationMapper:
             part = Serialization.deserialize_value(serialized_part, part_type)
             parts.append(cast('EvaluationPartResult', part))
         return tuple(parts)
+
+    @staticmethod
+    def _serialize_parts(parts: tuple[EvaluationPartResult, ...]) -> list[object]:
+        serialized: list[object] = []
+        for part in parts:
+            data = Serialization.serialize_value(part)
+            if isinstance(part, TranslationRubricResult) and isinstance(data, dict):
+                marked: dict[object, object] = cast('dict[object, object]', data)
+                marked = {**marked, 'kind': _TRANSLATION_KIND_MARKER}
+                data = marked
+            serialized.append(data)
+        return serialized
 
     @staticmethod
     def to_domain(model: ActivityEvaluationModel) -> ActivityEvaluation:
@@ -69,7 +92,7 @@ class ActivityEvaluationMapper:
             id=evaluation.id,
             attempt_id=evaluation.attempt_id,
             status=evaluation.status.value,
-            parts=Serialization.serialize_value(evaluation.parts),
+            parts=ActivityEvaluationMapper._serialize_parts(evaluation.parts),
             started_at=evaluation.started_at,
             score=evaluation.score,
             failure_code=evaluation.failure_code,

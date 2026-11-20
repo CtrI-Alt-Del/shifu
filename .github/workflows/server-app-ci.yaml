@@ -309,6 +309,7 @@ jobs:
             find tests -type f \
               \( -path 'tests/*/server/test_*.py' \
               -o -path 'tests/*/server/*/test_*.py' \
+              -o -path 'tests/*/ai/workflows/test_*.py' \
               -o -path 'tests/rest/test_*.py' \
               -o -path 'tests/rest/*/test_*.py' \
               -o -path 'tests/*/rest/handlers/test_*.py' \

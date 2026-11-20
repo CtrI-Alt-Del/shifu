@@ -10,17 +10,23 @@ from fastapi import (
     Response as FastAPIResponse,
     status,
 )
-from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases import SubmitChoiceActivityUseCase
 from shifu.learning.pipes import LearningPipe
+from shifu.learning.rest.controllers.answer_request_shape import (
+    validate_answer_request_shape,
+)
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -45,6 +51,13 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -57,19 +70,25 @@ class AnswerRequest(BaseModel):
             'react',
             'html_css_js',
             'react_fastify',
+            'fill_blanks',
+            'translation',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
+    text: str | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
-            if self.files is None or self.selected_option_keys is not None:
-                raise ValueError('Code answers require files only')
-        elif self.selected_option_keys is None or self.files is not None:
-            raise ValueError('Choice answers require selected option keys only')
+        validate_answer_request_shape(
+            self.kind,
+            self.text,
+            self.files,
+            self.selected_option_keys,
+            self.placements,
+        )
         return self
 
 
@@ -152,7 +171,17 @@ class SubmitChoiceActivityController:
                     activity_id,
                     str(request.submission_key),
                     tuple(
-                        CodeAnswer(
+                        FillBlanksAnswer(
+                            question_key=answer.question_key,
+                            placements=tuple(
+                                FillBlanksPlacement(
+                                    blank_key=item.blank_key, word_key=item.word_key
+                                )
+                                for item in (answer.placements or ())
+                            ),
+                        )
+                        if answer.kind == 'fill_blanks'
+                        else CodeAnswer(
                             question_key=answer.question_key,
                             kind=answer.kind,
                             files=tuple(
@@ -162,6 +191,11 @@ class SubmitChoiceActivityController:
                         )
                         if answer.kind
                         in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}
+                        else TranslationAnswer(
+                            question_key=answer.question_key,
+                            text=answer.text or '',
+                        )
+                        if answer.kind == 'translation'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

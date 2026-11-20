@@ -8,6 +8,7 @@ from shifu.shared.core.interfaces import (
     CurriculumCatalogProvider,
     CurriculumContentProvider,
     IdentifierProvider,
+    TranslationRubricAssessorProvider,
 )
 
 
@@ -23,6 +24,12 @@ class LearningPipe:
         request: Request,
     ) -> CodeRubricAssessorProvider:
         return request.app.state.code_rubric_assessor_provider
+
+    @staticmethod
+    def get_translation_rubric_assessor_provider(
+        request: Request,
+    ) -> TranslationRubricAssessorProvider:
+        return request.app.state.translation_rubric_assessor_provider
 
     @staticmethod
     def get_max_activity_payload_bytes(request: Request) -> int:

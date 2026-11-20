@@ -4,9 +4,17 @@ from shifu.learning.core.domain.structures import (
     ChoiceOptionDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
+    FillBlanksQuestionDetail,
+    FillBlanksSegmentDetail,
+    FillBlanksWordDetail,
     CodeQuestionCriterionDetail,
+    TranslationQuestionCriterionDetail,
+    TranslationQuestionDetail,
 )
 from shifu.learning.core.interfaces import LearningDatabase
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from shifu.learning.core.use_cases.diagnostic_sequence import DiagnosticSequence
 from shifu.learning.core.use_cases.choice_evidence_eligibility import (
     ChoiceEvidenceEligibility,
@@ -20,6 +28,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import CurriculumContentProvider
 
@@ -86,18 +97,9 @@ class GetChoiceActivityUseCase:
                 self._curriculum_content_provider, 'get_learning_activity', None
             )
             snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-            if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-                isinstance(
-                    item,
-                    (
-                        CurriculumJavascriptStdinQuestionSnapshot,
-                        CurriculumReactQuestionSnapshot,
-                        CurriculumHtmlCssJsQuestionSnapshot,
-                        CurriculumReactFastifyQuestionSnapshot,
-                    ),
-                )
-                for item in snapshot.questions
-            ):
+            if not isinstance(
+                snapshot, CurriculumLearningActivitySnapshot
+            ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
                 snapshot = self._curriculum_content_provider.get_choice_activity(
                     activity_id
                 )
@@ -179,7 +181,9 @@ class GetChoiceActivityUseCase:
                 title=snapshot.title,
                 difficulty=ActivityDifficulty(snapshot.difficulty),
                 questions=tuple(
-                    CodeQuestionDetail(
+                    self.fill_blanks_question_detail(question)
+                    if isinstance(question, CurriculumFillBlanksQuestionSnapshot)
+                    else CodeQuestionDetail(
                         key=question.key,
                         kind=question.kind,
                         prompt=question.prompt,
@@ -265,6 +269,26 @@ class GetChoiceActivityUseCase:
                             CurriculumReactFastifyQuestionSnapshot,
                         ),
                     )
+                    else TranslationQuestionDetail(
+                        key=question.key,
+                        kind=question.kind,
+                        prompt=question.prompt,
+                        source_language=question.source_language,
+                        target_language=question.target_language,
+                        source_text=question.source_text,
+                        criteria=tuple(
+                            TranslationQuestionCriterionDetail(
+                                key=item.key,
+                                name=item.name,
+                                weight_percentage=item.weight_percentage,
+                            )
+                            for part in (() if diagnostic else snapshot.parts)
+                            if isinstance(part, CurriculumTranslationRubricPartSnapshot)
+                            and part.question_key == question.key
+                            for item in part.criteria
+                        ),
+                    )
+                    if isinstance(question, CurriculumTranslationQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -284,6 +308,24 @@ class GetChoiceActivityUseCase:
                     snapshot.diagnostic_revision if diagnostic else snapshot.revision
                 ),
             )
+
+    @staticmethod
+    def fill_blanks_question_detail(
+        question: CurriculumFillBlanksQuestionSnapshot,
+    ) -> FillBlanksQuestionDetail:
+        return FillBlanksQuestionDetail(
+            key=question.key,
+            prompt=question.prompt,
+            content_language=question.content_language,
+            segments=tuple(
+                FillBlanksSegmentDetail(text=item.text, blank_key=item.blank_key)
+                for item in question.segments
+            ),
+            bank=tuple(
+                FillBlanksWordDetail(key=item.key, word=item.word)
+                for item in question.bank
+            ),
+        )
 
     @staticmethod
     def is_eligible(

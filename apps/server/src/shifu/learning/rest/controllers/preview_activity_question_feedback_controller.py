@@ -8,6 +8,9 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
@@ -15,10 +18,14 @@ from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case i
     PreviewActivityQuestionFeedbackUseCase,
 )
 from shifu.learning.pipes import LearningPipe
+from shifu.learning.rest.controllers.answer_request_shape import (
+    validate_answer_request_shape,
+)
 from shifu.shared.core.domain.structures import AuthenticatedUser
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    TranslationRubricAssessorProvider,
 )
 from shifu.shared.pipes import AuthenticationPipe
 
@@ -32,6 +39,12 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     kind: Literal[
@@ -41,18 +54,24 @@ class AnswerRequest(BaseModel):
         'react',
         'html_css_js',
         'react_fastify',
+        'fill_blanks',
+        'translation',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
+    text: str | None = None
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
-        if self.kind in {'javascript_stdin', 'react', 'html_css_js', 'react_fastify'}:
-            if self.files is None or self.selected_option_keys is not None:
-                raise ValueError('Code answers require files only')
-        elif self.selected_option_keys is None or self.files is not None:
-            raise ValueError('Choice answers require selected option keys only')
+        validate_answer_request_shape(
+            self.kind,
+            self.text,
+            self.files,
+            self.selected_option_keys,
+            self.placements,
+        )
         return self
 
 
@@ -89,6 +108,9 @@ class Response(BaseModel):
     criteria: tuple[CriterionResponse, ...] = ()
     concept_observations: tuple[ConceptResponse, ...] = ()
     submitted_files: tuple[SubmittedFileResponse, ...] = ()
+    correct_blank_count: int | None = None
+    blank_count: int | None = None
+    submitted_text: str | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -123,12 +145,31 @@ class PreviewActivityQuestionFeedbackController:
                 CodeRubricAssessorProvider,
                 Depends(LearningPipe.get_code_rubric_assessor_provider),
             ],
+            translation_assessor: Annotated[
+                TranslationRubricAssessorProvider,
+                Depends(LearningPipe.get_translation_rubric_assessor_provider),
+            ],
             max_assessment_bytes: Annotated[
                 int, Depends(LearningPipe.get_max_code_assessment_input_bytes)
             ],
         ) -> Response:
             payload = request.answer
-            if payload.kind in {
+            if payload.kind == 'fill_blanks':
+                answer: (
+                    ChoiceAnswerSubmission
+                    | CodeAnswer
+                    | FillBlanksAnswer
+                    | TranslationAnswer
+                ) = FillBlanksAnswer(
+                    question_key=payload.question_key,
+                    placements=tuple(
+                        FillBlanksPlacement(
+                            blank_key=item.blank_key, word_key=item.word_key
+                        )
+                        for item in (payload.placements or ())
+                    ),
+                )
+            elif payload.kind in {
                 'javascript_stdin',
                 'react',
                 'html_css_js',
@@ -142,13 +183,18 @@ class PreviewActivityQuestionFeedbackController:
                         for item in (payload.files or ())
                     ),
                 )
+            elif payload.kind == 'translation':
+                answer = TranslationAnswer(
+                    question_key=payload.question_key,
+                    text=payload.text or '',
+                )
             else:
                 answer = ChoiceAnswerSubmission(
                     question_key=payload.question_key,
                     selected_option_keys=payload.selected_option_keys or (),
                 )
             result: PreliminaryQuestionResult = PreviewActivityQuestionFeedbackUseCase(
-                database, provider, assessor, max_assessment_bytes
+                database, provider, assessor, translation_assessor, max_assessment_bytes
             ).execute(
                 user.account_id,
                 goal_id,

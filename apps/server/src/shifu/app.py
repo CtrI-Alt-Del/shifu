@@ -347,6 +347,7 @@ class FastAPIApp:
             settings,
             None,
             intelligence_registry.code_rubric_assessor_provider,
+            intelligence_registry.translation_rubric_assessor_provider,
             mentor_access_provider,
             curriculum_content_provider,
             outbox_engine=database_engine,
@@ -402,6 +403,9 @@ class FastAPIApp:
                     await stack.enter_async_context(learning_registry.lifespan())
                     app.state.code_rubric_assessor_provider = (
                         learning_registry.code_rubric_assessor_provider
+                    )
+                    app.state.translation_rubric_assessor_provider = (
+                        learning_registry.translation_rubric_assessor_provider
                     )
                     broker.start()
                     _emit_telemetry(

@@ -6,6 +6,12 @@ import httpx
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
+from shifu.fakers.shared.curriculum_fill_blanks_question_snapshot_faker import (
+    CurriculumFillBlanksQuestionSnapshotFaker,
+)
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
@@ -14,6 +20,9 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -25,10 +34,15 @@ from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case i
 )
 from shifu.shared.core.domain.errors import (
     ConflictError,
+    NotFoundError,
     ServiceUnavailableError,
     ValidationError,
 )
 from shifu.shared.core.domain.structures import (
+    CurriculumFillBlanksBlankSnapshot,
+    CurriculumFillBlanksConceptCriterionSnapshot,
+    CurriculumFillBlanksSegmentSnapshot,
+    CurriculumFillBlanksWordSnapshot,
     CodeCriterionDecision,
     CodeRubricDecisions,
     CurriculumChoiceOptionSnapshot,
@@ -48,11 +62,17 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactPermittedCommandSnapshot,
     CurriculumReactFastifyHttpExampleSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumTranslationInconclusiveCommentSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricCommentSnapshot,
+    CurriculumTranslationRubricCriterionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
+    TranslationRubricAssessorProvider,
 )
 
 
@@ -233,6 +253,15 @@ def code_answer_at_size(
     )
 
 
+def _fill(*pairs: tuple[str, str], question_key: str = 'fill-1') -> FillBlanksAnswer:
+    return FillBlanksAnswer(
+        question_key=question_key,
+        placements=tuple(
+            FillBlanksPlacement(blank_key=blank, word_key=word) for blank, word in pairs
+        ),
+    )
+
+
 class TestPreviewActivityQuestionFeedbackUseCase:
     @pytest.fixture(autouse=True)
     def setup(self) -> None:
@@ -264,8 +293,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
         self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.return_value = []
+        self.translation_assessor = create_autospec(
+            TranslationRubricAssessorProvider, instance=True
+        )
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor
+            self.database, self.provider, self.assessor, self.translation_assessor
         )
 
     def _execute(
@@ -398,7 +430,11 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         )
         self.provider.get_learning_activity.return_value = snapshot
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, limit
+            self.database,
+            self.provider,
+            self.assessor,
+            self.translation_assessor,
+            limit,
         )
         answer = code_answer_at_size(question, limit + extra_byte)
 
@@ -748,7 +784,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             result = self._execute(
                 CodeAnswer(
@@ -777,7 +813,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -804,7 +840,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 model='typesafe/jev-1.13',
             )
             self.subject = PreviewActivityQuestionFeedbackUseCase(
-                self.database, self.provider, assessor
+                self.database, self.provider, assessor, self.translation_assessor
             )
             with pytest.raises(ServiceUnavailableError):
                 self._execute(
@@ -855,7 +891,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
 
     def test_rejects_large_effective_project_before_assessor(self) -> None:
         self.subject = PreviewActivityQuestionFeedbackUseCase(
-            self.database, self.provider, self.assessor, 2
+            self.database, self.provider, self.assessor, self.translation_assessor, 2
         )
         with pytest.raises(ValidationError):
             self._execute(
@@ -865,3 +901,361 @@ class TestPreviewActivityQuestionFeedbackUseCase:
                 )
             )
         self.assessor.assess.assert_not_called()
+
+    def _execute_fill(
+        self,
+        answer: FillBlanksAnswer | ChoiceAnswerSubmission,
+        *,
+        question_key: str = 'fill-1',
+        revision: str = 'revision-1',
+        account_id: str = 'account-1',
+        snapshot: CurriculumLearningActivitySnapshot | None = None,
+    ) -> PreliminaryQuestionResult:
+        self.provider.get_learning_activity.return_value = (
+            snapshot or CurriculumFillBlanksActivitySnapshotFaker.fake()
+        )
+        return self.subject.execute(
+            account_id,
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            question_key,
+            revision,
+            answer,
+        )
+
+    def _assert_nothing_written(self) -> None:
+        self.assessor.assess.assert_not_called()
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.concept_observations.add_many.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ('pairs', 'score', 'correct_count', 'explanation'),
+        (
+            (
+                (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4')),
+                Decimal('100.00'),
+                3,
+                'Correct. The third person singular takes -s or -es.',
+            ),
+            (
+                (('b1', 'w2'), ('b2', 'w3'), ('b3', 'w5')),
+                Decimal('100.00'),
+                3,
+                'Correct. The third person singular takes -s or -es.',
+            ),
+            (
+                (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w6')),
+                Decimal('66.67'),
+                2,
+                'Almost there. Review the verb forms.',
+            ),
+            (
+                (('b1', 'w1'), ('b2', 'w6'), ('b3', 'w2')),
+                Decimal('33.33'),
+                1,
+                'Almost there. Review the verb forms.',
+            ),
+            (
+                (('b1', 'w6'), ('b2', 'w2'), ('b3', 'w3')),
+                Decimal('0.00'),
+                0,
+                'Review the third person singular of the present.',
+            ),
+        ),
+        ids=(
+            'all-correct',
+            'alternative-word-and-repeated-occurrence',
+            'two-correct',
+            'one-correct',
+            'none-correct',
+        ),
+    )
+    def test_should_give_equal_credit_per_blank_without_writing(
+        self,
+        pairs: tuple[tuple[str, str], ...],
+        score: Decimal,
+        correct_count: int,
+        explanation: str,
+    ) -> None:
+        result = self._execute_fill(_fill(*pairs))
+
+        assert result.status == 'conclusive'
+        assert result.score == score
+        assert result.is_correct is (score == 100)
+        assert result.explanation == explanation
+        assert result.correct_blank_count == correct_count
+        assert result.blank_count == 3
+        assert result.criteria == ()
+        self._assert_nothing_written()
+
+    def test_should_use_the_incorrect_explanation_when_a_single_blank_is_wrong(
+        self,
+    ) -> None:
+        single = CurriculumFillBlanksQuestionSnapshotFaker.fake(
+            segments=(CurriculumFillBlanksSegmentSnapshot(blank_key='b1'),),
+            blanks=(
+                CurriculumFillBlanksBlankSnapshot(key='b1', accepted_words=('goes',)),
+            ),
+            bank=(
+                CurriculumFillBlanksWordSnapshot(key='w1', word='goes'),
+                CurriculumFillBlanksWordSnapshot(key='w2', word='go'),
+            ),
+            concept_criteria=(
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='c',
+                    criterion='x',
+                    examples='y',
+                    limits='z',
+                    blank_keys=('b1',),
+                ),
+            ),
+            partial_explanation=None,
+        )
+        result = self._execute_fill(
+            _fill(('b1', 'w2')),
+            snapshot=CurriculumFillBlanksActivitySnapshotFaker.fake(fill_blanks=single),
+        )
+
+        assert (result.score, result.correct_blank_count, result.blank_count) == (
+            Decimal('0.00'),
+            0,
+            1,
+        )
+        assert result.explanation == single.incorrect_explanation
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            _fill(('b1', 'w1'), ('b2', 'w3')),
+            _fill(('b1', 'w1'), ('b2', 'w1'), ('b3', 'w4')),
+            _fill(('b1', 'w1'), ('b2', 'missing'), ('b3', 'w4')),
+            _fill(('b1', 'w1'), ('b2', 'w3'), ('unknown', 'w4')),
+            _fill(('b1', 'w1'), ('b1', 'w2'), ('b2', 'w3'), ('b3', 'w4')),
+            _fill(),
+            _fill(('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'), question_key='q1'),
+            ChoiceAnswerSubmission(question_key='fill-1', selected_option_keys=('a',)),
+        ),
+        ids=(
+            'incomplete',
+            'repeated-occurrence',
+            'unknown-occurrence',
+            'unknown-blank',
+            'blank-filled-twice',
+            'empty',
+            'answer-for-another-question',
+            'choice-answer-for-fill-blanks',
+        ),
+    )
+    def test_should_reject_an_invalid_fill_without_effects(
+        self, answer: FillBlanksAnswer | ChoiceAnswerSubmission
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._execute_fill(answer)
+
+        self._assert_nothing_written()
+
+    def test_should_reject_a_fill_for_a_choice_question(self) -> None:
+        with pytest.raises(ValidationError):
+            self._execute_fill(
+                _fill(('b1', 'w1'), question_key='q1'), question_key='q1'
+            )
+
+        self._assert_nothing_written()
+
+    def test_should_reject_a_stale_revision(self) -> None:
+        with pytest.raises(ConflictError):
+            self._execute_fill(
+                _fill(('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4')), revision='stale'
+            )
+
+        self._assert_nothing_written()
+
+    def test_should_reject_another_accounts_experience(self) -> None:
+        with pytest.raises(NotFoundError):
+            self._execute_fill(
+                _fill(('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4')),
+                account_id='account-2',
+            )
+
+        self._assert_nothing_written()
+
+    def test_should_round_a_tied_percentage_half_up(self) -> None:
+        keys = [f'b{number}' for number in range(1, 33)]
+        question = CurriculumFillBlanksQuestionSnapshotFaker.fake(
+            segments=tuple(
+                CurriculumFillBlanksSegmentSnapshot(blank_key=key) for key in keys
+            ),
+            blanks=tuple(
+                CurriculumFillBlanksBlankSnapshot(key=key, accepted_words=('ok',))
+                for key in keys
+            ),
+            bank=(
+                *(
+                    CurriculumFillBlanksWordSnapshot(key=f'w{number}', word='ok')
+                    for number in range(1, 33)
+                ),
+                *(
+                    CurriculumFillBlanksWordSnapshot(key=f'n{number}', word='no')
+                    for number in range(2, 33)
+                ),
+            ),
+            concept_criteria=(
+                CurriculumFillBlanksConceptCriterionSnapshot(
+                    concept_id='c',
+                    criterion='x',
+                    examples='y',
+                    limits='z',
+                    blank_keys=tuple(keys),
+                ),
+            ),
+        )
+        answer = FillBlanksAnswer(
+            question_key=question.key,
+            placements=tuple(
+                FillBlanksPlacement(
+                    blank_key=key, word_key='w1' if number == 1 else f'n{number}'
+                )
+                for number, key in enumerate(keys, start=1)
+            ),
+        )
+
+        result = PreviewActivityQuestionFeedbackUseCase.fill_blanks_result(
+            question, answer
+        )
+
+        assert (result.score, result.correct_blank_count) == (Decimal('3.13'), 1)
+
+    def _translation_criterion(
+        self, key: str, weight: int
+    ) -> CurriculumTranslationRubricCriterionSnapshot:
+        return CurriculumTranslationRubricCriterionSnapshot(
+            key=key,
+            name=key,
+            description=f'Evaluate {key}',
+            weight_percentage=weight,
+            required=True,
+            fixed_comments=tuple(
+                CurriculumTranslationRubricCommentSnapshot(
+                    id=f'{key}-level-{level}', level=level, text=f'Feedback {level}'
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                id=f'{key}-unknown', text='Inconclusive'
+            ),
+        )
+
+    def _use_translation_snapshot(self) -> None:
+        filler = tuple(
+            CurriculumChoiceQuestionSnapshot(
+                key=f'q{number}',
+                kind='single_choice',
+                prompt='Choose',
+                options=(
+                    CurriculumChoiceOptionSnapshot(key='a', text='A', is_correct=True),
+                ),
+                correct_explanation='Correct',
+                incorrect_explanation='Wrong',
+            )
+            for number in (1, 2)
+        )
+        question = CurriculumTranslationQuestionSnapshot(
+            key='qt',
+            prompt='Translate',
+            source_language='pt-BR',
+            target_language='en-US',
+            source_text='Bom dia',
+            reference_translations=('Good morning',),
+            concept_criteria=(),
+        )
+        part = CurriculumTranslationRubricPartSnapshot(
+            question_key='qt',
+            weight_percentage=Decimal(40),
+            criteria=(
+                self._translation_criterion('semantic_preservation', 70),
+                self._translation_criterion('grammatical_adequacy', 30),
+            ),
+        )
+        snapshot = CurriculumLearningActivitySnapshot(
+            id='activity-1',
+            competency_id='competency-1',
+            difficulty='easy',
+            title='Translation',
+            questions=(*filler, question),
+            parts=(
+                CurriculumChoicePartSnapshot(
+                    question_key='q1', weight_percentage=Decimal(30)
+                ),
+                CurriculumChoicePartSnapshot(
+                    question_key='q2', weight_percentage=Decimal(30)
+                ),
+                part,
+            ),
+            required_concept_ids=(),
+            activity_type='learning',
+            schema_version=1,
+            revision='revision-1',
+        )
+        self.provider.get_learning_activity.return_value = snapshot
+
+    def test_should_score_a_conclusive_translation_answer(self) -> None:
+        self._use_translation_snapshot()
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(key='semantic_preservation', level=100),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+        answer = TranslationAnswer(question_key='qt', text='Good morning')
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            answer,
+        )
+
+        assert result.status == 'conclusive'
+        assert (
+            result.score
+            == Decimal(100) * Decimal(70) / 100 + Decimal(75) * Decimal(30) / 100
+        )
+        assert result.submitted_text == 'Good morning'
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_mandatory_inconclusive_translation_criterion_has_no_score(self) -> None:
+        self._use_translation_snapshot()
+        self.translation_assessor.assess.return_value = CodeRubricDecisions(
+            criterion_levels=(
+                CodeCriterionDecision(
+                    key='semantic_preservation', level='inconclusive'
+                ),
+                CodeCriterionDecision(key='grammatical_adequacy', level=75),
+            ),
+            concept_levels=(),
+        )
+        answer = TranslationAnswer(question_key='qt', text='Good morning')
+
+        result = self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qt',
+            'revision-1',
+            answer,
+        )
+
+        assert result.status == 'inconclusive'
+        assert result.score is None
+        assert result.submitted_text == 'Good morning'

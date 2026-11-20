@@ -16,10 +16,13 @@ import type {
   ChoiceActivityDetail,
   ActivityAnswer,
   CodeAnswer,
+  FillBlanksAnswer,
+  FillBlanksPlacement,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import type { ReactPracticeRunner } from '@/core/learning/react-practice-runner'
@@ -745,6 +748,8 @@ export function useActivityPage(props: ActivityPageProps) {
     currentAnswer && 'selectedOptionKeys' in currentAnswer
       ? currentAnswer.selectedOptionKeys
       : []
+  const translationAnswerText =
+    currentAnswer && 'text' in currentAnswer ? currentAnswer.text : ''
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
@@ -756,11 +761,34 @@ export function useActivityPage(props: ActivityPageProps) {
       ) &&
       (currentQuestion.kind !== 'single_choice' || selectedOptionKeys.length === 1),
   )
+  const fillBlanksPlacements =
+    currentAnswer && 'placements' in currentAnswer ? currentAnswer.placements : []
+  const hasCompleteFillBlanks = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'fill_blanks' &&
+      currentQuestion.segments.every(
+        (segment) =>
+          !segment.blankKey ||
+          fillBlanksPlacements.some(
+            (placement) => placement.blankKey === segment.blankKey,
+          ),
+      ),
+  )
+  const hasValidTranslationText = Boolean(
+    currentQuestion?.kind === 'translation' &&
+      currentAnswer &&
+      'text' in currentAnswer &&
+      currentAnswer.text.trim().length > 0,
+  )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
       ('files' in currentAnswer
         ? currentAnswer.files.length > 0
-        : currentAnswer.selectedOptionKeys.length > 0),
+        : 'placements' in currentAnswer
+          ? currentAnswer.placements.length > 0
+          : 'text' in currentAnswer
+            ? currentAnswer.text.trim().length > 0
+            : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -829,6 +857,31 @@ export function useActivityPage(props: ActivityPageProps) {
     setHasFeedbackError(false)
   }
 
+  function handleFillBlanksChange(placements: readonly FillBlanksPlacement[]) {
+    if (
+      !activity ||
+      !currentQuestion ||
+      currentQuestion.kind !== 'fill_blanks' ||
+      isSubmitting ||
+      isAssessing ||
+      isSubmissionLocked
+    )
+      return
+
+    const answer: FillBlanksAnswer = {
+      kind: 'fill_blanks',
+      questionKey: currentQuestion.key,
+      placements: placements.map((placement) => ({ ...placement })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
+    setHasFeedbackError(false)
+  }
+
   function handleCodeFilesChange(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -870,6 +923,30 @@ export function useActivityPage(props: ActivityPageProps) {
     setIsReactAnswerValid(isValid)
   }
 
+  function handleTranslationAnswerChange(text: string) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'translation' ||
+      isSubmitting ||
+      isSubmissionLocked ||
+      isAssessing
+    )
+      return
+    const answer: TranslationAnswer = {
+      kind: 'translation',
+      questionKey: currentQuestion.key,
+      text,
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
+    setFrozenAnswer(null)
+    setHasFeedbackError(false)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -898,7 +975,8 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'javascript_stdin' &&
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
-        currentQuestion.kind !== 'react_fastify') ||
+        currentQuestion.kind !== 'react_fastify' &&
+        currentQuestion.kind !== 'translation') ||
       !activity.activityRevision
     )
       return
@@ -906,8 +984,15 @@ export function useActivityPage(props: ActivityPageProps) {
     const snapshot: ActivityAnswer =
       'files' in answer
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
-        : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
-    setFrozenAnswer(snapshot)
+        : 'placements' in answer
+          ? {
+              ...answer,
+              placements: answer.placements.map((placement) => ({ ...placement })),
+            }
+          : 'text' in answer
+            ? { ...answer }
+            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+    setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
     try {
@@ -1110,6 +1195,13 @@ export function useActivityPage(props: ActivityPageProps) {
       return
     }
     if (!feedback) {
+      if (currentQuestion.kind === 'fill_blanks') {
+        const fillAnswer = answers.find(
+          (answer) => answer.questionKey === currentQuestion.key,
+        )
+        if (hasCompleteFillBlanks && fillAnswer) void assess(fillAnswer)
+        return
+      }
       if (frozenAnswer) {
         void assess(frozenAnswer, true)
         return
@@ -1119,6 +1211,7 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'react' &&
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
+        currentQuestion.kind !== 'translation' &&
         hasValidSelection
       ) {
         void assess({
@@ -1126,6 +1219,8 @@ export function useActivityPage(props: ActivityPageProps) {
           questionKey: currentQuestion.key,
           selectedOptionKeys,
         })
+      } else if (currentQuestion.kind === 'translation' && hasValidTranslationText) {
+        void assess(currentAnswer as TranslationAnswer)
       }
       return
     }
@@ -1179,13 +1274,21 @@ export function useActivityPage(props: ActivityPageProps) {
             currentQuestion?.kind === 'html_css_js' ||
             currentQuestion?.kind === 'react_fastify'
           ? isReactAnswerValid && (injected || isOnlineAuthority)
-          : feedback !== null || frozenAnswer !== null || hasValidSelection),
+          : feedback !== null ||
+            frozenAnswer !== null ||
+            hasValidSelection ||
+            hasCompleteFillBlanks ||
+            hasValidTranslationText),
     feedback,
     frozenAnswer,
     isAssessing,
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
+    handleTranslationAnswerChange,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
@@ -1214,6 +1317,7 @@ export function useActivityPage(props: ActivityPageProps) {
     isLastQuestion,
     isSubmitting,
     selectedOptionKeys,
+    translationAnswerText,
     totalQuestions: activity?.questions.length ?? 0,
   }
 }
@@ -1343,6 +1447,20 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
           typeof file.content === 'string',
       )
     )
+  }
+  if (value.kind === 'fill_blanks') {
+    return (
+      Array.isArray(value.placements) &&
+      value.placements.every(
+        (placement: unknown) =>
+          isRecord(placement) &&
+          typeof placement.blankKey === 'string' &&
+          typeof placement.wordKey === 'string',
+      )
+    )
+  }
+  if (value.kind === 'translation') {
+    return typeof value.text === 'string' && value.text.trim().length > 0
   }
   return (
     (value.kind === 'single_choice' || value.kind === 'multiple_selection') &&

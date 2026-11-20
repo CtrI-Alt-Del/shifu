@@ -8,12 +8,13 @@ from fastapi import (
     Path,
     Response as FastAPIResponse,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.submit_diagnostic_batch_use_case import (
@@ -43,6 +44,15 @@ class ItemRequest(BaseModel):
     activity_id: str = Field(pattern=_ULID_PATTERN)
     activity_revision: str = Field(min_length=1)
     answers: tuple[AnswerRequest, ...]
+
+    @field_validator('answers')
+    @classmethod
+    def reject_fill_blanks_answers(
+        cls, answers: tuple[AnswerRequest, ...]
+    ) -> tuple[AnswerRequest, ...]:
+        if any(answer.kind == 'fill_blanks' for answer in answers):
+            raise ValueError('Fill-blanks answers are not accepted in the diagnostic')
+        return answers
 
 
 class Request(BaseModel):
@@ -108,6 +118,11 @@ class SubmitDiagnosticBatchController:
                                 ),
                             )
                             if answer.kind == 'javascript_stdin'
+                            else TranslationAnswer(
+                                question_key=answer.question_key,
+                                text=answer.text or '',
+                            )
+                            if answer.kind == 'translation'
                             else ChoiceAnswerSubmission(
                                 question_key=answer.question_key,
                                 selected_option_keys=answer.selected_option_keys or (),

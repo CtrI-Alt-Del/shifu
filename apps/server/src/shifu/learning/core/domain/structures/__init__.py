@@ -32,6 +32,22 @@ from .choice_evaluation_result import (
 )
 from .choice_option_detail import ChoiceOptionDetail as ChoiceOptionDetail
 from .choice_question_detail import ChoiceQuestionDetail as ChoiceQuestionDetail
+from .fill_blanks_answer import FillBlanksAnswer as FillBlanksAnswer
+from .fill_blanks_evaluation_result import (
+    FillBlanksEvaluationResult as FillBlanksEvaluationResult,
+)
+from .fill_blanks_expected_blank import (
+    FillBlanksExpectedBlank as FillBlanksExpectedBlank,
+)
+from .fill_blanks_placement import FillBlanksPlacement as FillBlanksPlacement
+from .fill_blanks_question_detail import (
+    FillBlanksQuestionDetail as FillBlanksQuestionDetail,
+)
+from .fill_blanks_result_detail import FillBlanksResultDetail as FillBlanksResultDetail
+from .fill_blanks_segment_detail import (
+    FillBlanksSegmentDetail as FillBlanksSegmentDetail,
+)
+from .fill_blanks_word_detail import FillBlanksWordDetail as FillBlanksWordDetail
 from .choice_result_detail import ChoiceResultDetail as ChoiceResultDetail
 from .choice_submission_outcome import (
     ChoiceSubmissionOutcome as ChoiceSubmissionOutcome,
@@ -93,6 +109,12 @@ from .prepared_code_activity_evaluation import (
 from .prepared_code_question_assessment import (
     PreparedCodeQuestionAssessment as PreparedCodeQuestionAssessment,
 )
+from .prepared_translation_activity_evaluation import (
+    PreparedTranslationActivityEvaluation as PreparedTranslationActivityEvaluation,
+)
+from .prepared_translation_question_assessment import (
+    PreparedTranslationQuestionAssessment as PreparedTranslationQuestionAssessment,
+)
 from .qualitative_criterion_result import (
     QualitativeCriterionResult as QualitativeCriterionResult,
 )
@@ -120,3 +142,19 @@ from .unavailable_material_detail import (
     UnavailableMaterialDetail as UnavailableMaterialDetail,
 )
 from .mentor_action_resolution import MentorActionResolution as MentorActionResolution
+from .translation_answer import TranslationAnswer as TranslationAnswer
+from .translation_question_assessment_decisions import (
+    TranslationQuestionAssessmentDecisions as TranslationQuestionAssessmentDecisions,
+)
+from .translation_question_detail import (
+    TranslationQuestionCriterionDetail as TranslationQuestionCriterionDetail,
+)
+from .translation_question_detail import (
+    TranslationQuestionDetail as TranslationQuestionDetail,
+)
+from .translation_result_detail import (
+    TranslationResultDetail as TranslationResultDetail,
+)
+from .translation_rubric_result import (
+    TranslationRubricResult as TranslationRubricResult,
+)

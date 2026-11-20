@@ -65,6 +65,9 @@ from shifu.intelligence.pipes import IntelligencePipe
 from shifu.intelligence.providers.code_rubric_assessor.jev.jev_code_rubric_assessor_provider import (
     JevCodeRubricAssessorProvider,
 )
+from shifu.intelligence.providers.translation_rubric_assessor.jev.jev_translation_rubric_assessor_provider import (
+    JevTranslationRubricAssessorProvider,
+)
 from shifu.intelligence.providers.generation_limit.redis.redis_mentor_generation_limit_provider import (
     RedisMentorGenerationLimitProvider,
 )
@@ -156,6 +159,7 @@ if TYPE_CHECKING:
         MentorContextProvider,
         MentorGoalDestinationsProvider,
         OutboxEvent,
+        TranslationRubricAssessorProvider,
     )
     from shifu.shared.messaging.agentos.agentos_client import AgentOSClient
     from shifu.shared.settings import Settings
@@ -550,6 +554,10 @@ class IntelligenceWorkflowsRegistry:
         self._code_rubric_client = self._build_code_rubric_provider(
             settings, self._code_rubric_http_client
         )
+        self._translation_rubric_http_client = self._build_translation_rubric_client()
+        self._translation_rubric_client = self._build_translation_rubric_provider(
+            settings, self._translation_rubric_http_client
+        )
         # Planner ports share the decisions client; the index loads on first use only.
         self._planning_intent_classifier: PlanningIntentClassifierProvider = (
             JevPlanningIntentClassifierProvider(
@@ -666,6 +674,10 @@ class IntelligenceWorkflowsRegistry:
     @property
     def code_rubric_assessor_provider(self) -> CodeRubricAssessorProvider:
         return self._code_rubric_client
+
+    @property
+    def translation_rubric_assessor_provider(self) -> TranslationRubricAssessorProvider:
+        return self._translation_rubric_client
 
     @property
     def mentor_title_provider(self) -> GenerateMentorTitleProvider:
@@ -850,6 +862,7 @@ class IntelligenceWorkflowsRegistry:
             await self._runtime.close()
         self._storage_provider.close()
         self._code_rubric_http_client.close()
+        self._translation_rubric_http_client.close()
         if self._generation_limit_client is not None:
             self._generation_limit_client.close()
         self._planning_redis_client.close()
@@ -869,6 +882,21 @@ class IntelligenceWorkflowsRegistry:
         settings: Settings, client: httpx.Client
     ) -> JevCodeRubricAssessorProvider:
         return JevCodeRubricAssessorProvider(
+            api_key=settings.openrouter_api_key,
+            client=client,
+            decisions_url=str(settings.openrouter_decisions_url),
+            model=settings.jev_model,
+        )
+
+    @staticmethod
+    def _build_translation_rubric_client() -> httpx.Client:
+        return httpx.Client()
+
+    @staticmethod
+    def _build_translation_rubric_provider(
+        settings: Settings, client: httpx.Client
+    ) -> JevTranslationRubricAssessorProvider:
+        return JevTranslationRubricAssessorProvider(
             api_key=settings.openrouter_api_key,
             client=client,
             decisions_url=str(settings.openrouter_decisions_url),

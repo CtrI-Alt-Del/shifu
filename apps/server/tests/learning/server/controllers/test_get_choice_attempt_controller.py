@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import pytest
 from fastapi import FastAPI
@@ -23,6 +23,7 @@ from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeQuestionAssessmentDecisions,
+    TranslationQuestionAssessmentDecisions,
 )
 from shifu.shared.core.domain.errors import AuthorizationError
 from shifu.shared.core.domain.structures import (
@@ -44,6 +45,11 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
+from tests.fixtures.fill_blanks_activity_fixture import (
+    CORRECT_PAIRS,
+    PARTIAL_PAIRS,
+    FillBlanksActivityFixture,
+)
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
@@ -52,6 +58,9 @@ from tests.fixtures.react_activity_fixture import (
 )
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
+)
+from tests.learning.rest.controllers.translation_controller_fixture import (
+    TranslationControllerFixture,
 )
 
 if TYPE_CHECKING:
@@ -76,6 +85,22 @@ class _TestAuthenticationProvider:
 class _FixedClockProvider(ClockProvider):
     def now(self) -> datetime:
         return _NOW
+
+
+class _SteppingClockProvider(ClockProvider):
+    """Advances one minute per reading so later attempts are strictly later."""
+
+    def __init__(self) -> None:
+        self._readings = 0
+
+    def now(self) -> datetime:
+        self._readings += 1
+        return _NOW + timedelta(minutes=self._readings)
+
+
+class _LaterClockProvider(ClockProvider):
+    def now(self) -> datetime:
+        return datetime.now(UTC) + timedelta(minutes=1)
 
 
 class _NoopBroker:
@@ -196,6 +221,99 @@ class TestGetChoiceAttemptController:
             'script.js',
             'styles.css',
         ]
+
+    @pytest.mark.parametrize(
+        ('decisions', 'expected_question_score', 'expected_activity_score'),
+        [
+            ((100, 100), '100', '100.00'),
+            ((100, 50), '85', '94.00'),
+            ((0, 0), '0', '60.00'),
+        ],
+        ids=('full', 'partial', 'none'),
+    )
+    def test_translation_attempt_discloses_score_band_and_hides_reference(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        decisions: tuple[Literal[0, 25, 50, 75, 100], Literal[0, 25, 50, 75, 100]],
+        expected_question_score: str,
+        expected_activity_score: str,
+    ) -> None:
+        activity = TranslationControllerFixture.activity()
+        curriculum = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum.transaction() as repositories:
+            repositories.activities.add_many([activity])
+        headers = {'Authorization': 'Bearer test-access-token'}
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                TranslationControllerFixture.activity_path(), headers=headers
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        revision = cast('str', detail.json()['activity_revision'])
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                TranslationControllerFixture.attempts_path(),
+                json=TranslationControllerFixture.submission(revision),
+                headers=headers,
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        semantic_level, grammar_level = decisions
+        EvaluateChoiceActivityUseCase(
+            learning,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(
+            attempt_id,
+            evaluation.run_id,
+            translation_decisions=(
+                TranslationQuestionAssessmentDecisions(
+                    question_key='q3',
+                    decisions=CodeRubricDecisions(
+                        criterion_levels=(
+                            CodeCriterionDecision(
+                                key='semantic_preservation', level=semantic_level
+                            ),
+                            CodeCriterionDecision(
+                                key='grammatical_adequacy', level=grammar_level
+                            ),
+                        ),
+                        concept_levels=(),
+                    ),
+                ),
+            ),
+        )
+
+        result = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{TranslationControllerFixture.attempts_path()}/{attempt_id}',
+                headers=headers,
+            ),
+        )
+        assert result.status_code == 200, result.json()
+        body = result.json()
+        assert body['status'] == 'completed'
+        assert body['score'] == expected_activity_score
+        translation = body['questions'][2]
+        assert translation['kind'] == 'translation'
+        assert translation['submitted_text'] == (
+            TranslationControllerFixture.SUBMITTED_TEXT
+        )
+        assert translation['score'] == expected_question_score
+        assert 'reference_translations' not in translation
 
     def test_integrated_history_preserves_snapshot_after_curriculum_changes(
         self,
@@ -599,6 +717,159 @@ class TestGetChoiceAttemptController:
                 _attempt_path('01SHF000000000000000000099'),
                 headers={'Authorization': 'Bearer test-access-token'},
             ),
+        )
+
+        assert response.status_code == 404
+
+    def _submit_and_evaluate_fill(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        revision: str,
+        pairs: tuple[tuple[str, str], ...],
+        submission_key: str,
+    ) -> str:
+        created = client.post(
+            FillBlanksActivityFixture.activity_path() + '/attempts',
+            headers={'Authorization': 'Bearer test-access-token'},
+            json=FillBlanksActivityFixture.submission(
+                revision, *pairs, submission_key=submission_key
+            ),
+        )
+        assert created.status_code == 201, created.text
+        attempt_id = cast('str', created.json()['attempt_id'])
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        committed = EvaluateChoiceActivityUseCase(
+            learning,
+            _LaterClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, evaluation.run_id)
+        assert committed is True
+        return attempt_id
+
+    def _fill_attempt(self, client: TestClient, attempt_id: str) -> 'Response':
+        return cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{FillBlanksActivityFixture.activity_path()}/attempts/{attempt_id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+    def test_fill_blanks_result_hides_the_expected_words_until_a_later_correct_attempt(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        stepping_clock = _SteppingClockProvider()
+        application.dependency_overrides[LearningPipe.get_clock_provider] = lambda: (
+            stepping_clock
+        )
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = client.get(
+            FillBlanksActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert detail.status_code == 200, detail.text
+        revision = detail.json()['activity_revision']
+        partial_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            revision,
+            PARTIAL_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1001',
+        )
+
+        hidden = self._fill_attempt(client, partial_id)
+
+        assert hidden.status_code == 200, hidden.json()
+        body = hidden.json()
+        assert body['status'] == 'completed'
+        assert body['questions'][0] == {
+            'question_key': 'fill-1',
+            'kind': 'fill_blanks',
+            'prompt': 'Complete o texto com as palavras do banco.',
+            'content_language': 'en',
+            'segments': body['questions'][0]['segments'],
+            'bank': body['questions'][0]['bank'],
+            'placements': FillBlanksActivityFixture.placements(*PARTIAL_PAIRS),
+            'score': '33.33',
+            'is_correct': False,
+            'correct_blank_count': 1,
+            'blank_count': 3,
+            'explanation': 'Almost there. Review the verb forms.',
+            'disclosed_expected_blanks': [],
+        }
+        assert 'accepted_words' not in hidden.text
+        assert [item['question_key'] for item in body['questions']] == [
+            'fill-1',
+            'q1',
+            'q2',
+        ]
+        assert body['questions'][1]['selected_option_keys'] == ['a']
+        assert body['questions'][2]['selected_option_keys'] == ['b']
+
+        correct_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            revision,
+            CORRECT_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1002',
+        )
+        released = self._fill_attempt(client, partial_id)
+        latest = self._fill_attempt(client, correct_id)
+
+        expected = [
+            {'blank_key': 'b1', 'accepted_words': ['goes', 'walks']},
+            {'blank_key': 'b2', 'accepted_words': ['does']},
+            {'blank_key': 'b3', 'accepted_words': ['day']},
+        ]
+        assert released.json()['questions'][0]['disclosed_expected_blanks'] == expected
+        assert released.json()['questions'][0]['score'] == '33.33'
+        assert latest.json()['questions'][0]['disclosed_expected_blanks'] == expected
+        assert latest.json()['questions'][0]['score'] == '100.00'
+
+    def test_fill_blanks_attempt_is_private_absence_for_another_goal(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = client.get(
+            FillBlanksActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        attempt_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            detail.json()['activity_revision'],
+            CORRECT_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1003',
+        )
+
+        response = client.get(
+            FillBlanksActivityFixture.activity_path().replace(
+                SEED_ADAPTIVE_LAB_GOAL_ID, '01SHF000000000000000000099'
+            )
+            + f'/attempts/{attempt_id}',
+            headers={'Authorization': 'Bearer test-access-token'},
         )
 
         assert response.status_code == 404

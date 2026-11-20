@@ -60,6 +60,11 @@ from shifu.curriculum.core.domain.structures import (
     SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
+    TranslationInconclusiveComment,
+    TranslationQuestion,
+    TranslationRubricComment,
+    TranslationRubricCriterion,
+    TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.core.domain.enums import (
     ActivityDifficulty,
@@ -70,6 +75,11 @@ from shifu.curriculum.database.logic_programming_seed import (
     LogicProgrammingSeed,
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
+)
+from shifu.curriculum.database.english_fill_blanks_seed import (
+    ENGLISH_COMPETENCY_ID,
+    ENGLISH_SKILL_ID,
+    build_english_fill_blanks_seed,
 )
 from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
@@ -140,6 +150,7 @@ SEED_ACTIVITY_REPETITION_EASY_ID = '01SHF000000000000000000023'
 SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
 SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
+SEED_ACTIVITY_TRANSLATION_ID = '01SHF000000000000000000992'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -176,6 +187,9 @@ SEED_ADAPTIVE_LAB_PRIORITY_ACTIVITY_IDS = tuple(
 )
 SEED_ADAPTIVE_LAB_GOAL_ID = '01SHF000000000000000000070'
 SEED_ADAPTIVE_LAB_EXPERIENCE_ID = '01SHF000000000000000000071'
+SEED_ENGLISH_GOAL_ID = '01SHFEN0000000000000000201'
+SEED_ENGLISH_EXPERIENCE_ID = '01SHFEN0000000000000000202'
+SEED_ENGLISH_PROGRESS_ID = '01SHFEN0000000000000000203'
 SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000072'
 SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID = '01SHF000000000000000000073'
 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID = '01SHF000000000000000000074'
@@ -253,6 +267,129 @@ class _GamificationSeed:
 class _MultipleSelectionSeedQuestion:
     prompt: str
     options: tuple[tuple[str, str, bool], ...]
+
+
+def _translation_seed_part(question_key: str) -> TranslationRubricEvaluationPart:
+    criteria = (
+        ('semantic_preservation', 'Preservação semântica', 70),
+        ('grammatical_adequacy', 'Adequação gramatical', 30),
+    )
+    return TranslationRubricEvaluationPart(
+        question_key=question_key,
+        weight_percentage=40,
+        criteria=tuple(
+            TranslationRubricCriterion(
+                key=key,
+                name=name,
+                description=f'Avalia {name.lower()} da tradução.',
+                weight_percentage=weight,
+                required=True,
+                fixed_comments=tuple(
+                    TranslationRubricComment(
+                        id=f'seed-{question_key}-{key}-{level}',
+                        level=level,
+                        text=(
+                            f'{name}: a tradução ainda precisa de ajustes.'
+                            if level < 100
+                            else f'{name}: a tradução está adequada.'
+                        ),
+                    )
+                    for level in (0, 25, 50, 75, 100)
+                ),
+                inconclusive_comment=TranslationInconclusiveComment(
+                    id=f'seed-{question_key}-{key}-inconclusive',
+                    text='Não foi possível avaliar a resposta; tente novamente.',
+                ),
+            )
+            for key, name, weight in criteria
+        ),
+    )
+
+
+def _translation_seed_concept_criteria() -> tuple[CodeConceptCriterion, ...]:
+    return (
+        CodeConceptCriterion(
+            concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+            description='Preserva o sentido da frase ao traduzi-la.',
+            level_observations=tuple(
+                CodeLevelObservation(
+                    id=f'seed-translation-concept-{level}',
+                    level=level,
+                    evidence=f'A tradução preserva o sentido no nível {level}.',
+                    interpretation_limit='A tradução não mede domínio de vocabulário avançado.',
+                )
+                for level in (0, 25, 50, 75, 100)
+            ),
+            inconclusive_observation=CodeInconclusiveObservation(
+                id='seed-translation-concept-inconclusive',
+                text='Não há evidência suficiente para concluir.',
+            ),
+        ),
+    )
+
+
+def _translation_seed_activity() -> Activity:
+    return Activity.create(
+        id=SEED_ACTIVITY_TRANSLATION_ID,
+        competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Tradução de português para inglês',
+        objective='Traduzir frases curtas do português para o inglês.',
+        questions=(
+            SingleChoiceQuestion(
+                key='q1',
+                prompt='Qual é a tradução de "obrigado" para o inglês?',
+                options=(
+                    ChoiceOption(key='a', text='Thank you', is_correct=True),
+                    ChoiceOption(key='b', text='Please', is_correct=False),
+                ),
+                correct_explanation='"Obrigado" é "thank you" em inglês.',
+                incorrect_explanation='Pense na expressão usada para agradecer.',
+                concept_criteria=(
+                    ChoiceConceptCriterion(
+                        concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+                        criterion='Reconhece a tradução de uma expressão simples.',
+                        examples='Thank you',
+                        limits='A escolha não mede produção escrita.',
+                        correct_score=100,
+                        incorrect_score=0,
+                    ),
+                ),
+            ),
+            TranslationQuestion(
+                key='q2',
+                prompt='Traduza a frase a seguir para o inglês.',
+                source_language='pt-BR',
+                target_language='en-US',
+                source_text='Bom dia, como você está?',
+                reference_translations=(
+                    'Good morning, how are you?',
+                    'Good morning, how is it going?',
+                ),
+                concept_criteria=_translation_seed_concept_criteria(),
+            ),
+            TranslationQuestion(
+                key='q3',
+                prompt='Traduza a frase a seguir para o inglês.',
+                source_language='pt-BR',
+                target_language='en-US',
+                source_text='Eu gosto de estudar programação à noite.',
+                reference_translations=(
+                    'I like to study programming at night.',
+                    'I like studying programming at night.',
+                ),
+                concept_criteria=_translation_seed_concept_criteria(),
+            ),
+        ),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
+                _translation_seed_part('q2'),
+                _translation_seed_part('q3'),
+            )
+        ),
+    )
 
 
 def _adaptive_choice_activity(
@@ -2222,6 +2359,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 )
             ),
         ),
+        _translation_seed_activity(),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -2290,6 +2428,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                     for position, activity_id in enumerate(
                         SEED_ADAPTIVE_ACTIVITY_IDS[3:], start=2
                     )
+                ),
+                ActivitySequenceItem(
+                    position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 2,
+                    activity_id=SEED_ACTIVITY_TRANSLATION_ID,
                 ),
             ),
         ),
@@ -2618,6 +2760,39 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         }
     )
 
+    # An English Skill whose Learning Activity exercises fill-blanks questions, with a
+    # learner already in learning so the format can be tried without a diagnostic.
+    english = build_english_fill_blanks_seed()
+    english_goal = Goal(
+        id=SEED_ENGLISH_GOAL_ID,
+        account_id=SEED_ACCOUNT_ID,
+        title='Inglês para o dia a dia',
+        description='Pratique o presente simples completando frases com um banco de palavras.',
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+    )
+    english_experience = SkillExperience(
+        id=SEED_ENGLISH_EXPERIENCE_ID,
+        goal_id=SEED_ENGLISH_GOAL_ID,
+        skill_id=ENGLISH_SKILL_ID,
+        inclusion_reason='Praticar lacunas com banco de palavras em inglês.',
+        status=SkillExperienceStatus.LEARNING,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        started_at=SEED_CREATED_AT,
+    )
+    english_progress = CompetencyProgress(
+        id=SEED_ENGLISH_PROGRESS_ID,
+        skill_experience_id=SEED_ENGLISH_EXPERIENCE_ID,
+        competency_id=ENGLISH_COMPETENCY_ID,
+        content_released=True,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
         account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
@@ -2630,7 +2805,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         accounts=(account,),
         account_action_tokens=(),
         skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
-        + roadmap.skills,
+        + roadmap.skills
+        + (english.skill,),
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
@@ -2644,14 +2820,16 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             if competency.id in ready_competency_ids
         )
         + logic_curriculum.competencies
-        + roadmap.competencies,
+        + roadmap.competencies
+        + (english.competency,),
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
         )
         + logic_curriculum.concepts
-        + roadmap.concepts,
+        + roadmap.concepts
+        + (english.concept,),
         materials=tuple(
             material
             for material in materials
@@ -2659,26 +2837,35 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             and material.skill_id != SEED_SKILL_LOGIC_ID
         )
         + logic_curriculum.materials
-        + roadmap.materials,
+        + roadmap.materials
+        + (english.material,),
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
         )
         + logic_curriculum.activities
-        + roadmap.activities,
+        + roadmap.activities
+        + english.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
         )
         + logic_curriculum.curriculum_sequences
-        + roadmap.curriculum_sequences,
-        goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
-        skill_experiences=tuple(
-            experience
-            for experience in skill_experiences
-            if experience.id in retained_experience_ids
+        + roadmap.curriculum_sequences
+        + (english.curriculum_sequence,),
+        goals=(
+            *(goal for goal in goals if goal.id in retained_goal_ids),
+            english_goal,
+        ),
+        skill_experiences=(
+            *(
+                experience
+                for experience in skill_experiences
+                if experience.id in retained_experience_ids
+            ),
+            english_experience,
         ),
         competency_progresses=tuple(
             progress
@@ -2699,7 +2886,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
-        ),
+        )
+        + (english_progress,),
         activity_attempts=tuple(
             attempt
             for attempt in activity_attempts

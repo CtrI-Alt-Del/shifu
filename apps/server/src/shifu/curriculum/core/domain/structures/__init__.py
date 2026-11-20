@@ -17,6 +17,13 @@ from .react_question import ReactInitialFile as ReactInitialFile
 from .react_question import ReactDependency as ReactDependency
 from .react_question import ReactPermittedCommand as ReactPermittedCommand
 from .react_question import ReactAdditionalFilePolicy as ReactAdditionalFilePolicy
+from .fill_blanks_bank_word import FillBlanksBankWord as FillBlanksBankWord
+from .fill_blanks_blank import FillBlanksBlank as FillBlanksBlank
+from .fill_blanks_concept_criterion import (
+    FillBlanksConceptCriterion as FillBlanksConceptCriterion,
+)
+from .fill_blanks_question import FillBlanksQuestion as FillBlanksQuestion
+from .fill_blanks_segment import FillBlanksSegment as FillBlanksSegment
 from .html_css_js_question import HtmlCssJsQuestion as HtmlCssJsQuestion
 from .html_css_js_question import HtmlCssJsInitialFile as HtmlCssJsInitialFile
 from .html_css_js_question import HtmlCssJsDependency as HtmlCssJsDependency
@@ -56,8 +63,20 @@ from .skill_foundation import SkillFoundation as SkillFoundation
 from .test_cases_evaluation_part import (
     TestCasesEvaluationPart as TestCasesEvaluationPart,
 )
-
 from .react_fastify_http_example import (
     ReactFastifyHttpExample as ReactFastifyHttpExample,
 )
 from .react_fastify_question import ReactFastifyQuestion as ReactFastifyQuestion
+from .translation_question import TranslationQuestion as TranslationQuestion
+from .translation_rubric_criterion import (
+    TranslationInconclusiveComment as TranslationInconclusiveComment,
+)
+from .translation_rubric_criterion import (
+    TranslationRubricComment as TranslationRubricComment,
+)
+from .translation_rubric_criterion import (
+    TranslationRubricCriterion as TranslationRubricCriterion,
+)
+from .translation_rubric_evaluation_part import (
+    TranslationRubricEvaluationPart as TranslationRubricEvaluationPart,
+)

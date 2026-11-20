@@ -115,6 +115,21 @@ from .curriculum_skill_overview import (
 from .curriculum_skill_snapshot import (
     CurriculumSkillSnapshot as CurriculumSkillSnapshot,
 )
+from .curriculum_translation_question_snapshot import (
+    CurriculumTranslationQuestionSnapshot as CurriculumTranslationQuestionSnapshot,
+)
+from .curriculum_translation_rubric_criterion_snapshot import (
+    CurriculumTranslationInconclusiveCommentSnapshot as CurriculumTranslationInconclusiveCommentSnapshot,
+)
+from .curriculum_translation_rubric_criterion_snapshot import (
+    CurriculumTranslationRubricCommentSnapshot as CurriculumTranslationRubricCommentSnapshot,
+)
+from .curriculum_translation_rubric_criterion_snapshot import (
+    CurriculumTranslationRubricCriterionSnapshot as CurriculumTranslationRubricCriterionSnapshot,
+)
+from .curriculum_translation_rubric_part_snapshot import (
+    CurriculumTranslationRubricPartSnapshot as CurriculumTranslationRubricPartSnapshot,
+)
 from .email_address import EmailAddress as EmailAddress
 from .enum_value import EnumValue as EnumValue
 from .non_empty_text import NonEmptyText as NonEmptyText
@@ -123,6 +138,9 @@ from .rate_limit_decision import RateLimitDecision as RateLimitDecision
 from .skill_catalog_entry import SkillCatalogEntry as SkillCatalogEntry
 from .skill_catalog_page import SkillCatalogPage as SkillCatalogPage
 from .skill_foundation_entry import SkillFoundationEntry as SkillFoundationEntry
+from .translation_rubric_assessment_input import (
+    TranslationRubricAssessmentInput as TranslationRubricAssessmentInput,
+)
 from .weight_distribution import WeightDistribution as WeightDistribution
 
 from .mentor_access_grant import MentorAccessGrant as MentorAccessGrant
@@ -142,4 +160,19 @@ from .curriculum_react_fastify_http_example_snapshot import (
 )
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
+)
+from .curriculum_fill_blanks_blank_snapshot import (
+    CurriculumFillBlanksBlankSnapshot as CurriculumFillBlanksBlankSnapshot,
+)
+from .curriculum_fill_blanks_concept_criterion_snapshot import (
+    CurriculumFillBlanksConceptCriterionSnapshot as CurriculumFillBlanksConceptCriterionSnapshot,
+)
+from .curriculum_fill_blanks_question_snapshot import (
+    CurriculumFillBlanksQuestionSnapshot as CurriculumFillBlanksQuestionSnapshot,
+)
+from .curriculum_fill_blanks_segment_snapshot import (
+    CurriculumFillBlanksSegmentSnapshot as CurriculumFillBlanksSegmentSnapshot,
+)
+from .curriculum_fill_blanks_word_snapshot import (
+    CurriculumFillBlanksWordSnapshot as CurriculumFillBlanksWordSnapshot,
 )

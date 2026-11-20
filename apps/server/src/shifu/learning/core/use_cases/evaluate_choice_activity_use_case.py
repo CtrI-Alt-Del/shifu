@@ -46,9 +46,14 @@ from shifu.learning.core.domain.structures import (
     CompetencyCompletionSummary,
     ConceptObservation,
     EvaluationPartResult,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
     SkillCompletionSummary,
+    TranslationAnswer,
+    TranslationQuestionAssessmentDecisions,
+    TranslationRubricResult,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -56,6 +61,7 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreviewActivityQuestionFeedbackUseCase,
 )
@@ -66,12 +72,15 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumSkillSnapshot,
+    CurriculumTranslationQuestionSnapshot,
+    CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.interfaces import (
     ClockProvider,
@@ -99,9 +108,10 @@ class EvaluateChoiceActivityUseCase:
         attempt_id: str,
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...] = (),
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> bool:
         should_return, mixed_results = self._prepare_mixed_results(
-            attempt_id, run_id, code_decisions
+            attempt_id, run_id, code_decisions, translation_decisions
         )
         if should_return:
             return False
@@ -204,6 +214,7 @@ class EvaluateChoiceActivityUseCase:
         attempt_id: str,
         run_id: str,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> tuple[bool, tuple[EvaluationPartResult, ...] | None]:
         with self._learning_database.transaction() as repositories:
             preflight = repositories.activity_attempts.find_by_id(attempt_id)
@@ -228,8 +239,10 @@ class EvaluateChoiceActivityUseCase:
             else:
                 saved_attempt = None
         if saved_attempt is not None:
-            return False, self._score_mixed(saved_attempt, code_decisions)
-        if code_decisions:
+            return False, self._score_mixed(
+                saved_attempt, code_decisions, translation_decisions
+            )
+        if code_decisions or translation_decisions:
             raise EvaluationUnavailableError
         return False, None
 
@@ -364,7 +377,9 @@ class EvaluateChoiceActivityUseCase:
             | CurriculumJavascriptStdinQuestionSnapshot
             | CurriculumReactQuestionSnapshot
             | CurriculumHtmlCssJsQuestionSnapshot
-            | CurriculumReactFastifyQuestionSnapshot,
+            | CurriculumReactFastifyQuestionSnapshot
+            | CurriculumFillBlanksQuestionSnapshot
+            | CurriculumTranslationQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -375,12 +390,28 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, ChoiceEvaluationResult)
         }
-        code_results = {
+        fill_blanks_results = {
             item.question_key: item
             for item in part_results
-            if isinstance(item, CodeRubricResult)
+            if isinstance(item, FillBlanksEvaluationResult)
+        }
+        rubric_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, CodeRubricResult | TranslationRubricResult)
         }
         for question in questions:
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                fill_blanks_result = fill_blanks_results.get(question.key)
+                if fill_blanks_result is None:
+                    raise InvalidAttemptError
+
+                for concept_id, value in FillBlanksScoring.concept_observations(
+                    question, fill_blanks_result
+                ).items():
+                    observation_scores.setdefault(concept_id, []).append(value)
+                continue
+
             if isinstance(
                 question,
                 (
@@ -388,13 +419,14 @@ class EvaluateChoiceActivityUseCase:
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
                 ),
             ):
-                code_result = code_results.get(question.key)
-                if code_result is None:
+                rubric_result = rubric_results.get(question.key)
+                if rubric_result is None:
                     raise InvalidAttemptError
 
-                for item in code_result.concept_observations:
+                for item in rubric_result.concept_observations:
                     observation_scores.setdefault(item.concept_id, []).append(
                         Decimal(item.level) if isinstance(item.level, int) else None
                     )
@@ -725,6 +757,7 @@ class EvaluateChoiceActivityUseCase:
         self,
         attempt: ActivityAttempt,
         code_decisions: tuple[CodeQuestionAssessmentDecisions, ...],
+        translation_decisions: tuple[TranslationQuestionAssessmentDecisions, ...] = (),
     ) -> tuple[EvaluationPartResult, ...]:
         snapshot = attempt.grading_snapshot
         if not isinstance(snapshot, CurriculumLearningActivitySnapshot):
@@ -750,12 +783,22 @@ class EvaluateChoiceActivityUseCase:
                 ),
             )
         }
+        translation_keys = {
+            question.key
+            for question in snapshot.questions
+            if isinstance(question, CurriculumTranslationQuestionSnapshot)
+        }
         decisions_by_key = {
             item.question_key: item.decisions for item in code_decisions
+        }
+        translation_decisions_by_key = {
+            item.question_key: item.decisions for item in translation_decisions
         }
         if (
             len(decisions_by_key) != len(code_decisions)
             or set(decisions_by_key) != code_keys
+            or len(translation_decisions_by_key) != len(translation_decisions)
+            or set(translation_decisions_by_key) != translation_keys
         ):
             raise EvaluationUnavailableError
 
@@ -765,21 +808,30 @@ class EvaluateChoiceActivityUseCase:
                 questions_by_key[part.question_key],
                 answers_by_key[part.question_key],
                 decisions_by_key,
+                translation_decisions_by_key,
             )
             for part in snapshot.parts
         )
 
     def _score_mixed_part(
         self,
-        part: CurriculumChoicePartSnapshot | CurriculumCodeRubricPartSnapshot,
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
         question: CurriculumChoiceQuestionSnapshot
         | CurriculumJavascriptStdinQuestionSnapshot
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
-        | CurriculumReactFastifyQuestionSnapshot,
+        | CurriculumReactFastifyQuestionSnapshot
+        | CurriculumFillBlanksQuestionSnapshot
+        | CurriculumTranslationQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
+        translation_decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return self._score_fill_blanks_part(part, question, answer)
+
         if isinstance(
             question,
             (
@@ -792,6 +844,12 @@ class EvaluateChoiceActivityUseCase:
             if not isinstance(part, CurriculumCodeRubricPartSnapshot):
                 raise EvaluationUnavailableError
             return self._score_code_part(part, question, answer, decisions_by_key)
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            if not isinstance(part, CurriculumTranslationRubricPartSnapshot):
+                raise EvaluationUnavailableError
+            return self._score_translation_part(
+                part, question, answer, translation_decisions_by_key
+            )
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
         if isinstance(answer, SingleChoiceAnswer):
@@ -812,6 +870,25 @@ class EvaluateChoiceActivityUseCase:
                 else question.incorrect_explanation
             ),
         )
+
+    @staticmethod
+    def _score_fill_blanks_part(
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: ActivityAnswer,
+    ) -> FillBlanksEvaluationResult:
+        if not isinstance(part, CurriculumChoicePartSnapshot):
+            raise EvaluationUnavailableError
+
+        if not isinstance(answer, FillBlanksAnswer):
+            raise InvalidAttemptError
+
+        try:
+            return FillBlanksScoring.score(question, answer)
+        except ValidationError as error:
+            raise InvalidAttemptError from error
 
     def _score_code_part(
         self,
@@ -835,6 +912,31 @@ class EvaluateChoiceActivityUseCase:
         if result.score is None:
             raise EvaluationUnavailableError
         return CodeRubricResult(
+            question_key=question.key,
+            score=result.score,
+            criterion_results=result.criteria,
+            concept_observations=result.concept_observations,
+        )
+
+    @staticmethod
+    def _score_translation_part(
+        part: CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumTranslationQuestionSnapshot,
+        answer: ActivityAnswer,
+        decisions_by_key: dict[str, CodeRubricDecisions],
+    ) -> TranslationRubricResult:
+        if not isinstance(answer, TranslationAnswer):
+            raise EvaluationUnavailableError
+        decisions = decisions_by_key[question.key]
+        try:
+            result = PreviewActivityQuestionFeedbackUseCase.translation_result(
+                question, part, answer, decisions
+            )
+        except (ServiceUnavailableError, ValidationError) as error:
+            raise EvaluationUnavailableError from error
+        if result.score is None:
+            raise EvaluationUnavailableError
+        return TranslationRubricResult(
             question_key=question.key,
             score=result.score,
             criterion_results=result.criteria,
