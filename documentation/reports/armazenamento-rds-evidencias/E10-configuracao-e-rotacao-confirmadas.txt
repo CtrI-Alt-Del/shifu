@@ -1,0 +1,32 @@
+SHIFU-127 — Configuração da instância e rotação de senha
+Data da coleta: 19/11/2026, 02:52 UTC (18/11/2026, 23:52 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Fonte: AWS CLI (Amazon RDS e EC2) e Terraform
+
+Depois que o usuário informou a atualização da política IAM, o plano Terraform
+da rotação mostrou 0 criações, 1 atualização in-place e 0 exclusões. O apply
+terminou com `Resources: 0 added, 1 changed, 0 destroyed`; a instância não foi
+substituída. O state e a configuração usam `password_wo_version=5`.
+
+Descrição RDS consultada:
+- Identificador: shifu-rds-lab-31b997a3f6
+- Status: available
+- Endpoint: shifu-rds-lab-31b997a3f6.cvge4eks0bg1.us-east-2.rds.amazonaws.com:5432
+- Engine: PostgreSQL 17.9
+- Classe: db.t4g.micro
+- Zona: us-east-2c; Multi-AZ: false
+- Banco: shifu
+- Armazenamento: 20 GB gp3, criptografado
+- Acesso público: habilitado
+- Backup automático: retenção zero
+- Security Group: sg-0fda2bc319b7f32ed
+- Entrada: TCP 5432 somente de 201.75.169.251/32
+- Egress: nenhuma regra
+
+A conexão por psycopg usou `sslmode=require`. O endpoint, a autenticação e as
+consultas estão detalhados em E07. Em 20/11/2026, o solicitante dispensou as
+capturas adicionais por psql e VS Code Database Client; a conexão técnica TLS
+registrada em E07 constitui a evidência adotada para esta entrega.
+
+Evidência textual sanitizada. Não inclui senha, credenciais, state ou plano.
