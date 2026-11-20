@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-20",
+  "responsible": "Gabriel da Silva",
+  "operation": "Codex, execução assistida",
+  "fixture": "packages/iac/dynamodb/fixtures/events.json",
+  "command": "python apps/server/.venv/Scripts/python.exe packages/iac/dynamodb/scripts/dynamodb_lab.py validate-fixtures --fixtures packages/iac/dynamodb/fixtures/events.json",
+  "result": {
+    "items": 20,
+    "event_types": {
+      "login": 4,
+      "lesson_started": 4,
+      "quiz_answer": 4,
+      "mentor_message": 4,
+      "xp_granted": 4
+    },
+    "learners": 4,
+    "unique_composite_keys": 20,
+    "validation": "passed"
+  },
+  "note": "Todos os itens são fictícios e validados localmente; não foram escritos na AWS."
+}

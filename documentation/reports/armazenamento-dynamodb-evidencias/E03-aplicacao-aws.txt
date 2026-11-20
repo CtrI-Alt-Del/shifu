@@ -1,0 +1,42 @@
+E03 — Aplicação do laboratório DynamoDB
+
+Data: 20/11/2026 (UTC)
+Responsável: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Conta: 565725315792
+Perfil: shifu-lab
+Região: us-east-2
+
+Comando executado:
+AWS_PROFILE=shifu-lab terraform apply -input=false -auto-approve -no-color -var="aws_region=us-east-2"
+
+Resultado observado: apply concluído com 2 recursos adicionados, 0 alterados e
+0 removidos. A tabela criada foi `shifu-dynamodb-lab-83b2c3605a`, ARN
+`arn:aws:dynamodb:us-east-2:565725315792:table/shifu-dynamodb-lab-83b2c3605a`.
+O índice `EventTypeDayIndex` foi criado na mesma tabela.
+
+Pré-requisito IAM: o responsável informou que atualizou a política gerenciada
+`ShifuDynamoDbLabAccess` antes desta aplicação.
+
+Verificação AWS via `dynamodb:DescribeTable` em 20/11/2026 às 19:39:25 UTC:
+tabela `ACTIVE`, modo provisionado com 5 RCU/5 WCU; GSI `EventTypeDayIndex`
+`ACTIVE`, com 5 RCU/5 WCU.
+
+Resumo da resposta da API:
+```json
+{
+  "TableName": "shifu-dynamodb-lab-83b2c3605a",
+  "TableStatus": "ACTIVE",
+  "TableArn": "arn:aws:dynamodb:us-east-2:565725315792:table/shifu-dynamodb-lab-83b2c3605a",
+  "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 },
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "EventTypeDayIndex",
+      "IndexStatus": "ACTIVE",
+      "ProvisionedThroughput": { "ReadCapacityUnits": 5, "WriteCapacityUnits": 5 }
+    }
+  ]
+}
+```
+
+O state e os planos Terraform ficam locais e não são versionados.
