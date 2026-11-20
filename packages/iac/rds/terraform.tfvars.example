@@ -1,3 +1,5 @@
-aws_region   = "us-east-1"
+aws_region   = "us-east-2"
 project_name = "shifu-rds-lab"
-allowed_cidr = "203.0.113.10/32" # troque pelo IP público do grupo, sempre com /32
+engine_version = "17"
+instance_class = "db.t4g.micro"
+allowed_cidr = "203.0.113.10/32" # substitua pelo IPv4 público do integrante, sempre com /32
