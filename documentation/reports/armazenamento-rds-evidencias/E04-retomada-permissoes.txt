@@ -1,0 +1,76 @@
+SHIFU-127 — Retomada após atualização das políticas IAM
+Data da coleta: 18/11/2026 America/Sao_Paulo
+Janela observada: 00:44–00:47 UTC em 19/11/2026
+(21:44–21:47 America/Sao_Paulo em 18/11/2026)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Identidade e rede:
+- Perfil AWS: shifu-lab
+- Conta STS: 565725315792; ARN: arn:aws:iam::565725315792:user/shifu-storage-lab.
+- VPC padrão: vpc-0420e74cba45bc0a9; DNS support e DNS hostnames habilitados.
+- Sub-redes padrão disponíveis e públicas: subnet-00eb516ebf5e548ae
+  (us-east-2b), subnet-04af2a9c793abf482 (us-east-2a) e
+  subnet-08fbe5d2391919259 (us-east-2c). A tabela principal tem rota ativa
+  para igw-049abb15929575385.
+- IPv4 público verificado nesta sessão: 201.75.169.251; corresponde ao
+  allowed_cidr local 201.75.169.251/32.
+- A listagem de instâncias RDS retornou somente shifu-staging em estado
+  available. Ela não foi alterada.
+
+Políticas e permissões efetivas:
+- Gabriel forneceu capturas da console IAM e os JSONs de
+  ShifuRdsLabRDSAccess e ShifuRdsLabNetworkAccess. Os JSONs incluem a ação
+  ec2:CreateSecurityGroup e as ações RDS previstas.
+- O comando somente de leitura iam:ListAttachedUserPolicies foi negado ao
+  perfil. Portanto, não foi possível verificar por API a versão padrão e os
+  anexos efetivos.
+- Foi executado um dry-run de ec2:CreateSecurityGroup para o grupo
+  shifu-rds-lab-postgres, na VPC padrão, com as tags do laboratório. A AWS
+  respondeu UnauthorizedOperation e informou que nenhuma política de
+  identidade efetiva permite ec2:CreateSecurityGroup para a VPC indicada.
+  O dry-run não criou recursos. A mensagem de autorização codificada não foi
+  registrada.
+- A declaração apresentada para CreateSecurityGroup contém os ARNs de
+  security-group/* e da VPC no mesmo Statement, junto a condições
+  aws:RequestTag/* e aws:TagKeys. A referência de autorização EC2 enumera
+  chaves de condição por tipo de recurso. A causa provável é essa combinação
+  de recursos e condições; a política também pode estar anexada em versão
+  diferente da JSON fornecida, algo que não foi possível confirmar pela CLI.
+  O administrador deve dividir a autorização em dois Statements: o ARN do
+  security group com as condições de tags e o ARN exato da VPC com condição de
+  região, sem condições de tags. Depois, deve publicar essa versão como padrão,
+  confirmar o anexo e repetir o dry-run.
+
+Estado local e remoto:
+- terraform fmt -check -recursive -no-color passou nesta retomada.
+- terraform validate -no-color passou nesta retomada sem avisos.
+- terraform test -no-color passou nesta retomada: 2 testes, 0 falhas.
+- git diff --check passou.
+- terraform state list não retornou recursos.
+- A consulta de subnet group retornou DBSubnetGroupNotFoundFault para
+  shifu-rds-lab-subnets; não foram encontrados snapshots com prefixo
+  shifu-rds-lab-. A consulta do security group não retornou grupos com o nome
+  shifu-rds-lab-postgres. Nenhuma chamada apply foi executada nesta retomada.
+
+Custos observados antes de qualquer nova criação:
+- Fonte: AWS Cost Explorer, métrica UnblendedCost, moeda USD, granularidade
+  diária, serviço Amazon Relational Database Service, período de 2026-11-10 a
+  2026-11-18 (limite final exclusivo), agrupado por USAGE_TYPE.
+- Cada dia estava marcado Estimated=true. Os totais por soma dos grupos foram
+  US$ 0.0000000495 em 10–11/11 e US$ 0.0000000502 em cada dia de 11–12/11 a
+  17–18/11.
+- Os grupos incluíram USE2-InstanceUsage:db.t4g.micro (US$ 0),
+  USE2-RDS:GP3-Storage (US$ -0.0000000072 por dia), tráfego de entrada
+  (US$ 0) e USE2-USE1-AWS-Out-Bytes (US$ 0.0000000567 em 10–11/11 e
+  US$ 0.0000000574 nos dias seguintes). São valores agregados da conta e
+  incluem o staging. Não foram atribuídos ao laboratório e não indicam custo
+  zero para a execução.
+
+Resultado:
+- Nenhuma instância, security group, subnet group ou snapshot do laboratório
+  existe nesta retomada.
+- Migrações, carga de dados, consultas SQL, clientes, snapshot manual e
+  encerramento de novos recursos continuam pendentes até que o dry-run de
+  CreateSecurityGroup seja autorizado.
+- Evidência textual sanitizada. Não inclui senha, estado, plano ou token.
