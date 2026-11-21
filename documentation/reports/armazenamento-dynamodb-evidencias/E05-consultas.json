@@ -1,0 +1,451 @@
+{
+  "table": "shifu-dynamodb-lab-83b2c3605a",
+  "profile": "shifu-lab",
+  "region": "us-east-2",
+  "responsible": "Gabriel da Silva",
+  "get_item_found": true,
+  "learner_query_count": 8,
+  "gsi_query": {
+    "event_type": "xp_granted",
+    "event_date": "2026-11-18",
+    "count": 2
+  },
+  "results": {
+    "get_item": {
+      "Item": {
+        "eventId": {
+          "S": "evt-001"
+        },
+        "GSI1PK": {
+          "S": "EVENT#login#2026-11-17"
+        },
+        "occurredAt": {
+          "S": "2026-11-17T09:00:00Z"
+        },
+        "eventDate": {
+          "S": "2026-11-17"
+        },
+        "eventType": {
+          "S": "login"
+        },
+        "attributes": {
+          "M": {
+            "device": {
+              "S": "desktop"
+            },
+            "method": {
+              "S": "password"
+            },
+            "success": {
+              "BOOL": true
+            }
+          }
+        },
+        "learnerId": {
+          "S": "learner-001"
+        },
+        "PK": {
+          "S": "LEARNER#learner-001"
+        },
+        "GSI1SK": {
+          "S": "2026-11-17T09:00:00Z#learner-001#evt-001"
+        },
+        "SK": {
+          "S": "2026-11-17T09:00:00Z#evt-001"
+        }
+      }
+    },
+    "learner_query": {
+      "Items": [
+        {
+          "eventId": {
+            "S": "evt-001"
+          },
+          "GSI1PK": {
+            "S": "EVENT#login#2026-11-17"
+          },
+          "occurredAt": {
+            "S": "2026-11-17T09:00:00Z"
+          },
+          "eventDate": {
+            "S": "2026-11-17"
+          },
+          "eventType": {
+            "S": "login"
+          },
+          "attributes": {
+            "M": {
+              "device": {
+                "S": "desktop"
+              },
+              "method": {
+                "S": "password"
+              },
+              "success": {
+                "BOOL": true
+              }
+            }
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-17T09:00:00Z#learner-001#evt-001"
+          },
+          "SK": {
+            "S": "2026-11-17T09:00:00Z#evt-001"
+          }
+        },
+        {
+          "eventId": {
+            "S": "evt-002"
+          },
+          "GSI1PK": {
+            "S": "EVENT#lesson_started#2026-11-17"
+          },
+          "occurredAt": {
+            "S": "2026-11-17T09:05:00Z"
+          },
+          "eventDate": {
+            "S": "2026-11-17"
+          },
+          "eventType": {
+            "S": "lesson_started"
+          },
+          "attributes": {
+            "M": {
+              "course_id": {
+                "S": "course-cloud-01"
+              },
+              "lesson_id": {
+                "S": "lesson-01"
+              },
+              "position": {
+                "N": "1"
+              }
+            }
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-17T09:05:00Z#learner-001#evt-002"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "SK": {
+            "S": "2026-11-17T09:05:00Z#evt-002"
+          }
+        },
+        {
+          "eventId": {
+            "S": "evt-003"
+          },
+          "GSI1PK": {
+            "S": "EVENT#quiz_answer#2026-11-17"
+          },
+          "eventDate": {
+            "S": "2026-11-17"
+          },
+          "occurredAt": {
+            "S": "2026-11-17T09:12:00Z"
+          },
+          "eventType": {
+            "S": "quiz_answer"
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "attributes": {
+            "M": {
+              "answer": {
+                "S": "A"
+              },
+              "correct": {
+                "BOOL": true
+              },
+              "question_id": {
+                "S": "question-01"
+              },
+              "score": {
+                "N": "1"
+              }
+            }
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-17T09:12:00Z#learner-001#evt-003"
+          },
+          "SK": {
+            "S": "2026-11-17T09:12:00Z#evt-003"
+          }
+        },
+        {
+          "GSI1PK": {
+            "S": "EVENT#mentor_message#2026-11-17"
+          },
+          "eventId": {
+            "S": "evt-004"
+          },
+          "eventDate": {
+            "S": "2026-11-17"
+          },
+          "occurredAt": {
+            "S": "2026-11-17T09:18:00Z"
+          },
+          "eventType": {
+            "S": "mentor_message"
+          },
+          "attributes": {
+            "M": {
+              "attachment_count": {
+                "N": "0"
+              },
+              "characters": {
+                "N": "48"
+              },
+              "conversation_id": {
+                "S": "conversation-001"
+              }
+            }
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-17T09:18:00Z#learner-001#evt-004"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "SK": {
+            "S": "2026-11-17T09:18:00Z#evt-004"
+          }
+        },
+        {
+          "GSI1PK": {
+            "S": "EVENT#xp_granted#2026-11-17"
+          },
+          "eventId": {
+            "S": "evt-005"
+          },
+          "eventDate": {
+            "S": "2026-11-17"
+          },
+          "occurredAt": {
+            "S": "2026-11-17T09:20:00Z"
+          },
+          "eventType": {
+            "S": "xp_granted"
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "attributes": {
+            "M": {
+              "amount": {
+                "N": "10"
+              },
+              "reference_id": {
+                "S": "activity-001"
+              },
+              "source": {
+                "S": "activity"
+              }
+            }
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-17T09:20:00Z#learner-001#evt-005"
+          },
+          "SK": {
+            "S": "2026-11-17T09:20:00Z#evt-005"
+          }
+        },
+        {
+          "eventId": {
+            "S": "evt-006"
+          },
+          "GSI1PK": {
+            "S": "EVENT#lesson_started#2026-11-18"
+          },
+          "eventDate": {
+            "S": "2026-11-18"
+          },
+          "occurredAt": {
+            "S": "2026-11-18T10:00:00Z"
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "attributes": {
+            "M": {
+              "course_id": {
+                "S": "course-cloud-01"
+              },
+              "lesson_id": {
+                "S": "lesson-02"
+              },
+              "position": {
+                "N": "2"
+              },
+              "resumed": {
+                "BOOL": true
+              }
+            }
+          },
+          "eventType": {
+            "S": "lesson_started"
+          },
+          "GSI1SK": {
+            "S": "2026-11-18T10:00:00Z#learner-001#evt-006"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "SK": {
+            "S": "2026-11-18T10:00:00Z#evt-006"
+          }
+        },
+        {
+          "eventId": {
+            "S": "evt-007"
+          },
+          "GSI1PK": {
+            "S": "EVENT#quiz_answer#2026-11-18"
+          },
+          "eventDate": {
+            "S": "2026-11-18"
+          },
+          "occurredAt": {
+            "S": "2026-11-18T10:11:00Z"
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "eventType": {
+            "S": "quiz_answer"
+          },
+          "attributes": {
+            "M": {
+              "answer": {
+                "S": "C"
+              },
+              "attempt": {
+                "N": "2"
+              },
+              "correct": {
+                "BOOL": false
+              },
+              "question_id": {
+                "S": "question-02"
+              },
+              "score": {
+                "N": "0"
+              }
+            }
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-18T10:11:00Z#learner-001#evt-007"
+          },
+          "SK": {
+            "S": "2026-11-18T10:11:00Z#evt-007"
+          }
+        },
+        {
+          "GSI1PK": {
+            "S": "EVENT#xp_granted#2026-11-18"
+          },
+          "eventId": {
+            "S": "evt-008"
+          },
+          "occurredAt": {
+            "S": "2026-11-18T10:13:00Z"
+          },
+          "eventDate": {
+            "S": "2026-11-18"
+          },
+          "attributes": {
+            "M": {
+              "amount": {
+                "N": "4"
+              },
+              "reference_id": {
+                "S": "skill-010"
+              },
+              "source": {
+                "S": "skill_completion"
+              }
+            }
+          },
+          "learnerId": {
+            "S": "learner-001"
+          },
+          "eventType": {
+            "S": "xp_granted"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "GSI1SK": {
+            "S": "2026-11-18T10:13:00Z#learner-001#evt-008"
+          },
+          "SK": {
+            "S": "2026-11-18T10:13:00Z#evt-008"
+          }
+        }
+      ],
+      "Count": 8,
+      "ScannedCount": 8,
+      "ConsumedCapacity": null
+    },
+    "gsi_query": {
+      "Items": [
+        {
+          "GSI1SK": {
+            "S": "2026-11-18T10:13:00Z#learner-001#evt-008"
+          },
+          "GSI1PK": {
+            "S": "EVENT#xp_granted#2026-11-18"
+          },
+          "PK": {
+            "S": "LEARNER#learner-001"
+          },
+          "SK": {
+            "S": "2026-11-18T10:13:00Z#evt-008"
+          }
+        },
+        {
+          "SK": {
+            "S": "2026-11-18T12:25:00Z#evt-013"
+          },
+          "PK": {
+            "S": "LEARNER#learner-002"
+          },
+          "GSI1PK": {
+            "S": "EVENT#xp_granted#2026-11-18"
+          },
+          "GSI1SK": {
+            "S": "2026-11-18T12:25:00Z#learner-002#evt-013"
+          }
+        }
+      ],
+      "Count": 2,
+      "ScannedCount": 2,
+      "ConsumedCapacity": null
+    }
+  },
+  "collected_at_utc": "2026-11-20T19:32:08.147123+00:00",
+  "status": "completed"
+}

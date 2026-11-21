@@ -1,0 +1,26 @@
+Atividade: Cenário C — Amazon DynamoDB
+Data da coleta: 2026-11-20 18:35 UTC (15:35 America/Sao_Paulo)
+Responsável previsto: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Perfil: shifu-lab
+Conta confirmada por STS: 565725315792
+Região testada: us-east-2
+
+Consultas somente de leitura executadas:
+- aws sts get-caller-identity --profile shifu-lab --region us-east-2
+  Resultado: conta 565725315792.
+- aws dynamodb list-tables --profile shifu-lab --region us-east-2
+  Resultado: AccessDeniedException; sem permissão dynamodb:ListTables.
+- aws dynamodb describe-table --table-name shifu-dynamodb-lab-preflight --profile shifu-lab --region us-east-2
+  Resultado: AccessDeniedException; sem permissão dynamodb:DescribeTable.
+- aws cloudwatch list-metrics --namespace AWS/DynamoDB --profile shifu-lab --region us-east-2
+  Resultado: AccessDenied; sem permissão cloudwatch:ListMetrics.
+- aws cloudwatch get-metric-statistics --namespace AWS/DynamoDB --metric-name ConsumedWriteCapacityUnits --dimensions Name=TableName,Value=shifu-dynamodb-lab-preflight --start-time 2026-11-20T00:00:00Z --end-time 2026-11-20T01:00:00Z --period 60 --statistics Sum --profile shifu-lab --region us-east-2
+  Resultado: AccessDenied; sem permissão cloudwatch:GetMetricStatistics.
+- AWS Cost Explorer, período diário 2026-11-19 a 2026-11-21, agrupado por serviço.
+  Resposta marcada Estimated=true; não retornou grupo Amazon DynamoDB nessas datas.
+  Isso não confirma custo zero nem custo de recurso específico.
+
+Nenhum recurso AWS foi criado ou alterado nesta verificação. A política IAM
+proposta para revisão e aplicação por administrador está em
+packages/iac/dynamodb/administrator-policy.json.

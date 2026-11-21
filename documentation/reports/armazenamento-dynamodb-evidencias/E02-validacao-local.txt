@@ -1,0 +1,29 @@
+Data: 2026-11-20
+Responsável: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Ambiente Terraform: 1.16.4, windows_amd64
+Provider travado: AWS 6.73.0; Random 3.9.1
+AWS profile: shifu-lab; região: us-east-2
+
+Resultados:
+- terraform init -backend=false -input=false -lockfile=readonly -no-color
+  Exit 0. Providers instalados a partir do lockfile.
+- terraform fmt -check -recursive
+  Exit 0, sem saída.
+- terraform validate -no-color
+  Exit 0: "Success! The configuration is valid." Sem erros ou avisos.
+- bash -n scripts/lab.sh
+  Exit 0, sem saída.
+- python -m py_compile scripts/dynamodb_lab.py
+  Exit 0.
+- bash scripts/lab.sh validate-fixtures
+  Exit 0. Retornou 20 itens, cinco tipos (4 cada), quatro aprendizes e 20 chaves compostas únicas.
+- terraform plan -input=false -lock=false -refresh=false -no-color -var="aws_region=us-east-2"
+  Executado com AWS_PROFILE=shifu-lab. Plano revisado: 2 a criar (random_id e
+  tabela DynamoDB com GSI), 0 alterar e 0 destruir. Nenhum apply executado.
+
+Uma tentativa anterior de `terraform validate` apresentou aviso de depreciação
+para hash_key/range_key no GSI. O GSI foi ajustado para `key_schema`, e a
+validação final acima passou sem avisos.
+
+Arquivos de state, planos e cache de providers são locais e ignorados pelo Git.

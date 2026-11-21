@@ -1,0 +1,20 @@
+{
+  "table": "shifu-dynamodb-lab-83b2c3605a",
+  "start_time_utc": "2026-11-20T19:32:17.490784+00:00",
+  "end_time_utc": "2026-11-20T19:34:27.546611+00:00",
+  "writes_succeeded": 60,
+  "writes_failed": 0,
+  "failure_details": [],
+  "duration_seconds": 130.056,
+  "pacing_seconds": 1,
+  "capacity_units_from_put_item_responses": {
+    "table": 60.0,
+    "global_secondary_indexes": 60.0
+  },
+  "interpretation": "Symbolic low-rate activity simulation; it is not an AWS service-limit test.",
+  "responsible": "Gabriel da Silva",
+  "profile": "shifu-lab",
+  "region": "us-east-2",
+  "collected_at_utc": "2026-11-20T19:34:27.546643+00:00",
+  "status": "completed"
+}
