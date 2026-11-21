@@ -12,6 +12,7 @@
 @htmlCssJsQuestionKey = replace-with-html-css-js-question-key
 @reactFastifyQuestionKey = replace-with-integrated-question-key
 @fillBlanksQuestionKey = fill-1
+@pairQuestionKey = replace-with-pair-matching-question-key
 
 ### GET Activity — choice or mixed question sequence
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}
@@ -78,6 +79,16 @@ Content-Type: application/json
 # predefined `explanation`, and never the accepted words. A complete but wrong fill is
 # valid; an incomplete or repeated one is 400. The kind is not accepted in a diagnostic.
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/questions/{{fillBlanksQuestionKey}}/preliminary-evaluations
+# A `pair_matching` question in the GET response lists `words` and
+# `translations` in display order. It never carries the answer key, and its item
+# keys are opaque: copy them from the GET response.
+
+### POST preliminary feedback — pair matching question, no attempt
+# Every word and every translation appears exactly once. The response returns the
+# submitted pairs, `correct_pair_count`, `total_pair_count`, `score`, `outcome`
+# (`full`, `partial` or `incorrect`) and the predefined explanation. It never
+# marks individual pairs and never reveals expected pairs.
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/questions/{{pairQuestionKey}}/preliminary-evaluations
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -90,9 +101,39 @@ Content-Type: application/json
       { "blank_key": "b1", "word_key": "w1" },
       { "blank_key": "b2", "word_key": "w3" },
       { "blank_key": "b3", "word_key": "w4" }
+    "kind": "pair_matching",
+    "question_key": "{{pairQuestionKey}}",
+    "pairs": [
+      { "word_key": "w-3f9a21c4", "translation_key": "t-e2480b6d" },
+      { "word_key": "w-b07d5e18", "translation_key": "t-91c7d3fa" },
+      { "word_key": "w-5c1e9a73", "translation_key": "t-0a6b4e25" }
     ]
   }
 }
+
+### POST mixed Activity attempt — pair matching answer (final submit)
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{submissionKey}}",
+  "activity_revision": "{{activityRevision}}",
+  "answers": [
+    { "kind": "single_choice", "question_key": "question-one", "selected_option_keys": ["a"] },
+    { "kind": "single_choice", "question_key": "question-two", "selected_option_keys": ["a"] },
+    { "kind": "pair_matching", "question_key": "{{pairQuestionKey}}", "pairs": [
+      { "word_key": "w-3f9a21c4", "translation_key": "t-91c7d3fa" },
+      { "word_key": "w-b07d5e18", "translation_key": "t-e2480b6d" },
+      { "word_key": "w-5c1e9a73", "translation_key": "t-0a6b4e25" }
+    ] }
+  ]
+}
+
+# The attempt result lists a `pair_matching` question with `submitted_pairs`,
+# `correct_pair_count`, `total_pair_count`, `score`, `outcome` and `explanation`.
+# `disclosed_correct_pairs` appears only after a later fully correct attempt or
+# Competency mastery.
 
 ### POST mixed Activity attempt — use all ordered answers and the GET revision
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts

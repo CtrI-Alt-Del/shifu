@@ -23,6 +23,9 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
+    PairMatchingItem,
+    PairMatchingPair,
+    PairMatchingQuestion,
     TranslationInconclusiveComment,
     TranslationQuestion,
     TranslationRubricComment,
@@ -52,6 +55,8 @@ from shifu.learning.core.domain.structures import (
     CodeAnswer,
     CodeSubmittedFile,
     SingleChoiceAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
@@ -281,9 +286,38 @@ class SeededTranslationActivity:
         return evaluation
 
 
+def _pair_matching_question(key: str) -> PairMatchingQuestion:
+    return PairMatchingQuestion(
+        key=key,
+        prompt='Associe cada palavra a sua traducao',
+        source_language='en',
+        target_language='pt-BR',
+        words=(
+            PairMatchingItem(key='word-0', text='dog'),
+            PairMatchingItem(key='word-1', text='house'),
+        ),
+        translations=(
+            PairMatchingItem(key='translation-1', text='casa'),
+            PairMatchingItem(key='translation-0', text='cachorro'),
+        ),
+        correct_pairs=(
+            PairMatchingPair(word_key='word-0', translation_key='translation-0'),
+            PairMatchingPair(word_key='word-1', translation_key='translation-1'),
+        ),
+        full_explanation='Todos os pares estao corretos.',
+        partial_explanation='Alguns pares estao corretos.',
+        incorrect_explanation='Nenhum par esta correto.',
+    )
+
+
 def seed_translation_activity_attempt(
-    engine: Engine, *, submitted_text: str = 'Good morning'
+    engine: Engine,
+    *,
+    submitted_text: str = 'Good morning',
+    pair_matching: bool = False,
 ) -> SeededTranslationActivity:
+    """Seed the mixed activity; with ``pair_matching`` its second question is a
+    deterministic pair question with a fully correct saved answer."""
     ids = SystemIdentifierProvider()
     now = SystemClockProvider().now()
     account = AccountFaker.fake(created_at=now)
@@ -303,6 +337,8 @@ def seed_translation_activity_attempt(
         )
         for number in (1, 2)
     )
+    if pair_matching:
+        choice_questions = (choice_questions[0],)
     translation_question = TranslationQuestion(
         key=TRANSLATION_QUESTION_KEY,
         prompt='Traduza o texto a seguir.',
@@ -338,7 +374,11 @@ def seed_translation_activity_attempt(
         difficulty=ActivityDifficulty.EASY,
         title='Atividade mista do workflow de tradução',
         objective='Avaliar escolha e tradução.',
-        questions=(*choice_questions, translation_question),
+        questions=(
+            *choice_questions,
+            *((_pair_matching_question('q2'),) if pair_matching else ()),
+            translation_question,
+        ),
         evaluation_rule=EvaluationRule(
             parts=(
                 CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
@@ -406,7 +446,19 @@ def seed_translation_activity_attempt(
         kind=ActivityAttemptKind.LEARNING,
         answers=(
             SingleChoiceAnswer(question_key='q1', selected_option_key='correct'),
-            SingleChoiceAnswer(question_key='q2', selected_option_key='correct'),
+            PairMatchingAnswer(
+                question_key='q2',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                ),
+            )
+            if pair_matching
+            else SingleChoiceAnswer(question_key='q2', selected_option_key='correct'),
             TranslationAnswer(
                 question_key=TRANSLATION_QUESTION_KEY, text=submitted_text
             ),

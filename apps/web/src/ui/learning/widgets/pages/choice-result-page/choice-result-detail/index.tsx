@@ -5,8 +5,14 @@ import type {
   ActivityResultQuestion,
   CodeResultQuestion,
   FillBlanksResultQuestion,
+  PairMatchingPair,
+  PairMatchingResultQuestion,
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
+import {
+  PAIR_MATCHING_OUTCOME_ICONS,
+  PAIR_MATCHING_OUTCOME_LABELS,
+} from '@/core/learning/pair-matching-outcome'
 import { ENTRANCE_ROW } from '@/constants/motion-variants'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
@@ -174,6 +180,108 @@ export const ChoiceResultDetail = ({
     )
   }
 
+  if (isPairMatchingResultQuestion(result)) {
+    const pairQuestion = question?.kind === 'pair_matching' ? question : undefined
+    const wordText = (key: string) =>
+      pairQuestion?.words.find((word) => word.key === key)?.text ?? key
+    const translationText = (key: string) =>
+      pairQuestion?.translations.find((translation) => translation.key === key)?.text ??
+      key
+    const renderPairs = (pairs: readonly PairMatchingPair[], label: string) => (
+      <ul aria-label={label} className='space-y-1 text-sm'>
+        {pairs.map((pair) => (
+          <li key={pair.wordKey}>
+            {wordText(pair.wordKey)} — {translationText(pair.translationKey)}
+          </li>
+        ))}
+      </ul>
+    )
+    const labelClassName = result.outcome === 'full' ? 'text-success' : 'text-selo-text'
+    return (
+      <details
+        aria-labelledby={`choice-result-question-${questionNumber}`}
+        className='choice-result-card group rounded-md border border-border bg-muted'
+      >
+        <summary
+          className='flex min-h-11 cursor-pointer list-none flex-col items-stretch gap-1 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 [&::-webkit-details-marker]:hidden'
+          id={`choice-result-question-${questionNumber}`}
+        >
+          <span className='flex min-w-0 flex-wrap items-center gap-x-2'>
+            <span className={`text-sm font-semibold ${labelClassName}`}>
+              Questão {questionNumber} · Associação ·{' '}
+              {PAIR_MATCHING_OUTCOME_LABELS[result.outcome]}
+            </span>
+            <span aria-hidden='true' className='text-muted-foreground'>
+              ·
+            </span>
+            <span className='min-w-0 truncate text-sm text-muted-foreground'>
+              {result.prompt}
+            </span>
+          </span>
+          <span className='flex shrink-0 items-center justify-end gap-3'>
+            <output
+              aria-label={`Nota ${formatNullableScore(result.score)} de 100`}
+              className={`font-mono text-xs font-semibold ${labelClassName}`}
+            >
+              {formatNullableScore(result.score)}
+              <span className='ml-1 text-xs font-normal text-muted-foreground'>
+                / 100
+              </span>
+            </output>
+            <Icon
+              className='shrink-0 text-muted-foreground transition-transform duration-300 ease-out group-open:rotate-90'
+              name='chevron-right'
+              size={16}
+            />
+          </span>
+        </summary>
+        <div className='space-y-4 border-t border-border p-3 sm:p-4'>
+          <QuestionPrompt
+            id={`choice-result-question-${questionNumber}-prompt`}
+            prompt={result.prompt}
+            size='result'
+          />
+          <p
+            className={`flex flex-wrap items-center gap-2 text-sm font-medium ${labelClassName}`}
+          >
+            <Icon className='size-5' name={PAIR_MATCHING_OUTCOME_ICONS[result.outcome]} />
+            <span>{PAIR_MATCHING_OUTCOME_LABELS[result.outcome]}</span>
+            <span className='font-normal text-muted-foreground'>
+              {result.correctPairCount} de {result.totalPairCount} pares corretos.
+            </span>
+          </p>
+          <p className='text-sm text-foreground'>{result.explanation}</p>
+          <section
+            aria-labelledby={`pair-result-submitted-${questionNumber}`}
+            className='space-y-2'
+          >
+            <h3
+              className='text-sm font-semibold'
+              id={`pair-result-submitted-${questionNumber}`}
+            >
+              Pares enviados
+            </h3>
+            {renderPairs(result.submittedPairs, 'Pares enviados')}
+          </section>
+          {result.disclosedCorrectPairs && result.disclosedCorrectPairs.length > 0 ? (
+            <section
+              aria-labelledby={`pair-result-expected-${questionNumber}`}
+              className='space-y-2'
+            >
+              <h3
+                className='text-sm font-semibold'
+                id={`pair-result-expected-${questionNumber}`}
+              >
+                Pares esperados
+              </h3>
+              {renderPairs(result.disclosedCorrectPairs, 'Pares esperados')}
+            </section>
+          ) : null}
+        </div>
+      </details>
+    )
+  }
+
   if (isTranslationResultQuestion(result)) {
     const translationQuestion = question?.kind === 'translation' ? question : undefined
     const label = translationResultLabel(result.score)
@@ -299,7 +407,8 @@ export const ChoiceResultDetail = ({
     question.kind !== 'html_css_js' &&
     question.kind !== 'react_fastify' &&
     question.kind !== 'fill_blanks' &&
-    question.kind !== 'translation'
+    question.kind !== 'translation' &&
+    question.kind !== 'pair_matching'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -446,4 +555,10 @@ function isTranslationResultQuestion(
   result: ActivityResultQuestion,
 ): result is TranslationResultQuestion {
   return 'kind' in result && result.kind === 'translation'
+}
+
+function isPairMatchingResultQuestion(
+  result: ActivityResultQuestion,
+): result is PairMatchingResultQuestion {
+  return 'kind' in result && result.kind === 'pair_matching'
 }

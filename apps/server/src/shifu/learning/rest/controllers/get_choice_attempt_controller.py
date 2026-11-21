@@ -108,6 +108,24 @@ class TranslationQuestionResultResponse(BaseModel):
     concept_observations: tuple[ConceptObservationResponse, ...]
 
 
+class PairResultResponse(BaseModel):
+    word_key: str
+    translation_key: str
+
+
+class PairMatchingQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['pair_matching']
+    prompt: str
+    submitted_pairs: tuple[PairResultResponse, ...]
+    score: Decimal
+    correct_pair_count: int
+    total_pair_count: int
+    outcome: Literal['full', 'partial', 'incorrect']
+    explanation: str
+    disclosed_correct_pairs: tuple[PairResultResponse, ...] = ()
+
+
 class Response(BaseModel):
     attempt_id: str
     activity_id: str
@@ -125,7 +143,8 @@ class Response(BaseModel):
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
         | FillBlanksQuestionResultResponse
-        | TranslationQuestionResultResponse,
+        | TranslationQuestionResultResponse
+        | PairMatchingQuestionResultResponse,
         ...,
     ] = ()
 

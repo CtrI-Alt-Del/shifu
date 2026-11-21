@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 from unittest.mock import Mock, call, create_autospec, patch
 
 import pytest
@@ -43,6 +44,9 @@ from shifu.learning.core.domain.structures import (
     FillBlanksEvaluationResult,
     FillBlanksPlacement,
     MultipleSelectionAnswer,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
+    PairMatchingSelection,
     SingleChoiceAnswer,
     TranslationAnswer,
     TranslationQuestionAssessmentDecisions,
@@ -78,6 +82,7 @@ from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
 )
+from tests.fixtures.pair_matching_fixture import pair_matching_question
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
     code_answer_at_size,
@@ -2086,3 +2091,376 @@ class TestEvaluateChoiceActivityUseCase:
 
         self.repositories.activity_evaluations.update.assert_not_called()
         self.repositories.events.add.assert_not_called()
+
+    def _pair_answer(self, *translation_indexes: int) -> PairMatchingAnswer:
+        return PairMatchingAnswer(
+            question_key='q3',
+            pairs=tuple(
+                PairMatchingSelection(
+                    word_key=f'word-{word_index}',
+                    translation_key=f'translation-{translation_index}',
+                )
+                for word_index, translation_index in enumerate(translation_indexes)
+            ),
+        )
+
+    def _use_pair_attempt(
+        self,
+        answer: PairMatchingAnswer,
+        *,
+        concept_ids: tuple[str, ...] = (),
+        full_score: int | None = 100,
+        partial_score: int | None = 60,
+        incorrect_score: int | None = 0,
+        third_question: object | None = None,
+        third_part: object | None = None,
+        third_answer: object | None = None,
+        kind: ActivityAttemptKind = ActivityAttemptKind.LEARNING,
+    ) -> None:
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                third_question
+                or pair_matching_question(
+                    'q3',
+                    concept_ids=concept_ids,
+                    full_score=full_score,
+                    partial_score=partial_score,
+                    incorrect_score=incorrect_score,
+                ),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                third_part
+                or CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='mixed-pair-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=kind,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                third_answer or answer,  # type: ignore[arg-type]
+            ),
+            submitted_at=NOW,
+            submission_key='mixed-pair-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+
+    @pytest.mark.parametrize(
+        ('order', 'correct', 'outcome'),
+        (
+            ((0, 1, 2), 3, 'full'),
+            ((0, 2, 1), 1, 'partial'),
+            ((1, 2, 0), 0, 'incorrect'),
+        ),
+    )
+    def test_should_grade_a_pair_question_deterministically_with_choice_questions(
+        self, order: tuple[int, ...], correct: int, outcome: str
+    ) -> None:
+        self._use_pair_attempt(self._pair_answer(*order))
+
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
+
+        pair_result = self.evaluation.parts[2]
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.correct_pair_count == correct
+        assert pair_result.total_pair_count == 3
+        assert pair_result.outcome == outcome
+        assert pair_result.score == Decimal(100) * correct / Decimal(3)
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        expected = Decimal(60) + Decimal(40) * pair_result.score / Decimal(100)
+        assert self.evaluation.score is not None
+        assert abs(self.evaluation.score - expected) < Decimal('1e-20')
+        self.repositories.events.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        ('order', 'expected'),
+        (
+            ((0, 1, 2), Decimal(100)),
+            ((0, 2, 1), Decimal(60)),
+            ((1, 2, 0), Decimal(0)),
+        ),
+    )
+    def test_should_record_pair_concept_evidence_from_the_outcome_score(
+        self, order: tuple[int, ...], expected: Decimal
+    ) -> None:
+        self._use_pair_attempt(self._pair_answer(*order), concept_ids=('concept-1',))
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        concept_scores = {
+            item.concept_id: item.question_scores for item in observations
+        }
+        assert concept_scores == {'concept-1': (expected,)}
+        # The Concept evidence is independent of the question grade.
+        pair_result = self.evaluation.parts[2]
+        assert pair_result.score != expected or expected in {Decimal(0), Decimal(100)}
+
+    @pytest.mark.parametrize(
+        ('order', 'missing'),
+        (
+            ((0, 1, 2), 'full_score'),
+            ((0, 2, 1), 'partial_score'),
+            ((1, 2, 0), 'incorrect_score'),
+        ),
+    )
+    def test_should_leave_pair_evidence_inconclusive_when_the_outcome_score_is_absent(
+        self, order: tuple[int, ...], missing: str
+    ) -> None:
+        scores: dict[str, Any] = {missing: None}
+        self._use_pair_attempt(
+            self._pair_answer(*order), concept_ids=('concept-1',), **scores
+        )
+
+        self.subject.execute(self.attempt.id, 'run-1')
+
+        observations = self.repositories.concept_observations.add_many.call_args.args[2]
+        assert [item.question_scores for item in observations] == [(None,)]
+        assert [item.value for item in observations] == [None]
+
+    def test_should_not_call_an_assessor_for_a_pair_question_mixed_with_translation(
+        self,
+    ) -> None:
+        criteria = tuple(
+            CurriculumTranslationRubricCriterionSnapshot(
+                key=key,
+                name=key,
+                description=key,
+                weight_percentage=weight,
+                required=True,
+                fixed_comments=tuple(
+                    CurriculumTranslationRubricCommentSnapshot(
+                        id=f'{key}-{level}', level=level, text=f'Feedback {level}'
+                    )
+                    for level in (0, 25, 50, 75, 100)
+                ),
+                inconclusive_comment=CurriculumTranslationInconclusiveCommentSnapshot(
+                    id=f'{key}-unknown', text='Inconclusive'
+                ),
+            )
+            for key, weight in (
+                ('semantic_preservation', 70),
+                ('grammatical_adequacy', 30),
+            )
+        )
+        translation = CurriculumTranslationQuestionSnapshot(
+            key='q2',
+            prompt='Translate',
+            source_language='pt-BR',
+            target_language='en-US',
+            source_text='Bom dia',
+            reference_translations=('Good morning',),
+            concept_criteria=(),
+        )
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                translation,
+                pair_matching_question('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                CurriculumTranslationRubricPartSnapshot(
+                    question_key='q2',
+                    weight_percentage=Decimal(30),
+                    criteria=criteria,
+                ),
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='pair-translation-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                TranslationAnswer(question_key='q2', text='Good morning'),
+                self._pair_answer(0, 2, 1),
+            ),
+            submitted_at=NOW,
+            submission_key='pair-translation-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+
+        self.subject.execute(
+            self.attempt.id,
+            'run-1',
+            translation_decisions=(
+                TranslationQuestionAssessmentDecisions(
+                    question_key='q2',
+                    decisions=CodeRubricDecisions(
+                        criterion_levels=(
+                            CodeCriterionDecision(
+                                key='semantic_preservation', level=100
+                            ),
+                            CodeCriterionDecision(
+                                key='grammatical_adequacy', level=100
+                            ),
+                        ),
+                        concept_levels=(),
+                    ),
+                ),
+            ),
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.parts[1].score == Decimal(100)
+        pair_result = self.evaluation.parts[2]
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.outcome == 'partial'
+
+    def test_should_reject_a_pair_attempt_whose_saved_answer_does_not_fit_the_snapshot(
+        self,
+    ) -> None:
+        self._use_pair_attempt(
+            self._pair_answer(0, 1, 2),
+            third_answer=PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                ),
+            ),
+        )
+
+        with pytest.raises(InvalidAttemptError):
+            self.subject.execute(self.attempt.id, 'run-1')
+
+        assert self.evaluation.status is ActivityEvaluationStatus.PENDING
+
+    def test_should_apply_the_pair_evaluation_once_when_the_same_run_repeats(
+        self,
+    ) -> None:
+        self._use_pair_attempt(self._pair_answer(0, 1, 2))
+
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
+        assert self.subject.execute(self.attempt.id, 'run-1') is False
+
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_store_a_pair_review_result_without_changing_progress_or_evidence(
+        self,
+    ) -> None:
+        self.experience.status = SkillExperienceStatus.COMPLETED
+        self._use_pair_attempt(
+            self._pair_answer(0, 2, 1),
+            concept_ids=('concept-1',),
+            kind=ActivityAttemptKind.REVIEW,
+        )
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = self.evaluation
+
+        assert self.subject.execute(self.attempt.id, 'run-1') is True
+
+        pair_result = self.evaluation.parts[2]
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.outcome == 'partial'
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        assert self.evaluation.effect_applied_at == NOW
+        # A review attempt stays in history and never moves the official result.
+        self.repositories.competency_progresses.update.assert_not_called()
+        self.repositories.concept_observations.add_many.assert_not_called()
+        assert self.progress.current_progress == Decimal(0)
+
+    def test_should_score_a_pair_question_mixed_with_a_code_question(self) -> None:
+        base = mixed_snapshot()
+        snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                pair_matching_question('q2'),
+                base.questions[2],
+            ),
+            parts=(
+                base.parts[0],
+                CurriculumChoicePartSnapshot(
+                    question_key='q2', weight_percentage=Decimal(30)
+                ),
+                base.parts[2],
+            ),
+        )
+        self.attempt = ActivityAttempt.create(
+            id='pair-code-attempt',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                PairMatchingAnswer(
+                    question_key='q2',
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=f'word-{index}',
+                            translation_key=f'translation-{index}',
+                        )
+                        for index in range(3)
+                    ),
+                ),
+                CodeAnswer(
+                    question_key='q3',
+                    files=(CodeSubmittedFile(path='src/main.js', content='submitted'),),
+                ),
+            ),
+            submitted_at=NOW,
+            submission_key='pair-code-submission',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = self.attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            self.evaluation
+        )
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            self.attempt
+        ]
+        decisions = CodeRubricDecisions(
+            criterion_levels=(CodeCriterionDecision(key='correctness', level=75),),
+            concept_levels=(),
+        )
+
+        self.subject.execute(
+            self.attempt.id,
+            'run-1',
+            code_decisions=(
+                CodeQuestionAssessmentDecisions(question_key='q3', decisions=decisions),
+            ),
+        )
+
+        assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
+        pair_result = self.evaluation.parts[1]
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.outcome == 'full'
+        # 30% choice + 30% pairs + 40% of the code rubric's 75.
+        assert self.evaluation.score == Decimal(90)

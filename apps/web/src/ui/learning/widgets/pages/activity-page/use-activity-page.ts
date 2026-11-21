@@ -22,6 +22,9 @@ import type {
   ChoiceQuestion,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  PairMatchingAnswer,
+  PairMatchingPair,
+  PairMatchingQuestion,
   TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
@@ -750,6 +753,8 @@ export function useActivityPage(props: ActivityPageProps) {
       : []
   const translationAnswerText =
     currentAnswer && 'text' in currentAnswer ? currentAnswer.text : ''
+  const pairMatchingPairs: readonly PairMatchingPair[] =
+    currentAnswer && 'pairs' in currentAnswer ? currentAnswer.pairs : []
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
@@ -780,6 +785,11 @@ export function useActivityPage(props: ActivityPageProps) {
       'text' in currentAnswer &&
       currentAnswer.text.trim().length > 0,
   )
+  const hasValidPairs = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'pair_matching' &&
+      isCompletePairing(currentQuestion, pairMatchingPairs),
+  )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
       ('files' in currentAnswer
@@ -788,7 +798,9 @@ export function useActivityPage(props: ActivityPageProps) {
           ? currentAnswer.placements.length > 0
           : 'text' in currentAnswer
             ? currentAnswer.text.trim().length > 0
-            : currentAnswer.selectedOptionKeys.length > 0),
+            : 'pairs' in currentAnswer
+              ? currentAnswer.pairs.length > 0
+              : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -947,6 +959,30 @@ export function useActivityPage(props: ActivityPageProps) {
     setHasFeedbackError(false)
   }
 
+  function handlePairMatchingAnswerChange(pairs: readonly PairMatchingPair[]) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'pair_matching' ||
+      isSubmitting ||
+      isSubmissionLocked ||
+      isAssessing ||
+      feedback ||
+      frozenAnswer
+    )
+      return
+    const answer: PairMatchingAnswer = {
+      kind: 'pair_matching',
+      questionKey: currentQuestion.key,
+      pairs: pairs.map((pair) => ({ ...pair })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setHasFeedbackError(false)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -991,7 +1027,9 @@ export function useActivityPage(props: ActivityPageProps) {
             }
           : 'text' in answer
             ? { ...answer }
-            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+            : 'pairs' in answer
+              ? { ...answer, pairs: answer.pairs.map((pair) => ({ ...pair })) }
+              : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
@@ -1212,6 +1250,7 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
         currentQuestion.kind !== 'translation' &&
+        currentQuestion.kind !== 'pair_matching' &&
         hasValidSelection
       ) {
         void assess({
@@ -1221,6 +1260,8 @@ export function useActivityPage(props: ActivityPageProps) {
         })
       } else if (currentQuestion.kind === 'translation' && hasValidTranslationText) {
         void assess(currentAnswer as TranslationAnswer)
+      } else if (currentQuestion.kind === 'pair_matching' && hasValidPairs) {
+        void assess(currentAnswer as PairMatchingAnswer)
       }
       return
     }
@@ -1278,7 +1319,8 @@ export function useActivityPage(props: ActivityPageProps) {
             frozenAnswer !== null ||
             hasValidSelection ||
             hasCompleteFillBlanks ||
-            hasValidTranslationText),
+            hasValidTranslationText ||
+            hasValidPairs),
     feedback,
     frozenAnswer,
     isAssessing,
@@ -1289,6 +1331,8 @@ export function useActivityPage(props: ActivityPageProps) {
     fillBlanksPlacements,
     isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
     handleTranslationAnswerChange,
+    handlePairMatchingAnswerChange,
+    pairMatchingPairs,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
@@ -1418,6 +1462,24 @@ function isSubmissionInput(value: Record<string, unknown>): value is Record<
   )
 }
 
+function isCompletePairing(
+  question: PairMatchingQuestion,
+  pairs: readonly PairMatchingPair[],
+): boolean {
+  const wordKeys = new Set(question.words.map((word) => word.key))
+  const translationKeys = new Set(
+    question.translations.map((translation) => translation.key),
+  )
+  return (
+    pairs.length === question.words.length &&
+    new Set(pairs.map((pair) => pair.wordKey)).size === pairs.length &&
+    new Set(pairs.map((pair) => pair.translationKey)).size === pairs.length &&
+    pairs.every(
+      (pair) => wordKeys.has(pair.wordKey) && translationKeys.has(pair.translationKey),
+    )
+  )
+}
+
 function isLegacyChoiceAnswer(
   value: unknown,
   questionKey: string,
@@ -1461,6 +1523,18 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
   }
   if (value.kind === 'translation') {
     return typeof value.text === 'string' && value.text.trim().length > 0
+  }
+  if (value.kind === 'pair_matching') {
+    return (
+      Array.isArray(value.pairs) &&
+      value.pairs.length > 0 &&
+      value.pairs.every(
+        (pair: unknown) =>
+          isRecord(pair) &&
+          typeof pair.wordKey === 'string' &&
+          typeof pair.translationKey === 'string',
+      )
+    )
   }
   return (
     (value.kind === 'single_choice' || value.kind === 'multiple_selection') &&

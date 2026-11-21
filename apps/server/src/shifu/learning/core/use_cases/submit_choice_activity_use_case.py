@@ -18,6 +18,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceSubmissionOutcome,
     CodeAnswer,
     FillBlanksAnswer,
+    PairMatchingAnswer,
     TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
@@ -38,6 +39,7 @@ from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
 )
 from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -49,6 +51,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
@@ -84,7 +87,11 @@ class SubmitChoiceActivityUseCase:
         activity_id: str,
         submission_key: str,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer,
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
         activity_revision: str | None = None,
@@ -271,7 +278,11 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer,
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
     ) -> ChoiceSubmissionOutcome:
@@ -307,7 +318,11 @@ class SubmitChoiceActivityUseCase:
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
         answers: tuple[
-            ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer,
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
@@ -348,6 +363,20 @@ class SubmitChoiceActivityUseCase:
                 normalized.append(
                     TranslationAnswer(
                         question_key=answer.question_key, text=answer.text
+                    )
+                )
+                continue
+
+            if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+                if not isinstance(answer, PairMatchingAnswer):
+                    raise ValidationError
+                PairMatchingScoring.validate(question, answer)
+                normalized.append(
+                    PairMatchingAnswer(
+                        question_key=answer.question_key,
+                        pairs=tuple(
+                            sorted(answer.pairs, key=lambda pair: pair.word_key)
+                        ),
                     )
                 )
                 continue

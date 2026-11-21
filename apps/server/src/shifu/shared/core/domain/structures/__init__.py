@@ -176,3 +176,15 @@ from .curriculum_fill_blanks_segment_snapshot import (
 from .curriculum_fill_blanks_word_snapshot import (
     CurriculumFillBlanksWordSnapshot as CurriculumFillBlanksWordSnapshot,
 )
+from .curriculum_pair_matching_concept_criterion_snapshot import (
+    CurriculumPairMatchingConceptCriterionSnapshot as CurriculumPairMatchingConceptCriterionSnapshot,
+)
+from .curriculum_pair_matching_item_snapshot import (
+    CurriculumPairMatchingItemSnapshot as CurriculumPairMatchingItemSnapshot,
+)
+from .curriculum_pair_matching_pair_snapshot import (
+    CurriculumPairMatchingPairSnapshot as CurriculumPairMatchingPairSnapshot,
+)
+from .curriculum_pair_matching_question_snapshot import (
+    CurriculumPairMatchingQuestionSnapshot as CurriculumPairMatchingQuestionSnapshot,
+)

@@ -13,6 +13,7 @@ from shifu.learning.ai.agno.workflows.evaluate_translation_activity_workflow imp
     EvaluateTranslationActivityWorkflow,
 )
 from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.learning.core.domain.structures import PairMatchingEvaluationResult
 from shifu.learning.core.use_cases import (
     EvaluateChoiceActivityUseCase,
     FailCodeActivityEvaluationUseCase,
@@ -215,3 +216,32 @@ class TestEvaluateTranslationActivityWorkflow:
             harness.handoffs.take_result(reference, capability=CAPABILITY)
             == 'unavailable'
         )
+
+
+class TestEvaluateTranslationActivityWorkflowWithPairs:
+    def test_scores_the_pair_question_without_calling_the_assessor_for_it(
+        self, postgres_database: PostgresDatabase
+    ) -> None:
+        harness = Harness(
+            seed_translation_activity_attempt(
+                postgres_database.engine, pair_matching=True
+            )
+        )
+
+        assert harness.run_official() == 'completed'
+
+        evaluation = harness.seeded.current_evaluation()
+        assert evaluation.status is ActivityEvaluationStatus.COMPLETED
+        pair_result = next(
+            part for part in evaluation.parts if part.question_key == 'q2'
+        )
+        assert isinstance(pair_result, PairMatchingEvaluationResult)
+        assert pair_result.outcome == 'full'
+        assert pair_result.correct_pair_count == 2
+        # Only the translation question reached the assessor.
+        harness.assessor.assess.assert_called_once()
+        request = harness.assessor.assess.call_args.args[0]
+        assert isinstance(request, TranslationRubricAssessmentInput)
+        assert request.submitted_text == 'Good morning'
+        assert harness.run_official() == 'stale'
+        harness.assessor.assess.assert_called_once()

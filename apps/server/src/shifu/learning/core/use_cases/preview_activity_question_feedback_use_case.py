@@ -7,12 +7,15 @@ from shifu.learning.core.domain.structures import (
     CodeCriterionResult,
     CodeConceptObservationResult,
     FillBlanksAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
 )
 from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
     CodeQuestionSnapshot,
@@ -34,6 +37,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
     TranslationRubricAssessmentInput,
@@ -58,10 +62,18 @@ class PreliminaryQuestionResult:
     correct_blank_count: int | None = None
     blank_count: int | None = None
     submitted_text: str | None = None
+    submitted_pairs: tuple[PairMatchingSelection, ...] | None = None
+    correct_pair_count: int | None = None
+    total_pair_count: int | None = None
+    outcome: str | None = None
 
 
 type PreviewAnswer = (
-    ChoiceAnswerSubmission | CodeAnswer | FillBlanksAnswer | TranslationAnswer
+    ChoiceAnswerSubmission
+    | CodeAnswer
+    | FillBlanksAnswer
+    | TranslationAnswer
+    | PairMatchingAnswer
 )
 
 
@@ -109,8 +121,14 @@ class PreviewActivityQuestionFeedbackUseCase:
         if question is None or answer.question_key != question_key:
             raise ValidationError
 
-        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
-            return self.fill_blanks_result(question, answer)
+        if isinstance(
+            question,
+            (
+                CurriculumFillBlanksQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+            ),
+        ):
+            return self._execute_deterministic(question, answer)
 
         if isinstance(
             question,
@@ -149,6 +167,21 @@ class PreviewActivityQuestionFeedbackUseCase:
             explanation=question.correct_explanation
             if correct
             else question.incorrect_explanation,
+        )
+
+    @staticmethod
+    def _execute_deterministic(
+        question: CurriculumFillBlanksQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
+        answer: PreviewAnswer,
+    ) -> PreliminaryQuestionResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return PreviewActivityQuestionFeedbackUseCase.fill_blanks_result(
+                question, answer
+            )
+
+        return PreviewActivityQuestionFeedbackUseCase.pair_matching_result(
+            question, answer
         )
 
     def _execute_code(
@@ -214,6 +247,26 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
         decisions = self._translation_rubric_assessor_provider.assess(request)
         return self.translation_result(question, part, answer, decisions)
+
+    @staticmethod
+    def pair_matching_result(
+        question: CurriculumPairMatchingQuestionSnapshot,
+        answer: PreviewAnswer,
+    ) -> PreliminaryQuestionResult:
+        if not isinstance(answer, PairMatchingAnswer):
+            raise ValidationError
+
+        result = PairMatchingScoring.evaluate(question, answer)
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=result.score,
+            explanation=result.explanation,
+            is_correct=result.outcome == 'full',
+            submitted_pairs=answer.pairs,
+            correct_pair_count=result.correct_pair_count,
+            total_pair_count=result.total_pair_count,
+            outcome=result.outcome,
+        )
 
     @staticmethod
     def fill_blanks_result(

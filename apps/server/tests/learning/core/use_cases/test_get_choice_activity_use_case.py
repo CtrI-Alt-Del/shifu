@@ -5,6 +5,8 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 from unittest.mock import create_autospec
 
+from tests.fixtures.pair_matching_fixture import pair_matching_question
+
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
@@ -20,6 +22,7 @@ from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
+    PairMatchingQuestionDetail,
 )
 from shifu.learning.core.interfaces import (
     LearningDatabase,
@@ -654,3 +657,47 @@ class TestGetChoiceActivityUseCase:
 
         self.provider.get_choice_activity.assert_not_called()
         self.repositories.activity_attempts.find_many_by_skill_experience_id_and_activity_id.assert_not_called()
+
+    def test_should_project_pair_matching_items_in_display_order_without_the_key(
+        self,
+    ) -> None:
+        original = react_snapshot()
+        question = pair_matching_question('q3', concept_ids=('concept-1',))
+        mixed = replace(
+            original,
+            questions=(original.questions[0], original.questions[1], question),
+            parts=(
+                original.parts[0],
+                original.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(33)
+                ),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = mixed
+
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID
+        )
+
+        projected = detail.questions[2]
+        assert isinstance(projected, PairMatchingQuestionDetail)
+        assert projected.kind == 'pair_matching'
+        assert projected.source_language == 'en'
+        assert projected.target_language == 'pt-BR'
+        assert tuple((item.key, item.text) for item in projected.words) == tuple(
+            (item.key, item.text) for item in question.words
+        )
+        assert tuple((item.key, item.text) for item in projected.translations) == tuple(
+            (item.key, item.text) for item in question.translations
+        )
+        # The display order never mirrors the answer key by position.
+        assert tuple(item.key for item in projected.translations) != tuple(
+            f'translation-{index}' for index in range(3)
+        )
+        serialized = repr(projected)
+        assert 'Todos os pares' not in serialized
+        assert 'correct_pairs' not in serialized
+        assert 'Associa vocabulario' not in serialized
+        self.provider.get_learning_activity.assert_called_once_with(ACTIVITY_ID)
+        self.provider.get_choice_activity.assert_not_called()

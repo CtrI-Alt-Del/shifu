@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -57,6 +58,10 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptPermittedCommand,
     JavascriptStdinQuestion,
     MaterialSequenceItem,
+    PairMatchingConceptCriterion,
+    PairMatchingItem,
+    PairMatchingPair,
+    PairMatchingQuestion,
     SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
@@ -151,6 +156,7 @@ SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
 SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
 SEED_ACTIVITY_TRANSLATION_ID = '01SHF000000000000000000992'
+SEED_ACTIVITY_PAIR_MATCHING_ID = '01SHF000000000000000000993'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -387,6 +393,112 @@ def _translation_seed_activity() -> Activity:
                 CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
                 _translation_seed_part('q2'),
                 _translation_seed_part('q3'),
+            )
+        ),
+    )
+
+
+def _opaque_pair_key(question_key: str, role: str, text: str) -> str:
+    """Item keys are derived from the text, so they never reveal the pairing."""
+    digest = sha256(f'{question_key}:{role}:{text}'.encode()).hexdigest()
+    return f'{role}-{digest[:8]}'
+
+
+def _pair_matching_seed_question(
+    key: str,
+    prompt: str,
+    pairs: tuple[tuple[str, str], ...],
+    display_order: tuple[int, ...],
+    explanations: tuple[str, str, str],
+) -> PairMatchingQuestion:
+    words = tuple(
+        PairMatchingItem(key=_opaque_pair_key(key, 'w', word), text=word)
+        for word, _ in pairs
+    )
+    translations = tuple(
+        PairMatchingItem(key=_opaque_pair_key(key, 't', translation), text=translation)
+        for _, translation in pairs
+    )
+    return PairMatchingQuestion(
+        key=key,
+        prompt=prompt,
+        source_language='en-US',
+        target_language='pt-BR',
+        words=words,
+        translations=tuple(translations[index] for index in display_order),
+        correct_pairs=tuple(
+            PairMatchingPair(word_key=word.key, translation_key=translation.key)
+            for word, translation in zip(words, translations, strict=True)
+        ),
+        full_explanation=explanations[0],
+        partial_explanation=explanations[1],
+        incorrect_explanation=explanations[2],
+        concept_criteria=(
+            PairMatchingConceptCriterion(
+                concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+                criterion='Associa vocabulário básico à tradução correta.',
+                examples='dog e cachorro',
+                limits='A associação não mede produção escrita.',
+                full_score=100,
+                partial_score=50,
+                incorrect_score=0,
+            ),
+        ),
+    )
+
+
+def _pair_matching_seed_activity() -> Activity:
+    return Activity.create(
+        id=SEED_ACTIVITY_PAIR_MATCHING_ID,
+        competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Associação de palavras e traduções',
+        objective='Associar palavras em inglês às traduções em português.',
+        questions=(
+            SingleChoiceQuestion(
+                key='q1',
+                prompt='Qual é a tradução de "thank you" para o português?',
+                options=(
+                    ChoiceOption(key='a', text='Obrigado', is_correct=True),
+                    ChoiceOption(key='b', text='Por favor', is_correct=False),
+                ),
+                correct_explanation='"Thank you" é "obrigado" em português.',
+                incorrect_explanation='Pense na expressão usada para agradecer.',
+            ),
+            _pair_matching_seed_question(
+                'q2',
+                'Associe cada palavra em inglês à sua tradução.',
+                (
+                    ('dog', 'cachorro'),
+                    ('house', 'casa'),
+                    ('water', 'água'),
+                    ('book', 'livro'),
+                ),
+                (2, 0, 3, 1),
+                (
+                    'Você associou corretamente todas as palavras.',
+                    'Você associou algumas palavras corretamente. Revise o vocabulário.',
+                    'Nenhuma associação está correta. Revise o vocabulário.',
+                ),
+            ),
+            _pair_matching_seed_question(
+                'q3',
+                'Associe cada palavra em inglês à sua tradução.',
+                (('sun', 'sol'), ('moon', 'lua'), ('star', 'estrela')),
+                (1, 2, 0),
+                (
+                    'Você associou corretamente todas as palavras.',
+                    'Você associou algumas palavras corretamente. Revise o vocabulário.',
+                    'Nenhuma associação está correta. Revise o vocabulário.',
+                ),
+            ),
+        ),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=40),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=40),
             )
         ),
     )
@@ -2360,6 +2472,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             ),
         ),
         _translation_seed_activity(),
+        _pair_matching_seed_activity(),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -2432,6 +2545,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 ActivitySequenceItem(
                     position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 2,
                     activity_id=SEED_ACTIVITY_TRANSLATION_ID,
+                ),
+                ActivitySequenceItem(
+                    position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 3,
+                    activity_id=SEED_ACTIVITY_PAIR_MATCHING_ID,
                 ),
             ),
         ),

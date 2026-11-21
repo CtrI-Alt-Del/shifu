@@ -1,9 +1,13 @@
 from datetime import UTC, datetime, timedelta
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     integrated_question,
+    mixed_snapshot,
 )
+from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
+
+from tests.fixtures.pair_matching_fixture import pair_matching_question
 
 import pytest
 
@@ -36,6 +40,10 @@ from shifu.learning.core.domain.structures import (
     FillBlanksPlacement,
     FillBlanksResultDetail,
     MultipleSelectionAnswer,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
+    PairMatchingResultDetail,
+    PairMatchingSelection,
     SingleChoiceAnswer,
 )
 from shifu.learning.core.interfaces import (
@@ -754,3 +762,204 @@ class TestGetChoiceAttemptUseCase:
 
         assert detail.next_action is None
         self.provider.get_skill_content.assert_not_called()
+
+    _KEY = (
+        PairMatchingSelection(word_key='word-0', translation_key='translation-0'),
+        PairMatchingSelection(word_key='word-1', translation_key='translation-1'),
+        PairMatchingSelection(word_key='word-2', translation_key='translation-2'),
+    )
+
+    def _use_pair_attempt(
+        self,
+        order: tuple[int, ...],
+        outcome: str,
+        correct: int,
+        *,
+        attempt_id: str = 'attempt-1',
+        submitted_at: datetime | None = None,
+    ) -> tuple[ActivityAttempt, ActivityEvaluation]:
+        base = mixed_snapshot()
+        grading = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                pair_matching_question('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        attempt = ActivityAttempt.create(
+            id=attempt_id,
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+                PairMatchingAnswer(
+                    question_key='q3',
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=f'word-{word_index}',
+                            translation_key=f'translation-{translation_index}',
+                        )
+                        for word_index, translation_index in enumerate(order)
+                    ),
+                ),
+            ),
+            submitted_at=submitted_at or NOW - timedelta(minutes=10),
+            submission_key=f'submission-{attempt_id}',
+            grading_snapshot=grading,
+        )
+        evaluation = ActivityEvaluation.create(
+            id=f'evaluation-{attempt_id}',
+            attempt_id=attempt.id,
+            status=ActivityEvaluationStatus.PENDING,
+            parts=(),
+            started_at=NOW - timedelta(minutes=9),
+            run_id=f'run-{attempt_id}',
+        )
+        evaluation.parts = (
+            ChoiceEvaluationResult(
+                question_key='q1',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            ),
+            ChoiceEvaluationResult(
+                question_key='q2',
+                score=Decimal(100),
+                is_correct=True,
+                explanation='Correct',
+            ),
+            PairMatchingEvaluationResult(
+                question_key='q3',
+                score=Decimal(100) * correct / Decimal(3),
+                correct_pair_count=correct,
+                total_pair_count=3,
+                outcome=outcome,  # type: ignore[arg-type]
+                explanation={
+                    'full': 'Todos os pares estao corretos.',
+                    'partial': 'Alguns pares estao corretos.',
+                    'incorrect': 'Nenhum par esta correto.',
+                }[outcome],
+            ),
+        )
+        evaluation.status = ActivityEvaluationStatus.COMPLETED
+        evaluation.score = Decimal(80)
+        evaluation.completed_at = NOW
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation
+        ]
+        return attempt, evaluation
+
+    def _pair_detail(self, attempt: ActivityAttempt) -> PairMatchingResultDetail:
+        detail = self.subject.execute(
+            ACCOUNT_ID, GOAL_ID, SKILL_ID, COMPETENCY_ID, ACTIVITY_ID, attempt.id
+        )
+        pair_details = [
+            item
+            for item in detail.questions
+            if isinstance(item, PairMatchingResultDetail)
+        ]
+        assert len(pair_details) == 1
+        return pair_details[0]
+
+    @pytest.mark.parametrize(
+        ('order', 'outcome', 'correct'),
+        (((0, 2, 1), 'partial', 1), ((1, 2, 0), 'incorrect', 0)),
+    )
+    def test_should_hide_expected_pairs_for_partial_and_incorrect_pair_answers(
+        self, order: tuple[int, ...], outcome: str, correct: int
+    ) -> None:
+        attempt, _ = self._use_pair_attempt(order, outcome, correct)
+
+        detail = self._pair_detail(attempt)
+
+        assert detail.kind == 'pair_matching'
+        assert detail.outcome == outcome
+        assert detail.correct_pair_count == correct
+        assert detail.total_pair_count == 3
+        assert detail.score == Decimal(100) * correct / Decimal(3)
+        assert detail.submitted_pairs == attempt.answers[2].pairs  # type: ignore[union-attr]
+        assert detail.disclosed_correct_pairs == ()
+
+    def test_should_show_the_key_of_a_fully_correct_pair_answer(self) -> None:
+        attempt, _ = self._use_pair_attempt((0, 1, 2), 'full', 3)
+
+        detail = self._pair_detail(attempt)
+
+        assert detail.outcome == 'full'
+        assert detail.disclosed_correct_pairs == self._KEY
+
+    def test_should_release_the_key_after_a_later_fully_correct_attempt(self) -> None:
+        attempt, evaluation = self._use_pair_attempt((0, 2, 1), 'partial', 1)
+        later_attempt, later_evaluation = self._use_pair_attempt(
+            (0, 1, 2),
+            'full',
+            3,
+            attempt_id='attempt-2',
+            submitted_at=NOW - timedelta(minutes=5),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt,
+            later_attempt,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation,
+            later_evaluation,
+        ]
+
+        detail = self._pair_detail(attempt)
+
+        assert detail.outcome == 'partial'
+        assert detail.disclosed_correct_pairs == self._KEY
+
+    def test_should_keep_the_key_hidden_after_a_later_partial_attempt(self) -> None:
+        attempt, evaluation = self._use_pair_attempt((1, 2, 0), 'incorrect', 0)
+        later_attempt, later_evaluation = self._use_pair_attempt(
+            (0, 2, 1),
+            'partial',
+            1,
+            attempt_id='attempt-2',
+            submitted_at=NOW - timedelta(minutes=5),
+        )
+        self.repositories.activity_attempts.find_by_id.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id_for_update.return_value = evaluation
+        self.repositories.activity_attempts.find_many_by_skill_experience_id.return_value = [
+            attempt,
+            later_attempt,
+        ]
+        self.repositories.activity_evaluations.find_many_by_attempt_ids.return_value = [
+            evaluation,
+            later_evaluation,
+        ]
+
+        detail = self._pair_detail(attempt)
+
+        assert detail.disclosed_correct_pairs == ()
+
+    def test_should_release_the_key_when_the_competency_is_mastered(self) -> None:
+        attempt, _ = self._use_pair_attempt((1, 2, 0), 'incorrect', 0)
+        progress = self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value
+        assert isinstance(progress, CompetencyProgress)
+        progress.status = CompetencyProgressStatus.MASTERED
+
+        detail = self._pair_detail(attempt)
+
+        assert detail.outcome == 'incorrect'
+        assert detail.disclosed_correct_pairs == self._KEY

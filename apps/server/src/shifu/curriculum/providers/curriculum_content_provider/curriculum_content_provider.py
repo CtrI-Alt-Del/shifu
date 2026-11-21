@@ -12,6 +12,7 @@ from shifu.curriculum.core.domain.structures import (
     FillBlanksQuestion,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
+    PairMatchingQuestion,
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
@@ -62,6 +63,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumContentItem,
     CurriculumMaterialContentSnapshot,
     CurriculumMaterialSnapshot,
+    CurriculumPairMatchingConceptCriterionSnapshot,
+    CurriculumPairMatchingItemSnapshot,
+    CurriculumPairMatchingPairSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumSkillOverview,
     CurriculumSkillSnapshot,
     CurriculumTranslationInconclusiveCommentSnapshot,
@@ -237,8 +242,16 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                             else tuple(
                                 score
                                 for score in (
-                                    criterion.correct_score,
-                                    criterion.incorrect_score,
+                                    (
+                                        criterion.full_score,
+                                        criterion.partial_score,
+                                        criterion.incorrect_score,
+                                    )
+                                    if isinstance(question, PairMatchingQuestion)
+                                    else (
+                                        criterion.correct_score,
+                                        criterion.incorrect_score,
+                                    )
                                 )
                                 if score is not None
                             )
@@ -262,6 +275,15 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                 )
                                 and all(
                                     criterion.correct_score is not None
+                                    or criterion.incorrect_score is not None
+                                    for criterion in question.concept_criteria
+                                )
+                            )
+                            or (
+                                isinstance(question, PairMatchingQuestion)
+                                and all(
+                                    criterion.full_score is not None
+                                    or criterion.partial_score is not None
                                     or criterion.incorrect_score is not None
                                     for criterion in question.concept_criteria
                                 )
@@ -561,6 +583,7 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                 | CurriculumReactFastifyQuestionSnapshot
                 | CurriculumFillBlanksQuestionSnapshot
                 | CurriculumTranslationQuestionSnapshot
+                | CurriculumPairMatchingQuestionSnapshot
             ] = []
             parts: list[
                 CurriculumChoicePartSnapshot
@@ -818,6 +841,66 @@ class DatabaseCurriculumContentProvider(CurriculumContentProvider):
                                     inconclusive_observation=CurriculumCodeInconclusiveObservationSnapshot(
                                         id=criterion.inconclusive_observation.id,
                                         text=criterion.inconclusive_observation.text,
+                                    ),
+                                )
+                                for criterion in question.concept_criteria
+                            ),
+                        )
+                    )
+                elif isinstance(question, PairMatchingQuestion):
+                    if activity_type == 'diagnostic' or not {
+                        criterion.concept_id for criterion in question.concept_criteria
+                    }.issubset(concept_ids):
+                        return None
+
+                    questions.append(
+                        CurriculumPairMatchingQuestionSnapshot(
+                            key=question.key,
+                            prompt=question.prompt,
+                            source_language=question.source_language,
+                            target_language=question.target_language,
+                            words=tuple(
+                                CurriculumPairMatchingItemSnapshot(
+                                    key=item.key, text=item.text
+                                )
+                                for item in question.words
+                            ),
+                            translations=tuple(
+                                CurriculumPairMatchingItemSnapshot(
+                                    key=item.key, text=item.text
+                                )
+                                for item in question.translations
+                            ),
+                            correct_pairs=tuple(
+                                CurriculumPairMatchingPairSnapshot(
+                                    word_key=pair.word_key,
+                                    translation_key=pair.translation_key,
+                                )
+                                for pair in question.correct_pairs
+                            ),
+                            full_explanation=question.full_explanation,
+                            partial_explanation=question.partial_explanation,
+                            incorrect_explanation=question.incorrect_explanation,
+                            concept_criteria=tuple(
+                                CurriculumPairMatchingConceptCriterionSnapshot(
+                                    concept_id=criterion.concept_id,
+                                    criterion=criterion.criterion,
+                                    examples=criterion.examples,
+                                    limits=criterion.limits,
+                                    full_score=(
+                                        None
+                                        if criterion.full_score is None
+                                        else Decimal(criterion.full_score)
+                                    ),
+                                    partial_score=(
+                                        None
+                                        if criterion.partial_score is None
+                                        else Decimal(criterion.partial_score)
+                                    ),
+                                    incorrect_score=(
+                                        None
+                                        if criterion.incorrect_score is None
+                                        else Decimal(criterion.incorrect_score)
                                     ),
                                 )
                                 for criterion in question.concept_criteria

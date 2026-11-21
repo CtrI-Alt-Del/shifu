@@ -10,6 +10,8 @@ from shifu.learning.core.domain.structures import (
     FillBlanksPlacement,
     MultipleSelectionAnswer,
     SingleChoiceAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.database.sqlalchemy.models import ActivityAttemptModel
@@ -24,6 +26,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -85,6 +88,7 @@ class ActivityAttemptMapper:
                     'react_fastify',
                     'fill_blanks',
                     'translation',
+                    'pair_matching',
                 }
                 for question in questions
             ):
@@ -104,6 +108,8 @@ class ActivityAttemptMapper:
                     if question.get('kind') == 'fill_blanks'
                     else CurriculumTranslationQuestionSnapshot
                     if question.get('kind') == 'translation'
+                    else CurriculumPairMatchingQuestionSnapshot
+                    if question.get('kind') == 'pair_matching'
                     else CurriculumChoiceQuestionSnapshot
                     if question.get('kind') in {'single_choice', 'multiple_selection'}
                     else _unknown_question_kind(question.get('kind')),
@@ -132,7 +138,7 @@ class ActivityAttemptMapper:
                 difficulty=cast('str', normalized['difficulty']),
                 title=cast('str', normalized['title']),
                 questions=cast(
-                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot, ...]',
+                    'tuple[CurriculumChoiceQuestionSnapshot | CurriculumJavascriptStdinQuestionSnapshot | CurriculumReactQuestionSnapshot | CurriculumHtmlCssJsQuestionSnapshot | CurriculumReactFastifyQuestionSnapshot | CurriculumFillBlanksQuestionSnapshot | CurriculumTranslationQuestionSnapshot | CurriculumPairMatchingQuestionSnapshot, ...]',
                     mixed_questions,
                 ),
                 parts=cast(
@@ -223,6 +229,20 @@ class ActivityAttemptMapper:
                     SingleChoiceAnswer(
                         question_key=question_key,
                         selected_option_key=cast('str', item['selected_option_key']),
+                    )
+                )
+            elif 'pairs' in item:
+                serialized_pairs = cast('list[dict[str, str]]', item['pairs'])
+                answers.append(
+                    PairMatchingAnswer(
+                        question_key=question_key,
+                        pairs=tuple(
+                            PairMatchingSelection(
+                                word_key=pair['word_key'],
+                                translation_key=pair['translation_key'],
+                            )
+                            for pair in serialized_pairs
+                        ),
                     )
                 )
             elif 'text' in item:

@@ -111,6 +111,21 @@ class TranslationQuestionResponse(BaseModel):
     criteria: tuple[CriterionResponse, ...]
 
 
+class PairItemResponse(BaseModel):
+    key: str
+    text: str
+
+
+class PairMatchingQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['pair_matching']
+    prompt: str
+    source_language: str
+    target_language: str
+    words: tuple[PairItemResponse, ...]
+    translations: tuple[PairItemResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
@@ -119,7 +134,8 @@ class Response(BaseModel):
         ChoiceQuestionResponse
         | CodeQuestionResponse
         | FillBlanksQuestionResponse
-        | TranslationQuestionResponse,
+        | TranslationQuestionResponse
+        | PairMatchingQuestionResponse,
         ...,
     ]
     can_submit: bool
