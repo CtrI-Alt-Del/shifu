@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HeadContent, Scripts } from '@tanstack/react-router'
 import { useState, type PropsWithChildren } from 'react'
 
+import { Toaster } from '@/ui/shadcn/sonner'
 import { RestContextProvider } from '@/ui/shared/contexts/rest-context'
 import { AuthContextProvider } from '@/ui/shared/contexts/auth-context'
 import { AppLayout } from '@/ui/shared/widgets/layouts/app-layout'
@@ -33,6 +34,7 @@ export const RootLayout = ({ children }: RootLayoutProps) => {
             </AuthContextProvider>
           </RestContextProvider>
         </QueryClientProvider>
+        <Toaster />
         <Scripts />
       </body>
     </html>

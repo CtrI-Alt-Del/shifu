@@ -18,6 +18,8 @@ class GamificationProfileMapper:
             ),
             created_at=model.created_at,
             updated_at=model.updated_at,
+            reminder_hour=model.reminder_hour,
+            reminder_invite_answered_at=model.reminder_invite_answered_at,
         )
 
     @staticmethod
@@ -32,4 +34,6 @@ class GamificationProfileMapper:
             streak_latest_practice_date=profile.streak.latest_practice_date,
             created_at=profile.created_at,
             updated_at=profile.updated_at,
+            reminder_hour=profile.reminder_hour,
+            reminder_invite_answered_at=profile.reminder_invite_answered_at,
         )

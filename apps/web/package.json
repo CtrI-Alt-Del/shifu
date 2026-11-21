@@ -50,6 +50,7 @@
     "react-markdown": "^10.1.0",
     "rehype-prism-plus": "^2.0.2",
     "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.8",
     "srvx": "0.11.22",
     "tailwindcss": "^4.1.18",
     "zod": "^4.4.3"

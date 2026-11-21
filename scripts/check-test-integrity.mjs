@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url'
 
 // Test-integrity check: a test file is allowed only for a use case, controller,
 // job, workflow (in-process, with mocked agents), hook, widget, page, layout or
-// API handler, or an explicitly documented domain/preparation/capability/security
-// conformance boundary. Anything else is a violation.
+// API handler, or an explicitly documented domain/preparation/capability/eval
+// harness/security conformance boundary. Anything else is a violation.
 //
 //   node scripts/check-test-integrity.mjs          fail on any other test file
 //   node scripts/check-test-integrity.mjs --list   also print every allowed file
@@ -33,6 +33,7 @@ const serverRules = [
     /^tests\/intelligence\/preparation\/test_prepare_planning_indexes\.py$/,
   ],
   ['capability', /^tests\/intelligence\/capabilities\/test_planning_capabilities\.py$/],
+  ['eval harness', /^tests\/intelligence\/ai\/test_eval_case_retry\.py$/],
   ['use case', /^tests\/core\/[^/]+\/use_cases\//],
   ['api handler', /^tests\/(?:[^/]+\/)?rest\/handlers\//],
   ['controller', /^tests\/(?:[^/]+\/)?rest\//],

@@ -1,6 +1,7 @@
 from .account_time_zone_provider import (
     AccountTimeZoneProvider as AccountTimeZoneProvider,
 )
+from .active_account_provider import ActiveAccountProvider as ActiveAccountProvider
 from .authentication_provider import AuthenticationProvider as AuthenticationProvider
 from .cache_provider import CacheProvider as CacheProvider
 from .clock_provider import ClockProvider as ClockProvider

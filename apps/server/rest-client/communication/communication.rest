@@ -1,0 +1,32 @@
+@baseUrl = http://localhost:7777
+@accessToken = replace-with-local-test-token
+
+### Push public key: the VAPID key the browser needs to subscribe (503 when push is not configured)
+GET {{baseUrl}}/communication/push-subscriptions/public-key
+Authorization: Bearer {{accessToken}}
+
+### Push subscription: register this browser for the caller (204; an endpoint registered by another account moves to the caller; 422 unless the host is a trusted push service: fcm.googleapis.com, updates.push.services.mozilla.com, *.push.apple.com or *.notify.windows.com)
+PUT {{baseUrl}}/communication/push-subscriptions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/replace-with-local-endpoint",
+  "keys": {
+    "p256dh": "replace-with-local-p256dh-key",
+    "auth": "replace-with-local-auth-secret"
+  }
+}
+
+### Streak reminder preference: the account-wide switch, off by default
+GET {{baseUrl}}/communication/streak-reminder-preference
+Authorization: Bearer {{accessToken}}
+
+### Streak reminder preference: turn the reminder on for every browser
+PUT {{baseUrl}}/communication/streak-reminder-preference
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "enabled": true
+}

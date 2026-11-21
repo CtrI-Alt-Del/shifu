@@ -65,7 +65,7 @@ class TestRecognizeActivityEvaluatedUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
-        self.repositories.profiles.find_by_account_id.return_value = (
+        self.repositories.profiles.find_by_account_id_for_update.return_value = (
             GamificationProfileFaker.fake(account_id=ACCOUNT_ID)
         )
         self.repositories.activity_xp_balances.find_by_account_id_and_activity_id.return_value = None
@@ -146,6 +146,12 @@ class TestRecognizeActivityEvaluatedUseCase:
             occurred_at=NOW,
             now=NOW,
         )
+
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
 
     def test_should_grant_only_the_remainder_when_a_balance_already_exists(
         self,
@@ -268,7 +274,7 @@ class TestRecognizeActivityEvaluatedUseCase:
         )
 
     def test_should_no_op_when_profile_is_missing(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self._execute()
 
@@ -279,4 +285,4 @@ class TestRecognizeActivityEvaluatedUseCase:
         with pytest.raises(InvalidGamificationError):
             self._execute(difficulty='impossible')
 
-        self.repositories.profiles.find_by_account_id.assert_not_called()
+        self.repositories.profiles.find_by_account_id_for_update.assert_not_called()

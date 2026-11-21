@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 
+import { StreakReminderCard } from '@/ui/gamification/widgets/components/streak-reminder-card'
 import { AccountProfilePage } from '@/ui/identity/widgets/pages/account-profile-page'
 
 export const Route = createFileRoute('/account/profile/')({
@@ -8,5 +9,7 @@ export const Route = createFileRoute('/account/profile/')({
 
 function AccountProfileRoute() {
   const { email } = Route.useRouteContext()
-  return <AccountProfilePage accountEmail={email} />
+  return (
+    <AccountProfilePage accountEmail={email} remindersCard={<StreakReminderCard />} />
+  )
 }

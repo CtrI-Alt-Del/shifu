@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import type { ReactNode } from 'react'
 import { ENTRANCE_SECTION } from '@/constants/motion-variants'
 import { Button } from '@/ui/shadcn/button'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
@@ -6,9 +7,15 @@ import { PrivacyCard } from './privacy-card'
 import { ProfileForm } from './profile-form'
 import { useAccountProfilePage } from './use-account-profile-page'
 
-export type AccountProfilePageProps = { accountEmail: string }
+export type AccountProfilePageProps = {
+  accountEmail: string
+  remindersCard?: ReactNode
+}
 
-export const AccountProfilePage = (props: AccountProfilePageProps) => {
+export const AccountProfilePage = ({
+  remindersCard,
+  ...props
+}: AccountProfilePageProps) => {
   const {
     accountProfile,
     isLoadingAccountProfile,
@@ -53,6 +60,7 @@ export const AccountProfilePage = (props: AccountProfilePageProps) => {
           </div>
         )}
         <ProfileForm profile={accountProfile} />
+        {remindersCard}
         <PrivacyCard />
       </motion.div>
     </MotionEntrance>
