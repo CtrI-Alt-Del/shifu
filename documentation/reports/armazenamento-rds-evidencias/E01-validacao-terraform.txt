@@ -1,0 +1,29 @@
+SHIFU-127 — Validação local da raiz Terraform RDS
+Data: 2026-11-18 (America/Sao_Paulo)
+Responsável informado: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Terraform: 1.16.4 (windows_amd64)
+Providers resolvidos pelo lockfile próprio:
+- hashicorp/aws 6.73.0
+- hashicorp/random 3.9.1
+
+Comandos e resultados finais:
+- `terraform -chdir=packages/iac/rds fmt -check -recursive -no-color` — código 0; sem diferenças.
+- `terraform -chdir=packages/iac/rds validate -no-color` — código 0; configuração válida; nenhuma advertência.
+- `terraform -chdir=packages/iac/rds test -no-color` — código 0; 2 aprovados, 0 falhas.
+
+Os testes usaram providers simulados. Não chamaram nem criaram recursos AWS.
+Nenhum plano ou arquivo de estado versionado foi criado. O estado da aplicação
+descrito nesta evidência é o corte da validação inicial.
+
+Revalidação final após a alteração para `password_wo_version=5`:
+- Data: 19/11/2026, 02:57 UTC (18/11/2026, 23:57 em America/Sao_Paulo).
+- `terraform fmt -check -recursive -no-color` — código 0; sem diferenças.
+- `terraform validate -no-color` — código 0; configuração válida; sem avisos.
+- `terraform test -no-color` — código 0; `staging_mirror_and_safe_teardown` e
+  `reject_unrestricted_ingress` aprovados; 2 aprovados, 0 falhas.
+- A primeira repetição isolada de `validate` não conseguiu iniciar os plugins
+  no sandbox. A repetição aprovada fora do bloqueio validou os dois providers.
+- Os testes finais usaram providers simulados; não chamaram nem criaram recursos
+  AWS.

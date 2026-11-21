@@ -1,0 +1,71 @@
+SHIFU-127 — Segunda aplicação e limpeza do laboratório RDS
+Data: 19/11/2026 UTC (18/11/2026 America/Sao_Paulo)
+Verificação final: 01:05 UTC (22:05 America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+
+Preflight e plano:
+- Conta STS 565725315792, perfil shifu-lab, região us-east-2.
+- O dry-run de ec2:CreateSecurityGroup retornou DryRunOperation, sinal de que
+  a operação teria sido permitida. O dry-run não criou o security group.
+- IPv4 público verificado: 201.75.169.251/32.
+- Antes do apply, somente shifu-staging existia e estava available.
+- terraform fmt -check -recursive -no-color passou.
+- terraform validate -no-color passou sem avisos.
+- terraform test -no-color passou: 2 testes, 0 falhas.
+- Plano salvo e revisado: 5 to add, 0 to change, 0 to destroy. Recursos:
+  aws_db_instance.rds_lab, aws_db_subnet_group.rds_lab,
+  aws_security_group.rds_lab,
+  aws_vpc_security_group_ingress_rule.postgres_from_group_ip e
+  random_id.execution.
+- Configuração prevista: PostgreSQL 17, db.t4g.micro, Single-AZ, 20 GB gp3
+  criptografados, database shifu, porta 5432 para 201.75.169.251/32. A senha
+  mestre foi gerada em memória; o plano exibiu o atributo como write-only.
+- Identificador planejado: shifu-rds-lab-58e91f4459.
+
+Apply parcial e motivo:
+- Terraform criou random_id.execution e o grupo de sub-redes
+  shifu-rds-lab-subnets.
+- O security group sg-01a103d17e645a94f foi criado com as tags do laboratório.
+  O provider tentou revogar a regra de saída padrão e a AWS negou
+  ec2:RevokeSecurityGroupEgress. A regra de entrada não chegou a ser criada.
+- O apply parou antes de criar a instância RDS. Não houve endpoint, migração,
+  dado fictício, conexão ou snapshot.
+
+Limpeza:
+- A primeira execução de terraform destroy concluiu a remoção do identificador
+  aleatório e do subnet group.
+- A exclusão do SG via Terraform foi negada porque o provider precisava chamar
+  ec2:DescribeNetworkInterfaces, ação não concedida ao perfil.
+- A chamada AWS direta DeleteSecurityGroup no grupo
+  sg-01a103d17e645a94f retornou sucesso. O SG não tinha regra de entrada e não
+  estava associado a uma instância RDS.
+- Uma segunda execução de terraform destroy atualizou o state após encontrar o
+  grupo já ausente e terminou com Resources: 0 destroyed.
+- Verificação final: terraform state list vazio; filtro AWS não encontrou SG
+  shifu-rds-lab-postgres; a lista de instâncias RDS retornou somente
+  shifu-staging; filtros AWS não encontraram subnet groups nem snapshots com o
+  prefixo shifu-rds-lab-. Staging permaneceu available.
+
+Custos depois da limpeza:
+- Fonte: AWS Cost Explorer, serviço Amazon Relational Database Service,
+  métrica UnblendedCost, USD, granularidade diária, período de 2026-11-10 a
+  2026-11-19 (limite final exclusivo), agrupado por USAGE_TYPE.
+- A consulta de 19/11 às 01:05 UTC retornou para 18–19/11:
+  USE2-InstanceUsage:db.t4g.micro = US$ 0;
+  USE2-RDS:GP3-Storage = US$ -0.0000000039;
+  USE2-USE1-AWS-In-Bytes = US$ 0;
+  USE2-USE1-AWS-Out-Bytes = US$ 0.0000000329. Soma por uso: US$ 0.0000000290.
+- A linha estava marcada Estimated=true. O filtro cobre o serviço RDS da conta,
+  inclusive staging; não permite atribuir valor ao laboratório. O Cost Explorer
+  pode levar 24 horas ou mais para refletir o uso recente. Não se declara custo
+  zero para a tentativa.
+
+Permissões necessárias antes de uma nova aplicação:
+- ec2:RevokeSecurityGroupEgress no ARN do SG do laboratório, condicionado à
+  região e às tags do recurso; necessário para remover a regra egress padrão.
+- ec2:DescribeNetworkInterfaces com Resource "*" e escopo da região;
+  necessário ao provider para conferir interfaces antes de excluir o SG.
+
+Evidência textual sanitizada. Não inclui senha, conteúdo de state, plano ou
+mensagem de autorização codificada.

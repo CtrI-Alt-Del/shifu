@@ -1,0 +1,20 @@
+SHIFU-127 — Snapshot manual do laboratório RDS
+Data da coleta: 19/11/2026, 02:49 UTC (18/11/2026, 23:49 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Fonte: AWS CLI (Amazon RDS)
+
+Snapshot manual criado depois das migrações, carga fictícia e consultas SQL.
+
+- Instância de origem: shifu-rds-lab-31b997a3f6
+- Identificador: shifu-rds-lab-31b997a3f6-manual
+- Status observado: available
+- Horário de criação retornado pela AWS: 2026-11-19T02:49:36.600000+00:00
+- Horário correspondente em America/Sao_Paulo: 18/11/2026 23:49:36.600
+- Tamanho alocado: 20 GB
+- Região: us-east-2
+
+O snapshot está ativo temporariamente para permitir a coleta de evidências de
+conexão. Ele será removido antes do `terraform destroy`, conforme o escopo.
+
+Evidência textual sanitizada. Não inclui credenciais, senha, state ou plano.
