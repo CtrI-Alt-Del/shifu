@@ -13,9 +13,6 @@ from shifu.communication.core.interfaces import PushNotificationProvider
 from shifu.communication.database.sqlalchemy import SqlalchemyCommunicationDatabase
 from shifu.communication.messaging.inngest import CommunicationInngestMessaging
 from shifu.communication.providers.push import PywebpushPushNotificationProvider
-from shifu.communication.rest.communication_error_handler import (
-    CommunicationErrorHandler,
-)
 from shifu.communication.rest.router import CommunicationRouter
 from shifu.composition import (
     MentorContextWithGamificationProvider,
@@ -562,7 +559,6 @@ class FastAPIApp:
         MentorAttachmentErrorHandler.register(app)
         IntelligenceErrorHandler.register(app)
         LearningErrorHandler.register(app)
-        CommunicationErrorHandler.register(app)
         app.state.identity_database = identity_database
         app.state.communication_database = communication_database
         app.state.confirmation_delivery_gateway = confirmation_workflow
