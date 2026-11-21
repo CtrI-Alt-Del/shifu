@@ -16,7 +16,7 @@ last_updated_at: 2026-11-20
 | Visual checks | 0/2. Blocked: the Penpot boards do not exist and the Penpot MCP was not connected (Q1 = B) |
 | Independent review | Current. One Implementation Reviewer pass found 1 blocking, 4 medium and 4 low findings (ACH-07 to ACH-15); all but ACH-13 were corrected and rechecked. The independent Spec review was waived by the user's order to implement |
 | Blockers | VM-01: no authenticated identity for an isolated database. VM-02, VM-03: Penpot boards missing |
-| Candidate | Branch `feat/shifu-124` from `def50ee1`; three commits plus the review corrections, merged with `origin/main` before the PR |
+| Candidate | Branch `feat/shifu-124`, merge commit `fdb0cba0` (merged with `origin/main` at `fbc7cd30`, which carries SHIFU-122 and SHIFU-123); everything committed |
 
 # Progress
 
@@ -58,6 +58,7 @@ Candidate for all rows: `feat/shifu-124` working tree, 2026-11-19. Server comman
 | EV-11 | CI-10 / Web types and lint | Passed | Working tree | `pnpm check:types`; `pnpm exec biome check src/core/learning src/rest/services src/ui/learning` | 0 type errors; Biome clean on the feature paths. The repository-wide `pnpm check:lint` reports 11 existing warnings only in Intelligence files that this change does not touch |
 | EV-12 | CI-10 / Complexity metrics | Blocked | n/a | n/a | No quantitative complexity tool is configured. Configured complexity lint passed (EV-10, EV-11) and does not replace it |
 | EV-13 | CI-10 / Web architecture | Passed | Node 24.20.0 | `PATH=~/.nvm/versions/node/v24.20.0/bin:$PATH pnpm check:architecture` from `apps/web` | No dependency violations (725 modules, 2878 dependencies). Node 25.2.1 is rejected by `depcruise`, so the default Node cannot run this gate |
+| EV-17 | CI-01 to CI-10 / Merged candidate | Passed | `fdb0cba0`, 2026-11-20, same environment as above | `uv run pytest tests/curriculum tests/learning tests/shared`; the real-Inngest job file; `uv run poe check:types`; `uv run ruff check --no-fix src tests`; `uv run ruff format --check src tests`; `uv run poe check:architecture`; from `apps/web`: `pnpm exec vitest run src/ui/learning src/core/learning src/rest`, `pnpm check:types`, `pnpm exec biome check`, and `pnpm check:architecture` on Node 24 | After merging the SHIFU-123 fill-in-the-blank work: server regression 1045 passed and 5 failed in a field-set assertion that I corrected (117 passed in that file afterwards); real-Inngest job file 6 passed; types 0 errors; Ruff, format and tach clean; web 618 passed in 63 files, types and Biome clean, `depcruise` no violations (769 modules). Merge conflicts were resolved by keeping both formats and reapplying the pair changes on the refactored use cases |
 | EV-14 | VM-01 / Manual / CA-03 to CA-07, CA-15 | Blocked | n/a | n/a | Not run. See Current State. The same behaviors are proven at the real-app, real-PostgreSQL and jsdom boundaries by EV-02, EV-03, EV-05, EV-08 and EV-09, which do not replace the required real-browser journey |
 | EV-15 | VM-02 / Visual / CA-03, CA-04, CA-06, CA-15, CA-16 | Blocked | n/a | n/a | The Penpot boards do not exist and the MCP was not connected |
 | EV-16 | VM-03 / Visual / CA-13, CA-16 | Blocked | n/a | n/a | Same as EV-15 |
