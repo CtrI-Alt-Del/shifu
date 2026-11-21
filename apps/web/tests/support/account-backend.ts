@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test'
 
+import type { AccountAppearance } from '../../src/core/identity/account-appearance'
+
 import { expect } from '../playwright'
 
 /**
@@ -12,12 +14,14 @@ export const INITIAL_PROFILE = {
   displayName: 'Playwright Learner',
   email: 'playwright@shifu.local',
   timeZone: 'UTC' as string | null,
+  appearance: 'dark' as AccountAppearance,
 }
 
 export async function installAccountBackend(
   page: Page,
   options: {
     timeZone?: string | null
+    appearance?: AccountAppearance
     profileFailure?: number
     passwordFailure?: number
     passwordLost?: boolean
@@ -27,6 +31,7 @@ export async function installAccountBackend(
   let profile = {
     ...INITIAL_PROFILE,
     timeZone: options.timeZone === undefined ? 'UTC' : options.timeZone,
+    appearance: options.appearance ?? INITIAL_PROFILE.appearance,
   }
   const profileRequests: unknown[] = []
   const passwordRequests: unknown[] = []
@@ -43,7 +48,11 @@ export async function installAccountBackend(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        result: { displayName: profile.displayName, email: profile.email },
+        result: {
+          displayName: profile.displayName,
+          email: profile.email,
+          appearance: profile.appearance,
+        },
       }),
     })
   })

@@ -121,7 +121,7 @@ export const MentorChatHeader = ({
               Renomear
             </Button>
             <Anchor
-              className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-transparent px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground'
+              className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-transparent px-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground'
               route='intelligenceMemories'
             >
               <Icon name='brain' className='size-4 shrink-0' />

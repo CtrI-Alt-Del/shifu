@@ -23,5 +23,6 @@ export const requireAuthMiddleware = createServerFn({ method: 'GET' })
     return {
       displayName: access.displayName,
       email: access.email,
+      appearance: access.appearance,
     } satisfies LayoutAccount
   })

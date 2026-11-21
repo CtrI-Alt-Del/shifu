@@ -14,7 +14,7 @@ export const MemoryRemovedNotice = () => (
       Uma nova informação que você compartilhar pode gerar uma nova memória.
     </p>
     <Anchor
-      className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 text-sm font-semibold text-foreground hover:bg-white/5'
+      className='inline-flex min-h-11 items-center rounded-md border border-control-border px-4 text-sm font-semibold text-foreground hover:bg-muted'
       route='intelligence'
     >
       Voltar ao Mentor

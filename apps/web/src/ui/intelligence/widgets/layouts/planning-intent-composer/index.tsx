@@ -101,7 +101,7 @@ export const PlanningIntentComposer = () => {
 
         <div className='mt-3 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between'>
           <Anchor
-            className='inline-flex min-h-11 items-center justify-center rounded-md px-3 font-medium text-foreground/80 transition-colors hover:bg-white/5 hover:text-foreground'
+            className='inline-flex min-h-11 items-center justify-center rounded-md px-3 font-medium text-foreground/80 transition-colors hover:bg-muted hover:text-foreground'
             route='learningGoalsNew'
           >
             Criar manualmente

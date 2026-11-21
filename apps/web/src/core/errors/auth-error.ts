@@ -9,7 +9,7 @@ export type AuthErrorKind =
   | 'result-uncertain'
 
 export type AuthErrorOptions = {
-  field?: 'displayName' | 'timeZone' | 'newPassword'
+  field?: 'displayName' | 'timeZone' | 'appearance' | 'newPassword'
   retryAfterSeconds?: number
   statusCode?: number
   cause?: unknown

@@ -10,6 +10,9 @@ export type ProfileFormProps = { profile: AccountProfile }
 export const ProfileForm = (props: ProfileFormProps) => {
   const {
     alertRef,
+    appearance,
+    appearanceHelp,
+    appearanceOptions,
     displayName,
     email,
     errors,
@@ -20,6 +23,7 @@ export const ProfileForm = (props: ProfileFormProps) => {
     refreshWarning,
     timeZone,
     timeZoneOptions,
+    handleAppearanceChange,
     handleDisplayNameChange,
     handleTimeZoneChange,
     handleSubmit,
@@ -83,6 +87,26 @@ export const ProfileForm = (props: ProfileFormProps) => {
             (isSuggestedTimeZone
               ? 'Sugestão do navegador. Este fuso ainda não foi salvo.'
               : 'O fuso organiza as próximas datas da sua conta.')}
+        </p>
+      </div>
+      <div className='space-y-2'>
+        <Label htmlFor='account-appearance'>Aparência</Label>
+        <Select
+          id='account-appearance'
+          value={appearance}
+          options={appearanceOptions}
+          onValueChange={handleAppearanceChange}
+          disabled={isPending}
+          required
+          aria-invalid={Boolean(errors.appearance)}
+          aria-describedby='account-appearance-help'
+          className='min-h-[52px]'
+        />
+        <p
+          id='account-appearance-help'
+          className={`text-xs leading-5 ${errors.appearance ? 'text-selo-text' : 'text-muted-foreground'}`}
+        >
+          {errors.appearance ?? appearanceHelp}
         </p>
       </div>
       {message && (

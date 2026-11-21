@@ -68,3 +68,43 @@ it('captures only recognized Learning identifiers and ignores run and foreign ro
   rerender()
   expect(result.current.isPublic).toBe(true)
 })
+
+describe('useRootLayout theme', () => {
+  const account = { displayName: 'Ana', email: 'ana@example.com' }
+
+  it.each(['dark', 'light', 'system'] as const)(
+    'uses the account %s appearance on protected routes',
+    (appearance) => {
+      routing.pathname = '/account/profile'
+      routing.matches = [{ context: null }, { context: { ...account, appearance } }]
+      const { result } = renderHook(useRootLayout)
+      expect(result.current.theme).toBe(appearance)
+    },
+  )
+
+  it.each([
+    ['no account context', [{ context: null }]],
+    ['an account without appearance', [{ context: account }]],
+    ['an unknown appearance', [{ context: { ...account, appearance: 'sepia' } }]],
+  ])('falls back to system on protected routes with %s', (_case, matches) => {
+    routing.pathname = '/'
+    routing.matches = matches
+    const { result } = renderHook(useRootLayout)
+    expect(result.current.theme).toBe('system')
+  })
+
+  it.each([
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/pending-confirmation',
+    '/confirm-email',
+    '/privacy',
+  ])('keeps %s dark whatever the account appearance', (pathname) => {
+    routing.pathname = pathname
+    routing.matches = [{ context: { ...account, appearance: 'light' } }]
+    const { result } = renderHook(useRootLayout)
+    expect(result.current.theme).toBe('dark')
+  })
+})

@@ -1,5 +1,9 @@
 import { HTTP_STATUS_CODE } from '@/constants/http-status-code'
 import { AuthError } from '@/core/errors/auth-error'
+import {
+  ACCOUNT_APPEARANCES,
+  type AccountAppearance,
+} from '@/core/identity/account-appearance'
 
 import { ROUTES, type RouteName } from '@/constants/routes'
 
@@ -8,8 +12,13 @@ export type AccountProfile = {
   displayName: string
   email: string
   timeZone: string | null
+  appearance: AccountAppearance
 }
-export type UpdateAccountProfileInput = { displayName: string; timeZone: string }
+export type UpdateAccountProfileInput = {
+  displayName: string
+  timeZone: string
+  appearance: AccountAppearance
+}
 export type ChangeAccountPasswordInput = { currentPassword: string; newPassword: string }
 
 export type SignInInput = {
@@ -400,6 +409,7 @@ async function requestAccount(
     const fields = {
       invalid_display_name: 'displayName',
       invalid_time_zone: 'timeZone',
+      invalid_appearance: 'appearance',
       invalid_new_password: 'newPassword',
     } as const
     if (
@@ -435,13 +445,15 @@ async function requestAccount(
     typeof body.displayName === 'string' &&
     typeof body.email === 'string' &&
     (body.timeZone === null || typeof body.timeZone === 'string') &&
-    Object.keys(body).length === 4
+    ACCOUNT_APPEARANCES.some((appearance) => appearance === body.appearance) &&
+    Object.keys(body).length === 5
   ) {
     return {
       accountId: body.accountId,
       displayName: body.displayName,
       email: body.email,
       timeZone: body.timeZone,
+      appearance: body.appearance as AccountAppearance,
     }
   }
   throw accountTransportError(passwordChange, response.status)

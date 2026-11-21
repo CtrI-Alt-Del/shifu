@@ -23,7 +23,7 @@ export const MemoryChangeMarker = ({ item }: MemoryChangeMarkerProps) => {
         <span className='text-secondary-foreground'>{title}</span>
         {isRemoved ? null : (
           <Anchor
-            className='inline-flex min-h-11 items-center rounded-md px-2 font-medium text-foreground hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text'
+            className='inline-flex min-h-11 items-center rounded-md px-2 font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-selo-text'
             route='intelligenceMemories'
             search={{ memory: item.memoryId ?? undefined }}
           >

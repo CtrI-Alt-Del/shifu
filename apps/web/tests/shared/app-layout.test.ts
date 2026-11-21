@@ -171,6 +171,7 @@ test.describe('AppLayout', () => {
           displayName: 'Playwright Learner',
           email: 'playwright@shifu.local',
           timeZone: 'UTC',
+          appearance: 'dark',
         }),
       }),
     )
@@ -312,6 +313,7 @@ test.describe('AppLayout', () => {
           displayName: 'Playwright Learner',
           email: 'playwright@shifu.local',
           timeZone: 'UTC',
+          appearance: 'dark',
         }),
       }),
     )

@@ -9,12 +9,20 @@ const PROFILE = {
   displayName: 'Maria',
   email: 'm@example.com',
   timeZone: 'UTC',
+  appearance: 'dark' as const,
 }
 function createResult(
   overrides: Partial<ReturnType<typeof useProfileForm>> = {},
 ): ReturnType<typeof useProfileForm> {
   return {
     alertRef: { current: null },
+    appearance: 'dark',
+    appearanceHelp: 'O Shifu usa o tema escuro em todos os seus dispositivos.',
+    appearanceOptions: [
+      { value: 'dark', label: 'Escuro' },
+      { value: 'light', label: 'Claro' },
+      { value: 'system', label: 'Sistema' },
+    ],
     displayName: 'Maria',
     email: PROFILE.email,
     errors: {},
@@ -25,6 +33,7 @@ function createResult(
     refreshWarning: null,
     timeZone: 'UTC',
     timeZoneOptions: [{ value: 'UTC', label: 'Tempo universal coordenado · UTC' }],
+    handleAppearanceChange: vi.fn(),
     handleDisplayNameChange: vi.fn(),
     handleTimeZoneChange: vi.fn(),
     handleSubmit: vi.fn((event) => event.preventDefault()),
@@ -42,9 +51,35 @@ describe('ProfileForm', () => {
     )
     expect(screen.getByLabelText('Nome de exibição')).toHaveValue('Maria')
     expect(screen.getByLabelText('E-mail · não editável')).toHaveAttribute('readonly')
-    expect(screen.getByRole('combobox')).toHaveTextContent(
+    expect(screen.getByLabelText('Fuso horário')).toHaveTextContent(
       'Tempo universal coordenado · UTC',
     )
+  })
+  it('renders the appearance field after the timezone with its localized value and help', () => {
+    render(<ProfileForm profile={PROFILE} />)
+    const comboboxes = screen.getAllByRole('combobox')
+    expect(comboboxes).toHaveLength(2)
+    expect(comboboxes[0]).toBe(screen.getByLabelText('Fuso horário'))
+    expect(comboboxes[1]).toBe(screen.getByLabelText('Aparência'))
+    expect(comboboxes[1]).toHaveTextContent('Escuro')
+    expect(comboboxes[1]).toHaveAccessibleDescription(
+      'O Shifu usa o tema escuro em todos os seus dispositivos.',
+    )
+  })
+  it('shows the appearance field error and disables the field while saving', () => {
+    useProfileFormMock.mockReturnValue(
+      createResult({
+        isPending: true,
+        appearance: 'light',
+        errors: { appearance: 'Confira o campo informado.' },
+      }),
+    )
+    render(<ProfileForm profile={PROFILE} />)
+    const field = screen.getByLabelText('Aparência')
+    expect(field).toHaveTextContent('Claro')
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('Confira o campo informado.')
+    expect(field).toBeDisabled()
   })
   it('wires edits and submission through the owning hook', () => {
     const result = createResult()

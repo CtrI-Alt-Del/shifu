@@ -13,7 +13,6 @@ export const Toaster = (props: ToasterProps) => (
   <SonnerToaster
     position='top-center'
     style={THEME_VARIABLES}
-    theme='dark'
     visibleToasts={3}
     {...props}
   />

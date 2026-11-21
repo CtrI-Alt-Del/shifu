@@ -79,6 +79,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-border: var(--border);
+  --color-glass-border: var(--glass-border);
   --color-success: var(--success);
   --color-control-border: var(--control-border);
   --color-selo-text: var(--selo-text);
@@ -99,36 +100,48 @@
   --shadow-brand: 0 12px 30px rgb(15 118 110 / 16%);
 }
 
+/* Each token holds its light and dark values from documentation/design.md §3.2.
+   The account appearance written to <html data-theme> selects the color scheme:
+   dark is the default, light forces the light values and system follows the
+   device's prefers-color-scheme, including changes during the session. */
 :root {
   color-scheme: dark;
-  --background: #0a0a0c;
-  --foreground: #f4f2ec;
-  --card: #161513;
-  --muted: #1e1c18;
-  --muted-foreground: #9a958d;
-  --accent: #3d1414;
+  --background: light-dark(#f4f1ea, #0a0a0c);
+  --foreground: light-dark(#1b1915, #f4f2ec);
+  --card: light-dark(#fcfbf8, #161513);
+  --muted: light-dark(#e9e5dc, #1e1c18);
+  --muted-foreground: light-dark(#6a655c, #9a958d);
+  --accent: light-dark(#fbe4e2, #3d1414);
   --primary: #dc2f2f;
   --primary-foreground: #ffffff;
-  --border: #ffffff14;
-  --control-border: #ffffff54;
-  --selo-text: #f28b8b;
+  --border: light-dark(#0000001a, #ffffff14);
+  --control-border: light-dark(#00000080, #ffffff54);
+  --glass-border: light-dark(#0000001f, #ffffff1f);
+  --selo-text: light-dark(#b4231c, #f28b8b);
   --danger: #c0392b;
-  --success: #7bc9a9;
-  --surface-alt: #1d1e22;
-  --jade-tint: #0e2e26;
+  --success: light-dark(#1c6650, #7bc9a9);
+  --surface-alt: light-dark(#efece4, #1d1e22);
+  --jade-tint: light-dark(#dcefe7, #0e2e26);
   --jade-fill: #2f8c72;
-  --jade-solid: #3fa98a;
-  --on-jade: #0f0f12;
-  --text-secondary: #c4bfb6;
-  --jade-text: #7bd3b6;
+  --jade-solid: light-dark(#247a62, #3fa98a);
+  --on-jade: light-dark(#ffffff, #0f0f12);
+  --text-secondary: light-dark(#4b4740, #c4bfb6);
+  --jade-text: light-dark(#1c6650, #7bd3b6);
   /* Latão — gamification hue, per documentation/design.md §3.2. Selo never
-     touches Gamification content (P1); these were missing and Gamification
-     widgets were falling back to Selo/primary before this. */
-  --latao-tint: #3a2c10;
+     touches Gamification content (P1). */
+  --latao-tint: light-dark(#f7ebd3, #3a2c10);
   --latao-fill: #c08a22;
-  --latao-solid: #d9a441;
-  --latao-text: #f0c36a;
-  --on-latao: #0f0f12;
+  --latao-solid: light-dark(#8a5f0e, #d9a441);
+  --latao-text: light-dark(#6e4b08, #f0c36a);
+  --on-latao: light-dark(#ffffff, #0f0f12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="system"] {
+  color-scheme: light dark;
 }
 
 * {

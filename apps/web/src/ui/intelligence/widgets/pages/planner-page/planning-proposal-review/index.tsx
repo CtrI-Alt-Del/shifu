@@ -231,7 +231,7 @@ export const PlanningProposalReview = (props: PlanningProposalReviewProps) => {
             aria-disabled={isAiQuotaBlocked || undefined}
             className={`${COMPACT_ACTION} ${
               // The board draws the paused outline button with its own border and fill.
-              isAiQuotaBlocked ? 'border-white/16! bg-[#0f0f10]!' : ''
+              isAiQuotaBlocked ? 'border-control-border! bg-background!' : ''
             }`}
             disabled={isBusy || isFrozen}
             onClick={handleOpenRestart}

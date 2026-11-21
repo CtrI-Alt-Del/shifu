@@ -3,6 +3,10 @@ import { useLocation, useMatches } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { ROUTES } from '@/constants/routes'
+import {
+  ACCOUNT_APPEARANCES,
+  type AccountAppearance,
+} from '@/core/identity/account-appearance'
 import type { LayoutAccount } from '../app-layout/account-menu'
 
 export const PUBLIC_ROUTE_PATHS = [
@@ -29,6 +33,7 @@ export function useRootLayout(): {
   isHydrated: boolean
   isPublic: boolean
   mentorContextHint: MentorContextHint | null
+  theme: AccountAppearance
 } {
   const location = useLocation()
   const matches = useMatches()
@@ -47,7 +52,14 @@ export function useRootLayout(): {
     mentorContextHint: location.pathname.startsWith('/learning/goals/')
       ? findMentorContextHint(matches)
       : null,
+    theme: isPublic ? 'dark' : resolveAccountTheme(account),
   }
+}
+
+function resolveAccountTheme(account: LayoutAccount | undefined): AccountAppearance {
+  const appearance = account?.appearance
+
+  return ACCOUNT_APPEARANCES.find((value) => value === appearance) ?? 'system'
 }
 
 function findLayoutAccount(
