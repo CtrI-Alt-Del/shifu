@@ -9,6 +9,7 @@ import type {
 
 import { QuestionFeedback } from '..'
 import { useQuestionFeedback } from '../use-question-feedback'
+import { usePairMatchingOutcome } from '@/ui/learning/hooks/use-pair-matching-outcome'
 
 vi.mock('../use-question-feedback', () => ({ useQuestionFeedback: vi.fn() }))
 
@@ -46,10 +47,15 @@ function renderFeedback(feedback: PreliminaryQuestionResult) {
 
 describe('QuestionFeedback for pair matching', () => {
   beforeEach(() => {
-    useQuestionFeedbackMock.mockReturnValue({
+    useQuestionFeedbackMock.mockImplementation(({ feedback }) => ({
       feedbackElementRef: { current: null },
       fillBlanksOutcome: null,
-    })
+      pairMatchingOutcome: usePairMatchingOutcome({
+        correctPairCount: feedback.correctPairCount,
+        outcome: feedback.outcome,
+        totalPairCount: feedback.totalPairCount,
+      }),
+    }))
   })
 
   afterEach(cleanup)
@@ -71,7 +77,7 @@ describe('QuestionFeedback for pair matching', () => {
       })
 
       expect(screen.getByText(label)).toBeVisible()
-      expect(screen.getByText(/1 de 2 pares corretos\./)).toBeVisible()
+      expect(screen.getByText('1 de 2 pares corretos')).toBeVisible()
       expect(screen.getByText('Explicação predefinida.')).toBeVisible()
     },
   )

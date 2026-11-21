@@ -982,7 +982,12 @@ class TestGetChoiceAttemptController:
 
         body = self._pair_result(client, attempt_id)
 
-        question_score = Decimal(100) * correct / Decimal(3)
+        question_score = {
+            0: Decimal('0.00'),
+            1: Decimal('33.33'),
+            2: Decimal('66.67'),
+            3: Decimal('100.00'),
+        }[correct]
         expected_total = Decimal(60) + Decimal(40) * question_score / Decimal(100)
         assert abs(Decimal(cast('str', body['score'])) - expected_total) < Decimal(
             '0.01'

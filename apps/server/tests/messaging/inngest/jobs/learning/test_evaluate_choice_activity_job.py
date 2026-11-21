@@ -35,16 +35,13 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     MultipleSelectionQuestion,
-    PairMatchingConceptCriterion,
-    PairMatchingItem,
-    PairMatchingPair,
-    PairMatchingQuestion,
     SingleChoiceQuestion,
 )
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
 from shifu.fakers.curriculum.entities import (
     ActivityFaker,
     CompetencyFaker,
@@ -1123,43 +1120,10 @@ def _seed_pair(
         )
         for number in (1, 2)
     )
-    words = ('dog', 'house', 'water')
-    translations = ('cachorro', 'casa', 'agua')
-    pair_question = PairMatchingQuestion(
+    pair_question = PairMatchingQuestionFaker.fake(
         key='q3',
-        prompt='Associe cada palavra a sua traducao',
-        source_language='en',
-        target_language='pt-BR',
-        words=tuple(
-            PairMatchingItem(key=f'word-{index}', text=words[index])
-            for index in range(3)
-        ),
-        translations=tuple(
-            PairMatchingItem(
-                key=f'translation-{(index + 1) % 3}',
-                text=translations[(index + 1) % 3],
-            )
-            for index in range(3)
-        ),
-        correct_pairs=tuple(
-            PairMatchingPair(
-                word_key=f'word-{index}', translation_key=f'translation-{index}'
-            )
-            for index in range(3)
-        ),
-        full_explanation='Todos os pares estao corretos.',
-        partial_explanation='Alguns pares estao corretos.',
-        incorrect_explanation='Nenhum par esta correto.',
         concept_criteria=(
-            PairMatchingConceptCriterion(
-                concept_id=concept.id,
-                criterion='Associa vocabulario a traducao.',
-                examples='dog e cachorro',
-                limits='Nao avalia gramatica.',
-                full_score=100,
-                partial_score=50,
-                incorrect_score=0,
-            ),
+            PairMatchingQuestionFaker.concept_criterion(concept.id, partial_score=50),
         ),
     )
     activity = Activity.create(

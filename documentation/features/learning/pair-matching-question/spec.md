@@ -1,7 +1,7 @@
 ---
 title: Learning Activity word-translation pair matching questions
 status: ready
-revision: 3
+revision: 4
 source:
   type: issue
   ref: "https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-124"
@@ -20,7 +20,8 @@ Deliver the Learning Activity **word-translation pair matching** question
 (`pair_matching`). The learner associates each word with its translation, may
 remove or replace associations before verifying, verifies once every pair is
 formed, and receives an objective provisional return. The question grade is
-`100 × correct pairs ÷ total pairs`, with equal weight per pair. Correction,
+`100 × correct pairs ÷ total pairs`, rounded half up to two decimals, with equal
+weight per pair. Correction,
 provisional return, official evaluation and Concept evidence use no AI and no
 Mentor. The format exists only in Learning Activities (three to five questions)
 and never in diagnostic Activities.
@@ -87,12 +88,12 @@ checks are **Blocked** until the boards exist in Penpot.
 | --- | --- | --- |
 | RF-01 | Curriculum RP-03, JN-03; Learning RP-04 consumer | Curriculum defines a `PairMatchingQuestion` per question: source and target languages, a word set and a translation set of equal size from 2 to 8 items, and a one-to-one answer key. Every item has one occurrence and one correct pair. All items are used, with no distractors, reuse or alternative accepted translations. The two lists carry a display order, and content in which every translation sits at the position of its own word is rejected. Three explanations (full, partial, incorrect) and per-Concept objective criteria are required. Invalid content, content in a diagnostic Activity, or an unsupported combination makes the Activity unavailable. |
 | RF-02 | Learning RP-09, RP-25; JN-07 | The learner sees one question at a time with both sets in the curricular display order. They select a word and then its translation by click, touch or keyboard. A translation without a selected word forms no pair. They can remove a pair or replace it by choosing another translation or word. Each item belongs to at most one pair. Verify is available only when every pair is formed. A complete answer may be wrong. |
-| RF-03 | Learning RP-09, RP-18 | Verifying sends the pairs to the server for stateless evaluation. It returns the submitted pairs, the correct-pair count, the total, the grade `100 × correct ÷ total`, the outcome (full, partial or incorrect) and the predefined explanation for that outcome. No attempt, official grade, progress or reward is created. After verifying, the evaluated answer is read-only in that pass and the learner can only advance. The state is not persisted: leaving or reloading restarts that pass. |
+| RF-03 | Learning RP-09, RP-18 | Verifying sends the pairs to the server for stateless evaluation. It returns the submitted pairs, the correct-pair count, the total, the grade `100 × correct ÷ total` rounded half up to two decimals (1 of 3 is 33.33, 2 of 3 is 66.67), the outcome (full, partial or incorrect) and the predefined explanation for that outcome. No attempt, official grade, progress or reward is created. After verifying, the evaluated answer is read-only in that pass and the learner can only advance. The state is not persisted: leaving or reloading restarts that pass. |
 | RF-04 | Learning RP-09, RP-13; JN-07 | Final submission of the whole Activity creates one immutable attempt, idempotent by submission key, and starts the official evaluation automatically. Pair answers are validated on the server: all items, each used once, only keys that exist in the question. The attempt grade uses the same deterministic rule and participates in the Activity grade by curricular weight. |
 | RF-05 | Learning RP-13, RP-27; Curriculum RP-03 | Pair scoring, provisional return, official evaluation and Concept evidence use no AI and no Mentor. A pair question can share an Activity with choice, translation or code questions, and its scoring does not depend on those workflows. Concept evidence comes only from the question's objective criteria by outcome (full, partial or incorrect score, each optional) and is recorded apart from the grade. An absent score for the achieved outcome yields an inconclusive Concept observation (no value, never zero), as the choice format already does. |
 | RF-06 | Learning RP-18; JN-13 | Provisional return, official result and history show the submitted pairs, correct-pair count, grade, predefined explanation and an outcome indication by text and icon, never by color alone. Pairs are not marked individually. Expected pairs missing from the answer are never revealed until a later full-correct attempt on that question or Competency mastery. The protection holds in all three views. A full-correct answer may show its own pairs. |
 | RF-07 | Learning RP-14, RP-20; JN-08 | A Shifu failure during official evaluation keeps the saved answer and allows retry without a new attempt and without duplicating attempts, evidence or progress effects. A review attempt after Skill completion is stored in history and does not change the official Skill result. |
-| RF-08 | Learning RP-25 | The flow works on desktop and mobile and by keyboard and assistive technologies. Selection, removal, replacement, formed pairs, focus, read-only state and outcome are announced and visible beyond color. Controls and guidance are in pt-BR while items keep the curricular languages. |
+| RF-08 | Learning RP-25 | The flow works on desktop and mobile and by keyboard and assistive technologies. Selection, removal, replacement, formed pairs, focus, read-only state and outcome are announced and visible beyond color. Controls and guidance are in pt-BR, the language of each set is shown by its pt-BR name (for example, Inglês (Estados Unidos)), and the items keep the curricular languages. |
 | RF-09 | Learning RP-09 (diagnostic exclusion); Curriculum RP-03 | The pair format is unavailable in diagnostic Activities, and the existing choice, code and translation behavior is unchanged. |
 
 | ID | RF coverage | Given | When | Then | Checks |
@@ -197,7 +198,10 @@ Design decisions recorded here:
 | Modify | Web REST | `apps/web/src/rest/services/learning-service.ts` | Widen request and response typing; no endpoint. |
 | Create | Web widget | `apps/web/src/ui/learning/widgets/pages/activity-page/pair-matching-question/index.tsx`, `use-pair-matching-question.ts`, `pair-matching-question.css` and tests | Described below. |
 | Modify | Web widget | `activity-page/index.tsx`, `use-activity-page.ts`, `question-feedback/index.tsx` | Render the new branch; extend `assess()`, `canContinue`, `handleContinue`, `handleSubmit` and the server-function answer validator; render outcome and pairs in the feedback. |
-| Modify | Web widget | `choice-result-page/choice-result-detail/index.tsx` | Render `PairMatchingResultDetail`. |
+| Modify | Web widget | `choice-result-page/choice-result-detail/index.tsx` | Compose the new `pair-matching-result` widget for a `pair_matching` result. |
+| Create | Web widget | `choice-result-page/choice-result-detail/pair-matching-result/index.tsx`, `use-pair-matching-result.ts` and tests | The result card for a pair question. Its hook resolves item texts and formats the grade; it takes the outcome presentation from the shared `use-pair-matching-outcome.ts` hook that the provisional feedback also uses. |
+| Create | Web core and hooks | `core/learning/language-label.ts`, `core/learning/pair-matching-item-text.ts`, `ui/learning/hooks/use-pair-matching-outcome.ts` | Language codes become pt-BR names in the question hook (the translation question uses the same helper); item texts are looked up by key in one place; the outcome label, icon and count text exist once. |
+| Create | Fakers | `fakers/curriculum/structures/pair_matching_question_faker.py`, `fakers/shared/curriculum_pair_matching_question_snapshot_faker.py`, `core/learning/fakers/pair-matching-question-faker.ts` | Valid pair data for tests comes from fakers with overridable arguments, as the Core rules require. No test builds pair questions by hand. |
 
 Expected file tree (new `[N]` and modified `[M]` only):
 
@@ -257,8 +261,25 @@ apps/web/src/
     │           └── use-pair-matching-question.test.ts        [N]
     └── choice-result-page/choice-result-detail/
         ├── index.tsx                                         [M]
+        ├── pair-matching-result/
+        │   ├── index.tsx                                     [N]
+        │   ├── use-pair-matching-result.ts                   [N]
+        │   └── tests/
+        │       ├── pair-matching-result.test.tsx             [N]
+        │       └── use-pair-matching-result.test.ts          [N]
         └── tests/choice-result-detail.test.tsx               [M]
+apps/web/src/ui/learning/hooks/use-pair-matching-outcome.ts   [N]
+apps/web/src/core/learning/
+├── language-label.ts                                         [N]
+├── pair-matching-item-text.ts                                [N]
+└── fakers/pair-matching-question-faker.ts                    [N]
 apps/web/tests/learning/activity-page.test.ts                 [M]
+apps/server/src/shifu/fakers/
+├── curriculum/structures/pair_matching_question_faker.py     [N]
+└── shared/
+    ├── curriculum_pair_matching_question_snapshot_faker.py   [N]
+    └── pair_matching_vocabulary.py                           [N]
+apps/server/tests/learning/rest/controllers/test_retry_choice_evaluation_controller.py [M]
 ```
 
 Test paths reflect the repository today: controller tests live under
@@ -572,7 +593,7 @@ cd apps/server && uv run pytest tests/learning/server/controllers/test_get_choic
 
 **Expected result:** Preview returns submitted pairs, count, total, grade, outcome and the matching explanation for 0, some and all pairs correct; invalid answers raise a validation error; no write occurs; the response has no key and no AI field.
 
-**Setup / inputs:** Use-case level: finite combinations for sets of 2, 3 and 8 pairs covering all outcomes and the exact grade `100 × c ÷ t`; invalid classes: missing pair, repeated word, repeated translation, unknown key, wrong answer type, wrong question key, stale revision. Controller level: one full, one partial and one incorrect request against the real app, plus one invalid shape.
+**Setup / inputs:** Use-case level: finite combinations for sets of 2, 3 and 8 pairs covering all outcomes and the grade `100 × c ÷ t` rounded half up to two decimals; invalid classes: missing pair, repeated word, repeated translation, unknown key, wrong answer type, wrong question key, stale revision. Controller level: one full, one partial and one incorrect request against the real app, plus one invalid shape.
 
 **Proof:** `apps/server/tests/learning/core/use_cases/test_preview_activity_question_feedback_use_case.py` and `apps/server/tests/learning/server/controllers/test_preview_activity_question_feedback_controller.py` (new pair cases)
 
@@ -636,12 +657,13 @@ cd apps/server && uv run pytest tests/learning/core/use_cases/test_evaluate_choi
 
 **Expected result:** A pair-only mixed Activity is routed to `inngest`, runs through the registered job and completes once. A failure keeps the saved pairs and a retry completes it once, with no duplicated attempt, evidence or progress. A review attempt after completion is stored without changing the official Skill result.
 
-**Setup / inputs:** Real Inngest Testcontainers fixture; one pair Activity; one injected failure then retry; one completed Skill review.
+**Setup / inputs:** Real Inngest Testcontainers fixture for the registered job; the real app and PostgreSQL for the retry; one pair Activity; one failed evaluation then retry; one completed Skill review.
 
-**Proof:** `apps/server/tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py` (new pair cases) and `apps/server/tests/learning/messaging/test_learning_inngest_messaging.py` (destination for a pair-only snapshot)
+**Proof:** `apps/server/tests/messaging/inngest/jobs/learning/test_evaluate_choice_activity_job.py` (registered job, duplicate event, no AI request), `apps/server/tests/learning/rest/controllers/test_retry_choice_evaluation_controller.py` (failed pair evaluation, retry, one completion, saved pairs unchanged, one evaluated event), `apps/server/tests/learning/core/use_cases/test_evaluate_choice_activity_use_case.py` (review attempt) and the submit controller test (non-AI destination)
 
 ```bash
 cd apps/server && uv run poe test:jobs
+cd apps/server && uv run pytest tests/learning/rest/controllers/test_retry_choice_evaluation_controller.py
 ```
 
 **Passing condition:** The run shows the new tests executed with the real-Inngest flag set (not skipped); exactly one completion transition per scenario; the stale run id is discarded.
@@ -757,7 +779,7 @@ shows a gap. Failures are fixed and only the affected selections rerun.
 
 | Document / authority | Governs | Required update or confirmation | Disposition / dependency |
 | --- | --- | --- | --- |
-| [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB), "Shifu — PRD — Learning", content ID `83066881`, version 33, last modified 2026-11-12, retrieved 2026-11-19 | RP-09, RP-13, RP-14, RP-18, RP-20, RP-25, RP-27; JN-07, JN-08, JN-13 | Alignment confirmed; the issue cites version 29, which is superseded | No amendment; recheck the version before conclusion |
+| [Learning PRD](https://joaogoliveiragarcia.atlassian.net/wiki/x/AYDzB), "Shifu — PRD — Learning", content ID `83066881`, version 33 at authoring (2026-11-19) and version 34 on reread (2026-11-21) | RP-09, RP-13, RP-14, RP-18, RP-20, RP-25, RP-27; JN-07, JN-08, JN-13 | Alignment confirmed. Version 34 differs from 33 only by an appended addendum for SHIFU-98 (server-side deletion within 24 hours and offline drafts), which does not touch the pair-matching rules. The issue cites version 29, which is superseded | No amendment; the Spec stays valid against version 34 |
 | [Curriculum PRD](https://joaogoliveiragarcia.atlassian.net/wiki/x/AQDzB), "Shifu — PRD — Curriculum", content ID `83034113`, version 19, last modified 2026-11-02, retrieved 2026-11-19 | RP-03, RP-04; JN-03, JN-04 | Alignment confirmed; the issue cites version 16, which is superseded. The 2 to 8 pair bound narrows the non-empty floor and is an accepted assumption pending review | No amendment; confirm the bound in Spec review |
 | [SHIFU-124](https://joaogoliveiragarcia.atlassian.net/browse/SHIFU-124) | Delivery scope and traceability | Confirmed as source; its design reference names `shifu.fig` and OpenPencil, while `AGENTS.md` names Penpot | Conflict reported; resolved by Q1 = B. No Jira write |
 | Penpot Shifu file | Visual intent | Boards in the Design Contract must be created; `shifu.fig` frames are the interim assumption | Penpot MCP was not connected during authoring. VM-02 and VM-03 stay Blocked until the boards exist |
@@ -773,3 +795,4 @@ shows a gap. Failures are fixed and only the affected selections rerun.
 | 1 | 2026-11-19 | Initial contract | SHIFU-124 reconciled against Learning PRD v33 and Curriculum PRD v19. Decisions: Q1 = B accepted visual assumption with Blocked visual checks, Q2 = A browser-only verified state, Q3 = A no per-pair marks, Q4 = A three-outcome Concept criteria, Q5 = A curricular display order with identity rejection |
 | 2 | 2026-11-19 | Clarified two guarantees found while implementing: an absent Concept score gives an inconclusive observation, as the choice format does, not no observation; invalid pair content returns 400 `validation_error` and only an invalid request shape returns 422. The preview response omits the pair fields for non-pair questions | Implementation of SHIFU-124 against the existing choice-format semantics and the shared error boundary; no product behavior changed |
 | 3 | 2026-11-20 | Recorded the review-driven guarantees: opaque item keys, full snapshot validation, pairs stored sorted by word key, and the preview count as a known limitation | Independent implementation review of the SHIFU-124 candidate; no product behavior changed |
+| 4 | 2026-11-21 | Recorded the pair grade rounding (half up to two decimals, as the fill-in-the-blank format does), the pt-BR names for the item languages, the new result widget, the fakers and the retry proof for CI-07. Reconciled against Learning PRD version 34 | Review comments on PR 58; no product behavior changed |

@@ -824,7 +824,15 @@ class TestPreviewActivityQuestionFeedbackController:
 
         assert response.status_code == 200, response.json()
         body = response.json()
-        assert Decimal(body.pop('score')) == Decimal(100) * correct / Decimal(3)
+        assert (
+            Decimal(body.pop('score'))
+            == {
+                0: Decimal('0.00'),
+                1: Decimal('33.33'),
+                2: Decimal('66.67'),
+                3: Decimal('100.00'),
+            }[correct]
+        )
         assert body == {
             'status': 'conclusive',
             'explanation': explanation,

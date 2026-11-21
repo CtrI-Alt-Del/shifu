@@ -6,19 +6,14 @@ from shifu.curriculum.core.domain.structures import (
     ChoiceOption,
     CorrectnessEvaluationPart,
     EvaluationRule,
-    PairMatchingItem,
-    PairMatchingPair,
-    PairMatchingQuestion,
     SingleChoiceQuestion,
 )
+from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
 from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_GOAL_ID,
     SEED_ADAPTIVE_LAB_SKILL_ID,
 )
-
-_WORDS = ('dog', 'house', 'water')
-_TRANSLATIONS = ('cachorro', 'casa', 'agua')
 
 
 class PairMatchingControllerFixture:
@@ -50,28 +45,9 @@ class PairMatchingControllerFixture:
             )
             for index in (1, 2)
         )
-        question = PairMatchingQuestion(
+        question = PairMatchingQuestionFaker.fake(
             key='q3',
             prompt=PairMatchingControllerFixture.PROMPT,
-            source_language='en',
-            target_language='pt-BR',
-            words=tuple(
-                PairMatchingItem(key=f'word-{index}', text=_WORDS[index])
-                for index in range(3)
-            ),
-            translations=tuple(
-                PairMatchingItem(
-                    key=f'translation-{(index + 1) % 3}',
-                    text=_TRANSLATIONS[(index + 1) % 3],
-                )
-                for index in range(3)
-            ),
-            correct_pairs=tuple(
-                PairMatchingPair(
-                    word_key=f'word-{index}', translation_key=f'translation-{index}'
-                )
-                for index in range(3)
-            ),
             full_explanation=PairMatchingControllerFixture.FULL_EXPLANATION,
             partial_explanation=PairMatchingControllerFixture.PARTIAL_EXPLANATION,
             incorrect_explanation=PairMatchingControllerFixture.INCORRECT_EXPLANATION,

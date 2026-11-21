@@ -5,7 +5,9 @@ from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_c
 )
 from unittest.mock import create_autospec
 
-from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 
 import pytest
 
@@ -662,7 +664,9 @@ class TestGetChoiceActivityUseCase:
         self,
     ) -> None:
         original = react_snapshot()
-        question = pair_matching_question('q3', concept_ids=('concept-1',))
+        question = CurriculumPairMatchingQuestionSnapshotFaker.fake(
+            'q3', concept_ids=('concept-1',)
+        )
         mixed = replace(
             original,
             questions=(original.questions[0], original.questions[1], question),

@@ -23,9 +23,6 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptInitialFile,
     JavascriptStdinQuestion,
     SingleChoiceQuestion,
-    PairMatchingItem,
-    PairMatchingPair,
-    PairMatchingQuestion,
     TranslationInconclusiveComment,
     TranslationQuestion,
     TranslationRubricComment,
@@ -36,6 +33,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
+from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
 from shifu.fakers.curriculum.entities import CompetencyFaker, SkillFaker
 from shifu.fakers.identity.entities import AccountFaker
 from shifu.fakers.learning.entities import (
@@ -286,30 +284,6 @@ class SeededTranslationActivity:
         return evaluation
 
 
-def _pair_matching_question(key: str) -> PairMatchingQuestion:
-    return PairMatchingQuestion(
-        key=key,
-        prompt='Associe cada palavra a sua traducao',
-        source_language='en',
-        target_language='pt-BR',
-        words=(
-            PairMatchingItem(key='word-0', text='dog'),
-            PairMatchingItem(key='word-1', text='house'),
-        ),
-        translations=(
-            PairMatchingItem(key='translation-1', text='casa'),
-            PairMatchingItem(key='translation-0', text='cachorro'),
-        ),
-        correct_pairs=(
-            PairMatchingPair(word_key='word-0', translation_key='translation-0'),
-            PairMatchingPair(word_key='word-1', translation_key='translation-1'),
-        ),
-        full_explanation='Todos os pares estao corretos.',
-        partial_explanation='Alguns pares estao corretos.',
-        incorrect_explanation='Nenhum par esta correto.',
-    )
-
-
 def seed_translation_activity_attempt(
     engine: Engine,
     *,
@@ -376,7 +350,11 @@ def seed_translation_activity_attempt(
         objective='Avaliar escolha e tradução.',
         questions=(
             *choice_questions,
-            *((_pair_matching_question('q2'),) if pair_matching else ()),
+            *(
+                (PairMatchingQuestionFaker.fake(key='q2', size=2),)
+                if pair_matching
+                else ()
+            ),
             translation_question,
         ),
         evaluation_rule=EvaluationRule(

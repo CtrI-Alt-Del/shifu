@@ -82,7 +82,9 @@ from shifu.shared.core.interfaces import (
     ClockProvider,
     CurriculumContentProvider,
 )
-from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
     code_answer_at_size,
@@ -2124,7 +2126,7 @@ class TestEvaluateChoiceActivityUseCase:
                 base.questions[0],
                 base.questions[1],
                 third_question
-                or pair_matching_question(
+                or CurriculumPairMatchingQuestionSnapshotFaker.fake(
                     'q3',
                     concept_ids=concept_ids,
                     full_score=full_score,
@@ -2184,7 +2186,15 @@ class TestEvaluateChoiceActivityUseCase:
         assert pair_result.correct_pair_count == correct
         assert pair_result.total_pair_count == 3
         assert pair_result.outcome == outcome
-        assert pair_result.score == Decimal(100) * correct / Decimal(3)
+        assert (
+            pair_result.score
+            == {
+                0: Decimal('0.00'),
+                1: Decimal('33.33'),
+                2: Decimal('66.67'),
+                3: Decimal('100.00'),
+            }[correct]
+        )
         assert self.evaluation.status is ActivityEvaluationStatus.COMPLETED
         expected = Decimal(60) + Decimal(40) * pair_result.score / Decimal(100)
         assert self.evaluation.score is not None
@@ -2277,7 +2287,7 @@ class TestEvaluateChoiceActivityUseCase:
             questions=(
                 base.questions[0],
                 translation,
-                pair_matching_question('q3'),
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q3'),
             ),
             parts=(
                 base.parts[0],
@@ -2400,7 +2410,7 @@ class TestEvaluateChoiceActivityUseCase:
             base,
             questions=(
                 base.questions[0],
-                pair_matching_question('q2'),
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q2'),
                 base.questions[2],
             ),
             parts=(

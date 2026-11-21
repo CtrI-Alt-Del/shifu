@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
+import type { KeyboardEvent } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type {
@@ -144,5 +145,57 @@ describe('usePairMatchingQuestion', () => {
 
     expect(onChange).not.toHaveBeenCalled()
     expect(hook.result.current.selectedWordKey).toBeNull()
+  })
+
+  it('lists the formed pairs in word order and labels the languages in pt-BR', () => {
+    const { hook } = setup([
+      { wordKey: 'w2', translationKey: 't2' },
+      { wordKey: 'w0', translationKey: 't0' },
+    ])
+
+    expect(hook.result.current.orderedPairs.map((pair) => pair.wordKey)).toEqual([
+      'w0',
+      'w2',
+    ])
+    expect(hook.result.current.sourceLanguageLabel).toBe('Inglês')
+    expect(hook.result.current.targetLanguageLabel).toBe('Português (Brasil)')
+  })
+
+  it('clears a pending selection when Escape is pressed and ignores other keys', () => {
+    const { hook, act2 } = setup()
+
+    act2(() => hook.result.current.handleSelectWord('w0'))
+    act2(() => hook.result.current.handleKeyDown({ key: 'Enter' } as KeyboardEvent))
+    expect(hook.result.current.selectedWordKey).toBe('w0')
+    act2(() => hook.result.current.handleKeyDown({ key: 'Escape' } as KeyboardEvent))
+
+    expect(hook.result.current.selectedWordKey).toBeNull()
+    expect(hook.result.current.announcement).toBe('Seleção cancelada.')
+  })
+
+  it('moves keyboard focus to the word when its pair is removed', () => {
+    const { hook, act2 } = setup([{ wordKey: 'w0', translationKey: 't0' }])
+    const button = document.createElement('button')
+    document.body.append(button)
+    hook.result.current.registerWordButton('w0')(button)
+
+    act2(() => hook.result.current.handleRemovePair('w0'))
+
+    expect(button).toHaveFocus()
+    button.remove()
+  })
+
+  it('does not move focus after the word button is released', () => {
+    const { hook, act2 } = setup([{ wordKey: 'w0', translationKey: 't0' }])
+    const button = document.createElement('button')
+    document.body.append(button)
+    const register = hook.result.current.registerWordButton('w0')
+    register(button)
+    register(null)
+
+    act2(() => hook.result.current.handleRemovePair('w0'))
+
+    expect(button).not.toHaveFocus()
+    button.remove()
   })
 })

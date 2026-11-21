@@ -5,6 +5,7 @@ import pytest
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.errors import InvalidActivityError
+from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
 from shifu.curriculum.core.domain.structures import (
     CorrectnessEvaluationPart,
     EvaluationRule,
@@ -14,24 +15,11 @@ from shifu.curriculum.core.domain.structures import (
     PairMatchingQuestion,
 )
 
-_WORDS = ('dog', 'house', 'water', 'book', 'tree', 'sun', 'moon', 'star', 'sky')
-_TRANSLATIONS = (
-    'cachorro',
-    'casa',
-    'agua',
-    'livro',
-    'arvore',
-    'sol',
-    'lua',
-    'estrela',
-    'ceu',
-)
 
-
-def _items(prefix: str, texts: tuple[str, ...]) -> tuple[PairMatchingItem, ...]:
+def _items(prefix: str, count: int) -> tuple[PairMatchingItem, ...]:
     return tuple(
-        PairMatchingItem(key=f'{prefix}-{index}', text=text)
-        for index, text in enumerate(texts)
+        PairMatchingItem(key=f'{prefix}-{index}', text=f'{prefix} {index}')
+        for index in range(count)
     )
 
 
@@ -42,11 +30,8 @@ def _criterion(
     partial_score: int | None = 60,
     incorrect_score: int | None = 0,
 ) -> PairMatchingConceptCriterion:
-    return PairMatchingConceptCriterion(
-        concept_id=concept_id,
-        criterion='Associates vocabulary with its translation',
-        examples='dog is cachorro',
-        limits='Does not assess grammar',
+    return PairMatchingQuestionFaker.concept_criterion(
+        concept_id,
         full_score=full_score,
         partial_score=partial_score,
         incorrect_score=incorrect_score,
@@ -58,37 +43,15 @@ def _question(
     *,
     key: str = 'pairs-1',
     translation_order: tuple[int, ...] | None = None,
-    **overrides: object,
+    **overrides: Any,
 ) -> PairMatchingQuestion:
-    """Words keep their authored order; translations are shifted by default.
-
-    Pair ``i`` joins ``word-i`` with ``translation-i``. The default display
-    order rotates the translation list so no translation sits next to its word.
-    """
-    order = translation_order or tuple((index + 1) % size for index in range(size))
-    words = _items('word', _WORDS[:size])
-    all_translations = _items('translation', _TRANSLATIONS[:size])
-    translations = tuple(all_translations[index] for index in order)
-    values: dict[str, object] = {
-        'key': key,
-        'prompt': 'Match each word with its translation',
-        'source_language': 'en',
-        'target_language': 'pt-BR',
-        'words': words,
-        'translations': translations,
-        'correct_pairs': tuple(
-            PairMatchingPair(
-                word_key=f'word-{index}', translation_key=f'translation-{index}'
-            )
-            for index in range(size)
-        ),
-        'full_explanation': 'All pairs match.',
-        'partial_explanation': 'Some pairs match.',
-        'incorrect_explanation': 'No pair matches.',
-        'concept_criteria': (_criterion(),),
-    }
-    values.update(overrides)
-    return PairMatchingQuestion(**values)  # type: ignore[arg-type]
+    return PairMatchingQuestionFaker.fake(
+        key=key,
+        size=size,
+        translation_order=translation_order,
+        concept_criteria=overrides.pop('concept_criteria', (_criterion(),)),
+        **overrides,
+    )
 
 
 def _with(size: int, overrides: dict[str, Any]) -> PairMatchingQuestion:
@@ -132,8 +95,8 @@ def test_should_build_a_valid_pair_matching_question(size: int) -> None:
 
 @pytest.mark.parametrize('size', [1, 9])
 def test_should_reject_pair_counts_outside_two_to_eight(size: int) -> None:
-    words = _items('word', (_WORDS * 2)[:size])
-    translations = _items('translation', (_TRANSLATIONS * 2)[:size])
+    words = _items('word', size)
+    translations = _items('translation', size)
 
     with pytest.raises(InvalidActivityError):
         _question(

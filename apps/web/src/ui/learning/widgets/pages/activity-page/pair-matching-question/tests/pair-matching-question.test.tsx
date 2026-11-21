@@ -50,6 +50,11 @@ function hookValue(
       pairs.map((pair) => [pair.translationKey, pair.wordKey]),
     ),
     pairNumber: (key) => QUESTION.words.findIndex((word) => word.key === key) + 1,
+    orderedPairs: [...pairs],
+    sourceLanguageLabel: 'Inglês',
+    targetLanguageLabel: 'Português (Brasil)',
+    registerWordButton: () => vi.fn(),
+    handleKeyDown: vi.fn(),
     handleSelectWord: vi.fn(),
     handleSelectTranslation: vi.fn(),
     handleRemovePair: vi.fn(),
@@ -85,6 +90,8 @@ describe('PairMatchingQuestion', () => {
       screen.getByRole('heading', { name: 'Associe cada palavra à sua tradução.' }),
     ).toBeVisible()
     expect(screen.getByText('Idioma das palavras')).toBeVisible()
+    expect(screen.getByText('Inglês')).toBeVisible()
+    expect(screen.getByText('Português (Brasil)')).toBeVisible()
     const lists = screen.getAllByRole('list')
     expect(
       within(lists[0])
@@ -136,7 +143,7 @@ describe('PairMatchingQuestion', () => {
     expect(screen.getByText('1 de 2 pares formados.')).toBeVisible()
   })
 
-  it('removes a pair and keeps keyboard focus on its word', () => {
+  it('removes a pair through its labelled control', () => {
     const pairs = [{ wordKey: 'w0', translationKey: 't0' }]
     const hook = hookValue(pairs)
     usePairMatchingQuestionMock.mockReturnValue(hook)
@@ -145,17 +152,16 @@ describe('PairMatchingQuestion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remover par 1: dog e cachorro' }))
 
     expect(hook.handleRemovePair).toHaveBeenCalledWith('w0')
-    expect(screen.getByRole('button', { name: 'dog, par 1 com cachorro' })).toHaveFocus()
   })
 
-  it('clears a pending selection with Escape', () => {
+  it('delegates key presses to the hook', () => {
     const hook = hookValue([], { selectedWordKey: 'w0' })
     usePairMatchingQuestionMock.mockReturnValue(hook)
     renderQuestion()
 
     fireEvent.keyDown(screen.getByRole('button', { name: 'dog' }), { key: 'Escape' })
 
-    expect(hook.handleClearSelection).toHaveBeenCalledTimes(1)
+    expect(hook.handleKeyDown).toHaveBeenCalledTimes(1)
   })
 
   it('announces the current step to assistive technology', () => {

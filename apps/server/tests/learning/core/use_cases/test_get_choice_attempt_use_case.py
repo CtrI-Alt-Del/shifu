@@ -7,7 +7,9 @@ from dataclasses import replace
 from decimal import Decimal
 from unittest.mock import create_autospec
 
-from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 
 import pytest
 
@@ -784,7 +786,7 @@ class TestGetChoiceAttemptUseCase:
             questions=(
                 base.questions[0],
                 base.questions[1],
-                pair_matching_question('q3'),
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q3'),
             ),
             parts=(
                 base.parts[0],
@@ -841,7 +843,12 @@ class TestGetChoiceAttemptUseCase:
             ),
             PairMatchingEvaluationResult(
                 question_key='q3',
-                score=Decimal(100) * correct / Decimal(3),
+                score={
+                    0: Decimal('0.00'),
+                    1: Decimal('33.33'),
+                    2: Decimal('66.67'),
+                    3: Decimal('100.00'),
+                }[correct],
                 correct_pair_count=correct,
                 total_pair_count=3,
                 outcome=outcome,  # type: ignore[arg-type]
@@ -892,7 +899,15 @@ class TestGetChoiceAttemptUseCase:
         assert detail.outcome == outcome
         assert detail.correct_pair_count == correct
         assert detail.total_pair_count == 3
-        assert detail.score == Decimal(100) * correct / Decimal(3)
+        assert (
+            detail.score
+            == {
+                0: Decimal('0.00'),
+                1: Decimal('33.33'),
+                2: Decimal('66.67'),
+                3: Decimal('100.00'),
+            }[correct]
+        )
         assert detail.submitted_pairs == attempt.answers[2].pairs  # type: ignore[union-attr]
         assert detail.disclosed_correct_pairs == ()
 

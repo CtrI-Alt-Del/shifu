@@ -1,5 +1,5 @@
 from dataclasses import fields, replace
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from itertools import permutations
 from typing import Any
 from unittest.mock import create_autospec
@@ -73,7 +73,9 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
-from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 from shifu.shared.core.domain.structures import (
     CurriculumPairMatchingItemSnapshot,
     CurriculumPairMatchingPairSnapshot,
@@ -83,6 +85,13 @@ from shifu.shared.core.interfaces import (
     CurriculumContentProvider,
     TranslationRubricAssessorProvider,
 )
+
+
+def _grade(correct: int, total: int) -> Decimal:
+    """100 x correct / total, rounded half up to two decimals."""
+    return (Decimal(100) * correct / Decimal(total)).quantize(
+        Decimal('0.01'), rounding=ROUND_HALF_UP
+    )
 
 
 def mixed_snapshot(*, react: bool | str = False) -> CurriculumLearningActivitySnapshot:
@@ -1276,7 +1285,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             questions=(
                 base.questions[0],
                 base.questions[1],
-                pair_matching_question('qp', size=size),
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('qp', size=size),
             ),
             parts=(
                 base.parts[0],
@@ -1338,7 +1347,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
             result = self._execute_pair(self._pair_answer(*order))
 
             assert result.status == 'conclusive'
-            assert result.score == Decimal(100) * correct / Decimal(size)
+            assert result.score == _grade(correct, size)
             assert result.correct_pair_count == correct
             assert result.total_pair_count == size
             assert result.outcome == expected_outcome
@@ -1365,7 +1374,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
 
         assert result.correct_pair_count == correct
         assert result.total_pair_count == 8
-        assert result.score == Decimal(100) * correct / Decimal(8)
+        assert result.score == _grade(correct, 8)
 
     def test_should_not_create_attempts_or_expose_the_answer_key(self) -> None:
         self._use_pair_snapshot()
@@ -1546,7 +1555,7 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         ),
     )
     def test_should_reject_an_invalid_pair_matching_snapshot(self, case: str) -> None:
-        question = pair_matching_question('qp', size=3)
+        question = CurriculumPairMatchingQuestionSnapshotFaker.fake('qp', size=3)
         words, translations, pairs = (
             question.words,
             question.translations,

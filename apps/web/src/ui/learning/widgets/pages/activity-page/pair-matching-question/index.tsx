@@ -1,5 +1,3 @@
-import { useRef } from 'react'
-
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 import { Button } from '@/ui/shadcn/button'
 import { Icon } from '@/ui/shared/widgets/components/icon'
@@ -19,15 +17,19 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
     selectedWordKey,
     announcement,
     isComplete,
+    orderedPairs,
+    sourceLanguageLabel,
+    targetLanguageLabel,
     wordText,
     translationText,
     translationKeyByWord,
     wordKeyByTranslation,
     pairNumber,
+    registerWordButton,
     handleSelectWord,
     handleSelectTranslation,
     handleRemovePair,
-    handleClearSelection,
+    handleKeyDown,
   } = usePairMatchingQuestion(props)
   const {
     activityTitle,
@@ -39,19 +41,13 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
     questionNumber,
     totalQuestions,
   } = props
-  const wordButtonRefs = useRef(new Map<string, HTMLButtonElement>())
   const questionLabelId = `pair-matching-question-${question.key}`
-  const orderedPairs = [...pairs].sort(
-    (first, second) => pairNumber(first.wordKey) - pairNumber(second.wordKey),
-  )
 
   return (
     <section
       aria-labelledby={questionLabelId}
       className='space-y-6'
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') handleClearSelection()
-      }}
+      onKeyDown={handleKeyDown}
     >
       <ActivityQuestionHeader
         activityTitle={activityTitle}
@@ -67,11 +63,11 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
         <dl className='grid grid-cols-1 gap-3 text-sm sm:grid-cols-2'>
           <div>
             <dt className='font-medium text-muted-foreground'>Idioma das palavras</dt>
-            <dd className='text-foreground'>{question.sourceLanguage}</dd>
+            <dd className='text-foreground'>{sourceLanguageLabel}</dd>
           </div>
           <div>
             <dt className='font-medium text-muted-foreground'>Idioma das traduções</dt>
-            <dd className='text-foreground'>{question.targetLanguage}</dd>
+            <dd className='text-foreground'>{targetLanguageLabel}</dd>
           </div>
         </dl>
         <p className='text-sm text-muted-foreground'>
@@ -80,33 +76,31 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
         </p>
       </div>
 
-      <div className='pair-matching-columns grid grid-cols-1 gap-6 sm:grid-cols-2'>
+      <div className='grid grid-cols-1 gap-6 sm:grid-cols-2'>
         <div>
           <h2 className='mb-2 text-sm font-semibold text-foreground'>Palavras</h2>
-          <ul className='pair-matching-list space-y-2'>
+          <ul className='space-y-2'>
             {question.words.map((word) => {
               const translationKey = translationKeyByWord.get(word.key)
               const isSelected = selectedWordKey === word.key
               const isPaired = translationKey !== undefined
               return (
                 <li key={word.key}>
-                  <button
+                  <Button
                     aria-label={
                       isPaired
                         ? `${word.text}, par ${pairNumber(word.key)} com ${translationText(translationKey)}`
                         : word.text
                     }
                     aria-pressed={isSelected}
-                    className='pair-matching-item'
+                    className='pair-matching-item w-full justify-between gap-3 text-left'
                     data-paired={isPaired}
                     data-selected={isSelected}
                     disabled={disabled}
                     onClick={() => handleSelectWord(word.key)}
-                    ref={(element) => {
-                      if (element) wordButtonRefs.current.set(word.key, element)
-                      else wordButtonRefs.current.delete(word.key)
-                    }}
+                    ref={registerWordButton(word.key)}
                     type='button'
+                    variant='outline'
                   >
                     <span>{word.text}</span>
                     {isPaired ? (
@@ -120,7 +114,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                         Selecionada
                       </span>
                     ) : null}
-                  </button>
+                  </Button>
                 </li>
               )
             })}
@@ -128,23 +122,24 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
         </div>
         <div>
           <h2 className='mb-2 text-sm font-semibold text-foreground'>Traduções</h2>
-          <ul className='pair-matching-list space-y-2'>
+          <ul className='space-y-2'>
             {question.translations.map((translation) => {
               const wordKey = wordKeyByTranslation.get(translation.key)
               const isPaired = wordKey !== undefined
               return (
                 <li key={translation.key}>
-                  <button
+                  <Button
                     aria-label={
                       isPaired
                         ? `${translation.text}, par ${pairNumber(wordKey)} com ${wordText(wordKey)}`
                         : translation.text
                     }
-                    className='pair-matching-item'
+                    className='pair-matching-item w-full justify-between gap-3 text-left'
                     data-paired={isPaired}
                     disabled={disabled}
                     onClick={() => handleSelectTranslation(translation.key)}
                     type='button'
+                    variant='outline'
                   >
                     <span>{translation.text}</span>
                     {isPaired ? (
@@ -153,7 +148,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                         Par {pairNumber(wordKey)}
                       </span>
                     ) : null}
-                  </button>
+                  </Button>
                 </li>
               )
             })}
@@ -172,7 +167,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
           <ul aria-label='Pares formados' className='space-y-2'>
             {orderedPairs.map((pair) => (
               <li
-                className='pair-matching-formed flex items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm'
+                className='flex items-center justify-between gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm'
                 key={pair.wordKey}
               >
                 <span>
@@ -187,11 +182,7 @@ export const PairMatchingQuestion = (props: PairMatchingQuestionProps) => {
                 ) : (
                   <Button
                     aria-label={`Remover par ${pairNumber(pair.wordKey)}: ${wordText(pair.wordKey)} e ${translationText(pair.translationKey)}`}
-                    onClick={() => {
-                      handleRemovePair(pair.wordKey)
-                      // The button unmounts with its pair; keep keyboard focus nearby.
-                      wordButtonRefs.current.get(pair.wordKey)?.focus()
-                    }}
+                    onClick={() => handleRemovePair(pair.wordKey)}
                     type='button'
                     variant='ghost'
                   >

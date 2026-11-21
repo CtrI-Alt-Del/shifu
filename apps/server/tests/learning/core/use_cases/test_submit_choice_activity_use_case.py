@@ -32,7 +32,9 @@ from shifu.learning.core.domain.structures import (
     PairMatchingSelection,
     SingleChoiceAnswer,
 )
-from tests.fixtures.pair_matching_fixture import pair_matching_question
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
     code_answer_at_size,
@@ -1763,7 +1765,7 @@ class TestSubmitPairMatchingActivity:
             questions=(
                 base.questions[0],
                 base.questions[1],
-                pair_matching_question('q3'),
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q3'),
             ),
             parts=(
                 base.parts[0],

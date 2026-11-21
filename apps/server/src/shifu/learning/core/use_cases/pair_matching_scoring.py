@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from shifu.learning.core.domain.structures import (
     PairMatchingAnswer,
@@ -48,7 +48,9 @@ class PairMatchingScoring:
             explanation = question.partial_explanation
         return PairMatchingEvaluationResult(
             question_key=question.key,
-            score=Decimal(100) * correct / Decimal(total),
+            score=(Decimal(100) * correct / Decimal(total)).quantize(
+                Decimal('0.01'), rounding=ROUND_HALF_UP
+            ),
             correct_pair_count=correct,
             total_pair_count=total,
             outcome=outcome,

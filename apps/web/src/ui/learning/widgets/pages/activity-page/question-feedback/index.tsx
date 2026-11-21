@@ -6,10 +6,7 @@ import type {
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 
-import {
-  PAIR_MATCHING_OUTCOME_ICONS,
-  PAIR_MATCHING_OUTCOME_LABELS,
-} from '@/core/learning/pair-matching-outcome'
+import { pairMatchingItemText } from '@/core/learning/pair-matching-item-text'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
 import './question-feedback.css'
@@ -26,10 +23,11 @@ export const QuestionFeedback = ({
   frozenAnswer,
   question,
 }: QuestionFeedbackProps) => {
-  const { feedbackElementRef, fillBlanksOutcome } = useQuestionFeedback({
-    feedback,
-    question,
-  })
+  const { feedbackElementRef, fillBlanksOutcome, pairMatchingOutcome } =
+    useQuestionFeedback({
+      feedback,
+      question,
+    })
   const scoreClassName =
     Number(feedback.score ?? 0) >= 80 ? 'text-success' : 'text-selo-text'
 
@@ -64,14 +62,14 @@ export const QuestionFeedback = ({
           </p>
         </>
       )}
-      {question.kind === 'pair_matching' && feedback.outcome ? (
+      {pairMatchingOutcome ? (
         <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
-          <Icon className='size-5' name={PAIR_MATCHING_OUTCOME_ICONS[feedback.outcome]} />
-          <span>{PAIR_MATCHING_OUTCOME_LABELS[feedback.outcome]}</span>
-          <span className='font-normal text-muted-foreground'>
-            {feedback.correctPairCount ?? 0} de {feedback.totalPairCount ?? 0} pares
-            corretos.
+          <Icon aria-hidden='true' name={pairMatchingOutcome.iconName} size={16} />
+          <span>{pairMatchingOutcome.label}</span>
+          <span aria-hidden='true' className='text-muted-foreground'>
+            ·
           </span>
+          <span className='text-muted-foreground'>{pairMatchingOutcome.countText}</span>
         </p>
       ) : null}
       {fillBlanksOutcome ? (
@@ -156,12 +154,8 @@ export const QuestionFeedback = ({
           <ul aria-label='Pares enviados' className='mt-2 space-y-1 text-sm'>
             {(feedback.submittedPairs ?? frozenAnswer.pairs).map((pair) => (
               <li key={pair.wordKey}>
-                {question.words.find((word) => word.key === pair.wordKey)?.text ??
-                  pair.wordKey}{' '}
-                —{' '}
-                {question.translations.find(
-                  (translation) => translation.key === pair.translationKey,
-                )?.text ?? pair.translationKey}
+                {pairMatchingItemText(question.words, pair.wordKey)} —{' '}
+                {pairMatchingItemText(question.translations, pair.translationKey)}
               </li>
             ))}
           </ul>

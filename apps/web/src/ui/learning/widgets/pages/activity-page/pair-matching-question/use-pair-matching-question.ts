@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { type KeyboardEvent, useRef, useState } from 'react'
 
-import type { ActivityDifficulty } from '@/core/learning/competency-detail'
 import type {
   PairMatchingPair,
   PairMatchingQuestion,
 } from '@/core/learning/choice-activity'
+import type { ActivityDifficulty } from '@/core/learning/competency-detail'
+import { languageLabel } from '@/core/learning/language-label'
+import { pairMatchingItemText } from '@/core/learning/pair-matching-item-text'
 
 export type PairMatchingQuestionProps = {
   isDiagnostic?: boolean
@@ -26,10 +28,10 @@ export function usePairMatchingQuestion({
 }: PairMatchingQuestionProps) {
   const [selectedWordKey, setSelectedWordKey] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')
-  const wordText = (key: string) =>
-    question.words.find((word) => word.key === key)?.text ?? key
+  const wordButtons = useRef(new Map<string, HTMLButtonElement>())
+  const wordText = (key: string) => pairMatchingItemText(question.words, key)
   const translationText = (key: string) =>
-    question.translations.find((translation) => translation.key === key)?.text ?? key
+    pairMatchingItemText(question.translations, key)
   const translationKeyByWord = new Map(
     pairs.map((pair) => [pair.wordKey, pair.translationKey]),
   )
@@ -38,7 +40,19 @@ export function usePairMatchingQuestion({
   )
   const pairNumber = (wordKey: string) =>
     question.words.findIndex((word) => word.key === wordKey) + 1
+  const orderedPairs = [...pairs].sort(
+    (first, second) => pairNumber(first.wordKey) - pairNumber(second.wordKey),
+  )
   const isComplete = pairs.length === question.words.length
+  const sourceLanguageLabel = languageLabel(question.sourceLanguage)
+  const targetLanguageLabel = languageLabel(question.targetLanguage)
+
+  function registerWordButton(wordKey: string) {
+    return (element: HTMLButtonElement | null) => {
+      if (element) wordButtons.current.set(wordKey, element)
+      else wordButtons.current.delete(wordKey)
+    }
+  }
 
   function handleSelectWord(wordKey: string) {
     if (disabled) return
@@ -86,6 +100,8 @@ export function usePairMatchingQuestion({
     onChange(pairs.filter((pair) => pair.wordKey !== wordKey))
     if (selectedWordKey === wordKey) setSelectedWordKey(null)
     setAnnouncement(`Par de ${wordText(wordKey)} removido.`)
+    // The remove button unmounts with its pair, so keyboard focus moves to the word.
+    wordButtons.current.get(wordKey)?.focus()
   }
 
   function handleClearSelection() {
@@ -94,18 +110,27 @@ export function usePairMatchingQuestion({
     setAnnouncement('Seleção cancelada.')
   }
 
+  function handleKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') handleClearSelection()
+  }
+
   return {
     selectedWordKey,
     announcement,
     isComplete,
+    orderedPairs,
+    sourceLanguageLabel,
+    targetLanguageLabel,
     wordText,
     translationText,
     translationKeyByWord,
     wordKeyByTranslation,
     pairNumber,
+    registerWordButton,
     handleSelectWord,
     handleSelectTranslation,
     handleRemovePair,
     handleClearSelection,
+    handleKeyDown,
   }
 }
