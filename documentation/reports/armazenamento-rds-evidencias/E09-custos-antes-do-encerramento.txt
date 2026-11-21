@@ -1,0 +1,23 @@
+SHIFU-127 — Custos observados antes do encerramento
+Data da consulta: 19/11/2026, 02:52 UTC (18/11/2026, 23:52 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Fonte: AWS Cost Explorer via AWS CLI, perfil shifu-lab
+Métrica: UnblendedCost, USD, granularidade diária, agrupamento por serviço
+Período: 2026-11-18 até 2026-11-20 (fim exclusivo)
+
+Resposta observada:
+- 2026-11-18: Amazon Relational Database Service = 0.000000029 USD;
+  Estimated=true.
+- 2026-11-19: não houve grupo de serviço RDS; total diário retornado = 0 USD,
+  Estimated=true.
+
+O retorno de 19/11 sem grupo de RDS não é interpretado como custo zero. O
+Cost Explorer estava estimado e pode levar 24 horas ou mais para atualizar.
+O valor de 18/11 é agregado para toda a conta e inclui recursos alheios ao
+laboratório, inclusive staging. A fonte não permite atribuir esse valor ao
+identificador `shifu-rds-lab-31b997a3f6`. Uma nova consulta será feita depois da
+remoção; ela também poderá refletir dados atrasados e não representar o custo
+final faturado.
+
+Evidência textual sanitizada. Não inclui credenciais, senha, state ou plano.

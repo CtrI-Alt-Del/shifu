@@ -1,3 +1,6 @@
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from datetime import UTC
 
 from shifu.learning.core.domain.entities import (
@@ -19,6 +22,8 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
+    FillBlanksAnswer,
+    PairMatchingAnswer,
     TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
@@ -35,6 +40,8 @@ from shifu.learning.core.use_cases.choice_evidence_eligibility import (
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
 )
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -46,8 +53,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumOrderingQuestionSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
 from shifu.shared.core.interfaces import (
@@ -87,7 +96,9 @@ class SubmitChoiceActivityUseCase:
             ChoiceAnswerSubmission
             | CodeAnswer
             | OrderingAnswerSubmission
-            | TranslationAnswer,
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
         activity_revision: str | None = None,
@@ -137,20 +148,9 @@ class SubmitChoiceActivityUseCase:
                 self._curriculum_content_provider, 'get_learning_activity', None
             )
             snapshot = mixed_getter(activity_id) if mixed_getter is not None else None
-            if not isinstance(snapshot, CurriculumLearningActivitySnapshot) or not any(
-                isinstance(
-                    item,
-                    (
-                        CurriculumJavascriptStdinQuestionSnapshot,
-                        CurriculumReactQuestionSnapshot,
-                        CurriculumHtmlCssJsQuestionSnapshot,
-                        CurriculumReactFastifyQuestionSnapshot,
-                        CurriculumOrderingQuestionSnapshot,
-                        CurriculumTranslationQuestionSnapshot,
-                    ),
-                )
-                for item in snapshot.questions
-            ):
+            if not isinstance(
+                snapshot, CurriculumLearningActivitySnapshot
+            ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
                 snapshot = self._curriculum_content_provider.get_choice_activity(
                     activity_id
                 )
@@ -341,7 +341,9 @@ class SubmitChoiceActivityUseCase:
             ChoiceAnswerSubmission
             | CodeAnswer
             | OrderingAnswerSubmission
-            | TranslationAnswer,
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
     ) -> ChoiceSubmissionOutcome:
@@ -380,7 +382,9 @@ class SubmitChoiceActivityUseCase:
             ChoiceAnswerSubmission
             | CodeAnswer
             | OrderingAnswerSubmission
-            | TranslationAnswer,
+            | FillBlanksAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
             ...,
         ],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
@@ -421,12 +425,32 @@ class SubmitChoiceActivityUseCase:
                 )
                 continue
 
+            if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+                if not isinstance(answer, FillBlanksAnswer):
+                    raise ValidationError
+
+                normalized.append(FillBlanksScoring.normalize(question, answer))
+                continue
             if isinstance(question, CurriculumTranslationQuestionSnapshot):
                 if not isinstance(answer, TranslationAnswer):
                     raise ValidationError
                 normalized.append(
                     TranslationAnswer(
                         question_key=answer.question_key, text=answer.text
+                    )
+                )
+                continue
+
+            if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+                if not isinstance(answer, PairMatchingAnswer):
+                    raise ValidationError
+                PairMatchingScoring.validate(question, answer)
+                normalized.append(
+                    PairMatchingAnswer(
+                        question_key=answer.question_key,
+                        pairs=tuple(
+                            sorted(answer.pairs, key=lambda pair: pair.word_key)
+                        ),
                     )
                 )
                 continue

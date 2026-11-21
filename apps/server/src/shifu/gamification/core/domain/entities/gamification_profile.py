@@ -1,10 +1,15 @@
 from datetime import datetime
 from math import isqrt
+from typing import ClassVar
 
-from shifu.gamification.core.domain.errors import InvalidGamificationError
+from shifu.gamification.core.domain.errors import (
+    InvalidGamificationError,
+    InvalidStreakReminderHourError,
+)
 from shifu.gamification.core.domain.structures.practice_streak import PracticeStreak
 from shifu.shared.core.domain.entities import entity
 from shifu.shared.core.domain.structures import (
+    AwareTimestamp,
     BoundedInteger,
     ChronologicalPeriod,
     NonEmptyText,
@@ -13,6 +18,10 @@ from shifu.shared.core.domain.structures import (
 
 @entity
 class GamificationProfile:
+    REMINDER_HOUR_MIN: ClassVar[int] = 6
+    REMINDER_HOUR_MAX: ClassVar[int] = 22
+    DEFAULT_REMINDER_HOUR: ClassVar[int] = 18
+
     id: str
     account_id: str
     total_xp: int
@@ -20,6 +29,8 @@ class GamificationProfile:
     streak: PracticeStreak
     created_at: datetime
     updated_at: datetime
+    reminder_hour: int = DEFAULT_REMINDER_HOUR
+    reminder_invite_answered_at: datetime | None = None
 
     def __post_init__(self) -> None:
         NonEmptyText.create(self.id, error_type=InvalidGamificationError)
@@ -33,6 +44,11 @@ class GamificationProfile:
         )
         if type(self.streak) is not PracticeStreak:
             raise InvalidGamificationError
+        self._require_reminder_hour(self.reminder_hour)
+        if self.reminder_invite_answered_at is not None:
+            AwareTimestamp.create(
+                self.reminder_invite_answered_at, error_type=InvalidGamificationError
+            )
         computed_level = self.level_for_xp(self.total_xp)
         if self.level < computed_level:
             raise InvalidGamificationError
@@ -92,3 +108,30 @@ class GamificationProfile:
             raise InvalidGamificationError
         self.streak = streak
         self.updated_at = updated_at
+
+    def change_reminder_hour(self, hour: int, *, updated_at: datetime) -> None:
+        self._require_reminder_hour(hour)
+        AwareTimestamp.create(updated_at, error_type=InvalidGamificationError)
+        self.reminder_hour = hour
+        self.updated_at = max(self.updated_at, updated_at)
+
+    def answer_reminder_invite(self, *, answered_at: datetime) -> None:
+        """Record the learner's first answer to the reminder invite.
+
+        A later answer changes nothing, so a repeated call keeps the original
+        instant.
+        """
+        AwareTimestamp.create(answered_at, error_type=InvalidGamificationError)
+        if self.reminder_invite_answered_at is not None:
+            return
+        self.reminder_invite_answered_at = answered_at
+        self.updated_at = max(self.updated_at, answered_at)
+
+    @classmethod
+    def _require_reminder_hour(cls, hour: int) -> None:
+        BoundedInteger.create(
+            hour,
+            minimum=cls.REMINDER_HOUR_MIN,
+            maximum=cls.REMINDER_HOUR_MAX,
+            error_type=InvalidStreakReminderHourError,
+        )

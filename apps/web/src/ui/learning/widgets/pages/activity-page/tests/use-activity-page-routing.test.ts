@@ -401,6 +401,93 @@ describe('useActivityPage route consumers', () => {
     expect(mocks.post).toHaveBeenCalledTimes(2)
   })
 
+  it('sends a fill-in-the-blank answer through the validator and the real service for preview and submission', async () => {
+    mocks.get.mockResolvedValue(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          activity_id: ids.activityId,
+          title: 'Presente simples',
+          difficulty: 'easy',
+          activity_revision: 'revision-fill',
+          can_submit: true,
+          questions: [
+            {
+              key: 'fill-1',
+              kind: 'fill_blanks',
+              prompt: 'Complete.',
+              content_language: 'en',
+              segments: [
+                { text: 'She ', blank_key: null },
+                { text: null, blank_key: 'b1' },
+              ],
+              bank: [{ key: 'w1', word: 'goes' }],
+            },
+          ],
+        },
+      }),
+    )
+    mocks.post.mockResolvedValueOnce(
+      new RestResponse({
+        statusCode: 200,
+        body: {
+          status: 'conclusive',
+          score: '100.00',
+          explanation: 'Correto.',
+          is_correct: true,
+          correct_blank_count: 1,
+          blank_count: 1,
+        },
+      }),
+    )
+    mocks.post.mockResolvedValueOnce(
+      new RestResponse({
+        statusCode: 200,
+        body: { attempt_id: 'attempt-fill', status: 'pending', result_url: '/result' },
+      }),
+    )
+    const { result, props } = setup()
+    await waitFor(() => expect(result.current.currentQuestion?.kind).toBe('fill_blanks'))
+    expect(result.current.currentQuestion).toMatchObject({
+      contentLanguage: 'en',
+      segments: [
+        { text: 'She ', blankKey: null },
+        { text: null, blankKey: 'b1' },
+      ],
+    })
+
+    act(() => result.current.handleFillBlanksChange([{ blankKey: 'b1', wordKey: 'w1' }]))
+    await act(async () => result.current.handleContinue())
+
+    expect(mocks.post.mock.calls[0][1]).toEqual({
+      activity_revision: 'revision-fill',
+      answer: {
+        kind: 'fill_blanks',
+        question_key: 'fill-1',
+        placements: [{ blank_key: 'b1', word_key: 'w1' }],
+      },
+    })
+    expect(result.current.hasFeedbackError).toBe(false)
+    expect(result.current.feedback).toMatchObject({
+      correctBlankCount: 1,
+      blankCount: 1,
+    })
+
+    await act(async () => result.current.handleContinue())
+    await waitFor(() =>
+      expect(props.onNavigateToAttempt).toHaveBeenCalledWith('attempt-fill'),
+    )
+    expect(mocks.post.mock.calls[1][1]).toMatchObject({
+      activity_revision: 'revision-fill',
+      answers: [
+        {
+          kind: 'fill_blanks',
+          question_key: 'fill-1',
+          placements: [{ blank_key: 'b1', word_key: 'w1' }],
+        },
+      ],
+    })
+  })
   it('keeps an accepted submission successful when local draft cleanup rejects', async () => {
     const store = createReactDraftStoreMock()
     vi.mocked(store.tombstoneActivity).mockRejectedValue(

@@ -60,7 +60,7 @@ class TestGrantXpUseCase:
         return f'generated-{self._next_id}'
 
     def test_should_no_op_when_profile_is_missing(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self.subject.execute(
             ACCOUNT_ID,
@@ -82,7 +82,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
 
         self.subject.execute(
             ACCOUNT_ID,
@@ -108,11 +108,17 @@ class TestGrantXpUseCase:
         self.repositories.profiles.update.assert_called_once_with(profile)
         self.repositories.earned_achievements.try_add.assert_not_called()
 
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
+
     def test_should_raise_level_when_total_xp_crosses_a_threshold(self) -> None:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=290, level=2, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
 
         self.subject.execute(
             ACCOUNT_ID,
@@ -131,7 +137,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=310, level=3, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
 
         self.subject.execute(
             ACCOUNT_ID,
@@ -155,7 +161,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=990, level=4, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
         self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(
             {MilestoneKind.DIAGNOSIS: 1}
         )
@@ -189,7 +195,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
         self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(
             {MilestoneKind.DIAGNOSIS: 1}
         )
@@ -218,7 +224,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=0, level=1, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
         existing = EarnedAchievementFaker.fake(
             account_id=ACCOUNT_ID,
             achievement_id='primeiro-passo',
@@ -257,7 +263,7 @@ class TestGrantXpUseCase:
         profile = GamificationProfileFaker.fake(
             account_id=ACCOUNT_ID, total_xp=975, level=4, created_at=PROFILE_UPDATED_AT
         )
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
         self.repositories.rewarded_milestones.count_by_account_id_and_kind.side_effect = _counts(
             {MilestoneKind.COMPETENCY_MASTERY: 1}
         )

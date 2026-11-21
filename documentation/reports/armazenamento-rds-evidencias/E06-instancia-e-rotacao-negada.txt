@@ -1,0 +1,85 @@
+SHIFU-127 — Instância RDS criada; tentativas iniciais de acesso negadas por IAM (corte histórico)
+Data da coleta: 19/11/2026, até 02:15 UTC (18/11/2026, até 23:15 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Fonte: AWS CLI (RDS, EC2, STS e Cost Explorer) e Terraform
+
+Identidade e instância:
+- STS confirmou a conta 565725315792 e o usuário IAM shifu-storage-lab,
+  usando o perfil local shifu-lab.
+- A instância shifu-rds-lab-31b997a3f6 foi criada em
+  2026-11-19T01:42:33.506Z e estava available na verificação.
+- Endpoint: shifu-rds-lab-31b997a3f6.cvge4eks0bg1.us-east-2.rds.amazonaws.com:5432.
+- PostgreSQL 17.9, db.t4g.micro, Single-AZ na zona us-east-2c, database shifu.
+- Armazenamento de 20 GB gp3 criptografado, backup automático com retenção 0,
+  exclusão desprotegida e acesso público habilitado.
+- Security group sg-0fda2bc319b7f32ed: TCP 5432 somente de
+  201.75.169.251/32. A API mostrou saída egress vazia.
+- A consulta por snapshots manuais com o prefixo da instância retornou lista
+  vazia. Nenhum snapshot foi criado.
+
+Tentativa de recuperar a conexão:
+- O primeiro apply criou a instância com senha fornecida em memória. O script
+  removeu essa senha ao terminar; ela não pode ser lida de volta pela AWS.
+- A primeira rotação in-place (versão write-only 2) foi negada. Após corrigir
+  o uso explícito do perfil AWS_PROFILE=shifu-lab, um plano só de leitura na
+  versão 2 mostrou No changes. Isso confirmou que o state local já havia
+  registrado a versão 2 durante a falha da aplicação.
+- A tentativa in-place seguinte, versão 2 para 3, foi negada pela AWS:
+  AccessDenied para rds:ModifyDBInstance no recurso
+  arn:aws:rds:us-east-2:565725315792:db:shifu-rds-lab-31b997a3f6;
+  motivo: nenhuma política de identidade permite a ação.
+- Depois de o usuário informar que a permissão estava liberada, uma nova
+  tentativa in-place, versão 3 para 4, foi negada pela mesma ação IAM e ARN.
+- O state local registrou as versões 3 e 4 mesmo com as negações. Um plano de
+  leitura posterior mostrou No changes na versão 4. A configuração foi
+  preparada para password_wo_version=5; o plano resultante contém somente
+  1 atualização in-place, 0 criações e 0 exclusões. Nenhuma substituição foi
+  aplicada.
+- As chamadas somente de leitura iam:ListAttachedUserPolicies,
+  iam:ListUserPolicies e iam:GetUser também foram negadas. Não foi possível
+  inspecionar pelo perfil quais permissões estão efetivamente anexadas.
+- O usuário informou que a permissão estava liberada, mas a chamada AWS mais
+  recente continuou retornando AccessDenied. O relatório registra o resultado
+  observado pela API.
+
+Custos observados:
+- Cost Explorer consultado em 19/11/2026 por volta de 02:01 UTC, serviço
+  Amazon Relational Database Service, métrica UnblendedCost, USD, período
+  2026-11-18 a 2026-11-19, agrupado por USAGE_TYPE.
+- Resposta Estimated=true: USE2-InstanceUsage:db.t4g.micro = 0 USD;
+  USE2-RDS:GP3-Storage = -0.0000000039 USD;
+  USE2-USE1-AWS-In-Bytes = 0 USD;
+  USE2-USE1-AWS-Out-Bytes = 0.0000000329 USD.
+- Soma das linhas: 0.0000000290 USD no serviço da conta. O filtro inclui
+  staging e não permite atribuição ao laboratório. O retorno estimado não
+  comprova custo zero nem custo final; atualização financeira posterior
+  continua necessária.
+
+Validação local do Terraform após preparar a versão 5:
+- terraform fmt -check -recursive -no-color: passou.
+- terraform validate -no-color: configuração válida.
+- terraform test -no-color: 2 aprovados, 0 falhas.
+- Uma tentativa do plano de rotação foi 0 to add, 1 to change, 0 to destroy.
+  A mudança password_wo_version 3 para 4 foi negada por IAM.
+- Depois da falha, um plano de leitura na versão 4 retornou No changes. A
+  configuração local foi incrementada para versão 5 para permitir nova
+  tentativa após a permissão ser corrigida.
+- O plano de leitura atual para a versão 5 mostra password_wo_version 4 para 5,
+  com 0 criações, 1 atualização in-place e 0 exclusões.
+
+Desfecho posterior ao corte desta evidência:
+- O usuário atualizou a política IAM e a rotação in-place v5 concluiu, sem
+  substituir a instância; ver E10.
+- As migrações reais, a carga de vinte registros e as três consultas foram
+  executadas; ver E07.
+- O snapshot manual foi criado e depois removido. O `terraform destroy` removeu
+  os cinco recursos; state vazio e ausência AWS estão comprovados em E11.
+- A conexão TLS de migração/carga/consulta foi feita por psycopg. Em 20/11/2026,
+  o solicitante dispensou capturas adicionais por psql e VS Code Database Client.
+
+Esta evidência preserva o corte histórico das negações IAM. O estado final da
+execução consta em E07 a E11.
+
+Evidência textual sanitizada. Não inclui senha, credenciais, estado Terraform,
+plano salvo, tokens ou variáveis privadas.

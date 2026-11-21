@@ -48,7 +48,7 @@ runtime. Caller-supplied `timestamp`, `service`, `environment`, `version` and
 | `app.version.reported` / `dependency.unavailable` | Application version reported / Dependency unavailable |
 
 The `job` catalog contains the stable `<module>.<job_name>` identifiers for
-the 15 registered Inngest jobs. `operation` values are `http.request`,
+the 24 registered Inngest jobs (including the four streak-reminder jobs: `gamification.fan_out_due_streak_reminders`, `gamification.request_streak_reminder`, `communication.deliver_streak_reminder` and `communication.purge_push_data_on_account_deleted`). `operation` values are `http.request`,
 `auth.login`, `auth.session.revoke`, `auth.access`, `goal.create`,
 `goal.delete`, `attempt.submit`, `evaluation.complete`, `app.startup`,
 `app.shutdown`, `dependency.check`, `inngest.dispatch`, `resend.send` and

@@ -1,0 +1,182 @@
+SHIFU-127 — Migrações, fixture e consultas RDS
+Data da coleta: 19/11/2026, 02:45 UTC (18/11/2026, 23:45 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Conexão: PostgreSQL 17.9, database shifu, TLS exigido (sslmode=require).
+Endpoint: shifu-rds-lab-31b997a3f6.cvge4eks0bg1.us-east-2.rds.amazonaws.com:5432
+A revisão Alembic aplicada e o head do código coincidem em ad56e779665a.
+O fixture versionado foi executado após substituir a variável psql schema_name por public e retirar apenas as diretivas psql e os limites BEGIN/COMMIT; psycopg controlou uma única transação. Os resultados foram conferidos em conexão nova.
+As consultas abaixo foram executadas em conexão nova com psycopg a partir do SQL versionado, com TLS exigido.
+
+## Contagens persistidas
+```sql
+SELECT 'identity_accounts' AS tabela, COUNT(*) AS registros
+FROM public.identity_accounts
+WHERE id LIKE 'RDSLAB2026%'
+UNION ALL
+SELECT 'learning_goals', COUNT(*)
+FROM public.learning_goals
+WHERE id LIKE 'RDSLAB2026%'
+UNION ALL
+SELECT 'gamification_xp_grants', COUNT(*)
+FROM public.gamification_xp_grants
+WHERE id LIKE 'RDSLAB2026%'
+ORDER BY tabela
+```
+Resultado completo (JSON, ordem das colunas preservada):
+```json
+[
+  {
+    "tabela": "gamification_xp_grants",
+    "registros": 12
+  },
+  {
+    "tabela": "identity_accounts",
+    "registros": 3
+  },
+  {
+    "tabela": "learning_goals",
+    "registros": 5
+  }
+]
+```
+
+## Filtro de metas pelo título SQL
+```sql
+SELECT id, title, created_at
+FROM public.learning_goals
+WHERE title ILIKE '%SQL%'
+ORDER BY created_at, id
+```
+Resultado completo (JSON, ordem das colunas preservada):
+```json
+[
+  {
+    "id": "RDSLAB20260000000000000101",
+    "title": "SQL básico",
+    "created_at": "2026-11-18 12:10:00+00:00"
+  },
+  {
+    "id": "RDSLAB20260000000000000102",
+    "title": "Consultas SQL",
+    "created_at": "2026-11-18 12:11:00+00:00"
+  },
+  {
+    "id": "RDSLAB20260000000000000103",
+    "title": "JOIN em SQL",
+    "created_at": "2026-11-18 12:12:00+00:00"
+  },
+  {
+    "id": "RDSLAB20260000000000000104",
+    "title": "PostgreSQL inicial",
+    "created_at": "2026-11-18 12:13:00+00:00"
+  },
+  {
+    "id": "RDSLAB20260000000000000105",
+    "title": "GROUP BY SQL",
+    "created_at": "2026-11-18 12:14:00+00:00"
+  }
+]
+```
+
+## JOIN contas e concessões de XP
+```sql
+SELECT a.display_name, x.amount, x.origin->>'label' AS origem
+FROM public.identity_accounts AS a
+JOIN public.gamification_xp_grants AS x ON x.account_id = a.id
+ORDER BY a.display_name, x.occurred_at, x.id
+```
+Resultado completo (JSON, ordem das colunas preservada):
+```json
+[
+  {
+    "display_name": "Conta fictícia 01",
+    "amount": 25,
+    "origem": "Atividade SQL 01"
+  },
+  {
+    "display_name": "Conta fictícia 01",
+    "amount": 40,
+    "origem": "Atividade SQL 02"
+  },
+  {
+    "display_name": "Conta fictícia 01",
+    "amount": 35,
+    "origem": "Atividade PostgreSQL 01"
+  },
+  {
+    "display_name": "Conta fictícia 01",
+    "amount": 50,
+    "origem": "Atividade SQL 03"
+  },
+  {
+    "display_name": "Conta fictícia 02",
+    "amount": 20,
+    "origem": "Atividade JOIN 01"
+  },
+  {
+    "display_name": "Conta fictícia 02",
+    "amount": 60,
+    "origem": "Atividade PostgreSQL 02"
+  },
+  {
+    "display_name": "Conta fictícia 02",
+    "amount": 45,
+    "origem": "Atividade JOIN 02"
+  },
+  {
+    "display_name": "Conta fictícia 02",
+    "amount": 15,
+    "origem": "Atividade SQL 04"
+  },
+  {
+    "display_name": "Conta fictícia 03",
+    "amount": 30,
+    "origem": "Atividade GROUP BY 01"
+  },
+  {
+    "display_name": "Conta fictícia 03",
+    "amount": 55,
+    "origem": "Atividade PostgreSQL 03"
+  },
+  {
+    "display_name": "Conta fictícia 03",
+    "amount": 25,
+    "origem": "Atividade SQL 05"
+  },
+  {
+    "display_name": "Conta fictícia 03",
+    "amount": 75,
+    "origem": "Atividade GROUP BY 02"
+  }
+]
+```
+
+## GROUP BY por conta
+```sql
+SELECT a.display_name, COUNT(*) AS concessoes, SUM(x.amount) AS total_xp
+FROM public.identity_accounts AS a
+JOIN public.gamification_xp_grants AS x ON x.account_id = a.id
+GROUP BY a.id, a.display_name
+ORDER BY total_xp DESC, a.display_name
+```
+Resultado completo (JSON, ordem das colunas preservada):
+```json
+[
+  {
+    "display_name": "Conta fictícia 03",
+    "concessoes": 4,
+    "total_xp": 185
+  },
+  {
+    "display_name": "Conta fictícia 01",
+    "concessoes": 4,
+    "total_xp": 150
+  },
+  {
+    "display_name": "Conta fictícia 02",
+    "concessoes": 4,
+    "total_xp": 140
+  }
+]
+```

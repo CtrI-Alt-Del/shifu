@@ -1,7 +1,10 @@
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import TYPE_CHECKING, Literal, cast
+
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -53,7 +56,15 @@ from shifu.shared.database.seed_data import (
     SEED_ADAPTIVE_LAB_SKILL_ID,
     build_development_seed,
 )
+from tests.fixtures.fill_blanks_activity_fixture import (
+    CORRECT_PAIRS,
+    PARTIAL_PAIRS,
+    FillBlanksActivityFixture,
+)
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
+)
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.fixtures.react_activity_fixture import (
@@ -88,6 +99,22 @@ class _TestAuthenticationProvider:
 class _FixedClockProvider(ClockProvider):
     def now(self) -> datetime:
         return _NOW
+
+
+class _SteppingClockProvider(ClockProvider):
+    """Advances one minute per reading so later attempts are strictly later."""
+
+    def __init__(self) -> None:
+        self._readings = 0
+
+    def now(self) -> datetime:
+        self._readings += 1
+        return _NOW + timedelta(minutes=self._readings)
+
+
+class _LaterClockProvider(ClockProvider):
+    def now(self) -> datetime:
+        return datetime.now(UTC) + timedelta(minutes=1)
 
 
 class _NoopBroker:
@@ -815,6 +842,318 @@ class TestGetChoiceAttemptController:
         )
 
         assert response.status_code == 404
+
+    def _submit_and_evaluate_fill(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        revision: str,
+        pairs: tuple[tuple[str, str], ...],
+        submission_key: str,
+    ) -> str:
+        created = client.post(
+            FillBlanksActivityFixture.activity_path() + '/attempts',
+            headers={'Authorization': 'Bearer test-access-token'},
+            json=FillBlanksActivityFixture.submission(
+                revision, *pairs, submission_key=submission_key
+            ),
+        )
+        assert created.status_code == 201, created.text
+        attempt_id = cast('str', created.json()['attempt_id'])
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        committed = EvaluateChoiceActivityUseCase(
+            learning,
+            _LaterClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, evaluation.run_id)
+        assert committed is True
+        return attempt_id
+
+    def _fill_attempt(self, client: TestClient, attempt_id: str) -> 'Response':
+        return cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{FillBlanksActivityFixture.activity_path()}/attempts/{attempt_id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+    def test_fill_blanks_result_hides_the_expected_words_until_a_later_correct_attempt(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        stepping_clock = _SteppingClockProvider()
+        application.dependency_overrides[LearningPipe.get_clock_provider] = lambda: (
+            stepping_clock
+        )
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = client.get(
+            FillBlanksActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        assert detail.status_code == 200, detail.text
+        revision = detail.json()['activity_revision']
+        partial_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            revision,
+            PARTIAL_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1001',
+        )
+
+        hidden = self._fill_attempt(client, partial_id)
+
+        assert hidden.status_code == 200, hidden.json()
+        body = hidden.json()
+        assert body['status'] == 'completed'
+        assert body['questions'][0] == {
+            'question_key': 'fill-1',
+            'kind': 'fill_blanks',
+            'prompt': 'Complete o texto com as palavras do banco.',
+            'content_language': 'en',
+            'segments': body['questions'][0]['segments'],
+            'bank': body['questions'][0]['bank'],
+            'placements': FillBlanksActivityFixture.placements(*PARTIAL_PAIRS),
+            'score': '33.33',
+            'is_correct': False,
+            'correct_blank_count': 1,
+            'blank_count': 3,
+            'explanation': 'Almost there. Review the verb forms.',
+            'disclosed_expected_blanks': [],
+        }
+        assert 'accepted_words' not in hidden.text
+        assert [item['question_key'] for item in body['questions']] == [
+            'fill-1',
+            'q1',
+            'q2',
+        ]
+        assert body['questions'][1]['selected_option_keys'] == ['a']
+        assert body['questions'][2]['selected_option_keys'] == ['b']
+
+        correct_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            revision,
+            CORRECT_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1002',
+        )
+        released = self._fill_attempt(client, partial_id)
+        latest = self._fill_attempt(client, correct_id)
+
+        expected = [
+            {'blank_key': 'b1', 'accepted_words': ['goes', 'walks']},
+            {'blank_key': 'b2', 'accepted_words': ['does']},
+            {'blank_key': 'b3', 'accepted_words': ['day']},
+        ]
+        assert released.json()['questions'][0]['disclosed_expected_blanks'] == expected
+        assert released.json()['questions'][0]['score'] == '33.33'
+        assert latest.json()['questions'][0]['disclosed_expected_blanks'] == expected
+        assert latest.json()['questions'][0]['score'] == '100.00'
+
+    def test_fill_blanks_attempt_is_private_absence_for_another_goal(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = client.get(
+            FillBlanksActivityFixture.activity_path(),
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+        attempt_id = self._submit_and_evaluate_fill(
+            client,
+            application,
+            postgres_database,
+            detail.json()['activity_revision'],
+            CORRECT_PAIRS,
+            '5a6a4f0e-3b52-45f3-9e7b-0d1b6f3a1003',
+        )
+
+        response = client.get(
+            FillBlanksActivityFixture.activity_path().replace(
+                SEED_ADAPTIVE_LAB_GOAL_ID, '01SHF000000000000000000099'
+            )
+            + f'/attempts/{attempt_id}',
+            headers={'Authorization': 'Bearer test-access-token'},
+        )
+
+        assert response.status_code == 404
+
+    def _submit_pair_attempt(
+        self,
+        client: TestClient,
+        revision: str,
+        order: tuple[int, ...],
+        key: str,
+    ) -> str:
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=PairMatchingControllerFixture.submission(
+                    revision, *order, key=key
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert created.status_code == 201, created.json()
+        return cast('str', created.json()['attempt_id'])
+
+    def _complete_attempt(
+        self,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        attempt_id: str,
+    ) -> None:
+        learning = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning.transaction() as repositories:
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert evaluation is not None and evaluation.run_id is not None
+        assert EvaluateChoiceActivityUseCase(
+            learning,
+            _FixedClockProvider(),
+            application.state.curriculum_content_provider,
+        ).execute(attempt_id, evaluation.run_id)
+
+    def _pair_result(self, client: TestClient, attempt_id: str) -> dict[str, object]:
+        result = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                f'{PairMatchingControllerFixture.attempts_path()}/{attempt_id}',
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert result.status_code == 200, result.json()
+        body = result.json()
+        assert body['status'] == 'completed'
+        return cast('dict[str, object]', body)
+
+    def _pair_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        with SqlalchemyCurriculumDatabase(postgres_database.engine).transaction() as (
+            repositories
+        ):
+            repositories.activities.add_many([PairMatchingControllerFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    @pytest.mark.parametrize(
+        ('order', 'correct', 'outcome', 'explanation'),
+        (
+            ((0, 1, 2), 3, 'full', PairMatchingControllerFixture.FULL_EXPLANATION),
+            (
+                (0, 2, 1),
+                1,
+                'partial',
+                PairMatchingControllerFixture.PARTIAL_EXPLANATION,
+            ),
+            (
+                (1, 2, 0),
+                0,
+                'incorrect',
+                PairMatchingControllerFixture.INCORRECT_EXPLANATION,
+            ),
+        ),
+    )
+    def test_pair_attempt_shows_counts_and_protects_the_key_until_a_full_answer(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        order: tuple[int, ...],
+        correct: int,
+        outcome: str,
+        explanation: str,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        attempt_id = self._submit_pair_attempt(client, revision, order, str(uuid4()))
+        self._complete_attempt(application, postgres_database, attempt_id)
+
+        body = self._pair_result(client, attempt_id)
+
+        question_score = {
+            0: Decimal('0.00'),
+            1: Decimal('33.33'),
+            2: Decimal('66.67'),
+            3: Decimal('100.00'),
+        }[correct]
+        expected_total = Decimal(60) + Decimal(40) * question_score / Decimal(100)
+        assert abs(Decimal(cast('str', body['score'])) - expected_total) < Decimal(
+            '0.01'
+        )
+        pair = cast('list[dict[str, object]]', body['questions'])[2]
+        assert pair['kind'] == 'pair_matching'
+        assert pair['submitted_pairs'] == PairMatchingControllerFixture.pairs(*order)
+        assert pair['correct_pair_count'] == correct
+        assert pair['total_pair_count'] == 3
+        assert pair['outcome'] == outcome
+        assert pair['explanation'] == explanation
+        assert Decimal(cast('str', pair['score'])) == question_score
+        if outcome == 'full':
+            assert pair[
+                'disclosed_correct_pairs'
+            ] == PairMatchingControllerFixture.pairs(0, 1, 2)
+        else:
+            assert 'disclosed_correct_pairs' not in pair
+            assert 'correct_pairs' not in str(body)
+
+    def test_pair_history_releases_the_key_after_a_later_fully_correct_attempt(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        first = self._submit_pair_attempt(client, revision, (0, 2, 1), str(uuid4()))
+        self._complete_attempt(application, postgres_database, first)
+        # The application clock is fixed in this module, so move the first
+        # attempt back to make the second one the later attempt.
+        with Session(postgres_database.engine) as session, session.begin():
+            model = session.get(ActivityAttemptModel, first)
+            assert model is not None
+            model.submitted_at = _NOW - timedelta(hours=1)
+        hidden = cast(
+            'list[dict[str, object]]', self._pair_result(client, first)['questions']
+        )
+        assert 'disclosed_correct_pairs' not in hidden[2]
+
+        second = self._submit_pair_attempt(client, revision, (0, 1, 2), str(uuid4()))
+        self._complete_attempt(application, postgres_database, second)
+
+        released = cast(
+            'list[dict[str, object]]', self._pair_result(client, first)['questions']
+        )
+        assert released[2]['outcome'] == 'partial'
+        assert released[2][
+            'disclosed_correct_pairs'
+        ] == PairMatchingControllerFixture.pairs(0, 1, 2)
 
 
 def _ordering_activity() -> Activity:

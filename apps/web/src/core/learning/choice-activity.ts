@@ -120,6 +120,25 @@ export type ReactFastifyQuestion = Omit<ReactQuestion, 'kind' | 'entrypoint'> & 
   httpExamples: readonly ReactFastifyHttpExample[]
 }
 
+export type FillBlanksSegment = {
+  text: string | null
+  blankKey: string | null
+}
+
+export type FillBlanksWord = {
+  key: string
+  word: string
+}
+
+export type FillBlanksQuestion = {
+  key: string
+  kind: 'fill_blanks'
+  prompt: string
+  contentLanguage: string
+  segments: readonly FillBlanksSegment[]
+  bank: readonly FillBlanksWord[]
+}
+
 export type TranslationQuestion = {
   key: string
   kind: 'translation'
@@ -130,6 +149,21 @@ export type TranslationQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
+export type PairMatchingItem = {
+  key: string
+  text: string
+}
+
+export type PairMatchingQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  sourceLanguage: string
+  targetLanguage: string
+  words: readonly PairMatchingItem[]
+  translations: readonly PairMatchingItem[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
@@ -137,7 +171,9 @@ export type ActivityQuestion =
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
   | OrderingQuestion
+  | FillBlanksQuestion
   | TranslationQuestion
+  | PairMatchingQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -164,17 +200,43 @@ export type CodeAnswer = {
   files: readonly { path: string; content: string }[]
 }
 
+export type FillBlanksPlacement = {
+  blankKey: string
+  wordKey: string
+}
+
+export type FillBlanksAnswer = {
+  kind: 'fill_blanks'
+  questionKey: string
+  placements: readonly FillBlanksPlacement[]
+}
+
 export type TranslationAnswer = {
   kind: 'translation'
   questionKey: string
   text: string
 }
 
+export type PairMatchingPair = {
+  wordKey: string
+  translationKey: string
+}
+
+export type PairMatchingAnswer = {
+  kind: 'pair_matching'
+  questionKey: string
+  pairs: readonly PairMatchingPair[]
+}
+
+export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
+
 export type ActivityAnswer =
   | ChoiceAnswer
   | CodeAnswer
   | OrderingAnswer
+  | FillBlanksAnswer
   | TranslationAnswer
+  | PairMatchingAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -189,7 +251,13 @@ export type PreliminaryQuestionResult = {
     comment: string
   }[]
   submittedFiles?: readonly { path: string; content: string }[]
+  correctBlankCount?: number
+  blankCount?: number
   submittedText?: string
+  submittedPairs?: readonly PairMatchingPair[]
+  correctPairCount?: number
+  totalPairCount?: number
+  outcome?: PairMatchingOutcome
 }
 
 export type ChoiceSubmission = {
@@ -248,6 +316,22 @@ export type CodeResultQuestion = {
   }[]
 }
 
+export type FillBlanksResultQuestion = {
+  key: string
+  kind: 'fill_blanks'
+  prompt: string
+  contentLanguage: string
+  segments: readonly FillBlanksSegment[]
+  bank: readonly FillBlanksWord[]
+  placements: readonly FillBlanksPlacement[]
+  score: number
+  isCorrect: boolean
+  correctBlankCount: number
+  blankCount: number
+  explanation: string
+  expectedBlanks: readonly { blankKey: string; acceptedWords: readonly string[] }[]
+}
+
 export type TranslationResultQuestion = {
   key: string
   kind: 'translation'
@@ -268,11 +352,26 @@ export type TranslationResultQuestion = {
   }[]
 }
 
+export type PairMatchingResultQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  score: number
+  submittedPairs: readonly PairMatchingPair[]
+  correctPairCount: number
+  totalPairCount: number
+  outcome: PairMatchingOutcome
+  explanation: string
+  disclosedCorrectPairs?: readonly PairMatchingPair[]
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
   | OrderingResultQuestion
+  | FillBlanksResultQuestion
   | TranslationResultQuestion
+  | PairMatchingResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

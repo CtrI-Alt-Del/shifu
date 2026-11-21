@@ -17,6 +17,13 @@ from .react_question import ReactInitialFile as ReactInitialFile
 from .react_question import ReactDependency as ReactDependency
 from .react_question import ReactPermittedCommand as ReactPermittedCommand
 from .react_question import ReactAdditionalFilePolicy as ReactAdditionalFilePolicy
+from .fill_blanks_bank_word import FillBlanksBankWord as FillBlanksBankWord
+from .fill_blanks_blank import FillBlanksBlank as FillBlanksBlank
+from .fill_blanks_concept_criterion import (
+    FillBlanksConceptCriterion as FillBlanksConceptCriterion,
+)
+from .fill_blanks_question import FillBlanksQuestion as FillBlanksQuestion
+from .fill_blanks_segment import FillBlanksSegment as FillBlanksSegment
 from .html_css_js_question import HtmlCssJsQuestion as HtmlCssJsQuestion
 from .html_css_js_question import HtmlCssJsInitialFile as HtmlCssJsInitialFile
 from .html_css_js_question import HtmlCssJsDependency as HtmlCssJsDependency
@@ -75,3 +82,9 @@ from .translation_rubric_criterion import (
 from .translation_rubric_evaluation_part import (
     TranslationRubricEvaluationPart as TranslationRubricEvaluationPart,
 )
+from .pair_matching_concept_criterion import (
+    PairMatchingConceptCriterion as PairMatchingConceptCriterion,
+)
+from .pair_matching_item import PairMatchingItem as PairMatchingItem
+from .pair_matching_pair import PairMatchingPair as PairMatchingPair
+from .pair_matching_question import PairMatchingQuestion as PairMatchingQuestion

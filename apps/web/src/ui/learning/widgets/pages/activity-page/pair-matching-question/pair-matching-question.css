@@ -1,0 +1,15 @@
+.pair-matching-item[data-paired="true"],
+.pair-matching-item[data-selected="true"] {
+  border-color: var(--selo-text);
+  background: var(--accent);
+}
+
+.pair-matching-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--selo-text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}

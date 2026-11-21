@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime, time, timedelta
+from hashlib import sha256
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
@@ -57,6 +58,10 @@ from shifu.curriculum.core.domain.structures import (
     JavascriptPermittedCommand,
     JavascriptStdinQuestion,
     MaterialSequenceItem,
+    PairMatchingConceptCriterion,
+    PairMatchingItem,
+    PairMatchingPair,
+    PairMatchingQuestion,
     SkillFoundation,
     MultipleSelectionQuestion,
     SingleChoiceQuestion,
@@ -75,6 +80,11 @@ from shifu.curriculum.database.logic_programming_seed import (
     LogicProgrammingSeed,
     LOGIC_SKILL_ID,
     build_logic_programming_seed,
+)
+from shifu.curriculum.database.english_fill_blanks_seed import (
+    ENGLISH_COMPETENCY_ID,
+    ENGLISH_SKILL_ID,
+    build_english_fill_blanks_seed,
 )
 from shifu.curriculum.database.roadmap_skills_seed import build_roadmap_skills_seed
 from shifu.gamification.core.domain.achievement_catalog import ACHIEVEMENT_CATALOG
@@ -146,6 +156,7 @@ SEED_ACTIVITY_REPETITION_MEDIUM_ID = '01SHF000000000000000000024'
 SEED_ACTIVITY_REPETITION_HARD_ID = '01SHF000000000000000000025'
 SEED_ACTIVITY_JAVASCRIPT_STDIN_ID = '01SHF000000000000000000991'
 SEED_ACTIVITY_TRANSLATION_ID = '01SHF000000000000000000992'
+SEED_ACTIVITY_PAIR_MATCHING_ID = '01SHF000000000000000000993'
 SEED_GOAL_ID = '01SHF000000000000000000012'
 SEED_LOGIC_EXPERIENCE_ID = '01SHF000000000000000000013'
 SEED_PYTHON_EXPERIENCE_ID = '01SHF000000000000000000014'
@@ -182,6 +193,9 @@ SEED_ADAPTIVE_LAB_PRIORITY_ACTIVITY_IDS = tuple(
 )
 SEED_ADAPTIVE_LAB_GOAL_ID = '01SHF000000000000000000070'
 SEED_ADAPTIVE_LAB_EXPERIENCE_ID = '01SHF000000000000000000071'
+SEED_ENGLISH_GOAL_ID = '01SHFEN0000000000000000201'
+SEED_ENGLISH_EXPERIENCE_ID = '01SHFEN0000000000000000202'
+SEED_ENGLISH_PROGRESS_ID = '01SHFEN0000000000000000203'
 SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID = '01SHF000000000000000000072'
 SEED_ADAPTIVE_LAB_PRIORITY_PROGRESS_ID = '01SHF000000000000000000073'
 SEED_ADAPTIVE_LAB_BOOLEAN_CONCEPT_ID = '01SHF000000000000000000074'
@@ -379,6 +393,112 @@ def _translation_seed_activity() -> Activity:
                 CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
                 _translation_seed_part('q2'),
                 _translation_seed_part('q3'),
+            )
+        ),
+    )
+
+
+def _opaque_pair_key(question_key: str, role: str, text: str) -> str:
+    """Item keys are derived from the text, so they never reveal the pairing."""
+    digest = sha256(f'{question_key}:{role}:{text}'.encode()).hexdigest()
+    return f'{role}-{digest[:8]}'
+
+
+def _pair_matching_seed_question(
+    key: str,
+    prompt: str,
+    pairs: tuple[tuple[str, str], ...],
+    display_order: tuple[int, ...],
+    explanations: tuple[str, str, str],
+) -> PairMatchingQuestion:
+    words = tuple(
+        PairMatchingItem(key=_opaque_pair_key(key, 'w', word), text=word)
+        for word, _ in pairs
+    )
+    translations = tuple(
+        PairMatchingItem(key=_opaque_pair_key(key, 't', translation), text=translation)
+        for _, translation in pairs
+    )
+    return PairMatchingQuestion(
+        key=key,
+        prompt=prompt,
+        source_language='en-US',
+        target_language='pt-BR',
+        words=words,
+        translations=tuple(translations[index] for index in display_order),
+        correct_pairs=tuple(
+            PairMatchingPair(word_key=word.key, translation_key=translation.key)
+            for word, translation in zip(words, translations, strict=True)
+        ),
+        full_explanation=explanations[0],
+        partial_explanation=explanations[1],
+        incorrect_explanation=explanations[2],
+        concept_criteria=(
+            PairMatchingConceptCriterion(
+                concept_id=SEED_ADAPTIVE_CONCEPT_ID,
+                criterion='Associa vocabulário básico à tradução correta.',
+                examples='dog e cachorro',
+                limits='A associação não mede produção escrita.',
+                full_score=100,
+                partial_score=50,
+                incorrect_score=0,
+            ),
+        ),
+    )
+
+
+def _pair_matching_seed_activity() -> Activity:
+    return Activity.create(
+        id=SEED_ACTIVITY_PAIR_MATCHING_ID,
+        competency_id=SEED_ADAPTIVE_COMPETENCY_ID,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Associação de palavras e traduções',
+        objective='Associar palavras em inglês às traduções em português.',
+        questions=(
+            SingleChoiceQuestion(
+                key='q1',
+                prompt='Qual é a tradução de "thank you" para o português?',
+                options=(
+                    ChoiceOption(key='a', text='Obrigado', is_correct=True),
+                    ChoiceOption(key='b', text='Por favor', is_correct=False),
+                ),
+                correct_explanation='"Thank you" é "obrigado" em português.',
+                incorrect_explanation='Pense na expressão usada para agradecer.',
+            ),
+            _pair_matching_seed_question(
+                'q2',
+                'Associe cada palavra em inglês à sua tradução.',
+                (
+                    ('dog', 'cachorro'),
+                    ('house', 'casa'),
+                    ('water', 'água'),
+                    ('book', 'livro'),
+                ),
+                (2, 0, 3, 1),
+                (
+                    'Você associou corretamente todas as palavras.',
+                    'Você associou algumas palavras corretamente. Revise o vocabulário.',
+                    'Nenhuma associação está correta. Revise o vocabulário.',
+                ),
+            ),
+            _pair_matching_seed_question(
+                'q3',
+                'Associe cada palavra em inglês à sua tradução.',
+                (('sun', 'sol'), ('moon', 'lua'), ('star', 'estrela')),
+                (1, 2, 0),
+                (
+                    'Você associou corretamente todas as palavras.',
+                    'Você associou algumas palavras corretamente. Revise o vocabulário.',
+                    'Nenhuma associação está correta. Revise o vocabulário.',
+                ),
+            ),
+        ),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=20),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=40),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=40),
             )
         ),
     )
@@ -2352,6 +2472,7 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             ),
         ),
         _translation_seed_activity(),
+        _pair_matching_seed_activity(),
         *_adaptive_activities(),
         *_adaptive_lab_activities(),
     )
@@ -2424,6 +2545,10 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 ActivitySequenceItem(
                     position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 2,
                     activity_id=SEED_ACTIVITY_TRANSLATION_ID,
+                ),
+                ActivitySequenceItem(
+                    position=len(SEED_ADAPTIVE_ACTIVITY_IDS[3:]) + 3,
+                    activity_id=SEED_ACTIVITY_PAIR_MATCHING_ID,
                 ),
             ),
         ),
@@ -2752,6 +2877,39 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         }
     )
 
+    # An English Skill whose Learning Activity exercises fill-blanks questions, with a
+    # learner already in learning so the format can be tried without a diagnostic.
+    english = build_english_fill_blanks_seed()
+    english_goal = Goal(
+        id=SEED_ENGLISH_GOAL_ID,
+        account_id=SEED_ACCOUNT_ID,
+        title='Inglês para o dia a dia',
+        description='Pratique o presente simples completando frases com um banco de palavras.',
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+    )
+    english_experience = SkillExperience(
+        id=SEED_ENGLISH_EXPERIENCE_ID,
+        goal_id=SEED_ENGLISH_GOAL_ID,
+        skill_id=ENGLISH_SKILL_ID,
+        inclusion_reason='Praticar lacunas com banco de palavras em inglês.',
+        status=SkillExperienceStatus.LEARNING,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        started_at=SEED_CREATED_AT,
+    )
+    english_progress = CompetencyProgress(
+        id=SEED_ENGLISH_PROGRESS_ID,
+        skill_experience_id=SEED_ENGLISH_EXPERIENCE_ID,
+        competency_id=ENGLISH_COMPETENCY_ID,
+        content_released=True,
+        created_at=SEED_CREATED_AT,
+        updated_at=SEED_CREATED_AT,
+        initial_progress=Decimal('0'),
+        current_progress=Decimal('0'),
+        status=CompetencyProgressStatus.LEARNING,
+    )
+
     mentor_sessions, mentor_messages = _build_mentor_seed()
     gamification_seed = _build_gamification_seed(
         account.id, SEED_ACCOUNT_TIME_ZONE, now or datetime.now(UTC)
@@ -2764,7 +2922,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
         accounts=(account,),
         account_action_tokens=(),
         skills=tuple(skill for skill in skills if skill.id in retained_skill_ids)
-        + roadmap.skills,
+        + roadmap.skills
+        + (english.skill,),
         skill_foundations=tuple(
             foundation
             for foundation in skill_foundations
@@ -2778,14 +2937,16 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             if competency.id in ready_competency_ids
         )
         + logic_curriculum.competencies
-        + roadmap.competencies,
+        + roadmap.competencies
+        + (english.competency,),
         concepts=tuple(
             concept
             for concept in concepts
             if concept.competency_id in ready_competency_ids
         )
         + logic_curriculum.concepts
-        + roadmap.concepts,
+        + roadmap.concepts
+        + (english.concept,),
         materials=tuple(
             material
             for material in materials
@@ -2793,26 +2954,35 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
             and material.skill_id != SEED_SKILL_LOGIC_ID
         )
         + logic_curriculum.materials
-        + roadmap.materials,
+        + roadmap.materials
+        + (english.material,),
         activities=tuple(
             activity
             for activity in activities
             if activity.competency_id in ready_competency_ids
         )
         + logic_curriculum.activities
-        + roadmap.activities,
+        + roadmap.activities
+        + english.activities,
         curriculum_sequences=tuple(
             sequence
             for sequence in curriculum_sequences
             if sequence.competency_id in ready_competency_ids
         )
         + logic_curriculum.curriculum_sequences
-        + roadmap.curriculum_sequences,
-        goals=tuple(goal for goal in goals if goal.id in retained_goal_ids),
-        skill_experiences=tuple(
-            experience
-            for experience in skill_experiences
-            if experience.id in retained_experience_ids
+        + roadmap.curriculum_sequences
+        + (english.curriculum_sequence,),
+        goals=(
+            *(goal for goal in goals if goal.id in retained_goal_ids),
+            english_goal,
+        ),
+        skill_experiences=(
+            *(
+                experience
+                for experience in skill_experiences
+                if experience.id in retained_experience_ids
+            ),
+            english_experience,
         ),
         competency_progresses=tuple(
             progress
@@ -2833,7 +3003,8 @@ def build_development_seed(now: datetime | None = None) -> DevelopmentSeed:
                 status=CompetencyProgressStatus.PROFICIENT,
             )
             for index, competency in enumerate(logic_curriculum.competencies)
-        ),
+        )
+        + (english_progress,),
         activity_attempts=tuple(
             attempt
             for attempt in activity_attempts

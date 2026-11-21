@@ -79,6 +79,42 @@ class OrderingQuestionResultResponse(BaseModel):
     accepted_orders: tuple[tuple[str, ...], ...] = ()
 
 
+class FillBlanksSegmentResponse(BaseModel):
+    text: str | None
+    blank_key: str | None
+
+
+class FillBlanksWordResponse(BaseModel):
+    key: str
+    word: str
+
+
+class FillBlanksPlacementResponse(BaseModel):
+    blank_key: str
+    word_key: str
+
+
+class FillBlanksExpectedBlankResponse(BaseModel):
+    blank_key: str
+    accepted_words: tuple[str, ...]
+
+
+class FillBlanksQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['fill_blanks']
+    prompt: str
+    content_language: str
+    segments: tuple[FillBlanksSegmentResponse, ...]
+    bank: tuple[FillBlanksWordResponse, ...]
+    placements: tuple[FillBlanksPlacementResponse, ...]
+    score: Decimal
+    is_correct: bool
+    correct_blank_count: int
+    blank_count: int
+    explanation: str
+    disclosed_expected_blanks: tuple[FillBlanksExpectedBlankResponse, ...]
+
+
 class TranslationQuestionResultResponse(BaseModel):
     question_key: str
     kind: str
@@ -87,6 +123,24 @@ class TranslationQuestionResultResponse(BaseModel):
     score: Decimal | None
     criterion_results: tuple[CriterionResultResponse, ...]
     concept_observations: tuple[ConceptObservationResponse, ...]
+
+
+class PairResultResponse(BaseModel):
+    word_key: str
+    translation_key: str
+
+
+class PairMatchingQuestionResultResponse(BaseModel):
+    question_key: str
+    kind: Literal['pair_matching']
+    prompt: str
+    submitted_pairs: tuple[PairResultResponse, ...]
+    score: Decimal
+    correct_pair_count: int
+    total_pair_count: int
+    outcome: Literal['full', 'partial', 'incorrect']
+    explanation: str
+    disclosed_correct_pairs: tuple[PairResultResponse, ...] = ()
 
 
 class Response(BaseModel):
@@ -106,7 +160,9 @@ class Response(BaseModel):
         ChoiceQuestionResultResponse
         | CodeQuestionResultResponse
         | OrderingQuestionResultResponse
-        | TranslationQuestionResultResponse,
+        | FillBlanksQuestionResultResponse
+        | TranslationQuestionResultResponse
+        | PairMatchingQuestionResultResponse,
         ...,
     ] = ()
 

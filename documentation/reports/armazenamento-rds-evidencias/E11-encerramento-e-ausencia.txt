@@ -1,0 +1,43 @@
+SHIFU-127 — Encerramento do laboratório RDS
+Data da coleta: 19/11/2026, 03:03 UTC (19/11/2026, 00:03 em America/Sao_Paulo)
+Responsável pela coleta: Gabriel da Silva
+Operação técnica: Codex, execução assistida
+Fontes: Terraform, AWS CLI (RDS e EC2) e Cost Explorer
+
+Snapshot manual:
+- `shifu-rds-lab-31b997a3f6-manual` foi removido antes do destroy.
+- `aws rds wait db-snapshot-deleted` concluiu com código 0.
+- A consulta final retornou `DBSnapshotNotFound`.
+- Nenhum snapshot final automático foi solicitado (`skip_final_snapshot=true`).
+
+Terraform:
+- O plano revisado continha 0 criações, 0 alterações e 5 destruições.
+- `terraform destroy -input=false -auto-approve -lock=false -no-color`
+  concluiu: `Destroy complete! Resources: 5 destroyed.`
+- `terraform -chdir=packages/iac/rds state list` retornou saída vazia e código 0.
+
+Confirmação AWS de ausência:
+- Instância `shifu-rds-lab-31b997a3f6`: `DBInstanceNotFound`.
+- Subnet group `shifu-rds-lab-subnets`: `DBSubnetGroupNotFoundFault`.
+- Security group `sg-0fda2bc319b7f32ed`: `InvalidGroup.NotFound`.
+- Snapshot `shifu-rds-lab-31b997a3f6-manual`: `DBSnapshotNotFound`.
+
+Consulta pós-destroy ao Cost Explorer, região do serviço us-east-1, período
+2026-11-19 a 2026-11-20, métrica `UnblendedCost`, USD, granularidade diária,
+agrupado por serviço:
+- 2026-11-19: `Estimated=true`, total diário retornado = 0 USD, sem grupo para
+  Amazon Relational Database Service.
+- Esse retorno sem lançamento não prova custo zero. Os dados podem levar 24
+  horas ou mais para atualização e não representam valor final faturado.
+
+O plano Terraform salvo e o arquivo DPAPI local da senha foram removidos depois
+do encerramento. O state vazio local permanece ignorado pelo Git. A inspeção do
+diff não mostrou arquivos de state, plano ou credenciais versionados.
+
+Disposição final do requisito visual: em 20/11/2026, o solicitante dispensou
+capturas adicionais por psql e VS Code Database Client. A conexão TLS usada nas
+migrações, carga e consultas foi feita por psycopg, conforme E07, e é a
+evidência de conexão adotada para a entrega.
+
+Evidência textual sanitizada. Não inclui senha, credenciais, state, plano,
+tokens ou variáveis privadas.

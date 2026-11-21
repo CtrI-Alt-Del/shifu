@@ -26,3 +26,29 @@ Authorization: Bearer {{accessToken}}
 @attemptId = replace-with-local-attempt-id
 GET {{baseUrl}}/gamification/activities/{{activityId}}/attempts/{{attemptId}}/xp-reward
 Authorization: Bearer {{accessToken}}
+
+### Streak reminder: the reminder hour and the invite state for the account
+GET {{baseUrl}}/gamification/streak-reminder
+Authorization: Bearer {{accessToken}}
+
+### Streak reminder: change the whole reminder hour (06 to 22)
+PUT {{baseUrl}}/gamification/streak-reminder/hour
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "hour": 19
+}
+
+### Streak reminder: an hour outside 06 to 22 is rejected with 422
+PUT {{baseUrl}}/gamification/streak-reminder/hour
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "hour": 23
+}
+
+### Streak reminder: record, once, that the learner answered the invite
+POST {{baseUrl}}/gamification/streak-reminder/invite-answer
+Authorization: Bearer {{accessToken}}

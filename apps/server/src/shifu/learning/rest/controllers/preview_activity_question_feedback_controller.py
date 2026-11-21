@@ -9,12 +9,17 @@ from shifu.learning.core.domain.structures import (
     OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreliminaryQuestionResult,
     PreviewActivityQuestionFeedbackUseCase,
+    PreviewAnswer,
 )
 from shifu.learning.pipes import LearningPipe
 from shifu.learning.rest.controllers.answer_request_shape import (
@@ -39,6 +44,18 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     kind: Literal[
@@ -49,13 +66,17 @@ class AnswerRequest(BaseModel):
         'html_css_js',
         'react_fastify',
         'ordering',
+        'fill_blanks',
         'translation',
+        'pair_matching',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
     ordered_step_keys: tuple[str, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
@@ -65,6 +86,8 @@ class AnswerRequest(BaseModel):
             self.files,
             self.selected_option_keys,
             self.ordered_step_keys,
+            self.placements,
+            self.pairs,
         )
         return self
 
@@ -90,6 +113,11 @@ class ConceptResponse(BaseModel):
     observation_id: str
 
 
+class PairResponse(BaseModel):
+    word_key: str
+    translation_key: str
+
+
 class SubmittedFileResponse(BaseModel):
     path: str
     content: str
@@ -103,7 +131,13 @@ class Response(BaseModel):
     criteria: tuple[CriterionResponse, ...] = ()
     concept_observations: tuple[ConceptResponse, ...] = ()
     submitted_files: tuple[SubmittedFileResponse, ...] = ()
+    correct_blank_count: int | None = None
+    blank_count: int | None = None
     submitted_text: str | None = None
+    submitted_pairs: tuple[PairResponse, ...] | None = None
+    correct_pair_count: int | None = None
+    total_pair_count: int | None = None
+    outcome: Literal['full', 'partial', 'incorrect'] | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -151,9 +185,19 @@ class PreviewActivityQuestionFeedbackController:
         ) -> Response:
             payload = request.answer
             if payload.kind == 'ordering':
-                answer = OrderingAnswerSubmission(
+                answer: PreviewAnswer = OrderingAnswerSubmission(
                     question_key=payload.question_key,
                     ordered_step_keys=payload.ordered_step_keys or (),
+                )
+            elif payload.kind == 'fill_blanks':
+                answer = FillBlanksAnswer(
+                    question_key=payload.question_key,
+                    placements=tuple(
+                        FillBlanksPlacement(
+                            blank_key=item.blank_key, word_key=item.word_key
+                        )
+                        for item in (payload.placements or ())
+                    ),
                 )
             elif payload.kind in {
                 'javascript_stdin',
@@ -173,6 +217,17 @@ class PreviewActivityQuestionFeedbackController:
                 answer = TranslationAnswer(
                     question_key=payload.question_key,
                     text=payload.text or '',
+                )
+            elif payload.kind == 'pair_matching':
+                answer = PairMatchingAnswer(
+                    question_key=payload.question_key,
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=item.word_key,
+                            translation_key=item.translation_key,
+                        )
+                        for item in (payload.pairs or ())
+                    ),
                 )
             else:
                 answer = ChoiceAnswerSubmission(

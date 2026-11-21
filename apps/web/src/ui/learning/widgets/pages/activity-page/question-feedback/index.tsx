@@ -7,6 +7,9 @@ import type {
 } from '@/core/learning/choice-activity'
 import { Icon } from '@/ui/shared/widgets/components/icon'
 
+import { pairMatchingItemText } from '@/core/learning/pair-matching-item-text'
+import { Icon } from '@/ui/shared/widgets/components/icon'
+
 import './question-feedback.css'
 import { useQuestionFeedback } from './use-question-feedback'
 
@@ -21,14 +24,18 @@ export const QuestionFeedback = ({
   frozenAnswer,
   question,
 }: QuestionFeedbackProps) => {
-  const { feedbackElementRef } = useQuestionFeedback({ question })
+  const { feedbackElementRef, fillBlanksOutcome, pairMatchingOutcome } =
+    useQuestionFeedback({
+      feedback,
+      question,
+    })
   const scoreClassName =
     Number(feedback.score ?? 0) >= 80 ? 'text-success' : 'text-selo-text'
 
   return (
     <section
       aria-label='Resultado'
-      aria-live='polite'
+      aria-live={question.kind === 'fill_blanks' ? undefined : 'polite'}
       className='question-feedback-session scroll-mt-6 mt-6 space-y-4 rounded-lg border border-border bg-card p-4 shadow-card sm:p-5'
       ref={feedbackElementRef}
     >
@@ -65,6 +72,26 @@ export const QuestionFeedback = ({
           </p>
         </>
       )}
+      {pairMatchingOutcome ? (
+        <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
+          <Icon aria-hidden='true' name={pairMatchingOutcome.iconName} size={16} />
+          <span>{pairMatchingOutcome.label}</span>
+          <span aria-hidden='true' className='text-muted-foreground'>
+            ·
+          </span>
+          <span className='text-muted-foreground'>{pairMatchingOutcome.countText}</span>
+        </p>
+      ) : null}
+      {fillBlanksOutcome ? (
+        <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
+          <Icon aria-hidden='true' name={fillBlanksOutcome.iconName} size={16} />
+          <span>{fillBlanksOutcome.label}</span>
+          <span aria-hidden='true' className='text-muted-foreground'>
+            ·
+          </span>
+          <span className='text-muted-foreground'>{fillBlanksOutcome.countText}</span>
+        </p>
+      ) : null}
       {feedback.explanation ? (
         <p className='rounded-md border border-border/70 bg-muted/60 p-3 text-sm leading-6 text-foreground'>
           {feedback.explanation}
@@ -131,6 +158,18 @@ export const QuestionFeedback = ({
             </div>
           ))}
         </details>
+      ) : frozenAnswer?.kind === 'pair_matching' && question.kind === 'pair_matching' ? (
+        <div>
+          <h3 className='text-sm font-semibold text-foreground'>Pares enviados</h3>
+          <ul aria-label='Pares enviados' className='mt-2 space-y-1 text-sm'>
+            {(feedback.submittedPairs ?? frozenAnswer.pairs).map((pair) => (
+              <li key={pair.wordKey}>
+                {pairMatchingItemText(question.words, pair.wordKey)} —{' '}
+                {pairMatchingItemText(question.translations, pair.translationKey)}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : frozenAnswer?.kind === 'translation' ? (
         <details>
           <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>

@@ -1,13 +1,30 @@
 import { useEffect, useRef } from 'react'
 
-import type { ActivityQuestion } from '@/core/learning/choice-activity'
+import type {
+  ActivityQuestion,
+  PreliminaryQuestionResult,
+} from '@/core/learning/choice-activity'
+import { useFillBlanksOutcome } from '@/ui/learning/hooks/use-fill-blanks-outcome'
+import { usePairMatchingOutcome } from '@/ui/learning/hooks/use-pair-matching-outcome'
 
 export type UseQuestionFeedbackProps = {
+  feedback: PreliminaryQuestionResult
   question: ActivityQuestion
 }
 
-export function useQuestionFeedback({ question }: UseQuestionFeedbackProps) {
+export function useQuestionFeedback({ feedback, question }: UseQuestionFeedbackProps) {
   const feedbackElementRef = useRef<HTMLElement>(null)
+  const fillBlanksOutcome = useFillBlanksOutcome({
+    blankCount: feedback.blankCount,
+    correctBlankCount: feedback.correctBlankCount,
+    score: feedback.score,
+  })
+
+  const pairMatchingOutcome = usePairMatchingOutcome({
+    correctPairCount: feedback.correctPairCount,
+    outcome: feedback.outcome,
+    totalPairCount: feedback.totalPairCount,
+  })
 
   useEffect(() => {
     if (
@@ -25,5 +42,5 @@ export function useQuestionFeedback({ question }: UseQuestionFeedbackProps) {
     })
   }, [question.kind])
 
-  return { feedbackElementRef }
+  return { feedbackElementRef, fillBlanksOutcome, pairMatchingOutcome }
 }

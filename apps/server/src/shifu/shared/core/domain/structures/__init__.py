@@ -1,5 +1,6 @@
 from .structure import structure as structure
 
+from .active_account import ActiveAccount as ActiveAccount
 from .authenticated_user import AuthenticatedUser as AuthenticatedUser
 from .planned_goal_confirmation import (
     PlannedGoalConfirmation as PlannedGoalConfirmation,
@@ -166,4 +167,31 @@ from .curriculum_react_fastify_http_example_snapshot import (
 )
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
+)
+from .curriculum_fill_blanks_blank_snapshot import (
+    CurriculumFillBlanksBlankSnapshot as CurriculumFillBlanksBlankSnapshot,
+)
+from .curriculum_fill_blanks_concept_criterion_snapshot import (
+    CurriculumFillBlanksConceptCriterionSnapshot as CurriculumFillBlanksConceptCriterionSnapshot,
+)
+from .curriculum_fill_blanks_question_snapshot import (
+    CurriculumFillBlanksQuestionSnapshot as CurriculumFillBlanksQuestionSnapshot,
+)
+from .curriculum_fill_blanks_segment_snapshot import (
+    CurriculumFillBlanksSegmentSnapshot as CurriculumFillBlanksSegmentSnapshot,
+)
+from .curriculum_fill_blanks_word_snapshot import (
+    CurriculumFillBlanksWordSnapshot as CurriculumFillBlanksWordSnapshot,
+)
+from .curriculum_pair_matching_concept_criterion_snapshot import (
+    CurriculumPairMatchingConceptCriterionSnapshot as CurriculumPairMatchingConceptCriterionSnapshot,
+)
+from .curriculum_pair_matching_item_snapshot import (
+    CurriculumPairMatchingItemSnapshot as CurriculumPairMatchingItemSnapshot,
+)
+from .curriculum_pair_matching_pair_snapshot import (
+    CurriculumPairMatchingPairSnapshot as CurriculumPairMatchingPairSnapshot,
+)
+from .curriculum_pair_matching_question_snapshot import (
+    CurriculumPairMatchingQuestionSnapshot as CurriculumPairMatchingQuestionSnapshot,
 )

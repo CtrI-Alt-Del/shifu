@@ -1,0 +1,23 @@
+from typing import Protocol
+
+from shifu.communication.core.domain.entities import PushSubscription
+
+
+class PushSubscriptionsRepository(Protocol):
+    def find_by_endpoint(self, endpoint: str) -> PushSubscription | None: ...
+
+    def find_many_by_account_id(
+        self, account_id: str
+    ) -> tuple[PushSubscription, ...]: ...
+
+    def add(self, subscription: PushSubscription) -> None: ...
+
+    def try_add(self, subscription: PushSubscription) -> bool:
+        """Insert the subscription; return False when the endpoint already exists."""
+        ...
+
+    def update(self, subscription: PushSubscription) -> None: ...
+
+    def remove(self, subscription: PushSubscription) -> None: ...
+
+    def remove_many_by_account_id(self, account_id: str) -> None: ...

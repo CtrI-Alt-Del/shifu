@@ -27,7 +27,7 @@ class TestDeleteGamificationProfileUseCase:
 
     def test_should_purge_all_gamification_rows_when_profile_exists(self) -> None:
         profile = GamificationProfileFaker.fake(account_id=ACCOUNT_ID)
-        self.repositories.profiles.find_by_account_id.return_value = profile
+        self.repositories.profiles.find_by_account_id_for_update.return_value = profile
 
         self.subject.execute(ACCOUNT_ID)
 
@@ -51,8 +51,14 @@ class TestDeleteGamificationProfileUseCase:
             ACCOUNT_ID
         )
 
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
+
     def test_should_no_op_when_profile_is_absent(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self.subject.execute(ACCOUNT_ID)
 

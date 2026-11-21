@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import replace
 from datetime import UTC, datetime
+import re
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -23,6 +24,7 @@ from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
 from shifu.curriculum.core.domain.entities import Activity
 from shifu.curriculum.core.domain.enums import ActivityDifficulty, ActivityType
 from shifu.curriculum.core.domain.structures import (
+    PairMatchingQuestion,
     ChoiceOption,
     CodeEvaluationCase,
     CodeQuestion,
@@ -48,6 +50,7 @@ from shifu.learning.core.domain.enums import (
 )
 from shifu.shared.database.seed_data import (
     SEED_ACCOUNT_ID,
+    SEED_ACTIVITY_PAIR_MATCHING_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_ACTIVITY_IDS,
     SEED_ADAPTIVE_LAB_CONDITIONS_COMPETENCY_ID,
     SEED_ADAPTIVE_LAB_CONDITIONS_PROGRESS_ID,
@@ -58,6 +61,7 @@ from shifu.shared.database.seed_data import (
     SEED_LOGIC_EXPERIENCE_ID,
     build_development_seed,
 )
+from tests.fixtures.fill_blanks_activity_fixture import FillBlanksActivityFixture
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
@@ -66,6 +70,9 @@ from tests.fixtures.react_activity_fixture import (
 )
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
+)
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
 )
 from tests.learning.rest.controllers.translation_controller_fixture import (
     TranslationControllerFixture,
@@ -734,6 +741,81 @@ class TestGetChoiceActivityController:
         assert 'Private comment' not in str(body)
         assert 'is_correct' not in str(body)
 
+    def test_returns_persisted_pair_matching_items_without_the_answer_key(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = PairMatchingControllerFixture.activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'pair_matching',
+        ]
+        pairs = body['questions'][2]
+        assert pairs == {
+            'key': 'q3',
+            'kind': 'pair_matching',
+            'prompt': PairMatchingControllerFixture.PROMPT,
+            'source_language': 'en',
+            'target_language': 'pt-BR',
+            'words': [
+                {'key': 'word-0', 'text': 'dog'},
+                {'key': 'word-1', 'text': 'house'},
+                {'key': 'word-2', 'text': 'water'},
+            ],
+            'translations': [
+                {'key': 'translation-1', 'text': 'casa'},
+                {'key': 'translation-2', 'text': 'agua'},
+                {'key': 'translation-0', 'text': 'cachorro'},
+            ],
+        }
+        assert 'correct_pairs' not in str(body)
+        assert PairMatchingControllerFixture.FULL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.PARTIAL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.INCORRECT_EXPLANATION not in str(body)
+
+    def test_seeded_pair_matching_item_keys_do_not_reveal_the_pairing(self) -> None:
+        seed = build_development_seed()
+        activity = next(
+            item
+            for item in seed.activities
+            if item.id == SEED_ACTIVITY_PAIR_MATCHING_ID
+        )
+        questions = [
+            question
+            for question in activity.questions
+            if isinstance(question, PairMatchingQuestion)
+        ]
+
+        assert questions
+        for question in questions:
+            expected = {
+                pair.word_key: pair.translation_key for pair in question.correct_pairs
+            }
+            words = sorted(item.key for item in question.words)
+            translations = sorted(item.key for item in question.translations)
+            # Neither the key text nor the key order may line up with the key.
+            assert [expected[word] for word in words] != translations
+            assert all(
+                re.fullmatch(r'[wt]-[0-9a-f]{8}', item.key)
+                for item in (*question.words, *question.translations)
+            )
+
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
         seed = build_development_seed()
         logic_competency_ids = {
@@ -1099,6 +1181,114 @@ class TestGetChoiceActivityController:
         assert detail.json()['latest_attempt_id'] == attempt_id
         assert detail.json()['unresolved_attempt_id'] == attempt_id
         assert detail.json()['can_submit'] is False
+
+    def test_returns_the_public_fill_blanks_projection_without_answer_keys(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        headers = {'Authorization': 'Bearer test-access-token'}
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(), headers=headers
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['key'] for question in body['questions']] == [
+            'fill-1',
+            'q1',
+            'q2',
+        ]
+        assert body['questions'][0] == {
+            'key': 'fill-1',
+            'kind': 'fill_blanks',
+            'prompt': 'Complete o texto com as palavras do banco.',
+            'content_language': 'en',
+            'segments': [
+                {'text': 'She ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b1'},
+                {'text': ' to school and ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b2'},
+                {'text': ' her homework every ', 'blank_key': None},
+                {'text': None, 'blank_key': 'b3'},
+                {'text': '.', 'blank_key': None},
+            ],
+            'bank': [
+                {'key': 'w4', 'word': 'day'},
+                {'key': 'w6', 'word': 'go'},
+                {'key': 'w3', 'word': 'does'},
+                {'key': 'w1', 'word': 'goes'},
+                {'key': 'w5', 'word': 'day'},
+                {'key': 'w2', 'word': 'walks'},
+            ],
+        }
+        for hidden in (
+            'accepted_words',
+            'concept_criteria',
+            'correct_explanation',
+            'incorrect_explanation',
+            'partial_explanation',
+            'Almost there',
+            'third person singular',
+        ):
+            assert hidden not in response.text
+        assert body['activity_revision']
+
+    def test_hides_the_fill_blanks_activity_from_another_goal_owner(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                _activity_path(
+                    goal_id='01SHF000000000000000000099',
+                    activity_id=FillBlanksActivityFixture.ACTIVITY_ID,
+                ),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json() == {
+            'code': 'not_found',
+            'message': 'Recurso não encontrado.',
+        }
+
+    def test_does_not_publish_a_fill_blanks_concept_outside_the_competency(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many(
+                [
+                    FillBlanksActivityFixture.activity(
+                        concept_id='01SHF000000000000000000999'
+                    )
+                ]
+            )
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 404
+        assert response.json()['code'] == 'not_found'
 
 
 def _activity_path(

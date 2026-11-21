@@ -9,6 +9,7 @@ import type {
   ActivityAnswer,
   ActivityQuestion,
   ActivityResultQuestion,
+  FillBlanksAnswer,
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import type { GoalSummary } from '@/core/learning/goal-summary'
@@ -111,12 +112,29 @@ type ActivityWire = {
       }
     | {
         key: string
+        kind: 'fill_blanks'
+        prompt: string
+        content_language: string
+        segments: { text?: string | null; blank_key?: string | null }[]
+        bank: { key: string; word: string }[]
+      }
+    | {
+        key: string
         kind: 'translation'
         prompt: string
         source_language: string
         target_language: string
         source_text: string
         criteria: { key: string; name: string; weight_percentage: number }[]
+      }
+    | {
+        key: string
+        kind: 'pair_matching'
+        prompt: string
+        source_language: string
+        target_language: string
+        words: { key: string; text: string }[]
+        translations: { key: string; text: string }[]
       }
   >
   can_submit: boolean
@@ -147,6 +165,19 @@ function mapActivityQuestion(
             explanation: question.verified.explanation,
           }
         : null,
+    }
+  }
+  if (question.kind === 'fill_blanks') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      contentLanguage: question.content_language,
+      segments: question.segments.map((segment) => ({
+        text: segment.text ?? null,
+        blankKey: segment.blank_key ?? null,
+      })),
+      bank: question.bank,
     }
   }
   if (question.kind === 'javascript_stdin') {
@@ -230,7 +261,29 @@ function mapActivityQuestion(
       })),
     }
   }
+  if (question.kind === 'pair_matching') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      sourceLanguage: question.source_language,
+      targetLanguage: question.target_language,
+      words: question.words,
+      translations: question.translations,
+    }
+  }
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
+}
+
+function mapFillBlanksAnswer(answer: FillBlanksAnswer) {
+  return {
+    kind: answer.kind,
+    question_key: answer.questionKey,
+    placements: answer.placements.map((placement) => ({
+      blank_key: placement.blankKey,
+      word_key: placement.wordKey,
+    })),
+  }
 }
 
 function mapAnswer(answer: ActivityAnswer) {
@@ -241,6 +294,17 @@ function mapAnswer(answer: ActivityAnswer) {
       ordered_step_keys: answer.orderedStepKeys,
     }
   }
+  if ('pairs' in answer) {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      pairs: answer.pairs.map((pair) => ({
+        word_key: pair.wordKey,
+        translation_key: pair.translationKey,
+      })),
+    }
+  }
+  if ('placements' in answer) return mapFillBlanksAnswer(answer)
   if ('text' in answer) {
     return {
       kind: answer.kind,
@@ -360,6 +424,21 @@ type AttemptWire = {
       }
     | {
         question_key: string
+        kind: 'fill_blanks'
+        prompt: string
+        content_language: string
+        segments: { text?: string | null; blank_key?: string | null }[]
+        bank: { key: string; word: string }[]
+        placements: { blank_key: string; word_key: string }[]
+        score: number
+        is_correct: boolean
+        correct_blank_count: number
+        blank_count: number
+        explanation: string
+        disclosed_expected_blanks: { blank_key: string; accepted_words: string[] }[]
+      }
+    | {
+        question_key: string
         kind: 'translation'
         prompt: string
         submitted_text: string
@@ -377,7 +456,23 @@ type AttemptWire = {
           observation_id: string
         }[]
       }
+    | {
+        question_key: string
+        kind: 'pair_matching'
+        prompt: string
+        score: number
+        submitted_pairs: { word_key: string; translation_key: string }[]
+        correct_pair_count: number
+        total_pair_count: number
+        outcome: 'full' | 'partial' | 'incorrect'
+        explanation: string
+        disclosed_correct_pairs?: { word_key: string; translation_key: string }[]
+      }
   >
+}
+
+function mapPair(pair: { word_key: string; translation_key: string }) {
+  return { wordKey: pair.word_key, translationKey: pair.translation_key }
 }
 
 function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
@@ -402,6 +497,32 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
         }
       : wire.next_action,
     questions: wire.questions?.map((question): ActivityResultQuestion => {
+      if ('kind' in question && question.kind === 'fill_blanks') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          contentLanguage: question.content_language,
+          segments: question.segments.map((segment) => ({
+            text: segment.text ?? null,
+            blankKey: segment.blank_key ?? null,
+          })),
+          bank: question.bank,
+          placements: question.placements.map((placement) => ({
+            blankKey: placement.blank_key,
+            wordKey: placement.word_key,
+          })),
+          score: question.score,
+          isCorrect: question.is_correct,
+          correctBlankCount: question.correct_blank_count,
+          blankCount: question.blank_count,
+          explanation: question.explanation,
+          expectedBlanks: question.disclosed_expected_blanks.map((blank) => ({
+            blankKey: blank.blank_key,
+            acceptedWords: blank.accepted_words,
+          })),
+        }
+      }
       if (
         'kind' in question &&
         (question.kind === 'javascript_stdin' ||
@@ -440,6 +561,20 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
           isCorrect: question.is_correct,
           explanation: question.explanation,
           acceptedOrders: question.accepted_orders,
+        }
+      }
+      if ('kind' in question && question.kind === 'pair_matching') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          score: question.score,
+          submittedPairs: question.submitted_pairs.map(mapPair),
+          correctPairCount: question.correct_pair_count,
+          totalPairCount: question.total_pair_count,
+          outcome: question.outcome,
+          explanation: question.explanation,
+          disclosedCorrectPairs: question.disclosed_correct_pairs?.map(mapPair),
         }
       }
       if ('kind' in question && question.kind === 'translation') {
@@ -792,7 +927,13 @@ export const LearningService = (restClient: RestClient) => {
           comment: string
         }[]
         submitted_files?: { path: string; content: string }[]
+        correct_blank_count?: number
+        blank_count?: number
         submitted_text?: string
+        submitted_pairs?: { word_key: string; translation_key: string }[]
+        correct_pair_count?: number
+        total_pair_count?: number
+        outcome?: 'full' | 'partial' | 'incorrect'
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
         {
@@ -818,7 +959,13 @@ export const LearningService = (restClient: RestClient) => {
           comment: criterion.comment,
         })),
         submittedFiles: body.submitted_files,
+        correctBlankCount: body.correct_blank_count,
+        blankCount: body.blank_count,
         submittedText: body.submitted_text,
+        submittedPairs: body.submitted_pairs?.map(mapPair),
+        correctPairCount: body.correct_pair_count,
+        totalPairCount: body.total_pair_count,
+        outcome: body.outcome,
       }
     },
 

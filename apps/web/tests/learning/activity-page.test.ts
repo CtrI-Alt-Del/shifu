@@ -3,7 +3,9 @@ import { ROUTES } from '@/constants/routes'
 import {
   ChoiceActivityDetailFaker,
   ChoiceQuestionFaker,
+  FillBlanksQuestionFaker,
   LearningRouteIdsFaker,
+  PairMatchingQuestionFaker,
 } from '@/core/learning/fakers'
 import { installControlledDictation } from '../support/native-dictation'
 import { expect, navigateAuthenticatedPage, test } from '../playwright'
@@ -1173,6 +1175,417 @@ function translationActivity(overrides: Record<string, unknown> = {}) {
     ...overrides,
   }
 }
+
+const fillBlanksActivity = {
+  ...activity,
+  accountId: 'playwright-account',
+  activityRevision: 'fill-revision-1',
+  questions: [
+    FillBlanksQuestionFaker.fake({
+      segments: [
+        { text: 'She ', blankKey: null },
+        { text: null, blankKey: 'b1' },
+        { text: ' to school and ', blankKey: null },
+        { text: null, blankKey: 'b2' },
+        { text: '.', blankKey: null },
+      ],
+      bank: [
+        { key: 'w1', word: 'goes' },
+        { key: 'w2', word: 'does' },
+        { key: 'w3', word: 'go' },
+      ],
+    }),
+    ChoiceQuestionFaker.fake({
+      key: 'q1',
+      prompt: 'Qual é o resultado?',
+      options: [
+        { key: 'a', text: '4' },
+        { key: 'b', text: '6' },
+      ],
+    }),
+  ],
+}
+
+async function stubFillBlanksActivity(
+  bff: {
+    route: (
+      handler: (route: import('@playwright/test').Route) => Promise<void>,
+    ) => Promise<void>
+  },
+  requests: string[],
+) {
+  let fillPreviews = 0
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (!payload.includes(ids.activityId)) return route.fallback()
+    requests.push(payload)
+    if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes('questionKey') || payload.includes('question_key')) {
+      const isFill = payload.includes('fill-1')
+      fillPreviews += isFill ? 1 : 0
+      const result = !isFill
+        ? { status: 'conclusive', score: 100, explanation: 'Correto.', isCorrect: true }
+        : fillPreviews === 1
+          ? {
+              status: 'conclusive',
+              score: 50,
+              explanation: 'Quase lá. Revise a forma do verbo.',
+              isCorrect: false,
+              correctBlankCount: 1,
+              blankCount: 2,
+            }
+          : {
+              status: 'conclusive',
+              score: 100,
+              explanation: 'Correto! O verbo recebe -s ou -es.',
+              isCorrect: true,
+              correctBlankCount: 2,
+              blankCount: 2,
+            }
+      await route.fulfill({
+        body: JSON.stringify({ result }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: fillBlanksActivity }),
+      contentType: 'application/json',
+    })
+  })
+}
+
+const FILL_BLANKS_VIEWPORTS = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]
+
+for (const viewport of FILL_BLANKS_VIEWPORTS) {
+  test(`fills, checks, edits, re-checks and submits a fill-in-the-blank Activity by keyboard on ${viewport.name}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    await authenticatedPage.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    })
+    const requests: string[] = []
+    await stubFillBlanksActivity(bff, requests)
+
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    const bank = authenticatedPage.getByRole('region', { name: 'Banco de palavras' })
+    const word = (name: string) =>
+      bank.getByRole('button', { name: new RegExp(`^${name}( Selecionada)?$`) })
+    const emptyBlank = (number: number) =>
+      authenticatedPage.getByRole('button', { name: `Lacuna ${number}: vazia` })
+    const filledBlank = (number: number, text: string) =>
+      authenticatedPage.getByRole('button', {
+        name: new RegExp(
+          `^Lacuna ${number}: ${text} ?\\. Ative para remover a palavra\\.$`,
+        ),
+      })
+
+    await expect(emptyBlank(1)).toBeVisible()
+    await expect(authenticatedPage.getByText('0 de 2 lacunas preenchidas')).toBeVisible()
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }),
+    ).toBeDisabled()
+
+    await word('go').focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(word('go')).toHaveAttribute('aria-pressed', 'true')
+    await emptyBlank(1).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(filledBlank(1, 'go')).toBeVisible()
+    await expect(word('go')).toHaveCount(0)
+
+    await word('does').focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await emptyBlank(2).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(filledBlank(2, 'does')).toBeVisible()
+    await expect(authenticatedPage.getByText('2 de 2 lacunas preenchidas')).toBeVisible()
+
+    const check = authenticatedPage.getByRole('button', { name: 'Avaliar resposta' })
+    await expect(check).toBeEnabled()
+    await check.focus()
+    await authenticatedPage.keyboard.press('Enter')
+    const result = authenticatedPage.getByRole('region', { name: 'Resultado' })
+    await expect(result).toContainText('Parcialmente correta')
+    await expect(result).toContainText('1 de 2 lacunas corretas')
+    await expect(result).toContainText('Quase lá. Revise a forma do verbo.')
+    await expect(result).not.toContainText('goes')
+
+    // The fill stays editable after the feedback: a replaced word returns to the bank.
+    await word('goes').focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await filledBlank(1, 'go').focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(filledBlank(1, 'goes')).toBeVisible()
+    await expect(word('go')).toHaveCount(1)
+    await expect(result).toHaveCount(0)
+    await expect(
+      authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }),
+    ).toBeEnabled()
+
+    await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
+    await expect(result).toContainText('Resposta correta')
+    await expect(result).toContainText('2 de 2 lacunas corretas')
+    await authenticatedPage.getByRole('button', { name: 'Próxima questão' }).click()
+
+    await authenticatedPage.getByRole('radio', { name: '4' }).focus()
+    await authenticatedPage.keyboard.press('Space')
+    await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
+    await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+    await expect(authenticatedPage).toHaveURL(
+      new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
+    )
+
+    const fillPreviews = requests.filter(
+      (request) =>
+        request.includes('questionKey') &&
+        !request.includes('submissionKey') &&
+        request.includes('fill-1'),
+    )
+    expect(fillPreviews).toHaveLength(2)
+    for (const request of fillPreviews) {
+      expect(request).toContain('fill_blanks')
+      expect(request).toContain('fill-revision-1')
+    }
+    expect(fillPreviews[0]).toContain('w3')
+    expect(fillPreviews[1]).toContain('w1')
+    expect(fillPreviews[1]).not.toContain('w3')
+    const submission =
+      requests.find(
+        (request) =>
+          request.includes('submissionKey') || request.includes('submission_key'),
+      ) ?? ''
+    expect(submission).toContain('fill_blanks')
+    expect(submission).toContain('w1')
+    expect(submission).toContain('w2')
+    expect(submission).toContain('fill-revision-1')
+  })
+}
+
+const pairMatchingActivity = {
+  ...activity,
+  accountId: 'playwright-account',
+  activityRevision: 'pair-revision-1',
+  questions: [
+    PairMatchingQuestionFaker.fake(),
+    ChoiceQuestionFaker.fake({
+      key: 'q1',
+      prompt: 'Qual é o resultado?',
+      options: [
+        { key: 'a', text: '4' },
+        { key: 'b', text: '6' },
+      ],
+    }),
+  ],
+}
+
+async function stubPairMatchingActivity(
+  bff: {
+    route: (
+      handler: (route: import('@playwright/test').Route) => Promise<void>,
+    ) => Promise<void>
+  },
+  requests: string[],
+) {
+  await bff.route(async (route) => {
+    const payload = decodeURIComponent(
+      `${route.request().url()} ${route.request().postData() ?? ''}`,
+    )
+    if (!payload.includes(ids.activityId)) return route.fallback()
+    requests.push(payload)
+    if (payload.includes('submissionKey') || payload.includes('submission_key')) {
+      await route.fulfill({
+        body: JSON.stringify({
+          result: {
+            attemptId: ids.attemptId,
+            status: 'pending',
+            resultUrl: `${activityPath}/attempts/${ids.attemptId}`,
+          },
+        }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    if (payload.includes('questionKey') || payload.includes('question_key')) {
+      const isPair = payload.includes('pairs-1')
+      const result = isPair
+        ? {
+            status: 'conclusive',
+            score: 33.33,
+            explanation: 'Alguns pares estão corretos. Revise o vocabulário.',
+            isCorrect: false,
+            outcome: 'partial',
+            correctPairCount: 1,
+            totalPairCount: 3,
+          }
+        : { status: 'conclusive', score: 100, explanation: 'Correto.', isCorrect: true }
+      await route.fulfill({
+        body: JSON.stringify({ result }),
+        contentType: 'application/json',
+      })
+      return
+    }
+    await route.fulfill({
+      body: JSON.stringify({ result: pairMatchingActivity }),
+      contentType: 'application/json',
+    })
+  })
+}
+
+const PAIR_MATCHING_VIEWPORTS = [
+  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'mobile', width: 390, height: 844 },
+]
+
+for (const viewport of PAIR_MATCHING_VIEWPORTS) {
+  test(`pairs, verifies, locks and submits a pair matching Activity by keyboard on ${viewport.name}`, async ({
+    authenticatedPage,
+    bff,
+  }) => {
+    await authenticatedPage.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    })
+    const requests: string[] = []
+    await stubPairMatchingActivity(bff, requests)
+
+    await navigateAuthenticatedPage(authenticatedPage, activityPath)
+    await expect(authenticatedPage.getByText('Inglês (Estados Unidos)')).toBeVisible()
+    await expect(authenticatedPage.getByText('Português (Brasil)')).toBeVisible()
+    await expect(authenticatedPage.getByText('0 de 3 pares formados.')).toBeVisible()
+    const verify = authenticatedPage.getByRole('button', { name: 'Avaliar resposta' })
+    await expect(verify).toBeDisabled()
+
+    const wordsList = authenticatedPage.locator('ul').nth(0)
+    const translationsList = authenticatedPage.locator('ul').nth(1)
+    const pair = async (word: string, translation: string) => {
+      await wordsList.getByRole('button', { name: new RegExp(`^${word}`) }).focus()
+      await authenticatedPage.keyboard.press('Enter')
+      await translationsList
+        .getByRole('button', { name: new RegExp(`^${translation}`) })
+        .focus()
+      await authenticatedPage.keyboard.press('Enter')
+    }
+
+    // A wrong but complete pairing is valid; verification does not need correctness.
+    await pair('dog', 'casa')
+    await pair('house', 'água')
+    await expect(verify).toBeDisabled()
+    await pair('water', 'cachorro')
+    await expect(authenticatedPage.getByText('3 de 3 pares formados.')).toBeVisible()
+    await expect(verify).toBeEnabled()
+
+    // A pair is replaced by selecting its word again and choosing another translation.
+    await wordsList.getByRole('button', { name: /^water/ }).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await translationsList.getByRole('button', { name: /^água/ }).focus()
+    await authenticatedPage.keyboard.press('Enter')
+    await expect(authenticatedPage.getByText('2 de 3 pares formados.')).toBeVisible()
+    await pair('house', 'cachorro')
+    await expect(authenticatedPage.getByText('3 de 3 pares formados.')).toBeVisible()
+
+    await verify.focus()
+    await authenticatedPage.keyboard.press('Enter')
+    const result = authenticatedPage.getByRole('region', { name: 'Resultado' })
+    await expect(result).toContainText('Parcialmente correta')
+    await expect(result).toContainText('1 de 3 pares corretos')
+    await expect(result).toContainText(
+      'Alguns pares estão corretos. Revise o vocabulário.',
+    )
+    await expect(result).not.toContainText('esperad')
+
+    // After verifying, the evaluated answer is read-only.
+    for (const button of await wordsList.getByRole('button').all())
+      await expect(button).toBeDisabled()
+    await expect(
+      authenticatedPage.getByText('Resposta avaliada: não é possível alterar.'),
+    ).toBeVisible()
+    await authenticatedPage.getByRole('button', { name: 'Próxima questão' }).click()
+
+    await authenticatedPage.getByRole('radio', { name: '4' }).focus()
+    await authenticatedPage.keyboard.press('Space')
+    await authenticatedPage.getByRole('button', { name: 'Avaliar resposta' }).click()
+    await authenticatedPage.getByRole('button', { name: 'Enviar respostas' }).click()
+    await expect(authenticatedPage).toHaveURL(
+      new RegExp(`${ids.activityId}/attempts/${ids.attemptId}$`),
+    )
+
+    const previews = requests.filter(
+      (request) =>
+        request.includes('questionKey') &&
+        !request.includes('submissionKey') &&
+        request.includes('pairs-1'),
+    )
+    expect(previews).toHaveLength(1)
+    expect(previews[0]).toContain('pair_matching')
+    expect(previews[0]).toContain('pair-revision-1')
+    for (const key of ['w-3f9a21c4', 'w-b07d5e18', 'w-5c1e9a73']) {
+      expect(previews[0]).toContain(key)
+    }
+    const submission =
+      requests.find(
+        (request) =>
+          request.includes('submissionKey') || request.includes('submission_key'),
+      ) ?? ''
+    expect(submission).toContain('pair_matching')
+    expect(submission).toContain('pair-revision-1')
+    // The submitted pairs are the ones that were verified (dog-casa, house-cachorro).
+    expect(submission).toContain('t-91c7d3fa')
+    expect(submission).toContain('t-e2480b6d')
+  })
+}
+
+test('drops a bank word on a blank with the mouse', async ({
+  authenticatedPage,
+  bff,
+}) => {
+  await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+  await stubFillBlanksActivity(bff, [])
+
+  await navigateAuthenticatedPage(authenticatedPage, activityPath)
+  const bank = authenticatedPage.getByRole('region', { name: 'Banco de palavras' })
+  const source = bank.getByRole('button', { name: 'does', exact: true })
+  const target = authenticatedPage.getByRole('button', { name: 'Lacuna 2: vazia' })
+  const from = await source.boundingBox()
+  const to = await target.boundingBox()
+  if (!from || !to) throw new Error('Drag source or target is not visible.')
+
+  await authenticatedPage.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await authenticatedPage.mouse.down()
+  await authenticatedPage.mouse.move(to.x + to.width / 2 - 20, to.y + to.height / 2, {
+    steps: 12,
+  })
+  await authenticatedPage.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+    steps: 4,
+  })
+  await authenticatedPage.mouse.up()
+
+  await expect(
+    authenticatedPage.getByRole('button', {
+      name: /^Lacuna 2: does ?\. Ative para remover a palavra\.$/,
+    }),
+  ).toBeVisible()
+  await expect(bank.getByRole('button', { name: 'does', exact: true })).toHaveCount(0)
+})
 
 test.describe('VM-01 — Typed translation happy path', () => {
   test('types a translation, requests feedback, and submits through the real Activity route', async ({

@@ -46,8 +46,12 @@ from shifu.learning.core.domain.structures import (
     CompetencyCompletionSummary,
     ConceptObservation,
     EvaluationPartResult,
+    FillBlanksAnswer,
+    FillBlanksEvaluationResult,
     MultipleSelectionAnswer,
     OrderingAnswer,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
     SingleChoiceAnswer,
     SkillCompletionSummary,
     TranslationAnswer,
@@ -60,6 +64,8 @@ from shifu.learning.core.interfaces import (
 )
 from shifu.learning.core.use_cases.adaptive_policy_context import AdaptivePolicyContext
 from shifu.learning.core.use_cases.demonstrated_progress import demonstrated_progress
+from shifu.learning.core.use_cases.fill_blanks_scoring import FillBlanksScoring
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.learning.core.use_cases.preview_activity_question_feedback_use_case import (
     PreviewActivityQuestionFeedbackUseCase,
 )
@@ -70,8 +76,10 @@ from shifu.shared.core.domain.structures import (
     CurriculumChoicePartSnapshot,
     CurriculumChoiceQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumLearningActivitySnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
@@ -377,7 +385,9 @@ class EvaluateChoiceActivityUseCase:
             | CurriculumHtmlCssJsQuestionSnapshot
             | CurriculumReactFastifyQuestionSnapshot
             | CurriculumOrderingQuestionSnapshot
-            | CurriculumTranslationQuestionSnapshot,
+            | CurriculumFillBlanksQuestionSnapshot
+            | CurriculumTranslationQuestionSnapshot
+            | CurriculumPairMatchingQuestionSnapshot,
             ...,
         ],
         part_results: tuple[EvaluationPartResult, ...],
@@ -388,17 +398,34 @@ class EvaluateChoiceActivityUseCase:
             for item in part_results
             if isinstance(item, ChoiceEvaluationResult)
         }
-        code_results = {
+        fill_blanks_results = {
             item.question_key: item
             for item in part_results
-            if isinstance(item, CodeRubricResult)
+            if isinstance(item, FillBlanksEvaluationResult)
         }
-        translation_results = {
+        rubric_results = {
             item.question_key: item
             for item in part_results
-            if isinstance(item, TranslationRubricResult)
+            if isinstance(item, CodeRubricResult | TranslationRubricResult)
+        }
+        pair_results = {
+            item.question_key: item
+            for item in part_results
+            if isinstance(item, PairMatchingEvaluationResult)
         }
         for question in questions:
+            if isinstance(
+                question,
+                (
+                    CurriculumFillBlanksQuestionSnapshot,
+                    CurriculumPairMatchingQuestionSnapshot,
+                ),
+            ):
+                EvaluateChoiceActivityUseCase._add_objective_observation_scores(
+                    observation_scores, question, fill_blanks_results, pair_results
+                )
+                continue
+
             if isinstance(
                 question,
                 (
@@ -406,24 +433,14 @@ class EvaluateChoiceActivityUseCase:
                     CurriculumReactQuestionSnapshot,
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
+                    CurriculumTranslationQuestionSnapshot,
                 ),
             ):
-                code_result = code_results.get(question.key)
-                if code_result is None:
+                rubric_result = rubric_results.get(question.key)
+                if rubric_result is None:
                     raise InvalidAttemptError
 
-                for item in code_result.concept_observations:
-                    observation_scores.setdefault(item.concept_id, []).append(
-                        Decimal(item.level) if isinstance(item.level, int) else None
-                    )
-                continue
-
-            if isinstance(question, CurriculumTranslationQuestionSnapshot):
-                translation_result = translation_results.get(question.key)
-                if translation_result is None:
-                    raise InvalidAttemptError
-
-                for item in translation_result.concept_observations:
+                for item in rubric_result.concept_observations:
                     observation_scores.setdefault(item.concept_id, []).append(
                         Decimal(item.level) if isinstance(item.level, int) else None
                     )
@@ -440,6 +457,47 @@ class EvaluateChoiceActivityUseCase:
                     else criterion.incorrect_score
                 )
         return observation_scores
+
+    @staticmethod
+    def _add_objective_observation_scores(
+        observation_scores: dict[str, list[Decimal | None]],
+        question: CurriculumFillBlanksQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
+        fill_blanks_results: dict[str, FillBlanksEvaluationResult],
+        pair_results: dict[str, PairMatchingEvaluationResult],
+    ) -> None:
+        if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+            EvaluateChoiceActivityUseCase._add_pair_observation_scores(
+                observation_scores, question, pair_results.get(question.key)
+            )
+            return
+
+        fill_blanks_result = fill_blanks_results.get(question.key)
+        if fill_blanks_result is None:
+            raise InvalidAttemptError
+
+        for concept_id, value in FillBlanksScoring.concept_observations(
+            question, fill_blanks_result
+        ).items():
+            observation_scores.setdefault(concept_id, []).append(value)
+
+    @staticmethod
+    def _add_pair_observation_scores(
+        observation_scores: dict[str, list[Decimal | None]],
+        question: CurriculumPairMatchingQuestionSnapshot,
+        result: PairMatchingEvaluationResult | None,
+    ) -> None:
+        if result is None:
+            raise InvalidAttemptError
+
+        for criterion in question.concept_criteria:
+            observation_scores.setdefault(criterion.concept_id, []).append(
+                {
+                    'full': criterion.full_score,
+                    'partial': criterion.partial_score,
+                    'incorrect': criterion.incorrect_score,
+                }[result.outcome]
+            )
 
     def _apply_v2_learning_progress(
         self,
@@ -821,11 +879,16 @@ class EvaluateChoiceActivityUseCase:
         | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot
         | CurriculumOrderingQuestionSnapshot
-        | CurriculumTranslationQuestionSnapshot,
+        | CurriculumFillBlanksQuestionSnapshot
+        | CurriculumTranslationQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
         answer: ActivityAnswer,
         decisions_by_key: dict[str, CodeRubricDecisions],
         translation_decisions_by_key: dict[str, CodeRubricDecisions],
     ) -> EvaluationPartResult:
+        if isinstance(question, CurriculumFillBlanksQuestionSnapshot):
+            return self._score_fill_blanks_part(part, question, answer)
+
         if isinstance(
             question,
             (
@@ -844,6 +907,8 @@ class EvaluateChoiceActivityUseCase:
             return self._score_translation_part(
                 part, question, answer, translation_decisions_by_key
             )
+        if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+            return self._score_pair_part(part, question, answer)
         if not isinstance(part, CurriculumChoicePartSnapshot):
             raise EvaluationUnavailableError
         if isinstance(question, CurriculumOrderingQuestionSnapshot):
@@ -860,6 +925,12 @@ class EvaluateChoiceActivityUseCase:
                     else question.incorrect_explanation
                 ),
             )
+        return self._score_choice_part(question, answer)
+
+    @staticmethod
+    def _score_choice_part(
+        question: CurriculumChoiceQuestionSnapshot, answer: ActivityAnswer
+    ) -> ChoiceEvaluationResult:
         if isinstance(answer, SingleChoiceAnswer):
             selected = {answer.selected_option_key}
         elif isinstance(answer, MultipleSelectionAnswer):
@@ -878,6 +949,42 @@ class EvaluateChoiceActivityUseCase:
                 else question.incorrect_explanation
             ),
         )
+
+    @staticmethod
+    def _score_fill_blanks_part(
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumFillBlanksQuestionSnapshot,
+        answer: ActivityAnswer,
+    ) -> FillBlanksEvaluationResult:
+        if not isinstance(part, CurriculumChoicePartSnapshot):
+            raise EvaluationUnavailableError
+
+        if not isinstance(answer, FillBlanksAnswer):
+            raise InvalidAttemptError
+
+        try:
+            return FillBlanksScoring.score(question, answer)
+        except ValidationError as error:
+            raise InvalidAttemptError from error
+
+    @staticmethod
+    def _score_pair_part(
+        part: CurriculumChoicePartSnapshot
+        | CurriculumCodeRubricPartSnapshot
+        | CurriculumTranslationRubricPartSnapshot,
+        question: CurriculumPairMatchingQuestionSnapshot,
+        answer: ActivityAnswer,
+    ) -> PairMatchingEvaluationResult:
+        if not isinstance(part, CurriculumChoicePartSnapshot):
+            raise EvaluationUnavailableError
+        if not isinstance(answer, PairMatchingAnswer):
+            raise InvalidAttemptError
+        try:
+            return PairMatchingScoring.evaluate(question, answer)
+        except ValidationError as error:
+            raise InvalidAttemptError from error
 
     def _score_code_part(
         self,

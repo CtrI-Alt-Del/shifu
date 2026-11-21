@@ -45,7 +45,7 @@ class TestRecognizeSkillCompletedUseCase:
         self.database.transaction.return_value.__enter__.return_value = (
             self.repositories
         )
-        self.repositories.profiles.find_by_account_id.return_value = (
+        self.repositories.profiles.find_by_account_id_for_update.return_value = (
             GamificationProfileFaker.fake(account_id=ACCOUNT_ID)
         )
         self.repositories.rewarded_milestones.try_add.return_value = True
@@ -88,6 +88,12 @@ class TestRecognizeSkillCompletedUseCase:
             occurred_at=NOW,
             now=NOW,
         )
+
+        # Writers lock the row, so they must not use the plain read.
+        self.repositories.profiles.find_by_account_id_for_update.assert_called_with(
+            ACCOUNT_ID
+        )
+        self.repositories.profiles.find_by_account_id.assert_not_called()
 
     def test_should_label_the_origin_with_the_completed_skill_name(self) -> None:
         self.subject.execute(
@@ -144,7 +150,7 @@ class TestRecognizeSkillCompletedUseCase:
         self.curriculum_content_provider.get_skill_content.assert_not_called()
 
     def test_should_no_op_when_profile_is_missing(self) -> None:
-        self.repositories.profiles.find_by_account_id.return_value = None
+        self.repositories.profiles.find_by_account_id_for_update.return_value = None
 
         self.subject.execute(
             ACCOUNT_ID, SKILL_ID, SKILL_EXPERIENCE_ID, occurred_at=NOW, now=NOW

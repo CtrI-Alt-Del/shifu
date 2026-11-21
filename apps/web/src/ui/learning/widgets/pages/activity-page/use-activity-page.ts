@@ -17,10 +17,15 @@ import type {
   ActivityAnswer,
   CodeAnswer,
   OrderingQuestion as OrderingQuestionData,
+  FillBlanksAnswer,
+  FillBlanksPlacement,
   PreliminaryQuestionResult,
   ChoiceQuestion,
   ChoiceSubmission,
   ChoiceSubmissionResult,
+  PairMatchingAnswer,
+  PairMatchingPair,
+  PairMatchingQuestion,
   TranslationAnswer,
 } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
@@ -806,6 +811,8 @@ export function useActivityPage(props: ActivityPageProps) {
   )
   const translationAnswerText =
     currentAnswer && 'text' in currentAnswer ? currentAnswer.text : ''
+  const pairMatchingPairs: readonly PairMatchingPair[] =
+    currentAnswer && 'pairs' in currentAnswer ? currentAnswer.pairs : []
   const hasValidSelection = Boolean(
     activity?.canSubmit &&
       currentQuestion &&
@@ -817,11 +824,29 @@ export function useActivityPage(props: ActivityPageProps) {
       ) &&
       (currentQuestion.kind !== 'single_choice' || selectedOptionKeys.length === 1),
   )
+  const fillBlanksPlacements =
+    currentAnswer && 'placements' in currentAnswer ? currentAnswer.placements : []
+  const hasCompleteFillBlanks = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'fill_blanks' &&
+      currentQuestion.segments.every(
+        (segment) =>
+          !segment.blankKey ||
+          fillBlanksPlacements.some(
+            (placement) => placement.blankKey === segment.blankKey,
+          ),
+      ),
+  )
   const hasValidTranslationText = Boolean(
     currentQuestion?.kind === 'translation' &&
       currentAnswer &&
       'text' in currentAnswer &&
       currentAnswer.text.trim().length > 0,
+  )
+  const hasValidPairs = Boolean(
+    activity?.canSubmit &&
+      currentQuestion?.kind === 'pair_matching' &&
+      isCompletePairing(currentQuestion, pairMatchingPairs),
   )
   const hasDiagnosticAnswer = Boolean(
     currentAnswer &&
@@ -829,9 +854,13 @@ export function useActivityPage(props: ActivityPageProps) {
         ? currentAnswer.files.length > 0
         : 'orderedStepKeys' in currentAnswer
           ? currentAnswer.orderedStepKeys.length > 0
-          : 'text' in currentAnswer
-            ? currentAnswer.text.trim().length > 0
-            : currentAnswer.selectedOptionKeys.length > 0),
+          : 'placements' in currentAnswer
+            ? currentAnswer.placements.length > 0
+            : 'text' in currentAnswer
+              ? currentAnswer.text.trim().length > 0
+              : 'pairs' in currentAnswer
+                ? currentAnswer.pairs.length > 0
+                : currentAnswer.selectedOptionKeys.length > 0),
   )
   const isLastQuestion = Boolean(
     activity && currentQuestionIndex === activity.questions.length - 1,
@@ -925,6 +954,31 @@ export function useActivityPage(props: ActivityPageProps) {
     return orderingPassageKeyRef.current
   }
 
+  function handleFillBlanksChange(placements: readonly FillBlanksPlacement[]) {
+    if (
+      !activity ||
+      !currentQuestion ||
+      currentQuestion.kind !== 'fill_blanks' ||
+      isSubmitting ||
+      isAssessing ||
+      isSubmissionLocked
+    )
+      return
+
+    const answer: FillBlanksAnswer = {
+      kind: 'fill_blanks',
+      questionKey: currentQuestion.key,
+      placements: placements.map((placement) => ({ ...placement })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setFeedback(null)
+    setHasFeedbackError(false)
+  }
+
   function handleCodeFilesChange(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -990,6 +1044,30 @@ export function useActivityPage(props: ActivityPageProps) {
     setHasFeedbackError(false)
   }
 
+  function handlePairMatchingAnswerChange(pairs: readonly PairMatchingPair[]) {
+    if (
+      !currentQuestion ||
+      currentQuestion.kind !== 'pair_matching' ||
+      isSubmitting ||
+      isSubmissionLocked ||
+      isAssessing ||
+      feedback ||
+      frozenAnswer
+    )
+      return
+    const answer: PairMatchingAnswer = {
+      kind: 'pair_matching',
+      questionKey: currentQuestion.key,
+      pairs: pairs.map((pair) => ({ ...pair })),
+    }
+    setAnswers((current) => [
+      ...current.filter((item) => item.questionKey !== answer.questionKey),
+      answer,
+    ])
+    setUnsentAnswers(true)
+    setHasFeedbackError(false)
+  }
+
   async function handleAssessCode(files: readonly { path: string; content: string }[]) {
     if (
       !currentQuestion ||
@@ -1029,11 +1107,18 @@ export function useActivityPage(props: ActivityPageProps) {
         ? { ...answer, files: answer.files.map((file) => ({ ...file })) }
         : 'orderedStepKeys' in answer
           ? { ...answer, orderedStepKeys: [...answer.orderedStepKeys] }
-          : 'text' in answer
-            ? { ...answer }
-            : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
+          : 'placements' in answer
+            ? {
+                ...answer,
+                placements: answer.placements.map((placement) => ({ ...placement })),
+              }
+            : 'text' in answer
+              ? { ...answer }
+              : 'pairs' in answer
+                ? { ...answer, pairs: answer.pairs.map((pair) => ({ ...pair })) }
+                : { ...answer, selectedOptionKeys: [...answer.selectedOptionKeys] }
     const passageKey = snapshot.kind === 'ordering' ? getOrderingPassageKey() : undefined
-    setFrozenAnswer(snapshot)
+    setFrozenAnswer(answer.kind === 'fill_blanks' ? null : snapshot)
     setIsAssessing(true)
     setHasFeedbackError(false)
     try {
@@ -1269,6 +1354,13 @@ export function useActivityPage(props: ActivityPageProps) {
       return
     }
     if (!feedback) {
+      if (currentQuestion.kind === 'fill_blanks') {
+        const fillAnswer = answers.find(
+          (answer) => answer.questionKey === currentQuestion.key,
+        )
+        if (hasCompleteFillBlanks && fillAnswer) void assess(fillAnswer)
+        return
+      }
       if (frozenAnswer) {
         void assess(frozenAnswer, true)
         return
@@ -1288,6 +1380,7 @@ export function useActivityPage(props: ActivityPageProps) {
         currentQuestion.kind !== 'html_css_js' &&
         currentQuestion.kind !== 'react_fastify' &&
         currentQuestion.kind !== 'translation' &&
+        currentQuestion.kind !== 'pair_matching' &&
         hasValidSelection
       ) {
         void assess({
@@ -1297,6 +1390,8 @@ export function useActivityPage(props: ActivityPageProps) {
         })
       } else if (currentQuestion.kind === 'translation' && hasValidTranslationText) {
         void assess(currentAnswer as TranslationAnswer)
+      } else if (currentQuestion.kind === 'pair_matching' && hasValidPairs) {
+        void assess(currentAnswer as PairMatchingAnswer)
       }
       return
     }
@@ -1357,14 +1452,21 @@ export function useActivityPage(props: ActivityPageProps) {
             : feedback !== null ||
               frozenAnswer !== null ||
               hasValidSelection ||
-              hasValidTranslationText),
+              hasValidTranslationText ||
+              hasCompleteFillBlanks ||
+              hasValidPairs),
     feedback,
     frozenAnswer,
     isAssessing,
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked: isSubmitting || isAssessing || isSubmissionLocked,
     handleTranslationAnswerChange,
+    handlePairMatchingAnswerChange,
+    pairMatchingPairs,
     currentQuestion,
     currentQuestionIndex,
     currentQuestionNumber: currentQuestionIndex + 1,
@@ -1501,6 +1603,24 @@ function isSubmissionInput(value: Record<string, unknown>): value is Record<
   )
 }
 
+function isCompletePairing(
+  question: PairMatchingQuestion,
+  pairs: readonly PairMatchingPair[],
+): boolean {
+  const wordKeys = new Set(question.words.map((word) => word.key))
+  const translationKeys = new Set(
+    question.translations.map((translation) => translation.key),
+  )
+  return (
+    pairs.length === question.words.length &&
+    new Set(pairs.map((pair) => pair.wordKey)).size === pairs.length &&
+    new Set(pairs.map((pair) => pair.translationKey)).size === pairs.length &&
+    pairs.every(
+      (pair) => wordKeys.has(pair.wordKey) && translationKeys.has(pair.translationKey),
+    )
+  )
+}
+
 function isLegacyChoiceAnswer(
   value: unknown,
   questionKey: string,
@@ -1536,8 +1656,31 @@ function isActivityAnswer(value: unknown, questionKey: string): value is Activit
       )
     )
   }
+  if (value.kind === 'fill_blanks') {
+    return (
+      Array.isArray(value.placements) &&
+      value.placements.every(
+        (placement: unknown) =>
+          isRecord(placement) &&
+          typeof placement.blankKey === 'string' &&
+          typeof placement.wordKey === 'string',
+      )
+    )
+  }
   if (value.kind === 'translation') {
     return typeof value.text === 'string' && value.text.trim().length > 0
+  }
+  if (value.kind === 'pair_matching') {
+    return (
+      Array.isArray(value.pairs) &&
+      value.pairs.length > 0 &&
+      value.pairs.every(
+        (pair: unknown) =>
+          isRecord(pair) &&
+          typeof pair.wordKey === 'string' &&
+          typeof pair.translationKey === 'string',
+      )
+    )
   }
   return (
     (value.kind === 'single_choice' || value.kind === 'multiple_selection') &&

@@ -6,21 +6,39 @@ from unittest.mock import create_autospec
 import pytest
 
 from shifu.fakers.learning.entities import GoalFaker, SkillExperienceFaker
-from shifu.learning.core.domain.entities import CompetencyProgress
-from shifu.learning.core.domain.enums import ActivityEvaluationStatus
+from shifu.fakers.shared.curriculum_fill_blanks_activity_snapshot_faker import (
+    CurriculumFillBlanksActivitySnapshotFaker,
+)
+from shifu.learning.core.domain.entities import (
+    ActivityAttempt,
+    ActivityEvaluation,
+    CompetencyProgress,
+)
+from shifu.learning.core.domain.enums import (
+    ActivityAttemptKind,
+    ActivityEvaluationStatus,
+)
 from shifu.learning.core.domain.enums import SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ActivityAnswer,
     ChoiceAnswerSubmission,
+    ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
     MultipleSelectionAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     SingleChoiceAnswer,
     OrderingAnswer,
     OrderingAnswerSubmission,
     VerifiedOrdering,
 )
 from shifu.learning.core.domain.entities import OrderingPassage
+from shifu.fakers.shared.curriculum_pair_matching_question_snapshot_faker import (
+    CurriculumPairMatchingQuestionSnapshotFaker,
+)
 from tests.learning.core.use_cases.test_preview_activity_question_feedback_use_case import (
     mixed_snapshot,
     code_answer_at_size,
@@ -76,6 +94,23 @@ COMPETENCY_ID = 'competency-1'
 EXPERIENCE_ID = 'experience-1'
 ACTIVITY_ID = 'activity-1'
 NOW = datetime(2026, 9, 23, 12, tzinfo=UTC)
+CORRECT_FILL = (('b1', 'w1'), ('b2', 'w3'), ('b3', 'w4'))
+
+
+def fill_answers(
+    *pairs: tuple[str, str],
+) -> tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...]:
+    return (
+        FillBlanksAnswer(
+            question_key='fill-1',
+            placements=tuple(
+                FillBlanksPlacement(blank_key=blank, word_key=word)
+                for blank, word in pairs
+            ),
+        ),
+        ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+        ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('b',)),
+    )
 
 
 def choice_snapshot() -> CurriculumChoiceActivitySnapshot:
@@ -1411,6 +1446,159 @@ class TestSubmitChoiceActivityUseCase:
         self.repositories.ordering_passages.update.assert_called_once_with(passage)
         self.repositories.events.add.assert_called_once()
 
+    def _submit_fill(
+        self,
+        submitted: tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...],
+        *,
+        key: str = 'fill-key',
+        revision: str = 'revision-1',
+    ) -> ChoiceSubmissionOutcome:
+        self.provider.get_learning_activity.return_value = (
+            CurriculumFillBlanksActivitySnapshotFaker.fake()
+        )
+        return self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            key,
+            submitted,
+            revision,
+        )
+
+    def _assert_no_attempt_written(self) -> None:
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_persist_fill_blanks_placements_in_blank_order_with_the_snapshot(
+        self,
+    ) -> None:
+        reordered = tuple(reversed(CORRECT_FILL))
+
+        outcome = self._submit_fill(fill_answers(*reordered))
+
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert outcome.replayed is False
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        assert attempt.answers == (
+            FillBlanksAnswer(
+                question_key='fill-1',
+                placements=tuple(
+                    FillBlanksPlacement(blank_key=blank, word_key=word)
+                    for blank, word in CORRECT_FILL
+                ),
+            ),
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+        )
+        assert attempt.grading_snapshot.questions[0].kind == 'fill_blanks'
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        assert evaluation.status is ActivityEvaluationStatus.PENDING
+        assert evaluation.parts == ()
+        event = self.repositories.events.add.call_args.args[0]
+        assert event.payload.attempt_id == attempt.id
+        assert event.payload.run_id == evaluation.run_id
+        self.repositories.events.add.assert_called_once()
+
+    def test_should_accept_a_complete_but_wrong_fill(self) -> None:
+        outcome = self._submit_fill(
+            fill_answers(('b1', 'w6'), ('b2', 'w2'), ('b3', 'w3'))
+        )
+
+        assert outcome.replayed is False
+        self.repositories.activity_attempts.add.assert_called_once()
+
+    @pytest.mark.parametrize(
+        'submitted',
+        (
+            fill_answers(('b1', 'w1'), ('b2', 'w3')),
+            fill_answers(('b1', 'w1'), ('b2', 'w1'), ('b3', 'w4')),
+            fill_answers(('b1', 'w1'), ('b2', 'missing'), ('b3', 'w4')),
+            fill_answers(('b1', 'w1'), ('b2', 'w3'), ('unknown', 'w4')),
+            fill_answers(),
+            (
+                ChoiceAnswerSubmission(
+                    question_key='fill-1', selected_option_keys=('a',)
+                ),
+                *fill_answers(*CORRECT_FILL)[1:],
+            ),
+            (
+                *fill_answers(*CORRECT_FILL)[:1],
+                FillBlanksAnswer(question_key='q1', placements=()),
+                fill_answers(*CORRECT_FILL)[2],
+            ),
+        ),
+        ids=(
+            'incomplete',
+            'repeated-occurrence',
+            'unknown-occurrence',
+            'unknown-blank',
+            'empty',
+            'choice-answer-for-fill-blanks',
+            'fill-answer-for-a-choice-question',
+        ),
+    )
+    def test_should_reject_an_invalid_fill_submission_without_writing(
+        self, submitted: tuple[FillBlanksAnswer | ChoiceAnswerSubmission, ...]
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._submit_fill(submitted)
+
+        self._assert_no_attempt_written()
+
+    def test_should_reject_a_stale_fill_blanks_revision_without_writing(self) -> None:
+        with pytest.raises(ConflictError):
+            self._submit_fill(fill_answers(*CORRECT_FILL), revision='stale')
+
+        self._assert_no_attempt_written()
+
+    def test_should_replay_the_same_fill_and_reject_different_placements(self) -> None:
+        snapshot = CurriculumFillBlanksActivitySnapshotFaker.fake()
+        attempt = ActivityAttempt.create(
+            id='attempt-prior',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            activity_id=ACTIVITY_ID,
+            kind=ActivityAttemptKind.LEARNING,
+            answers=(
+                FillBlanksAnswer(
+                    question_key='fill-1',
+                    placements=tuple(
+                        FillBlanksPlacement(blank_key=blank, word_key=word)
+                        for blank, word in CORRECT_FILL
+                    ),
+                ),
+                SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+                SingleChoiceAnswer(question_key='q2', selected_option_key='b'),
+            ),
+            submitted_at=NOW,
+            submission_key='fill-key',
+            grading_snapshot=snapshot,
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = attempt
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            ActivityEvaluation.create(
+                id='evaluation-prior',
+                attempt_id=attempt.id,
+                status=ActivityEvaluationStatus.PENDING,
+                parts=(),
+                started_at=NOW,
+                run_id='run-prior',
+            )
+        )
+
+        replay = self._submit_fill(fill_answers(*reversed(CORRECT_FILL)))
+
+        assert replay.replayed is True
+        assert replay.attempt.attempt_id == 'attempt-prior'
+        self._assert_no_attempt_written()
+        with pytest.raises(ConflictError):
+            self._submit_fill(fill_answers(('b1', 'w2'), ('b2', 'w3'), ('b3', 'w4')))
+
+        self._assert_no_attempt_written()
+
 
 class TestSubmitChoiceActivityAnswerNormalization:
     """`normalize_answers` is the submission boundary's validation surface: it
@@ -1676,3 +1864,240 @@ class TestSubmitChoiceActivityAnswerNormalization:
                     ),
                 ),
             )
+
+
+class TestSubmitPairMatchingActivity:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        self.database = create_autospec(LearningDatabase, instance=True)
+        self.repositories = create_autospec(LearningDatabaseRepositories, instance=True)
+        self.repositories.ordering_passages.find_active.return_value = None
+        self.database.transaction.return_value.__enter__.return_value = (
+            self.repositories
+        )
+        self.provider = create_autospec(CurriculumContentProvider, instance=True)
+        self.clock = create_autospec(ClockProvider, instance=True)
+        self.ids = create_autospec(IdentifierProvider, instance=True)
+        self.ids.generate.side_effect = ('attempt-1', 'evaluation-1', 'run-1')
+        self.clock.now.return_value = NOW
+        self.experience = SkillExperienceFaker.fake(
+            id=EXPERIENCE_ID, goal_id=GOAL_ID, skill_id=SKILL_ID
+        )
+        self.experience.status = SkillExperienceStatus.LEARNING
+        self.repositories.goals.find_by_id.return_value = GoalFaker.fake(
+            id=GOAL_ID, account_id=ACCOUNT_ID
+        )
+        self.repositories.skill_experiences.find_by_goal_id_and_skill_id.return_value = self.experience
+        self.repositories.skill_experiences.find_by_id_for_update.return_value = (
+            self.experience
+        )
+        self.repositories.competency_progresses.find_by_skill_experience_id_and_competency_id.return_value = CompetencyProgress(
+            id='progress-1',
+            skill_experience_id=EXPERIENCE_ID,
+            competency_id=COMPETENCY_ID,
+            content_released=True,
+            created_at=NOW,
+            updated_at=NOW,
+            initial_progress=Decimal('0'),
+        )
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = None
+        self.repositories.activity_evaluations.find_unresolved_by_skill_experience_id.return_value = None
+        base = mixed_snapshot()
+        self.snapshot = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                CurriculumPairMatchingQuestionSnapshotFaker.fake('q3'),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='q3', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+        self.provider.get_learning_activity.return_value = self.snapshot
+        self.provider.get_skill_content.return_value = None
+        self.subject = SubmitChoiceActivityUseCase(
+            self.database, self.provider, self.clock, self.ids
+        )
+
+    @staticmethod
+    def _pairs(*translation_indexes: int) -> PairMatchingAnswer:
+        return PairMatchingAnswer(
+            question_key='q3',
+            pairs=tuple(
+                PairMatchingSelection(
+                    word_key=f'word-{word_index}',
+                    translation_key=f'translation-{translation_index}',
+                )
+                for word_index, translation_index in enumerate(translation_indexes)
+            ),
+        )
+
+    def _submit(
+        self,
+        pair_answer: object,
+        key: str = 'submission-key',
+        revision: str | None = 'revision-1',
+    ) -> ChoiceSubmissionOutcome:
+        return self.subject.execute(
+            ACCOUNT_ID,
+            GOAL_ID,
+            SKILL_ID,
+            COMPETENCY_ID,
+            ACTIVITY_ID,
+            key,
+            (
+                ChoiceAnswerSubmission(question_key='q1', selected_option_keys=('a',)),
+                ChoiceAnswerSubmission(question_key='q2', selected_option_keys=('a',)),
+                pair_answer,  # type: ignore[arg-type]
+            ),
+            revision,
+        )
+
+    def test_should_persist_one_attempt_with_the_saved_pairs_on_the_mixed_snapshot(
+        self,
+    ) -> None:
+        outcome = self._submit(self._pairs(1, 0, 2))
+
+        assert outcome.attempt.attempt_id == 'attempt-1'
+        assert outcome.attempt.status is ActivityEvaluationStatus.PENDING
+        assert outcome.replayed is False
+        attempt = self.repositories.activity_attempts.add.call_args.args[0]
+        assert attempt.answers == (
+            SingleChoiceAnswer(question_key='q1', selected_option_key='a'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='a'),
+            self._pairs(1, 0, 2),
+        )
+        assert attempt.grading_snapshot == self.snapshot
+        self.repositories.activity_evaluations.add.assert_called_once()
+        self.repositories.events.add.assert_called_once()
+        self.provider.get_choice_activity.assert_not_called()
+
+    @pytest.mark.parametrize(
+        'pair_answer',
+        (
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-9', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-9'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='other',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            ChoiceAnswerSubmission(question_key='q3', selected_option_keys=('a',)),
+        ),
+        ids=(
+            'incomplete',
+            'unknown-word',
+            'unknown-translation',
+            'wrong-question-key',
+            'wrong-answer-type',
+        ),
+    )
+    def test_should_reject_invalid_pair_answers_without_persisting(
+        self, pair_answer: object
+    ) -> None:
+        with pytest.raises(ValidationError):
+            self._submit(pair_answer)
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+
+    def test_should_reject_a_stale_revision_without_persisting(self) -> None:
+        with pytest.raises(ConflictError):
+            self._submit(self._pairs(0, 1, 2), revision='old-revision')
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_replay_the_same_attempt_for_identical_pairs(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+
+        outcome = self._submit(self._pairs(1, 0, 2))
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_a_replay_with_different_pairs(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+
+        with pytest.raises(ConflictError):
+            self._submit(self._pairs(0, 1, 2))
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_replay_when_the_same_pairs_arrive_in_another_order(self) -> None:
+        self._submit(self._pairs(1, 0, 2))
+        saved = self.repositories.activity_attempts.add.call_args.args[0]
+        evaluation = self.repositories.activity_evaluations.add.call_args.args[0]
+        self.repositories.activity_attempts.add.reset_mock()
+        self.repositories.activity_attempts.find_by_skill_experience_id_and_submission_key.return_value = saved
+        self.repositories.activity_evaluations.find_by_attempt_id.return_value = (
+            evaluation
+        )
+        reordered = PairMatchingAnswer(
+            question_key='q3', pairs=tuple(reversed(self._pairs(1, 0, 2).pairs))
+        )
+
+        outcome = self._submit(reordered)
+
+        assert outcome.replayed is True
+        assert outcome.attempt.attempt_id == saved.id
+        self.repositories.activity_attempts.add.assert_not_called()

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -52,7 +53,15 @@ from shifu.learning.database.sqlalchemy.models import (
     ActivityAttemptModel,
     ActivityEvaluationModel,
 )
+from tests.fixtures.fill_blanks_activity_fixture import (
+    CORRECT_PAIRS,
+    PARTIAL_PAIRS,
+    FillBlanksActivityFixture,
+)
 from tests.fixtures.postgres_fixture import PostgresDatabase
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
+)
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.fixtures.react_activity_fixture import (
@@ -789,6 +798,393 @@ class TestPreviewActivityQuestionFeedbackController:
             ),
         )
         assert _learning_write_counts(postgres_database) == counts_before
+
+    def _fill_preview(
+        self,
+        client: TestClient,
+        answer: dict[str, object],
+        *,
+        revision: str,
+        path: str | None = None,
+    ) -> 'Response':
+        return cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                (path or FillBlanksActivityFixture.activity_path())
+                + '/questions/fill-1/preliminary-evaluations',
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={'activity_revision': revision, 'answer': answer},
+            ),
+        )
+
+    def _fill_activity(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        with SqlalchemyCurriculumDatabase(
+            postgres_database.engine
+        ).transaction() as repositories:
+            repositories.activities.add_many([FillBlanksActivityFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                FillBlanksActivityFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    @pytest.mark.parametrize(
+        ('pairs', 'score', 'is_correct', 'correct_count', 'explanation'),
+        (
+            (
+                PARTIAL_PAIRS,
+                '33.33',
+                False,
+                1,
+                'Almost there. Review the verb forms.',
+            ),
+            (
+                CORRECT_PAIRS,
+                '100.00',
+                True,
+                3,
+                'Correct. The third person singular takes -s or -es.',
+            ),
+        ),
+        ids=('partial', 'correct'),
+    )
+    def test_fill_blanks_feedback_has_score_count_and_explanation_without_writes(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        pairs: tuple[tuple[str, str], ...],
+        score: str,
+        is_correct: bool,
+        correct_count: int,
+        explanation: str,
+    ) -> None:
+        revision = self._fill_activity(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+
+        response = self._fill_preview(
+            client, FillBlanksActivityFixture.fill_answer(*pairs), revision=revision
+        )
+
+        assert response.status_code == 200, response.json()
+        assert response.json() == {
+            'status': 'conclusive',
+            'score': score,
+            'explanation': explanation,
+            'is_correct': is_correct,
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+            'correct_blank_count': correct_count,
+            'blank_count': 3,
+        }
+        assert 'accepted_words' not in response.text
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize(
+        ('answer', 'expected_status'),
+        (
+            (FillBlanksActivityFixture.fill_answer(('b1', 'w1'), ('b2', 'w3')), 400),
+            (
+                FillBlanksActivityFixture.fill_answer(
+                    ('b1', 'w1'), ('b2', 'w1'), ('b3', 'w4')
+                ),
+                400,
+            ),
+            (
+                FillBlanksActivityFixture.fill_answer(
+                    ('b1', 'w1'), ('b2', 'missing'), ('b3', 'w4')
+                ),
+                400,
+            ),
+            (
+                FillBlanksActivityFixture.fill_answer(
+                    ('b1', 'w1'), ('b2', 'w3'), ('unknown', 'w4')
+                ),
+                400,
+            ),
+            ({'kind': 'fill_blanks', 'question_key': 'fill-1'}, 422),
+            (
+                {
+                    'kind': 'fill_blanks',
+                    'question_key': 'fill-1',
+                    'placements': [],
+                    'selected_option_keys': ['a'],
+                },
+                422,
+            ),
+            (
+                {
+                    'kind': 'fill_blanks',
+                    'question_key': 'fill-1',
+                    'placements': [],
+                    'files': [],
+                },
+                422,
+            ),
+            (
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'fill-1',
+                    'selected_option_keys': ['a'],
+                    'placements': [],
+                },
+                422,
+            ),
+        ),
+        ids=(
+            'incomplete',
+            'repeated-occurrence',
+            'unknown-occurrence',
+            'unknown-blank',
+            'missing-placements',
+            'fill-with-options',
+            'fill-with-files',
+            'choice-with-placements',
+        ),
+    )
+    def test_fill_blanks_feedback_rejects_an_invalid_fill_without_effects(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+        expected_status: int,
+    ) -> None:
+        revision = self._fill_activity(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+
+        response = self._fill_preview(client, answer, revision=revision)
+
+        assert response.status_code == expected_status, response.json()
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    def test_fill_blanks_feedback_rejects_a_stale_revision_and_another_owner(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> None:
+        self._fill_activity(client, postgres_database)
+        before = FillBlanksActivityFixture.write_counts(postgres_database)
+        answer = FillBlanksActivityFixture.fill_answer(*CORRECT_PAIRS)
+
+        stale = self._fill_preview(client, answer, revision='stale-revision')
+        other_owner = self._fill_preview(
+            client,
+            answer,
+            revision='stale-revision',
+            path=FillBlanksActivityFixture.activity_path().replace(
+                SEED_ADAPTIVE_LAB_GOAL_ID, '01SHF000000000000000000099'
+            ),
+        )
+
+        assert stale.status_code == 409, stale.json()
+        assert other_owner.status_code == 404, other_owner.json()
+        assert FillBlanksActivityFixture.write_counts(postgres_database) == before
+
+    def _pair_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([PairMatchingControllerFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    @pytest.mark.parametrize(
+        ('order', 'correct', 'outcome', 'explanation'),
+        (
+            ((0, 1, 2), 3, 'full', PairMatchingControllerFixture.FULL_EXPLANATION),
+            (
+                (0, 2, 1),
+                1,
+                'partial',
+                PairMatchingControllerFixture.PARTIAL_EXPLANATION,
+            ),
+            (
+                (1, 2, 0),
+                0,
+                'incorrect',
+                PairMatchingControllerFixture.INCORRECT_EXPLANATION,
+            ),
+        ),
+    )
+    def test_pair_preview_returns_counts_and_explanation_without_writes_or_the_key(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        order: tuple[int, ...],
+        correct: int,
+        outcome: str,
+        explanation: str,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={
+                    'activity_revision': revision,
+                    'answer': PairMatchingControllerFixture.answer(*order),
+                },
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert (
+            Decimal(body.pop('score'))
+            == {
+                0: Decimal('0.00'),
+                1: Decimal('33.33'),
+                2: Decimal('66.67'),
+                3: Decimal('100.00'),
+            }[correct]
+        )
+        assert body == {
+            'status': 'conclusive',
+            'explanation': explanation,
+            'is_correct': outcome == 'full',
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+            'submitted_pairs': PairMatchingControllerFixture.pairs(*order),
+            'correct_pair_count': correct,
+            'total_pair_count': 3,
+            'outcome': outcome,
+        }
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize(
+        ('answer', 'status_code'),
+        (
+            ({'kind': 'pair_matching', 'question_key': 'q3'}, 422),
+            ({'kind': 'pair_matching', 'question_key': 'q3', 'pairs': []}, 422),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'}
+                    ],
+                    'text': 'extra',
+                },
+                422,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-0', 'translation_key': 'translation-1'},
+                        {'word_key': 'word-2', 'translation_key': 'translation-2'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-1', 'translation_key': 'translation-1'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-1', 'translation_key': 'translation-1'},
+                        {'word_key': 'word-9', 'translation_key': 'translation-2'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q3',
+                    'selected_option_keys': ['a'],
+                },
+                400,
+            ),
+        ),
+        ids=(
+            'missing-pairs',
+            'empty-pairs',
+            'extra-text-field',
+            'repeated-word',
+            'incomplete',
+            'unknown-word',
+            'wrong-answer-kind',
+        ),
+    )
+    def test_pair_preview_rejects_invalid_answers_without_writes(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+        status_code: int,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={'activity_revision': revision, 'answer': answer},
+            ),
+        )
+
+        assert response.status_code == status_code, response.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def test_pair_preview_rejects_a_stale_activity_revision(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        self._pair_revision(client, postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={
+                    'activity_revision': 'stale-revision',
+                    'answer': PairMatchingControllerFixture.answer(0, 1, 2),
+                },
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
 
 
 def _activity_path() -> str:

@@ -104,6 +104,25 @@ class CodeQuestionResponse(BaseModel):
     http_examples: tuple[HttpExampleResponse, ...] = ()
 
 
+class FillBlanksSegmentResponse(BaseModel):
+    text: str | None
+    blank_key: str | None
+
+
+class FillBlanksWordResponse(BaseModel):
+    key: str
+    word: str
+
+
+class FillBlanksQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['fill_blanks']
+    prompt: str
+    content_language: str
+    segments: tuple[FillBlanksSegmentResponse, ...]
+    bank: tuple[FillBlanksWordResponse, ...]
+
+
 class TranslationQuestionResponse(BaseModel):
     key: str
     kind: Literal['translation']
@@ -114,6 +133,21 @@ class TranslationQuestionResponse(BaseModel):
     criteria: tuple[CriterionResponse, ...]
 
 
+class PairItemResponse(BaseModel):
+    key: str
+    text: str
+
+
+class PairMatchingQuestionResponse(BaseModel):
+    key: str
+    kind: Literal['pair_matching']
+    prompt: str
+    source_language: str
+    target_language: str
+    words: tuple[PairItemResponse, ...]
+    translations: tuple[PairItemResponse, ...]
+
+
 class Response(BaseModel):
     activity_id: str
     title: str
@@ -122,7 +156,9 @@ class Response(BaseModel):
         ChoiceQuestionResponse
         | CodeQuestionResponse
         | OrderingQuestionResponse
-        | TranslationQuestionResponse,
+        | FillBlanksQuestionResponse
+        | TranslationQuestionResponse
+        | PairMatchingQuestionResponse,
         ...,
     ]
     can_submit: bool

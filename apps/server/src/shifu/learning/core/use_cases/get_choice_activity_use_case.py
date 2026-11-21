@@ -1,14 +1,22 @@
+from shifu.learning.core.use_cases.mixed_question_snapshots import (
+    MixedQuestionSnapshots,
+)
 from shifu.learning.core.domain.enums import ActivityDifficulty, SkillExperienceStatus
 from shifu.learning.core.domain.structures import (
     ChoiceActivityDetail,
     ChoiceOptionDetail,
     ChoiceQuestionDetail,
     CodeQuestionDetail,
+    FillBlanksQuestionDetail,
+    FillBlanksSegmentDetail,
+    FillBlanksWordDetail,
     CodeQuestionCriterionDetail,
     OrderingQuestionDetail,
     OrderingStepDetail,
     VerifiedOrderingDetail,
     VerifiedOrdering,
+    PairMatchingItemDetail,
+    PairMatchingQuestionDetail,
     TranslationQuestionCriterionDetail,
     TranslationQuestionDetail,
 )
@@ -27,6 +35,8 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumOrderingQuestionSnapshot,
+    CurriculumFillBlanksQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -110,20 +120,7 @@ class GetChoiceActivityUseCase:
                 )
                 if not isinstance(
                     snapshot, CurriculumLearningActivitySnapshot
-                ) or not any(
-                    isinstance(
-                        item,
-                        (
-                            CurriculumJavascriptStdinQuestionSnapshot,
-                            CurriculumReactQuestionSnapshot,
-                            CurriculumHtmlCssJsQuestionSnapshot,
-                            CurriculumReactFastifyQuestionSnapshot,
-                            CurriculumOrderingQuestionSnapshot,
-                            CurriculumTranslationQuestionSnapshot,
-                        ),
-                    )
-                    for item in snapshot.questions
-                ):
+                ) or not MixedQuestionSnapshots.has_non_choice(snapshot.questions):
                     snapshot = self._curriculum_content_provider.get_choice_activity(
                         activity_id
                     )
@@ -225,6 +222,8 @@ class GetChoiceActivityUseCase:
                         verified_by_question.get(question.key),
                     )
                     if isinstance(question, CurriculumOrderingQuestionSnapshot)
+                    else self.fill_blanks_question_detail(question)
+                    if isinstance(question, CurriculumFillBlanksQuestionSnapshot)
                     else CodeQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -331,6 +330,21 @@ class GetChoiceActivityUseCase:
                         ),
                     )
                     if isinstance(question, CurriculumTranslationQuestionSnapshot)
+                    else PairMatchingQuestionDetail(
+                        key=question.key,
+                        prompt=question.prompt,
+                        source_language=question.source_language,
+                        target_language=question.target_language,
+                        words=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.words
+                        ),
+                        translations=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.translations
+                        ),
+                    )
+                    if isinstance(question, CurriculumPairMatchingQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,
@@ -384,6 +398,24 @@ class GetChoiceActivityUseCase:
                 )
                 if verified is not None
                 else None
+            ),
+        )
+
+    @staticmethod
+    def fill_blanks_question_detail(
+        question: CurriculumFillBlanksQuestionSnapshot,
+    ) -> FillBlanksQuestionDetail:
+        return FillBlanksQuestionDetail(
+            key=question.key,
+            prompt=question.prompt,
+            content_language=question.content_language,
+            segments=tuple(
+                FillBlanksSegmentDetail(text=item.text, blank_key=item.blank_key)
+                for item in question.segments
+            ),
+            bank=tuple(
+                FillBlanksWordDetail(key=item.key, word=item.word)
+                for item in question.bank
             ),
         )
 

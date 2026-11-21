@@ -8,11 +8,13 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { MotionEntrance } from '@/ui/shared/widgets/components/motion-entrance'
 
 import { ChoiceQuestion } from './choice-question'
+import { FillBlanksQuestion } from './fill-blanks-question'
 import { CodeQuestion } from './code-question'
 import { ReactQuestion } from './react-question'
 import { HtmlCssJsQuestion } from './html-css-js-question'
 import { ReactFastifyQuestion } from './react-fastify-question'
 import { OrderingQuestion } from './ordering-question'
+import { PairMatchingQuestion } from './pair-matching-question'
 import { TranslationQuestion } from './translation-question'
 import { QuestionFeedback } from './question-feedback'
 import { type ActivityPageProps, useActivityPage } from './use-activity-page'
@@ -60,7 +62,12 @@ export const ActivityPage = (props: ActivityPageProps) => {
     hasFeedbackError,
     handleAssessCode,
     handleCodeFilesChange,
+    handleFillBlanksChange,
+    fillBlanksPlacements,
+    isFillBlanksLocked,
     handleTranslationAnswerChange,
+    handlePairMatchingAnswerChange,
+    pairMatchingPairs,
     translationAnswerText,
     runnerFactory,
     reactRunnerFactory,
@@ -236,7 +243,9 @@ export const ActivityPage = (props: ActivityPageProps) => {
     currentQuestion.kind !== 'react' &&
     currentQuestion.kind !== 'html_css_js' &&
     currentQuestion.kind !== 'react_fastify' &&
-    currentQuestion.kind !== 'translation' ? (
+    currentQuestion.kind !== 'fill_blanks' &&
+    currentQuestion.kind !== 'translation' &&
+    currentQuestion.kind !== 'pair_matching' ? (
       <ChoiceQuestion
         isDiagnostic={activity.isDiagnostic}
         activityTitle={isDiagnosticChoice ? undefined : activity.title}
@@ -425,6 +434,36 @@ export const ActivityPage = (props: ActivityPageProps) => {
             runnerFactory={htmlCssJsRunnerFactory}
             readOnly={Boolean(activity.isDiagnostic || feedback || frozenAnswer)}
             skillId={'skillId' in props ? props.skillId : undefined}
+            totalQuestions={totalQuestions}
+          />
+        ) : currentQuestion.kind === 'pair_matching' ? (
+          <PairMatchingQuestion
+            activityTitle={activity.title}
+            difficulty={activity.difficulty}
+            disabled={Boolean(
+              isQuestionReadOnly ||
+                isSubmitting ||
+                isAssessing ||
+                Boolean(feedback || frozenAnswer),
+            )}
+            key={currentQuestion.key}
+            onChange={handlePairMatchingAnswerChange}
+            pairs={pairMatchingPairs}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
+            totalQuestions={totalQuestions}
+          />
+        ) : currentQuestion.kind === 'fill_blanks' ? (
+          <FillBlanksQuestion
+            activityTitle={activity.title}
+            difficulty={activity.difficulty}
+            disabled={!activity.canSubmit || isQuestionReadOnly || isFillBlanksLocked}
+            feedback={feedback}
+            key={currentQuestion.key}
+            onPlacementsChange={handleFillBlanksChange}
+            placements={fillBlanksPlacements}
+            question={currentQuestion}
+            questionNumber={currentQuestionNumber}
             totalQuestions={totalQuestions}
           />
         ) : currentQuestion.kind === 'translation' ? (

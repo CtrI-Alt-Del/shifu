@@ -8,6 +8,11 @@ output "db_instance_identifier" {
   value       = aws_db_instance.rds_lab.identifier
 }
 
+output "db_instance_status" {
+  description = "Estado atual da instância RDS."
+  value       = aws_db_instance.rds_lab.status
+}
+
 output "db_endpoint" {
   description = "Endpoint (host) do PostgreSQL, sem a porta."
   value       = aws_db_instance.rds_lab.address
@@ -36,10 +41,4 @@ output "db_security_group_id" {
 output "allowed_cidr" {
   description = "IP público autorizado a acessar o banco."
   value       = var.allowed_cidr
-}
-
-output "db_master_password" {
-  description = "Senha do usuário mestre. Sensível: não copie para o relatório nem para prints."
-  value       = random_password.master.result
-  sensitive   = true
 }

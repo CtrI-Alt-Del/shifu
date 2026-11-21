@@ -6,6 +6,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from shifu.communication.core.domain.errors import (
+    InvalidPushSubscriptionError,
+    PushUnavailableError,
+)
 from shifu.identity.core.domain.errors import (
     InvalidCredentialsError,
     InvalidDisplayNameError,
@@ -180,6 +184,36 @@ class AppErrorHandler:
                 validation.message
                 if validation is not None
                 else 'Os dados enviados são inválidos.'
+            ),
+        )
+
+    @staticmethod
+    async def handle_push_unavailable_error(
+        _request: Request, error: Exception
+    ) -> JSONResponse:
+        unavailable = error if isinstance(error, PushUnavailableError) else None
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            code='push_unavailable',
+            message=(
+                unavailable.message
+                if unavailable is not None
+                else PushUnavailableError.message
+            ),
+        )
+
+    @staticmethod
+    async def handle_invalid_push_subscription_error(
+        _request: Request, error: Exception
+    ) -> JSONResponse:
+        invalid = error if isinstance(error, InvalidPushSubscriptionError) else None
+        return AppErrorHandler._build_response(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            code='validation_error',
+            message=(
+                invalid.message
+                if invalid is not None
+                else InvalidPushSubscriptionError.message
             ),
         )
 
@@ -361,6 +395,14 @@ class AppErrorHandler:
         app.add_exception_handler(
             NotFoundError,
             AppErrorHandler.handle_not_found_error,
+        )
+        app.add_exception_handler(
+            PushUnavailableError,
+            AppErrorHandler.handle_push_unavailable_error,
+        )
+        app.add_exception_handler(
+            InvalidPushSubscriptionError,
+            AppErrorHandler.handle_invalid_push_subscription_error,
         )
         app.add_exception_handler(
             ConflictError,

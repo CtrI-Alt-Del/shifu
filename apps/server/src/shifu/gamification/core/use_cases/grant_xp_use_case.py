@@ -82,7 +82,7 @@ class GrantXpUseCase:
         occurred_at: datetime,
         now: datetime,
     ) -> None:
-        profile = repositories.profiles.find_by_account_id(account_id)
+        profile = repositories.profiles.find_by_account_id_for_update(account_id)
         if profile is None:
             return
         earned_ids = {

@@ -22,3 +22,9 @@ from .recognize_practice_day_on_diagnostic_completed_job import (
 from .recognize_skill_completed_job import (
     RecognizeSkillCompletedJob as RecognizeSkillCompletedJob,
 )
+from .fan_out_due_streak_reminders_job import (
+    FanOutDueStreakRemindersJob as FanOutDueStreakRemindersJob,
+)
+from .request_streak_reminder_job import (
+    RequestStreakReminderJob as RequestStreakReminderJob,
+)

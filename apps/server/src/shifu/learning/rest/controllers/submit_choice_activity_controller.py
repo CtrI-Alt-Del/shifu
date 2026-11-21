@@ -10,7 +10,7 @@ from fastapi import (
     Response as FastAPIResponse,
     status,
 )
-from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
@@ -18,6 +18,10 @@ from shifu.learning.core.domain.structures import (
     OrderingAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    FillBlanksAnswer,
+    FillBlanksPlacement,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
@@ -50,6 +54,20 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PlacementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    blank_key: str = Field(min_length=1, max_length=128)
+    word_key: str = Field(min_length=1, max_length=128)
+
+
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -63,14 +81,18 @@ class AnswerRequest(BaseModel):
             'html_css_js',
             'react_fastify',
             'ordering',
+            'fill_blanks',
             'translation',
+            'pair_matching',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
     ordered_step_keys: tuple[str, ...] | None = None
+    placements: tuple[PlacementRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
@@ -80,6 +102,8 @@ class AnswerRequest(BaseModel):
             self.files,
             self.selected_option_keys,
             self.ordered_step_keys,
+            self.placements,
+            self.pairs,
         )
         return self
 
@@ -169,6 +193,16 @@ class SubmitChoiceActivityController:
                             ordered_step_keys=answer.ordered_step_keys or (),
                         )
                         if answer.kind == 'ordering'
+                        else FillBlanksAnswer(
+                            question_key=answer.question_key,
+                            placements=tuple(
+                                FillBlanksPlacement(
+                                    blank_key=item.blank_key, word_key=item.word_key
+                                )
+                                for item in (answer.placements or ())
+                            ),
+                        )
+                        if answer.kind == 'fill_blanks'
                         else CodeAnswer(
                             question_key=answer.question_key,
                             kind=answer.kind,
@@ -184,6 +218,17 @@ class SubmitChoiceActivityController:
                             text=answer.text or '',
                         )
                         if answer.kind == 'translation'
+                        else PairMatchingAnswer(
+                            question_key=answer.question_key,
+                            pairs=tuple(
+                                PairMatchingSelection(
+                                    word_key=item.word_key,
+                                    translation_key=item.translation_key,
+                                )
+                                for item in (answer.pairs or ())
+                            ),
+                        )
+                        if answer.kind == 'pair_matching'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

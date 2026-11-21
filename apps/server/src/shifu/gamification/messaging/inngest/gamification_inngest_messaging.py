@@ -8,15 +8,18 @@ from shifu.gamification.core.interfaces import GamificationDatabase
 from shifu.gamification.core.use_cases import (
     CreateGamificationProfileUseCase,
     DeleteGamificationProfileUseCase,
+    FanOutDueStreakRemindersUseCase,
     GrantXpUseCase,
     RecognizeActivityEvaluatedUseCase,
     RecognizeCompetencyMasteredUseCase,
     RecognizeDiagnosticCompletedUseCase,
     RecognizePracticeDayUseCase,
     RecognizeSkillCompletedUseCase,
+    RequestStreakReminderUseCase,
 )
 from shifu.gamification.messaging.inngest.jobs import (
     CreateProfileOnAccountActivatedJob,
+    FanOutDueStreakRemindersJob,
     PurgeProfileOnAccountDeletedJob,
     RecognizeActivityXpOnActivityEvaluatedJob,
     RecognizeCompetencyMasteredJob,
@@ -24,8 +27,13 @@ from shifu.gamification.messaging.inngest.jobs import (
     RecognizePracticeDayOnActivityEvaluatedJob,
     RecognizePracticeDayOnDiagnosticCompletedJob,
     RecognizeSkillCompletedJob,
+    RequestStreakReminderJob,
 )
-from shifu.shared.core.interfaces import ClockProvider, CurriculumContentProvider
+from shifu.shared.core.interfaces import (
+    ActiveAccountProvider,
+    ClockProvider,
+    CurriculumContentProvider,
+)
 from shifu.shared.core.interfaces import IdentifierProvider
 from shifu.shared.core.interfaces.telemetry_provider import TelemetryProvider
 from shifu.shared.providers.system_identifier_provider import SystemIdentifierProvider
@@ -41,6 +49,7 @@ class GamificationInngestMessaging:
         gamification_database: GamificationDatabase,
         curriculum_content_provider: CurriculumContentProvider,
         clock_provider: ClockProvider,
+        active_account_provider: ActiveAccountProvider,
         id_provider: IdentifierProvider | None = None,
         telemetry_provider: TelemetryProvider,
     ) -> list[Function[object]]:
@@ -79,6 +88,12 @@ class GamificationInngestMessaging:
             curriculum_content_provider,
             id_provider,
             grant_xp_use_case,
+        )
+        fan_out_due_streak_reminders_use_case = FanOutDueStreakRemindersUseCase(
+            gamification_database, active_account_provider
+        )
+        request_streak_reminder_use_case = RequestStreakReminderUseCase(
+            gamification_database, active_account_provider
         )
 
         return [
@@ -150,6 +165,22 @@ class GamificationInngestMessaging:
                     inngest,
                     recognize_activity_xp_use_case,
                     clock_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                FanOutDueStreakRemindersJob.handle(
+                    inngest,
+                    fan_out_due_streak_reminders_use_case,
+                    telemetry_provider=telemetry_provider,
+                ),
+            ),
+            cast(
+                'Function[object]',
+                RequestStreakReminderJob.handle(
+                    inngest,
+                    request_streak_reminder_use_case,
+                    telemetry_provider=telemetry_provider,
                 ),
             ),
         ]

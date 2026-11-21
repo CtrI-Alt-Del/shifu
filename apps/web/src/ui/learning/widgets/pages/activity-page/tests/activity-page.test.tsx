@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChoiceActivityDetail } from '@/core/learning/choice-activity'
+import { FillBlanksQuestionFaker } from '@/core/learning/fakers'
 import type { HtmlCssJsQuestion as HtmlQuestion } from '@/core/learning/choice-activity'
 import type { CodePracticeRunner } from '@/core/learning/code-practice-runner'
 import {
@@ -15,6 +16,7 @@ import { CodeQuestion } from '../code-question'
 import { HtmlCssJsQuestion } from '../html-css-js-question'
 import type { ActivityPageController } from '../use-activity-page'
 import { useActivityPage } from '../use-activity-page'
+import { PairMatchingQuestion } from '../pair-matching-question'
 import { createReactDraftStoreMock } from './react-draft-store-mock'
 import type { CodeEditorProps } from '@/ui/learning/widgets/components/code-editor'
 
@@ -22,6 +24,9 @@ vi.mock('../use-activity-page', () => ({
   useActivityPage: vi.fn(),
 }))
 vi.mock('../code-question', () => ({ CodeQuestion: vi.fn(() => null) }))
+vi.mock('../pair-matching-question', () => ({
+  PairMatchingQuestion: vi.fn(() => <div data-testid='pair-matching-question' />),
+}))
 vi.mock('../html-css-js-question', () => ({
   HtmlCssJsQuestion: vi.fn(() => <div data-testid='html-css-js-question' />),
 }))
@@ -118,7 +123,12 @@ function createControllerMock(
     hasFeedbackError: false,
     handleAssessCode: vi.fn(),
     handleCodeFilesChange: vi.fn(),
+    handleFillBlanksChange: vi.fn(),
+    fillBlanksPlacements: [],
+    isFillBlanksLocked: false,
     handleTranslationAnswerChange: vi.fn(),
+    handlePairMatchingAnswerChange: vi.fn(),
+    pairMatchingPairs: [],
     translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
     currentQuestionIndex: 0,
@@ -831,5 +841,182 @@ describe('ActivityPage', () => {
     fireEvent.click(screen.getByText('Arquivos avaliados'))
     expect(screen.getByText('frozen response')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Avaliar questão' })).toBeDisabled()
+  })
+  describe('with a fill-in-the-blank question', () => {
+    const fillQuestion = FillBlanksQuestionFaker.fake()
+    const fillActivity: ChoiceActivityDetail = {
+      ...ACTIVITY,
+      activityRevision: 'revision-1',
+      questions: [fillQuestion],
+    }
+
+    function renderFill(overrides: Partial<ActivityPageController> = {}) {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          activity: fillActivity,
+          currentQuestion: fillQuestion,
+          currentQuestionNumber: 1,
+          feedback: null,
+          fillBlanksPlacements: [],
+          isLastQuestion: false,
+          isMixedActivity: true,
+          totalQuestions: 3,
+          ...overrides,
+        }),
+      )
+      return render(<ActivityPage activity={fillActivity} onSubmit={vi.fn()} />)
+    }
+
+    it('renders the blanks and the word bank and keeps the check disabled until the fill is complete', () => {
+      renderFill({ canContinue: false })
+
+      expect(screen.getByRole('button', { name: 'Lacuna 1: vazia' })).toBeVisible()
+      expect(screen.getByRole('region', { name: 'Banco de palavras' })).toBeVisible()
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+      expect(screen.queryByRole('radio')).toBeNull()
+    })
+
+    it('enables the check once every blank is filled and delegates it', () => {
+      const handleContinue = vi.fn()
+      renderFill({
+        canContinue: true,
+        fillBlanksPlacements: [
+          { blankKey: 'b1', wordKey: 'w1' },
+          { blankKey: 'b2', wordKey: 'w3' },
+          { blankKey: 'b3', wordKey: 'w4' },
+        ],
+        handleContinue,
+      })
+
+      expect(screen.getByText('3 de 3 lacunas preenchidas')).toBeVisible()
+      fireEvent.click(screen.getByRole('button', { name: 'Avaliar resposta' }))
+      expect(handleContinue).toHaveBeenCalledOnce()
+    })
+
+    it('places a selected word through the real widget and reports the new placements', () => {
+      const handleFillBlanksChange = vi.fn()
+      renderFill({ handleFillBlanksChange })
+
+      fireEvent.click(screen.getByRole('button', { name: 'goes' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Lacuna 1: vazia' }))
+
+      expect(handleFillBlanksChange).toHaveBeenCalledWith([
+        { blankKey: 'b1', wordKey: 'w1' },
+      ])
+    })
+
+    it('locks the blanks and the bank while the question is being assessed or submitted', () => {
+      renderFill({ isFillBlanksLocked: true })
+
+      expect(screen.getByRole('button', { name: 'Lacuna 1: vazia' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'walks' })).toBeDisabled()
+    })
+
+    it.each([
+      [100, 3, 'Resposta correta', '3 de 3 lacunas corretas'],
+      [66.67, 2, 'Parcialmente correta', '2 de 3 lacunas corretas'],
+      [0, 0, 'Resposta incorreta', '0 de 3 lacunas corretas'],
+    ])(
+      'shows the provisional result at %s with its label, count and explanation',
+      (score, correctBlankCount, label, count) => {
+        renderFill({
+          feedback: {
+            status: 'conclusive',
+            score,
+            explanation: 'Explicação predefinida da questão.',
+            isCorrect: score === 100,
+            correctBlankCount,
+            blankCount: 3,
+          },
+          fillBlanksPlacements: [
+            { blankKey: 'b1', wordKey: 'w1' },
+            { blankKey: 'b2', wordKey: 'w3' },
+            { blankKey: 'b3', wordKey: 'w4' },
+          ],
+        })
+
+        const result = screen.getByRole('region', { name: 'Resultado' })
+        expect(result).toHaveTextContent(label)
+        expect(result).toHaveTextContent(count)
+        expect(result).toHaveTextContent('Explicação predefinida da questão.')
+        expect(result).not.toHaveTextContent('Arquivos avaliados')
+        expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeVisible()
+      },
+    )
+  })
+
+  describe('pair matching question', () => {
+    const PAIR_QUESTION = {
+      key: 'pairs-1',
+      kind: 'pair_matching',
+      prompt: 'Associe as palavras.',
+      sourceLanguage: 'en',
+      targetLanguage: 'pt-BR',
+      words: [{ key: 'w0', text: 'dog' }],
+      translations: [{ key: 't0', text: 'cachorro' }],
+    } satisfies NonNullable<ActivityPageController['currentQuestion']>
+    const PAIRS = [{ wordKey: 'w0', translationKey: 't0' }]
+
+    it('renders the pair widget with the formed pairs and the change handler', () => {
+      const handlePairMatchingAnswerChange = vi.fn()
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          handlePairMatchingAnswerChange,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByTestId('pair-matching-question')).toBeVisible()
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: false,
+        onChange: handlePairMatchingAnswerChange,
+        pairs: PAIRS,
+        question: PAIR_QUESTION,
+      })
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeEnabled()
+    })
+
+    it('locks the widget and offers the next step after verification', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          currentQuestion: PAIR_QUESTION,
+          feedback: { status: 'conclusive', score: 100, outcome: 'full' },
+          frozenAnswer: { kind: 'pair_matching', questionKey: 'pairs-1', pairs: PAIRS },
+          isLastQuestion: false,
+          isMixedActivity: true,
+          pairMatchingPairs: PAIRS,
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(vi.mocked(PairMatchingQuestion).mock.lastCall?.[0]).toMatchObject({
+        disabled: true,
+      })
+      expect(screen.getByRole('button', { name: 'Próxima questão' })).toBeEnabled()
+    })
+
+    it('disables Evaluate while the pairs are incomplete', () => {
+      useActivityPageMock.mockReturnValue(
+        createControllerMock({
+          canContinue: false,
+          currentQuestion: PAIR_QUESTION,
+          feedback: null,
+          frozenAnswer: null,
+          isMixedActivity: true,
+          pairMatchingPairs: [],
+        }),
+      )
+
+      render(<ActivityPage activity={ACTIVITY} onSubmit={vi.fn()} />)
+
+      expect(screen.getByRole('button', { name: 'Avaliar resposta' })).toBeDisabled()
+    })
   })
 })
