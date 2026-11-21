@@ -1,5 +1,6 @@
-from dataclasses import replace
+from dataclasses import fields, replace
 from decimal import Decimal
+from itertools import permutations
 from unittest.mock import create_autospec
 
 import httpx
@@ -14,6 +15,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import (
@@ -56,6 +59,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumTranslationRubricPartSnapshot,
 )
 from shifu.shared.core.domain.structures.code_rubric_decisions import CodeRubricLevel
+from tests.fixtures.pair_matching_fixture import pair_matching_question
 from shifu.shared.core.interfaces import (
     CodeRubricAssessorProvider,
     CurriculumContentProvider,
@@ -1010,3 +1014,265 @@ class TestPreviewActivityQuestionFeedbackUseCase:
         assert result.status == 'inconclusive'
         assert result.score is None
         assert result.submitted_text == 'Good morning'
+
+    def _use_pair_snapshot(self, size: int = 3) -> None:
+        base = mixed_snapshot()
+        self.provider.get_learning_activity.return_value = replace(
+            base,
+            questions=(
+                base.questions[0],
+                base.questions[1],
+                pair_matching_question('qp', size=size),
+            ),
+            parts=(
+                base.parts[0],
+                base.parts[1],
+                CurriculumChoicePartSnapshot(
+                    question_key='qp', weight_percentage=Decimal(40)
+                ),
+            ),
+        )
+
+    @staticmethod
+    def _pair_answer(*translation_indexes: int) -> PairMatchingAnswer:
+        return PairMatchingAnswer(
+            question_key='qp',
+            pairs=tuple(
+                PairMatchingSelection(
+                    word_key=f'word-{word_index}',
+                    translation_key=f'translation-{translation_index}',
+                )
+                for word_index, translation_index in enumerate(translation_indexes)
+            ),
+        )
+
+    def _execute_pair(
+        self, answer: PairMatchingAnswer, revision: str = 'revision-1'
+    ) -> PreliminaryQuestionResult:
+        return self.subject.execute(
+            'account-1',
+            'goal-1',
+            'skill-1',
+            'competency-1',
+            'activity-1',
+            'qp',
+            revision,
+            answer,
+        )
+
+    @pytest.mark.parametrize('size', (2, 3))
+    def test_should_grade_every_permutation_of_a_small_pair_question(
+        self, size: int
+    ) -> None:
+        self._use_pair_snapshot(size)
+
+        for order in permutations(range(size)):
+            correct = sum(index == value for index, value in enumerate(order))
+            expected_outcome = (
+                'full'
+                if correct == size
+                else 'incorrect'
+                if correct == 0
+                else 'partial'
+            )
+            expected_explanation = {
+                'full': 'Todos os pares estao corretos.',
+                'partial': 'Alguns pares estao corretos.',
+                'incorrect': 'Nenhum par esta correto.',
+            }[expected_outcome]
+
+            result = self._execute_pair(self._pair_answer(*order))
+
+            assert result.status == 'conclusive'
+            assert result.score == Decimal(100) * correct / Decimal(size)
+            assert result.correct_pair_count == correct
+            assert result.total_pair_count == size
+            assert result.outcome == expected_outcome
+            assert result.explanation == expected_explanation
+            assert result.is_correct is (expected_outcome == 'full')
+            assert result.submitted_pairs == self._pair_answer(*order).pairs
+
+    @pytest.mark.parametrize(
+        ('order', 'correct'),
+        (
+            ((0, 1, 2, 3, 4, 5, 6, 7), 8),
+            ((1, 2, 3, 4, 5, 6, 7, 0), 0),
+            ((1, 0, 2, 3, 4, 5, 6, 7), 6),
+            ((0, 1, 2, 3, 4, 5, 7, 6), 6),
+            ((7, 1, 2, 3, 4, 5, 6, 0), 6),
+        ),
+    )
+    def test_should_grade_the_largest_pair_question(
+        self, order: tuple[int, ...], correct: int
+    ) -> None:
+        self._use_pair_snapshot(8)
+
+        result = self._execute_pair(self._pair_answer(*order))
+
+        assert result.correct_pair_count == correct
+        assert result.total_pair_count == 8
+        assert result.score == Decimal(100) * correct / Decimal(8)
+
+    def test_should_not_create_attempts_or_expose_the_answer_key(self) -> None:
+        self._use_pair_snapshot()
+
+        result = self._execute_pair(self._pair_answer(1, 0, 2))
+
+        self.repositories.activity_attempts.add.assert_not_called()
+        self.repositories.activity_evaluations.add.assert_not_called()
+        self.repositories.events.add.assert_not_called()
+        self.assessor.assess.assert_not_called()
+        self.translation_assessor.assess.assert_not_called()
+        assert not hasattr(result, 'correct_pairs')
+        assert result.submitted_pairs == self._pair_answer(1, 0, 2).pairs
+        assert result.criteria == ()
+        assert result.concept_observations == ()
+
+    @pytest.mark.parametrize(
+        'order', ((1, 2, 0), (2, 0, 1), (1, 0, 2), (0, 2, 1), (2, 1, 0))
+    )
+    def test_should_reveal_only_counts_for_wrong_and_partial_answers(
+        self, order: tuple[int, ...]
+    ) -> None:
+        self._use_pair_snapshot()
+
+        result = self._execute_pair(self._pair_answer(*order))
+
+        assert result.outcome in {'partial', 'incorrect'}
+        assert {field.name for field in fields(result)} == {
+            'status',
+            'score',
+            'explanation',
+            'is_correct',
+            'criteria',
+            'concept_observations',
+            'submitted_files',
+            'submitted_text',
+            'submitted_pairs',
+            'correct_pair_count',
+            'total_pair_count',
+            'outcome',
+        }
+
+    @pytest.mark.parametrize(
+        'answer',
+        (
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-9', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-9'
+                    ),
+                ),
+            ),
+            PairMatchingAnswer(
+                question_key='other',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-1'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-2', translation_key='translation-2'
+                    ),
+                ),
+            ),
+            ChoiceAnswerSubmission(question_key='qp', selected_option_keys=('a',)),
+        ),
+        ids=(
+            'missing-pair',
+            'unknown-word',
+            'unknown-translation',
+            'wrong-question-key',
+            'wrong-answer-type',
+        ),
+    )
+    def test_should_reject_invalid_pair_answers_without_writes(
+        self, answer: PairMatchingAnswer | ChoiceAnswerSubmission
+    ) -> None:
+        self._use_pair_snapshot()
+
+        with pytest.raises(ValidationError):
+            self.subject.execute(
+                'account-1',
+                'goal-1',
+                'skill-1',
+                'competency-1',
+                'activity-1',
+                'qp',
+                'revision-1',
+                answer,  # type: ignore[arg-type]
+            )
+
+        self.repositories.activity_attempts.add.assert_not_called()
+
+    def test_should_reject_repeated_words_and_translations_in_the_answer(
+        self,
+    ) -> None:
+        with pytest.raises(ValidationError):
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-1'
+                    ),
+                ),
+            )
+        with pytest.raises(ValidationError):
+            PairMatchingAnswer(
+                question_key='qp',
+                pairs=(
+                    PairMatchingSelection(
+                        word_key='word-0', translation_key='translation-0'
+                    ),
+                    PairMatchingSelection(
+                        word_key='word-1', translation_key='translation-0'
+                    ),
+                ),
+            )
+
+    def test_should_reject_a_stale_activity_revision_for_pair_feedback(
+        self,
+    ) -> None:
+        self._use_pair_snapshot()
+
+        with pytest.raises(ConflictError):
+            self._execute_pair(self._pair_answer(0, 1, 2), revision='old-revision')
+
+        self.repositories.activity_attempts.add.assert_not_called()

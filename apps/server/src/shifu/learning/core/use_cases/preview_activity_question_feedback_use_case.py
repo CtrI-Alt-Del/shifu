@@ -6,11 +6,14 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeCriterionResult,
     CodeConceptObservationResult,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.use_cases.get_choice_activity_use_case import (
     GetChoiceActivityUseCase,
 )
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
     CodeQuestionSnapshot,
@@ -31,6 +34,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
     TranslationRubricAssessmentInput,
@@ -53,6 +57,10 @@ class PreliminaryQuestionResult:
     concept_observations: tuple[CodeConceptObservationResult, ...] = ()
     submitted_files: tuple[CodeSubmittedFile, ...] = ()
     submitted_text: str | None = None
+    submitted_pairs: tuple[PairMatchingSelection, ...] | None = None
+    correct_pair_count: int | None = None
+    total_pair_count: int | None = None
+    outcome: str | None = None
 
 
 class PreviewActivityQuestionFeedbackUseCase:
@@ -81,7 +89,10 @@ class PreviewActivityQuestionFeedbackUseCase:
         activity_id: str,
         question_key: str,
         activity_revision: str,
-        answer: ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer,
+        answer: ChoiceAnswerSubmission
+        | CodeAnswer
+        | TranslationAnswer
+        | PairMatchingAnswer,
     ) -> PreliminaryQuestionResult:
         detail = GetChoiceActivityUseCase(
             self._learning_database, self._curriculum_content_provider
@@ -131,8 +142,14 @@ class PreviewActivityQuestionFeedbackUseCase:
                 self._max_code_assessment_input_bytes,
             )
 
-        if isinstance(question, CurriculumTranslationQuestionSnapshot):
-            return self._execute_translation(question, answer, snapshot.parts)
+        if isinstance(
+            question,
+            (
+                CurriculumTranslationQuestionSnapshot,
+                CurriculumPairMatchingQuestionSnapshot,
+            ),
+        ):
+            return self._execute_translation_or_pairs(question, answer, snapshot.parts)
 
         if not isinstance(answer, ChoiceAnswerSubmission):
             raise ValidationError
@@ -159,10 +176,36 @@ class PreviewActivityQuestionFeedbackUseCase:
             else question.incorrect_explanation,
         )
 
+    def _execute_translation_or_pairs(
+        self,
+        question: CurriculumTranslationQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
+        answer: ChoiceAnswerSubmission
+        | CodeAnswer
+        | TranslationAnswer
+        | PairMatchingAnswer,
+        parts: tuple[
+            CurriculumChoicePartSnapshot
+            | CurriculumCodeRubricPartSnapshot
+            | CurriculumTranslationRubricPartSnapshot,
+            ...,
+        ],
+    ) -> PreliminaryQuestionResult:
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            return self._execute_translation(question, answer, parts)
+
+        if not isinstance(answer, PairMatchingAnswer):
+            raise ValidationError
+
+        return self.pair_matching_result(question, answer)
+
     def _execute_translation(
         self,
         question: CurriculumTranslationQuestionSnapshot,
-        answer: ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer,
+        answer: ChoiceAnswerSubmission
+        | CodeAnswer
+        | TranslationAnswer
+        | PairMatchingAnswer,
         parts: tuple[
             CurriculumChoicePartSnapshot
             | CurriculumCodeRubricPartSnapshot
@@ -189,6 +232,23 @@ class PreviewActivityQuestionFeedbackUseCase:
         )
         decisions = self._translation_rubric_assessor_provider.assess(request)
         return self.translation_result(question, part, answer, decisions)
+
+    @staticmethod
+    def pair_matching_result(
+        question: CurriculumPairMatchingQuestionSnapshot,
+        answer: PairMatchingAnswer,
+    ) -> PreliminaryQuestionResult:
+        result = PairMatchingScoring.evaluate(question, answer)
+        return PreliminaryQuestionResult(
+            status='conclusive',
+            score=result.score,
+            explanation=result.explanation,
+            is_correct=result.outcome == 'full',
+            submitted_pairs=answer.pairs,
+            correct_pair_count=result.correct_pair_count,
+            total_pair_count=result.total_pair_count,
+            outcome=result.outcome,
+        )
 
     @staticmethod
     def build_code_assessment_input(

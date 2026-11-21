@@ -73,3 +73,9 @@ from .translation_rubric_criterion import (
 from .translation_rubric_evaluation_part import (
     TranslationRubricEvaluationPart as TranslationRubricEvaluationPart,
 )
+from .pair_matching_concept_criterion import (
+    PairMatchingConceptCriterion as PairMatchingConceptCriterion,
+)
+from .pair_matching_item import PairMatchingItem as PairMatchingItem
+from .pair_matching_pair import PairMatchingPair as PairMatchingPair
+from .pair_matching_question import PairMatchingQuestion as PairMatchingQuestion

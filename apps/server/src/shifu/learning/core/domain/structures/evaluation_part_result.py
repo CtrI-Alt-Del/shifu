@@ -5,6 +5,9 @@ from shifu.learning.core.domain.structures.code_evaluation_result import (
     CodeEvaluationResult,
 )
 from shifu.learning.core.domain.structures.code_rubric_result import CodeRubricResult
+from shifu.learning.core.domain.structures.pair_matching_evaluation_result import (
+    PairMatchingEvaluationResult,
+)
 from shifu.learning.core.domain.structures.qualitative_evaluation_result import (
     QualitativeEvaluationResult,
 )
@@ -18,4 +21,5 @@ type EvaluationPartResult = (
     | CodeRubricResult
     | QualitativeEvaluationResult
     | TranslationRubricResult
+    | PairMatchingEvaluationResult
 )

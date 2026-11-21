@@ -8,6 +8,8 @@ from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     CodeAnswer,
     CodeSubmittedFile,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
@@ -37,6 +39,12 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
     kind: Literal[
@@ -47,16 +55,18 @@ class AnswerRequest(BaseModel):
         'html_css_js',
         'react_fastify',
         'translation',
+        'pair_matching',
     ]
     question_key: str = Field(min_length=1, max_length=128)
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
         validate_answer_request_shape(
-            self.kind, self.text, self.files, self.selected_option_keys
+            self.kind, self.text, self.files, self.selected_option_keys, self.pairs
         )
         return self
 
@@ -81,6 +91,11 @@ class ConceptResponse(BaseModel):
     observation_id: str
 
 
+class PairResponse(BaseModel):
+    word_key: str
+    translation_key: str
+
+
 class SubmittedFileResponse(BaseModel):
     path: str
     content: str
@@ -95,6 +110,10 @@ class Response(BaseModel):
     concept_observations: tuple[ConceptResponse, ...] = ()
     submitted_files: tuple[SubmittedFileResponse, ...] = ()
     submitted_text: str | None = None
+    submitted_pairs: tuple[PairResponse, ...] | None = None
+    correct_pair_count: int | None = None
+    total_pair_count: int | None = None
+    outcome: Literal['full', 'partial', 'incorrect'] | None = None
 
 
 _RESPONSE_ADAPTER = TypeAdapter[Response](Response)
@@ -156,6 +175,17 @@ class PreviewActivityQuestionFeedbackController:
                 answer = TranslationAnswer(
                     question_key=payload.question_key,
                     text=payload.text or '',
+                )
+            elif payload.kind == 'pair_matching':
+                answer = PairMatchingAnswer(
+                    question_key=payload.question_key,
+                    pairs=tuple(
+                        PairMatchingSelection(
+                            word_key=item.word_key,
+                            translation_key=item.translation_key,
+                        )
+                        for item in (payload.pairs or ())
+                    ),
                 )
             else:
                 answer = ChoiceAnswerSubmission(

@@ -17,6 +17,7 @@ from shifu.learning.core.domain.structures import (
     SingleChoiceAnswer,
     ChoiceSubmissionOutcome,
     CodeAnswer,
+    PairMatchingAnswer,
     TranslationAnswer,
 )
 from shifu.learning.core.domain.events.activity_submission_requested_event import (
@@ -33,6 +34,7 @@ from shifu.learning.core.use_cases.choice_evidence_eligibility import (
 from shifu.learning.core.use_cases.code_answer_validation import (
     CodeAnswerValidation,
 )
+from shifu.learning.core.use_cases.pair_matching_scoring import PairMatchingScoring
 from shifu.shared.core.domain.errors import (
     ConflictError,
     NotFoundError,
@@ -44,6 +46,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumJavascriptStdinQuestionSnapshot,
     CurriculumReactQuestionSnapshot,
     CurriculumHtmlCssJsQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
 )
@@ -77,7 +80,13 @@ class SubmitChoiceActivityUseCase:
         competency_id: str,
         activity_id: str,
         submission_key: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
+            ...,
+        ],
         activity_revision: str | None = None,
         diagnostic_run_id: str | None = None,
         time_zone: str | None = None,
@@ -121,6 +130,7 @@ class SubmitChoiceActivityUseCase:
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
+                    CurriculumPairMatchingQuestionSnapshot,
                 ),
             )
             for item in snapshot.questions
@@ -271,7 +281,13 @@ class SubmitChoiceActivityUseCase:
         existing: ActivityAttempt,
         competency_id: str,
         activity_id: str,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
+            ...,
+        ],
     ) -> ChoiceSubmissionOutcome:
         snapshot = existing.grading_snapshot
         if (
@@ -304,7 +320,13 @@ class SubmitChoiceActivityUseCase:
     @staticmethod
     def normalize_answers(  # noqa: C901
         snapshot: CurriculumChoiceActivitySnapshot | CurriculumLearningActivitySnapshot,
-        answers: tuple[ChoiceAnswerSubmission | CodeAnswer | TranslationAnswer, ...],
+        answers: tuple[
+            ChoiceAnswerSubmission
+            | CodeAnswer
+            | TranslationAnswer
+            | PairMatchingAnswer,
+            ...,
+        ],
         max_bytes: int = CodeAnswerValidation.MAX_ASSESSMENT_INPUT_BYTES,
     ) -> tuple[ActivityAnswer, ...]:
         if len(answers) != len(snapshot.questions):
@@ -337,6 +359,17 @@ class SubmitChoiceActivityUseCase:
                 normalized.append(
                     TranslationAnswer(
                         question_key=answer.question_key, text=answer.text
+                    )
+                )
+                continue
+
+            if isinstance(question, CurriculumPairMatchingQuestionSnapshot):
+                if not isinstance(answer, PairMatchingAnswer):
+                    raise ValidationError
+                PairMatchingScoring.validate(question, answer)
+                normalized.append(
+                    PairMatchingAnswer(
+                        question_key=answer.question_key, pairs=answer.pairs
                     )
                 )
                 continue

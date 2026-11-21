@@ -11,6 +11,7 @@
 @reactQuestionKey = replace-with-react-question-key
 @htmlCssJsQuestionKey = replace-with-html-css-js-question-key
 @reactFastifyQuestionKey = replace-with-integrated-question-key
+@pairQuestionKey = replace-with-pair-matching-question-key
 
 ### GET Activity — choice or mixed question sequence
 GET {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}
@@ -70,6 +71,55 @@ Content-Type: application/json
     ]
   }
 }
+
+# A `pair_matching` question in the GET response lists `words` and
+# `translations` in display order. It never carries the answer key.
+
+### POST preliminary feedback — pair matching question, no attempt
+# Every word and every translation appears exactly once. The response returns the
+# submitted pairs, `correct_pair_count`, `total_pair_count`, `score`, `outcome`
+# (`full`, `partial` or `incorrect`) and the predefined explanation. It never
+# marks individual pairs and never reveals expected pairs.
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/questions/{{pairQuestionKey}}/preliminary-evaluations
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "activity_revision": "{{activityRevision}}",
+  "answer": {
+    "kind": "pair_matching",
+    "question_key": "{{pairQuestionKey}}",
+    "pairs": [
+      { "word_key": "word-0", "translation_key": "translation-0" },
+      { "word_key": "word-1", "translation_key": "translation-1" },
+      { "word_key": "word-2", "translation_key": "translation-2" }
+    ]
+  }
+}
+
+### POST mixed Activity attempt — pair matching answer (final submit)
+POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "submission_key": "{{submissionKey}}",
+  "activity_revision": "{{activityRevision}}",
+  "answers": [
+    { "kind": "single_choice", "question_key": "question-one", "selected_option_keys": ["a"] },
+    { "kind": "single_choice", "question_key": "question-two", "selected_option_keys": ["a"] },
+    { "kind": "pair_matching", "question_key": "{{pairQuestionKey}}", "pairs": [
+      { "word_key": "word-0", "translation_key": "translation-1" },
+      { "word_key": "word-1", "translation_key": "translation-0" },
+      { "word_key": "word-2", "translation_key": "translation-2" }
+    ] }
+  ]
+}
+
+# The attempt result lists a `pair_matching` question with `submitted_pairs`,
+# `correct_pair_count`, `total_pair_count`, `score`, `outcome` and `explanation`.
+# `disclosed_correct_pairs` appears only after a later fully correct attempt or
+# Competency mastery.
 
 ### POST mixed Activity attempt — use all ordered answers and the GET revision
 POST {{baseUrl}}/learning/goals/{{goalId}}/skills/{{skillId}}/competencies/{{competencyId}}/activities/{{activityId}}/attempts

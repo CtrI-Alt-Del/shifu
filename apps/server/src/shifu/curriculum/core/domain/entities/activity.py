@@ -6,6 +6,7 @@ from shifu.curriculum.core.domain.structures import (
     ReactQuestion,
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
+    PairMatchingQuestion,
     TranslationQuestion,
     TranslationRubricEvaluationPart,
 )
@@ -97,6 +98,7 @@ class Activity:
                     HtmlCssJsQuestion,
                     ReactFastifyQuestion,
                     TranslationQuestion,
+                    PairMatchingQuestion,
                 ),
             )
             for question in self.questions

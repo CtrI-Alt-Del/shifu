@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import TYPE_CHECKING, cast
 
 import pytest
@@ -52,6 +53,9 @@ from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFi
 from tests.fixtures.redis_fixture import RedisFixture
 from tests.fixtures.react_activity_fixture import (
     ReactControllerFixture,
+)
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
 )
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
@@ -564,6 +568,196 @@ class TestPreviewActivityQuestionFeedbackController:
             ),
         )
         assert _learning_write_counts(postgres_database) == counts_before
+
+    def _pair_revision(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with database.transaction() as repositories:
+            repositories.activities.add_many([PairMatchingControllerFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    @pytest.mark.parametrize(
+        ('order', 'correct', 'outcome', 'explanation'),
+        (
+            ((0, 1, 2), 3, 'full', PairMatchingControllerFixture.FULL_EXPLANATION),
+            (
+                (0, 2, 1),
+                1,
+                'partial',
+                PairMatchingControllerFixture.PARTIAL_EXPLANATION,
+            ),
+            (
+                (1, 2, 0),
+                0,
+                'incorrect',
+                PairMatchingControllerFixture.INCORRECT_EXPLANATION,
+            ),
+        ),
+    )
+    def test_pair_preview_returns_counts_and_explanation_without_writes_or_the_key(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+        order: tuple[int, ...],
+        correct: int,
+        outcome: str,
+        explanation: str,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={
+                    'activity_revision': revision,
+                    'answer': PairMatchingControllerFixture.answer(*order),
+                },
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert Decimal(body.pop('score')) == Decimal(100) * correct / Decimal(3)
+        assert body == {
+            'status': 'conclusive',
+            'explanation': explanation,
+            'is_correct': outcome == 'full',
+            'criteria': [],
+            'concept_observations': [],
+            'submitted_files': [],
+            'submitted_pairs': PairMatchingControllerFixture.pairs(*order),
+            'correct_pair_count': correct,
+            'total_pair_count': 3,
+            'outcome': outcome,
+        }
+        assert application.state.test_code_rubric_assessor_provider.requests == []
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    @pytest.mark.parametrize(
+        ('answer', 'status_code'),
+        (
+            ({'kind': 'pair_matching', 'question_key': 'q3'}, 422),
+            ({'kind': 'pair_matching', 'question_key': 'q3', 'pairs': []}, 422),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'}
+                    ],
+                    'text': 'extra',
+                },
+                422,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-0', 'translation_key': 'translation-1'},
+                        {'word_key': 'word-2', 'translation_key': 'translation-2'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-1', 'translation_key': 'translation-1'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'pair_matching',
+                    'question_key': 'q3',
+                    'pairs': [
+                        {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                        {'word_key': 'word-1', 'translation_key': 'translation-1'},
+                        {'word_key': 'word-9', 'translation_key': 'translation-2'},
+                    ],
+                },
+                400,
+            ),
+            (
+                {
+                    'kind': 'single_choice',
+                    'question_key': 'q3',
+                    'selected_option_keys': ['a'],
+                },
+                400,
+            ),
+        ),
+        ids=(
+            'missing-pairs',
+            'empty-pairs',
+            'extra-text-field',
+            'repeated-word',
+            'incomplete',
+            'unknown-word',
+            'wrong-answer-kind',
+        ),
+    )
+    def test_pair_preview_rejects_invalid_answers_without_writes(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        answer: dict[str, object],
+        status_code: int,
+    ) -> None:
+        revision = self._pair_revision(client, postgres_database)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={'activity_revision': revision, 'answer': answer},
+            ),
+        )
+
+        assert response.status_code == status_code, response.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def test_pair_preview_rejects_a_stale_activity_revision(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        self._pair_revision(client, postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.preview_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+                json={
+                    'activity_revision': 'stale-revision',
+                    'answer': PairMatchingControllerFixture.answer(0, 1, 2),
+                },
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
 
 
 def _activity_path() -> str:

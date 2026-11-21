@@ -31,7 +31,12 @@ from shifu.curriculum.core.domain.structures import (
     TranslationRubricEvaluationPart,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
-from shifu.learning.core.domain.structures import CodeAnswer, TranslationAnswer
+from shifu.learning.core.domain.structures import (
+    CodeAnswer,
+    PairMatchingAnswer,
+    PairMatchingSelection,
+    TranslationAnswer,
+)
 from shifu.learning.core.domain.enums import (
     CompetencyProgressStatus,
     SkillExperienceStatus,
@@ -53,6 +58,9 @@ from shifu.shared.database.seed_data import (
     build_development_seed,
 )
 from shifu.shared.rest.pipes.telemetry_pipe import TelemetryPipe
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
+)
 from tests.fixtures.postgres_fixture import PostgresDatabase
 from tests.fixtures.react_fastify_activity_fixture import ReactFastifyActivityFixture
 from tests.fixtures.redis_fixture import RedisFixture
@@ -729,6 +737,172 @@ class TestSubmitChoiceActivityController:
 
         assert conflicting_replay.status_code == 409
         assert conflicting_replay.json()['code'] == 'conflict'
+
+    def _persist_pair_activity(
+        self, client: TestClient, postgres_database: PostgresDatabase
+    ) -> str:
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([PairMatchingControllerFixture.activity()])
+        detail = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+        assert detail.status_code == 200, detail.json()
+        return cast('str', detail.json()['activity_revision'])
+
+    def test_pair_submission_persists_the_saved_pairs_and_replays_idempotently(
+        self,
+        client: TestClient,
+        application: FastAPI,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        revision = self._persist_pair_activity(client, postgres_database)
+        headers = {'Authorization': 'Bearer test-access-token'}
+        body = PairMatchingControllerFixture.submission(revision, 1, 0, 2)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        created = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert created.status_code == 201, created.json()
+        attempt_id = cast('str', created.json()['attempt_id'])
+        after = ReactControllerFixture.write_counts(postgres_database)
+        # One attempt, one pending evaluation and one outbox event; no Concept rows.
+        assert tuple(b - a for a, b in zip(before, after, strict=True)) == (1, 1, 0, 1)
+        learning_database = SqlalchemyLearningDatabase(postgres_database.engine)
+        with learning_database.transaction() as repositories:
+            attempt = repositories.activity_attempts.find_by_id(attempt_id)
+            evaluation = repositories.activity_evaluations.find_by_attempt_id(
+                attempt_id
+            )
+        assert attempt is not None
+        assert attempt.grading_snapshot is not None
+        assert attempt.grading_snapshot.id == PairMatchingControllerFixture.ACTIVITY_ID
+        saved = attempt.answers[2]
+        assert isinstance(saved, PairMatchingAnswer)
+        assert saved.pairs == tuple(
+            PairMatchingSelection(
+                word_key=item['word_key'], translation_key=item['translation_key']
+            )
+            for item in PairMatchingControllerFixture.pairs(1, 0, 2)
+        )
+        assert evaluation is not None
+        assert evaluation.status.value == 'pending'
+        with learning_database.transaction() as repositories:
+            events = repositories.events.find_unrouted(now=datetime.now(UTC), limit=100)
+        event = next(
+            item for item in events if item.payload.get('attempt_id') == attempt_id
+        )
+        # No AI-graded question: the evaluation stays on the deterministic path.
+        assert (
+            application.state.learning_workflows_registry.destination_for_event(event)
+            == 'inngest'
+        )
+
+        replay = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=body,
+                headers=headers,
+            ),
+        )
+
+        assert replay.status_code == 200, replay.json()
+        assert replay.json()['attempt_id'] == attempt_id
+        assert ReactControllerFixture.write_counts(postgres_database) == after
+
+        conflicting = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=PairMatchingControllerFixture.submission(revision, 0, 1, 2),
+                headers=headers,
+            ),
+        )
+
+        assert conflicting.status_code == 409, conflicting.json()
+        assert conflicting.json()['code'] == 'conflict'
+        assert ReactControllerFixture.write_counts(postgres_database) == after
+
+    @pytest.mark.parametrize(
+        ('pairs', 'status_code'),
+        (
+            ([], 422),
+            (PairMatchingControllerFixture.pairs(0, 1), 400),
+            (
+                [
+                    {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                    {'word_key': 'word-0', 'translation_key': 'translation-1'},
+                    {'word_key': 'word-2', 'translation_key': 'translation-2'},
+                ],
+                400,
+            ),
+            (
+                [
+                    {'word_key': 'word-0', 'translation_key': 'translation-0'},
+                    {'word_key': 'word-1', 'translation_key': 'translation-1'},
+                    {'word_key': 'word-2', 'translation_key': 'translation-9'},
+                ],
+                400,
+            ),
+        ),
+        ids=('empty', 'incomplete', 'repeated-word', 'unknown-translation'),
+    )
+    def test_pair_submission_rejects_invalid_pairs_without_persisting(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+        pairs: list[dict[str, str]],
+        status_code: int,
+    ) -> None:
+        revision = self._persist_pair_activity(client, postgres_database)
+        body = PairMatchingControllerFixture.submission(revision)
+        answers = cast('list[dict[str, object]]', body['answers'])
+        answers[2] = {**answers[2], 'pairs': pairs}
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=body,
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == status_code, response.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == before
+
+    def test_pair_submission_rejects_a_stale_activity_revision(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        self._persist_pair_activity(client, postgres_database)
+        before = ReactControllerFixture.write_counts(postgres_database)
+
+        response = cast(
+            'Response',
+            client.post(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.attempts_path(),
+                json=PairMatchingControllerFixture.submission('stale-revision'),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 409, response.json()
+        assert ReactControllerFixture.write_counts(postgres_database) == before
 
 
 def _attempts_path(

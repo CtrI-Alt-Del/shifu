@@ -142,3 +142,17 @@ from .translation_result_detail import (
 from .translation_rubric_result import (
     TranslationRubricResult as TranslationRubricResult,
 )
+from .pair_matching_answer import PairMatchingAnswer as PairMatchingAnswer
+from .pair_matching_evaluation_result import (
+    PairMatchingEvaluationResult as PairMatchingEvaluationResult,
+)
+from .pair_matching_question_detail import (
+    PairMatchingItemDetail as PairMatchingItemDetail,
+)
+from .pair_matching_question_detail import (
+    PairMatchingQuestionDetail as PairMatchingQuestionDetail,
+)
+from .pair_matching_result_detail import (
+    PairMatchingResultDetail as PairMatchingResultDetail,
+)
+from .pair_matching_selection import PairMatchingSelection as PairMatchingSelection

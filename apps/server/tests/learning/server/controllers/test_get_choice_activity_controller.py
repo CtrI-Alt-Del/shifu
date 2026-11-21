@@ -67,6 +67,9 @@ from tests.fixtures.react_activity_fixture import (
 from tests.learning.rest.controllers.html_css_js_controller_fixture import (
     HtmlCssJsControllerFixture,
 )
+from tests.learning.rest.controllers.pair_matching_controller_fixture import (
+    PairMatchingControllerFixture,
+)
 from tests.learning.rest.controllers.translation_controller_fixture import (
     TranslationControllerFixture,
 )
@@ -733,6 +736,54 @@ class TestGetChoiceActivityController:
         assert TranslationControllerFixture.REFERENCE_TRANSLATION not in str(body)
         assert 'Private comment' not in str(body)
         assert 'is_correct' not in str(body)
+
+    def test_returns_persisted_pair_matching_items_without_the_answer_key(
+        self,
+        client: TestClient,
+        postgres_database: PostgresDatabase,
+    ) -> None:
+        activity = PairMatchingControllerFixture.activity()
+        curriculum_database = SqlalchemyCurriculumDatabase(postgres_database.engine)
+        with curriculum_database.transaction() as repositories:
+            repositories.activities.add_many([activity])
+
+        response = cast(
+            'Response',
+            client.get(  # pyright: ignore[reportUnknownMemberType]
+                PairMatchingControllerFixture.activity_path(),
+                headers={'Authorization': 'Bearer test-access-token'},
+            ),
+        )
+
+        assert response.status_code == 200, response.json()
+        body = response.json()
+        assert [question['kind'] for question in body['questions']] == [
+            'single_choice',
+            'single_choice',
+            'pair_matching',
+        ]
+        pairs = body['questions'][2]
+        assert pairs == {
+            'key': 'q3',
+            'kind': 'pair_matching',
+            'prompt': PairMatchingControllerFixture.PROMPT,
+            'source_language': 'en',
+            'target_language': 'pt-BR',
+            'words': [
+                {'key': 'word-0', 'text': 'dog'},
+                {'key': 'word-1', 'text': 'house'},
+                {'key': 'word-2', 'text': 'water'},
+            ],
+            'translations': [
+                {'key': 'translation-1', 'text': 'casa'},
+                {'key': 'translation-2', 'text': 'agua'},
+                {'key': 'translation-0', 'text': 'cachorro'},
+            ],
+        }
+        assert 'correct_pairs' not in str(body)
+        assert PairMatchingControllerFixture.FULL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.PARTIAL_EXPLANATION not in str(body)
+        assert PairMatchingControllerFixture.INCORRECT_EXPLANATION not in str(body)
 
     def test_seeded_logic_diagnostic_has_progress_for_each_competency(self) -> None:
         seed = build_development_seed()

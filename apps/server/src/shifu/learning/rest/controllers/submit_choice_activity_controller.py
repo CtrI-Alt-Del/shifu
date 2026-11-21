@@ -10,13 +10,15 @@ from fastapi import (
     Response as FastAPIResponse,
     status,
 )
-from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from shifu.learning.core.domain.structures import (
     ChoiceAnswerSubmission,
     ChoiceSubmissionOutcome,
     CodeAnswer,
     CodeSubmittedFile,
+    PairMatchingAnswer,
+    PairMatchingSelection,
     TranslationAnswer,
 )
 from shifu.learning.core.interfaces import LearningDatabase
@@ -49,6 +51,13 @@ class SubmittedFileRequest(BaseModel):
     content: str
 
 
+class PairRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    word_key: str = Field(min_length=1, max_length=128)
+    translation_key: str = Field(min_length=1, max_length=128)
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra='forbid', frozen=True)
 
@@ -62,17 +71,19 @@ class AnswerRequest(BaseModel):
             'html_css_js',
             'react_fastify',
             'translation',
+            'pair_matching',
         ]
         | None
     ) = None
     selected_option_keys: tuple[str, ...] | None = None
     files: tuple[SubmittedFileRequest, ...] | None = None
     text: str | None = None
+    pairs: tuple[PairRequest, ...] | None = Field(default=None, max_length=8)
 
     @model_validator(mode='after')
     def validate_answer_shape(self) -> 'AnswerRequest':
         validate_answer_request_shape(
-            self.kind, self.text, self.files, self.selected_option_keys
+            self.kind, self.text, self.files, self.selected_option_keys, self.pairs
         )
         return self
 
@@ -171,6 +182,17 @@ class SubmitChoiceActivityController:
                             text=answer.text or '',
                         )
                         if answer.kind == 'translation'
+                        else PairMatchingAnswer(
+                            question_key=answer.question_key,
+                            pairs=tuple(
+                                PairMatchingSelection(
+                                    word_key=item.word_key,
+                                    translation_key=item.translation_key,
+                                )
+                                for item in (answer.pairs or ())
+                            ),
+                        )
+                        if answer.kind == 'pair_matching'
                         else ChoiceAnswerSubmission(
                             question_key=answer.question_key,
                             selected_option_keys=answer.selected_option_keys or (),

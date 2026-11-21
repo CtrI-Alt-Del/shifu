@@ -161,3 +161,15 @@ from .curriculum_react_fastify_http_example_snapshot import (
 from .curriculum_react_fastify_question_snapshot import (
     CurriculumReactFastifyQuestionSnapshot as CurriculumReactFastifyQuestionSnapshot,
 )
+from .curriculum_pair_matching_concept_criterion_snapshot import (
+    CurriculumPairMatchingConceptCriterionSnapshot as CurriculumPairMatchingConceptCriterionSnapshot,
+)
+from .curriculum_pair_matching_item_snapshot import (
+    CurriculumPairMatchingItemSnapshot as CurriculumPairMatchingItemSnapshot,
+)
+from .curriculum_pair_matching_pair_snapshot import (
+    CurriculumPairMatchingPairSnapshot as CurriculumPairMatchingPairSnapshot,
+)
+from .curriculum_pair_matching_question_snapshot import (
+    CurriculumPairMatchingQuestionSnapshot as CurriculumPairMatchingQuestionSnapshot,
+)

@@ -16,6 +16,10 @@ from shifu.learning.core.domain.structures import (
     CodeSubmittedFile,
     CodeResultDetail,
     CodeRubricResult,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
+    PairMatchingResultDetail,
+    PairMatchingSelection,
     TranslationAnswer,
     TranslationResultDetail,
     TranslationRubricResult,
@@ -29,6 +33,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumHtmlCssJsQuestionSnapshot,
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -161,6 +166,16 @@ class GetChoiceAttemptUseCase:
         )
 
     @staticmethod
+    def _is_fully_correct(result: object) -> bool:
+        if isinstance(result, ChoiceEvaluationResult):
+            return result.is_correct
+
+        return (
+            isinstance(result, PairMatchingEvaluationResult)
+            and result.outcome == 'full'
+        )
+
+    @staticmethod
     def _released_question_keys(
         current_attempt: ActivityAttempt,
         attempts: list[ActivityAttempt],
@@ -179,7 +194,7 @@ class GetChoiceAttemptUseCase:
         released: set[str] = {
             item.question_key
             for item in current_evaluation.parts
-            if isinstance(item, ChoiceEvaluationResult) and item.is_correct
+            if GetChoiceAttemptUseCase._is_fully_correct(item)
         }
         for later_attempt in attempts:
             if (
@@ -199,7 +214,7 @@ class GetChoiceAttemptUseCase:
             released.update(
                 item.question_key
                 for item in later_evaluation.parts
-                if isinstance(item, ChoiceEvaluationResult) and item.is_correct
+                if GetChoiceAttemptUseCase._is_fully_correct(item)
             )
         return frozenset(released)
 
@@ -208,7 +223,13 @@ class GetChoiceAttemptUseCase:
         attempt: ActivityAttempt,
         evaluation: ActivityEvaluation,
         disclosed_keys: frozenset[str],
-    ) -> tuple[ChoiceResultDetail | CodeResultDetail | TranslationResultDetail, ...]:
+    ) -> tuple[
+        ChoiceResultDetail
+        | CodeResultDetail
+        | TranslationResultDetail
+        | PairMatchingResultDetail,
+        ...,
+    ]:
         snapshot = attempt.grading_snapshot
         if snapshot is None:
             raise NotFoundError
@@ -229,8 +250,16 @@ class GetChoiceAttemptUseCase:
             for result in evaluation.parts
             if isinstance(result, TranslationRubricResult)
         }
+        pair_results = {
+            result.question_key: result
+            for result in evaluation.parts
+            if isinstance(result, PairMatchingEvaluationResult)
+        }
         details: list[
-            ChoiceResultDetail | CodeResultDetail | TranslationResultDetail
+            ChoiceResultDetail
+            | CodeResultDetail
+            | TranslationResultDetail
+            | PairMatchingResultDetail
         ] = []
         for question in snapshot.questions:
             answer = answers.get(question.key)
@@ -251,12 +280,22 @@ class GetChoiceAttemptUseCase:
                     details.append(code_detail)
                 continue
 
-            if isinstance(question, CurriculumTranslationQuestionSnapshot):
-                translation_detail = GetChoiceAttemptUseCase._translation_result_detail(
-                    question, answer, translation_results.get(question.key)
+            if isinstance(
+                question,
+                (
+                    CurriculumTranslationQuestionSnapshot,
+                    CurriculumPairMatchingQuestionSnapshot,
+                ),
+            ):
+                details.extend(
+                    GetChoiceAttemptUseCase._translation_or_pair_details(
+                        question,
+                        answer,
+                        translation_results,
+                        pair_results,
+                        disclosed_keys,
+                    )
                 )
-                if translation_detail is not None:
-                    details.append(translation_detail)
                 continue
 
             if answer is None or result is None:
@@ -288,6 +327,59 @@ class GetChoiceAttemptUseCase:
                 )
             )
         return tuple(details)
+
+    @staticmethod
+    def _translation_or_pair_details(
+        question: CurriculumTranslationQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
+        answer: object | None,
+        translation_results: dict[str, TranslationRubricResult],
+        pair_results: dict[str, PairMatchingEvaluationResult],
+        disclosed_keys: frozenset[str],
+    ) -> tuple[TranslationResultDetail | PairMatchingResultDetail, ...]:
+        if isinstance(question, CurriculumTranslationQuestionSnapshot):
+            translation_detail = GetChoiceAttemptUseCase._translation_result_detail(
+                question, answer, translation_results.get(question.key)
+            )
+            return () if translation_detail is None else (translation_detail,)
+
+        pair_detail = GetChoiceAttemptUseCase._pair_result_detail(
+            question, answer, pair_results.get(question.key), disclosed_keys
+        )
+        return () if pair_detail is None else (pair_detail,)
+
+    @staticmethod
+    def _pair_result_detail(
+        question: CurriculumPairMatchingQuestionSnapshot,
+        answer: object | None,
+        result: PairMatchingEvaluationResult | None,
+        disclosed_keys: frozenset[str],
+    ) -> PairMatchingResultDetail | None:
+        if not isinstance(answer, PairMatchingAnswer) or result is None:
+            return None
+
+        return PairMatchingResultDetail(
+            question_key=question.key,
+            kind='pair_matching',
+            prompt=question.prompt,
+            submitted_pairs=answer.pairs,
+            score=result.score,
+            correct_pair_count=result.correct_pair_count,
+            total_pair_count=result.total_pair_count,
+            outcome=result.outcome,
+            explanation=result.explanation,
+            disclosed_correct_pairs=(
+                tuple(
+                    PairMatchingSelection(
+                        word_key=pair.word_key,
+                        translation_key=pair.translation_key,
+                    )
+                    for pair in question.correct_pairs
+                )
+                if question.key in disclosed_keys
+                else ()
+            ),
+        )
 
     @staticmethod
     def _code_result_detail(

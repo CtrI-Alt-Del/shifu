@@ -10,6 +10,9 @@ from .curriculum_code_rubric_part_snapshot import CurriculumCodeRubricPartSnapsh
 from .curriculum_javascript_stdin_question_snapshot import (
     CurriculumJavascriptStdinQuestionSnapshot,
 )
+from .curriculum_pair_matching_question_snapshot import (
+    CurriculumPairMatchingQuestionSnapshot,
+)
 from .curriculum_react_question_snapshot import CurriculumReactQuestionSnapshot
 from .curriculum_html_css_js_question_snapshot import (
     CurriculumHtmlCssJsQuestionSnapshot,
@@ -37,7 +40,8 @@ class CurriculumLearningActivitySnapshot:
         | CurriculumReactQuestionSnapshot
         | CurriculumHtmlCssJsQuestionSnapshot
         | CurriculumReactFastifyQuestionSnapshot
-        | CurriculumTranslationQuestionSnapshot,
+        | CurriculumTranslationQuestionSnapshot
+        | CurriculumPairMatchingQuestionSnapshot,
         ...,
     ]
     parts: tuple[
@@ -102,6 +106,10 @@ class CurriculumLearningActivitySnapshot:
                 parts[question.key], CurriculumTranslationRubricPartSnapshot
             ):
                 raise ValidationError
+            if isinstance(
+                question, CurriculumPairMatchingQuestionSnapshot
+            ) and not isinstance(parts[question.key], CurriculumChoicePartSnapshot):
+                raise ValidationError
             if self.activity_type == 'diagnostic' and isinstance(
                 question,
                 (
@@ -109,6 +117,7 @@ class CurriculumLearningActivitySnapshot:
                     CurriculumHtmlCssJsQuestionSnapshot,
                     CurriculumReactFastifyQuestionSnapshot,
                     CurriculumTranslationQuestionSnapshot,
+                    CurriculumPairMatchingQuestionSnapshot,
                 ),
             ):
                 raise ValidationError
