@@ -6,6 +6,12 @@ import type {
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 
+import {
+  PAIR_MATCHING_OUTCOME_ICONS,
+  PAIR_MATCHING_OUTCOME_LABELS,
+} from '@/core/learning/pair-matching-outcome'
+import { Icon } from '@/ui/shared/widgets/components/icon'
+
 import './question-feedback.css'
 import { useQuestionFeedback } from './use-question-feedback'
 
@@ -55,6 +61,16 @@ export const QuestionFeedback = ({
           </p>
         </>
       )}
+      {question.kind === 'pair_matching' && feedback.outcome ? (
+        <p className='flex flex-wrap items-center gap-2 text-sm font-medium text-foreground'>
+          <Icon className='size-5' name={PAIR_MATCHING_OUTCOME_ICONS[feedback.outcome]} />
+          <span>{PAIR_MATCHING_OUTCOME_LABELS[feedback.outcome]}</span>
+          <span className='font-normal text-muted-foreground'>
+            {feedback.correctPairCount ?? 0} de {feedback.totalPairCount ?? 0} pares
+            corretos.
+          </span>
+        </p>
+      ) : null}
       {feedback.explanation ? (
         <p className='rounded-md border border-border/70 bg-muted/60 p-3 text-sm leading-6 text-foreground'>
           {feedback.explanation}
@@ -121,6 +137,22 @@ export const QuestionFeedback = ({
             </div>
           ))}
         </details>
+      ) : frozenAnswer?.kind === 'pair_matching' && question.kind === 'pair_matching' ? (
+        <div>
+          <h3 className='text-sm font-semibold text-foreground'>Pares enviados</h3>
+          <ul aria-label='Pares enviados' className='mt-2 space-y-1 text-sm'>
+            {(feedback.submittedPairs ?? frozenAnswer.pairs).map((pair) => (
+              <li key={pair.wordKey}>
+                {question.words.find((word) => word.key === pair.wordKey)?.text} —{' '}
+                {
+                  question.translations.find(
+                    (translation) => translation.key === pair.translationKey,
+                  )?.text
+                }
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : frozenAnswer?.kind === 'translation' ? (
         <details>
           <summary className='cursor-pointer font-medium text-foreground underline-offset-4 hover:underline'>

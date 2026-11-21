@@ -110,6 +110,21 @@ export type TranslationQuestion = {
   criteria: readonly { key: string; name: string; weightPercentage: number }[]
 }
 
+export type PairMatchingItem = {
+  key: string
+  text: string
+}
+
+export type PairMatchingQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  sourceLanguage: string
+  targetLanguage: string
+  words: readonly PairMatchingItem[]
+  translations: readonly PairMatchingItem[]
+}
+
 export type ActivityQuestion =
   | ChoiceQuestion
   | CodeQuestion
@@ -117,6 +132,7 @@ export type ActivityQuestion =
   | HtmlCssJsQuestion
   | ReactFastifyQuestion
   | TranslationQuestion
+  | PairMatchingQuestion
 
 export type ChoiceActivityDetail = {
   activityId: string
@@ -148,7 +164,24 @@ export type TranslationAnswer = {
   text: string
 }
 
-export type ActivityAnswer = ChoiceAnswer | CodeAnswer | TranslationAnswer
+export type PairMatchingPair = {
+  wordKey: string
+  translationKey: string
+}
+
+export type PairMatchingAnswer = {
+  kind: 'pair_matching'
+  questionKey: string
+  pairs: readonly PairMatchingPair[]
+}
+
+export type PairMatchingOutcome = 'full' | 'partial' | 'incorrect'
+
+export type ActivityAnswer =
+  | ChoiceAnswer
+  | CodeAnswer
+  | TranslationAnswer
+  | PairMatchingAnswer
 
 export type PreliminaryQuestionResult = {
   status: 'conclusive' | 'inconclusive'
@@ -164,6 +197,10 @@ export type PreliminaryQuestionResult = {
   }[]
   submittedFiles?: readonly { path: string; content: string }[]
   submittedText?: string
+  submittedPairs?: readonly PairMatchingPair[]
+  correctPairCount?: number
+  totalPairCount?: number
+  outcome?: PairMatchingOutcome
 }
 
 export type ChoiceSubmission = {
@@ -229,10 +266,24 @@ export type TranslationResultQuestion = {
   }[]
 }
 
+export type PairMatchingResultQuestion = {
+  key: string
+  kind: 'pair_matching'
+  prompt: string
+  score: number
+  submittedPairs: readonly PairMatchingPair[]
+  correctPairCount: number
+  totalPairCount: number
+  outcome: PairMatchingOutcome
+  explanation: string
+  disclosedCorrectPairs?: readonly PairMatchingPair[]
+}
+
 export type ActivityResultQuestion =
   | ChoiceResultQuestion
   | CodeResultQuestion
   | TranslationResultQuestion
+  | PairMatchingResultQuestion
 
 export type ChoiceAttemptDetail = {
   attemptId: string

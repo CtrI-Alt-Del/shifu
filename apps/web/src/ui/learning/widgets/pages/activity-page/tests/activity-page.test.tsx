@@ -106,6 +106,8 @@ function createControllerMock(
     handleAssessCode: vi.fn(),
     handleCodeFilesChange: vi.fn(),
     handleTranslationAnswerChange: vi.fn(),
+    handlePairMatchingAnswerChange: vi.fn(),
+    pairMatchingPairs: [],
     translationAnswerText: '',
     currentQuestion: ACTIVITY.questions[0],
     currentQuestionIndex: 0,

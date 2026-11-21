@@ -105,6 +105,15 @@ type ActivityWire = {
         source_text: string
         criteria: { key: string; name: string; weight_percentage: number }[]
       }
+    | {
+        key: string
+        kind: 'pair_matching'
+        prompt: string
+        source_language: string
+        target_language: string
+        words: { key: string; text: string }[]
+        translations: { key: string; text: string }[]
+      }
   >
   can_submit: boolean
   latest_attempt_id?: string | null
@@ -199,10 +208,31 @@ function mapActivityQuestion(
       })),
     }
   }
+  if (question.kind === 'pair_matching') {
+    return {
+      key: question.key,
+      kind: question.kind,
+      prompt: question.prompt,
+      sourceLanguage: question.source_language,
+      targetLanguage: question.target_language,
+      words: question.words,
+      translations: question.translations,
+    }
+  }
   throw new AppError('Tipo de questão desconhecido.', 'Resposta de Atividade inválida')
 }
 
 function mapAnswer(answer: ActivityAnswer) {
+  if ('pairs' in answer) {
+    return {
+      kind: answer.kind,
+      question_key: answer.questionKey,
+      pairs: answer.pairs.map((pair) => ({
+        word_key: pair.wordKey,
+        translation_key: pair.translationKey,
+      })),
+    }
+  }
   if ('text' in answer) {
     return {
       kind: answer.kind,
@@ -328,7 +358,23 @@ type AttemptWire = {
           observation_id: string
         }[]
       }
+    | {
+        question_key: string
+        kind: 'pair_matching'
+        prompt: string
+        score: number
+        submitted_pairs: { word_key: string; translation_key: string }[]
+        correct_pair_count: number
+        total_pair_count: number
+        outcome: 'full' | 'partial' | 'incorrect'
+        explanation: string
+        disclosed_correct_pairs?: { word_key: string; translation_key: string }[]
+      }
   >
+}
+
+function mapPair(pair: { word_key: string; translation_key: string }) {
+  return { wordKey: pair.word_key, translationKey: pair.translation_key }
 }
 
 function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
@@ -378,6 +424,20 @@ function mapAttempt(wire: AttemptWire): ChoiceAttemptDetail {
             level: observation.level,
             observationId: observation.observation_id,
           })),
+        }
+      }
+      if ('kind' in question && question.kind === 'pair_matching') {
+        return {
+          key: question.question_key,
+          kind: question.kind,
+          prompt: question.prompt,
+          score: question.score,
+          submittedPairs: question.submitted_pairs.map(mapPair),
+          correctPairCount: question.correct_pair_count,
+          totalPairCount: question.total_pair_count,
+          outcome: question.outcome,
+          explanation: question.explanation,
+          disclosedCorrectPairs: question.disclosed_correct_pairs?.map(mapPair),
         }
       }
       if ('kind' in question && question.kind === 'translation') {
@@ -726,6 +786,10 @@ export const LearningService = (restClient: RestClient) => {
         }[]
         submitted_files?: { path: string; content: string }[]
         submitted_text?: string
+        submitted_pairs?: { word_key: string; translation_key: string }[]
+        correct_pair_count?: number
+        total_pair_count?: number
+        outcome?: 'full' | 'partial' | 'incorrect'
       }>(
         `${learningActivityPath(ids)}/questions/${encodeURIComponent(questionKey)}/preliminary-evaluations`,
         { activity_revision: activityRevision, answer: mapAnswer(answer) },
@@ -748,6 +812,10 @@ export const LearningService = (restClient: RestClient) => {
         })),
         submittedFiles: body.submitted_files,
         submittedText: body.submitted_text,
+        submittedPairs: body.submitted_pairs?.map(mapPair),
+        correctPairCount: body.correct_pair_count,
+        totalPairCount: body.total_pair_count,
+        outcome: body.outcome,
       }
     },
 
