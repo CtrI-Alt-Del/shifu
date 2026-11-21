@@ -98,7 +98,7 @@ export function useProposalSkillGraph(
     let isCurrent = true
     const geometry = geometryFor(layoutWidth, skills, edges)
     const sizedNodes = buildNodes(title, skills, edges, geometry)
-    const elk = new ELK({ workerUrl: elkWorkerUrl })
+    let elk: InstanceType<typeof ELK> | undefined
     const graph = {
       id: 'proposal-skill-graph',
       layoutOptions: {
@@ -121,10 +121,15 @@ export function useProposalSkillGraph(
         targets: [edge.target],
       })),
     }
-    void elk
-      .layout(graph)
+    void Promise.resolve()
+      .then(() => {
+        if (!isCurrent) return null
+
+        elk = new ELK({ workerUrl: elkWorkerUrl })
+        return elk.layout(graph)
+      })
       .then((layout) => {
-        if (!isCurrent) return
+        if (!isCurrent || !layout) return
 
         const positions = new Map(
           (layout.children ?? []).map((child) => [
@@ -149,7 +154,7 @@ export function useProposalSkillGraph(
       })
     return () => {
       isCurrent = false
-      elk.terminateWorker()
+      elk?.terminateWorker()
     }
   }, [edges, layoutWidth, skills, title])
 

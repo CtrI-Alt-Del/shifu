@@ -99,7 +99,7 @@ export function useGoalSkillGraph(
 
   useEffect(() => {
     let isCurrent = true
-    const elk = new ELK({ workerUrl: elkWorkerUrl })
+    let elk: InstanceType<typeof ELK> | undefined
     const graph = {
       id: 'goal-skill-graph',
       layoutOptions: {
@@ -122,10 +122,15 @@ export function useGoalSkillGraph(
         targets: [edge.target],
       })),
     }
-    void elk
-      .layout(graph)
+    void Promise.resolve()
+      .then(() => {
+        if (!isCurrent) return null
+
+        elk = new ELK({ workerUrl: elkWorkerUrl })
+        return elk.layout(graph)
+      })
       .then((layout) => {
-        if (!isCurrent) return
+        if (!isCurrent || !layout) return
 
         const root = layout.children?.find((child) => child.id === ROOT_ID)
         setNodes([
@@ -183,7 +188,7 @@ export function useGoalSkillGraph(
       })
     return () => {
       isCurrent = false
-      elk.terminateWorker()
+      elk?.terminateWorker()
     }
   }, [goalId, layoutEdges, skills, title])
 
