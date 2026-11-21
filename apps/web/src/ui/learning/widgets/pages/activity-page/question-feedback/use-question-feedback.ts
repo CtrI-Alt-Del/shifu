@@ -5,6 +5,7 @@ import type {
   PreliminaryQuestionResult,
 } from '@/core/learning/choice-activity'
 import { useFillBlanksOutcome } from '@/ui/learning/hooks/use-fill-blanks-outcome'
+import { usePairMatchingOutcome } from '@/ui/learning/hooks/use-pair-matching-outcome'
 
 export type UseQuestionFeedbackProps = {
   feedback: PreliminaryQuestionResult
@@ -17,6 +18,12 @@ export function useQuestionFeedback({ feedback, question }: UseQuestionFeedbackP
     blankCount: feedback.blankCount,
     correctBlankCount: feedback.correctBlankCount,
     score: feedback.score,
+  })
+
+  const pairMatchingOutcome = usePairMatchingOutcome({
+    correctPairCount: feedback.correctPairCount,
+    outcome: feedback.outcome,
+    totalPairCount: feedback.totalPairCount,
   })
 
   useEffect(() => {
@@ -35,5 +42,5 @@ export function useQuestionFeedback({ feedback, question }: UseQuestionFeedbackP
     })
   }, [question.kind])
 
-  return { feedbackElementRef, fillBlanksOutcome }
+  return { feedbackElementRef, fillBlanksOutcome, pairMatchingOutcome }
 }

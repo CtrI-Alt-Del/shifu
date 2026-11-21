@@ -41,6 +41,7 @@ from shifu.curriculum.providers.curriculum_content_provider import (
     DatabaseCurriculumContentProvider,
 )
 from shifu.curriculum.database.sqlalchemy import SqlalchemyCurriculumDatabase
+from shifu.fakers.curriculum.structures import PairMatchingQuestionFaker
 from shifu.fakers.curriculum.entities import (
     ActivityFaker,
     CompetencyFaker,
@@ -75,6 +76,9 @@ from shifu.learning.core.domain.structures import (
     FillBlanksEvaluationResult,
     FillBlanksPlacement,
     MultipleSelectionAnswer,
+    PairMatchingAnswer,
+    PairMatchingEvaluationResult,
+    PairMatchingSelection,
     SingleChoiceAnswer,
 )
 from shifu.learning.database.sqlalchemy import SqlalchemyLearningDatabase
@@ -561,6 +565,63 @@ class TestEvaluateChoiceActivityJob:
         finally:
             engine.dispose()
 
+    def test_registered_job_scores_a_pair_matching_activity_once_without_ai(
+        self,
+        inngest_fixture: InngestFixture,
+    ) -> None:
+        _DecisionsHandler.requests.clear()
+        engine = create_engine(inngest_fixture.database_url, pool_pre_ping=True)
+        try:
+            database, provider, ids, activity, experience = _seed_pair(engine)
+            now = SystemClockProvider().now()
+            attempt, event = _add_pair_attempt(
+                database, provider, ids, activity, experience.id, now, (0, 2, 1)
+            )
+
+            assert _outbox_destination_after_publish(engine, event.name) == 'inngest'
+            deadline = time.monotonic() + 30
+            completed = _evaluation(database, attempt.id)
+            while (
+                completed.status is ActivityEvaluationStatus.PENDING
+                and time.monotonic() < deadline
+            ):
+                time.sleep(0.1)
+                completed = _evaluation(database, attempt.id)
+
+            assert completed.status is ActivityEvaluationStatus.COMPLETED
+            pair_result = completed.parts[2]
+            assert isinstance(pair_result, PairMatchingEvaluationResult)
+            assert pair_result.outcome == 'partial'
+            assert pair_result.correct_pair_count == 1
+            assert completed.score is not None
+            # The stored Activity score is rounded to two decimal places.
+            assert abs(
+                completed.score - (Decimal(60) + Decimal(40) * pair_result.score / 100)
+            ) < Decimal('0.01')
+            assert completed.effect_applied_at is not None
+            progress_after_completion = _progress_current(engine)
+            assert progress_after_completion > 0
+            assert _evaluated_event_count(engine) == 1
+
+            duplicate = ActivitySubmissionRequestedEvent(payload=event.payload)
+            with database.transaction() as repositories:
+                repositories.events.add(duplicate)
+            duplicate_deadline = time.monotonic() + 10
+            while (
+                _outbox_status(engine, duplicate.name) != 'published'
+                and time.monotonic() < duplicate_deadline
+            ):
+                time.sleep(0.1)
+
+            assert _outbox_status(engine, duplicate.name) == 'published'
+            assert _evaluated_event_count(engine) == 1
+            assert _evaluation(database, attempt.id).score == completed.score
+            assert _progress_current(engine) == progress_after_completion
+            # No AI request was made for a deterministic pair question.
+            assert _DecisionsHandler.requests == []
+        finally:
+            engine.dispose()
+
     def test_registered_job_assesses_saved_mixed_source_and_applies_effect_once(
         self,
         inngest_fixture: InngestFixture,
@@ -1031,6 +1092,131 @@ def _seed_mixed(
     provider = DatabaseCurriculumContentProvider(curriculum_database)
     assert provider.get_learning_activity(activity.id) is not None
     return database, provider, ids, activity, experience
+
+
+def _seed_pair(
+    engine: Engine,
+) -> tuple[
+    SqlalchemyLearningDatabase,
+    DatabaseCurriculumContentProvider,
+    SystemIdentifierProvider,
+    Activity,
+    SkillExperience,
+]:
+    database, provider, ids, base_activity, experience, _account_id = _seed(engine)
+    skill_content = provider.get_skill_content(experience.skill_id)
+    assert skill_content is not None
+    concept = skill_content.competencies[0].concepts[0]
+    choice_questions = tuple(
+        SingleChoiceQuestion(
+            key=f'q{number}',
+            prompt=f'Pergunta {number}?',
+            options=(
+                ChoiceOption(key='correct', text='Correta', is_correct=True),
+                ChoiceOption(key='incorrect', text='Incorreta', is_correct=False),
+            ),
+            correct_explanation='Correta',
+            incorrect_explanation='Incorreta',
+        )
+        for number in (1, 2)
+    )
+    pair_question = PairMatchingQuestionFaker.fake(
+        key='q3',
+        concept_criteria=(
+            PairMatchingQuestionFaker.concept_criterion(concept.id, partial_score=50),
+        ),
+    )
+    activity = Activity.create(
+        id=ids.generate(),
+        competency_id=base_activity.competency_id,
+        activity_type=ActivityType.LEARNING,
+        difficulty=ActivityDifficulty.EASY,
+        title='Atividade de pares de integracao',
+        objective='Avaliar escolha e pares.',
+        questions=(*choice_questions, pair_question),
+        evaluation_rule=EvaluationRule(
+            parts=(
+                CorrectnessEvaluationPart(question_key='q1', weight_percentage=30),
+                CorrectnessEvaluationPart(question_key='q2', weight_percentage=30),
+                CorrectnessEvaluationPart(question_key='q3', weight_percentage=40),
+            )
+        ),
+    )
+    curriculum_database = SqlalchemyCurriculumDatabase(engine)
+    with curriculum_database.transaction() as repositories:
+        repositories.activities.add_many([activity])
+    provider = DatabaseCurriculumContentProvider(curriculum_database)
+    assert provider.get_learning_activity(activity.id) is not None
+    return database, provider, ids, activity, experience
+
+
+def _add_pair_attempt(
+    database: SqlalchemyLearningDatabase,
+    provider: DatabaseCurriculumContentProvider,
+    ids: SystemIdentifierProvider,
+    activity: Activity,
+    experience_id: str,
+    now: datetime,
+    order: tuple[int, ...],
+) -> tuple[ActivityAttempt, ActivitySubmissionRequestedEvent]:
+    snapshot = provider.get_learning_activity(activity.id)
+    assert snapshot is not None
+    attempt = ActivityAttempt.create(
+        id=ids.generate(),
+        skill_experience_id=experience_id,
+        competency_id=activity.competency_id,
+        activity_id=activity.id,
+        kind=ActivityAttemptKind.LEARNING,
+        answers=(
+            SingleChoiceAnswer(question_key='q1', selected_option_key='correct'),
+            SingleChoiceAnswer(question_key='q2', selected_option_key='correct'),
+            PairMatchingAnswer(
+                question_key='q3',
+                pairs=tuple(
+                    PairMatchingSelection(
+                        word_key=f'word-{word_index}',
+                        translation_key=f'translation-{translation_index}',
+                    )
+                    for word_index, translation_index in enumerate(order)
+                ),
+            ),
+        ),
+        submitted_at=now,
+        submission_key=ids.generate(),
+        grading_snapshot=snapshot,
+    )
+    evaluation = ActivityEvaluation.create(
+        id=ids.generate(),
+        attempt_id=attempt.id,
+        status=ActivityEvaluationStatus.PENDING,
+        parts=(),
+        started_at=now,
+        run_id=ids.generate(),
+    )
+    event = ActivitySubmissionRequestedEvent(
+        payload=ActivitySubmissionRequestedPayload(
+            attempt_id=attempt.id,
+            run_id=evaluation.run_id or '',
+            skill_experience_id=experience_id,
+            activity_id=activity.id,
+            kind=ActivityAttemptKind.LEARNING,
+            requested_at=now.astimezone(UTC).isoformat().replace('+00:00', 'Z'),
+        )
+    )
+    with database.transaction() as repositories:
+        repositories.activity_attempts.add(attempt)
+        repositories.activity_evaluations.add(evaluation)
+        repositories.events.add(event)
+    return attempt, event
+
+
+def _outbox_destination_after_publish(engine: Engine, event_name: str) -> str | None:
+    deadline = time.monotonic() + 15
+    destination = _outbox_destination(engine, event_name)
+    while destination in {None, 'unrouted'} and time.monotonic() < deadline:
+        time.sleep(0.1)
+        destination = _outbox_destination(engine, event_name)
+    return destination
 
 
 def _add_mixed_attempt(

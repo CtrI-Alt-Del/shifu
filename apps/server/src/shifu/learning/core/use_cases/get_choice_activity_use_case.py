@@ -8,6 +8,8 @@ from shifu.learning.core.domain.structures import (
     FillBlanksSegmentDetail,
     FillBlanksWordDetail,
     CodeQuestionCriterionDetail,
+    PairMatchingItemDetail,
+    PairMatchingQuestionDetail,
     TranslationQuestionCriterionDetail,
     TranslationQuestionDetail,
 )
@@ -29,6 +31,7 @@ from shifu.shared.core.domain.structures import (
     CurriculumReactFastifyQuestionSnapshot,
     CurriculumCodeRubricPartSnapshot,
     CurriculumFillBlanksQuestionSnapshot,
+    CurriculumPairMatchingQuestionSnapshot,
     CurriculumTranslationQuestionSnapshot,
     CurriculumTranslationRubricPartSnapshot,
 )
@@ -289,6 +292,21 @@ class GetChoiceActivityUseCase:
                         ),
                     )
                     if isinstance(question, CurriculumTranslationQuestionSnapshot)
+                    else PairMatchingQuestionDetail(
+                        key=question.key,
+                        prompt=question.prompt,
+                        source_language=question.source_language,
+                        target_language=question.target_language,
+                        words=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.words
+                        ),
+                        translations=tuple(
+                            PairMatchingItemDetail(key=item.key, text=item.text)
+                            for item in question.translations
+                        ),
+                    )
+                    if isinstance(question, CurriculumPairMatchingQuestionSnapshot)
                     else ChoiceQuestionDetail(
                         key=question.key,
                         kind=question.kind,

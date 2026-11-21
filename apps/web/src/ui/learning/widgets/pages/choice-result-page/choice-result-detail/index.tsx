@@ -5,6 +5,7 @@ import type {
   ActivityResultQuestion,
   CodeResultQuestion,
   FillBlanksResultQuestion,
+  PairMatchingResultQuestion,
   TranslationResultQuestion,
 } from '@/core/learning/choice-activity'
 import { ENTRANCE_ROW } from '@/constants/motion-variants'
@@ -12,6 +13,7 @@ import { Icon } from '@/ui/shared/widgets/components/icon'
 import { QuestionPrompt } from '@/ui/learning/widgets/components/question-prompt'
 
 import { FillBlanksResult } from './fill-blanks-result'
+import { PairMatchingResult } from './pair-matching-result'
 
 import './choice-result-detail.css'
 
@@ -174,6 +176,16 @@ export const ChoiceResultDetail = ({
     )
   }
 
+  if (isPairMatchingResultQuestion(result)) {
+    return (
+      <PairMatchingResult
+        question={question?.kind === 'pair_matching' ? question : undefined}
+        questionNumber={questionNumber}
+        result={result}
+      />
+    )
+  }
+
   if (isTranslationResultQuestion(result)) {
     const translationQuestion = question?.kind === 'translation' ? question : undefined
     const label = translationResultLabel(result.score)
@@ -299,7 +311,8 @@ export const ChoiceResultDetail = ({
     question.kind !== 'html_css_js' &&
     question.kind !== 'react_fastify' &&
     question.kind !== 'fill_blanks' &&
-    question.kind !== 'translation'
+    question.kind !== 'translation' &&
+    question.kind !== 'pair_matching'
       ? question
       : undefined
   const visibleOptionKeys = new Set([
@@ -446,4 +459,10 @@ function isTranslationResultQuestion(
   result: ActivityResultQuestion,
 ): result is TranslationResultQuestion {
   return 'kind' in result && result.kind === 'translation'
+}
+
+function isPairMatchingResultQuestion(
+  result: ActivityResultQuestion,
+): result is PairMatchingResultQuestion {
+  return 'kind' in result && result.kind === 'pair_matching'
 }

@@ -32,6 +32,8 @@ function baseHookValue(): ReturnType<typeof useTranslationQuestion> {
     error: null,
     elapsedSeconds: 0,
     languageAvailability: 'available',
+    sourceLanguageLabel: 'Português (Brasil)',
+    targetLanguageLabel: 'Inglês (Estados Unidos)',
     pendingTranscript: null,
     handleChangeText: vi.fn(),
     handleStartDictation: vi.fn(),
@@ -68,8 +70,8 @@ describe('TranslationQuestion', () => {
     expect(
       screen.getByRole('heading', { name: 'Traduza o texto abaixo para o inglês.' }),
     ).toBeVisible()
-    expect(screen.getByText('Português')).toBeVisible()
-    expect(screen.getByText('Inglês')).toBeVisible()
+    expect(screen.getByText('Português (Brasil)')).toBeVisible()
+    expect(screen.getByText('Inglês (Estados Unidos)')).toBeVisible()
     expect(screen.getByText('Bom dia, como você está?')).toBeVisible()
     expect(screen.getByLabelText('Sua tradução')).toHaveValue(
       'Good morning, how are you?',

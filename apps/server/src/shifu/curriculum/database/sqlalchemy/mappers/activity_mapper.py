@@ -16,6 +16,7 @@ from shifu.curriculum.core.domain.structures import (
     HtmlCssJsQuestion,
     ReactFastifyQuestion,
     MultipleSelectionQuestion,
+    PairMatchingQuestion,
     QualitativeEvaluationPart,
     SingleChoiceQuestion,
     TestCasesEvaluationPart,
@@ -24,6 +25,17 @@ from shifu.curriculum.core.domain.structures import (
 )
 from shifu.curriculum.database.sqlalchemy.models import ActivityModel
 from shifu.shared.database.sqlalchemy.serialization import Serialization
+
+
+_KIND_QUESTION_TYPES = {
+    'fill_blanks': FillBlanksQuestion,
+    'javascript_stdin': JavascriptStdinQuestion,
+    'react_fastify': ReactFastifyQuestion,
+    'react': ReactQuestion,
+    'html_css_js': HtmlCssJsQuestion,
+    'translation': TranslationQuestion,
+    'pair_matching': PairMatchingQuestion,
+}
 
 
 class ActivityMapper:
@@ -66,41 +78,13 @@ class ActivityMapper:
         | ReactFastifyQuestion
         | FillBlanksQuestion
         | TranslationQuestion
+        | PairMatchingQuestion
     ):
-        if data.get('kind') == 'fill_blanks':
+        question_type = _KIND_QUESTION_TYPES.get(str(data.get('kind')))
+        if question_type is not None:
             return cast(
-                'FillBlanksQuestion',
-                Serialization.deserialize_value(data, FillBlanksQuestion),
-            )
-
-        if data.get('kind') == 'javascript_stdin':
-            return cast(
-                'JavascriptStdinQuestion',
-                Serialization.deserialize_value(data, JavascriptStdinQuestion),
-            )
-
-        if data.get('kind') == 'react_fastify':
-            return cast(
-                'ReactFastifyQuestion',
-                Serialization.deserialize_value(data, ReactFastifyQuestion),
-            )
-
-        if data.get('kind') == 'react':
-            return cast(
-                'ReactQuestion',
-                Serialization.deserialize_value(data, ReactQuestion),
-            )
-
-        if data.get('kind') == 'html_css_js':
-            return cast(
-                'HtmlCssJsQuestion',
-                Serialization.deserialize_value(data, HtmlCssJsQuestion),
-            )
-
-        if data.get('kind') == 'translation':
-            return cast(
-                'TranslationQuestion',
-                Serialization.deserialize_value(data, TranslationQuestion),
+                'FillBlanksQuestion | JavascriptStdinQuestion | ReactFastifyQuestion | ReactQuestion | HtmlCssJsQuestion | TranslationQuestion | PairMatchingQuestion',
+                Serialization.deserialize_value(data, question_type),
             )
 
         if 'kind' in data:
@@ -157,7 +141,8 @@ class ActivityMapper:
             | HtmlCssJsQuestion
             | ReactFastifyQuestion
             | FillBlanksQuestion
-            | TranslationQuestion,
+            | TranslationQuestion
+            | PairMatchingQuestion,
             ...,
         ],
     ) -> (

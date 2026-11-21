@@ -636,4 +636,152 @@ describe('useActivityPage', () => {
       answers: [{ kind: 'react', questionKey: 'code-1', files }],
     })
   })
+
+  describe('pair matching', () => {
+    const pairActivity: ChoiceActivityDetail = {
+      ...activity,
+      questions: [
+        {
+          key: 'pairs-1',
+          kind: 'pair_matching',
+          prompt: 'Associe as palavras.',
+          sourceLanguage: 'en',
+          targetLanguage: 'pt-BR',
+          words: [
+            { key: 'word-0', text: 'dog' },
+            { key: 'word-1', text: 'house' },
+          ],
+          translations: [
+            { key: 'translation-1', text: 'casa' },
+            { key: 'translation-0', text: 'cachorro' },
+          ],
+        },
+      ],
+    }
+    const allPairs = [
+      { wordKey: 'word-0', translationKey: 'translation-0' },
+      { wordKey: 'word-1', translationKey: 'translation-1' },
+    ]
+
+    it('allows verifying only when every pair is formed, even if wrong', async () => {
+      const onPreview = vi.fn().mockResolvedValue({ status: 'conclusive', score: 0 })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+
+      expect(result.current.canContinue).toBe(false)
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).not.toHaveBeenCalled()
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(true)
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).toHaveBeenCalledWith('pairs-1', 'revision-1', {
+        kind: 'pair_matching',
+        questionKey: 'pairs-1',
+        pairs: [
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ],
+      })
+    })
+
+    it('rejects pairs that repeat an item or use unknown keys', () => {
+      const { result } = renderHook(
+        () =>
+          useActivityPage({
+            activity: pairActivity,
+            onPreview: vi.fn(),
+            onSubmit: vi.fn(),
+          }),
+        { wrapper: wrapper() },
+      )
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-0' },
+          { wordKey: 'word-9', translationKey: 'translation-1' },
+        ]),
+      )
+      expect(result.current.canContinue).toBe(false)
+    })
+
+    it('keeps the verified answer read-only and submits exactly those pairs', async () => {
+      const onPreview = vi.fn().mockResolvedValue({
+        status: 'conclusive',
+        score: 100,
+        outcome: 'full',
+        correctPairCount: 2,
+        totalPairCount: 2,
+      })
+      const onSubmit = vi.fn().mockResolvedValue(submitted)
+      vi.stubGlobal('crypto', { randomUUID: () => 'pairs-key' })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit }),
+        { wrapper: wrapper() },
+      )
+
+      act(() => result.current.handlePairMatchingAnswerChange(allPairs))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.feedback?.outcome).toBe('full')
+
+      act(() =>
+        result.current.handlePairMatchingAnswerChange([
+          { wordKey: 'word-0', translationKey: 'translation-1' },
+          { wordKey: 'word-1', translationKey: 'translation-0' },
+        ]),
+      )
+      expect(result.current.pairMatchingPairs).toEqual(allPairs)
+      expect(result.current.feedback?.outcome).toBe('full')
+      expect(onPreview).toHaveBeenCalledTimes(1)
+
+      await act(async () => result.current.handleContinue())
+      expect(onSubmit).toHaveBeenCalledWith({
+        submissionKey: 'pairs-key',
+        activityRevision: 'revision-1',
+        answers: [{ kind: 'pair_matching', questionKey: 'pairs-1', pairs: allPairs }],
+      })
+    })
+
+    it('keeps the formed pairs after a preliminary transport failure and retries them', async () => {
+      const onPreview = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValueOnce({ status: 'conclusive', score: 100, outcome: 'full' })
+      const { result } = renderHook(
+        () => useActivityPage({ activity: pairActivity, onPreview, onSubmit: vi.fn() }),
+        { wrapper: wrapper() },
+      )
+
+      act(() => result.current.handlePairMatchingAnswerChange(allPairs))
+      await act(async () => result.current.handleContinue())
+      expect(result.current.hasFeedbackError).toBe(true)
+      expect(result.current.feedback).toBeNull()
+      expect(result.current.pairMatchingPairs).toEqual(allPairs)
+
+      await act(async () => result.current.handleContinue())
+      expect(onPreview).toHaveBeenCalledTimes(2)
+      expect(onPreview.mock.calls[1]).toEqual(onPreview.mock.calls[0])
+      expect(result.current.feedback?.outcome).toBe('full')
+    })
+  })
 })
